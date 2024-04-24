@@ -5,6 +5,7 @@ use self::output::*;
 use self::reedline::*;
 use self::table::*;
 
+use crate::engine::Closure;
 use crate::{record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -48,7 +49,7 @@ impl Default for HistoryConfig {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    pub external_completer: Option<usize>,
+    pub external_completer: Option<Closure>,
     pub filesize_metric: bool,
     pub table_mode: TableMode,
     pub table_move_header: bool,
@@ -61,6 +62,7 @@ pub struct Config {
     pub footer_mode: FooterMode,
     pub float_precision: i64,
     pub max_external_completion_results: i64,
+    pub recursion_limit: i64,
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
@@ -133,6 +135,7 @@ impl Default for Config {
             completion_algorithm: CompletionAlgorithm::default(),
             enable_external_completion: true,
             max_external_completion_results: 100,
+            recursion_limit: 50,
             external_completer: None,
             use_ls_colors_completions: true,
 
@@ -172,9 +175,16 @@ impl Default for Config {
 }
 
 impl Value {
-    pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
+    /// Parse the given [`Value`] as a configuration record, and recover encountered mistakes
+    ///
+    /// If any given (sub)value is detected as impossible, this value will be restored to the value
+    /// in `existing_config`, thus mutates `self`.
+    ///
+    /// Returns a new [`Config`] (that is in a valid state) and if encountered the [`ShellError`]
+    /// containing all observed inner errors.
+    pub fn parse_as_config(&mut self, existing_config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.
-        let mut config = config.clone();
+        let mut config = existing_config.clone();
 
         // Vec for storing errors. Current Nushell behaviour (Dec 2022) is that having some typo
         // like `"always_trash": tru` in your config.nu's `$env.config` record shouldn't abort all
@@ -192,13 +202,13 @@ impl Value {
         // the `2`.
 
         if let Value::Record { val, .. } = self {
-            val.retain_mut(|key, value| {
+            val.to_mut().retain_mut(|key, value| {
                 let span = value.span();
                 match key {
                     // Grouped options
                     "ls" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "use_ls_colors" => {
@@ -227,7 +237,7 @@ impl Value {
                     }
                     "rm" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "always_trash" => {
@@ -254,7 +264,7 @@ impl Value {
                     "history" => {
                         let history = &mut config.history;
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "isolation" => {
@@ -296,7 +306,7 @@ impl Value {
                     }
                     "completions" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "quick" => {
@@ -317,7 +327,7 @@ impl Value {
                                     }
                                     "external" => {
                                         if let Value::Record { val, .. } = value {
-                                            val.retain_mut(|key3, value|
+                                            val.to_mut().retain_mut(|key3, value|
                                                 {
                                                     let span = value.span();
                                                     match key3 {
@@ -325,13 +335,13 @@ impl Value {
                                                             process_int_config(value, &mut errors, &mut config.max_external_completion_results);
                                                         }
                                                         "completer" => {
-                                                            if let Ok(v) = value.coerce_block() {
-                                                                config.external_completer = Some(v)
+                                                            if let Ok(v) = value.as_closure() {
+                                                                config.external_completer = Some(v.clone())
                                                             } else {
                                                                 match value {
                                                                     Value::Nothing { .. } => {}
                                                                     _ => {
-                                                                        report_invalid_value("should be a block or null", span, &mut errors);
+                                                                        report_invalid_value("should be a closure or null", span, &mut errors);
                                                                         // Reconstruct
                                                                         *value = reconstruct_external_completer(&config,
                                                                             span
@@ -384,7 +394,7 @@ impl Value {
                     }
                     "cursor_shape" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 let config_point = match key2 {
                                     "vi_insert" => &mut config.cursor_shape_vi_insert,
@@ -417,7 +427,7 @@ impl Value {
                     }
                     "table" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "mode" => {
@@ -442,7 +452,7 @@ impl Value {
                                         }
                                         Value::Record { val, .. } => {
                                             let mut invalid = false;
-                                            val.retain(|key3, value| {
+                                            val.to_mut().retain(|key3, value| {
                                                 match key3 {
                                                     "left" => {
                                                         match value.as_int() {
@@ -537,7 +547,7 @@ impl Value {
                     }
                     "filesize" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                 "metric" => {
@@ -710,7 +720,7 @@ impl Value {
                     },
                     "datetime_format" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value|
+                            val.to_mut().retain_mut(|key2, value|
                                 {
                                 let span = value.span();
                                 match key2 {
@@ -745,6 +755,19 @@ impl Value {
                             &[key],
                             value,
                             &mut errors);
+                    }
+                    "recursion_limit" => {
+                        if let Value::Int { val, internal_span } = value {
+                            if val > &mut 1 {
+                                config.recursion_limit = *val;
+                            } else {
+                                report_invalid_value("should be a integer greater than 1", span, &mut errors);
+                                *value = Value::Int { val: 50, internal_span: *internal_span };
+                            }
+                        } else {
+                            report_invalid_value("should be a integer greater than 1", span, &mut errors);
+                            *value = Value::Int { val: 50, internal_span: value.span() };
+                        }
                     }
                     // Catch all
                     _ => {

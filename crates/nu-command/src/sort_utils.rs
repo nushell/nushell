@@ -30,7 +30,7 @@ pub fn sort_value(
 
             Ok(Value::list(vals, span))
         }
-        Value::CustomValue { val, .. } => {
+        Value::Custom { val, .. } => {
             let base_val = val.to_base_value(span)?;
             sort_value(&base_val, sort_columns, ascending, insensitive, natural)
         }

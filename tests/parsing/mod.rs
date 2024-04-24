@@ -14,6 +14,15 @@ fn source_file_relative_to_file() {
 }
 
 #[test]
+fn source_file_relative_to_config() {
+    let actual = nu!("
+        nu --config tests/parsing/samples/source_file_relative.nu --commands ''
+        ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
 fn source_const_file() {
     let actual = nu!(cwd: "tests/parsing/samples",
     "
@@ -22,6 +31,15 @@ fn source_const_file() {
     ");
 
     assert_eq!(actual.out, "5");
+}
+
+#[test]
+fn source_circular() {
+    let actual = nu!(cwd: "tests/parsing/samples", "
+        nu source_circular_1.nu
+        ");
+
+    assert!(actual.err.contains("nu::parser::circular_import"));
 }
 
 #[test]
@@ -330,4 +348,22 @@ fn parse_function_signature_name_is_builtin_var(#[case] phrase: &str) {
 fn parse_let_signature(#[case] phrase: &str) {
     let actual = nu!(phrase);
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn parse_let_signature_missing_colon() {
+    let actual = nu!("let a int = 1");
+    assert!(actual.err.contains("nu::parser::extra_tokens"));
+}
+
+#[test]
+fn parse_mut_signature_missing_colon() {
+    let actual = nu!("mut a record<a: int b: int> = {a: 1 b: 1}");
+    assert!(actual.err.contains("nu::parser::extra_tokens"));
+}
+
+#[test]
+fn parse_const_signature_missing_colon() {
+    let actual = nu!("const a string = 'Hello World\n'");
+    assert!(actual.err.contains("nu::parser::extra_tokens"));
 }

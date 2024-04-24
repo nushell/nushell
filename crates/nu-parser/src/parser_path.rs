@@ -1,6 +1,8 @@
 use nu_protocol::engine::{StateWorkingSet, VirtualPath};
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 
 /// An abstraction over a PathBuf that can have virtual paths (files and directories). Virtual
 /// paths always exist and represent a way to ship Nushell code inside the binary without requiring
@@ -101,15 +103,31 @@ impl ParserPath {
         }
     }
 
-    pub fn read<'a>(&'a self, working_set: &'a StateWorkingSet) -> Option<Vec<u8>> {
+    pub fn open<'a>(
+        &'a self,
+        working_set: &'a StateWorkingSet,
+    ) -> std::io::Result<Box<dyn std::io::Read + 'a>> {
         match self {
-            ParserPath::RealPath(p) => std::fs::read(p).ok(),
+            ParserPath::RealPath(p) => {
+                std::fs::File::open(p).map(|f| Box::new(f) as Box<dyn std::io::Read>)
+            }
             ParserPath::VirtualFile(_, file_id) => working_set
                 .get_contents_of_file(*file_id)
-                .map(|bytes| bytes.to_vec()),
+                .map(|bytes| Box::new(bytes) as Box<dyn std::io::Read>)
+                .ok_or(std::io::ErrorKind::NotFound.into()),
 
-            ParserPath::VirtualDir(..) => None,
+            ParserPath::VirtualDir(..) => Err(std::io::ErrorKind::NotFound.into()),
         }
+    }
+
+    pub fn read<'a>(&'a self, working_set: &'a StateWorkingSet) -> Option<Vec<u8>> {
+        self.open(working_set)
+            .and_then(|mut reader| {
+                let mut vec = vec![];
+                reader.read_to_end(&mut vec)?;
+                Ok(vec)
+            })
+            .ok()
     }
 
     pub fn from_virtual_path(

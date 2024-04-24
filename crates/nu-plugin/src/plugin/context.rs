@@ -1,22 +1,30 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
-};
-
-use nu_engine::get_eval_block_with_early_return;
+use crate::util::MutableCow;
+use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, IoStream, PipelineData, PluginIdentity, ShellError, Spanned, Value,
+    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
+};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, AtomicU32},
+        Arc,
+    },
 };
 
-use crate::util::MutableCow;
-
 /// Object safe trait for abstracting operations required of the plugin context.
-pub(crate) trait PluginExecutionContext: Send + Sync {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub trait PluginExecutionContext: Send + Sync {
+    /// A span pointing to the command being executed
+    fn span(&self) -> Span;
     /// The interrupt signal, if present
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>>;
+    /// The pipeline externals state, for tracking the foreground process group, if present
+    fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>>;
     /// Get engine configuration
     fn get_config(&self) -> Result<Config, ShellError>;
     /// Get plugin configuration
@@ -29,6 +37,10 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
     fn get_current_dir(&self) -> Result<Spanned<String>, ShellError>;
     /// Set an environment variable
     fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError>;
+    /// Get help for the current command
+    fn get_help(&self) -> Result<Spanned<String>, ShellError>;
+    /// Get the contents of a [`Span`]
+    fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
         &self,
@@ -43,7 +55,10 @@ pub(crate) trait PluginExecutionContext: Send + Sync {
 }
 
 /// The execution context of a plugin command. Can be borrowed.
-pub(crate) struct PluginExecutionCommandContext<'a> {
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,
@@ -67,8 +82,16 @@ impl<'a> PluginExecutionCommandContext<'a> {
 }
 
 impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
+    fn span(&self) -> Span {
+        self.call.head
+    }
+
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
         self.engine_state.ctrlc.as_ref()
+    }
+
+    fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {
+        Some(&self.engine_state.pipeline_externals_state)
     }
 
     fn get_config(&self) -> Result<Config, ShellError> {
@@ -89,23 +112,10 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
                 let span = value.span();
                 match value {
                     Value::Closure { val, .. } => {
-                        let input = PipelineData::Empty;
-
-                        let block = self.engine_state.get_block(val.block_id).clone();
-                        let mut stack = self.stack.captures_to_stack(val.captures);
-
-                        let eval_block_with_early_return =
-                            get_eval_block_with_early_return(&self.engine_state);
-
-                        match eval_block_with_early_return(
-                            &self.engine_state,
-                            &mut stack,
-                            &block,
-                            input,
-                        ) {
-                            Ok(v) => v.into_value(span),
-                            Err(e) => Value::error(e, self.call.head),
-                        }
+                        ClosureEvalOnce::new(&self.engine_state, &self.stack, val)
+                            .run_with_input(PipelineData::Empty)
+                            .map(|data| data.into_value(span))
+                            .unwrap_or_else(|err| Value::error(err, self.call.head))
                     }
                     _ => value.clone(),
                 }
@@ -129,6 +139,27 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
     fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError> {
         self.stack.add_env_var(name, value);
         Ok(())
+    }
+
+    fn get_help(&self) -> Result<Spanned<String>, ShellError> {
+        let decl = self.engine_state.get_decl(self.call.decl_id);
+
+        Ok(get_full_help(
+            &decl.signature(),
+            &decl.examples(),
+            &self.engine_state,
+            &mut self.stack.clone(),
+            false,
+        )
+        .into_spanned(self.call.head))
+    }
+
+    fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {
+        Ok(self
+            .engine_state
+            .get_span_contents(span)
+            .to_vec()
+            .into_spanned(self.call.head))
     }
 
     fn eval_closure(
@@ -159,13 +190,13 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             .reset_pipes();
 
         let stdout = if redirect_stdout {
-            Some(Redirection::Pipe(IoStream::Capture))
+            Some(Redirection::Pipe(OutDest::Capture))
         } else {
             None
         };
 
         let stderr = if redirect_stderr {
-            Some(Redirection::Pipe(IoStream::Capture))
+            Some(Redirection::Pipe(OutDest::Capture))
         } else {
             None
         };
@@ -208,7 +239,15 @@ pub(crate) struct PluginExecutionBogusContext;
 
 #[cfg(test)]
 impl PluginExecutionContext for PluginExecutionBogusContext {
+    fn span(&self) -> Span {
+        Span::test_data()
+    }
+
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
+        None
+    }
+
+    fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {
         None
     }
 
@@ -243,6 +282,18 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
     fn add_env_var(&mut self, _name: String, _value: Value) -> Result<(), ShellError> {
         Err(ShellError::NushellFailed {
             msg: "add_env_var not implemented on bogus".into(),
+        })
+    }
+
+    fn get_help(&self) -> Result<Spanned<String>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_help not implemented on bogus".into(),
+        })
+    }
+
+    fn get_span_contents(&self, _span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_span_contents not implemented on bogus".into(),
         })
     }
 

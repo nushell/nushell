@@ -1,11 +1,10 @@
+use nu_glob::MatchOptions;
+use nu_path::{canonicalize_with, expand_path_with};
+use nu_protocol::{NuGlob, ShellError, Span, Spanned};
 use std::{
     fs,
     path::{Component, Path, PathBuf},
 };
-
-use nu_glob::MatchOptions;
-use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{NuGlob, ShellError, Span, Spanned};
 
 const GLOB_CHARS: &[char] = &['*', '?', '['];
 
@@ -58,13 +57,13 @@ pub fn glob_from(
         }
 
         // Now expand `p` to get full prefix
-        let path = expand_path_with(p, cwd);
+        let path = expand_path_with(p, cwd, pattern.item.is_expand());
         let escaped_prefix = PathBuf::from(nu_glob::Pattern::escape(&path.to_string_lossy()));
 
         (Some(path), escaped_prefix.join(just_pattern))
     } else {
         let path = PathBuf::from(&pattern.item.as_ref());
-        let path = expand_path_with(path, cwd);
+        let path = expand_path_with(path, cwd, pattern.item.is_expand());
         let is_symlink = match fs::symlink_metadata(&path) {
             Ok(attr) => attr.file_type().is_symlink(),
             Err(_) => false,

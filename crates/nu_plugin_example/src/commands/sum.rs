@@ -1,50 +1,60 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
-use nu_protocol::{Category, PipelineData, PluginExample, PluginSignature, Span, Type, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 /// `<list> | example sum`
 pub struct Sum;
 
 impl PluginCommand for Sum {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("example sum")
-            .usage("Example stream consumer for a list of values")
-            .search_terms(vec!["example".into()])
+    fn name(&self) -> &str {
+        "example sum"
+    }
+
+    fn usage(&self) -> &str {
+        "Example stream consumer for a list of values"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_types(vec![
                 (Type::List(Type::Int.into()), Type::Int),
                 (Type::List(Type::Float.into()), Type::Float),
             ])
-            .plugin_examples(vec![PluginExample {
-                example: "seq 1 5 | example sum".into(),
-                description: "sum values from 1 to 5".into(),
-                result: Some(Value::test_int(15)),
-            }])
             .category(Category::Experimental)
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["example"]
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "example seq 1 5 | example sum",
+            description: "sum values from 1 to 5",
+            result: Some(Value::test_int(15)),
+        }]
     }
 
     fn run(
         &self,
-        _plugin: &Example,
+        _plugin: &ExamplePlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let mut acc = IntOrFloat::Int(0);
-        let span = input.span();
         for value in input {
             if let Ok(n) = value.as_i64() {
                 acc.add_i64(n);
             } else if let Ok(n) = value.as_f64() {
                 acc.add_f64(n);
             } else {
-                return Err(LabeledError {
-                    label: "Stream only accepts ints and floats".into(),
-                    msg: format!("found {}", value.get_type()),
-                    span,
-                });
+                return Err(LabeledError::new("Sum only accepts ints and floats")
+                    .with_label(format!("found {} in input", value.get_type()), value.span())
+                    .with_label("can't be used here", call.head));
             }
         }
         Ok(PipelineData::Value(acc.to_value(call.head), None))
@@ -88,4 +98,10 @@ impl IntOrFloat {
             IntOrFloat::Float(v) => Value::float(v, span),
         }
     }
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+    PluginTest::new("example", ExamplePlugin.into())?.test_command_examples(&Sum)
 }

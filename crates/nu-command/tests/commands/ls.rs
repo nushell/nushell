@@ -711,3 +711,51 @@ fn list_empty_string() {
         assert!(actual.err.contains("does not exist"));
     })
 }
+
+#[test]
+fn list_with_tilde() {
+    Playground::setup("ls_tilde", |dirs, sandbox| {
+        sandbox
+            .within("~tilde")
+            .with_files(vec![EmptyFile("f1.txt"), EmptyFile("f2.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), "ls '~tilde'");
+        assert!(actual.out.contains("f1.txt"));
+        assert!(actual.out.contains("f2.txt"));
+        assert!(actual.out.contains("~tilde"));
+        let actual = nu!(cwd: dirs.test(), "ls ~tilde");
+        assert!(actual.err.contains("does not exist"));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; ls $f");
+        assert!(actual.out.contains("f1.txt"));
+        assert!(actual.out.contains("f2.txt"));
+        assert!(actual.out.contains("~tilde"));
+    })
+}
+
+#[test]
+fn list_with_multiple_path() {
+    Playground::setup("ls_multiple_path", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile("f1.txt"),
+            EmptyFile("f2.txt"),
+            EmptyFile("f3.txt"),
+        ]);
+
+        let actual = nu!(cwd: dirs.test(), "ls f1.txt f2.txt");
+        assert!(actual.out.contains("f1.txt"));
+        assert!(actual.out.contains("f2.txt"));
+        assert!(!actual.out.contains("f3.txt"));
+        assert!(actual.status.success());
+
+        // report errors if one path not exists
+        let actual = nu!(cwd: dirs.test(), "ls asdf f1.txt");
+        assert!(actual.err.contains("directory not found"));
+        assert!(!actual.status.success());
+
+        // ls with spreading empty list should returns nothing.
+        let actual = nu!(cwd: dirs.test(), "ls ...[] | length");
+        assert_eq!(actual.out, "0");
+    })
+}

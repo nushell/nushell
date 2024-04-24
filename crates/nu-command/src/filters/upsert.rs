@@ -1,11 +1,5 @@
-use nu_engine::{get_eval_block, CallExt, EvalBlockFn};
-use nu_protocol::ast::{Block, Call, CellPath, PathMember};
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct Upsert;
@@ -160,46 +154,33 @@ fn upsert(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let span = call.head;
-
+    let head = call.head;
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
-    let eval_block = get_eval_block(engine_state);
-
-    let ctrlc = engine_state.ctrlc.clone();
 
     match input {
         PipelineData::Value(mut value, metadata) => {
-            if replacement.coerce_block().is_ok() {
+            if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
-                        let span = replacement.span();
-                        let capture_block = Closure::from_value(replacement)?;
-                        let block = engine_state.get_block(capture_block.block_id);
-                        let stack = stack.captures_to_stack(capture_block.captures.clone());
+                        let mut closure = ClosureEval::new(engine_state, stack, val);
                         for val in vals {
-                            let mut stack = stack.clone();
                             upsert_value_by_closure(
                                 val,
-                                span,
-                                engine_state,
-                                &mut stack,
-                                block,
+                                &mut closure,
+                                head,
                                 &cell_path.members,
                                 false,
-                                eval_block,
                             )?;
                         }
                     }
                     (first, _) => {
                         upsert_single_value_by_closure(
                             &mut value,
-                            replacement,
-                            engine_state,
-                            stack,
+                            ClosureEvalOnce::new(engine_state, stack, val),
+                            head,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
-                            eval_block,
                         )?;
                     }
                 }
@@ -231,173 +212,129 @@ fn upsert(
                     }
                 }
 
-                if path.is_empty() {
-                    let span = replacement.span();
-                    let value = stream.next().unwrap_or(Value::nothing(span));
-                    if replacement.coerce_block().is_ok() {
-                        let capture_block = Closure::from_value(replacement)?;
-                        let block = engine_state.get_block(capture_block.block_id);
-                        let mut stack = stack.captures_to_stack(capture_block.captures);
-
-                        if let Some(var) = block.signature.get_positional(0) {
-                            if let Some(var_id) = &var.var_id {
-                                stack.add_var(*var_id, value.clone())
-                            }
-                        }
-
-                        let output = eval_block(
-                            engine_state,
-                            &mut stack,
-                            block,
-                            value.clone().into_pipeline_data(),
-                        )?;
-
-                        pre_elems.push(output.into_value(span));
+                let value = if path.is_empty() {
+                    let value = stream.next().unwrap_or(Value::nothing(head));
+                    if let Value::Closure { val, .. } = replacement {
+                        ClosureEvalOnce::new(engine_state, stack, val)
+                            .run_with_value(value)?
+                            .into_value(head)
                     } else {
-                        pre_elems.push(replacement);
+                        replacement
                     }
                 } else if let Some(mut value) = stream.next() {
-                    if replacement.coerce_block().is_ok() {
+                    if let Value::Closure { val, .. } = replacement {
                         upsert_single_value_by_closure(
                             &mut value,
-                            replacement,
-                            engine_state,
-                            stack,
+                            ClosureEvalOnce::new(engine_state, stack, val),
+                            head,
                             path,
                             true,
-                            eval_block,
                         )?;
                     } else {
                         value.upsert_data_at_cell_path(path, replacement)?;
                     }
-                    pre_elems.push(value)
+                    value
                 } else {
                     return Err(ShellError::AccessBeyondEnd {
                         max_idx: pre_elems.len() - 1,
                         span: path_span,
                     });
-                }
+                };
+
+                pre_elems.push(value);
 
                 Ok(pre_elems
                     .into_iter()
                     .chain(stream)
-                    .into_pipeline_data_with_metadata(metadata, ctrlc))
-            } else if replacement.coerce_block().is_ok() {
-                let engine_state = engine_state.clone();
-                let replacement_span = replacement.span();
-                let capture_block = Closure::from_value(replacement)?;
-                let block = engine_state.get_block(capture_block.block_id).clone();
-                let stack = stack.captures_to_stack(capture_block.captures.clone());
-
+                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+            } else if let Value::Closure { val, .. } = replacement {
+                let mut closure = ClosureEval::new(engine_state, stack, val);
                 Ok(stream
-                    .map(move |mut input| {
-                        // Recreate the stack for each iteration to
-                        // isolate environment variable changes, etc.
-                        let mut stack = stack.clone();
-
+                    .map(move |mut value| {
                         let err = upsert_value_by_closure(
-                            &mut input,
-                            replacement_span,
-                            &engine_state,
-                            &mut stack,
-                            &block,
+                            &mut value,
+                            &mut closure,
+                            head,
                             &cell_path.members,
                             false,
-                            eval_block,
                         );
 
                         if let Err(e) = err {
-                            Value::error(e, span)
+                            Value::error(e, head)
                         } else {
-                            input
+                            value
                         }
                     })
-                    .into_pipeline_data_with_metadata(metadata, ctrlc))
+                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
             } else {
                 Ok(stream
-                    .map(move |mut input| {
+                    .map(move |mut value| {
                         if let Err(e) =
-                            input.upsert_data_at_cell_path(&cell_path.members, replacement.clone())
+                            value.upsert_data_at_cell_path(&cell_path.members, replacement.clone())
                         {
-                            Value::error(e, span)
+                            Value::error(e, head)
                         } else {
-                            input
+                            value
                         }
                     })
-                    .into_pipeline_data_with_metadata(metadata, ctrlc))
+                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
             }
         }
         PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
             type_name: "empty pipeline".to_string(),
-            span,
+            span: head,
         }),
         PipelineData::ExternalStream { .. } => Err(ShellError::IncompatiblePathAccess {
             type_name: "external stream".to_string(),
-            span,
+            span: head,
         }),
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn upsert_value_by_closure(
     value: &mut Value,
+    closure: &mut ClosureEval,
     span: Span,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block: &Block,
     cell_path: &[PathMember],
     first_path_member_int: bool,
-    eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
-    let input_at_path = value.clone().follow_cell_path(cell_path, false);
+    let value_at_path = value.clone().follow_cell_path(cell_path, false);
 
-    if let Some(var) = block.signature.get_positional(0) {
-        if let Some(var_id) = &var.var_id {
-            stack.add_var(
-                *var_id,
-                if first_path_member_int {
-                    input_at_path.clone().unwrap_or(Value::nothing(span))
-                } else {
-                    value.clone()
-                },
-            )
-        }
-    }
+    let arg = if first_path_member_int {
+        value_at_path.clone().unwrap_or(Value::nothing(span))
+    } else {
+        value.clone()
+    };
 
-    let input_at_path = input_at_path
+    let input = value_at_path
         .map(IntoPipelineData::into_pipeline_data)
         .unwrap_or(PipelineData::Empty);
 
-    let output = eval_block_fn(engine_state, stack, block, input_at_path)?;
-
-    value.upsert_data_at_cell_path(cell_path, output.into_value(span))
+    let new_value = closure.add_arg(arg).run_with_input(input)?.into_value(span);
+    value.upsert_data_at_cell_path(cell_path, new_value)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn upsert_single_value_by_closure(
     value: &mut Value,
-    replacement: Value,
-    engine_state: &EngineState,
-    stack: &mut Stack,
+    closure: ClosureEvalOnce,
+    span: Span,
     cell_path: &[PathMember],
     first_path_member_int: bool,
-    eval_block_fn: EvalBlockFn,
 ) -> Result<(), ShellError> {
-    let span = replacement.span();
-    let capture_block = Closure::from_value(replacement)?;
-    let block = engine_state.get_block(capture_block.block_id);
-    let mut stack = stack.captures_to_stack(capture_block.captures);
+    let value_at_path = value.clone().follow_cell_path(cell_path, false);
 
-    upsert_value_by_closure(
-        value,
-        span,
-        engine_state,
-        &mut stack,
-        block,
-        cell_path,
-        first_path_member_int,
-        eval_block_fn,
-    )
+    let arg = if first_path_member_int {
+        value_at_path.clone().unwrap_or(Value::nothing(span))
+    } else {
+        value.clone()
+    };
+
+    let input = value_at_path
+        .map(IntoPipelineData::into_pipeline_data)
+        .unwrap_or(PipelineData::Empty);
+
+    let new_value = closure.add_arg(arg).run_with_input(input)?.into_value(span);
+    value.upsert_data_at_cell_path(cell_path, new_value)
 }
 
 #[cfg(test)]

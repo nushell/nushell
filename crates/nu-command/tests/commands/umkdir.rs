@@ -123,6 +123,20 @@ fn creates_directory_three_dots_quotation_marks() {
     })
 }
 
+#[test]
+fn respects_cwd() {
+    Playground::setup("mkdir_respects_cwd", |dirs, _| {
+        nu!(
+            cwd: dirs.test(),
+            "mkdir 'some_folder'; cd 'some_folder'; mkdir 'another/deeper_one'"
+        );
+
+        let expected = dirs.test().join("some_folder/another/deeper_one");
+
+        assert!(expected.exists());
+    })
+}
+
 #[cfg(not(windows))]
 #[test]
 fn mkdir_umask_permission() {
@@ -141,7 +155,21 @@ fn mkdir_umask_permission() {
         assert_eq!(
             actual, 0o40755,
             "Most *nix systems have 0o00022 as the umask. \
-            So directory permission should be 0o40755 = 0o40777 - 0o00022"
+            So directory permission should be 0o40755 = 0o40777 & (!0o00022)"
         );
+    })
+}
+
+#[test]
+fn mkdir_with_tilde() {
+    Playground::setup("mkdir with tilde", |dirs, _| {
+        let actual = nu!(cwd: dirs.test(), "mkdir '~tilde'");
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde2'; mkdir $f");
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(vec![Path::new("~tilde2")], dirs.test()));
     })
 }

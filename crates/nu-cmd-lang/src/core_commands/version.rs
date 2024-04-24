@@ -1,8 +1,7 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Type, Value,
-};
+use std::sync::OnceLock;
+
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
 use shadow_rs::shadow;
 
 shadow!(build);
@@ -59,8 +58,12 @@ impl Command for Version {
 }
 
 pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
-    // Pre-allocate the arrays in the worst case (12 items):
+    // Pre-allocate the arrays in the worst case (17 items):
     // - version
+    // - major
+    // - minor
+    // - patch
+    // - pre
     // - branch
     // - commit_hash
     // - build_os
@@ -69,14 +72,22 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
     // - cargo_version
     // - build_time
     // - build_rust_channel
+    // - allocator
     // - features
     // - installed_plugins
-    let mut record = Record::with_capacity(12);
+    let mut record = Record::with_capacity(17);
 
     record.push(
         "version",
         Value::string(env!("CARGO_PKG_VERSION"), call.head),
     );
+
+    push_version_numbers(&mut record, call.head);
+
+    let version_pre = Some(build::PKG_VERSION_PRE).filter(|x| !x.is_empty());
+    if let Some(version_pre) = version_pre {
+        record.push("pre", Value::string(version_pre, call.head));
+    }
 
     record.push("branch", Value::string(build::BRANCH, call.head));
 
@@ -145,6 +156,22 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
     Ok(Value::record(record, call.head).into_pipeline_data())
 }
 
+/// Add version numbers as integers to the given record
+fn push_version_numbers(record: &mut Record, head: Span) {
+    static VERSION_NUMBERS: OnceLock<(u8, u8, u8)> = OnceLock::new();
+
+    let &(major, minor, patch) = VERSION_NUMBERS.get_or_init(|| {
+        (
+            build::PKG_VERSION_MAJOR.parse().expect("Always set"),
+            build::PKG_VERSION_MINOR.parse().expect("Always set"),
+            build::PKG_VERSION_PATCH.parse().expect("Always set"),
+        )
+    });
+    record.push("major", Value::int(major as _, head));
+    record.push("minor", Value::int(minor as _, head));
+    record.push("patch", Value::int(patch as _, head));
+}
+
 fn global_allocator() -> &'static str {
     if cfg!(feature = "mimalloc") {
         "mimalloc"
@@ -183,9 +210,9 @@ fn features_enabled() -> Vec<String> {
         names.push("static-link-openssl".to_string());
     }
 
-    #[cfg(feature = "wasi")]
+    #[cfg(feature = "system-clipboard")]
     {
-        names.push("wasi".to_string());
+        names.push("system-clipboard".to_string());
     }
 
     names.sort();

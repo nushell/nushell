@@ -1,11 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    into_code, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{into_code, Config};
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 
@@ -231,7 +226,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             },
             span,
         ),
-        Value::CustomValue { val, .. } => {
+        Value::Custom { val, .. } => {
             // Only custom values that have a base value that can be converted to string are
             // accepted.
             val.to_base_value(input.span())

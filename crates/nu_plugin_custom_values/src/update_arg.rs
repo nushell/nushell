@@ -1,16 +1,22 @@
 use crate::{update::Update, CustomValuePlugin};
-
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, Signature, SyntaxShape, Value};
 
 pub struct UpdateArg;
 
 impl SimplePluginCommand for UpdateArg {
     type Plugin = CustomValuePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("custom-value update-arg")
-            .usage("PluginSignature for a plugin that updates a custom value as an argument")
+    fn name(&self) -> &str {
+        "custom-value update-arg"
+    }
+
+    fn usage(&self) -> &str {
+        "Updates a custom value as an argument"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required(
                 "custom_value",
                 SyntaxShape::Any,

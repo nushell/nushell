@@ -1,16 +1,15 @@
-use crate::text_style::Alignment;
-use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
+use crate::{color_record_to_nustyle, lookup_ansi_color_style, text_style::Alignment, TextStyle};
 use nu_ansi_term::{Color, Style};
-use nu_engine::{env::get_config, eval_block};
+use nu_engine::{env::get_config, ClosureEvalOnce};
 use nu_protocol::{
     cli_error::CliError,
-    engine::{EngineState, Stack, StateWorkingSet},
-    IntoPipelineData, Value,
+    engine::{Closure, EngineState, Stack, StateWorkingSet},
+    Span, Value,
 };
-use std::collections::HashMap;
-
-use nu_protocol::debugger::WithoutDebug;
-use std::fmt::{Debug, Formatter, Result};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Formatter, Result},
+};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
 // takes an input value and produces a color value. The latter represents a value which
@@ -18,7 +17,7 @@ use std::fmt::{Debug, Formatter, Result};
 #[derive(Debug, Clone)]
 pub enum ComputableStyle {
     Static(Style),
-    Closure(Value),
+    Closure(Closure, Span),
 }
 
 // An alias for the mapping used internally by StyleComputer.
@@ -56,51 +55,31 @@ impl<'a> StyleComputer<'a> {
             // Static values require no computation.
             Some(ComputableStyle::Static(s)) => *s,
             // Closures are run here.
-            Some(ComputableStyle::Closure(v)) => {
-                let span = v.span();
-                match v {
-                    Value::Closure { val, .. } => {
-                        let block = self.engine_state.get_block(val.block_id).clone();
-                        // Because captures_to_stack() clones, we don't need to use with_env() here
-                        // (contrast with_env() usage in `each` or `do`).
-                        let mut stack = self.stack.captures_to_stack(val.captures.clone());
+            Some(ComputableStyle::Closure(closure, span)) => {
+                let result = ClosureEvalOnce::new(self.engine_state, self.stack, closure.clone())
+                    .debug(false)
+                    .run_with_value(value.clone());
 
-                        // Support 1-argument blocks as well as 0-argument blocks.
-                        if let Some(var) = block.signature.get_positional(0) {
-                            if let Some(var_id) = &var.var_id {
-                                stack.add_var(*var_id, value.clone());
-                            }
-                        }
-
-                        // Run the block.
-                        match eval_block::<WithoutDebug>(
-                            self.engine_state,
-                            &mut stack,
-                            &block,
-                            value.clone().into_pipeline_data(),
-                        ) {
-                            Ok(v) => {
-                                let value = v.into_value(span);
-                                // These should be the same color data forms supported by color_config.
-                                match value {
-                                    Value::Record { .. } => color_record_to_nustyle(&value),
-                                    Value::String { val, .. } => lookup_ansi_color_style(&val),
-                                    _ => Style::default(),
-                                }
-                            }
-                            // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
-                            // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
-                            // currently hook closure errors behave roughly the same.
-                            Err(e) => {
-                                eprintln!(
-                                    "Error: {:?}",
-                                    CliError(&e, &StateWorkingSet::new(self.engine_state))
-                                );
-                                Style::default()
-                            }
+                match result {
+                    Ok(v) => {
+                        let value = v.into_value(*span);
+                        // These should be the same color data forms supported by color_config.
+                        match value {
+                            Value::Record { .. } => color_record_to_nustyle(&value),
+                            Value::String { val, .. } => lookup_ansi_color_style(&val),
+                            _ => Style::default(),
                         }
                     }
-                    _ => Style::default(),
+                    // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
+                    // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
+                    // currently hook closure errors behave roughly the same.
+                    Err(e) => {
+                        eprintln!(
+                            "Error: {:?}",
+                            CliError(&e, &StateWorkingSet::new(self.engine_state))
+                        );
+                        Style::default()
+                    }
                 }
             }
             // There should be no other kinds of values (due to create_map() in config.rs filtering them out)
@@ -127,11 +106,9 @@ impl<'a> StyleComputer<'a> {
             Value::Nothing { .. } => TextStyle::with_style(Left, s),
             Value::Binary { .. } => TextStyle::with_style(Left, s),
             Value::CellPath { .. } => TextStyle::with_style(Left, s),
-            Value::Record { .. } | Value::List { .. } | Value::Block { .. } => {
-                TextStyle::with_style(Left, s)
-            }
+            Value::Record { .. } | Value::List { .. } => TextStyle::with_style(Left, s),
             Value::Closure { .. }
-            | Value::CustomValue { .. }
+            | Value::Custom { .. }
             | Value::Error { .. }
             | Value::LazyRecord { .. } => TextStyle::basic_left(),
         }
@@ -168,9 +145,10 @@ impl<'a> StyleComputer<'a> {
         ].into_iter().collect();
 
         for (key, value) in &config.color_config {
+            let span = value.span();
             match value {
-                Value::Closure { .. } => {
-                    map.insert(key.to_string(), ComputableStyle::Closure(value.clone()));
+                Value::Closure { val, .. } => {
+                    map.insert(key.to_string(), ComputableStyle::Closure(val.clone(), span));
                 }
                 Value::Record { .. } => {
                     map.insert(

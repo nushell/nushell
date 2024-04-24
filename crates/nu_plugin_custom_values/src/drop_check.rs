@@ -1,10 +1,9 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
+use crate::CustomValuePlugin;
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, CustomValue, PluginSignature, ShellError, Span, SyntaxShape, Value,
+    record, Category, CustomValue, LabeledError, ShellError, Signature, Span, SyntaxShape, Value,
 };
 use serde::{Deserialize, Serialize};
-
-use crate::CustomValuePlugin;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DropCheckValue {
@@ -17,7 +16,7 @@ impl DropCheckValue {
     }
 
     pub(crate) fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub(crate) fn notify(&self) {
@@ -48,6 +47,10 @@ impl CustomValue for DropCheckValue {
         self
     }
 
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn notify_plugin_on_drop(&self) -> bool {
         // This is what causes Nushell to let us know when the value is dropped
         true
@@ -59,9 +62,16 @@ pub struct DropCheck;
 impl SimplePluginCommand for DropCheck {
     type Plugin = CustomValuePlugin;
 
-    fn signature(&self) -> nu_protocol::PluginSignature {
-        PluginSignature::build("custom-value drop-check")
-            .usage("Generates a custom value that prints a message when dropped")
+    fn name(&self) -> &str {
+        "custom-value drop-check"
+    }
+
+    fn usage(&self) -> &str {
+        "Generates a custom value that prints a message when dropped"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required("msg", SyntaxShape::String, "the message to print on drop")
             .category(Category::Experimental)
     }

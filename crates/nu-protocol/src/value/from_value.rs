@@ -1,10 +1,10 @@
-use std::path::PathBuf;
-
-use super::NuGlob;
-use crate::ast::{CellPath, PathMember};
-use crate::engine::{Block, Closure};
-use crate::{Range, Record, ShellError, Spanned, Value};
+use crate::{
+    ast::{CellPath, PathMember},
+    engine::Closure,
+    NuGlob, Range, Record, ShellError, Spanned, Value,
+};
 use chrono::{DateTime, FixedOffset};
+use std::path::PathBuf;
 
 pub trait FromValue: Sized {
     fn from_value(v: Value) -> Result<Self, ShellError>;
@@ -442,7 +442,7 @@ impl FromValue for Spanned<DateTime<FixedOffset>> {
 impl FromValue for Range {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Range { val, .. } => Ok(*val),
+            Value::Range { val, .. } => Ok(val),
             v => Err(ShellError::CantConvert {
                 to_type: "range".into(),
                 from_type: v.get_type().to_string(),
@@ -457,7 +457,7 @@ impl FromValue for Spanned<Range> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         match v {
-            Value::Range { val, .. } => Ok(Spanned { item: *val, span }),
+            Value::Range { val, .. } => Ok(Spanned { item: val, span }),
             v => Err(ShellError::CantConvert {
                 to_type: "range".into(),
                 from_type: v.get_type().to_string(),
@@ -538,7 +538,7 @@ impl FromValue for Vec<Value> {
 impl FromValue for Record {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Record { val, .. } => Ok(val),
+            Value::Record { val, .. } => Ok(val.into_owned()),
             v => Err(ShellError::CantConvert {
                 to_type: "Record".into(),
                 from_type: v.get_type().to_string(),
@@ -553,26 +553,8 @@ impl FromValue for Closure {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Closure { val, .. } => Ok(val),
-            Value::Block { val, .. } => Ok(Closure {
-                block_id: val,
-                captures: Vec::new(),
-            }),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-}
-
-impl FromValue for Block {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v {
-            Value::Block { val, .. } => Ok(Block { block_id: val }),
-            v => Err(ShellError::CantConvert {
-                to_type: "Block".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,

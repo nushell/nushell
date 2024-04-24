@@ -1,17 +1,20 @@
-use log::info;
+use log::{info, trace};
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{report_error, Config};
-use nu_protocol::{ParseError, PipelineData, Spanned};
+use nu_protocol::{
+    engine::{EngineState, Stack, StateWorkingSet},
+    report_error, Config, ParseError, PipelineData, Spanned,
+};
 use nu_utils::{get_default_config, get_default_env};
-use std::fs::File;
-use std::io::Write;
-use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::path::Path;
-use std::sync::Arc;
+use std::{
+    fs::File,
+    io::Write,
+    panic::{catch_unwind, AssertUnwindSafe},
+    path::Path,
+    sync::Arc,
+};
 
 pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";
@@ -24,6 +27,7 @@ pub(crate) fn read_config_file(
     config_file: Option<Spanned<String>>,
     is_env_config: bool,
 ) {
+    trace!("read_config_file {:?}", &config_file);
     // Load config startup file
     if let Some(file) = config_file {
         let working_set = StateWorkingSet::new(engine_state);
@@ -126,6 +130,7 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
 }
 
 pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {
+    trace!("read_default_env_file");
     let config_file = get_default_env();
     eval_source(
         engine_state,
@@ -158,6 +163,11 @@ fn eval_default_config(
     config_file: &str,
     is_env_config: bool,
 ) {
+    trace!(
+        "eval_default_config: config_file: {:?}, is_env_config: {}",
+        &config_file,
+        is_env_config
+    );
     println!("Continuing without config file");
     // Just use the contents of "default_config.nu" or "default_env.nu"
     eval_source(
@@ -196,9 +206,15 @@ pub(crate) fn setup_config(
     env_file: Option<Spanned<String>>,
     is_login_shell: bool,
 ) {
+    trace!(
+        "setup_config: config: {:?}, env: {:?}, login: {}",
+        &config_file,
+        &env_file,
+        is_login_shell
+    );
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
-        read_plugin_file(engine_state, stack, plugin_file, NUSHELL_FOLDER);
+        read_plugin_file(engine_state, plugin_file, NUSHELL_FOLDER);
 
         read_config_file(engine_state, stack, env_file, true);
         read_config_file(engine_state, stack, config_file, false);
@@ -222,6 +238,13 @@ pub(crate) fn set_config_path(
     key: &str,
     config_file: Option<&Spanned<String>>,
 ) {
+    trace!(
+        "set_config_path: cwd: {:?}, default_config: {}, key: {}, config_file: {:?}",
+        &cwd,
+        &default_config_name,
+        &key,
+        &config_file
+    );
     let config_path = match config_file {
         Some(s) => canonicalize_with(&s.item, cwd).ok(),
         None => nu_path::config_dir().map(|mut p| {

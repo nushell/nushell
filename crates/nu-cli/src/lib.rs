@@ -15,7 +15,7 @@ mod util;
 mod validation;
 
 pub use commands::add_cli_context;
-pub use completions::{FileCompletion, NuCompleter};
+pub use completions::{FileCompletion, NuCompleter, SemanticSuggestion, SuggestionKind};
 pub use config_files::eval_config_contents;
 pub use eval_cmds::evaluate_commands;
 pub use eval_file::evaluate_file;
@@ -31,5 +31,7 @@ pub use validation::NuValidator;
 
 #[cfg(feature = "plugin")]
 pub use config_files::add_plugin_file;
+#[cfg(feature = "plugin")]
+pub use config_files::migrate_old_plugin_file;
 #[cfg(feature = "plugin")]
 pub use config_files::read_plugin_file;

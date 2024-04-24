@@ -1,9 +1,7 @@
+use super::PluginCustomValue;
+use crate::plugin::PluginSource;
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
-
-use crate::plugin::PluginSource;
-
-use super::PluginCustomValue;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub(crate) struct TestCustomValue(pub i32);
@@ -11,7 +9,7 @@ pub(crate) struct TestCustomValue(pub i32);
 #[typetag::serde]
 impl CustomValue for TestCustomValue {
     fn clone_value(&self, span: Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
     fn type_name(&self) -> String {
@@ -23,6 +21,10 @@ impl CustomValue for TestCustomValue {
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
 }

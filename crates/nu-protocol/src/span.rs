@@ -1,11 +1,52 @@
+use std::ops::Deref;
+
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 
 /// A spanned area of interest, generic over what kind of thing is of interest
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Spanned<T> {
     pub item: T,
     pub span: Span,
+}
+
+impl<T> Spanned<T> {
+    /// Map to a spanned reference of the inner type, i.e. `Spanned<T> -> Spanned<&T>`.
+    pub fn as_ref(&self) -> Spanned<&T> {
+        Spanned {
+            item: &self.item,
+            span: self.span,
+        }
+    }
+
+    /// Map to a mutable reference of the inner type, i.e. `Spanned<T> -> Spanned<&mut T>`.
+    pub fn as_mut(&mut self) -> Spanned<&mut T> {
+        Spanned {
+            item: &mut self.item,
+            span: self.span,
+        }
+    }
+
+    /// Map to the result of [`.deref()`](std::ops::Deref::deref) on the inner type.
+    ///
+    /// This can be used for example to turn `Spanned<Vec<T>>` into `Spanned<&[T]>`.
+    pub fn as_deref(&self) -> Spanned<&<T as Deref>::Target>
+    where
+        T: Deref,
+    {
+        Spanned {
+            item: self.item.deref(),
+            span: self.span,
+        }
+    }
+
+    /// Map the spanned item with a function.
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> Spanned<U> {
+        Spanned {
+            item: f(self.item),
+            span: self.span,
+        }
+    }
 }
 
 /// Helper trait to create [`Spanned`] more ergonomically.
@@ -104,5 +145,36 @@ pub fn span(spans: &[Span]) -> Span {
             .max()
             .expect("Must be an end. Length > 0");
         Span::new(spans[0].start, end)
+    }
+}
+
+/// An extension trait for `Result`, which adds a span to the error type.
+pub trait ErrSpan {
+    type Result;
+
+    /// Add the given span to the error type `E`, turning it into a `Spanned<E>`.
+    ///
+    /// Some auto-conversion methods to `ShellError` from other error types are available on spanned
+    /// errors, to give users better information about where an error came from. For example, it is
+    /// preferred when working with `std::io::Error`:
+    ///
+    /// ```no_run
+    /// use nu_protocol::{ErrSpan, ShellError, Span};
+    /// use std::io::Read;
+    ///
+    /// fn read_from(mut reader: impl Read, span: Span) -> Result<Vec<u8>, ShellError> {
+    ///     let mut vec = vec![];
+    ///     reader.read_to_end(&mut vec).err_span(span)?;
+    ///     Ok(vec)
+    /// }
+    /// ```
+    fn err_span(self, span: Span) -> Self::Result;
+}
+
+impl<T, E> ErrSpan for Result<T, E> {
+    type Result = Result<T, Spanned<E>>;
+
+    fn err_span(self, span: Span) -> Self::Result {
+        self.map_err(|err| err.into_spanned(span))
     }
 }

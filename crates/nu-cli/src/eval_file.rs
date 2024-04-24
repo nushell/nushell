@@ -1,23 +1,22 @@
-use std::sync::Arc;
-
 use crate::util::eval_source;
-use log::info;
-use log::trace;
+use log::{info, trace};
 use miette::{IntoDiagnostic, Result};
-use nu_engine::eval_block;
-use nu_engine::{convert_env_values, current_dir};
+use nu_engine::{convert_env_values, current_dir, eval_block};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, ShellError, Span, Value,
+    report_error, Config, PipelineData, ShellError, Span, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
+use std::sync::Arc;
 
-/// Main function used when a file path is found as argument for nu
+/// Entry point for evaluating a file.
+///
+/// If the file contains a main command, it is invoked with `args` and the pipeline data from `input`;
+/// otherwise, the pipeline data is forwarded to the first command in the file, and `args` are ignored.
 pub fn evaluate_file(
     path: String,
     args: &[String],
@@ -25,7 +24,7 @@ pub fn evaluate_file(
     stack: &mut Stack,
     input: PipelineData,
 ) -> Result<()> {
-    // Translate environment variables from Strings to Values
+    // Convert environment variables from Strings to Values and store them in the engine state.
     if let Some(e) = convert_env_values(engine_state, stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
@@ -78,8 +77,7 @@ pub fn evaluate_file(
             );
             std::process::exit(1);
         });
-
-    engine_state.start_in_file(Some(file_path_str));
+    engine_state.file = Some(file_path.clone());
 
     let parent = file_path.parent().unwrap_or_else(|| {
         let working_set = StateWorkingSet::new(engine_state);
@@ -108,17 +106,19 @@ pub fn evaluate_file(
 
     let source_filename = file_path
         .file_name()
-        .expect("internal error: script missing filename");
+        .expect("internal error: missing filename");
 
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {}", file_path_str);
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
 
+    // If any parse errors were found, report the first error and exit.
     if let Some(err) = working_set.parse_errors.first() {
         report_error(&working_set, err);
         std::process::exit(1);
     }
 
+    // Look for blocks whose name starts with "main" and replace it with the filename.
     for block in working_set.delta.blocks.iter_mut().map(Arc::make_mut) {
         if block.signature.name == "main" {
             block.signature.name = source_filename.to_string_lossy().to_string();
@@ -128,19 +128,21 @@ pub fn evaluate_file(
         }
     }
 
-    let _ = engine_state.merge_delta(working_set.delta);
+    // Merge the changes into the engine state.
+    engine_state
+        .merge_delta(working_set.delta)
+        .expect("merging delta into engine_state should succeed");
 
+    // Check if the file contains a main command.
     if engine_state.find_decl(b"main", &[]).is_some() {
-        let args = format!("main {}", args.join(" "));
-
+        // Evaluate the file, but don't run main yet.
         let pipeline_data =
             eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty());
         let pipeline_data = match pipeline_data {
             Err(ShellError::Return { .. }) => {
-                // allows early exists before `main` is run.
+                // Allow early return before main is run.
                 return Ok(());
             }
-
             x => x,
         }
         .unwrap_or_else(|e| {
@@ -149,12 +151,12 @@ pub fn evaluate_file(
             std::process::exit(1);
         });
 
+        // Print the pipeline output of the file.
+        // The pipeline output of a file is the pipeline output of its last command.
         let result = pipeline_data.print(engine_state, stack, true, false);
-
         match result {
             Err(err) => {
                 let working_set = StateWorkingSet::new(engine_state);
-
                 report_error(&working_set, &err);
                 std::process::exit(1);
             }
@@ -165,6 +167,9 @@ pub fn evaluate_file(
             }
         }
 
+        // Invoke the main command with arguments.
+        // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.
+        let args = format!("main {}", args.join(" "));
         if !eval_source(
             engine_state,
             stack,
@@ -189,6 +194,7 @@ pub(crate) fn print_table_or_error(
     stack: &mut Stack,
     mut pipeline_data: PipelineData,
     config: &mut Config,
+    no_newline: bool,
 ) -> Option<i64> {
     let exit_code = match &mut pipeline_data {
         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
@@ -207,7 +213,7 @@ pub(crate) fn print_table_or_error(
     if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
         let command = engine_state.get_decl(decl_id);
         if command.get_block_id().is_some() {
-            print_or_exit(pipeline_data, engine_state, config);
+            print_or_exit(pipeline_data, engine_state, config, no_newline);
         } else {
             // The final call on table command, it's ok to set redirect_output to false.
             let call = Call::new(Span::new(0, 0));
@@ -215,7 +221,7 @@ pub(crate) fn print_table_or_error(
 
             match table {
                 Ok(table) => {
-                    print_or_exit(table, engine_state, config);
+                    print_or_exit(table, engine_state, config, no_newline);
                 }
                 Err(error) => {
                     let working_set = StateWorkingSet::new(engine_state);
@@ -225,7 +231,7 @@ pub(crate) fn print_table_or_error(
             }
         }
     } else {
-        print_or_exit(pipeline_data, engine_state, config);
+        print_or_exit(pipeline_data, engine_state, config, no_newline);
     }
 
     // Make sure everything has finished
@@ -242,7 +248,12 @@ pub(crate) fn print_table_or_error(
     }
 }
 
-fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, config: &Config) {
+fn print_or_exit(
+    pipeline_data: PipelineData,
+    engine_state: &mut EngineState,
+    config: &Config,
+    no_newline: bool,
+) {
     for item in pipeline_data {
         if let Value::Error { error, .. } = item {
             let working_set = StateWorkingSet::new(engine_state);
@@ -252,7 +263,10 @@ fn print_or_exit(pipeline_data: PipelineData, engine_state: &mut EngineState, co
             std::process::exit(1);
         }
 
-        let out = item.to_expanded_string("\n", config) + "\n";
+        let mut out = item.to_expanded_string("\n", config);
+        if !no_newline {
+            out.push('\n');
+        }
         let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{err}"));
     }
 }

@@ -18,9 +18,9 @@ use nu_protocol::{
     span, Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
-use std::path::{Path, PathBuf};
 use std::{
     collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -34,7 +34,7 @@ use crate::{
     lex,
     lite_parser::{lite_parse, LiteCommand},
     parser::{
-        check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_expression,
+        check_call, garbage, garbage_pipeline, parse, parse_call, parse_expression,
         parse_full_signature, parse_import_pattern, parse_internal_call, parse_multispan_value,
         parse_string, parse_value, parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
@@ -71,6 +71,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"source",
     b"where",
     b"register",
+    b"plugin use",
 ];
 
 /// Check whether spans start with a parser keyword that can be aliased
@@ -93,11 +94,14 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
 /// This is a new more compact method of calling parse_xxx() functions without repeating the
 /// parse_call() in each function. Remaining keywords can be moved here.
 pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    let orig_parse_errors_len = working_set.parse_errors.len();
+
     let call_expr = parse_call(working_set, &lite_command.parts, lite_command.parts[0]);
 
-    // if err.is_some() {
-    //     return (Pipeline::from_vec(vec![call_expr]), err);
-    // }
+    // If an error occurred, don't invoke the keyword-specific functionality
+    if working_set.parse_errors.len() > orig_parse_errors_len {
+        return Pipeline::from_vec(vec![call_expr]);
+    }
 
     if let Expression {
         expr: Expr::Call(call),
@@ -121,6 +125,8 @@ pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteComma
             "overlay hide" => parse_overlay_hide(working_set, call),
             "overlay new" => parse_overlay_new(working_set, call),
             "overlay use" => parse_overlay_use(working_set, call),
+            #[cfg(feature = "plugin")]
+            "plugin use" => parse_plugin_use(working_set, call),
             _ => Pipeline::from_vec(vec![call_expr]),
         }
     } else {
@@ -459,7 +465,7 @@ pub fn parse_def(
                         let block = working_set.get_block_mut(*block_id);
                         block.signature = Box::new(sig.clone());
                     }
-                    _ => working_set.parse_errors.push(ParseError::Expected(
+                    _ => working_set.error(ParseError::Expected(
                         "definition body closure { ... }",
                         arg.span,
                     )),
@@ -592,7 +598,7 @@ pub fn parse_def(
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             let declaration = working_set.get_decl_mut(decl_id);
 
-            signature.name = name.clone();
+            signature.name.clone_from(&name);
             if !has_wrapped {
                 *signature = signature.add_help();
             }
@@ -751,9 +757,9 @@ pub fn parse_extern(
                     name.clone()
                 };
 
-                signature.name = external_name.clone();
-                signature.usage = usage.clone();
-                signature.extra_usage = extra_usage.clone();
+                signature.name.clone_from(&external_name);
+                signature.usage.clone_from(&usage);
+                signature.extra_usage.clone_from(&extra_usage);
                 signature.allows_unknown_args = true;
 
                 if let Some(block_id) = body.and_then(|x| x.as_block()) {
@@ -803,6 +809,46 @@ pub fn parse_extern(
     }])
 }
 
+fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
+    let command_len = if !spans.is_empty() {
+        if working_set.get_span_contents(spans[0]) == b"export" {
+            2
+        } else {
+            1
+        }
+    } else {
+        return None;
+    };
+
+    if spans.len() == 1 {
+        None
+    } else if spans.len() < command_len + 3 {
+        if working_set.get_span_contents(spans[command_len]) == b"=" {
+            let name =
+                String::from_utf8_lossy(working_set.get_span_contents(span(&spans[..command_len])));
+            working_set.error(ParseError::AssignmentMismatch(
+                format!("{name} missing name"),
+                "missing name".into(),
+                spans[command_len],
+            ));
+            Some(&spans[command_len])
+        } else {
+            None
+        }
+    } else if working_set.get_span_contents(spans[command_len + 1]) != b"=" {
+        let name =
+            String::from_utf8_lossy(working_set.get_span_contents(span(&spans[..command_len])));
+        working_set.error(ParseError::AssignmentMismatch(
+            format!("{name} missing sign"),
+            "missing equal sign".into(),
+            spans[command_len + 1],
+        ));
+        Some(&spans[command_len + 1])
+    } else {
+        None
+    }
+}
+
 pub fn parse_alias(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
@@ -831,7 +877,7 @@ pub fn parse_alias(
         return garbage_pipeline(spans);
     }
 
-    if let Some(span) = check_name(working_set, spans) {
+    if let Some(span) = check_alias_name(working_set, spans) {
         return Pipeline::from_vec(vec![garbage(*span)]);
     }
 
@@ -1233,7 +1279,7 @@ pub fn parse_export_in_module(
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
                 if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = def_call.clone();
+                    call.clone_from(def_call);
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_def_decl_id;
                 } else {
@@ -1269,7 +1315,7 @@ pub fn parse_export_in_module(
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
                 if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = def_call.clone();
+                    call.clone_from(def_call);
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_def_decl_id;
                 } else {
@@ -1325,7 +1371,7 @@ pub fn parse_export_in_module(
                 if let Some(Expr::Call(alias_call)) =
                     pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = alias_call.clone();
+                    call.clone_from(alias_call);
 
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_alias_decl_id;
@@ -1380,7 +1426,7 @@ pub fn parse_export_in_module(
                 // Trying to warp the 'use' call into the 'export use' in a very clumsy way
                 if let Some(Expr::Call(use_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = use_call.clone();
+                    call.clone_from(use_call);
 
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_use_decl_id;
@@ -1412,7 +1458,7 @@ pub fn parse_export_in_module(
                 if let Some(Expr::Call(module_call)) =
                     pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = module_call.clone();
+                    call.clone_from(module_call);
 
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_module_decl_id;
@@ -1463,7 +1509,7 @@ pub fn parse_export_in_module(
                 // Trying to warp the 'const' call into the 'export const' in a very clumsy way
                 if let Some(Expr::Call(def_call)) = pipeline.elements.first().map(|e| &e.expr.expr)
                 {
-                    call = def_call.clone();
+                    call.clone_from(def_call);
 
                     call.head = span(&spans[0..=1]);
                     call.decl_id = export_const_decl_id;
@@ -1831,32 +1877,16 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
+/// Parse a module from a file.
+///
+/// The module name is inferred from the stem of the file, unless specified in `name_override`.
 fn parse_module_file(
     working_set: &mut StateWorkingSet,
     path: ParserPath,
     path_span: Span,
     name_override: Option<String>,
 ) -> Option<ModuleId> {
-    if let Some(i) = working_set
-        .parsed_module_files
-        .iter()
-        .rposition(|p| p == path.path())
-    {
-        let mut files: Vec<String> = working_set
-            .parsed_module_files
-            .split_off(i)
-            .iter()
-            .map(|p| p.to_string_lossy().to_string())
-            .collect();
-
-        files.push(path.path().to_string_lossy().to_string());
-
-        let msg = files.join("\nuses ");
-
-        working_set.error(ParseError::CyclicalModuleImport(msg, path_span));
-        return None;
-    }
-
+    // Infer the module name from the stem of the file, unless overridden.
     let module_name = if let Some(name) = name_override {
         name
     } else if let Some(stem) = path.file_stem() {
@@ -1869,6 +1899,7 @@ fn parse_module_file(
         return None;
     };
 
+    // Read the content of the module.
     let contents = if let Some(contents) = path.read(working_set) {
         contents
     } else {
@@ -1882,29 +1913,23 @@ fn parse_module_file(
     let file_id = working_set.add_file(path.path().to_string_lossy().to_string(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
 
+    // Check if we've parsed the module before.
     if let Some(module_id) = working_set.find_module_by_span(new_span) {
         return Some(module_id);
     }
 
-    // Change the currently parsed directory
-    let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-        working_set.currently_parsed_cwd.replace(parent.into())
-    } else {
-        working_set.currently_parsed_cwd.clone()
-    };
-
-    // Add the file to the stack of parsed module files
-    working_set.parsed_module_files.push(path.path_buf());
+    // Add the file to the stack of files being processed.
+    if let Err(e) = working_set.files.push(path.path_buf(), path_span) {
+        working_set.error(e);
+        return None;
+    }
 
     // Parse the module
     let (block, module, module_comments) =
         parse_module_block(working_set, new_span, module_name.as_bytes());
 
-    // Remove the file from the stack of parsed module files
-    working_set.parsed_module_files.pop();
-
-    // Restore the currently parsed directory back
-    working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+    // Remove the file from the stack of files being processed.
+    working_set.files.pop();
 
     let _ = working_set.add_block(Arc::new(block));
     let module_id = working_set.add_module(&module_name, module, module_comments);
@@ -1927,7 +1952,7 @@ pub fn parse_module_file_or_dir(
     let cwd = working_set.get_cwd();
 
     let module_path =
-        if let Some(path) = find_in_dirs(&module_path_str, working_set, &cwd, LIB_DIRS_VAR) {
+        if let Some(path) = find_in_dirs(&module_path_str, working_set, &cwd, Some(LIB_DIRS_VAR)) {
             path
         } else {
             working_set.error(ParseError::ModuleNotFound(path_span, module_path_str));
@@ -2391,7 +2416,7 @@ pub fn parse_use(
 
     // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
-        expr: Expr::ImportPattern(import_pattern),
+        expr: Expr::ImportPattern(Box::new(import_pattern)),
         span: span(args_spans),
         ty: Type::Any,
         custom_completion: None,
@@ -2575,7 +2600,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
 
         // Create a new Use command call to pass the new import pattern
         let import_pattern_expr = Expression {
-            expr: Expr::ImportPattern(import_pattern),
+            expr: Expr::ImportPattern(Box::new(import_pattern)),
             span: span(args_spans),
             ty: Type::Any,
             custom_completion: None,
@@ -2957,7 +2982,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     );
 
                     if let Some(parse_error) = parse_error {
-                        working_set.parse_errors.push(parse_error)
+                        working_set.error(parse_error)
                     }
 
                     let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
@@ -2975,9 +3000,12 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     };
 
                     let mut idx = 0;
-
                     let (lvalue, explicit_type) =
                         parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
+                    // check for extra tokens after the identifier
+                    if idx + 1 < span.0 - 1 {
+                        working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
+                    }
 
                     let var_name =
                         String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
@@ -3083,6 +3111,10 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 
                     let (lvalue, explicit_type) =
                         parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
+                    // check for extra tokens after the identifier
+                    if idx + 1 < span.0 - 1 {
+                        working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
+                    }
 
                     let var_name =
                         String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
@@ -3214,7 +3246,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     );
 
                     if let Some(parse_error) = parse_error {
-                        working_set.parse_errors.push(parse_error)
+                        working_set.error(parse_error);
                     }
 
                     let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
@@ -3235,6 +3267,10 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     let (lvalue, explicit_type) =
                         parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, true);
+                    // check for extra tokens after the identifier
+                    if idx + 1 < span.0 - 1 {
+                        working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
+                    }
 
                     let var_name =
                         String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
@@ -3373,14 +3409,13 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                     }
                 };
 
-                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
+                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
                     if let Some(contents) = path.read(working_set) {
-                        // Change currently parsed directory
-                        let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-                            working_set.currently_parsed_cwd.replace(parent.into())
-                        } else {
-                            working_set.currently_parsed_cwd.clone()
-                        };
+                        // Add the file to the stack of files being processed.
+                        if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
+                            working_set.error(e);
+                            return garbage_pipeline(spans);
+                        }
 
                         // This will load the defs from the file into the
                         // working set, if it was a successful parse.
@@ -3391,8 +3426,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                             scoped,
                         );
 
-                        // Restore the currently parsed directory back
-                        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+                        // Remove the file from the stack of files being processed.
+                        working_set.files.pop();
 
                         // Save the block into the working set
                         let block_id = working_set.add_block(block);
@@ -3518,11 +3553,13 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
     }
 }
 
+/// `register` is deprecated and will be removed in 0.94. Use `plugin add` and `plugin use` instead.
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
-    use nu_plugin::{get_signature, PersistentPlugin, PluginDeclaration};
+    use nu_plugin::{get_signature, PluginDeclaration};
     use nu_protocol::{
-        engine::Stack, IntoSpanned, PluginIdentity, PluginSignature, RegisteredPlugin,
+        engine::Stack, ErrSpan, ParseWarning, PluginCacheItem, PluginIdentity, PluginSignature,
+        RegisteredPlugin,
     };
 
     let spans = &lite_command.parts;
@@ -3533,7 +3570,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
     // Maybe this is not necessary but it is a sanity check
     if working_set.get_span_contents(spans[0]) != b"register" {
         working_set.error(ParseError::UnknownState(
-            "internal error: Wrong call name for parse plugin function".into(),
+            "internal error: Wrong call name for 'register' function".into(),
             span(spans),
         ));
         return garbage_pipeline(spans);
@@ -3581,6 +3618,16 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         }
     };
 
+    // Now that the call is parsed, add the deprecation warning
+    working_set
+        .parse_warnings
+        .push(ParseWarning::DeprecatedWarning {
+            old_command: "register".into(),
+            new_suggestion: "use `plugin add` and `plugin use`".into(),
+            span: call.head,
+            url: "https://www.nushell.sh/book/plugins.html".into(),
+        });
+
     // Extracting the required arguments from the call and keeping them together in a tuple
     let arguments = call
         .positional_nth(0)
@@ -3591,7 +3638,8 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 .coerce_into_string()
                 .map_err(|err| err.wrap(working_set, call.head))?;
 
-            let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
+            let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(PLUGIN_DIRS_VAR))
+            else {
                 return Err(ParseError::RegisteredFileNotFound(filename, expr.span));
             };
 
@@ -3665,30 +3713,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         let path = path.path_buf();
 
         // Create the plugin identity. This validates that the plugin name starts with `nu_plugin_`
-        let identity =
-            PluginIdentity::new(path, shell).map_err(|err| err.into_spanned(path_span))?;
+        let identity = PluginIdentity::new(path, shell).err_span(path_span)?;
 
-        // Find garbage collection config
-        let gc_config = working_set
-            .get_config()
-            .plugin_gc
-            .get(identity.name())
-            .clone();
-
-        // Add it to the working set
-        let plugin = working_set.find_or_create_plugin(&identity, || {
-            Arc::new(PersistentPlugin::new(identity.clone(), gc_config))
-        });
-
-        // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed. The
-        // trait object only exists so that nu-protocol can contain plugins without knowing anything
-        // about their implementation, but we only use `PersistentPlugin` in practice.
-        let plugin: Arc<PersistentPlugin> = plugin.as_any().downcast().map_err(|_| {
-            ParseError::InternalError(
-                "encountered unexpected RegisteredPlugin type".into(),
-                spans[0],
-            )
-        })?;
+        let plugin = nu_plugin::add_plugin_to_working_set(working_set, &identity)
+            .map_err(|err| err.wrap(working_set, call.head))?;
 
         let signatures = signature.map_or_else(
             || {
@@ -3696,7 +3724,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 //
                 // The user would expect that `register` would always run the binary to get new
                 // signatures, in case it was replaced with an updated binary
-                plugin.stop().map_err(|err| {
+                plugin.reset().map_err(|err| {
                     ParseError::LabeledError(
                         "Failed to restart plugin to get new signatures".into(),
                         err.to_string(),
@@ -3705,6 +3733,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                 })?;
 
                 let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
+                    log::warn!("Error getting signatures: {err:?}");
                     ParseError::LabeledError(
                         "Error getting signatures".into(),
                         err.to_string(),
@@ -3712,10 +3741,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                     )
                 });
 
-                if signatures.is_ok() {
-                    // mark plugins file as dirty only when the user is registering plugins
-                    // and not when we evaluate plugin.nu on shell startup
-                    working_set.mark_plugins_file_dirty();
+                if let Ok(ref signatures) = signatures {
+                    // Add the loaded plugin to the delta
+                    working_set
+                        .update_plugin_cache(PluginCacheItem::new(&identity, signatures.clone()));
                 }
 
                 signatures
@@ -3726,7 +3755,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         for signature in signatures {
             // create plugin command declaration (need struct impl Command)
             // store declaration in working set
-            let plugin_decl = PluginDeclaration::new(&plugin, signature);
+            let plugin_decl = PluginDeclaration::new(plugin.clone(), signature);
 
             working_set.add_decl(Box::new(plugin_decl));
         }
@@ -3737,6 +3766,100 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
     if let Err(err) = error {
         working_set.error(err);
     }
+
+    Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(call),
+        span: call_span,
+        ty: Type::Nothing,
+        custom_completion: None,
+    }])
+}
+
+#[cfg(feature = "plugin")]
+pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
+    use nu_protocol::{FromValue, PluginCacheFile};
+
+    let cwd = working_set.get_cwd();
+
+    if let Err(err) = (|| {
+        let name = call
+            .positional_nth(0)
+            .map(|expr| {
+                eval_constant(working_set, expr)
+                    .and_then(Spanned::<String>::from_value)
+                    .map_err(|err| err.wrap(working_set, call.head))
+            })
+            .expect("required positional should have been checked")?;
+
+        let plugin_config = call
+            .named_iter()
+            .find(|(arg_name, _, _)| arg_name.item == "plugin-config")
+            .map(|(_, _, expr)| {
+                let expr = expr
+                    .as_ref()
+                    .expect("--plugin-config arg should have been checked already");
+                eval_constant(working_set, expr)
+                    .and_then(Spanned::<String>::from_value)
+                    .map_err(|err| err.wrap(working_set, call.head))
+            })
+            .transpose()?;
+
+        // Find the actual plugin config path location. We don't have a const/env variable for this,
+        // it either lives in the current working directory or in the script's directory
+        let plugin_config_path = if let Some(custom_path) = &plugin_config {
+            find_in_dirs(&custom_path.item, working_set, &cwd, None).ok_or_else(|| {
+                ParseError::FileNotFound(custom_path.item.clone(), custom_path.span)
+            })?
+        } else {
+            ParserPath::RealPath(
+                working_set
+                    .permanent_state
+                    .plugin_path
+                    .as_ref()
+                    .ok_or_else(|| ParseError::LabeledErrorWithHelp {
+                        error: "Plugin cache file not set".into(),
+                        label: "can't load plugin without cache file".into(),
+                        span: call.head,
+                        help:
+                            "pass --plugin-config to `plugin use` when $nu.plugin-path is not set"
+                                .into(),
+                    })?
+                    .to_owned(),
+            )
+        };
+
+        let file = plugin_config_path.open(working_set).map_err(|err| {
+            ParseError::LabeledError(
+                "Plugin cache file can't be opened".into(),
+                err.to_string(),
+                plugin_config.as_ref().map(|p| p.span).unwrap_or(call.head),
+            )
+        })?;
+
+        // The file is now open, so we just have to parse the contents and find the plugin
+        let contents = PluginCacheFile::read_from(file, Some(call.head))
+            .map_err(|err| err.wrap(working_set, call.head))?;
+
+        let plugin_item = contents
+            .plugins
+            .iter()
+            .find(|plugin| plugin.name == name.item)
+            .ok_or_else(|| ParseError::PluginNotFound {
+                name: name.item.clone(),
+                name_span: name.span,
+                plugin_config_span: plugin_config.as_ref().map(|p| p.span),
+            })?;
+
+        // Now add the signatures to the working set
+        nu_plugin::load_plugin_cache_item(working_set, plugin_item, Some(call.head))
+            .map_err(|err| err.wrap(working_set, call.head))?;
+
+        Ok(())
+    })() {
+        working_set.error(err);
+    }
+
+    let call_span = call.span();
 
     Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
@@ -3769,20 +3892,19 @@ pub fn find_in_dirs(
     filename: &str,
     working_set: &StateWorkingSet,
     cwd: &str,
-    dirs_var_name: &str,
+    dirs_var_name: Option<&str>,
 ) -> Option<ParserPath> {
     pub fn find_in_dirs_with_id(
         filename: &str,
         working_set: &StateWorkingSet,
         cwd: &str,
-        dirs_var_name: &str,
+        dirs_var_name: Option<&str>,
     ) -> Option<ParserPath> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
-            currently_parsed_cwd.as_path()
-        } else {
-            Path::new(cwd)
-        };
+        let actual_cwd = working_set
+            .files
+            .current_working_directory()
+            .unwrap_or(Path::new(cwd));
 
         // Try if we have an existing virtual path
         if let Some(virtual_path) = working_set.find_virtual_path(filename) {
@@ -3816,8 +3938,10 @@ pub fn find_in_dirs(
         }
 
         // Look up relative path from NU_LIB_DIRS
-        working_set
-            .get_variable(find_dirs_var(working_set, dirs_var_name)?)
+        dirs_var_name
+            .as_ref()
+            .and_then(|dirs_var_name| find_dirs_var(working_set, dirs_var_name))
+            .map(|var_id| working_set.get_variable(var_id))?
             .const_val
             .as_ref()?
             .as_list()
@@ -3839,14 +3963,13 @@ pub fn find_in_dirs(
         filename: &str,
         working_set: &StateWorkingSet,
         cwd: &str,
-        dirs_env: &str,
+        dirs_env: Option<&str>,
     ) -> Option<PathBuf> {
         // Choose whether to use file-relative or PWD-relative path
-        let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
-            currently_parsed_cwd.as_path()
-        } else {
-            Path::new(cwd)
-        };
+        let actual_cwd = working_set
+            .files
+            .current_working_directory()
+            .unwrap_or(Path::new(cwd));
 
         if let Ok(p) = canonicalize_with(filename, actual_cwd) {
             Some(p)
@@ -3854,7 +3977,9 @@ pub fn find_in_dirs(
             let path = Path::new(filename);
 
             if path.is_relative() {
-                if let Some(lib_dirs) = working_set.get_env_var(dirs_env) {
+                if let Some(lib_dirs) =
+                    dirs_env.and_then(|dirs_env| working_set.get_env_var(dirs_env))
+                {
                     if let Ok(dirs) = lib_dirs.as_list() {
                         for lib_dir in dirs {
                             if let Ok(dir) = lib_dir.to_path() {

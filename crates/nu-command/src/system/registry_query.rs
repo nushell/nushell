@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use windows::{core::PCWSTR, Win32::System::Environment::ExpandEnvironmentStringsW};
 use winreg::{enums::*, types::FromRegValue, RegKey};
 

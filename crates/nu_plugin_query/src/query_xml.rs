@@ -1,18 +1,26 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{record, Category, PluginSignature, Record, Span, Spanned, SyntaxShape, Value};
+use crate::Query;
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    record, Category, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
+};
 use sxd_document::parser;
 use sxd_xpath::{Context, Factory};
-
-use crate::Query;
 
 pub struct QueryXml;
 
 impl SimplePluginCommand for QueryXml {
     type Plugin = Query;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("query xml")
-            .usage("execute xpath query on xml")
+    fn name(&self) -> &str {
+        "query xml"
+    }
+
+    fn usage(&self) -> &str {
+        "execute xpath query on xml"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .required("query", SyntaxShape::String, "xpath query")
             .category(Category::Filters)
     }
@@ -38,11 +46,9 @@ pub fn execute_xpath_query(
     let (query_string, span) = match &query {
         Some(v) => (&v.item, v.span),
         None => {
-            return Err(LabeledError {
-                msg: "problem with input data".to_string(),
-                label: "problem with input data".to_string(),
-                span: Some(call.head),
-            })
+            return Err(
+                LabeledError::new("problem with input data").with_label("query missing", call.head)
+            )
         }
     };
 
@@ -50,12 +56,10 @@ pub fn execute_xpath_query(
     let input_string = input.coerce_str()?;
     let package = parser::parse(&input_string);
 
-    if package.is_err() {
-        return Err(LabeledError {
-            label: "invalid xml document".to_string(),
-            msg: "invalid xml document".to_string(),
-            span: Some(call.head),
-        });
+    if let Err(err) = package {
+        return Err(
+            LabeledError::new("Invalid XML document").with_label(err.to_string(), input.span())
+        );
     }
 
     let package = package.expect("invalid xml document");
@@ -107,29 +111,20 @@ pub fn execute_xpath_query(
 
             Ok(Value::list(records, call.head))
         }
-        Err(_) => Err(LabeledError {
-            label: "xpath query error".to_string(),
-            msg: "xpath query error".to_string(),
-            span: Some(call.head),
-        }),
+        Err(err) => {
+            Err(LabeledError::new("xpath query error").with_label(err.to_string(), call.head))
+        }
     }
 }
 
 fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledError> {
     let factory = Factory::new();
 
-    if let Ok(xpath) = factory.build(xpath_str) {
-        xpath.ok_or_else(|| LabeledError {
-            label: "invalid xpath query".to_string(),
-            msg: "invalid xpath query".to_string(),
-            span: Some(span),
-        })
-    } else {
-        Err(LabeledError {
-            label: "expected valid xpath query".to_string(),
-            msg: "expected valid xpath query".to_string(),
-            span: Some(span),
-        })
+    match factory.build(xpath_str) {
+        Ok(xpath) => xpath.ok_or_else(|| {
+            LabeledError::new("invalid xpath query").with_label("the query must not be empty", span)
+        }),
+        Err(err) => Err(LabeledError::new("invalid xpath query").with_label(err.to_string(), span)),
     }
 }
 

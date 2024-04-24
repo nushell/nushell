@@ -3,8 +3,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack, Visibility},
     record, ModuleId, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap};
 
 pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
@@ -476,11 +475,6 @@ impl<'e, 's> ScopeData<'e, 's> {
         sort_rows(&mut export_submodules);
         sort_rows(&mut export_consts);
 
-        let export_env_block = module.env_block.map_or_else(
-            || Value::nothing(span),
-            |block_id| Value::block(block_id, span),
-        );
-
         let (module_usage, module_extra_usage) = self
             .engine_state
             .build_module_usage(*module_id)
@@ -494,7 +488,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "externs" => Value::list(export_externs, span),
                 "submodules" => Value::list(export_submodules, span),
                 "constants" => Value::list(export_consts, span),
-                "env_block" => export_env_block,
+                "has_env_block" => Value::bool(module.env_block.is_some(), span),
                 "usage" => Value::string(module_usage, span),
                 "extra_usage" => Value::string(module_extra_usage, span),
                 "module_id" => Value::int(*module_id as i64, span),

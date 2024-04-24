@@ -1,11 +1,6 @@
-use super::super::values::NuLazyFrame;
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
+use nu_engine::command_prelude::*;
+use polars::chunked_array::ops::SortMultipleOptions;
 
 #[derive(Clone)]
 pub struct LazySortBy;
@@ -132,11 +127,17 @@ impl Command for LazySortBy {
             None => expressions.iter().map(|_| false).collect::<Vec<bool>>(),
         };
 
+        let sort_options = SortMultipleOptions {
+            descending: reverse,
+            nulls_last,
+            multithreaded: true,
+            maintain_order,
+        };
+
         let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
         let lazy = NuLazyFrame::new(
             lazy.from_eager,
-            lazy.into_polars()
-                .sort_by_exprs(&expressions, reverse, nulls_last, maintain_order),
+            lazy.into_polars().sort_by_exprs(&expressions, sort_options),
         );
 
         Ok(PipelineData::Value(

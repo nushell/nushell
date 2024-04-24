@@ -1,16 +1,12 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+use nu_engine::command_prelude::*;
+
+use quick_xml::{
+    escape,
+    events::{BytesEnd, BytesStart, BytesText, Event},
 };
-use quick_xml::escape;
-use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
-use std::borrow::Cow;
-use std::io::Cursor;
+use std::{borrow::Cow, io::Cursor};
 
 #[derive(Clone)]
 pub struct ToXml;
@@ -273,8 +269,7 @@ impl Job {
     fn find_invalid_column(record: &Record) -> Option<&String> {
         const VALID_COLS: [&str; 3] = [COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME];
         record
-            .cols
-            .iter()
+            .columns()
             .find(|col| !VALID_COLS.contains(&col.as_str()))
     }
 
@@ -330,7 +325,7 @@ impl Job {
             // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
             // content: null}, {tag: a}. See to_xml_entry for more
             let attrs = match attrs {
-                Value::Record { val, .. } => val,
+                Value::Record { val, .. } => val.into_owned(),
                 Value::Nothing { .. } => Record::new(),
                 _ => {
                     return Err(ShellError::CantConvert {

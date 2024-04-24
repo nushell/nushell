@@ -133,26 +133,27 @@ fn command_not_found_error_shows_not_found_1() {
 #[test]
 fn command_substitution_wont_output_extra_newline() {
     let actual = nu!(r#"
-        with-env [FOO "bar"] { echo $"prefix (nu --testbin echo_env FOO) suffix" }
+        with-env { FOO: "bar" } { echo $"prefix (nu --testbin echo_env FOO) suffix" }
         "#);
     assert_eq!(actual.out, "prefix bar suffix");
 
     let actual = nu!(r#"
-        with-env [FOO "bar"] { (nu --testbin echo_env FOO) }
+        with-env { FOO: "bar" } { (nu --testbin echo_env FOO) }
         "#);
     assert_eq!(actual.out, "bar");
 }
 
 #[test]
 fn basic_err_pipe_works() {
-    let actual = nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr FOO e>| str length }"#);
+    let actual =
+        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr FOO e>| str length }"#);
     assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn basic_outerr_pipe_works() {
     let actual = nu!(
-        r#"with-env [FOO "bar"] { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
+        r#"with-env { FOO: "bar" } { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
     );
     assert_eq!(actual.out, "7");
 }
@@ -160,7 +161,7 @@ fn basic_outerr_pipe_works() {
 #[test]
 fn err_pipe_with_failed_external_works() {
     let actual =
-        nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
+        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
     assert_eq!(actual.out, "3");
 }
 
@@ -375,7 +376,7 @@ mod nu_commands {
     #[test]
     fn echo_internally_externally() {
         let actual = nu!(r#"
-        nu -c "echo 'foo'"
+        nu -n -c "echo 'foo'"
         "#);
 
         assert_eq!(actual.out, "foo");
@@ -385,7 +386,7 @@ mod nu_commands {
     fn failed_with_proper_exit_code() {
         Playground::setup("external failed", |dirs, _sandbox| {
             let actual = nu!(cwd: dirs.test(), r#"
-            nu -c "cargo build | complete | get exit_code"
+            nu -n -c "cargo build | complete | get exit_code"
             "#);
 
             // cargo for non rust project's exit code is 101.
@@ -396,7 +397,7 @@ mod nu_commands {
     #[test]
     fn better_arg_quoting() {
         let actual = nu!(r#"
-        nu -c "\# '"
+        nu -n -c "\# '"
         "#);
 
         assert_eq!(actual.out, "");
@@ -405,7 +406,7 @@ mod nu_commands {
     #[test]
     fn command_list_arg_test() {
         let actual = nu!("
-        nu ...['-c' 'version']
+        nu ...['-n' '-c' 'version']
         ");
 
         assert!(actual.out.contains("version"));
@@ -416,7 +417,7 @@ mod nu_commands {
     #[test]
     fn command_cell_path_arg_test() {
         let actual = nu!("
-        nu ...([ '-c' 'version' ])
+        nu ...([ '-n' '-c' 'version' ])
         ");
 
         assert!(actual.out.contains("version"));
@@ -431,7 +432,7 @@ mod nu_script {
     #[test]
     fn run_nu_script() {
         let actual = nu!(cwd: "tests/fixtures/formats", "
-        nu script.nu
+        nu -n script.nu
         ");
 
         assert_eq!(actual.out, "done");
@@ -440,7 +441,7 @@ mod nu_script {
     #[test]
     fn run_nu_script_multiline() {
         let actual = nu!(cwd: "tests/fixtures/formats", "
-        nu script_multiline.nu
+        nu -n script_multiline.nu
         ");
 
         assert_eq!(actual.out, "23");

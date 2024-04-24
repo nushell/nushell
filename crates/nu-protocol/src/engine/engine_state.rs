@@ -1,31 +1,30 @@
+use crate::{
+    ast::Block,
+    debugger::{Debugger, NoopDebugger},
+    engine::{
+        usage::{build_usage, Usage},
+        CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
+        Variable, Visibility, DEFAULT_OVERLAY_NAME,
+    },
+    BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
+    ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
+};
 use fancy_regex::Regex;
 use lru::LruCache;
-
-use super::{usage::build_usage, usage::Usage, StateDelta};
-use super::{
-    Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Variable, Visibility, DEFAULT_OVERLAY_NAME,
-};
-use crate::ast::Block;
-use crate::debugger::{Debugger, NoopDebugger};
-use crate::{
-    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, VarId, VirtualPathId,
-};
-use crate::{Category, Value};
-use std::collections::HashMap;
-use std::num::NonZeroUsize;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::atomic::Ordering;
-use std::sync::{
-    atomic::{AtomicBool, AtomicU32},
-    Arc, Mutex, MutexGuard, PoisonError,
+use std::{
+    collections::HashMap,
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        Arc, Mutex, MutexGuard, PoisonError,
+    },
 };
 
 type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 
 #[cfg(feature = "plugin")]
-use crate::RegisteredPlugin;
+use crate::{PluginCacheFile, PluginCacheItem, RegisteredPlugin};
 
 pub static PWD_ENV: &str = "PWD";
 
@@ -74,13 +73,15 @@ impl Clone for IsDebugging {
 /// but they also rely on using IDs rather than full definitions.
 #[derive(Clone)]
 pub struct EngineState {
-    files: Vec<(Arc<String>, usize, usize)>,
-    file_contents: Vec<(Arc<Vec<u8>>, usize, usize)>,
+    files: Vec<CachedFile>,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
     decls: Arc<Vec<Box<dyn Command + 'static>>>,
-    pub(super) blocks: Vec<Arc<Block>>,
-    pub(super) modules: Vec<Arc<Module>>,
+    // The Vec is wrapped in Arc so that if we don't need to modify the list, we can just clone
+    // the reference and not have to clone each individual Arc inside. These lists can be
+    // especially long, so it helps
+    pub(super) blocks: Arc<Vec<Arc<Block>>>,
+    pub(super) modules: Arc<Vec<Arc<Module>>>,
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
@@ -91,14 +92,14 @@ pub struct EngineState {
     pub repl_state: Arc<Mutex<ReplState>>,
     pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
-    pub plugin_signatures: Option<PathBuf>,
+    pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]
     plugins: Vec<Arc<dyn RegisteredPlugin>>,
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
-    // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
-    pub(super) currently_parsed_cwd: Option<PathBuf>,
+    // Path to the file Nushell is currently evaluating, or None if we're in an interactive session.
+    pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
@@ -119,7 +120,6 @@ impl EngineState {
     pub fn new() -> Self {
         Self {
             files: vec![],
-            file_contents: vec![],
             virtual_paths: vec![],
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -129,10 +129,10 @@ impl EngineState {
                 Variable::new(Span::new(0, 0), Type::Any, false),
             ],
             decls: Arc::new(vec![]),
-            blocks: vec![],
-            modules: vec![Arc::new(Module::new(
+            blocks: Arc::new(vec![]),
+            modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
-            ))],
+            ))]),
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -155,13 +155,13 @@ impl EngineState {
             })),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
-            plugin_signatures: None,
+            plugin_path: None,
             #[cfg(feature = "plugin")]
             plugins: vec![],
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
-            currently_parsed_cwd: None,
+            file: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
@@ -183,16 +183,19 @@ impl EngineState {
     pub fn merge_delta(&mut self, mut delta: StateDelta) -> Result<(), ShellError> {
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
-        self.file_contents.extend(delta.file_contents);
         self.virtual_paths.extend(delta.virtual_paths);
         self.vars.extend(delta.vars);
-        self.blocks.extend(delta.blocks);
-        self.modules.extend(delta.modules);
         self.usage.merge_with(delta.usage);
 
-        // Avoid potentially cloning the Arc if we aren't adding anything
+        // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
             Arc::make_mut(&mut self.decls).extend(delta.decls);
+        }
+        if !delta.blocks.is_empty() {
+            Arc::make_mut(&mut self.blocks).extend(delta.blocks);
+        }
+        if !delta.modules.is_empty() {
+            Arc::make_mut(&mut self.modules).extend(delta.modules);
         }
 
         let first = delta.scope.remove(0);
@@ -252,7 +255,7 @@ impl EngineState {
                 if let Some(existing) = self
                     .plugins
                     .iter_mut()
-                    .find(|p| p.identity() == plugin.identity())
+                    .find(|p| p.identity().name() == plugin.identity().name())
                 {
                     // Stop the existing plugin, so that the new plugin definitely takes over
                     existing.stop()?;
@@ -264,9 +267,11 @@ impl EngineState {
         }
 
         #[cfg(feature = "plugin")]
-        if delta.plugins_changed {
+        if !delta.plugin_cache_items.is_empty() {
             // Update the plugin file with the new signatures.
-            self.update_plugin_file()?;
+            if self.plugin_path.is_some() {
+                self.update_plugin_file(std::mem::take(&mut delta.plugin_cache_items))?;
+            }
         }
 
         Ok(())
@@ -289,7 +294,7 @@ impl EngineState {
                             // Don't insert the record as the "config" env var as-is.
                             // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
-                            let (config, error) = new_record.into_config(&self.config);
+                            let (config, error) = new_record.parse_as_config(&self.config);
                             self.config = Arc::new(config);
                             config_updated = true;
                             env_vars.insert(k, new_record);
@@ -317,15 +322,6 @@ impl EngineState {
         }
 
         Ok(())
-    }
-
-    /// Mark a starting point if it is a script (e.g., nu spam.nu)
-    pub fn start_in_file(&mut self, file_path: Option<&str>) {
-        self.currently_parsed_cwd = if let Some(path) = file_path {
-            Path::new(path).parent().map(PathBuf::from)
-        } else {
-            None
-        };
     }
 
     pub fn has_overlay(&self, name: &[u8]) -> bool {
@@ -484,97 +480,58 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn update_plugin_file(&self) -> Result<(), ShellError> {
-        use std::io::Write;
-
-        use crate::{PluginExample, PluginSignature};
-
+    pub fn update_plugin_file(
+        &self,
+        updated_items: Vec<PluginCacheItem>,
+    ) -> Result<(), ShellError> {
         // Updating the signatures plugin file with the added signatures
-        self.plugin_signatures
+        use std::fs::File;
+
+        let plugin_path = self
+            .plugin_path
             .as_ref()
-            .ok_or_else(|| ShellError::PluginFailedToLoad {
-                msg: "Plugin file not found".into(),
-            })
-            .and_then(|plugin_path| {
-                // Always create the file, which will erase previous signatures
-                std::fs::File::create(plugin_path.as_path()).map_err(|err| {
-                    ShellError::PluginFailedToLoad {
-                        msg: err.to_string(),
-                    }
-                })
-            })
-            .and_then(|mut plugin_file| {
-                // Plugin definitions with parsed signature
-                self.plugin_decls().try_for_each(|decl| {
-                    // A successful plugin registration already includes the plugin filename
-                    // No need to check the None option
-                    let identity = decl.plugin_identity().expect("plugin should have identity");
-                    let mut file_name = identity
-                        .filename()
-                        .to_str()
-                        .expect("path was checked during registration as a str")
-                        .to_string();
+            .ok_or_else(|| ShellError::GenericError {
+                error: "Plugin file path not set".into(),
+                msg: "".into(),
+                span: None,
+                help: Some("you may be running nu with --no-config-file".into()),
+                inner: vec![],
+            })?;
 
-                    // Fix files or folders with quotes
-                    if file_name.contains('\'')
-                        || file_name.contains('"')
-                        || file_name.contains(' ')
-                    {
-                        file_name = format!("`{file_name}`");
-                    }
+        // Read the current contents of the plugin file if it exists
+        let mut contents = match File::open(plugin_path.as_path()) {
+            Ok(mut plugin_file) => PluginCacheFile::read_from(&mut plugin_file, None),
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    Ok(PluginCacheFile::default())
+                } else {
+                    Err(ShellError::GenericError {
+                        error: "Failed to open plugin file".into(),
+                        msg: "".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![err.into()],
+                    })
+                }
+            }
+        }?;
 
-                    let sig = decl.signature();
-                    let examples = decl
-                        .examples()
-                        .into_iter()
-                        .map(|eg| PluginExample {
-                            example: eg.example.into(),
-                            description: eg.description.into(),
-                            result: eg.result,
-                        })
-                        .collect();
-                    let sig_with_examples = PluginSignature::new(sig, examples);
-                    serde_json::to_string_pretty(&sig_with_examples)
-                        .map(|signature| {
-                            // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = identity
-                                .shell()
-                                .map(|path| {
-                                    format!(
-                                        "-s {}",
-                                        path.to_str().expect(
-                                            "shell path was checked during registration as a str"
-                                        )
-                                    )
-                                })
-                                .unwrap_or_default();
+        // Update the given signatures
+        for item in updated_items {
+            contents.upsert_plugin(item);
+        }
 
-                            // Each signature is stored in the plugin file with the shell and signature
-                            // This information will be used when loading the plugin
-                            // information when nushell starts
-                            format!("register {file_name} {shell_str} {signature}\n\n")
-                        })
-                        .map_err(|err| ShellError::PluginFailedToLoad {
-                            msg: err.to_string(),
-                        })
-                        .and_then(|line| {
-                            plugin_file.write_all(line.as_bytes()).map_err(|err| {
-                                ShellError::PluginFailedToLoad {
-                                    msg: err.to_string(),
-                                }
-                            })
-                        })
-                        .and_then(|_| {
-                            plugin_file.flush().map_err(|err| ShellError::GenericError {
-                                error: "Error flushing plugin file".into(),
-                                msg: format! {"{err}"},
-                                span: None,
-                                help: None,
-                                inner: vec![],
-                            })
-                        })
-                })
-            })
+        // Write it to the same path
+        let plugin_file =
+            File::create(plugin_path.as_path()).map_err(|err| ShellError::GenericError {
+                error: "Failed to write plugin file".into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![err.into()],
+            })?;
+
+        contents.write_to(plugin_file, None)
     }
 
     /// Update plugins with new garbage collection config
@@ -628,8 +585,8 @@ impl EngineState {
     }
 
     pub fn print_contents(&self) {
-        for (contents, _, _) in self.file_contents.iter() {
-            let string = String::from_utf8_lossy(contents);
+        for cached_file in self.files.iter() {
+            let string = String::from_utf8_lossy(&cached_file.content);
             println!("{string}");
         }
     }
@@ -728,7 +685,7 @@ impl EngineState {
         &self,
         predicate: impl Fn(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>)> {
+    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for overlay_frame in self.active_overlays(&[]).rev() {
@@ -738,7 +695,11 @@ impl EngineState {
                     if ignore_deprecated && command.signature().category == Category::Removed {
                         continue;
                     }
-                    output.push((decl.0.clone(), Some(command.usage().to_string())));
+                    output.push((
+                        decl.0.clone(),
+                        Some(command.usage().to_string()),
+                        command.command_type(),
+                    ));
                 }
             }
         }
@@ -747,9 +708,10 @@ impl EngineState {
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
-        for (contents, start, finish) in &self.file_contents {
-            if span.start >= *start && span.end <= *finish {
-                return &contents[(span.start - start)..(span.end - start)];
+        for file in &self.files {
+            if file.covered_span.contains_span(span) {
+                return &file.content
+                    [(span.start - file.covered_span.start)..(span.end - file.covered_span.start)];
             }
         }
         &[0u8; 0]
@@ -779,11 +741,7 @@ impl EngineState {
 
     /// Returns the configuration settings for command history or `None` if history is disabled
     pub fn history_config(&self) -> Option<HistoryConfig> {
-        if self.history_enabled {
-            Some(self.config.history)
-        } else {
-            None
-        }
+        self.history_enabled.then(|| self.config.history)
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {
@@ -909,26 +867,28 @@ impl EngineState {
     }
 
     pub fn next_span_start(&self) -> usize {
-        if let Some((_, _, last)) = self.file_contents.last() {
-            *last
+        if let Some(cached_file) = self.files.last() {
+            cached_file.covered_span.end
         } else {
             0
         }
     }
 
-    pub fn files(&self) -> impl Iterator<Item = &(Arc<String>, usize, usize)> {
+    pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
         self.files.iter()
     }
 
-    pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
+    pub fn add_file(&mut self, filename: Arc<str>, content: Arc<[u8]>) -> FileId {
         let next_span_start = self.next_span_start();
-        let next_span_end = next_span_start + contents.len();
+        let next_span_end = next_span_start + content.len();
 
-        self.file_contents
-            .push((Arc::new(contents), next_span_start, next_span_end));
+        let covered_span = Span::new(next_span_start, next_span_end);
 
-        self.files
-            .push((Arc::new(filename), next_span_start, next_span_end));
+        self.files.push(CachedFile {
+            name: filename,
+            content,
+            covered_span,
+        });
 
         self.num_files() - 1
     }
@@ -968,8 +928,9 @@ impl EngineState {
             .unwrap_or_default()
     }
 
-    pub fn get_file_contents(&self) -> &[(Arc<Vec<u8>>, usize, usize)] {
-        &self.file_contents
+    // TODO: see if we can completely get rid of this
+    pub fn get_file_contents(&self) -> &[CachedFile] {
+        &self.files
     }
 
     pub fn get_startup_time(&self) -> i64 {
@@ -1043,7 +1004,7 @@ mod engine_state_tests {
     #[test]
     fn add_file_gives_id_including_parent() {
         let mut engine_state = EngineState::new();
-        let parent_id = engine_state.add_file("test.nu".into(), vec![]);
+        let parent_id = engine_state.add_file("test.nu".into(), Arc::new([]));
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let working_set_id = working_set.add_file("child.nu".into(), &[]);
@@ -1055,7 +1016,7 @@ mod engine_state_tests {
     #[test]
     fn merge_states() -> Result<(), ShellError> {
         let mut engine_state = EngineState::new();
-        engine_state.add_file("test.nu".into(), vec![]);
+        engine_state.add_file("test.nu".into(), Arc::new([]));
 
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
@@ -1066,8 +1027,8 @@ mod engine_state_tests {
         engine_state.merge_delta(delta)?;
 
         assert_eq!(engine_state.num_files(), 2);
-        assert_eq!(&*engine_state.files[0].0, "test.nu");
-        assert_eq!(&*engine_state.files[1].0, "child.nu");
+        assert_eq!(&*engine_state.files[0].name, "test.nu");
+        assert_eq!(&*engine_state.files[1].name, "child.nu");
 
         Ok(())
     }

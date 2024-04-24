@@ -1,10 +1,4 @@
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, ClosureEvalOnce};
 
 #[derive(Clone)]
 pub struct Zip;
@@ -104,26 +98,21 @@ impl Command for Zip {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let ctrlc = engine_state.ctrlc.clone();
-        let metadata = input.metadata();
-        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+        let other = call.req(engine_state, stack, 0)?;
 
-        let other: PipelineData = match call.req(engine_state, stack, 0)? {
+        let metadata = input.metadata();
+        let other = if let Value::Closure { val, .. } = other {
             // If a closure was provided, evaluate it and consume its stream output
-            Value::Closure { val, .. } => {
-                let block = engine_state.get_block(val.block_id);
-                let mut stack = stack.captures_to_stack(val.captures);
-                eval_block_with_early_return(engine_state, &mut stack, block, PipelineData::Empty)?
-            }
-            // If any other value, use it as-is.
-            val => val.into_pipeline_data(),
+            ClosureEvalOnce::new(engine_state, stack, val).run_with_input(PipelineData::Empty)?
+        } else {
+            other.into_pipeline_data()
         };
 
         Ok(input
             .into_iter()
             .zip(other)
             .map(move |(x, y)| Value::list(vec![x, y], head))
-            .into_pipeline_data_with_metadata(metadata, ctrlc))
+            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
     }
 }
 

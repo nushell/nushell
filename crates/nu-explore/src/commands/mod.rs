@@ -1,10 +1,8 @@
+use super::pager::{Pager, Transition};
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-
-use super::pager::{Pager, Transition};
-
 use std::{borrow::Cow, io::Result};
 
 mod expand;

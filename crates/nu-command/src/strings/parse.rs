@@ -1,13 +1,9 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-
 use fancy_regex::Regex;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, ListStream, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+use nu_engine::command_prelude::*;
+use nu_protocol::ListStream;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
 
 #[derive(Clone)]
@@ -23,7 +19,7 @@ impl Command for Parse {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match", "regex"]
+        vec!["pattern", "match", "regex", "str extract"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {

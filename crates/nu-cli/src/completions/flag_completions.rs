@@ -4,8 +4,9 @@ use nu_protocol::{
     engine::StateWorkingSet,
     Span,
 };
-
 use reedline::Suggestion;
+
+use super::SemanticSuggestion;
 
 #[derive(Clone)]
 pub struct FlagCompletion {
@@ -27,7 +28,7 @@ impl Completer for FlagCompletion {
         offset: usize,
         _: usize,
         options: &CompletionOptions,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         // Check if it's a flag
         if let Expr::Call(call) = &self.expression.expr {
             let decl = working_set.get_decl(call.decl_id);
@@ -43,16 +44,20 @@ impl Completer for FlagCompletion {
                     named.insert(0, b'-');
 
                     if options.match_algorithm.matches_u8(&named, &prefix) {
-                        output.push(Suggestion {
-                            value: String::from_utf8_lossy(&named).to_string(),
-                            description: Some(flag_desc.to_string()),
-                            style: None,
-                            extra: None,
-                            span: reedline::Span {
-                                start: span.start - offset,
-                                end: span.end - offset,
+                        output.push(SemanticSuggestion {
+                            suggestion: Suggestion {
+                                value: String::from_utf8_lossy(&named).to_string(),
+                                description: Some(flag_desc.to_string()),
+                                style: None,
+                                extra: None,
+                                span: reedline::Span {
+                                    start: span.start - offset,
+                                    end: span.end - offset,
+                                },
+                                append_whitespace: true,
                             },
-                            append_whitespace: true,
+                            // TODO????
+                            kind: None,
                         });
                     }
                 }
@@ -66,16 +71,20 @@ impl Completer for FlagCompletion {
                 named.insert(0, b'-');
 
                 if options.match_algorithm.matches_u8(&named, &prefix) {
-                    output.push(Suggestion {
-                        value: String::from_utf8_lossy(&named).to_string(),
-                        description: Some(flag_desc.to_string()),
-                        style: None,
-                        extra: None,
-                        span: reedline::Span {
-                            start: span.start - offset,
-                            end: span.end - offset,
+                    output.push(SemanticSuggestion {
+                        suggestion: Suggestion {
+                            value: String::from_utf8_lossy(&named).to_string(),
+                            description: Some(flag_desc.to_string()),
+                            style: None,
+                            extra: None,
+                            span: reedline::Span {
+                                start: span.start - offset,
+                                end: span.end - offset,
+                            },
+                            append_whitespace: true,
                         },
-                        append_whitespace: true,
+                        // TODO????
+                        kind: None,
                     });
                 }
             }

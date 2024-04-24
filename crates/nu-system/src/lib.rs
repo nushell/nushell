@@ -7,7 +7,9 @@ pub mod os_info;
 #[cfg(target_os = "windows")]
 mod windows;
 
-pub use self::foreground::ForegroundChild;
+#[cfg(unix)]
+pub use self::foreground::stdin_fd;
+pub use self::foreground::{ForegroundChild, ForegroundGuard};
 #[cfg(any(target_os = "android", target_os = "linux"))]
 pub use self::linux::*;
 #[cfg(target_os = "macos")]

@@ -1,15 +1,15 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
-use nu_protocol::ast::{Call, Expr};
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
-use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
-
+use crate::ClosureEvalOnce;
 use nu_path::canonicalize_with;
-use nu_protocol::debugger::WithoutDebug;
-
-use crate::eval_block;
+use nu_protocol::{
+    ast::{Call, Expr},
+    engine::{EngineState, Stack, StateWorkingSet, PWD_ENV},
+    Config, ShellError, Span, Value, VarId,
+};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 #[cfg(windows)]
 const ENV_PATH_NAME: &str = "Path";
@@ -353,7 +353,7 @@ pub fn find_in_dirs_env(
 /// is the canonical way to fetch config at runtime when you have Stack available.
 pub fn get_config(engine_state: &EngineState, stack: &Stack) -> Config {
     if let Some(mut config_record) = stack.get_env_var(engine_state, "config") {
-        config_record.into_config(engine_state.get_config()).0
+        config_record.parse_as_config(engine_state.get_config()).0
     } else {
         engine_state.get_config().clone()
     }
@@ -375,37 +375,12 @@ fn get_converted_value(
         .and_then(|record| record.get(direction));
 
     if let Some(conversion) = conversion {
-        let from_span = conversion.span();
         match conversion.as_closure() {
-            Ok(val) => {
-                let block = engine_state.get_block(val.block_id);
-
-                if let Some(var) = block.signature.get_positional(0) {
-                    let mut stack = stack.captures_to_stack(val.captures.clone());
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, orig_val.clone());
-                    }
-
-                    let val_span = orig_val.span();
-                    // TODO DEBUG
-                    let result = eval_block::<WithoutDebug>(
-                        engine_state,
-                        &mut stack,
-                        block,
-                        PipelineData::new_with_metadata(None, val_span),
-                    );
-
-                    match result {
-                        Ok(data) => ConversionResult::Ok(data.into_value(val_span)),
-                        Err(e) => ConversionResult::ConversionError(e),
-                    }
-                } else {
-                    ConversionResult::ConversionError(ShellError::MissingParameter {
-                        param_name: "block input".into(),
-                        span: from_span,
-                    })
-                }
-            }
+            Ok(closure) => ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                .debug(false)
+                .run_with_value(orig_val.clone())
+                .map(|data| ConversionResult::Ok(data.into_value(orig_val.span())))
+                .unwrap_or_else(ConversionResult::ConversionError),
             Err(e) => ConversionResult::ConversionError(e),
         }
     } else {

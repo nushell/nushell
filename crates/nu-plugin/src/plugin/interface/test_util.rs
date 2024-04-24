@@ -1,13 +1,10 @@
+use super::{EngineInterfaceManager, PluginInterfaceManager, PluginRead, PluginWrite};
+use crate::{plugin::PluginSource, protocol::PluginInput, PluginOutput};
+use nu_protocol::ShellError;
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
 };
-
-use nu_protocol::ShellError;
-
-use crate::{plugin::PluginSource, protocol::PluginInput, PluginOutput};
-
-use super::{EngineInterfaceManager, PluginInterfaceManager, PluginRead, PluginWrite};
 
 /// Mock read/write helper for the engine and plugin interfaces.
 #[derive(Debug, Clone)]
@@ -131,7 +128,7 @@ impl<I, O> TestCase<I, O> {
 impl TestCase<PluginOutput, PluginInput> {
     /// Create a new [`PluginInterfaceManager`] that writes to this test case.
     pub(crate) fn plugin(&self, name: &str) -> PluginInterfaceManager {
-        PluginInterfaceManager::new(PluginSource::new_fake(name).into(), self.clone())
+        PluginInterfaceManager::new(PluginSource::new_fake(name).into(), None, self.clone())
     }
 }
 

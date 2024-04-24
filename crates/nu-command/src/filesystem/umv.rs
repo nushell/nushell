@@ -1,12 +1,8 @@
 use super::util::get_rest_for_glob_pattern;
-use nu_engine::current_dir;
-use nu_engine::CallExt;
-use nu_path::{expand_path_with, expand_to_real_path};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
-use std::ffi::OsString;
-use std::path::PathBuf;
+use nu_engine::{command_prelude::*, current_dir};
+use nu_path::expand_path_with;
+use nu_protocol::NuGlob;
+use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
 
 #[derive(Clone)]
@@ -42,7 +38,7 @@ impl Command for UMv {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["move"]
+        vec!["move", "file", "files", "coreutils"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -98,7 +94,8 @@ impl Command for UMv {
                 error: "Missing destination path".into(),
                 msg: format!(
                     "Missing destination path operand after {}",
-                    expand_path_with(paths[0].item.as_ref(), cwd).to_string_lossy()
+                    expand_path_with(paths[0].item.as_ref(), cwd, paths[0].item.is_expand())
+                        .to_string_lossy()
                 ),
                 span: Some(paths[0].span),
                 help: None,
@@ -112,7 +109,7 @@ impl Command for UMv {
             label: "Missing file operand".into(),
             span: call.head,
         })?;
-        let mut files: Vec<PathBuf> = Vec::new();
+        let mut files: Vec<(Vec<PathBuf>, bool)> = Vec::new();
         for mut p in paths {
             p.item = p.item.strip_ansi_string_unlikely();
             let exp_files: Vec<Result<PathBuf, ShellError>> =
@@ -134,22 +131,26 @@ impl Command for UMv {
                     Err(e) => return Err(e),
                 }
             }
-            files.append(&mut app_vals);
+            files.push((app_vals, p.item.is_expand()));
         }
 
         // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env which is not
         // supported in Nushell
-        for src in files.iter_mut() {
-            if !src.is_absolute() {
-                *src = nu_path::expand_path_with(&src, &cwd);
+        for (files, need_expand_tilde) in files.iter_mut() {
+            for src in files.iter_mut() {
+                if !src.is_absolute() {
+                    *src = nu_path::expand_path_with(&src, &cwd, *need_expand_tilde);
+                }
             }
         }
+        let mut files: Vec<PathBuf> = files.into_iter().flat_map(|x| x.0).collect();
 
         // Add back the target after globbing
-        let expanded_target = expand_to_real_path(nu_utils::strip_ansi_string_unlikely(
-            spanned_target.item.to_string(),
-        ));
-        let abs_target_path = expand_path_with(expanded_target, &cwd);
+        let abs_target_path = expand_path_with(
+            nu_utils::strip_ansi_string_unlikely(spanned_target.item.to_string()),
+            &cwd,
+            matches!(spanned_target.item, NuGlob::Expand(..)),
+        );
         files.push(abs_target_path.clone());
         let files = files
             .into_iter()

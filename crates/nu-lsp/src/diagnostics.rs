@@ -1,3 +1,4 @@
+use crate::LanguageServer;
 use lsp_types::{
     notification::{Notification, PublishDiagnostics},
     Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Url,
@@ -9,8 +10,6 @@ use nu_protocol::{
     eval_const::create_nu_constant,
     Span, Value, NU_VARIABLE_ID,
 };
-
-use crate::LanguageServer;
 
 impl LanguageServer {
     pub(crate) fn publish_diagnostics_for_file(

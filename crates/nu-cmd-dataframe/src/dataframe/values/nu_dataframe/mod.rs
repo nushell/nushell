@@ -6,15 +6,22 @@ mod operations;
 pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
-use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
-use polars_plan::prelude::{lit, Expr, Null};
-use polars_utils::total_ord::TotalEq;
-use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, collections::HashSet, fmt::Display, hash::Hasher};
-
 use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
+use indexmap::IndexMap;
+use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
+use polars::{
+    chunked_array::ops::SortMultipleOptions,
+    prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series},
+};
+use polars_plan::prelude::{lit, Expr, Null};
+use polars_utils::total_ord::{TotalEq, TotalHash};
+use serde::{Deserialize, Serialize};
+use std::{
+    cmp::Ordering,
+    collections::HashSet,
+    fmt::Display,
+    hash::{Hash, Hasher},
+};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -29,6 +36,15 @@ impl DataFrameValue {
 
     fn get_value(&self) -> Value {
         self.0.clone()
+    }
+}
+
+impl TotalHash for DataFrameValue {
+    fn tot_hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        (*self).hash(state)
     }
 }
 
@@ -51,7 +67,7 @@ impl PartialEq for DataFrameValue {
 }
 impl Eq for DataFrameValue {}
 
-impl std::hash::Hash for DataFrameValue {
+impl Hash for DataFrameValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match &self.0 {
             Value::Nothing { .. } => 0.hash(state),
@@ -117,15 +133,15 @@ impl NuDataFrame {
     }
 
     pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Value {
-        Value::custom_value(Box::new(Self::new(false, dataframe)), span)
+        Value::custom(Box::new(Self::new(false, dataframe)), span)
     }
 
     pub fn into_value(self, span: Span) -> Value {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
-            Value::custom_value(Box::new(lazy), span)
+            Value::custom(Box::new(lazy), span)
         } else {
-            Value::custom_value(Box::new(self), span)
+            Value::custom(Box::new(self), span)
         }
     }
 
@@ -153,7 +169,7 @@ impl NuDataFrame {
 
         for value in iter {
             match value {
-                Value::CustomValue { .. } => return Self::try_from_value(value),
+                Value::Custom { .. } => return Self::try_from_value(value),
                 Value::List { vals, .. } => {
                     let record = vals
                         .into_iter()
@@ -163,9 +179,11 @@ impl NuDataFrame {
 
                     conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
-                Value::Record { val: record, .. } => {
-                    conversion::insert_record(&mut column_values, record, &maybe_schema)?
-                }
+                Value::Record { val: record, .. } => conversion::insert_record(
+                    &mut column_values,
+                    record.into_owned(),
+                    &maybe_schema,
+                )?,
                 _ => {
                     let key = "0".to_string();
                     conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
@@ -257,7 +275,7 @@ impl NuDataFrame {
     pub fn get_df(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(df) => Ok(NuDataFrame {
                     df: df.df.clone(),
                     from_lazy: false,
@@ -284,7 +302,7 @@ impl NuDataFrame {
     }
 
     pub fn can_downcast(value: &Value) -> bool {
-        if let Value::CustomValue { val, .. } = value {
+        if let Value::Custom { val, .. } = value {
             val.as_any().downcast_ref::<Self>().is_some()
         } else {
             false
@@ -473,12 +491,18 @@ impl NuDataFrame {
             .expect("already checked that dataframe is different than 0");
 
         // if unable to sort, then unable to compare
-        let lhs = match self.as_ref().sort(vec![*first_col], false, false) {
+        let lhs = match self
+            .as_ref()
+            .sort(vec![*first_col], SortMultipleOptions::default())
+        {
             Ok(df) => df,
             Err(_) => return None,
         };
 
-        let rhs = match other.as_ref().sort(vec![*first_col], false, false) {
+        let rhs = match other
+            .as_ref()
+            .sort(vec![*first_col], SortMultipleOptions::default())
+        {
             Ok(df) => df,
             Err(_) => return None,
         };

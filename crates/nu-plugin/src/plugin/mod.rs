@@ -1,54 +1,69 @@
-use nu_engine::documentation::get_flags_section;
-
-use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::ffi::OsStr;
-use std::fmt::Write;
-use std::io::{BufReader, Read, Write as WriteTrait};
-use std::path::Path;
-use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
-use std::{env, thread};
-
-use std::sync::mpsc::TrySendError;
-use std::sync::{mpsc, Arc, Mutex};
-
-use crate::plugin::interface::{EngineInterfaceManager, ReceivedPluginCall};
-use crate::protocol::{
-    CallInfo, CustomValueOp, LabeledError, PluginCustomValue, PluginInput, PluginOutput,
+use crate::{
+    plugin::interface::ReceivedPluginCall,
+    protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput},
+    EncodingType,
 };
-use crate::EncodingType;
+
+use std::{
+    cmp::Ordering,
+    collections::HashMap,
+    env,
+    ffi::OsString,
+    io::{BufReader, BufWriter},
+    ops::Deref,
+    panic::AssertUnwindSafe,
+    path::Path,
+    process::{Child, Command as CommandSys},
+    sync::{
+        mpsc::{self, TrySendError},
+        Arc, Mutex,
+    },
+    thread,
+};
+
+use nu_engine::documentation::get_flags_section;
+use nu_protocol::{
+    ast::Operator, engine::StateWorkingSet, report_error_new, CustomValue, IntoSpanned,
+    LabeledError, PipelineData, PluginCacheFile, PluginCacheItem, PluginCacheItemData,
+    PluginIdentity, PluginSignature, RegisteredPlugin, ShellError, Span, Spanned, Value,
+};
+use thiserror::Error;
 
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
-
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginSignature, ShellError, Spanned,
-    Value,
+pub use self::interface::{PluginRead, PluginWrite};
+use self::{
+    command::render_examples,
+    communication_mode::{
+        ClientCommunicationIo, CommunicationMode, PreparedServerCommunication,
+        ServerCommunicationIo,
+    },
+    gc::PluginGc,
 };
 
-use self::gc::PluginGc;
-
 mod command;
+mod communication_mode;
 mod context;
 mod declaration;
 mod gc;
 mod interface;
 mod persistent;
+mod process;
 mod source;
 
-pub use command::{PluginCommand, SimplePluginCommand};
+pub use command::{create_plugin_signature, PluginCommand, SimplePluginCommand};
 pub use declaration::PluginDeclaration;
-pub use interface::EngineInterface;
-pub use persistent::PersistentPlugin;
+pub use interface::{
+    EngineInterface, EngineInterfaceManager, Interface, InterfaceManager, PluginInterface,
+    PluginInterfaceManager,
+};
+pub use persistent::{GetPlugin, PersistentPlugin};
 
-pub(crate) use context::PluginExecutionCommandContext;
-pub(crate) use interface::PluginInterface;
-pub(crate) use source::PluginSource;
-
-use interface::{InterfaceManager, PluginInterfaceManager};
+pub use context::{PluginExecutionCommandContext, PluginExecutionContext};
+pub use source::PluginSource;
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
@@ -58,8 +73,8 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 pub trait Encoder<T>: Clone + Send + Sync {
     /// Serialize a value in the [`PluginEncoder`]s format
     ///
-    /// Returns [ShellError::IOError] if there was a problem writing, or
-    /// [ShellError::PluginFailedToEncode] for a serialization error.
+    /// Returns [`ShellError::IOError`] if there was a problem writing, or
+    /// [`ShellError::PluginFailedToEncode`] for a serialization error.
     #[doc(hidden)]
     fn encode(&self, data: &T, writer: &mut impl std::io::Write) -> Result<(), ShellError>;
 
@@ -67,8 +82,8 @@ pub trait Encoder<T>: Clone + Send + Sync {
     ///
     /// Returns `None` if there is no more output to receive.
     ///
-    /// Returns [ShellError::IOError] if there was a problem reading, or
-    /// [ShellError::PluginFailedToDecode] for a deserialization error.
+    /// Returns [`ShellError::IOError`] if there was a problem reading, or
+    /// [`ShellError::PluginFailedToDecode`] for a deserialization error.
     #[doc(hidden)]
     fn decode(&self, reader: &mut impl std::io::BufRead) -> Result<Option<T>, ShellError>;
 }
@@ -79,62 +94,54 @@ pub trait PluginEncoder: Encoder<PluginInput> + Encoder<PluginOutput> {
     fn name(&self) -> &str;
 }
 
-fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
-    log::trace!("Starting plugin: {path:?}, shell = {shell:?}");
+fn create_command(path: &Path, mut shell: Option<&Path>, mode: &CommunicationMode) -> CommandSys {
+    log::trace!("Starting plugin: {path:?}, shell = {shell:?}, mode = {mode:?}");
 
-    // There is only one mode supported at the moment, but the idea is that future
-    // communication methods could be supported if desirable
-    let mut input_arg = Some("--stdio");
+    let mut shell_args = vec![];
 
-    let mut process = match (path.extension(), shell) {
-        (_, Some(shell)) => {
-            let mut process = std::process::Command::new(shell);
-            process.arg(path);
-
-            process
-        }
-        (Some(extension), None) => {
-            let (shell, command_switch) = match extension.to_str() {
-                Some("cmd") | Some("bat") => (Some("cmd"), Some("/c")),
-                Some("sh") => (Some("sh"), Some("-c")),
-                Some("py") => (Some("python"), None),
-                _ => (None, None),
-            };
-
-            match (shell, command_switch) {
-                (Some(shell), Some(command_switch)) => {
-                    let mut process = std::process::Command::new(shell);
-                    process.arg(command_switch);
-                    // If `command_switch` is set, we need to pass the path + arg as one argument
-                    // e.g. sh -c "nu_plugin_inc --stdio"
-                    let mut combined = path.as_os_str().to_owned();
-                    if let Some(arg) = input_arg.take() {
-                        combined.push(OsStr::new(" "));
-                        combined.push(OsStr::new(arg));
-                    }
-                    process.arg(combined);
-
-                    process
+    if shell.is_none() {
+        // We only have to do this for things that are not executable by Rust's Command API on
+        // Windows. They do handle bat/cmd files for us, helpfully.
+        //
+        // Also include anything that wouldn't be executable with a shebang, like JAR files.
+        shell = match path.extension().and_then(|e| e.to_str()) {
+            Some("sh") => {
+                if cfg!(unix) {
+                    // We don't want to override what might be in the shebang if this is Unix, since
+                    // some scripts will have a shebang specifying bash even if they're .sh
+                    None
+                } else {
+                    Some(Path::new("sh"))
                 }
-                (Some(shell), None) => {
-                    let mut process = std::process::Command::new(shell);
-                    process.arg(path);
-
-                    process
-                }
-                _ => std::process::Command::new(path),
             }
-        }
-        (None, None) => std::process::Command::new(path),
-    };
-
-    // Pass input_arg, unless we consumed it already
-    if let Some(input_arg) = input_arg {
-        process.arg(input_arg);
+            Some("nu") => {
+                shell_args.push("--stdin");
+                Some(Path::new("nu"))
+            }
+            Some("py") => Some(Path::new("python")),
+            Some("rb") => Some(Path::new("ruby")),
+            Some("jar") => {
+                shell_args.push("-jar");
+                Some(Path::new("java"))
+            }
+            _ => None,
+        };
     }
 
-    // Both stdout and stdin are piped so we can receive information from the plugin
-    process.stdout(Stdio::piped()).stdin(Stdio::piped());
+    let mut process = if let Some(shell) = shell {
+        let mut process = std::process::Command::new(shell);
+        process.args(shell_args);
+        process.arg(path);
+
+        process
+    } else {
+        std::process::Command::new(path)
+    };
+
+    process.args(mode.args());
+
+    // Setup I/O according to the communication mode
+    mode.setup_command_io(&mut process);
 
     // The plugin should be run in a new process group to prevent Ctrl-C from stopping it
     #[cfg(unix)]
@@ -153,28 +160,53 @@ fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
 
 fn make_plugin_interface(
     mut child: Child,
+    comm: PreparedServerCommunication,
     source: Arc<PluginSource>,
+    pid: Option<u32>,
     gc: Option<PluginGc>,
 ) -> Result<PluginInterface, ShellError> {
-    let stdin = child
-        .stdin
-        .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad {
-            msg: "Plugin missing stdin writer".into(),
-        })?;
+    match comm.connect(&mut child)? {
+        ServerCommunicationIo::Stdio(stdin, stdout) => make_plugin_interface_with_streams(
+            stdout,
+            stdin,
+            move || {
+                let _ = child.wait();
+            },
+            source,
+            pid,
+            gc,
+        ),
+        #[cfg(feature = "local-socket")]
+        ServerCommunicationIo::LocalSocket { read_out, write_in } => {
+            make_plugin_interface_with_streams(
+                read_out,
+                write_in,
+                move || {
+                    let _ = child.wait();
+                },
+                source,
+                pid,
+                gc,
+            )
+        }
+    }
+}
 
-    let mut stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad {
-            msg: "Plugin missing stdout writer".into(),
-        })?;
+fn make_plugin_interface_with_streams(
+    mut reader: impl std::io::Read + Send + 'static,
+    writer: impl std::io::Write + Send + 'static,
+    after_close: impl FnOnce() + Send + 'static,
+    source: Arc<PluginSource>,
+    pid: Option<u32>,
+    gc: Option<PluginGc>,
+) -> Result<PluginInterface, ShellError> {
+    let encoder = get_plugin_encoding(&mut reader)?;
 
-    let encoder = get_plugin_encoding(&mut stdout)?;
+    let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, reader);
+    let writer = BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, writer);
 
-    let reader = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, stdout);
-
-    let mut manager = PluginInterfaceManager::new(source.clone(), (Mutex::new(stdin), encoder));
+    let mut manager =
+        PluginInterfaceManager::new(source.clone(), pid, (Mutex::new(writer), encoder));
     manager.set_garbage_collector(gc);
 
     let interface = manager.get_interface();
@@ -192,10 +224,10 @@ fn make_plugin_interface(
             if let Err(err) = manager.consume_all((reader, encoder)) {
                 log::warn!("Error in PluginInterfaceManager: {err}");
             }
-            // If the loop has ended, drop the manager so everyone disconnects and then wait for the
-            // child to exit
+            // If the loop has ended, drop the manager so everyone disconnects and then run
+            // after_close
             drop(manager);
-            let _ = child.wait();
+            after_close();
         })
         .map_err(|err| ShellError::PluginFailedToLoad {
             msg: format!("Failed to spawn thread for plugin: {err}"),
@@ -205,15 +237,10 @@ fn make_plugin_interface(
 }
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
-pub fn get_signature<E, K, V>(
+pub fn get_signature(
     plugin: Arc<PersistentPlugin>,
-    envs: impl FnOnce() -> Result<E, ShellError>,
-) -> Result<Vec<PluginSignature>, ShellError>
-where
-    E: IntoIterator<Item = (K, V)>,
-    K: AsRef<OsStr>,
-    V: AsRef<OsStr>,
-{
+    envs: impl FnOnce() -> Result<HashMap<String, String>, ShellError>,
+) -> Result<Vec<PluginSignature>, ShellError> {
     plugin.get(envs)?.get_signature()
 }
 
@@ -230,7 +257,7 @@ where
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{PluginSignature, Type, Value};
+/// # use nu_protocol::{LabeledError, Signature, Type, Value};
 /// struct HelloPlugin;
 /// struct Hello;
 ///
@@ -243,8 +270,16 @@ where
 /// impl SimplePluginCommand for Hello {
 ///     type Plugin = HelloPlugin;
 ///
-///     fn signature(&self) -> PluginSignature {
-///         PluginSignature::build("hello")
+///     fn name(&self) -> &str {
+///         "hello"
+///     }
+///
+///     fn usage(&self) -> &str {
+///         "Every programmer's favorite greeting"
+///     }
+///
+///     fn signature(&self) -> Signature {
+///         Signature::build(PluginCommand::name(self))
 ///             .input_output_type(Type::Nothing, Type::String)
 ///     }
 ///
@@ -398,9 +433,7 @@ pub trait Plugin: Sync {
 /// }
 /// ```
 pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static) {
-    let mut args = env::args().skip(1);
-    let number_of_args = args.len();
-    let first_arg = args.next();
+    let args: Vec<OsString> = env::args_os().skip(1).collect();
 
     // Determine the plugin name, for errors
     let exe = std::env::current_exe().ok();
@@ -416,18 +449,26 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
         })
         .unwrap_or_else(|| "(unknown)".into());
 
-    if number_of_args == 0
-        || first_arg
-            .as_ref()
-            .is_some_and(|arg| arg == "-h" || arg == "--help")
-    {
+    if args.is_empty() || args[0] == "-h" || args[0] == "--help" {
         print_help(plugin, encoder);
         std::process::exit(0)
     }
 
-    // Must pass --stdio for plugin execution. Any other arg is an error to give us options in the
-    // future.
-    if number_of_args > 1 || !first_arg.is_some_and(|arg| arg == "--stdio") {
+    // Implement different communication modes:
+    let mode = if args[0] == "--stdio" && args.len() == 1 {
+        // --stdio always supported.
+        CommunicationMode::Stdio
+    } else if args[0] == "--local-socket" && args.len() == 2 {
+        #[cfg(feature = "local-socket")]
+        {
+            CommunicationMode::LocalSocket((&args[1]).into())
+        }
+        #[cfg(not(feature = "local-socket"))]
+        {
+            eprintln!("{plugin_name}: local socket mode is not supported");
+            std::process::exit(1);
+        }
+    } else {
         eprintln!(
             "{}: This plugin must be run from within Nushell.",
             env::current_exe()
@@ -439,40 +480,161 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
             version of nushell you are using."
         );
         std::process::exit(1)
+    };
+
+    let encoder_clone = encoder.clone();
+
+    let result = match mode.connect_as_client() {
+        Ok(ClientCommunicationIo::Stdio(stdin, mut stdout)) => {
+            tell_nushell_encoding(&mut stdout, &encoder).expect("failed to tell nushell encoding");
+            serve_plugin_io(
+                plugin,
+                &plugin_name,
+                move || (stdin.lock(), encoder_clone),
+                move || (stdout, encoder),
+            )
+        }
+        #[cfg(feature = "local-socket")]
+        Ok(ClientCommunicationIo::LocalSocket {
+            read_in,
+            mut write_out,
+        }) => {
+            tell_nushell_encoding(&mut write_out, &encoder)
+                .expect("failed to tell nushell encoding");
+
+            let read = BufReader::with_capacity(OUTPUT_BUFFER_SIZE, read_in);
+            let write = Mutex::new(BufWriter::with_capacity(OUTPUT_BUFFER_SIZE, write_out));
+            serve_plugin_io(
+                plugin,
+                &plugin_name,
+                move || (read, encoder_clone),
+                move || (write, encoder),
+            )
+        }
+        Err(err) => {
+            eprintln!("{plugin_name}: failed to connect: {err:?}");
+            std::process::exit(1);
+        }
+    };
+
+    match result {
+        Ok(()) => (),
+        // Write unreported errors to the console
+        Err(ServePluginError::UnreportedError(err)) => {
+            eprintln!("Plugin `{plugin_name}` error: {err}");
+            std::process::exit(1);
+        }
+        Err(_) => std::process::exit(1),
     }
+}
+
+fn tell_nushell_encoding(
+    writer: &mut impl std::io::Write,
+    encoder: &impl PluginEncoder,
+) -> Result<(), std::io::Error> {
+    // tell nushell encoding.
+    //
+    //                         1 byte
+    // encoding format: |  content-length  | content    |
+    let encoding = encoder.name();
+    let length = encoding.len() as u8;
+    let mut encoding_content: Vec<u8> = encoding.as_bytes().to_vec();
+    encoding_content.insert(0, length);
+    writer.write_all(&encoding_content)?;
+    writer.flush()
+}
+
+/// An error from [`serve_plugin_io()`]
+#[derive(Debug, Error)]
+pub enum ServePluginError {
+    /// An error occurred that could not be reported to the engine.
+    #[error("{0}")]
+    UnreportedError(#[source] ShellError),
+    /// An error occurred that could be reported to the engine.
+    #[error("{0}")]
+    ReportedError(#[source] ShellError),
+    /// A version mismatch occurred.
+    #[error("{0}")]
+    Incompatible(#[source] ShellError),
+    /// An I/O error occurred.
+    #[error("{0}")]
+    IOError(#[source] ShellError),
+    /// A thread spawning error occurred.
+    #[error("{0}")]
+    ThreadSpawnError(#[source] std::io::Error),
+    /// A panic occurred.
+    #[error("a panic occurred in a plugin thread")]
+    Panicked,
+}
+
+impl From<ShellError> for ServePluginError {
+    fn from(error: ShellError) -> Self {
+        match error {
+            ShellError::IOError { .. } => ServePluginError::IOError(error),
+            ShellError::PluginFailedToLoad { .. } => ServePluginError::Incompatible(error),
+            _ => ServePluginError::UnreportedError(error),
+        }
+    }
+}
+
+/// Convert result error to ReportedError if it can be reported to the engine.
+trait TryToReport {
+    type T;
+    fn try_to_report(self, engine: &EngineInterface) -> Result<Self::T, ServePluginError>;
+}
+
+impl<T, E> TryToReport for Result<T, E>
+where
+    E: Into<ServePluginError>,
+{
+    type T = T;
+    fn try_to_report(self, engine: &EngineInterface) -> Result<T, ServePluginError> {
+        self.map_err(|e| match e.into() {
+            ServePluginError::UnreportedError(err) => {
+                if engine.write_response(Err(err.clone())).is_ok() {
+                    ServePluginError::ReportedError(err)
+                } else {
+                    ServePluginError::UnreportedError(err)
+                }
+            }
+            other => other,
+        })
+    }
+}
+
+/// Serve a plugin on the given input & output.
+///
+/// Unlike [`serve_plugin`], this doesn't assume total control over the process lifecycle / stdin /
+/// stdout, and can be used for more advanced use cases.
+///
+/// This is not a public API.
+#[doc(hidden)]
+pub fn serve_plugin_io<I, O>(
+    plugin: &impl Plugin,
+    plugin_name: &str,
+    input: impl FnOnce() -> I + Send + 'static,
+    output: impl FnOnce() -> O + Send + 'static,
+) -> Result<(), ServePluginError>
+where
+    I: PluginRead<PluginInput> + 'static,
+    O: PluginWrite<PluginOutput> + 'static,
+{
+    let (error_tx, error_rx) = mpsc::channel();
 
     // Build commands map, to make running a command easier
     let mut commands: HashMap<String, _> = HashMap::new();
 
     for command in plugin.commands() {
-        if let Some(previous) = commands.insert(command.signature().sig.name.clone(), command) {
+        if let Some(previous) = commands.insert(command.name().into(), command) {
             eprintln!(
                 "Plugin `{plugin_name}` warning: command `{}` shadowed by another command with the \
-                    same name. Check your command signatures",
-                previous.signature().sig.name
+                    same name. Check your commands' `name()` methods",
+                previous.name()
             );
         }
     }
 
-    // tell nushell encoding.
-    //
-    //                         1 byte
-    // encoding format: |  content-length  | content    |
-    let mut stdout = std::io::stdout();
-    {
-        let encoding = encoder.name();
-        let length = encoding.len() as u8;
-        let mut encoding_content: Vec<u8> = encoding.as_bytes().to_vec();
-        encoding_content.insert(0, length);
-        stdout
-            .write_all(&encoding_content)
-            .expect("Failed to tell nushell my encoding");
-        stdout
-            .flush()
-            .expect("Failed to tell nushell my encoding when flushing stdout");
-    }
-
-    let mut manager = EngineInterfaceManager::new((stdout, encoder.clone()));
+    let mut manager = EngineInterfaceManager::new(output());
     let call_receiver = manager
         .take_plugin_call_receiver()
         // This expect should be totally safe, as we just created the manager
@@ -481,72 +643,53 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
     // We need to hold on to the interface to keep the manager alive. We can drop it at the end
     let interface = manager.get_interface();
 
-    // Try an operation that could result in ShellError. Exit if an I/O error is encountered.
-    // Try to report the error to nushell otherwise, and failing that, panic.
-    macro_rules! try_or_report {
-        ($interface:expr, $expr:expr) => (match $expr {
-            Ok(val) => val,
-            // Just exit if there is an I/O error. Most likely this just means that nushell
-            // interrupted us. If not, the error probably happened on the other side too, so we
-            // don't need to also report it.
-            Err(ShellError::IOError { .. }) => std::process::exit(1),
-            // If there is another error, try to send it to nushell and then exit.
-            Err(err) => {
-                let _ = $interface.write_response(Err(err.clone())).unwrap_or_else(|_| {
-                    // If we can't send it to nushell, panic with it so at least we get the output
-                    panic!("Plugin `{plugin_name}`: {}", err)
-                });
-                std::process::exit(1)
-            }
-        })
-    }
-
     // Send Hello message
-    try_or_report!(interface, interface.hello());
+    interface.hello()?;
 
-    let plugin_name_clone = plugin_name.clone();
-
-    // Spawn the reader thread
-    std::thread::Builder::new()
-        .name("engine interface reader".into())
-        .spawn(move || {
-            if let Err(err) = manager.consume_all((std::io::stdin().lock(), encoder)) {
-                // Do our best to report the read error. Most likely there is some kind of
-                // incompatibility between the plugin and nushell, so it makes more sense to try to
-                // report it on stderr than to send something.
-                //
-                // Don't report a `PluginFailedToLoad` error, as it's probably just from Hello
-                // version mismatch which the engine side would also report.
-
-                if !matches!(err, ShellError::PluginFailedToLoad { .. }) {
-                    eprintln!("Plugin `{plugin_name_clone}` read error: {err}");
+    {
+        // Spawn the reader thread
+        let error_tx = error_tx.clone();
+        std::thread::Builder::new()
+            .name("engine interface reader".into())
+            .spawn(move || {
+                // Report the error on the channel if we get an error
+                if let Err(err) = manager.consume_all(input()) {
+                    let _ = error_tx.send(ServePluginError::from(err));
                 }
-                std::process::exit(1);
-            }
-        })
-        .unwrap_or_else(|err| {
-            // If we fail to spawn the reader thread, we should exit
-            eprintln!("Plugin `{plugin_name}` failed to launch: {err}");
-            std::process::exit(1);
-        });
+            })
+            .map_err(ServePluginError::ThreadSpawnError)?;
+    }
 
     // Handle each Run plugin call on a thread
     thread::scope(|scope| {
         let run = |engine, call_info| {
-            let CallInfo { name, call, input } = call_info;
-            let result = if let Some(command) = commands.get(&name) {
-                command.run(plugin, &engine, &call, input)
-            } else {
-                Err(LabeledError {
-                    label: format!("Plugin command not found: `{name}`"),
-                    msg: format!("plugin `{plugin_name}` doesn't have this command"),
-                    span: Some(call.head),
-                })
-            };
-            let write_result = engine
-                .write_response(result)
-                .and_then(|writer| writer.write());
-            try_or_report!(engine, write_result);
+            // SAFETY: It should be okay to use `AssertUnwindSafe` here, because we don't use any
+            // of the references after we catch the unwind, and immediately exit.
+            let unwind_result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                let CallInfo { name, call, input } = call_info;
+                let result = if let Some(command) = commands.get(&name) {
+                    command.run(plugin, &engine, &call, input)
+                } else {
+                    Err(
+                        LabeledError::new(format!("Plugin command not found: `{name}`"))
+                            .with_label(
+                                format!("plugin `{plugin_name}` doesn't have this command"),
+                                call.head,
+                            ),
+                    )
+                };
+                let write_result = engine
+                    .write_response(result)
+                    .and_then(|writer| writer.write())
+                    .try_to_report(&engine);
+                if let Err(err) = write_result {
+                    let _ = error_tx.send(err);
+                }
+            }));
+            if unwind_result.is_err() {
+                // Exit after unwind if a panic occurred
+                std::process::exit(1);
+            }
         };
 
         // As an optimization: create one thread that can be reused for Run calls in sequence
@@ -558,21 +701,27 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
                     run(engine, call);
                 }
             })
-            .unwrap_or_else(|err| {
-                // If we fail to spawn the runner thread, we should exit
-                eprintln!("Plugin `{plugin_name}` failed to launch: {err}");
-                std::process::exit(1);
-            });
+            .map_err(ServePluginError::ThreadSpawnError)?;
 
         for plugin_call in call_receiver {
+            // Check for pending errors
+            if let Ok(error) = error_rx.try_recv() {
+                return Err(error);
+            }
+
             match plugin_call {
                 // Sending the signature back to nushell to create the declaration definition
                 ReceivedPluginCall::Signature { engine } => {
                     let sigs = commands
                         .values()
-                        .map(|command| command.signature())
-                        .collect();
-                    try_or_report!(engine, engine.write_signature(sigs));
+                        .map(|command| create_plugin_signature(command.deref()))
+                        .map(|mut sig| {
+                            render_examples(plugin, &engine, &mut sig.examples)?;
+                            Ok(sig)
+                        })
+                        .collect::<Result<Vec<_>, ShellError>>()
+                        .try_to_report(&engine)?;
+                    engine.write_signature(sigs).try_to_report(&engine)?;
                 }
                 // Run the plugin on a background thread, handling any input or output streams
                 ReceivedPluginCall::Run { engine, call } => {
@@ -582,14 +731,10 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
                         // If the primary thread isn't ready, spawn a secondary thread to do it
                         Err(TrySendError::Full((engine, call)))
                         | Err(TrySendError::Disconnected((engine, call))) => {
-                            let engine_clone = engine.clone();
-                            try_or_report!(
-                                engine_clone,
-                                thread::Builder::new()
-                                    .name("plugin runner (secondary)".into())
-                                    .spawn_scoped(scope, move || run(engine, call))
-                                    .map_err(ShellError::from)
-                            );
+                            thread::Builder::new()
+                                .name("plugin runner (secondary)".into())
+                                .spawn_scoped(scope, move || run(engine, call))
+                                .map_err(ServePluginError::ThreadSpawnError)?;
                         }
                     }
                 }
@@ -599,14 +744,23 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
                     custom_value,
                     op,
                 } => {
-                    try_or_report!(engine, custom_value_op(plugin, &engine, custom_value, op));
+                    custom_value_op(plugin, &engine, custom_value, op).try_to_report(&engine)?;
                 }
             }
         }
-    });
+
+        Ok::<_, ServePluginError>(())
+    })?;
 
     // This will stop the manager
     drop(interface);
+
+    // Receive any error left on the channel
+    if let Ok(err) = error_rx.try_recv() {
+        Err(err)
+    } else {
+        Ok(())
+    }
 }
 
 fn custom_value_op(
@@ -674,6 +828,8 @@ fn custom_value_op(
 }
 
 fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
+    use std::fmt::Write;
+
     println!("Nushell Plugin");
     println!("Encoder: {}", encoder.name());
 
@@ -681,23 +837,22 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
 
     plugin.commands().into_iter().for_each(|command| {
         let signature = command.signature();
-        let res = write!(help, "\nCommand: {}", signature.sig.name)
-            .and_then(|_| writeln!(help, "\nUsage:\n > {}", signature.sig.usage))
+        let res = write!(help, "\nCommand: {}", command.name())
+            .and_then(|_| writeln!(help, "\nUsage:\n > {}", command.usage()))
             .and_then(|_| {
-                if !signature.sig.extra_usage.is_empty() {
-                    writeln!(help, "\nExtra usage:\n > {}", signature.sig.extra_usage)
+                if !command.extra_usage().is_empty() {
+                    writeln!(help, "\nExtra usage:\n > {}", command.extra_usage())
                 } else {
                     Ok(())
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(None, &signature.sig, |v| format!("{:#?}", v));
+                let flags = get_flags_section(None, &signature, |v| format!("{:#?}", v));
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))
             .and_then(|_| {
                 signature
-                    .sig
                     .required_positional
                     .iter()
                     .try_for_each(|positional| {
@@ -710,7 +865,6 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
             })
             .and_then(|_| {
                 signature
-                    .sig
                     .optional_positional
                     .iter()
                     .try_for_each(|positional| {
@@ -722,7 +876,7 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
                     })
             })
             .and_then(|_| {
-                if let Some(rest_positional) = &signature.sig.rest_positional {
+                if let Some(rest_positional) = &signature.rest_positional {
                     writeln!(
                         help,
                         "  ...{} <{}>: {}",
@@ -742,7 +896,9 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
     println!("{help}")
 }
 
-pub fn get_plugin_encoding(child_stdout: &mut ChildStdout) -> Result<EncodingType, ShellError> {
+pub fn get_plugin_encoding(
+    child_stdout: &mut impl std::io::Read,
+) -> Result<EncodingType, ShellError> {
     let mut length_buf = [0u8; 1];
     child_stdout
         .read_exact(&mut length_buf)
@@ -763,4 +919,95 @@ pub fn get_plugin_encoding(child_stdout: &mut ChildStdout) -> Result<EncodingTyp
             msg: format!("get unsupported plugin encoding: {encoding_for_debug}"),
         }
     })
+}
+
+/// Load the definitions from the plugin file into the engine state
+#[doc(hidden)]
+pub fn load_plugin_file(
+    working_set: &mut StateWorkingSet,
+    plugin_cache_file: &PluginCacheFile,
+    span: Option<Span>,
+) {
+    for plugin in &plugin_cache_file.plugins {
+        // Any errors encountered should just be logged.
+        if let Err(err) = load_plugin_cache_item(working_set, plugin, span) {
+            report_error_new(working_set.permanent_state, &err)
+        }
+    }
+}
+
+/// Load a definition from the plugin file into the engine state
+#[doc(hidden)]
+pub fn load_plugin_cache_item(
+    working_set: &mut StateWorkingSet,
+    plugin: &PluginCacheItem,
+    span: Option<Span>,
+) -> Result<Arc<PersistentPlugin>, ShellError> {
+    let identity =
+        PluginIdentity::new(plugin.filename.clone(), plugin.shell.clone()).map_err(|_| {
+            ShellError::GenericError {
+                error: "Invalid plugin filename in plugin cache file".into(),
+                msg: "loaded from here".into(),
+                span,
+                help: Some(format!(
+                    "the filename for `{}` is not a valid nushell plugin: {}",
+                    plugin.name,
+                    plugin.filename.display()
+                )),
+                inner: vec![],
+            }
+        })?;
+
+    match &plugin.data {
+        PluginCacheItemData::Valid { commands } => {
+            let plugin = add_plugin_to_working_set(working_set, &identity)?;
+
+            // Ensure that the plugin is reset. We're going to load new signatures, so we want to
+            // make sure the running plugin reflects those new signatures, and it's possible that it
+            // doesn't.
+            plugin.reset()?;
+
+            // Create the declarations from the commands
+            for signature in commands {
+                let decl = PluginDeclaration::new(plugin.clone(), signature.clone());
+                working_set.add_decl(Box::new(decl));
+            }
+            Ok(plugin)
+        }
+        PluginCacheItemData::Invalid => Err(ShellError::PluginCacheDataInvalid {
+            plugin_name: identity.name().to_owned(),
+            span,
+            add_command: identity.add_command(),
+        }),
+    }
+}
+
+#[doc(hidden)]
+pub fn add_plugin_to_working_set(
+    working_set: &mut StateWorkingSet,
+    identity: &PluginIdentity,
+) -> Result<Arc<PersistentPlugin>, ShellError> {
+    // Find garbage collection config for the plugin
+    let gc_config = working_set
+        .get_config()
+        .plugin_gc
+        .get(identity.name())
+        .clone();
+
+    // Add it to / get it from the working set
+    let plugin = working_set.find_or_create_plugin(identity, || {
+        Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
+    });
+
+    plugin.set_gc_config(&gc_config);
+
+    // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed.
+    // The trait object only exists so that nu-protocol can contain plugins without knowing
+    // anything about their implementation, but we only use `PersistentPlugin` in practice.
+    plugin
+        .as_any()
+        .downcast()
+        .map_err(|_| ShellError::NushellFailed {
+            msg: "encountered unexpected RegisteredPlugin type".into(),
+        })
 }

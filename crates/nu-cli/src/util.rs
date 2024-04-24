@@ -1,13 +1,11 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
-    engine::{EngineState, Stack},
-    print_if_stream, PipelineData, ShellError, Span, Value,
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
+    print_if_stream, report_error, report_error_new, PipelineData, ShellError, Span, Value,
 };
-use nu_protocol::{report_error, report_error_new};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use nu_utils::utils::perf;
@@ -94,8 +92,8 @@ fn gather_env_vars(
     let span_offset = engine_state.next_span_start();
 
     engine_state.add_file(
-        "Host Environment Variables".to_string(),
-        fake_env_file.as_bytes().to_vec(),
+        "Host Environment Variables".into(),
+        fake_env_file.as_bytes().into(),
     );
 
     let (tokens, _) = lex(fake_env_file.as_bytes(), span_offset, &[], &[], true);

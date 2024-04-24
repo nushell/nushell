@@ -1,23 +1,29 @@
+use crate::FromCmds;
 use eml_parser::eml::*;
 use eml_parser::EmlParser;
-use indexmap::map::IndexMap;
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
+use indexmap::IndexMap;
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    record, Category, PluginExample, PluginSignature, ShellError, Span, SyntaxShape, Type, Value,
+    record, Category, Example, LabeledError, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use crate::FromCmds;
-
 const DEFAULT_BODY_PREVIEW: usize = 50;
-pub const CMD_NAME: &str = "from eml";
 
 pub struct FromEml;
 
 impl SimplePluginCommand for FromEml {
     type Plugin = FromCmds;
 
-    fn signature(&self) -> nu_protocol::PluginSignature {
-        PluginSignature::build(CMD_NAME)
+    fn name(&self) -> &str {
+        "from eml"
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .eml and create record."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::Record(vec![]))])
             .named(
                 "preview-body",
@@ -25,9 +31,11 @@ impl SimplePluginCommand for FromEml {
                 "How many bytes of the body to preview",
                 Some('b'),
             )
-            .usage("Parse text as .eml and create record.")
-            .plugin_examples(examples())
             .category(Category::Formats)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        examples()
     }
 
     fn run(
@@ -45,15 +53,15 @@ impl SimplePluginCommand for FromEml {
     }
 }
 
-pub fn examples() -> Vec<PluginExample> {
+pub fn examples() -> Vec<Example<'static>> {
     vec![
-        PluginExample {
-            description: "Convert eml structured data into record".into(),
+        Example {
+            description: "Convert eml structured data into record",
             example: "'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com
-Test' | from eml"
-                .into(),
+
+Test' | from eml",
             result: Some(Value::test_record(record! {
                     "Subject" => Value::test_string("Welcome"),
                     "From" =>    Value::test_record(record! {
@@ -67,13 +75,13 @@ Test' | from eml"
                     "Body" => Value::test_string("Test"),
             })),
         },
-        PluginExample {
-            description: "Convert eml structured data into record".into(),
+        Example {
+            description: "Convert eml structured data into record",
             example: "'From: test@email.com
 Subject: Welcome
 To: someone@somewhere.com
-Test' | from eml -b 1"
-                .into(),
+
+Test' | from eml -b 1",
             result: Some(Value::test_record(record! {
                     "Subject" => Value::test_string("Welcome"),
                     "From" =>    Value::test_record(record! {
@@ -162,4 +170,11 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
     }
 
     Ok(Value::record(collected.into_iter().collect(), head))
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromEml)
 }

@@ -3,13 +3,14 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Spanned, Value,
+    ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, Span, Spanned,
+    Value,
 };
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
 /// and pass it into an error viewer to display to the user.
-#[derive(Debug, Clone, Error, Diagnostic, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Error, Diagnostic, PartialEq)]
 pub enum ShellError {
     /// An operator received two arguments of incompatible types.
     ///
@@ -472,7 +473,7 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// An error happened while tryin to create a range.
+    /// An error happened while trying to create a range.
     ///
     /// This can happen in various unexpected situations, for example if the range would loop forever (as would be the case with a 0-increment).
     ///
@@ -747,6 +748,21 @@ pub enum ShellError {
         msg: String,
         #[label("{msg}")]
         span: Span,
+    },
+
+    /// The cached plugin data for a plugin is invalid.
+    ///
+    /// ## Resolution
+    ///
+    /// `plugin add` the plugin again to update the data, or remove it with `plugin rm`.
+    #[error("The cached plugin data for `{plugin_name}` is invalid")]
+    #[diagnostic(code(nu::shell::plugin_cache_data_invalid))]
+    PluginCacheDataInvalid {
+        plugin_name: String,
+        #[label("plugin `{plugin_name}` loaded here")]
+        span: Option<Span>,
+        #[help("the format in the plugin cache file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`")]
+        add_command: String,
     },
 
     /// A plugin failed to load.
@@ -1097,6 +1113,11 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// This is a generic error type used for user and plugin-generated errors.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    LabeledError(#[from] Box<super::LabeledError>),
+
     /// Attempted to use a command that has been removed from Nushell.
     ///
     /// ## Resolution
@@ -1396,6 +1417,81 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     }
 }
 
+impl From<super::LabeledError> for ShellError {
+    fn from(value: super::LabeledError) -> Self {
+        ShellError::LabeledError(Box::new(value))
+    }
+}
+
+/// `ShellError` always serializes as [`LabeledError`].
+impl Serialize for ShellError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        LabeledError::from_diagnostic(self).serialize(serializer)
+    }
+}
+
+/// `ShellError` always deserializes as if it were [`LabeledError`], resulting in a
+/// [`ShellError::LabeledError`] variant.
+impl<'de> Deserialize<'de> for ShellError {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        LabeledError::deserialize(deserializer).map(ShellError::from)
+    }
+}
+
 pub fn into_code(err: &ShellError) -> Option<String> {
     err.code().map(|code| code.to_string())
+}
+
+#[test]
+fn shell_error_serialize_roundtrip() {
+    // Ensure that we can serialize and deserialize `ShellError`, and check that it basically would
+    // look the same
+    let original_error = ShellError::CantConvert {
+        span: Span::new(100, 200),
+        to_type: "Foo".into(),
+        from_type: "Bar".into(),
+        help: Some("this is a test".into()),
+    };
+    println!("orig_error = {:#?}", original_error);
+
+    let serialized =
+        serde_json::to_string_pretty(&original_error).expect("serde_json::to_string_pretty failed");
+    println!("serialized = {}", serialized);
+
+    let deserialized: ShellError =
+        serde_json::from_str(&serialized).expect("serde_json::from_str failed");
+    println!("deserialized = {:#?}", deserialized);
+
+    // We don't expect the deserialized error to be the same as the original error, but its miette
+    // properties should be comparable
+    assert_eq!(original_error.to_string(), deserialized.to_string());
+
+    assert_eq!(
+        original_error.code().map(|c| c.to_string()),
+        deserialized.code().map(|c| c.to_string())
+    );
+
+    let orig_labels = original_error
+        .labels()
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    let deser_labels = deserialized
+        .labels()
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+
+    assert_eq!(orig_labels, deser_labels);
+
+    assert_eq!(
+        original_error.help().map(|c| c.to_string()),
+        deserialized.help().map(|c| c.to_string())
+    );
 }

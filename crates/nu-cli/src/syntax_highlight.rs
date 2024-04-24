@@ -3,9 +3,11 @@ use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineRedirection, RecordItem};
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{Config, Span};
+use nu_protocol::{
+    ast::{Argument, Block, Expr, Expression, PipelineRedirection, RecordItem},
+    engine::{EngineState, Stack, StateWorkingSet},
+    Config, Span,
+};
 use reedline::{Highlighter, StyledText};
 use std::sync::Arc;
 
@@ -360,7 +362,6 @@ fn find_matching_block_end_in_expr(
             Expr::MatchBlock(_) => None,
             Expr::Nothing => None,
             Expr::Garbage => None,
-            Expr::Spread(_) => None,
 
             Expr::Table(hdr, rows) => {
                 if expr_last == global_cursor_offset {
@@ -468,7 +469,7 @@ fn find_matching_block_end_in_expr(
                 None
             }
 
-            Expr::List(inner_expr) => {
+            Expr::List(list) => {
                 if expr_last == global_cursor_offset {
                     // cursor is at list end
                     Some(expr_first)
@@ -477,8 +478,9 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     // cursor is inside list
-                    for inner_expr in inner_expr {
-                        find_in_expr_or_continue!(inner_expr);
+                    for item in list {
+                        let expr = item.expr();
+                        find_in_expr_or_continue!(expr);
                     }
                     None
                 }

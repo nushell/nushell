@@ -1,17 +1,27 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Type, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, Signature, SyntaxShape, Type, Value};
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 pub struct Env;
 
 impl SimplePluginCommand for Env {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("example env")
-            .usage("Get environment variable(s)")
-            .extra_usage("Returns all environment variables if no name provided")
+    fn name(&self) -> &str {
+        "example env"
+    }
+
+    fn usage(&self) -> &str {
+        "Get environment variable(s)"
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Returns all environment variables if no name provided"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .category(Category::Experimental)
             .optional(
                 "name",
@@ -25,13 +35,16 @@ impl SimplePluginCommand for Env {
                 "Set an environment variable to the value",
                 None,
             )
-            .search_terms(vec!["example".into(), "env".into()])
             .input_output_type(Type::Nothing, Type::Any)
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["example", "env"]
     }
 
     fn run(
         &self,
-        _plugin: &Example,
+        _plugin: &ExamplePlugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         _input: &Value,
@@ -42,11 +55,8 @@ impl SimplePluginCommand for Env {
                     // Get working directory
                     Ok(Value::string(engine.get_current_dir()?, call.head))
                 }
-                Some(value) => Err(LabeledError {
-                    label: "Invalid arguments".into(),
-                    msg: "--cwd can't be used with --set".into(),
-                    span: Some(value.span()),
-                }),
+                Some(value) => Err(LabeledError::new("Invalid arguments")
+                    .with_label("--cwd can't be used with --set", value.span())),
             }
         } else if let Some(value) = call.get_flag_value("set") {
             // Set single env var

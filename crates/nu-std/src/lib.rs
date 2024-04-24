@@ -1,10 +1,12 @@
-use std::path::PathBuf;
-
+use log::trace;
 use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
-use nu_protocol::{report_error, PipelineData};
+use nu_protocol::{
+    debugger::WithoutDebug,
+    engine::{FileStack, Stack, StateWorkingSet, VirtualPath},
+    report_error, PipelineData,
+};
+use std::path::PathBuf;
 
 // Virtual std directory unlikely to appear in user's file system
 const NU_STDLIB_VIRTUAL_DIR: &str = "NU_STDLIB_VIRTUAL_DIR";
@@ -12,6 +14,7 @@ const NU_STDLIB_VIRTUAL_DIR: &str = "NU_STDLIB_VIRTUAL_DIR";
 pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
+    trace!("load_standard_library");
     let (block, delta) = {
         // Using full virtual path to avoid potential conflicts with user having 'std' directory
         // in their working directory.
@@ -47,10 +50,9 @@ pub fn load_standard_library(
         }
 
         let std_dir = std_dir.to_string_lossy().to_string();
-        let source = format!(
-            r#"
+        let source = r#"
 # Define the `std` module
-module {std_dir}
+module std
 
 # Prelude
 use std dirs [
@@ -62,14 +64,14 @@ use std dirs [
     dexit
 ]
 use std pwd
-"#
-        );
+"#;
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
-        // Change the currently parsed directory
-        let prev_currently_parsed_cwd = working_set.currently_parsed_cwd.clone();
-        working_set.currently_parsed_cwd = Some(PathBuf::from(NU_STDLIB_VIRTUAL_DIR));
+        // Add a placeholder file to the stack of files being evaluated.
+        // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.
+        let placeholder = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("loading stdlib");
+        working_set.files = FileStack::with_file(placeholder);
 
         let block = parse(
             &mut working_set,
@@ -78,12 +80,12 @@ use std pwd
             false,
         );
 
+        // Remove the placeholder file from the stack of files being evaluated.
+        working_set.files.pop();
+
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
         }
-
-        // Restore the currently parsed directory back
-        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
         (block, working_set.render())
     };

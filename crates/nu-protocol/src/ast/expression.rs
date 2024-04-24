@@ -1,11 +1,10 @@
-use std::sync::Arc;
-
+use crate::{
+    ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, RecordItem},
+    engine::StateWorkingSet,
+    BlockId, DeclId, Signature, Span, Type, VarId, IN_VARIABLE_ID,
+};
 use serde::{Deserialize, Serialize};
-
-use super::{Argument, Expr, ExternalArgument, RecordItem};
-use crate::ast::ImportPattern;
-use crate::DeclId;
-use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
@@ -87,13 +86,6 @@ impl Expression {
         }
     }
 
-    pub fn as_list(&self) -> Option<Vec<Expression>> {
-        match &self.expr {
-            Expr::List(list) => Some(list.clone()),
-            _ => None,
-        }
-    }
-
     pub fn as_keyword(&self) -> Option<&Expression> {
         match &self.expr {
             Expr::Keyword(_, _, expr) => Some(expr),
@@ -116,9 +108,16 @@ impl Expression {
         }
     }
 
+    pub fn as_filepath(&self) -> Option<(String, bool)> {
+        match &self.expr {
+            Expr::Filepath(string, quoted) => Some((string.clone(), *quoted)),
+            _ => None,
+        }
+    }
+
     pub fn as_import_pattern(&self) -> Option<ImportPattern> {
         match &self.expr {
-            Expr::ImportPattern(pattern) => Some(pattern.clone()),
+            Expr::ImportPattern(pattern) => Some(*pattern.clone()),
             _ => None,
         }
     }
@@ -214,8 +213,8 @@ impl Expression {
             Expr::Int(_) => false,
             Expr::Keyword(_, _, expr) => expr.has_in_variable(working_set),
             Expr::List(list) => {
-                for l in list {
-                    if l.has_in_variable(working_set) {
+                for item in list {
+                    if item.expr().has_in_variable(working_set) {
                         return true;
                     }
                 }
@@ -306,7 +305,6 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.has_in_variable(working_set),
             Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
             Expr::VarDecl(_) => false,
-            Expr::Spread(expr) => expr.has_in_variable(working_set),
         }
     }
 
@@ -328,7 +326,8 @@ impl Expression {
                 expr.replace_span(working_set, replaced, new_span);
             }
             Expr::Block(block_id) => {
-                let mut block = (**working_set.get_block(*block_id)).clone();
+                // We are cloning the Block itself, rather than the Arc around it.
+                let mut block = Block::clone(working_set.get_block(*block_id));
 
                 for pipeline in block.pipelines.iter_mut() {
                     for element in pipeline.elements.iter_mut() {
@@ -395,8 +394,9 @@ impl Expression {
             Expr::Int(_) => {}
             Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),
             Expr::List(list) => {
-                for l in list {
-                    l.replace_span(working_set, replaced, new_span)
+                for item in list {
+                    item.expr_mut()
+                        .replace_span(working_set, replaced, new_span);
                 }
             }
             Expr::Operator(_) => {}
@@ -458,7 +458,6 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
-            Expr::Spread(expr) => expr.replace_span(working_set, replaced, new_span),
         }
     }
 }

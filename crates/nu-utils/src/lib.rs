@@ -2,7 +2,9 @@ mod casing;
 pub mod ctrl_c;
 mod deansi;
 pub mod emoji;
+pub mod filesystem;
 pub mod locale;
+mod shared_cow;
 pub mod utils;
 
 pub use locale::get_system_locale;
@@ -16,3 +18,7 @@ pub use deansi::{
     strip_ansi_likely, strip_ansi_string_likely, strip_ansi_string_unlikely, strip_ansi_unlikely,
 };
 pub use emoji::contains_emoji;
+pub use shared_cow::SharedCow;
+
+#[cfg(unix)]
+pub use filesystem::users;

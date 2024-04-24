@@ -6,8 +6,8 @@ use super::{
     RangeOperator,
 };
 use crate::{
-    ast::ImportPattern, ast::Unit, engine::EngineState, BlockId, IoStream, Signature, Span,
-    Spanned, VarId,
+    ast::ImportPattern, ast::Unit, engine::EngineState, BlockId, OutDest, Signature, Span, Spanned,
+    VarId,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -34,7 +34,7 @@ pub enum Expr {
     Block(BlockId),
     Closure(BlockId),
     MatchBlock(Vec<(MatchPattern, Expression)>),
-    List(Vec<Expression>),
+    List(Vec<ListItem>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
     Record(Vec<RecordItem>),
     Keyword(Vec<u8>, Span, Box<Expression>),
@@ -47,29 +47,28 @@ pub enum Expr {
     RawString(String),
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),
-    ImportPattern(ImportPattern),
+    ImportPattern(Box<ImportPattern>),
     Overlay(Option<BlockId>), // block ID of the overlay's origin module
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
-    Spread(Box<Expression>),
     Nothing,
     Garbage,
 }
 
 impl Expr {
-    pub fn stdio_redirect(
+    pub fn pipe_redirection(
         &self,
         engine_state: &EngineState,
-    ) -> (Option<IoStream>, Option<IoStream>) {
+    ) -> (Option<OutDest>, Option<OutDest>) {
         // Usages of `$in` will be wrapped by a `collect` call by the parser,
         // so we do not have to worry about that when considering
         // which of the expressions below may consume pipeline output.
         match self {
-            Expr::Call(call) => engine_state.get_decl(call.decl_id).stdio_redirect(),
+            Expr::Call(call) => engine_state.get_decl(call.decl_id).pipe_redirection(),
             Expr::Subexpression(block_id) | Expr::Block(block_id) => engine_state
                 .get_block(*block_id)
-                .stdio_redirect(engine_state),
-            Expr::FullCellPath(cell_path) => cell_path.head.expr.stdio_redirect(engine_state),
+                .pipe_redirection(engine_state),
+            Expr::FullCellPath(cell_path) => cell_path.head.expr.pipe_redirection(engine_state),
             Expr::Bool(_)
             | Expr::Int(_)
             | Expr::Float(_)
@@ -91,7 +90,7 @@ impl Expr {
             | Expr::Nothing => {
                 // These expressions do not use the output of the pipeline in any meaningful way,
                 // so we can discard the previous output by redirecting it to `Null`.
-                (Some(IoStream::Null), None)
+                (Some(OutDest::Null), None)
             }
             Expr::VarDecl(_)
             | Expr::Operator(_)
@@ -101,11 +100,10 @@ impl Expr {
             | Expr::ImportPattern(_)
             | Expr::Overlay(_)
             | Expr::Signature(_)
-            | Expr::Spread(_)
             | Expr::Garbage => {
                 // These should be impossible to pipe to,
                 // but even it is, the pipeline output is not used in any way.
-                (Some(IoStream::Null), None)
+                (Some(OutDest::Null), None)
             }
             Expr::RowCondition(_) | Expr::MatchBlock(_) => {
                 // These should be impossible to pipe to,
@@ -130,4 +128,24 @@ pub enum RecordItem {
     Pair(Expression, Expression),
     /// Span for the "..." and the expression that's being spread
     Spread(Span, Expression),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ListItem {
+    /// A normal expression
+    Item(Expression),
+    /// Span for the "..." and the expression that's being spread
+    Spread(Span, Expression),
+}
+
+impl ListItem {
+    pub fn expr(&self) -> &Expression {
+        let (ListItem::Item(expr) | ListItem::Spread(_, expr)) = self;
+        expr
+    }
+
+    pub fn expr_mut(&mut self) -> &mut Expression {
+        let (ListItem::Item(expr) | ListItem::Spread(_, expr)) = self;
+        expr
+    }
 }

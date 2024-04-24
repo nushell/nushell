@@ -1,15 +1,14 @@
-use crate::database::values::sqlite::open_sqlite_db;
+use crate::database::values::sqlite::{open_sqlite_db, values_to_sql};
+use nu_engine::command_prelude::*;
 
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+use itertools::Itertools;
+use std::{
+    path::Path,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
-use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 pub const DEFAULT_TABLE_NAME: &str = "main";
 
@@ -116,31 +115,56 @@ impl Table {
         &mut self,
         record: &Record,
     ) -> Result<rusqlite::Transaction, nu_protocol::ShellError> {
+        let first_row_null = record.values().any(Value::is_nothing);
         let columns = get_columns_with_sqlite_types(record)?;
 
-        // create a string for sql table creation
-        let create_statement = format!(
-            "CREATE TABLE IF NOT EXISTS [{}] ({})",
-            self.table_name,
-            columns
-                .into_iter()
-                .map(|(col_name, sql_type)| format!("{col_name} {sql_type}"))
-                .collect::<Vec<_>>()
-                .join(", ")
+        let table_exists_query = format!(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='{}';",
+            self.name(),
         );
 
-        // execute the statement
-        self.conn.execute(&create_statement, []).map_err(|err| {
-            eprintln!("{:?}", err);
-
-            ShellError::GenericError {
-                error: "Failed to create table".into(),
-                msg: err.to_string(),
+        let table_count: u64 = self
+            .conn
+            .query_row(&table_exists_query, [], |row| row.get(0))
+            .map_err(|err| ShellError::GenericError {
+                error: format!("{:#?}", err),
+                msg: format!("{:#?}", err),
                 span: None,
                 help: None,
                 inner: Vec::new(),
+            })?;
+
+        if table_count == 0 {
+            if first_row_null {
+                eprintln!(
+                    "Warning: The first row contains a null value, which has an \
+unknown SQL type. Null values will be assumed to be TEXT columns. \
+If this is undesirable, you can create the table first with your desired schema."
+                );
             }
-        })?;
+
+            // create a string for sql table creation
+            let create_statement = format!(
+                "CREATE TABLE [{}] ({})",
+                self.table_name,
+                columns
+                    .into_iter()
+                    .map(|(col_name, sql_type)| format!("{col_name} {sql_type}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+
+            // execute the statement
+            self.conn
+                .execute(&create_statement, [])
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to create table".into(),
+                    msg: err.to_string(),
+                    span: None,
+                    help: None,
+                    inner: Vec::new(),
+                })?;
+        }
 
         self.conn
             .transaction()
@@ -210,7 +234,7 @@ fn insert_in_transaction(
     let mut stream = stream.peekable();
     let first_val = match stream.peek() {
         None => return Ok(Value::nothing(span)),
-        Some(val) => val.as_record()?,
+        Some(val) => val.as_record()?.clone(),
     };
 
     if first_val.is_empty() {
@@ -224,7 +248,7 @@ fn insert_in_transaction(
     }
 
     let table_name = table.name().clone();
-    let tx = table.try_init(first_val)?;
+    let tx = table.try_init(&first_val)?;
 
     for stream_value in stream {
         if let Some(ref ctrlc) = ctrl_c {
@@ -245,8 +269,8 @@ fn insert_in_transaction(
         let insert_statement = format!(
             "INSERT INTO [{}] ({}) VALUES ({})",
             table_name,
-            val.cols.join(", "),
-            ["?"].repeat(val.values().len()).join(", ")
+            Itertools::intersperse(val.columns().map(String::as_str), ", ").collect::<String>(),
+            Itertools::intersperse(itertools::repeat_n("?", val.len()), ", ").collect::<String>(),
         );
 
         let mut insert_statement =
@@ -292,7 +316,7 @@ fn insert_value(
     match stream_value {
         // map each column value into its SQL representation
         Value::Record { val, .. } => {
-            let sql_vals = values_to_sql(val.into_values())?;
+            let sql_vals = values_to_sql(val.values().cloned())?;
 
             insert_statement
                 .execute(rusqlite::params_from_iter(sql_vals))
@@ -315,42 +339,6 @@ fn insert_value(
     }
 }
 
-fn values_to_sql(
-    values: impl IntoIterator<Item = Value>,
-) -> Result<Vec<Box<dyn rusqlite::ToSql>>, ShellError> {
-    values
-        .into_iter()
-        .map(value_to_sql)
-        .collect::<Result<Vec<_>, _>>()
-}
-
-// This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
-fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
-    Ok(match value {
-        Value::Bool { val, .. } => Box::new(val),
-        Value::Int { val, .. } => Box::new(val),
-        Value::Float { val, .. } => Box::new(val),
-        Value::Filesize { val, .. } => Box::new(val),
-        Value::Duration { val, .. } => Box::new(val),
-        Value::Date { val, .. } => Box::new(val),
-        Value::String { val, .. } | Value::RawString { val, .. } => {
-            // don't store ansi escape sequences in the database
-            // escape single quotes
-            Box::new(nu_utils::strip_ansi_unlikely(&val).into_owned())
-        }
-        Value::Binary { val, .. } => Box::new(val),
-        val => {
-            return Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "bool, int, float, filesize, duration, date string, nothing binary"
-                    .into(),
-                wrong_type: val.get_type().to_string(),
-                dst_span: Span::unknown(),
-                src_span: val.span(),
-            })
-        }
-    })
-}
-
 // Each value stored in an SQLite database (or manipulated by the database engine) has one of the following storage classes:
 // NULL. The value is a NULL value.
 // INTEGER. The value is a signed integer, stored in 0, 1, 2, 3, 4, 6, or 8 bytes depending on the magnitude of the value.
@@ -370,6 +358,11 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         Type::Duration => Ok("BIGINT"),
         Type::Filesize => Ok("INTEGER"),
 
+        // [NOTE] On null values, we just assume TEXT. This could end up
+        // creating a table where the column type is wrong in the table schema.
+        // This means the table could end up with the wrong schema.
+        Type::Nothing => Ok("TEXT"),
+
         // intentionally enumerated so that any future types get handled
         Type::Any
         | Type::Block
@@ -379,7 +372,6 @@ fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
         | Type::Error
         | Type::List(_)
         | Type::ListStream
-        | Type::Nothing
         | Type::Range
         | Type::Record(_)
         | Type::Signature

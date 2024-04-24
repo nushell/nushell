@@ -1,0 +1,19 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "A test plugin for Nushell to stress aspects of the internals"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_stress_internals"
+edition = "2021"
+license = "MIT"
+name = "nu_plugin_stress_internals"
+version = "0.92.3"
+
+[[bin]]
+name = "nu_plugin_stress_internals"
+bench = false
+
+[dependencies]
+# Intentionally not using the nu-protocol / nu-plugin crates, to check behavior against our
+# assumptions about the serialized format
+serde = { workspace = true }
+serde_json = { workspace = true }
+interprocess = "1.2.1"

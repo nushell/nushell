@@ -12,12 +12,12 @@ def run-command [
 ] {
     if ($level_prefix | is-empty) {
         if ($ansi | is-empty) {
-            ^$nu.current-exe --commands $'use std; NU_log-level=($system_level) std log custom "($message)" "($format)" ($log_level)'
+            ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level)'
         } else {
-            ^$nu.current-exe --commands $'use std; NU_log-level=($system_level) std log custom "($message)" "($format)" ($log_level) --ansi "($ansi)"'
+            ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --ansi "($ansi)"'
         }
     } else {
-        ^$nu.current-exe --commands $'use std; NU_log-level=($system_level) std log custom "($message)" "($format)" ($log_level) --level-prefix "($level_prefix)" --ansi "($ansi)"'
+        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --level-prefix "($level_prefix)" --ansi "($ansi)"'
     }
     | complete | get --ignore-errors stderr
 }

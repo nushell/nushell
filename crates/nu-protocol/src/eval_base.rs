@@ -1,12 +1,11 @@
-use crate::debugger::DebugContext;
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
-        ExternalArgument, Math, Operator, RecordItem,
+        ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
+    debugger::DebugContext,
     Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
 };
-
 use std::{borrow::Cow, collections::HashMap};
 
 /// To share implementations for regular eval and const eval
@@ -41,15 +40,15 @@ pub trait Eval {
                 value.follow_cell_path(&cell_path.tail, false)
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
-            Expr::List(x) => {
+            Expr::List(list) => {
                 let mut output = vec![];
-                for expr in x {
-                    match &expr.expr {
-                        Expr::Spread(expr) => match Self::eval::<D>(state, mut_state, expr)? {
-                            Value::List { mut vals, .. } => output.append(&mut vals),
+                for item in list {
+                    match item {
+                        ListItem::Item(expr) => output.push(Self::eval::<D>(state, mut_state, expr)?),
+                        ListItem::Spread(_, expr) => match Self::eval::<D>(state, mut_state, expr)? {
+                            Value::List { vals, .. } => output.extend(vals),
                             _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                         },
-                        _ => output.push(Self::eval::<D>(state, mut_state, expr)?),
                     }
                 }
                 Ok(Value::list(output, expr.span))
@@ -76,7 +75,7 @@ pub trait Eval {
                         RecordItem::Spread(_, inner) => {
                             match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
-                                    for (col_name, val) in inner_val {
+                                    for (col_name, val) in inner_val.into_owned() {
                                         if let Some(orig_span) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,
@@ -137,7 +136,7 @@ pub trait Eval {
             Expr::RawString(s) => Ok(Value::raw_string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
             Expr::ValueWithUnit(e, unit) => match Self::eval::<D>(state, mut_state, e)? {
-                Value::Int { val, .. } => unit.item.to_value(val, unit.span),
+                Value::Int { val, .. } => unit.item.build_value(val, unit.span),
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),
@@ -170,8 +169,9 @@ pub trait Eval {
                 } else {
                     Value::nothing(expr.span)
                 };
+
                 Ok(Value::range(
-                    Range::new(expr.span, from, next, to, operator)?,
+                    Range::new(from, next, to, operator.inclusion, expr.span)?,
                     expr.span,
                 ))
             }
@@ -268,7 +268,6 @@ pub trait Eval {
                     ),
                 }
             }
-            Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
@@ -293,10 +292,10 @@ pub trait Eval {
                 Ok(Value::glob(pattern, *quoted, expr.span))
             }
             Expr::MatchBlock(_) // match blocks are handled by `match`
+            | Expr::Block(_) // blocks are handled directly by core commands
             | Expr::VarDecl(_)
             | Expr::ImportPattern(_)
             | Expr::Signature(_)
-            | Expr::Spread(_)
             | Expr::Operator(_)
             | Expr::Garbage => Self::unreachable(expr),
         }

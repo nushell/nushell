@@ -1,9 +1,5 @@
-use nu_protocol::{
-    ast::{Call, CellPath, PathMember},
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct IntoCellPath;

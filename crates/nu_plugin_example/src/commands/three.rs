@@ -1,18 +1,25 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{Category, PluginSignature, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, Signature, SyntaxShape, Value};
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 pub struct Three;
 
 impl SimplePluginCommand for Three {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
+    fn name(&self) -> &str {
+        "example three"
+    }
+
+    fn usage(&self) -> &str {
+        "Plugin test example 3. Returns labeled error"
+    }
+
+    fn signature(&self) -> Signature {
         // The signature defines the usage of the command inside Nu, and also automatically
         // generates its help page.
-        PluginSignature::build("example three")
-            .usage("PluginSignature test 3 for plugin. Returns labeled error")
+        Signature::build(self.name())
             .required("a", SyntaxShape::Int, "required integer value")
             .required("b", SyntaxShape::String, "required string value")
             .switch("flag", "a flag for the signature", Some('f'))
@@ -24,17 +31,14 @@ impl SimplePluginCommand for Three {
 
     fn run(
         &self,
-        plugin: &Example,
+        plugin: &ExamplePlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
         plugin.print_values(3, call, input)?;
 
-        Err(LabeledError {
-            label: "ERROR from plugin".into(),
-            msg: "error message pointing to call head span".into(),
-            span: Some(call.head),
-        })
+        Err(LabeledError::new("ERROR from plugin")
+            .with_label("error message pointing to call head span", call.head))
     }
 }

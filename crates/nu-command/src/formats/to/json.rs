@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct ToJson;
@@ -130,13 +125,13 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
 
         Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
         Value::Error { error, .. } => return Err(*error.clone()),
-        Value::Closure { .. } | Value::Block { .. } | Value::Range { .. } => nu_json::Value::Null,
+        Value::Closure { .. } | Value::Range { .. } => nu_json::Value::Null,
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
         Value::Record { val, .. } => {
             let mut m = nu_json::Map::new();
-            for (k, v) in val {
+            for (k, v) in &**val {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             nu_json::Value::Object(m)
@@ -145,7 +140,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             let collected = val.collect()?;
             value_to_json_value(&collected)?
         }
-        Value::CustomValue { val, .. } => {
+        Value::Custom { val, .. } => {
             let collected = val.to_base_value(span)?;
             value_to_json_value(&collected)?
         }

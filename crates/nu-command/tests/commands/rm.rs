@@ -538,3 +538,34 @@ fn force_rm_suppress_error() {
         assert!(actual.err.is_empty());
     });
 }
+
+#[test]
+fn rm_with_tilde() {
+    Playground::setup("rm_tilde", |dirs, sandbox| {
+        sandbox.within("~tilde").with_files(vec![
+            EmptyFile("f1.txt"),
+            EmptyFile("f2.txt"),
+            EmptyFile("f3.txt"),
+        ]);
+
+        let actual = nu!(cwd: dirs.test(), "rm '~tilde/f1.txt'");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec![Path::new("f1.txt")],
+            dirs.test().join("~tilde")
+        ));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde/f2.txt'; rm $f");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec![Path::new("f2.txt")],
+            dirs.test().join("~tilde")
+        ));
+
+        // remove directory
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; rm -r $f");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+    })
+}

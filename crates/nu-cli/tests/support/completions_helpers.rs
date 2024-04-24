@@ -1,15 +1,14 @@
-use std::path::PathBuf;
-
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
+    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::create_nu_constant,
     PipelineData, ShellError, Span, Value, NU_VARIABLE_ID,
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
+use std::path::PathBuf;
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 

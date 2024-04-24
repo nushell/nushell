@@ -1,13 +1,6 @@
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
-
 use super::utils::chain_error_with_input;
+use nu_engine::{command_prelude::*, ClosureEval};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Items;
@@ -44,94 +37,68 @@ impl Command for Items {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
+        let head = call.head;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
-        let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack = stack.captures_to_stack(capture_block.captures);
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
-        let span = call.head;
-        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
-
-        let input_span = input.span().unwrap_or(call.head);
-        let run_for_each_item = move |keyval: (String, Value)| -> Option<Value> {
-            // with_env() is used here to ensure that each iteration uses
-            // a different set of environment variables.
-            // Hence, a 'cd' in the first loop won't affect the next loop.
-            stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-            if let Some(var) = block.signature.get_positional(0) {
-                if let Some(var_id) = &var.var_id {
-                    stack.add_var(*var_id, Value::string(keyval.0.clone(), span));
-                }
-            }
-
-            if let Some(var) = block.signature.get_positional(1) {
-                if let Some(var_id) = &var.var_id {
-                    stack.add_var(*var_id, keyval.1);
-                }
-            }
-
-            match eval_block_with_early_return(
-                &engine_state,
-                &mut stack,
-                &block,
-                PipelineData::empty(),
-            ) {
-                Ok(v) => Some(v.into_value(span)),
-                Err(ShellError::Break { .. }) => None,
-                Err(error) => {
-                    let error = chain_error_with_input(error, false, input_span);
-                    Some(Value::error(error, span))
-                }
-            }
-        };
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(v, ..) => match v {
-                Value::Record { val, .. } => Ok(val
-                    .into_iter()
-                    .map_while(run_for_each_item)
-                    .into_pipeline_data(ctrlc)),
-                Value::LazyRecord { val, .. } => {
-                    let record = match val.collect()? {
-                        Value::Record { val, .. } => val,
-                        _ => Err(ShellError::NushellFailedSpanned {
-                            msg: "`LazyRecord::collect()` promises `Value::Record`".into(),
-                            label: "Violating lazy record found here".into(),
-                            span,
-                        })?,
-                    };
-                    Ok(record
-                        .into_iter()
-                        .map_while(run_for_each_item)
-                        .into_pipeline_data(ctrlc))
+            PipelineData::Value(value, ..) => {
+                let value = if let Value::LazyRecord { val, .. } = value {
+                    val.collect()?
+                } else {
+                    value
+                };
+
+                let span = value.span();
+                match value {
+                    Value::Record { val, .. } => {
+                        let mut closure = ClosureEval::new(engine_state, stack, closure);
+                        Ok(val
+                            .into_owned()
+                            .into_iter()
+                            .map_while(move |(col, val)| {
+                                let result = closure
+                                    .add_arg(Value::string(col, span))
+                                    .add_arg(val)
+                                    .run_with_input(PipelineData::Empty);
+
+                                match result {
+                                    Ok(data) => Some(data.into_value(head)),
+                                    Err(ShellError::Break { .. }) => None,
+                                    Err(err) => {
+                                        let err = chain_error_with_input(err, false, span);
+                                        Some(Value::error(err, head))
+                                    }
+                                }
+                            })
+                            .into_pipeline_data(engine_state.ctrlc.clone()))
+                    }
+                    Value::Error { error, .. } => Err(*error),
+                    other => Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "record".into(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: head,
+                        src_span: other.span(),
+                    }),
                 }
-                Value::Error { error, .. } => Err(*error),
-                other => Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "record".into(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: call.head,
-                    src_span: other.span(),
-                }),
-            },
+            }
             PipelineData::ListStream(..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
                 wrong_type: "stream".into(),
-                dst_span: call.head,
-                src_span: input_span,
+                dst_span: head,
+                src_span: head,
             }),
-            PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "record".into(),
-                wrong_type: "raw data".into(),
-                dst_span: call.head,
-                src_span: input_span,
-            }),
+            PipelineData::ExternalStream { span, .. } => {
+                Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "record".into(),
+                    wrong_type: "raw data".into(),
+                    dst_span: head,
+                    src_span: span,
+                })
+            }
         }
-        .map(|x| x.set_metadata(metadata))
+        .map(|data| data.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

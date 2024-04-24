@@ -1,16 +1,11 @@
 use nu_ansi_term::*;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::Command,
-    engine::StateWorkingSet,
-    engine::{EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
-use std::sync::{atomic::AtomicBool, Arc};
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 #[derive(Clone)]
 pub struct AnsiCommand;
