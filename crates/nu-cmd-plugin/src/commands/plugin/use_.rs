@@ -24,7 +24,7 @@ impl Command for PluginUse {
             .required(
                 "name",
                 SyntaxShape::String,
-                "The name of the plugin to load (not the filename)",
+                "The name, or filename, of the plugin to load",
             )
             .category(Category::Plugin)
     }
@@ -41,6 +41,9 @@ preparing a plugin registry file and passing `--plugin-config`, or using the
 
 If the plugin was already loaded, this will reload the latest definition from
 the registry file into scope.
+
+Note that even if the plugin filename is specified, it will only be loaded if
+it was already previously registered with `plugin add`.
 "#
         .trim()
     }
@@ -68,6 +71,11 @@ the registry file into scope.
             Example {
                 description: "Load the commands for the `query` plugin from $nu.plugin-path",
                 example: r#"plugin use query"#,
+                result: None,
+            },
+            Example {
+                description: "Load the commands for the plugin with the filename `~/.cargo/bin/nu_plugin_query` from $nu.plugin-path",
+                example: r#"plugin use ~/.cargo/bin/nu_plugin_query"#,
                 result: None,
             },
             Example {

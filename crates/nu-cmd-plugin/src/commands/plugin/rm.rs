@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 
-use crate::util::modify_plugin_file;
+use crate::util::{canonicalize_possible_filename_arg, modify_plugin_file};
 
 #[derive(Clone)]
 pub struct PluginRm;
@@ -28,7 +28,7 @@ impl Command for PluginRm {
             .required(
                 "name",
                 SyntaxShape::String,
-                "The name of the plugin to remove (not the filename)",
+                "The name, or filename, of the plugin to remove",
             )
             .category(Category::Plugin)
     }
@@ -62,6 +62,11 @@ fixed with `plugin add`.
                 result: None,
             },
             Example {
+                example: "plugin rm ~/.cargo/bin/nu_plugin_inc",
+                description: "Remove the installed signatures for the plugin with the filename `~/.cargo/bin/nu_plugin_inc`.",
+                result: None,
+            },
+            Example {
                 example: "plugin rm --plugin-config polars.msgpackz polars",
                 description: "Remove the installed signatures for the `polars` plugin from the \"polars.msgpackz\" plugin registry file.",
                 result: None,
@@ -80,8 +85,19 @@ fixed with `plugin add`.
         let custom_path = call.get_flag(engine_state, stack, "plugin-config")?;
         let force = call.has_flag(engine_state, stack, "force")?;
 
+        let filename = canonicalize_possible_filename_arg(engine_state, stack, &name.item);
+
         modify_plugin_file(engine_state, stack, call.head, custom_path, |contents| {
-            if !force && !contents.plugins.iter().any(|p| p.name == name.item) {
+            if let Some(index) = contents
+                .plugins
+                .iter()
+                .position(|p| p.name == name.item || p.filename == filename)
+            {
+                contents.plugins.remove(index);
+                Ok(())
+            } else if force {
+                Ok(())
+            } else {
                 Err(ShellError::GenericError {
                     error: format!("Failed to remove the `{}` plugin", name.item),
                     msg: "couldn't find a plugin with this name in the registry file".into(),
@@ -89,9 +105,6 @@ fixed with `plugin add`.
                     help: None,
                     inner: vec![],
                 })
-            } else {
-                contents.remove_plugin(&name.item);
-                Ok(())
             }
         })?;
 

@@ -15,7 +15,7 @@ impl Command for HelpEscapes {
     fn signature(&self) -> Signature {
         Signature::build("help escapes")
             .category(Category::Core)
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
     }
 

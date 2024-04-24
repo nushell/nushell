@@ -19,7 +19,7 @@ impl Command for Histogram {
 
     fn signature(&self) -> Signature {
         Signature::build("histogram")
-            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Table(vec![])),])
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::table()),])
             .optional("column-name", SyntaxShape::String, "Column name to calc frequency, no need to provide if input is a list.")
             .optional("frequency-column-name", SyntaxShape::String, "Histogram's frequency column, default to be frequency column output.")
             .named("percentage-type", SyntaxShape::String, "percentage calculate method, can be 'normalize' or 'relative', in 'normalize', defaults to be 'normalize'", Some('t'))

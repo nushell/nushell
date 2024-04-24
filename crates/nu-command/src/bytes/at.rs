@@ -41,8 +41,8 @@ impl Command for BytesAt {
                     Type::List(Box::new(Type::Binary)),
                     Type::List(Box::new(Type::Binary)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .required("range", SyntaxShape::Range, "The range to get bytes.")
             .rest(

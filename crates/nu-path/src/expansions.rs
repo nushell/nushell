@@ -92,3 +92,35 @@ where
     let path = expand_tilde(path);
     expand_ndots(path)
 }
+
+/// Attempts to canonicalize the path against the current directory. Failing that, if
+/// the path is relative, it attempts all of the dirs in `dirs`. If that fails, it returns
+/// the original error.
+pub fn locate_in_dirs<I, P>(
+    filename: impl AsRef<Path>,
+    cwd: impl AsRef<Path>,
+    dirs: impl FnOnce() -> I,
+) -> std::io::Result<PathBuf>
+where
+    I: IntoIterator<Item = P>,
+    P: AsRef<Path>,
+{
+    let filename = filename.as_ref();
+    let cwd = cwd.as_ref();
+    match canonicalize_with(filename, cwd) {
+        Ok(path) => Ok(path),
+        Err(err) => {
+            // Try to find it in `dirs` first, before giving up
+            let mut found = None;
+            for dir in dirs() {
+                if let Ok(path) =
+                    canonicalize_with(dir, cwd).and_then(|dir| canonicalize_with(filename, dir))
+                {
+                    found = Some(path);
+                    break;
+                }
+            }
+            found.ok_or(err)
+        }
+    }
+}

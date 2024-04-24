@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 struct Options {
     refuse_local_socket: bool,
     advertise_local_socket: bool,
+    exit_before_hello: bool,
     exit_early: bool,
     wrong_version: bool,
     local_socket_path: Option<String>,
@@ -28,6 +29,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     let mut opts = Options {
         refuse_local_socket: has_env("STRESS_REFUSE_LOCAL_SOCKET"),
         advertise_local_socket: has_env("STRESS_ADVERTISE_LOCAL_SOCKET"),
+        exit_before_hello: has_env("STRESS_EXIT_BEFORE_HELLO"),
         exit_early: has_env("STRESS_EXIT_EARLY"),
         wrong_version: has_env("STRESS_WRONG_VERSION"),
         local_socket_path: None,
@@ -73,6 +75,11 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     output.write_all(b"\x04json")?;
     if should_flush {
         output.flush()?;
+    }
+
+    // Test exiting without `Hello`
+    if opts.exit_before_hello {
+        std::process::exit(1)
     }
 
     // Send `Hello` message

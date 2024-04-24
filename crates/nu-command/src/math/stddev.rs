@@ -14,8 +14,8 @@ impl Command for SubCommand {
         Signature::build("math stddev")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
-                (Type::Table(vec![]), Type::Record(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::record()),
+                (Type::record(), Type::record()),
             ])
             .switch(
                 "sample",
