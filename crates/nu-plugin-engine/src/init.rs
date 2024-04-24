@@ -26,6 +26,8 @@ use crate::{
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
+/// Spawn the command for a plugin, in the given `mode`. After spawning, it can be passed to
+/// [`make_plugin_interface()`] to get a [`PluginInterface`].
 pub fn create_command(
     path: &Path,
     mut shell: Option<&Path>,
@@ -94,6 +96,10 @@ pub fn create_command(
     process
 }
 
+/// Create a plugin interface from a spawned child process.
+///
+/// `comm` determines the communication type the process was spawned with, and whether stdio will
+/// be taken from the child.
 pub fn make_plugin_interface(
     mut child: Child,
     comm: PreparedServerCommunication,
@@ -128,6 +134,12 @@ pub fn make_plugin_interface(
     }
 }
 
+/// Create a plugin interface from low-level components.
+///
+/// - `after_close` is called to clean up after the `reader` ends.
+/// - `source` is required so that custom values produced by the plugin can spawn it.
+/// - `pid` may be provided for process management (e.g. `EnterForeground`).
+/// - `gc` may be provided for communication with the plugin's GC (e.g. `SetGcDisabled`).
 pub fn make_plugin_interface_with_streams(
     mut reader: impl std::io::Read + Send + 'static,
     writer: impl std::io::Write + Send + 'static,
@@ -172,6 +184,10 @@ pub fn make_plugin_interface_with_streams(
     Ok(interface)
 }
 
+/// Determine the plugin's encoding from a freshly opened stream.
+///
+/// The plugin is expected to send a 1-byte length and either `json` or `msgpack`, so this reads
+/// that and determines the right length.
 pub fn get_plugin_encoding(
     child_stdout: &mut impl std::io::Read,
 ) -> Result<EncodingType, ShellError> {
@@ -196,6 +212,7 @@ pub fn get_plugin_encoding(
         }
     })
 }
+
 /// Load the definitions from the plugin file into the engine state
 pub fn load_plugin_file(
     working_set: &mut StateWorkingSet,
