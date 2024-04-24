@@ -15,7 +15,7 @@ use std::{
 };
 
 #[cfg(feature = "plugin")]
-use crate::{PluginCacheItem, PluginIdentity, RegisteredPlugin};
+use crate::{PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
 /// additional declarations and scope changes that are not yet part of the global scope.
@@ -182,8 +182,8 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn update_plugin_cache(&mut self, item: PluginCacheItem) {
-        self.delta.plugin_cache_items.push(item);
+    pub fn update_plugin_registry(&mut self, item: PluginRegistryItem) {
+        self.delta.plugin_registry_items.push(item);
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {

@@ -24,8 +24,8 @@ use std::{
 use nu_engine::documentation::get_flags_section;
 use nu_protocol::{
     ast::Operator, engine::StateWorkingSet, report_error_new, CustomValue, IntoSpanned,
-    LabeledError, PipelineData, PluginCacheFile, PluginCacheItem, PluginCacheItemData,
-    PluginIdentity, PluginSignature, RegisteredPlugin, ShellError, Span, Spanned, Value,
+    LabeledError, PipelineData, PluginIdentity, PluginRegistryFile, PluginRegistryItem,
+    PluginRegistryItemData, PluginSignature, RegisteredPlugin, ShellError, Span, Spanned, Value,
 };
 use thiserror::Error;
 
@@ -925,12 +925,12 @@ pub fn get_plugin_encoding(
 #[doc(hidden)]
 pub fn load_plugin_file(
     working_set: &mut StateWorkingSet,
-    plugin_cache_file: &PluginCacheFile,
+    plugin_registry_file: &PluginRegistryFile,
     span: Option<Span>,
 ) {
-    for plugin in &plugin_cache_file.plugins {
+    for plugin in &plugin_registry_file.plugins {
         // Any errors encountered should just be logged.
-        if let Err(err) = load_plugin_cache_item(working_set, plugin, span) {
+        if let Err(err) = load_plugin_registry_item(working_set, plugin, span) {
             report_error_new(working_set.permanent_state, &err)
         }
     }
@@ -938,15 +938,15 @@ pub fn load_plugin_file(
 
 /// Load a definition from the plugin file into the engine state
 #[doc(hidden)]
-pub fn load_plugin_cache_item(
+pub fn load_plugin_registry_item(
     working_set: &mut StateWorkingSet,
-    plugin: &PluginCacheItem,
+    plugin: &PluginRegistryItem,
     span: Option<Span>,
 ) -> Result<Arc<PersistentPlugin>, ShellError> {
     let identity =
         PluginIdentity::new(plugin.filename.clone(), plugin.shell.clone()).map_err(|_| {
             ShellError::GenericError {
-                error: "Invalid plugin filename in plugin cache file".into(),
+                error: "Invalid plugin filename in plugin registry file".into(),
                 msg: "loaded from here".into(),
                 span,
                 help: Some(format!(
@@ -959,7 +959,7 @@ pub fn load_plugin_cache_item(
         })?;
 
     match &plugin.data {
-        PluginCacheItemData::Valid { commands } => {
+        PluginRegistryItemData::Valid { commands } => {
             let plugin = add_plugin_to_working_set(working_set, &identity)?;
 
             // Ensure that the plugin is reset. We're going to load new signatures, so we want to
@@ -974,7 +974,7 @@ pub fn load_plugin_cache_item(
             }
             Ok(plugin)
         }
-        PluginCacheItemData::Invalid => Err(ShellError::PluginCacheDataInvalid {
+        PluginRegistryItemData::Invalid => Err(ShellError::PluginRegistryDataInvalid {
             plugin_name: identity.name().to_owned(),
             span,
             add_command: identity.add_command(),

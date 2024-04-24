@@ -9,7 +9,7 @@ use crate::{
 use std::sync::Arc;
 
 #[cfg(feature = "plugin")]
-use crate::{PluginCacheItem, RegisteredPlugin};
+use crate::{PluginRegistryItem, RegisteredPlugin};
 
 /// A delta (or change set) between the current global state and a possible future global state. Deltas
 /// can be applied to the global state to update it to contain both previous state and the state held
@@ -26,7 +26,7 @@ pub struct StateDelta {
     #[cfg(feature = "plugin")]
     pub(super) plugins: Vec<Arc<dyn RegisteredPlugin>>,
     #[cfg(feature = "plugin")]
-    pub(super) plugin_cache_items: Vec<PluginCacheItem>,
+    pub(super) plugin_registry_items: Vec<PluginRegistryItem>,
 }
 
 impl StateDelta {
@@ -50,7 +50,7 @@ impl StateDelta {
             #[cfg(feature = "plugin")]
             plugins: vec![],
             #[cfg(feature = "plugin")]
-            plugin_cache_items: vec![],
+            plugin_registry_items: vec![],
         }
     }
 

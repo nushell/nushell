@@ -1,16 +1,16 @@
-use super::{PluginCacheFile, PluginCacheItem, PluginCacheItemData};
+use super::{PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData};
 use crate::{
     Category, PluginExample, PluginSignature, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use pretty_assertions::assert_eq;
 use std::io::Cursor;
 
-fn foo_plugin() -> PluginCacheItem {
-    PluginCacheItem {
+fn foo_plugin() -> PluginRegistryItem {
+    PluginRegistryItem {
         name: "foo".into(),
         filename: "/path/to/nu_plugin_foo".into(),
         shell: None,
-        data: PluginCacheItemData::Valid {
+        data: PluginRegistryItemData::Valid {
             commands: vec![PluginSignature {
                 sig: Signature::new("foo")
                     .input_output_type(Type::Int, Type::List(Box::new(Type::Int)))
@@ -30,12 +30,12 @@ fn foo_plugin() -> PluginCacheItem {
     }
 }
 
-fn bar_plugin() -> PluginCacheItem {
-    PluginCacheItem {
+fn bar_plugin() -> PluginRegistryItem {
+    PluginRegistryItem {
         name: "bar".into(),
         filename: "/path/to/nu_plugin_bar".into(),
         shell: None,
-        data: PluginCacheItemData::Valid {
+        data: PluginRegistryItemData::Valid {
             commands: vec![PluginSignature {
                 sig: Signature::new("bar")
                     .usage("overwrites files with random data")
@@ -54,48 +54,48 @@ fn bar_plugin() -> PluginCacheItem {
 
 #[test]
 fn roundtrip() -> Result<(), ShellError> {
-    let mut plugin_cache_file = PluginCacheFile {
+    let mut plugin_registry_file = PluginRegistryFile {
         nushell_version: env!("CARGO_PKG_VERSION").to_owned(),
         plugins: vec![foo_plugin(), bar_plugin()],
     };
 
     let mut output = vec![];
 
-    plugin_cache_file.write_to(&mut output, None)?;
+    plugin_registry_file.write_to(&mut output, None)?;
 
-    let read_file = PluginCacheFile::read_from(Cursor::new(&output[..]), None)?;
+    let read_file = PluginRegistryFile::read_from(Cursor::new(&output[..]), None)?;
 
-    assert_eq!(plugin_cache_file, read_file);
+    assert_eq!(plugin_registry_file, read_file);
 
     Ok(())
 }
 
 #[test]
 fn roundtrip_invalid() -> Result<(), ShellError> {
-    let mut plugin_cache_file = PluginCacheFile {
+    let mut plugin_registry_file = PluginRegistryFile {
         nushell_version: env!("CARGO_PKG_VERSION").to_owned(),
-        plugins: vec![PluginCacheItem {
+        plugins: vec![PluginRegistryItem {
             name: "invalid".into(),
             filename: "/path/to/nu_plugin_invalid".into(),
             shell: None,
-            data: PluginCacheItemData::Invalid,
+            data: PluginRegistryItemData::Invalid,
         }],
     };
 
     let mut output = vec![];
 
-    plugin_cache_file.write_to(&mut output, None)?;
+    plugin_registry_file.write_to(&mut output, None)?;
 
-    let read_file = PluginCacheFile::read_from(Cursor::new(&output[..]), None)?;
+    let read_file = PluginRegistryFile::read_from(Cursor::new(&output[..]), None)?;
 
-    assert_eq!(plugin_cache_file, read_file);
+    assert_eq!(plugin_registry_file, read_file);
 
     Ok(())
 }
 
 #[test]
 fn upsert_new() {
-    let mut file = PluginCacheFile::new();
+    let mut file = PluginRegistryFile::new();
 
     file.plugins.push(foo_plugin());
 
@@ -106,7 +106,7 @@ fn upsert_new() {
 
 #[test]
 fn upsert_replace() {
-    let mut file = PluginCacheFile::new();
+    let mut file = PluginRegistryFile::new();
 
     file.plugins.push(foo_plugin());
 
