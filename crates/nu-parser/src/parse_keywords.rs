@@ -3803,6 +3803,17 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
             })
             .transpose()?;
 
+        // The name could also be a filename, so try our best to expand it for that match.
+        let filename_query = {
+            let path = nu_path::expand_path_with(&name.item, &cwd, true);
+            path.to_str()
+                .and_then(|path_str| {
+                    find_in_dirs(path_str, working_set, &cwd, Some("NU_PLUGIN_DIRS"))
+                })
+                .map(|parser_path| parser_path.path_buf())
+                .unwrap_or(path)
+        };
+
         // Find the actual plugin config path location. We don't have a const/env variable for this,
         // it either lives in the current working directory or in the script's directory
         let plugin_config_path = if let Some(custom_path) = &plugin_config {
@@ -3842,7 +3853,7 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
         let plugin_item = contents
             .plugins
             .iter()
-            .find(|plugin| plugin.name == name.item)
+            .find(|plugin| plugin.name == name.item || plugin.filename == filename_query)
             .ok_or_else(|| ParseError::PluginNotFound {
                 name: name.item.clone(),
                 name_span: name.span,

@@ -96,11 +96,6 @@ impl PluginCacheFile {
                 .sort_by(|item1, item2| item1.name.cmp(&item2.name));
         }
     }
-
-    /// Remove a plugin from the plugin cache file by name.
-    pub fn remove_plugin(&mut self, name: &str) {
-        self.plugins.retain_mut(|item| item.name != name)
-    }
 }
 
 /// A single plugin definition from a [`PluginCacheFile`].
