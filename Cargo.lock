@@ -398,7 +398,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "proc-macro2",
@@ -4837,7 +4837,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.31.0"
-source = "git+https://github.com/nushell/reedline?branch=main#455b9a3a22f3840719d993ea715b57790a77b509"
+source = "git+https://github.com/nushell/reedline?branch=main#4cf8c75d68ccb51451dc483b07dbf3d30ab1da10"
 dependencies = [
  "arboard",
  "chrono",
