@@ -1,7 +1,10 @@
-use std::fs::{self, File};
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+};
 
 use nu_engine::{command_prelude::*, current_dir};
-use nu_protocol::PluginCacheFile;
+use nu_protocol::{engine::StateWorkingSet, PluginCacheFile};
 
 pub(crate) fn modify_plugin_file(
     engine_state: &EngineState,
@@ -47,4 +50,40 @@ pub(crate) fn modify_plugin_file(
     )?;
 
     Ok(())
+}
+
+pub(crate) fn canonicalize_possible_filename_arg(
+    engine_state: &EngineState,
+    stack: &Stack,
+    arg: &str,
+) -> PathBuf {
+    // This results in the best possible chance of a match with the plugin item
+    if let Ok(cwd) = nu_engine::current_dir(engine_state, stack) {
+        let path = nu_path::expand_path_with(arg, &cwd, true);
+        // Try to canonicalize
+        nu_path::locate_in_dirs(&path, &cwd, || get_plugin_dirs(engine_state, stack))
+            // If we couldn't locate it, return the expanded path alone
+            .unwrap_or(path)
+    } else {
+        arg.into()
+    }
+}
+
+pub(crate) fn get_plugin_dirs(
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> impl Iterator<Item = String> {
+    // Get the NU_PLUGIN_DIRS constant or env var
+    let working_set = StateWorkingSet::new(engine_state);
+    let value = working_set
+        .find_variable(b"$NU_PLUGIN_DIRS")
+        .and_then(|var_id| working_set.get_constant(var_id).ok().cloned())
+        .or_else(|| stack.get_env_var(engine_state, "NU_PLUGIN_DIRS"));
+
+    // Get all of the strings in the list, if possible
+    value
+        .into_iter()
+        .flat_map(|value| value.into_list().ok())
+        .flatten()
+        .flat_map(|list_item| list_item.coerce_into_string().ok())
 }

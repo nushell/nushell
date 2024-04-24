@@ -73,6 +73,17 @@ fn plugin_process_exits_after_stop() {
 }
 
 #[test]
+fn plugin_stop_can_find_by_filename() {
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"plugin stop (plugin list | where name == inc).0.filename"#
+    );
+    assert!(result.status.success());
+    assert!(result.err.is_empty());
+}
+
+#[test]
 fn plugin_process_exits_when_nushell_exits() {
     let out = nu_with_plugins!(
         cwd: ".",
