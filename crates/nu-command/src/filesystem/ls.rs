@@ -2,11 +2,11 @@ use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::{command_prelude::*, env::current_dir};
-use nu_glob::{MatchOptions, Pattern};
-use nu_path::{canonicalize_with, expand_path_with, expand_to_real_path};
+use nu_engine::{glob_from, GLOB_CHARS};
+use nu_glob::MatchOptions;
+use nu_path::expand_to_real_path;
 use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
-use std::{fs, path::Component};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -234,16 +234,13 @@ fn ls_for_one_pattern(
 
     // it indicates we need to append an extra '*' after pattern for listing given directory
     // Example: 'ls directory' -> 'ls directory/*'
-    let mut extra_star_under_given_directory = false;
+    let mut just_read_dir = false;
     let p_tag: Span = pattern_arg.as_ref().map(|p| p.span).unwrap_or(call_span);
-    let (mut pattern_arg, absolute_path, input_expand) = match pattern_arg {
+    let (pattern_arg, absolute_path) = match pattern_arg {
         Some(pat) => {
             // expand with cwd here is only used for checking
-            let tmp_expanded = nu_path::expand_path_with(
-                pat.item.as_ref(),
-                &cwd,
-                matches!(pat.item, NuGlob::Expand(..)),
-            );
+            let tmp_expanded =
+                nu_path::expand_path_with(pat.item.as_ref(), &cwd, pat.item.is_expand());
             // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
             if !directory && tmp_expanded.is_dir() {
                 if permission_denied(&tmp_expanded) {
@@ -270,7 +267,7 @@ fn ls_for_one_pattern(
                 if is_empty_dir(&tmp_expanded) {
                     return Ok(Box::new(vec![].into_iter()));
                 }
-                extra_star_under_given_directory = true;
+                just_read_dir = !(pat.item.is_expand() && pat.item.as_ref().contains(GLOB_CHARS));
             }
 
             // it's absolute path if:
@@ -280,49 +277,37 @@ fn ls_for_one_pattern(
             //    path.
             let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
                 || (pat.item.is_expand() && expand_to_real_path(pat.item.as_ref()).is_absolute());
-            let input_expand = pat.item.is_expand();
-            (pat.item, absolute_path, input_expand)
+            (pat.item, absolute_path)
         }
         None => {
             // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
             if directory {
-                (NuGlob::Expand(".".to_string()), false, true)
+                (NuGlob::Expand(".".to_string()), false)
             } else if is_empty_dir(&cwd) {
                 return Ok(Box::new(vec![].into_iter()));
             } else {
-                (NuGlob::Expand("*".to_string()), false, true)
+                (NuGlob::Expand("*".to_string()), false)
             }
         }
     };
 
     let hidden_dir_specified = is_hidden_dir(pattern_arg.as_ref());
-    if extra_star_under_given_directory {
-        // pattern arg must be expanded, because we need to put an extra '*'.
-        let mut pattern = match pattern_arg {
-            NuGlob::Expand(p) => p,
-            NuGlob::DoNotExpand(p) => {
-                // when not expend, we need to escape our glob pattern(but without the last extra
-                // start which may be added under given directory)
-                // so we can do ls for a file or directory like `a[123]b`
-                Pattern::escape(&p)
-            }
-        };
-        pattern.push(std::path::MAIN_SEPARATOR);
-        pattern.push('*');
-        pattern_arg = NuGlob::Expand(pattern)
-    };
-
     let path = pattern_arg.into_spanned(p_tag);
-    let glob_options = if all {
-        None
+    let (prefix, paths) = if just_read_dir {
+        let expanded = nu_path::expand_path_with(path.item.as_ref(), &cwd, path.item.is_expand());
+        read_dir(expanded)?
     } else {
-        let glob_options = MatchOptions {
-            recursive_match_hidden_dir: false,
-            ..Default::default()
+        let glob_options = if all {
+            None
+        } else {
+            let glob_options = MatchOptions {
+                recursive_match_hidden_dir: false,
+                ..Default::default()
+            };
+            Some(glob_options)
         };
-        Some(glob_options)
+        glob_from(&path, &cwd, call_span, glob_options)?
     };
-    let (prefix, paths) = glob_from(&path, &cwd, call_span, glob_options, input_expand)?;
 
     let mut paths_peek = paths.peekable();
     if paths_peek.peek().is_none() {
@@ -890,19 +875,9 @@ mod windows_helper {
     }
 }
 
-// It's mostly a copy of `nu_engine::glob_from`.  But with a new `expand_tilde` parameter.
-//
-// nu_engine::glob_from can't work for the code: `mkdir ~[a]bc; ls "~[a]bc`.
-// It's also bad to add an extra argument to `nu_engine::glob_from`, because only `ls` has the issue.
-//
-// `ls` might converts input pattern from `NuGlob::NotExpand` to `NuGlob::Expand`.
 #[allow(clippy::type_complexity)]
-fn glob_from(
-    pattern: &Spanned<NuGlob>,
-    cwd: &Path,
-    span: Span,
-    options: Option<MatchOptions>,
-    expand_tilde: bool,
+fn read_dir(
+    f: PathBuf,
 ) -> Result<
     (
         Option<PathBuf>,
@@ -910,94 +885,10 @@ fn glob_from(
     ),
     ShellError,
 > {
-    const GLOB_CHARS: &[char] = &['*', '?', '['];
-    let no_glob_for_pattern = matches!(pattern.item, NuGlob::DoNotExpand(_));
-    let (prefix, pattern) = if pattern.item.as_ref().contains(GLOB_CHARS) {
-        // Pattern contains glob, split it
-        let mut p = PathBuf::new();
-        let path = PathBuf::from(&pattern.item.as_ref());
-        let components = path.components();
-        let mut counter = 0;
-
-        for c in components {
-            if let Component::Normal(os) = c {
-                if os.to_string_lossy().contains(GLOB_CHARS) {
-                    break;
-                }
-            }
-            p.push(c);
-            counter += 1;
-        }
-
-        let mut just_pattern = PathBuf::new();
-        for c in counter..path.components().count() {
-            if let Some(comp) = path.components().nth(c) {
-                just_pattern.push(comp);
-            }
-        }
-        if no_glob_for_pattern {
-            just_pattern = PathBuf::from(nu_glob::Pattern::escape(&just_pattern.to_string_lossy()));
-        }
-
-        // Now expand `p` to get full prefix
-        let path = expand_path_with(p, cwd, expand_tilde && pattern.item.is_expand());
-        let escaped_prefix = PathBuf::from(nu_glob::Pattern::escape(&path.to_string_lossy()));
-
-        (Some(path), escaped_prefix.join(just_pattern))
-    } else {
-        let path = PathBuf::from(&pattern.item.as_ref());
-        let path = expand_path_with(path, cwd, expand_tilde && pattern.item.is_expand());
-        let is_symlink = match fs::symlink_metadata(&path) {
-            Ok(attr) => attr.file_type().is_symlink(),
-            Err(_) => false,
-        };
-
-        if is_symlink {
-            (path.parent().map(|parent| parent.to_path_buf()), path)
-        } else {
-            let path = if let Ok(p) = canonicalize_with(path.clone(), cwd) {
-                if p.to_string_lossy().contains(GLOB_CHARS) {
-                    // our path might contains GLOB_CHARS too
-                    // in such case, we need to escape our path to make
-                    // glob work successfully
-                    PathBuf::from(nu_glob::Pattern::escape(&p.to_string_lossy()))
-                } else {
-                    p
-                }
-            } else {
-                return Err(ShellError::DirectoryNotFound {
-                    dir: path.to_string_lossy().to_string(),
-                    span: pattern.span,
-                });
-            };
-            (path.parent().map(|parent| parent.to_path_buf()), path)
-        }
-    };
-
-    let pattern = pattern.to_string_lossy().to_string();
-    let glob_options = options.unwrap_or_default();
-
-    let glob = nu_glob::glob_with(&pattern, glob_options).map_err(|e| {
-        nu_protocol::ShellError::GenericError {
-            error: "Error extracting glob pattern".into(),
-            msg: e.to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        }
-    })?;
-
-    Ok((
-        prefix,
-        Box::new(glob.map(move |x| match x {
-            Ok(v) => Ok(v),
-            Err(e) => Err(nu_protocol::ShellError::GenericError {
-                error: "Error extracting glob pattern".into(),
-                msg: e.to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            }),
-        })),
-    ))
+    let iter = f.read_dir()?.map(|d| {
+        d.map(|r| r.path())
+            .map_err(|e| ShellError::IOError { msg: e.to_string() })
+    });
+    // we just read the directory, so the prefix is given `f` itself.
+    Ok((Some(f), Box::new(iter)))
 }

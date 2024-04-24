@@ -85,13 +85,13 @@ fn lists_regular_files_in_special_folder() {
         assert_eq!(actual.out, "2");
         let actual = nu!(
             cwd: dirs.test().join("abcd/*"), format!(r#"ls ../* | length"#));
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual.out, "2");
         let actual = nu!(
             cwd: dirs.test().join("abcd/?"), format!(r#"ls -D ../* | length"#));
         assert_eq!(actual.out, "2");
         let actual = nu!(
             cwd: dirs.test().join("abcd/?"), format!(r#"ls ../* | length"#));
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual.out, "2");
     })
 }
 
@@ -237,6 +237,12 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
         );
 
         assert_eq!(actual.out, "5");
+
+        let actual = nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"ls ... | sort-by name | get name.0 | str replace -a '\' '/'"#
+        );
+        assert_eq!(actual.out, "../../andres.xml");
     })
 }
 
