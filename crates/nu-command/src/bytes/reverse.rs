@@ -13,8 +13,8 @@ impl Command for BytesReverse {
         Signature::build("bytes reverse")
             .input_output_types(vec![
                 (Type::Binary, Type::Binary),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .rest(

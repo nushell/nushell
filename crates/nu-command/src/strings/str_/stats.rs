@@ -18,7 +18,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("str stats")
             .category(Category::Strings)
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::String, Type::record())])
     }
 
     fn usage(&self) -> &str {

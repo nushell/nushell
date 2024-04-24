@@ -12,8 +12,8 @@ impl Command for Values {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::List(Box::new(Type::Any))),
-                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+                (Type::record(), Type::List(Box::new(Type::Any))),
+                (Type::table(), Type::List(Box::new(Type::Any))),
             ])
             .category(Category::Filters)
     }

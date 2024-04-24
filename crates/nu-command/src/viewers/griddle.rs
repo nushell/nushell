@@ -23,7 +23,7 @@ impl Command for Griddle {
         Signature::build("grid")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::String),
-                (Type::Record(vec![]), Type::String),
+                (Type::record(), Type::String),
             ])
             .named(
                 "width",
