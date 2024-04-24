@@ -54,6 +54,18 @@ impl Command for LazyMake {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError {
+                error: "Deprecated command".into(),
+                msg: "warning: lazy records and the `lazy make` command will be removed in 0.94.0"
+                    .into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            },
+        );
+
         let span = call.head;
         let columns: Vec<Spanned<String>> = call
             .get_flag(engine_state, stack, "columns")?
