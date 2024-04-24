@@ -36,6 +36,8 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
             | "--include-path" | "--lsp" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
             | "--ide-check" => args.next(),
+            #[cfg(feature = "plugin")]
+            "--plugins" => args.next(),
             _ => None,
         };
 
@@ -87,6 +89,8 @@ pub(crate) fn parse_commandline_args(
             let testbin = call.get_flag_expr("testbin");
             #[cfg(feature = "plugin")]
             let plugin_file = call.get_flag_expr("plugin-config");
+            #[cfg(feature = "plugin")]
+            let plugins = call.get_flag_expr("plugins");
             let no_config_file = call.get_named_arg("no-config-file");
             let no_history = call.get_named_arg("no-history");
             let no_std_lib = call.get_named_arg("no-std-lib");
@@ -131,16 +135,59 @@ pub(crate) fn parse_commandline_args(
                 }
             }
 
+            fn extract_path(
+                expression: Option<&Expression>,
+            ) -> Result<Option<Spanned<String>>, ShellError> {
+                if let Some(expr) = expression {
+                    let tuple = expr.as_filepath();
+                    if let Some((str, _)) = tuple {
+                        Ok(Some(Spanned {
+                            item: str,
+                            span: expr.span,
+                        }))
+                    } else {
+                        Err(ShellError::TypeMismatch {
+                            err_message: "path".into(),
+                            span: expr.span,
+                        })
+                    }
+                } else {
+                    Ok(None)
+                }
+            }
+
             let commands = extract_contents(commands)?;
             let testbin = extract_contents(testbin)?;
             #[cfg(feature = "plugin")]
-            let plugin_file = extract_contents(plugin_file)?;
-            let config_file = extract_contents(config_file)?;
-            let env_file = extract_contents(env_file)?;
+            let plugin_file = extract_path(plugin_file)?;
+            let config_file = extract_path(config_file)?;
+            let env_file = extract_path(env_file)?;
             let log_level = extract_contents(log_level)?;
             let log_target = extract_contents(log_target)?;
             let execute = extract_contents(execute)?;
             let include_path = extract_contents(include_path)?;
+
+            #[cfg(feature = "plugin")]
+            let plugins = plugins
+                .map(|expr| match &expr.expr {
+                    Expr::List(list) => list
+                        .iter()
+                        .map(|item| {
+                            item.expr()
+                                .as_filepath()
+                                .map(|(s, _)| s.into_spanned(item.expr().span))
+                                .ok_or_else(|| ShellError::TypeMismatch {
+                                    err_message: "path".into(),
+                                    span: item.expr().span,
+                                })
+                        })
+                        .collect::<Result<Vec<Spanned<String>>, _>>(),
+                    _ => Err(ShellError::TypeMismatch {
+                        err_message: "list<path>".into(),
+                        span: expr.span,
+                    }),
+                })
+                .transpose()?;
 
             let help = call.has_flag(engine_state, &mut stack, "help")?;
 
@@ -175,6 +222,8 @@ pub(crate) fn parse_commandline_args(
                 testbin,
                 #[cfg(feature = "plugin")]
                 plugin_file,
+                #[cfg(feature = "plugin")]
+                plugins,
                 no_config_file,
                 no_history,
                 no_std_lib,
@@ -217,6 +266,8 @@ pub(crate) struct NushellCliArgs {
     pub(crate) testbin: Option<Spanned<String>>,
     #[cfg(feature = "plugin")]
     pub(crate) plugin_file: Option<Spanned<String>>,
+    #[cfg(feature = "plugin")]
+    pub(crate) plugins: Option<Vec<Spanned<String>>>,
     pub(crate) no_config_file: Option<Spanned<String>>,
     pub(crate) no_history: Option<Spanned<String>>,
     pub(crate) no_std_lib: Option<Spanned<String>>,
@@ -294,13 +345,13 @@ impl Command for Nu {
             .switch("version", "print the version", Some('v'))
             .named(
                 "config",
-                SyntaxShape::String,
+                SyntaxShape::Filepath,
                 "start with an alternate config file",
                 None,
             )
             .named(
                 "env-config",
-                SyntaxShape::String,
+                SyntaxShape::Filepath,
                 "start with an alternate environment config file",
                 None,
             )
@@ -337,12 +388,19 @@ impl Command for Nu {
 
         #[cfg(feature = "plugin")]
         {
-            signature = signature.named(
-                "plugin-config",
-                SyntaxShape::String,
-                "start with an alternate plugin signature file",
-                None,
-            );
+            signature = signature
+                .named(
+                    "plugin-config",
+                    SyntaxShape::Filepath,
+                    "start with an alternate plugin cache file",
+                    None,
+                )
+                .named(
+                    "plugins",
+                    SyntaxShape::List(Box::new(SyntaxShape::Filepath)),
+                    "list of plugin executable files to load, separately from the cache file",
+                    None,
+                )
         }
 
         signature = signature

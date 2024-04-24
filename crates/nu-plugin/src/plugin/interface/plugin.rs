@@ -748,17 +748,9 @@ impl PluginInterface {
                     PluginCall::CustomValueOp(val, _) => Some(val.span),
                 },
                 help: Some(format!(
-                    "the plugin may have experienced an error. Try registering the plugin again \
+                    "the plugin may have experienced an error. Try loading the plugin again \
                         with `{}`",
-                    if let Some(shell) = self.state.source.shell() {
-                        format!(
-                            "register --shell '{}' '{}'",
-                            shell.display(),
-                            self.state.source.filename().display(),
-                        )
-                    } else {
-                        format!("register '{}'", self.state.source.filename().display())
-                    }
+                    self.state.source.identity.use_command(),
                 )),
                 inner: vec![],
             })?;
@@ -825,10 +817,15 @@ impl PluginInterface {
                 }
             }
         }
-        // If we fail to get a response
-        Err(ShellError::PluginFailedToDecode {
-            msg: "Failed to receive response to plugin call".into(),
-        })
+        // If we fail to get a response, check for an error in the state first, and return it if
+        // set. This is probably a much more helpful error than 'failed to receive response'
+        if let Some(error) = self.state.error.get() {
+            Err(error.clone())
+        } else {
+            Err(ShellError::PluginFailedToDecode {
+                msg: "Failed to receive response to plugin call".into(),
+            })
+        }
     }
 
     /// Handle an engine call and write the response.

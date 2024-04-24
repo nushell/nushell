@@ -1,5 +1,5 @@
 use crate::tests::{fail_test, run_test, run_test_with_env, TestResult};
-use nu_test_support::nu;
+use nu_test_support::{nu, nu_repl_code};
 use std::collections::HashMap;
 
 use super::run_test_contains;
@@ -606,6 +606,42 @@ register $file
 }
 
 #[test]
+fn plugin_use_with_string_literal() -> TestResult {
+    fail_test(
+        r#"plugin use 'nu-plugin-math'"#,
+        "Plugin cache file not set",
+    )
+}
+
+#[test]
+fn plugin_use_with_string_constant() -> TestResult {
+    let input = "\
+const file = 'nu-plugin-math'
+plugin use $file
+";
+    // should not fail with `not a constant`
+    fail_test(input, "Plugin cache file not set")
+}
+
+#[test]
+fn plugin_use_with_string_variable() -> TestResult {
+    let input = "\
+let file = 'nu-plugin-math'
+plugin use $file
+";
+    fail_test(input, "Value is not a parse-time constant")
+}
+
+#[test]
+fn plugin_use_with_non_string_constant() -> TestResult {
+    let input = "\
+const file = 6
+plugin use $file
+";
+    fail_test(input, "expected string, found int")
+}
+
+#[test]
 fn extern_errors_with_no_space_between_params_and_name_1() -> TestResult {
     fail_test("extern cmd[]", "expected space")
 }
@@ -829,4 +865,42 @@ fn record_missing_value() -> TestResult {
 #[test]
 fn def_requires_body_closure() -> TestResult {
     fail_test("def a [] (echo 4)", "expected definition body closure")
+}
+
+#[test]
+fn not_panic_with_recursive_call() {
+    let result = nu!(nu_repl_code(&[
+        "def px [] { if true { 3 } else { px } }",
+        "let x = 1",
+        "$x | px",
+    ]));
+    assert_eq!(result.out, "3");
+
+    let result = nu!(nu_repl_code(&[
+        "def px [n=0] { let l = $in; if $n == 0 { return false } else { $l | px ($n - 1) } }",
+        "let x = 1",
+        "$x | px"
+    ]));
+    assert_eq!(result.out, "false");
+
+    let result = nu!(nu_repl_code(&[
+        "def px [n=0] { let l = $in; if $n == 0 { return false } else { $l | px ($n - 1) } }",
+        "let x = 1",
+        "def foo [] { $x }",
+        "foo | px"
+    ]));
+    assert_eq!(result.out, "false");
+
+    let result = nu!(nu_repl_code(&[
+        "def px [n=0] { let l = $in; if $n == 0 { return false } else { $l | px ($n - 1) } }",
+        "let x = 1",
+        "do {|| $x } | px"
+    ]));
+    assert_eq!(result.out, "false");
+
+    let result = nu!(
+        cwd: "tests/parsing/samples",
+        "nu recursive_func_with_alias.nu"
+    );
+    assert!(result.status.success());
 }

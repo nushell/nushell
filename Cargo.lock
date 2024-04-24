@@ -398,7 +398,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "proc-macro2",
@@ -520,7 +520,18 @@ checksum = "d640d25bc63c50fb1f0b545ffd80207d2e10a4c965530809b40ba3386825c391"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
- "brotli-decompressor",
+ "brotli-decompressor 2.5.1",
+]
+
+[[package]]
+name = "brotli"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19483b140a7ac7174d34b5a581b406c64f84da5409d3e09cf4fff604f9270e67"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloc-stdlib",
+ "brotli-decompressor 4.0.0",
 ]
 
 [[package]]
@@ -528,6 +539,16 @@ name = "brotli-decompressor"
 version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e2e4afe60d7dd600fdd3de8d0f08c2b7ec039712e3b6137ff98b7004e82de4f"
+dependencies = [
+ "alloc-no-stdlib",
+ "alloc-stdlib",
+]
+
+[[package]]
+name = "brotli-decompressor"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6221fe77a248b9117d431ad93761222e1cf8ff282d9d1d5d9f53d6299a1cf76"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
@@ -2861,6 +2882,7 @@ dependencies = [
  "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
+ "nu-cmd-plugin",
  "nu-command",
  "nu-engine",
  "nu-explore",
@@ -2914,6 +2936,7 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-path",
+ "nu-plugin",
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
@@ -3001,6 +3024,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-cmd-plugin"
+version = "0.92.3"
+dependencies = [
+ "itertools 0.12.1",
+ "nu-engine",
+ "nu-path",
+ "nu-plugin",
+ "nu-protocol",
+]
+
+[[package]]
 name = "nu-color-config"
 version = "0.92.3"
 dependencies = [
@@ -3068,6 +3102,7 @@ dependencies = [
  "nu-utils",
  "num-format",
  "num-traits",
+ "nuon",
  "once_cell",
  "open",
  "os_pipe",
@@ -3261,6 +3296,7 @@ dependencies = [
 name = "nu-protocol"
 version = "0.92.3"
 dependencies = [
+ "brotli 5.0.0",
  "byte-unit",
  "chrono",
  "chrono-humanize",
@@ -3273,6 +3309,8 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-format",
+ "pretty_assertions",
+ "rmp-serde",
  "rstest",
  "serde",
  "serde_json",
@@ -3578,6 +3616,18 @@ name = "number_prefix"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
+
+[[package]]
+name = "nuon"
+version = "0.92.3"
+dependencies = [
+ "chrono",
+ "fancy-regex",
+ "nu-engine",
+ "nu-parser",
+ "nu-protocol",
+ "once_cell",
+]
 
 [[package]]
 name = "objc"
@@ -4269,7 +4319,7 @@ dependencies = [
  "ahash 0.8.11",
  "async-stream",
  "base64 0.21.7",
- "brotli",
+ "brotli 3.5.0",
  "ethnum",
  "flate2",
  "futures",
@@ -4710,9 +4760,9 @@ dependencies = [
 
 [[package]]
 name = "ratatui"
-version = "0.26.1"
+version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcb12f8fbf6c62614b0d56eb352af54f6a22410c3b079eb53ee93c7b97dd31d8"
+checksum = "a564a852040e82671dc50a37d88f3aa83bbc690dfc6844cfe7a2591620206a80"
 dependencies = [
  "bitflags 2.5.0",
  "cassowary",
@@ -4800,7 +4850,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.31.0"
-source = "git+https://github.com/nushell/reedline?branch=main#46f410bfdce0b64c3d94fdc0271886f30d64b151"
+source = "git+https://github.com/nushell/reedline?branch=main#455b9a3a22f3840719d993ea715b57790a77b509"
 dependencies = [
  "arboard",
  "chrono",
@@ -5529,12 +5579,12 @@ dependencies = [
 
 [[package]]
 name = "stability"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebd1b177894da2a2d9120208c3386066af06a488255caabc5de8ddca22dbc3ce"
+checksum = "2ff9eaf853dec4c8802325d8b6d3dffa86cc707fd7a1a4cdbf416e13b061787a"
 dependencies = [
  "quote",
- "syn 1.0.109",
+ "syn 2.0.58",
 ]
 
 [[package]]

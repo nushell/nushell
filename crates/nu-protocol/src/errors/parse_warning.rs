@@ -5,19 +5,21 @@ use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseWarning {
-    #[error("Deprecated: {0}")]
-    DeprecatedWarning(
-        String,
-        String,
-        #[label = "`{0}` is deprecated and will be removed in 0.90. Please use `{1}` instead, more info: https://www.nushell.sh/book/custom_commands.html"]
-        Span,
-    ),
+    #[error("Deprecated: {old_command}")]
+    #[diagnostic(help("for more info: {url}"))]
+    DeprecatedWarning {
+        old_command: String,
+        new_suggestion: String,
+        #[label("`{old_command}` is deprecated and will be removed in 0.94. Please {new_suggestion} instead")]
+        span: Span,
+        url: String,
+    },
 }
 
 impl ParseWarning {
     pub fn span(&self) -> Span {
         match self {
-            ParseWarning::DeprecatedWarning(_, _, s) => *s,
+            ParseWarning::DeprecatedWarning { span, .. } => *span,
         }
     }
 }

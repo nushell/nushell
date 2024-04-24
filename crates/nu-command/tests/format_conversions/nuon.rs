@@ -479,5 +479,5 @@ fn read_code_should_fail_rather_than_panic() {
     let actual = nu!(cwd: "tests/fixtures/formats", pipeline(
         r#"open code.nu | from nuon"#
     ));
-    assert!(actual.err.contains("error when parsing"))
+    assert!(actual.err.contains("Error when loading"))
 }

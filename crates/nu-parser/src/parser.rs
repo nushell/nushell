@@ -2808,7 +2808,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                     prev_span,
                 ));
                 return Expression {
-                    expr: Expr::ImportPattern(import_pattern),
+                    expr: Expr::ImportPattern(Box::new(import_pattern)),
                     span: prev_span,
                     ty: Type::List(Box::new(Type::String)),
                     custom_completion: None,
@@ -2854,7 +2854,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                 } else {
                     working_set.error(ParseError::ExportNotFound(result.span));
                     return Expression {
-                        expr: Expr::ImportPattern(import_pattern),
+                        expr: Expr::ImportPattern(Box::new(import_pattern)),
                         span: span(spans),
                         ty: Type::List(Box::new(Type::String)),
                         custom_completion: None,
@@ -2874,7 +2874,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
     }
 
     Expression {
-        expr: Expr::ImportPattern(import_pattern),
+        expr: Expr::ImportPattern(Box::new(import_pattern)),
         span: span(&spans[1..]),
         ty: Type::List(Box::new(Type::String)),
         custom_completion: None,
@@ -5175,9 +5175,21 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             #[cfg(feature = "plugin")]
             b"register" => {
                 working_set.error(ParseError::BuiltinCommandInPipeline(
-                    "plugin".into(),
+                    "register".into(),
                     spans[0],
                 ));
+
+                parse_call(working_set, &spans[pos..], spans[0])
+            }
+            #[cfg(feature = "plugin")]
+            b"plugin" => {
+                if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"use" {
+                    // only 'plugin use' is banned
+                    working_set.error(ParseError::BuiltinCommandInPipeline(
+                        "plugin use".into(),
+                        spans[0],
+                    ));
+                }
 
                 parse_call(working_set, &spans[pos..], spans[0])
             }
@@ -5312,6 +5324,20 @@ pub fn parse_builtin_commands(
         b"where" => parse_where(working_set, lite_command),
         #[cfg(feature = "plugin")]
         b"register" => parse_register(working_set, lite_command),
+        // Only "plugin use" is a keyword
+        #[cfg(feature = "plugin")]
+        b"plugin"
+            if lite_command
+                .parts
+                .get(1)
+                .is_some_and(|span| working_set.get_span_contents(*span) == b"use") =>
+        {
+            if let Some(redirection) = lite_command.redirection.as_ref() {
+                working_set.error(redirecting_builtin_error("plugin use", redirection));
+                return garbage_pipeline(&lite_command.parts);
+            }
+            parse_keyword(working_set, lite_command)
+        }
         _ => {
             let element = parse_pipeline_element(working_set, lite_command);
 
@@ -6315,7 +6341,19 @@ pub fn parse(
         // panic (again, in theory, this shouldn't be possible)
         let block = working_set.get_block(block_id);
         let block_captures_empty = block.captures.is_empty();
-        if !captures.is_empty() && block_captures_empty {
+        // need to check block_id >= working_set.permanent_state.num_blocks()
+        // to avoid mutate a block that is in the permanent state.
+        // this can happened if user defines a function with recursive call
+        // and pipe a variable to the command, e.g:
+        // def px [] { if true { 42 } else { px } };    # the block px is saved in permanent state.
+        // let x = 3
+        // $x | px
+        // If we don't guard for `block_id`, it will change captures of `px`, which is
+        // already saved in permanent state
+        if !captures.is_empty()
+            && block_captures_empty
+            && block_id >= working_set.permanent_state.num_blocks()
+        {
             let block = working_set.get_block_mut(block_id);
             block.captures = captures.into_iter().map(|(var_id, _)| var_id).collect();
         }

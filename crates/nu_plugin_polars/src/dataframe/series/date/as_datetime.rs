@@ -186,10 +186,11 @@ fn command(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::test_polars_plugin_command_with_decls;
+    use nu_command::IntoDatetime;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&AsDateTime)
+        test_polars_plugin_command_with_decls(&AsDateTime, vec![Box::new(IntoDatetime)])
     }
 }

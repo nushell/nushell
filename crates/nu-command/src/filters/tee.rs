@@ -125,8 +125,7 @@ use it in your pipeline."#
                 if use_stderr {
                     let stderr = stderr
                         .map(|stderr| {
-                            let iter = tee(stderr.stream, with_stream)
-                                .map_err(|e| e.into_spanned(call.head))?;
+                            let iter = tee(stderr.stream, with_stream).err_span(call.head)?;
                             Ok::<_, ShellError>(RawStream::new(
                                 Box::new(iter.map(flatten_result)),
                                 stderr.ctrlc,
@@ -146,8 +145,7 @@ use it in your pipeline."#
                 } else {
                     let stdout = stdout
                         .map(|stdout| {
-                            let iter = tee(stdout.stream, with_stream)
-                                .map_err(|e| e.into_spanned(call.head))?;
+                            let iter = tee(stdout.stream, with_stream).err_span(call.head)?;
                             Ok::<_, ShellError>(RawStream::new(
                                 Box::new(iter.map(flatten_result)),
                                 stdout.ctrlc,
@@ -189,7 +187,7 @@ use it in your pipeline."#
                     // Make sure to drain any iterator produced to avoid unexpected behavior
                     result.and_then(|data| data.drain())
                 })
-                .map_err(|e| e.into_spanned(call.head))?
+                .err_span(call.head)?
                 .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
                 .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone());
 

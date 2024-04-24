@@ -107,6 +107,16 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuWhen(w) => w.id,
         }
     }
+
+    pub fn into_value(self, span: Span) -> Value {
+        match self {
+            PolarsPluginObject::NuDataFrame(df) => df.into_value(span),
+            PolarsPluginObject::NuLazyFrame(lf) => lf.into_value(span),
+            PolarsPluginObject::NuExpression(e) => e.into_value(span),
+            PolarsPluginObject::NuLazyGroupBy(lg) => lg.into_value(span),
+            PolarsPluginObject::NuWhen(w) => w.into_value(span),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

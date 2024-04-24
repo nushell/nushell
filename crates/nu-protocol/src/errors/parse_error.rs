@@ -227,9 +227,9 @@ pub enum ParseError {
         #[label = "module directory is missing a mod.nu file"] Span,
     ),
 
-    #[error("Cyclical module import.")]
-    #[diagnostic(code(nu::parser::cyclical_module_import), help("{0}"))]
-    CyclicalModuleImport(String, #[label = "detected cyclical module import"] Span),
+    #[error("Circular import.")]
+    #[diagnostic(code(nu::parser::circular_import), help("{0}"))]
+    CircularImport(String, #[label = "detected circular import"] Span),
 
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
@@ -439,6 +439,19 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::file_not_found))]
     FileNotFound(String, #[label("File not found: {0}")] Span),
 
+    #[error("Plugin not found")]
+    #[diagnostic(
+        code(nu::parser::plugin_not_found),
+        help("plugins need to be added to the plugin cache file before your script is run (see `plugin add`)"),
+    )]
+    PluginNotFound {
+        name: String,
+        #[label("Plugin not found: {name}")]
+        name_span: Span,
+        #[label("in this cache file")]
+        plugin_config_span: Option<Span>,
+    },
+
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
@@ -506,7 +519,7 @@ impl ParseError {
             ParseError::NamedAsModule(_, _, _, s) => *s,
             ParseError::ModuleDoubleMain(_, s) => *s,
             ParseError::ExportMainAliasNotAllowed(s) => *s,
-            ParseError::CyclicalModuleImport(_, s) => *s,
+            ParseError::CircularImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
             ParseError::ActiveOverlayNotFound(s) => *s,
             ParseError::OverlayPrefixMismatch(_, _, s) => *s,
@@ -544,6 +557,7 @@ impl ParseError {
             ParseError::SourcedFileNotFound(_, s) => *s,
             ParseError::RegisteredFileNotFound(_, s) => *s,
             ParseError::FileNotFound(_, s) => *s,
+            ParseError::PluginNotFound { name_span, .. } => *name_span,
             ParseError::LabeledError(_, _, s) => *s,
             ParseError::ShellAndAnd(s) => *s,
             ParseError::ShellOrOr(s) => *s,
