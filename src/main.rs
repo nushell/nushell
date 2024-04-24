@@ -43,6 +43,8 @@ use std::{
 
 fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
+    #[cfg(feature = "plugin")]
+    let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
     let engine_state = nu_command::add_shell_command_context(engine_state);
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
     #[cfg(feature = "dataframe")]
@@ -386,6 +388,46 @@ fn main() -> Result<()> {
         column!(),
         use_color,
     );
+
+    #[cfg(feature = "plugin")]
+    if let Some(plugins) = &parsed_nu_cli_args.plugins {
+        use nu_plugin_engine::{GetPlugin, PluginDeclaration};
+        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity};
+
+        // Load any plugins specified with --plugins
+        start_time = std::time::Instant::now();
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        for plugin_filename in plugins {
+            // Make sure the plugin filenames are canonicalized
+            let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
+                .err_span(plugin_filename.span)
+                .map_err(ShellError::from)?;
+
+            let identity = PluginIdentity::new(&filename, None)
+                .err_span(plugin_filename.span)
+                .map_err(ShellError::from)?;
+
+            // Create the plugin and add it to the working set
+            let plugin = nu_plugin_engine::add_plugin_to_working_set(&mut working_set, &identity)?;
+
+            // Spawn the plugin to get its signatures, and then add the commands to the working set
+            for signature in plugin.clone().get_plugin(None)?.get_signature()? {
+                let decl = PluginDeclaration::new(plugin.clone(), signature);
+                working_set.add_decl(Box::new(decl));
+            }
+        }
+        engine_state.merge_delta(working_set.render())?;
+
+        perf(
+            "load plugins specified in --plugins",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        )
+    }
 
     start_time = std::time::Instant::now();
     if parsed_nu_cli_args.lsp {

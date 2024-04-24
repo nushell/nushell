@@ -22,11 +22,15 @@ impl Command for PluginList {
                     ("commands".into(), Type::List(Type::String.into())),
                 ]),
             )
-            .category(Category::Core)
+            .category(Category::Plugin)
     }
 
     fn usage(&self) -> &str {
         "List installed plugins."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["scope"]
     }
 
     fn examples(&self) -> Vec<nu_protocol::Example> {

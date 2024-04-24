@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use nu_engine::{command_prelude::*, get_eval_block};
+use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -202,20 +202,13 @@ fn group_closure(
     stack: &mut Stack,
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
-    let eval_block = get_eval_block(engine_state);
-    let block = engine_state.get_block(closure.block_id);
+    let mut closure = ClosureEval::new(engine_state, stack, closure);
 
     for value in values {
-        let mut stack = stack.captures_to_stack(closure.captures.clone());
-
-        let key = eval_block(
-            engine_state,
-            &mut stack,
-            block,
-            value.clone().into_pipeline_data(),
-        )?
-        .into_value(span)
-        .coerce_into_string()?;
+        let key = closure
+            .run_with_value(value.clone())?
+            .into_value(span)
+            .coerce_into_string()?;
 
         groups.entry(key).or_default().push(value);
     }

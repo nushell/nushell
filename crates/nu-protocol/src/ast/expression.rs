@@ -108,6 +108,13 @@ impl Expression {
         }
     }
 
+    pub fn as_filepath(&self) -> Option<(String, bool)> {
+        match &self.expr {
+            Expr::Filepath(string, quoted) => Some((string.clone(), *quoted)),
+            _ => None,
+        }
+    }
+
     pub fn as_import_pattern(&self) -> Option<ImportPattern> {
         match &self.expr {
             Expr::ImportPattern(pattern) => Some(*pattern.clone()),

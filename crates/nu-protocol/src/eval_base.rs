@@ -267,7 +267,6 @@ pub trait Eval {
                     ),
                 }
             }
-            Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
@@ -292,6 +291,7 @@ pub trait Eval {
                 Ok(Value::glob(pattern, *quoted, expr.span))
             }
             Expr::MatchBlock(_) // match blocks are handled by `match`
+            | Expr::Block(_) // blocks are handled directly by core commands
             | Expr::VarDecl(_)
             | Expr::ImportPattern(_)
             | Expr::Signature(_)

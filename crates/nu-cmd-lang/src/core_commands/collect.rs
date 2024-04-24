@@ -19,14 +19,14 @@ impl Command for Collect {
             )
             .switch(
                 "keep-env",
-                "let the block affect environment variables",
+                "let the closure affect environment variables",
                 None,
             )
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Collect the stream and pass it to a block."
+        "Collect a stream into a value and then run a closure with the collected value as input."
     }
 
     fn run(
@@ -36,11 +36,11 @@ impl Command for Collect {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let block = engine_state.get_block(capture_block.block_id).clone();
+        let block = engine_state.get_block(closure.block_id).clone();
         let mut stack_captures =
-            stack.captures_to_stack_preserve_out_dest(capture_block.captures.clone());
+            stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
 
         let metadata = input.metadata();
         let input: Value = input.into_value(call.head);
@@ -67,7 +67,7 @@ impl Command for Collect {
             redirect_env(engine_state, stack, &stack_captures);
             // for when we support `data | let x = $in;`
             // remove the variables added earlier
-            for (var_id, _) in capture_block.captures {
+            for (var_id, _) in closure.captures {
                 stack_captures.remove_var(var_id);
             }
             if let Some(u) = saved_positional {
@@ -80,11 +80,18 @@ impl Command for Collect {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Use the second value in the stream",
-            example: "[1 2 3] | collect { |x| $x.1 }",
-            result: Some(Value::test_int(2)),
-        }]
+        vec![
+            Example {
+                description: "Use the second value in the stream",
+                example: "[1 2 3] | collect { |x| $x.1 }",
+                result: Some(Value::test_int(2)),
+            },
+            Example {
+                description: "Read and write to the same file",
+                example: "open file.txt | collect { save -f file.txt }",
+                result: None,
+            },
+        ]
     }
 }
 

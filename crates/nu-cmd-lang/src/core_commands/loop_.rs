@@ -1,5 +1,4 @@
 use nu_engine::{command_prelude::*, get_eval_block};
-use nu_protocol::engine::Block;
 
 #[derive(Clone)]
 pub struct Loop;
@@ -28,7 +27,13 @@ impl Command for Loop {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let block: Block = call.req(engine_state, stack, 0)?;
+        let block_id = call
+            .positional_nth(0)
+            .expect("checked through parser")
+            .as_block()
+            .expect("internal error: missing block");
+
+        let block = engine_state.get_block(block_id);
         let eval_block = get_eval_block(engine_state);
 
         let stack = &mut stack.push_redirection(None, None);
@@ -37,8 +42,6 @@ impl Command for Loop {
             if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
                 break;
             }
-
-            let block = engine_state.get_block(block.block_id);
 
             match eval_block(engine_state, stack, block, PipelineData::empty()) {
                 Err(ShellError::Break { .. }) => {

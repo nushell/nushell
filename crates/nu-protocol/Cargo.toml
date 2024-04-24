@@ -17,6 +17,7 @@ nu-utils = { path = "../nu-utils", version = "0.92.3" }
 nu-path = { path = "../nu-path", version = "0.92.3" }
 nu-system = { path = "../nu-system", version = "0.92.3" }
 
+brotli = { workspace = true, optional = true }
 byte-unit = { version = "5.1", features = [ "serde" ] }
 chrono = { workspace = true, features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = { workspace = true }
@@ -25,19 +26,25 @@ indexmap = { workspace = true }
 lru = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
+rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false }
 serde_json = { workspace = true, optional = true }
 thiserror = "1.0"
 typetag = "0.2"
 
 [features]
-plugin = ["serde_json"]
+plugin = [
+  "brotli",
+  "rmp-serde",
+  "serde_json",
+]
 
 [dev-dependencies]
 serde_json = { workspace = true }
 strum = "0.26"
 strum_macros = "0.26"
 nu-test-support = { path = "../nu-test-support", version = "0.92.3" }
+pretty_assertions = "1.0"
 rstest = { workspace = true }
 
 [package.metadata.docs.rs]

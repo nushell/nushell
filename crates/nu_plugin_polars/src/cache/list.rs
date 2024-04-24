@@ -12,7 +12,7 @@ impl PluginCommand for ListDF {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars ls"
+        "polars store-ls"
     }
 
     fn usage(&self) -> &str {
@@ -26,8 +26,8 @@ impl PluginCommand for ListDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Creates a new dataframe and shows it in the dataframe list",
-            example: r#"let test = ([[a b];[1 2] [3 4]] | dfr into-df);
-    polars ls"#,
+            example: r#"let test = ([[a b];[1 2] [3 4]] | polars into-df);
+    polars store-ls"#,
             result: None,
         }]
     }
@@ -49,11 +49,12 @@ impl PluginCommand for ListDF {
                         "created" => Value::date(value.created, call.head),
                         "columns" => Value::int(df.as_ref().width() as i64, call.head),
                         "rows" => Value::int(df.as_ref().height() as i64, call.head),
-                        "type" => Value::string("NuDataFrame", call.head),
+                        "type" => Value::string("DataFrame", call.head),
                         "estimated_size" => Value::filesize(df.to_polars().estimated_size() as i64, call.head),
                         "span_contents" =>  Value::string(span_contents, value.span),
                         "span_start" => Value::int(value.span.start as i64, call.head),
                         "span_end" => Value::int(value.span.end as i64, call.head),
+                        "reference_count" => Value::int(value.reference_count as i64, call.head),
                     },
                     call.head,
                 ))),
@@ -65,11 +66,12 @@ impl PluginCommand for ListDF {
                             "created" => Value::date(value.created, call.head),
                             "columns" => Value::int(lf.as_ref().width() as i64, call.head),
                             "rows" => Value::int(lf.as_ref().height() as i64, call.head),
-                            "type" => Value::string("NuLazyFrame", call.head),
+                            "type" => Value::string("LazyFrame", call.head),
                             "estimated_size" => Value::filesize(lf.to_polars().estimated_size() as i64, call.head),
                             "span_contents" =>  Value::string(span_contents, value.span),
                             "span_start" => Value::int(value.span.start as i64, call.head),
                             "span_end" => Value::int(value.span.end as i64, call.head),
+                            "reference_count" => Value::int(value.reference_count as i64, call.head),
                         },
                         call.head,
                     )))
@@ -80,11 +82,12 @@ impl PluginCommand for ListDF {
                         "created" => Value::date(value.created, call.head),
                         "columns" => Value::nothing(call.head),
                         "rows" => Value::nothing(call.head),
-                        "type" => Value::string("NuExpression", call.head),
+                        "type" => Value::string("Expression", call.head),
                         "estimated_size" => Value::nothing(call.head),
                         "span_contents" =>  Value::string(span_contents, value.span),
                         "span_start" => Value::int(value.span.start as i64, call.head),
                         "span_end" => Value::int(value.span.end as i64, call.head),
+                        "reference_count" => Value::int(value.reference_count as i64, call.head),
                     },
                     call.head,
                 ))),
@@ -93,11 +96,12 @@ impl PluginCommand for ListDF {
                         "key" => Value::string(key.to_string(), call.head),
                         "columns" => Value::nothing(call.head),
                         "rows" => Value::nothing(call.head),
-                        "type" => Value::string("NuLazyGroupBy", call.head),
+                        "type" => Value::string("LazyGroupBy", call.head),
                         "estimated_size" => Value::nothing(call.head),
                         "span_contents" =>  Value::string(span_contents, call.head),
                         "span_start" => Value::int(call.head.start as i64, call.head),
                         "span_end" => Value::int(call.head.end as i64, call.head),
+                        "reference_count" => Value::int(value.reference_count as i64, call.head),
                     },
                     call.head,
                 ))),
@@ -106,11 +110,12 @@ impl PluginCommand for ListDF {
                         "key" => Value::string(key.to_string(), call.head),
                         "columns" => Value::nothing(call.head),
                         "rows" => Value::nothing(call.head),
-                        "type" => Value::string("NuWhen", call.head),
+                        "type" => Value::string("When", call.head),
                         "estimated_size" => Value::nothing(call.head),
                         "span_contents" =>  Value::string(span_contents.to_string(), call.head),
                         "span_start" => Value::int(call.head.start as i64, call.head),
                         "span_end" => Value::int(call.head.end as i64, call.head),
+                        "reference_count" => Value::int(value.reference_count as i64, call.head),
                     },
                     call.head,
                 ))),

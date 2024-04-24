@@ -14,9 +14,15 @@ use nu_plugin_core::{
     CommunicationMode, EncodingType, InterfaceManager, PreparedServerCommunication,
     ServerCommunicationIo,
 };
-use nu_protocol::ShellError;
+use nu_protocol::{
+    engine::StateWorkingSet, report_error_new, PluginCacheFile, PluginCacheItem,
+    PluginCacheItemData, PluginIdentity, RegisteredPlugin, ShellError, Span,
+};
 
-use crate::{PluginGc, PluginInterface, PluginInterfaceManager, PluginSource};
+use crate::{
+    PersistentPlugin, PluginDeclaration, PluginGc, PluginInterface, PluginInterfaceManager,
+    PluginSource,
+};
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
@@ -189,4 +195,95 @@ pub fn get_plugin_encoding(
             msg: format!("get unsupported plugin encoding: {encoding_for_debug}"),
         }
     })
+}
+/// Load the definitions from the plugin file into the engine state
+pub fn load_plugin_file(
+    working_set: &mut StateWorkingSet,
+    plugin_cache_file: &PluginCacheFile,
+    span: Option<Span>,
+) {
+    for plugin in &plugin_cache_file.plugins {
+        // Any errors encountered should just be logged.
+        if let Err(err) = load_plugin_cache_item(working_set, plugin, span) {
+            report_error_new(working_set.permanent_state, &err)
+        }
+    }
+}
+
+/// Load a definition from the plugin file into the engine state
+pub fn load_plugin_cache_item(
+    working_set: &mut StateWorkingSet,
+    plugin: &PluginCacheItem,
+    span: Option<Span>,
+) -> Result<Arc<PersistentPlugin>, ShellError> {
+    let identity =
+        PluginIdentity::new(plugin.filename.clone(), plugin.shell.clone()).map_err(|_| {
+            ShellError::GenericError {
+                error: "Invalid plugin filename in plugin cache file".into(),
+                msg: "loaded from here".into(),
+                span,
+                help: Some(format!(
+                    "the filename for `{}` is not a valid nushell plugin: {}",
+                    plugin.name,
+                    plugin.filename.display()
+                )),
+                inner: vec![],
+            }
+        })?;
+
+    match &plugin.data {
+        PluginCacheItemData::Valid { commands } => {
+            let plugin = add_plugin_to_working_set(working_set, &identity)?;
+
+            // Ensure that the plugin is reset. We're going to load new signatures, so we want to
+            // make sure the running plugin reflects those new signatures, and it's possible that it
+            // doesn't.
+            plugin.reset()?;
+
+            // Create the declarations from the commands
+            for signature in commands {
+                let decl = PluginDeclaration::new(plugin.clone(), signature.clone());
+                working_set.add_decl(Box::new(decl));
+            }
+            Ok(plugin)
+        }
+        PluginCacheItemData::Invalid => Err(ShellError::PluginCacheDataInvalid {
+            plugin_name: identity.name().to_owned(),
+            span,
+            add_command: identity.add_command(),
+        }),
+    }
+}
+
+/// Find [`PersistentPlugin`] with the given `identity` in the `working_set`, or construct it
+/// if it doesn't exist.
+///
+/// The garbage collection config is always found and set in either case.
+pub fn add_plugin_to_working_set(
+    working_set: &mut StateWorkingSet,
+    identity: &PluginIdentity,
+) -> Result<Arc<PersistentPlugin>, ShellError> {
+    // Find garbage collection config for the plugin
+    let gc_config = working_set
+        .get_config()
+        .plugin_gc
+        .get(identity.name())
+        .clone();
+
+    // Add it to / get it from the working set
+    let plugin = working_set.find_or_create_plugin(identity, || {
+        Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
+    });
+
+    plugin.set_gc_config(&gc_config);
+
+    // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed.
+    // The trait object only exists so that nu-protocol can contain plugins without knowing
+    // anything about their implementation, but we only use `PersistentPlugin` in practice.
+    plugin
+        .as_any()
+        .downcast()
+        .map_err(|_| ShellError::NushellFailed {
+            msg: "encountered unexpected RegisteredPlugin type".into(),
+        })
 }

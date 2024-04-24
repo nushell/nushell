@@ -12,7 +12,7 @@ use std::ops::Bound;
 pub enum ToStyle {
     /// no indentation at all
     ///
-    /// `{ a: 1, b: 2 }` will be converted to `{: 1, b: 2}`
+    /// `{ a: 1, b: 2 }` will be converted to `{a: 1, b: 2}`
     Raw,
     #[allow(clippy::tabs_in_doc_comments)]
     /// tabulation-based indentation
@@ -39,7 +39,7 @@ pub enum ToStyle {
 
 /// convert an actual Nushell [`Value`] to a raw string representation of the NUON data
 ///
-/// > **Note**  
+/// > **Note**
 /// > a [`Span`] can be passed to [`to_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as [`to nuon`](https://www.nushell.sh/commands/docs/to_nuon.html).
 ///
@@ -84,12 +84,6 @@ fn value_to_string(
             }
             Ok(format!("0x[{s}]"))
         }
-        Value::Block { .. } => Err(ShellError::UnsupportedInput {
-            msg: "blocks are currently not nuon-compatible".into(),
-            input: "value originates from here".into(),
-            msg_span: span,
-            input_span: v.span(),
-        }),
         Value::Closure { .. } => Err(ShellError::UnsupportedInput {
             msg: "closures are currently not nuon-compatible".into(),
             input: "value originates from here".into(),

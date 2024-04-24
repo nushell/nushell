@@ -39,6 +39,7 @@ pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>)
     let name = file.path();
 
     let mut cmd = Command::cargo_bin("nu")?;
+    cmd.arg("--no-config-file");
     cmd.arg(name).envs(env);
 
     writeln!(file, "{input}")?;
@@ -53,6 +54,7 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
 
     let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg("--no-std-lib");
+    cmd.arg("--no-config-file");
     cmd.arg(name);
     cmd.env(
         "PWD",
@@ -70,6 +72,7 @@ pub fn run_test_std(input: &str, expected: &str) -> TestResult {
     let name = file.path();
 
     let mut cmd = Command::cargo_bin("nu")?;
+    cmd.arg("--no-config-file");
     cmd.arg(name);
     cmd.env(
         "PWD",
@@ -105,6 +108,7 @@ pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
 
     let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg("--no-std-lib");
+    cmd.arg("--no-config-file");
     cmd.arg(name);
 
     writeln!(file, "{input}")?;
@@ -132,6 +136,7 @@ pub fn test_ide_contains(input: &str, ide_commands: &[&str], expected: &str) -> 
 
     let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg("--no-std-lib");
+    cmd.arg("--no-config-file");
     for ide_command in ide_commands {
         cmd.arg(ide_command);
     }
@@ -162,6 +167,7 @@ pub fn fail_test(input: &str, expected: &str) -> TestResult {
 
     let mut cmd = Command::cargo_bin("nu")?;
     cmd.arg("--no-std-lib");
+    cmd.arg("--no-config-file");
     cmd.arg(name);
     cmd.env(
         "PWD",

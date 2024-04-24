@@ -750,6 +750,21 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// The cached plugin data for a plugin is invalid.
+    ///
+    /// ## Resolution
+    ///
+    /// `plugin add` the plugin again to update the data, or remove it with `plugin rm`.
+    #[error("The cached plugin data for `{plugin_name}` is invalid")]
+    #[diagnostic(code(nu::shell::plugin_cache_data_invalid))]
+    PluginCacheDataInvalid {
+        plugin_name: String,
+        #[label("plugin `{plugin_name}` loaded here")]
+        span: Option<Span>,
+        #[help("the format in the plugin cache file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`")]
+        add_command: String,
+    },
+
     /// A plugin failed to load.
     ///
     /// ## Resolution
