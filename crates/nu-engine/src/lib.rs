@@ -19,4 +19,4 @@ pub use eval::{
     eval_expression_with_input, eval_subexpression, eval_variable, redirect_env,
 };
 pub use eval_helpers::*;
-pub use glob_from::{glob_from, GLOB_CHARS};
+pub use glob_from::glob_from;

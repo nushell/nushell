@@ -1,8 +1,8 @@
 use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
+use nu_engine::glob_from;
 use nu_engine::{command_prelude::*, env::current_dir};
-use nu_engine::{glob_from, GLOB_CHARS};
 use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
 use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
@@ -30,6 +30,8 @@ struct Args {
     use_mime_type: bool,
     call_span: Span,
 }
+
+const GLOB_CHARS: &[char] = &['*', '?', '['];
 
 impl Command for Ls {
     fn name(&self) -> &str {
@@ -232,8 +234,6 @@ fn ls_for_one_pattern(
         }
     };
 
-    // it indicates we need to append an extra '*' after pattern for listing given directory
-    // Example: 'ls directory' -> 'ls directory/*'
     let mut just_read_dir = false;
     let p_tag: Span = pattern_arg.as_ref().map(|p| p.span).unwrap_or(call_span);
     let (pattern_arg, absolute_path) = match pattern_arg {
@@ -295,7 +295,9 @@ fn ls_for_one_pattern(
     let path = pattern_arg.into_spanned(p_tag);
     let (prefix, paths) = if just_read_dir {
         let expanded = nu_path::expand_path_with(path.item.as_ref(), &cwd, path.item.is_expand());
-        read_dir(expanded)?
+        let paths = read_dir(&expanded)?;
+        // just need to read the directory, so prefix is path itself.
+        (Some(expanded), paths)
     } else {
         let glob_options = if all {
             None
@@ -877,18 +879,11 @@ mod windows_helper {
 
 #[allow(clippy::type_complexity)]
 fn read_dir(
-    f: PathBuf,
-) -> Result<
-    (
-        Option<PathBuf>,
-        Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>,
-    ),
-    ShellError,
-> {
+    f: &Path,
+) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
     let iter = f.read_dir()?.map(|d| {
         d.map(|r| r.path())
             .map_err(|e| ShellError::IOError { msg: e.to_string() })
     });
-    // we just read the directory, so the prefix is given `f` itself.
-    Ok((Some(f), Box::new(iter)))
+    Ok(Box::new(iter))
 }

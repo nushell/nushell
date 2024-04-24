@@ -6,7 +6,7 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-pub const GLOB_CHARS: &[char] = &['*', '?', '['];
+const GLOB_CHARS: &[char] = &['*', '?', '['];
 
 /// This function is like `nu_glob::glob` from the `glob` crate, except it is relative to a given cwd.
 ///
