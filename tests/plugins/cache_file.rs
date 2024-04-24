@@ -39,6 +39,75 @@ fn plugin_add_then_restart_nu() {
 }
 
 #[test]
+fn plugin_add_in_nu_plugin_dirs_const() {
+    let example_plugin_path = example_plugin_path();
+
+    let dirname = example_plugin_path.parent().expect("no parent");
+    let filename = example_plugin_path
+        .file_name()
+        .expect("no file_name")
+        .to_str()
+        .expect("not utf-8");
+
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [],
+        &format!(
+            r#"
+                $env.NU_PLUGIN_DIRS = null
+                const NU_PLUGIN_DIRS = ['{0}']
+                plugin add '{1}'
+                (
+                    ^$nu.current-exe
+                        --config $nu.config-path
+                        --env-config $nu.env-path
+                        --plugin-config $nu.plugin-path
+                        --commands 'plugin list | get name | to json --raw'
+                )
+            "#,
+            dirname.display(),
+            filename
+        )
+    );
+    assert!(result.status.success());
+    assert_eq!(r#"["example"]"#, result.out);
+}
+
+#[test]
+fn plugin_add_in_nu_plugin_dirs_env() {
+    let example_plugin_path = example_plugin_path();
+
+    let dirname = example_plugin_path.parent().expect("no parent");
+    let filename = example_plugin_path
+        .file_name()
+        .expect("no file_name")
+        .to_str()
+        .expect("not utf-8");
+
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [],
+        &format!(
+            r#"
+                $env.NU_PLUGIN_DIRS = ['{0}']
+                plugin add '{1}'
+                (
+                    ^$nu.current-exe
+                        --config $nu.config-path
+                        --env-config $nu.env-path
+                        --plugin-config $nu.plugin-path
+                        --commands 'plugin list | get name | to json --raw'
+                )
+            "#,
+            dirname.display(),
+            filename
+        )
+    );
+    assert!(result.status.success());
+    assert_eq!(r#"["example"]"#, result.out);
+}
+
+#[test]
 fn plugin_add_to_custom_path() {
     let example_plugin_path = example_plugin_path();
     Playground::setup("plugin add to custom path", |dirs, _playground| {
@@ -192,6 +261,57 @@ fn plugin_rm_from_custom_path() {
     })
 }
 
+#[test]
+fn plugin_rm_using_filename() {
+    let example_plugin_path = example_plugin_path();
+    Playground::setup("plugin rm using filename", |dirs, _playground| {
+        let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
+            .expect("failed to create file");
+        let mut contents = PluginCacheFile::new();
+
+        contents.upsert_plugin(PluginCacheItem {
+            name: "example".into(),
+            filename: example_plugin_path.clone(),
+            shell: None,
+            data: PluginCacheItemData::Valid { commands: vec![] },
+        });
+
+        contents.upsert_plugin(PluginCacheItem {
+            name: "foo".into(),
+            // this doesn't exist, but it should be ok
+            filename: dirs.test().join("nu_plugin_foo"),
+            shell: None,
+            data: PluginCacheItemData::Valid { commands: vec![] },
+        });
+
+        contents
+            .write_to(file, None)
+            .expect("failed to write plugin file");
+
+        let result = nu!(
+            cwd: dirs.test(),
+            &format!(
+                "plugin rm --plugin-config test-plugin-file.msgpackz '{}'",
+                example_plugin_path.display()
+            )
+        );
+        assert!(result.status.success());
+        assert!(result.err.trim().is_empty());
+
+        // Check the contents after running
+        let contents = PluginCacheFile::read_from(
+            File::open(dirs.test().join("test-plugin-file.msgpackz")).expect("failed to open file"),
+            None,
+        )
+        .expect("failed to read file");
+
+        assert!(!contents.plugins.iter().any(|p| p.name == "example"));
+
+        // Shouldn't remove anything else
+        assert!(contents.plugins.iter().any(|p| p.name == "foo"));
+    })
+}
+
 /// Running nu with a test plugin file that fails to parse on one plugin should just cause a warning
 /// but the others should be loaded
 #[test]
@@ -299,6 +419,27 @@ fn plugin_add_and_then_use() {
                     --env-config $nu.env-path
                     --plugin-config $nu.plugin-path
                     --commands 'plugin use example; plugin list | get name | to json --raw'
+            )
+        "#, example_plugin_path.display())
+    );
+    assert!(result.status.success());
+    assert_eq!(r#"["example"]"#, result.out);
+}
+
+#[test]
+fn plugin_add_and_then_use_by_filename() {
+    let example_plugin_path = example_plugin_path();
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [],
+        &format!(r#"
+            plugin add '{0}'
+            (
+                ^$nu.current-exe
+                    --config $nu.config-path
+                    --env-config $nu.env-path
+                    --plugin-config $nu.plugin-path
+                    --commands 'plugin use '{0}'; plugin list | get name | to json --raw'
             )
         "#, example_plugin_path.display())
     );
