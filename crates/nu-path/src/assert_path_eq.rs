@@ -3,7 +3,7 @@
 //! `assert_eq!` not suitable testing.
 //!
 //! This module provides two macros, `assert_path_eq!` and `assert_path_ne!`,
-//! which converts path to string before comparision. They accept PathBuf, Path,
+//! which converts path to string before comparison. They accept PathBuf, Path,
 //! String, and &str as parameters.
 
 #[macro_export]

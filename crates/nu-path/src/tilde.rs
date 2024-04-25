@@ -248,7 +248,7 @@ mod tests {
 
     #[test]
     #[cfg(not(windows))]
-    fn expand_tilde_perserve_trailing_slash() {
+    fn expand_tilde_preserve_trailing_slash() {
         let path = PathBuf::from("~/foo/");
         let home = PathBuf::from("/home");
 
@@ -257,7 +257,7 @@ mod tests {
     }
     #[test]
     #[cfg(windows)]
-    fn expand_tilde_perserve_trailing_slash() {
+    fn expand_tilde_preserve_trailing_slash() {
         let path = PathBuf::from("~\\foo\\");
         let home = PathBuf::from("C:\\home");
 
