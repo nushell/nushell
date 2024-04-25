@@ -56,25 +56,26 @@ impl Command for SeqDate {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "print the next 10 days in YYYY-MM-DD format with newline separator",
+                description: "Return a list of the next 10 days in the YYYY-MM-DD format",
                 example: "seq date --days 10",
                 result: None,
             },
             Example {
-                description: "print the previous 10 days in YYYY-MM-DD format with newline separator",
+                description: "Return the previous 10 days in the YYYY-MM-DD format",
                 example: "seq date --days 10 --reverse",
                 result: None,
             },
             Example {
-                description: "print the previous 10 days starting today in MM/DD/YYYY format with newline separator",
+                description:
+                    "Retrun the previous 10 days, starting today, in the MM/DD/YYYY format",
                 example: "seq date --days 10 -o '%m/%d/%Y' --reverse",
                 result: None,
             },
             Example {
-                description: "print the first 10 days in January, 2020",
+                description: "Return the first 10 days in January, 2020",
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-10'",
                 result: Some(Value::list(
-                     vec![
+                    vec![
                         Value::test_string("2020-01-01"),
                         Value::test_string("2020-01-02"),
                         Value::test_string("2020-01-03"),
@@ -86,7 +87,7 @@ impl Command for SeqDate {
                         Value::test_string("2020-01-09"),
                         Value::test_string("2020-01-10"),
                     ],
-                     Span::test_data(),
+                    Span::test_data(),
                 )),
             },
             Example {
@@ -94,15 +95,15 @@ impl Command for SeqDate {
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5",
                 result: Some(Value::list(
                     vec![
-                    Value::test_string("2020-01-01"),
-                    Value::test_string("2020-01-06"),
-                    Value::test_string("2020-01-11"),
-                    Value::test_string("2020-01-16"),
-                    Value::test_string("2020-01-21"),
-                    Value::test_string("2020-01-26"),
-                    Value::test_string("2020-01-31"),
+                        Value::test_string("2020-01-01"),
+                        Value::test_string("2020-01-06"),
+                        Value::test_string("2020-01-11"),
+                        Value::test_string("2020-01-16"),
+                        Value::test_string("2020-01-21"),
+                        Value::test_string("2020-01-26"),
+                        Value::test_string("2020-01-31"),
                     ],
-                     Span::test_data(),
+                    Span::test_data(),
                 )),
             },
         ]
