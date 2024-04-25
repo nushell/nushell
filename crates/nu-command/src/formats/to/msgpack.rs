@@ -38,6 +38,25 @@ MessagePack: https://msgpack.org/
         .trim()
     }
 
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Convert a list of values to MessagePack",
+                example: "[foo, 42, false] | to msgpack",
+                result: Some(Value::test_binary(b"\x93\xA3\x66\x6F\x6F\x2A\xC2")),
+            },
+            Example {
+                description: "Convert a table to MessagePack",
+                example: "[
+        [event_name time];
+        ['Apollo 11 Landing' 1969-07-16]
+        ['Nushell first commit' 2019-05-10T09:59:12-07:00]
+    ] | to msgpack",
+                result: Some(Value::test_binary(b"\x92\x82\xAA\x65\x76\x65\x6E\x74\x5F\x6E\x61\x6D\x65\xB1\x41\x70\x6F\x6C\x6C\x6F\x20\x31\x31\x20\x4C\x61\x6E\x64\x69\x6E\x67\xA4\x74\x69\x6D\x65\xC7\x0C\xFF\x00\x00\x00\x00\xFF\xFF\xFF\xFF\xFF\x21\x32\x80\x82\xAA\x65\x76\x65\x6E\x74\x5F\x6E\x61\x6D\x65\xB4\x4E\x75\x73\x68\x65\x6C\x6C\x20\x66\x69\x72\x73\x74\x20\x63\x6F\x6D\x6D\x69\x74\xA4\x74\x69\x6D\x65\xD6\xFF\x5C\xD5\xAD\xE0")),
+            },
+        ]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -102,12 +121,22 @@ where
             mp::write_sint(out, *val)?;
         }
         Value::Date { val, .. } => {
-            // Timestamp extension type
-            mp::write_ext_meta(out, 12, -1)?;
-            out.write_data_u32(val.timestamp_subsec_nanos())
-                .map_err(as_value_write_error)?;
-            out.write_data_i64(val.timestamp())
-                .map_err(as_value_write_error)?;
+            if val.timestamp_subsec_nanos() == 0
+                && val.timestamp() >= 0
+                && val.timestamp() < u32::MAX as i64
+            {
+                // Timestamp extension type, 32-bit. u32 seconds since UNIX epoch only.
+                mp::write_ext_meta(out, 4, -1)?;
+                out.write_data_u32(val.timestamp() as u32)
+                    .map_err(as_value_write_error)?;
+            } else {
+                // Timestamp extension type, 96-bit. u32 nanoseconds and i64 seconds.
+                mp::write_ext_meta(out, 12, -1)?;
+                out.write_data_u32(val.timestamp_subsec_nanos())
+                    .map_err(as_value_write_error)?;
+                out.write_data_i64(val.timestamp())
+                    .map_err(as_value_write_error)?;
+            }
         }
         Value::Range { val, .. } => {
             // Convert range to list
@@ -186,4 +215,16 @@ where
             help: None,
             inner: vec![],
         })
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(ToMsgpack {})
+    }
 }
