@@ -3116,7 +3116,6 @@ dependencies = [
  "sysinfo",
  "tabled",
  "terminal_size",
- "thiserror",
  "titlecase",
  "toml 0.8.12",
  "trash",

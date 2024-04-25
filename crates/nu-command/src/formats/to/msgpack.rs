@@ -1,10 +1,12 @@
 // Credit to https://github.com/hulthe/nu_plugin_msgpack for the original idea, though the
-// implementation here is unique, and avoids converting through `rmpv` for somewhat better
-// performance.
+// implementation here is unique.
 
+use std::io;
+
+use byteorder::{BigEndian, WriteBytesExt};
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::PathMember;
-use rmp::encode::{self as mp, RmpWrite};
+use rmp::encode as mp;
 
 #[derive(Clone)]
 pub struct ToMsgpack;
@@ -46,13 +48,18 @@ MessagePack: https://msgpack.org/
                 result: Some(Value::test_binary(b"\x93\xA3\x66\x6F\x6F\x2A\xC2")),
             },
             Example {
+                description: "Convert a range to a MessagePack array",
+                example: "1..10 | to msgpack",
+                result: Some(Value::test_binary(b"\x9A\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A"))
+            },
+            Example {
                 description: "Convert a table to MessagePack",
                 example: "[
         [event_name time];
-        ['Apollo 11 Landing' 1969-07-16]
+        ['Apollo 11 Landing' 1969-07-24T16:50:35]
         ['Nushell first commit' 2019-05-10T09:59:12-07:00]
     ] | to msgpack",
-                result: Some(Value::test_binary(b"\x92\x82\xAA\x65\x76\x65\x6E\x74\x5F\x6E\x61\x6D\x65\xB1\x41\x70\x6F\x6C\x6C\x6F\x20\x31\x31\x20\x4C\x61\x6E\x64\x69\x6E\x67\xA4\x74\x69\x6D\x65\xC7\x0C\xFF\x00\x00\x00\x00\xFF\xFF\xFF\xFF\xFF\x21\x32\x80\x82\xAA\x65\x76\x65\x6E\x74\x5F\x6E\x61\x6D\x65\xB4\x4E\x75\x73\x68\x65\x6C\x6C\x20\x66\x69\x72\x73\x74\x20\x63\x6F\x6D\x6D\x69\x74\xA4\x74\x69\x6D\x65\xD6\xFF\x5C\xD5\xAD\xE0")),
+                result: Some(Value::test_binary(b"\x92\x82\xAA\x65\x76\x65\x6E\x74\x5F\x6E\x61\x6D\x65\xB1\x41\x70\x6F\x6C\x6C\x6F\x20\x31\x31\x20\x4C\x61\x6E\x64\x69\x6E\x67\xA4\x74\x69\x6D\x65\xC7\x0C\xFF\x00\x00\x00\x00\xFF\xFF\xFF\xFF\xFF\x2C\xAB\x5B\x82\xAA\x65\x76\x65\x6E\x74\x5F\x6E\x61\x6D\x65\xB4\x4E\x75\x73\x68\x65\x6C\x6C\x20\x66\x69\x72\x73\x74\x20\x63\x6F\x6D\x6D\x69\x74\xA4\x74\x69\x6D\x65\xD6\xFF\x5C\xD5\xAD\xE0")),
             },
         ]
     }
@@ -76,6 +83,7 @@ MessagePack: https://msgpack.org/
                 help: None,
                 inner: vec![],
             },
+            WriteError::IoError(err) => err.into_spanned(value_span).into(),
             WriteError::ShellError(err) => *err,
         })?;
 
@@ -83,26 +91,39 @@ MessagePack: https://msgpack.org/
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub(crate) enum WriteError<E: mp::RmpWriteErr> {
-    #[error(transparent)]
-    ValueWriteError(#[from] mp::ValueWriteError<E>),
-    #[error(transparent)]
-    ShellError(#[from] Box<ShellError>),
+#[derive(Debug)]
+pub(crate) enum WriteError {
+    ValueWriteError(mp::ValueWriteError<io::Error>),
+    IoError(io::Error),
+    ShellError(Box<ShellError>),
 }
 
-impl<E: mp::RmpWriteErr> From<ShellError> for WriteError<E> {
+impl From<mp::ValueWriteError<io::Error>> for WriteError {
+    fn from(v: mp::ValueWriteError<io::Error>) -> Self {
+        Self::ValueWriteError(v)
+    }
+}
+
+impl From<io::Error> for WriteError {
+    fn from(v: io::Error) -> Self {
+        Self::IoError(v)
+    }
+}
+
+impl From<Box<ShellError>> for WriteError {
+    fn from(v: Box<ShellError>) -> Self {
+        Self::ShellError(v)
+    }
+}
+
+impl From<ShellError> for WriteError {
     fn from(value: ShellError) -> Self {
         Box::new(value).into()
     }
 }
 
-pub(crate) fn write_value<W>(out: &mut W, value: &Value) -> Result<(), WriteError<W::Error>>
-where
-    W: RmpWrite,
-{
+pub(crate) fn write_value(out: &mut impl io::Write, value: &Value) -> Result<(), WriteError> {
     use mp::ValueWriteError::InvalidMarkerWrite;
-    let as_value_write_error = mp::ValueWriteError::from;
     let span = value.span();
     match value {
         Value::Bool { val, .. } => {
@@ -127,15 +148,12 @@ where
             {
                 // Timestamp extension type, 32-bit. u32 seconds since UNIX epoch only.
                 mp::write_ext_meta(out, 4, -1)?;
-                out.write_data_u32(val.timestamp() as u32)
-                    .map_err(as_value_write_error)?;
+                out.write_u32::<BigEndian>(val.timestamp() as u32)?;
             } else {
                 // Timestamp extension type, 96-bit. u32 nanoseconds and i64 seconds.
                 mp::write_ext_meta(out, 12, -1)?;
-                out.write_data_u32(val.timestamp_subsec_nanos())
-                    .map_err(as_value_write_error)?;
-                out.write_data_i64(val.timestamp())
-                    .map_err(as_value_write_error)?;
+                out.write_u32::<BigEndian>(val.timestamp_subsec_nanos())?;
+                out.write_i64::<BigEndian>(val.timestamp())?;
             }
         }
         Value::Range { val, .. } => {

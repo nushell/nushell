@@ -29,7 +29,7 @@ num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false }
 serde_json = { workspace = true, optional = true }
-thiserror = { workspace = true }
+thiserror = "1.0"
 typetag = "0.2"
 
 [features]
