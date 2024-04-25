@@ -1,3 +1,4 @@
+mod assert_path_eq;
 pub mod dots;
 mod expansions;
 mod helpers;
