@@ -4,7 +4,7 @@ use nu_protocol::{
     Value,
 };
 
-use crate::values::CustomValueSupport;
+use crate::values::{CustomValueSupport, NuLazyFrame};
 use crate::PolarsPlugin;
 
 use super::super::values::utils::convert_columns;
@@ -37,7 +37,7 @@ impl PluginCommand for DropDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars drop a",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars drop a | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new(
@@ -70,46 +70,11 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let columns: Vec<Value> = call.rest(0)?;
-    let (col_string, col_span) = convert_columns(columns, call.head)?;
+    let (col_string, _col_span) = convert_columns(columns, call.head)?;
 
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
-
-    let new_df = col_string
-        .first()
-        .ok_or_else(|| ShellError::GenericError {
-            error: "Empty names list".into(),
-            msg: "No column names were found".into(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
-        })
-        .and_then(|col| {
-            df.as_ref()
-                .drop(&col.item)
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error dropping column".into(),
-                    msg: e.to_string(),
-                    span: Some(col.span),
-                    help: None,
-                    inner: vec![],
-                })
-        })?;
-
-    // If there are more columns in the drop selection list, these
-    // are added from the resulting dataframe
-    let polars_df = col_string.iter().skip(1).try_fold(new_df, |new_df, col| {
-        new_df
-            .drop(&col.item)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error dropping column".into(),
-                msg: e.to_string(),
-                span: Some(col.span),
-                help: None,
-                inner: vec![],
-            })
-    })?;
-
-    let final_df = NuDataFrame::new(df.from_lazy, polars_df);
+    let df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let polars_df = df.to_polars().drop(col_string.iter().map(|s| &s.item));
+    let final_df = NuLazyFrame::new(false, polars_df);
 
     final_df.to_pipeline_data(plugin, engine, call.head)
 }

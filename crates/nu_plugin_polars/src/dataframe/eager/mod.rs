@@ -1,7 +1,5 @@
 mod append;
-mod cast;
 mod columns;
-mod drop;
 mod drop_duplicates;
 mod drop_nulls;
 mod dtypes;
@@ -36,9 +34,7 @@ use crate::PolarsPlugin;
 
 pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
-pub use cast::CastDF;
 pub use columns::ColumnsDF;
-pub use drop::DropDF;
 pub use drop_duplicates::DropDuplicates;
 pub use drop_nulls::DropNulls;
 pub use dtypes::DataTypes;
@@ -71,10 +67,8 @@ pub use with_column::WithColumn;
 pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
         Box::new(AppendDF),
-        Box::new(CastDF),
         Box::new(ColumnsDF),
         Box::new(DataTypes),
-        Box::new(DropDF),
         Box::new(DropDuplicates),
         Box::new(DropNulls),
         Box::new(Dummies),

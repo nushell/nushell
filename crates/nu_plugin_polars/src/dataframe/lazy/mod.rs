@@ -1,5 +1,7 @@
 mod aggregate;
+mod cast;
 mod collect;
+mod drop;
 mod explode;
 mod fetch;
 mod fill_nan;
@@ -36,6 +38,8 @@ pub use flatten::LazyFlatten;
 
 pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
     vec![
+        Box::new(cast::CastDF),
+        Box::new(drop::DropDF),
         Box::new(LazyAggregate),
         Box::new(LazyCache),
         Box::new(LazyCollect),
