@@ -156,6 +156,15 @@ impl<D> PluginCall<D> {
             }
         })
     }
+
+    /// The span associated with the call.
+    pub fn span(&self) -> Option<Span> {
+        match self {
+            PluginCall::Signature => None,
+            PluginCall::Run(CallInfo { call, .. }) => Some(call.head),
+            PluginCall::CustomValueOp(val, _) => Some(val.span),
+        }
+    }
 }
 
 /// Operations supported for custom values.

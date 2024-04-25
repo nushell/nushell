@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 /// convert a raw string representation of NUON data to an actual Nushell [`Value`]
 ///
-/// > **Note**  
+/// > **Note**
 /// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as
 /// [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
@@ -197,10 +197,13 @@ fn convert_to_value(
             span: expr.span,
         }),
         Expr::Int(val) => Ok(Value::int(val, span)),
-        Expr::Keyword(kw, ..) => Err(ShellError::OutsideSpannedLabeledError {
+        Expr::Keyword(kw) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),
-            msg: format!("{} not supported in nuon", String::from_utf8_lossy(&kw)),
+            msg: format!(
+                "{} not supported in nuon",
+                String::from_utf8_lossy(&kw.keyword)
+            ),
             span: expr.span,
         }),
         Expr::List(vals) => {
@@ -237,27 +240,27 @@ fn convert_to_value(
             msg: "operators not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::Range(from, next, to, operator) => {
-            let from = if let Some(f) = from {
-                convert_to_value(*f, span, original_text)?
+        Expr::Range(range) => {
+            let from = if let Some(f) = range.from {
+                convert_to_value(f, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
-            let next = if let Some(s) = next {
-                convert_to_value(*s, span, original_text)?
+            let next = if let Some(s) = range.next {
+                convert_to_value(s, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
-            let to = if let Some(t) = to {
-                convert_to_value(*t, span, original_text)?
+            let to = if let Some(t) = range.to {
+                convert_to_value(t, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
             Ok(Value::range(
-                Range::new(from, next, to, operator.inclusion, expr.span)?,
+                Range::new(from, next, to, range.operator.inclusion, expr.span)?,
                 expr.span,
             ))
         }
@@ -330,12 +333,12 @@ fn convert_to_value(
             msg: "subexpressions not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::Table(mut headers, cells) => {
+        Expr::Table(mut table) => {
             let mut cols = vec![];
 
             let mut output = vec![];
 
-            for key in headers.iter_mut() {
+            for key in table.columns.as_mut() {
                 let key_str = match &mut key.expr {
                     Expr::String(key_str) => key_str,
                     _ => {
@@ -352,14 +355,14 @@ fn convert_to_value(
                     return Err(ShellError::ColumnDefinedTwice {
                         col_name: key_str.clone(),
                         second_use: key.span,
-                        first_use: headers[idx].span,
+                        first_use: table.columns[idx].span,
                     });
                 } else {
                     cols.push(std::mem::take(key_str));
                 }
             }
 
-            for row in cells {
+            for row in table.rows.into_vec() {
                 if cols.len() != row.len() {
                     return Err(ShellError::OutsideSpannedLabeledError {
                         src: original_text.to_string(),
@@ -371,7 +374,7 @@ fn convert_to_value(
 
                 let record = cols
                     .iter()
-                    .zip(row)
+                    .zip(row.into_vec())
                     .map(|(col, cell)| {
                         convert_to_value(cell, span, original_text).map(|val| (col.clone(), val))
                     })
@@ -382,8 +385,8 @@ fn convert_to_value(
 
             Ok(Value::list(output, span))
         }
-        Expr::ValueWithUnit(val, unit) => {
-            let size = match val.expr {
+        Expr::ValueWithUnit(value) => {
+            let size = match value.expr.expr {
                 Expr::Int(val) => val,
                 _ => {
                     return Err(ShellError::OutsideSpannedLabeledError {
@@ -395,7 +398,7 @@ fn convert_to_value(
                 }
             };
 
-            match unit.item {
+            match value.unit.item {
                 Unit::Byte => Ok(Value::filesize(size, span)),
                 Unit::Kilobyte => Ok(Value::filesize(size * 1000, span)),
                 Unit::Megabyte => Ok(Value::filesize(size * 1000 * 1000, span)),

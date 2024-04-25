@@ -1041,10 +1041,10 @@ pub fn parse_alias(
                 // Then from the command itself
                 true => match alias_call.arguments.get(1) {
                     Some(Argument::Positional(Expression {
-                        expr: Expr::Keyword(.., expr),
+                        expr: Expr::Keyword(kw),
                         ..
                     })) => {
-                        let aliased = working_set.get_span_contents(expr.span);
+                        let aliased = working_set.get_span_contents(kw.expr.span);
                         (
                             format!("Alias for `{}`", String::from_utf8_lossy(aliased)),
                             String::new(),
@@ -3558,7 +3558,7 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
     use nu_plugin::{get_signature, PluginDeclaration};
     use nu_protocol::{
-        engine::Stack, ErrSpan, ParseWarning, PluginCacheItem, PluginIdentity, PluginSignature,
+        engine::Stack, ErrSpan, ParseWarning, PluginIdentity, PluginRegistryItem, PluginSignature,
         RegisteredPlugin,
     };
 
@@ -3743,8 +3743,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
                 if let Ok(ref signatures) = signatures {
                     // Add the loaded plugin to the delta
-                    working_set
-                        .update_plugin_cache(PluginCacheItem::new(&identity, signatures.clone()));
+                    working_set.update_plugin_registry(PluginRegistryItem::new(
+                        &identity,
+                        signatures.clone(),
+                    ));
                 }
 
                 signatures
@@ -3777,7 +3779,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
 #[cfg(feature = "plugin")]
 pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
-    use nu_protocol::{FromValue, PluginCacheFile};
+    use nu_protocol::{FromValue, PluginRegistryFile};
 
     let cwd = working_set.get_cwd();
 
@@ -3804,6 +3806,17 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
             })
             .transpose()?;
 
+        // The name could also be a filename, so try our best to expand it for that match.
+        let filename_query = {
+            let path = nu_path::expand_path_with(&name.item, &cwd, true);
+            path.to_str()
+                .and_then(|path_str| {
+                    find_in_dirs(path_str, working_set, &cwd, Some("NU_PLUGIN_DIRS"))
+                })
+                .map(|parser_path| parser_path.path_buf())
+                .unwrap_or(path)
+        };
+
         // Find the actual plugin config path location. We don't have a const/env variable for this,
         // it either lives in the current working directory or in the script's directory
         let plugin_config_path = if let Some(custom_path) = &plugin_config {
@@ -3817,8 +3830,8 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
                     .plugin_path
                     .as_ref()
                     .ok_or_else(|| ParseError::LabeledErrorWithHelp {
-                        error: "Plugin cache file not set".into(),
-                        label: "can't load plugin without cache file".into(),
+                        error: "Plugin registry file not set".into(),
+                        label: "can't load plugin without registry file".into(),
                         span: call.head,
                         help:
                             "pass --plugin-config to `plugin use` when $nu.plugin-path is not set"
@@ -3830,20 +3843,20 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
 
         let file = plugin_config_path.open(working_set).map_err(|err| {
             ParseError::LabeledError(
-                "Plugin cache file can't be opened".into(),
+                "Plugin registry file can't be opened".into(),
                 err.to_string(),
                 plugin_config.as_ref().map(|p| p.span).unwrap_or(call.head),
             )
         })?;
 
         // The file is now open, so we just have to parse the contents and find the plugin
-        let contents = PluginCacheFile::read_from(file, Some(call.head))
+        let contents = PluginRegistryFile::read_from(file, Some(call.head))
             .map_err(|err| err.wrap(working_set, call.head))?;
 
         let plugin_item = contents
             .plugins
             .iter()
-            .find(|plugin| plugin.name == name.item)
+            .find(|plugin| plugin.name == name.item || plugin.filename == filename_query)
             .ok_or_else(|| ParseError::PluginNotFound {
                 name: name.item.clone(),
                 name_span: name.span,
@@ -3851,7 +3864,7 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
             })?;
 
         // Now add the signatures to the working set
-        nu_plugin::load_plugin_cache_item(working_set, plugin_item, Some(call.head))
+        nu_plugin::load_plugin_registry_item(working_set, plugin_item, Some(call.head))
             .map_err(|err| err.wrap(working_set, call.head))?;
 
         Ok(())

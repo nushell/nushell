@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use nu_engine::{command_prelude::*, current_dir};
 use nu_plugin::{GetPlugin, PersistentPlugin};
-use nu_protocol::{PluginCacheItem, PluginGcConfig, PluginIdentity, RegisteredPlugin};
+use nu_protocol::{PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 
-use crate::util::modify_plugin_file;
+use crate::util::{get_plugin_dirs, modify_plugin_file};
 
 #[derive(Clone)]
 pub struct PluginAdd;
@@ -21,7 +21,7 @@ impl Command for PluginAdd {
             .named(
                 "plugin-config",
                 SyntaxShape::Filepath,
-                "Use a plugin cache file other than the one set in `$nu.plugin-path`",
+                "Use a plugin registry file other than the one set in `$nu.plugin-path`",
                 None,
             )
             .named(
@@ -39,7 +39,7 @@ impl Command for PluginAdd {
     }
 
     fn usage(&self) -> &str {
-        "Add a plugin to the plugin cache file."
+        "Add a plugin to the plugin registry file."
     }
 
     fn extra_usage(&self) -> &str {
@@ -47,8 +47,8 @@ impl Command for PluginAdd {
 This does not load the plugin commands into the scope - see `register` for that.
 
 Instead, it runs the plugin to get its command signatures, and then edits the
-plugin cache file (by default, `$nu.plugin-path`). The changes will be
-apparent the next time `nu` is next launched with that plugin cache file.
+plugin registry file (by default, `$nu.plugin-path`). The changes will be
+apparent the next time `nu` is next launched with that plugin registry file.
 "#
         .trim()
     }
@@ -66,7 +66,7 @@ apparent the next time `nu` is next launched with that plugin cache file.
             },
             Example {
                 example: "plugin add --plugin-config polars.msgpackz nu_plugin_polars",
-                description: "Run the `nu_plugin_polars` plugin from the current directory or $env.NU_PLUGIN_DIRS, and install its signatures to the \"polars.msgpackz\" plugin cache file.",
+                description: "Run the `nu_plugin_polars` plugin from the current directory or $env.NU_PLUGIN_DIRS, and install its signatures to the \"polars.msgpackz\" plugin registry file.",
                 result: None,
             },
         ]
@@ -85,24 +85,10 @@ apparent the next time `nu` is next launched with that plugin cache file.
         let cwd = current_dir(engine_state, stack)?;
 
         // Check the current directory, or fall back to NU_PLUGIN_DIRS
-        let filename_expanded = match nu_path::canonicalize_with(&filename.item, &cwd) {
-            Ok(path) => path,
-            Err(err) => {
-                // Try to find it in NU_PLUGIN_DIRS first, before giving up
-                let mut found = None;
-                if let Some(nu_plugin_dirs) = stack.get_env_var(engine_state, "NU_PLUGIN_DIRS") {
-                    for dir in nu_plugin_dirs.into_list().unwrap_or(vec![]) {
-                        if let Ok(path) = nu_path::canonicalize_with(dir.as_str()?, &cwd)
-                            .and_then(|dir| nu_path::canonicalize_with(&filename.item, dir))
-                        {
-                            found = Some(path);
-                            break;
-                        }
-                    }
-                }
-                found.ok_or(err.into_spanned(filename.span))?
-            }
-        };
+        let filename_expanded = nu_path::locate_in_dirs(&filename.item, &cwd, || {
+            get_plugin_dirs(engine_state, stack)
+        })
+        .err_span(filename.span)?;
 
         let shell_expanded = shell
             .as_ref()
@@ -136,7 +122,7 @@ apparent the next time `nu` is next launched with that plugin cache file.
 
         modify_plugin_file(engine_state, stack, call.head, custom_path, |contents| {
             // Update the file with the received signatures
-            let item = PluginCacheItem::new(plugin.identity(), commands);
+            let item = PluginRegistryItem::new(plugin.identity(), commands);
             contents.upsert_plugin(item);
             Ok(())
         })?;

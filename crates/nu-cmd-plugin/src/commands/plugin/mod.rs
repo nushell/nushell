@@ -60,8 +60,9 @@ impl Command for PluginCommand {
             Example {
                 example: "plugin use inc",
                 description: "
-Load (or reload) the `inc` plugin from the plugin cache file and put its commands in scope.
-The plugin must already be in the cache file at parse time.
+Load (or reload) the `inc` plugin from the plugin registry file and put its
+commands in scope. The plugin must already be in the registry file at parse
+time.
 "
                 .trim(),
                 result: None,

@@ -334,7 +334,7 @@ where
         temp_file
     });
 
-    // We don't have to write the plugin cache file, it's ok for it to not exist
+    // We don't have to write the plugin registry file, it's ok for it to not exist
     let temp_plugin_file = temp.path().join("plugin.msgpackz");
 
     crate::commands::ensure_plugins_built();

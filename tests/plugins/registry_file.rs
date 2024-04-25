@@ -1,6 +1,6 @@
 use std::{fs::File, path::PathBuf};
 
-use nu_protocol::{PluginCacheFile, PluginCacheItem, PluginCacheItemData};
+use nu_protocol::{PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData};
 use nu_test_support::{fs::Stub, nu, nu_with_plugins, playground::Playground};
 
 fn example_plugin_path() -> PathBuf {
@@ -39,6 +39,75 @@ fn plugin_add_then_restart_nu() {
 }
 
 #[test]
+fn plugin_add_in_nu_plugin_dirs_const() {
+    let example_plugin_path = example_plugin_path();
+
+    let dirname = example_plugin_path.parent().expect("no parent");
+    let filename = example_plugin_path
+        .file_name()
+        .expect("no file_name")
+        .to_str()
+        .expect("not utf-8");
+
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [],
+        &format!(
+            r#"
+                $env.NU_PLUGIN_DIRS = null
+                const NU_PLUGIN_DIRS = ['{0}']
+                plugin add '{1}'
+                (
+                    ^$nu.current-exe
+                        --config $nu.config-path
+                        --env-config $nu.env-path
+                        --plugin-config $nu.plugin-path
+                        --commands 'plugin list | get name | to json --raw'
+                )
+            "#,
+            dirname.display(),
+            filename
+        )
+    );
+    assert!(result.status.success());
+    assert_eq!(r#"["example"]"#, result.out);
+}
+
+#[test]
+fn plugin_add_in_nu_plugin_dirs_env() {
+    let example_plugin_path = example_plugin_path();
+
+    let dirname = example_plugin_path.parent().expect("no parent");
+    let filename = example_plugin_path
+        .file_name()
+        .expect("no file_name")
+        .to_str()
+        .expect("not utf-8");
+
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [],
+        &format!(
+            r#"
+                $env.NU_PLUGIN_DIRS = ['{0}']
+                plugin add '{1}'
+                (
+                    ^$nu.current-exe
+                        --config $nu.config-path
+                        --env-config $nu.env-path
+                        --plugin-config $nu.plugin-path
+                        --commands 'plugin list | get name | to json --raw'
+                )
+            "#,
+            dirname.display(),
+            filename
+        )
+    );
+    assert!(result.status.success());
+    assert_eq!(r#"["example"]"#, result.out);
+}
+
+#[test]
 fn plugin_add_to_custom_path() {
     let example_plugin_path = example_plugin_path();
     Playground::setup("plugin add to custom path", |dirs, _playground| {
@@ -51,7 +120,7 @@ fn plugin_add_to_custom_path() {
 
         assert!(result.status.success());
 
-        let contents = PluginCacheFile::read_from(
+        let contents = PluginRegistryFile::read_from(
             File::open(dirs.test().join("test-plugin-file.msgpackz"))
                 .expect("failed to open plugin file"),
             None,
@@ -74,21 +143,21 @@ fn plugin_rm_then_restart_nu() {
 
         let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
             .expect("failed to create file");
-        let mut contents = PluginCacheFile::new();
+        let mut contents = PluginRegistryFile::new();
 
-        contents.upsert_plugin(PluginCacheItem {
+        contents.upsert_plugin(PluginRegistryItem {
             name: "example".into(),
             filename: example_plugin_path,
             shell: None,
-            data: PluginCacheItemData::Valid { commands: vec![] },
+            data: PluginRegistryItemData::Valid { commands: vec![] },
         });
 
-        contents.upsert_plugin(PluginCacheItem {
+        contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
             filename: dirs.test().join("nu_plugin_foo"),
             shell: None,
-            data: PluginCacheItemData::Valid { commands: vec![] },
+            data: PluginRegistryItemData::Valid { commands: vec![] },
         });
 
         contents
@@ -150,21 +219,21 @@ fn plugin_rm_from_custom_path() {
     Playground::setup("plugin rm from custom path", |dirs, _playground| {
         let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
             .expect("failed to create file");
-        let mut contents = PluginCacheFile::new();
+        let mut contents = PluginRegistryFile::new();
 
-        contents.upsert_plugin(PluginCacheItem {
+        contents.upsert_plugin(PluginRegistryItem {
             name: "example".into(),
             filename: example_plugin_path,
             shell: None,
-            data: PluginCacheItemData::Valid { commands: vec![] },
+            data: PluginRegistryItemData::Valid { commands: vec![] },
         });
 
-        contents.upsert_plugin(PluginCacheItem {
+        contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
             filename: dirs.test().join("nu_plugin_foo"),
             shell: None,
-            data: PluginCacheItemData::Valid { commands: vec![] },
+            data: PluginRegistryItemData::Valid { commands: vec![] },
         });
 
         contents
@@ -179,7 +248,58 @@ fn plugin_rm_from_custom_path() {
         assert!(result.err.trim().is_empty());
 
         // Check the contents after running
-        let contents = PluginCacheFile::read_from(
+        let contents = PluginRegistryFile::read_from(
+            File::open(dirs.test().join("test-plugin-file.msgpackz")).expect("failed to open file"),
+            None,
+        )
+        .expect("failed to read file");
+
+        assert!(!contents.plugins.iter().any(|p| p.name == "example"));
+
+        // Shouldn't remove anything else
+        assert!(contents.plugins.iter().any(|p| p.name == "foo"));
+    })
+}
+
+#[test]
+fn plugin_rm_using_filename() {
+    let example_plugin_path = example_plugin_path();
+    Playground::setup("plugin rm using filename", |dirs, _playground| {
+        let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
+            .expect("failed to create file");
+        let mut contents = PluginRegistryFile::new();
+
+        contents.upsert_plugin(PluginRegistryItem {
+            name: "example".into(),
+            filename: example_plugin_path.clone(),
+            shell: None,
+            data: PluginRegistryItemData::Valid { commands: vec![] },
+        });
+
+        contents.upsert_plugin(PluginRegistryItem {
+            name: "foo".into(),
+            // this doesn't exist, but it should be ok
+            filename: dirs.test().join("nu_plugin_foo"),
+            shell: None,
+            data: PluginRegistryItemData::Valid { commands: vec![] },
+        });
+
+        contents
+            .write_to(file, None)
+            .expect("failed to write plugin file");
+
+        let result = nu!(
+            cwd: dirs.test(),
+            &format!(
+                "plugin rm --plugin-config test-plugin-file.msgpackz '{}'",
+                example_plugin_path.display()
+            )
+        );
+        assert!(result.status.success());
+        assert!(result.err.trim().is_empty());
+
+        // Check the contents after running
+        let contents = PluginRegistryFile::read_from(
             File::open(dirs.test().join("test-plugin-file.msgpackz")).expect("failed to open file"),
             None,
         )
@@ -205,21 +325,21 @@ fn warning_on_invalid_plugin_item() {
 
         let file = File::create(dirs.test().join("test-plugin-file.msgpackz"))
             .expect("failed to create file");
-        let mut contents = PluginCacheFile::new();
+        let mut contents = PluginRegistryFile::new();
 
-        contents.upsert_plugin(PluginCacheItem {
+        contents.upsert_plugin(PluginRegistryItem {
             name: "example".into(),
             filename: example_plugin_path,
             shell: None,
-            data: PluginCacheItemData::Valid { commands: vec![] },
+            data: PluginRegistryItemData::Valid { commands: vec![] },
         });
 
-        contents.upsert_plugin(PluginCacheItem {
+        contents.upsert_plugin(PluginRegistryItem {
             name: "badtest".into(),
             // this doesn't exist, but it should be ok
             filename: dirs.test().join("nu_plugin_badtest"),
             shell: None,
-            data: PluginCacheItemData::Invalid,
+            data: PluginRegistryItemData::Invalid,
         });
 
         contents
@@ -252,7 +372,7 @@ fn warning_on_invalid_plugin_item() {
         // The "example" plugin should be unaffected
         assert_eq!(r#"["example"]"#, out);
         // The warning should be in there
-        assert!(err.contains("cached plugin data"));
+        assert!(err.contains("registered plugin data"));
         assert!(err.contains("badtest"));
     })
 }
@@ -268,9 +388,9 @@ fn plugin_use_error_not_found() {
         // Make an empty msgpackz
         let file = File::create(dirs.test().join("plugin.msgpackz"))
             .expect("failed to open plugin.msgpackz");
-        PluginCacheFile::default()
+        PluginRegistryFile::default()
             .write_to(file, None)
-            .expect("failed to write empty cache file");
+            .expect("failed to write empty registry file");
 
         let output = assert_cmd::Command::new(nu_test_support::fs::executable_path())
             .current_dir(dirs.test())
@@ -299,6 +419,27 @@ fn plugin_add_and_then_use() {
                     --env-config $nu.env-path
                     --plugin-config $nu.plugin-path
                     --commands 'plugin use example; plugin list | get name | to json --raw'
+            )
+        "#, example_plugin_path.display())
+    );
+    assert!(result.status.success());
+    assert_eq!(r#"["example"]"#, result.out);
+}
+
+#[test]
+fn plugin_add_and_then_use_by_filename() {
+    let example_plugin_path = example_plugin_path();
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugins: [],
+        &format!(r#"
+            plugin add '{0}'
+            (
+                ^$nu.current-exe
+                    --config $nu.config-path
+                    --env-config $nu.env-path
+                    --plugin-config $nu.plugin-path
+                    --commands 'plugin use '{0}'; plugin list | get name | to json --raw'
             )
         "#, example_plugin_path.display())
     );

@@ -363,7 +363,7 @@ fn find_matching_block_end_in_expr(
             Expr::Nothing => None,
             Expr::Garbage => None,
 
-            Expr::Table(hdr, rows) => {
+            Expr::Table(table) => {
                 if expr_last == global_cursor_offset {
                     // cursor is at table end
                     Some(expr_first)
@@ -372,11 +372,11 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     // cursor is inside table
-                    for inner_expr in hdr {
+                    for inner_expr in table.columns.as_ref() {
                         find_in_expr_or_continue!(inner_expr);
                     }
-                    for row in rows {
-                        for inner_expr in row {
+                    for row in table.rows.as_ref() {
+                        for inner_expr in row.as_ref() {
                             find_in_expr_or_continue!(inner_expr);
                         }
                     }

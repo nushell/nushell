@@ -12,11 +12,11 @@ impl Command for Headers {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
                 (
                     // Tables with missing values are List<Any>
                     Type::List(Box::new(Type::Any)),
-                    Type::Table(vec![]),
+                    Type::table(),
                 ),
             ])
             .category(Category::Filters)

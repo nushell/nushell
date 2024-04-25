@@ -88,7 +88,7 @@ impl Expression {
 
     pub fn as_keyword(&self) -> Option<&Expression> {
         match &self.expr {
-            Expr::Keyword(_, _, expr) => Some(expr),
+            Expr::Keyword(kw) => Some(&kw.expr),
             _ => None,
         }
     }
@@ -189,7 +189,9 @@ impl Expression {
                 if head.has_in_variable(working_set) {
                     return true;
                 }
-                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in
+                    args.as_ref()
+                {
                     if expr.has_in_variable(working_set) {
                         return true;
                     }
@@ -211,7 +213,7 @@ impl Expression {
             Expr::Nothing => false,
             Expr::GlobPattern(_, _) => false,
             Expr::Int(_) => false,
-            Expr::Keyword(_, _, expr) => expr.has_in_variable(working_set),
+            Expr::Keyword(kw) => kw.expr.has_in_variable(working_set),
             Expr::List(list) => {
                 for item in list {
                     if item.expr().has_in_variable(working_set) {
@@ -230,18 +232,18 @@ impl Expression {
             }
             Expr::Operator(_) => false,
             Expr::MatchBlock(_) => false,
-            Expr::Range(left, middle, right, ..) => {
-                if let Some(left) = &left {
+            Expr::Range(range) => {
+                if let Some(left) = &range.from {
                     if left.has_in_variable(working_set) {
                         return true;
                     }
                 }
-                if let Some(middle) = &middle {
+                if let Some(middle) = &range.next {
                     if middle.has_in_variable(working_set) {
                         return true;
                     }
                 }
-                if let Some(right) = &right {
+                if let Some(right) = &range.to {
                     if right.has_in_variable(working_set) {
                         return true;
                     }
@@ -284,14 +286,14 @@ impl Expression {
                     false
                 }
             }
-            Expr::Table(headers, cells) => {
-                for header in headers {
+            Expr::Table(table) => {
+                for header in table.columns.as_ref() {
                     if header.has_in_variable(working_set) {
                         return true;
                     }
                 }
 
-                for row in cells {
+                for row in table.rows.as_ref() {
                     for cell in row.iter() {
                         if cell.has_in_variable(working_set) {
                             return true;
@@ -302,7 +304,7 @@ impl Expression {
                 false
             }
 
-            Expr::ValueWithUnit(expr, _) => expr.has_in_variable(working_set),
+            Expr::ValueWithUnit(value) => value.expr.has_in_variable(working_set),
             Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
             Expr::VarDecl(_) => false,
         }
@@ -373,7 +375,9 @@ impl Expression {
             Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args) => {
                 head.replace_span(working_set, replaced, new_span);
-                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in
+                    args.as_mut()
+                {
                     expr.replace_span(working_set, replaced, new_span);
                 }
             }
@@ -392,7 +396,7 @@ impl Expression {
             Expr::GlobPattern(_, _) => {}
             Expr::MatchBlock(_) => {}
             Expr::Int(_) => {}
-            Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),
+            Expr::Keyword(kw) => kw.expr.replace_span(working_set, replaced, new_span),
             Expr::List(list) => {
                 for item in list {
                     item.expr_mut()
@@ -400,14 +404,14 @@ impl Expression {
                 }
             }
             Expr::Operator(_) => {}
-            Expr::Range(left, middle, right, ..) => {
-                if let Some(left) = left {
+            Expr::Range(range) => {
+                if let Some(left) = &mut range.from {
                     left.replace_span(working_set, replaced, new_span)
                 }
-                if let Some(middle) = middle {
+                if let Some(middle) = &mut range.next {
                     middle.replace_span(working_set, replaced, new_span)
                 }
-                if let Some(right) = right {
+                if let Some(right) = &mut range.to {
                     right.replace_span(working_set, replaced, new_span)
                 }
             }
@@ -443,19 +447,19 @@ impl Expression {
 
                 *block_id = working_set.add_block(Arc::new(block));
             }
-            Expr::Table(headers, cells) => {
-                for header in headers {
+            Expr::Table(table) => {
+                for header in table.columns.as_mut() {
                     header.replace_span(working_set, replaced, new_span)
                 }
 
-                for row in cells {
+                for row in table.rows.as_mut() {
                     for cell in row.iter_mut() {
                         cell.replace_span(working_set, replaced, new_span)
                     }
                 }
             }
 
-            Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span),
+            Expr::ValueWithUnit(value) => value.expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
         }
