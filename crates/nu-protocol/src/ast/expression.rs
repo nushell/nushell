@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, RecordItem},
+    ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
     engine::StateWorkingSet,
     BlockId, DeclId, Signature, Span, Type, VarId, IN_VARIABLE_ID,
 };
@@ -75,6 +75,13 @@ impl Expression {
     pub fn as_row_condition_block(&self) -> Option<BlockId> {
         match self.expr {
             Expr::RowCondition(block_id) => Some(block_id),
+            _ => None,
+        }
+    }
+
+    pub fn as_match_block(&self) -> Option<&[(MatchPattern, Expression)]> {
+        match &self.expr {
+            Expr::MatchBlock(matches) => Some(matches),
             _ => None,
         }
     }

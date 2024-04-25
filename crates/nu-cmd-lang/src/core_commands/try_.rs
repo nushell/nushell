@@ -49,9 +49,7 @@ impl Command for Try {
         let try_block = engine_state.get_block(try_block);
         let eval_block = get_eval_block(engine_state);
 
-        let result = eval_block(engine_state, stack, try_block, input);
-
-        match result {
+        match eval_block(engine_state, stack, try_block, input) {
             Err(error) => {
                 let error = intercept_block_control(error)?;
                 let err_record = err_to_record(error, call.head);
