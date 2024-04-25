@@ -1,0 +1,20 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Commands for managing Nushell plugins."
+edition = "2021"
+license = "MIT"
+name = "nu-cmd-plugin"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-plugin"
+version = "0.92.3"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nu-engine = { path = "../nu-engine", version = "0.92.3" }
+nu-path = { path = "../nu-path", version = "0.92.3" }
+nu-protocol = { path = "../nu-protocol", version = "0.92.3", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.92.3" }
+
+itertools = { workspace = true }
+
+[dev-dependencies]

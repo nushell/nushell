@@ -1,5 +1,7 @@
 use nu_engine::command_prelude::*;
 
+use crate::util::canonicalize_possible_filename_arg;
+
 #[derive(Clone)]
 pub struct PluginStop;
 
@@ -14,9 +16,9 @@ impl Command for PluginStop {
             .required(
                 "name",
                 SyntaxShape::String,
-                "The name of the plugin to stop.",
+                "The name, or filename, of the plugin to stop",
             )
-            .category(Category::Core)
+            .category(Category::Plugin)
     }
 
     fn usage(&self) -> &str {
@@ -28,6 +30,11 @@ impl Command for PluginStop {
             Example {
                 example: "plugin stop inc",
                 description: "Stop the plugin named `inc`.",
+                result: None,
+            },
+            Example {
+                example: "plugin stop ~/.cargo/bin/nu_plugin_inc",
+                description: "Stop the plugin with the filename `~/.cargo/bin/nu_plugin_inc`.",
                 result: None,
             },
             Example {
@@ -47,9 +54,12 @@ impl Command for PluginStop {
     ) -> Result<PipelineData, ShellError> {
         let name: Spanned<String> = call.req(engine_state, stack, 0)?;
 
+        let filename = canonicalize_possible_filename_arg(engine_state, stack, &name.item);
+
         let mut found = false;
         for plugin in engine_state.plugins() {
-            if plugin.identity().name() == name.item {
+            let id = &plugin.identity();
+            if id.name() == name.item || id.filename() == filename {
                 plugin.stop()?;
                 found = true;
             }

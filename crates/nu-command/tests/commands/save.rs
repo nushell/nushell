@@ -335,6 +335,26 @@ fn save_same_file_with_extension() {
                 echo 'world'
                 | save --raw hello.md;
                 open --raw hello.md
+                | save --raw --force hello.md
+            "
+            )
+        );
+
+        assert!(actual
+            .err
+            .contains("pipeline input and output are the same file"));
+    })
+}
+
+#[test]
+fn save_same_file_with_extension_pipeline() {
+    Playground::setup("save_test_17", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                echo 'world'
+                | save --raw hello.md;
+                open --raw hello.md
                 | prepend 'hello'
                 | save --raw --force hello.md
             "
@@ -343,13 +363,33 @@ fn save_same_file_with_extension() {
 
         assert!(actual
             .err
-            .contains("pipeline input and output are same file"));
+            .contains("pipeline input and output are the same file"));
     })
 }
 
 #[test]
 fn save_same_file_without_extension() {
-    Playground::setup("save_test_17", |dirs, _sandbox| {
+    Playground::setup("save_test_18", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                echo 'world'
+                | save hello;
+                open hello
+                | save --force hello
+            "
+            )
+        );
+
+        assert!(actual
+            .err
+            .contains("pipeline input and output are the same file"));
+    })
+}
+
+#[test]
+fn save_same_file_without_extension_pipeline() {
+    Playground::setup("save_test_19", |dirs, _sandbox| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
@@ -364,6 +404,6 @@ fn save_same_file_without_extension() {
 
         assert!(actual
             .err
-            .contains("pipeline input and output are same file"));
+            .contains("pipeline input and output are the same file"));
     })
 }

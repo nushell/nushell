@@ -32,4 +32,6 @@ pub use validation::NuValidator;
 #[cfg(feature = "plugin")]
 pub use config_files::add_plugin_file;
 #[cfg(feature = "plugin")]
+pub use config_files::migrate_old_plugin_file;
+#[cfg(feature = "plugin")]
 pub use config_files::read_plugin_file;

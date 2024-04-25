@@ -750,6 +750,21 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// The registered plugin data for a plugin is invalid.
+    ///
+    /// ## Resolution
+    ///
+    /// `plugin add` the plugin again to update the data, or remove it with `plugin rm`.
+    #[error("The registered plugin data for `{plugin_name}` is invalid")]
+    #[diagnostic(code(nu::shell::plugin_registry_data_invalid))]
+    PluginRegistryDataInvalid {
+        plugin_name: String,
+        #[label("plugin `{plugin_name}` loaded here")]
+        span: Option<Span>,
+        #[help("the format in the plugin registry file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`")]
+        add_command: String,
+    },
+
     /// A plugin failed to load.
     ///
     /// ## Resolution

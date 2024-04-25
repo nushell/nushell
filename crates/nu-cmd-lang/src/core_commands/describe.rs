@@ -1,8 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    engine::{Closure, StateWorkingSet},
-    PipelineMetadata,
-};
+use nu_protocol::{engine::StateWorkingSet, PipelineMetadata};
 
 #[derive(Clone)]
 pub struct Describe;
@@ -336,16 +333,12 @@ fn describe_value(
             ),
             head,
         ),
-        Value::Block { val, .. }
-        | Value::Closure {
-            val: Closure { block_id: val, .. },
-            ..
-        } => {
-            let block = engine_state.map(|engine_state| engine_state.get_block(val));
+        Value::Closure { val, .. } => {
+            let block = engine_state.map(|engine_state| engine_state.get_block(val.block_id));
 
             if let Some(block) = block {
                 let mut record = Record::new();
-                record.push("type", Value::string(value.get_type().to_string(), head));
+                record.push("type", Value::string("closure", head));
                 record.push(
                     "signature",
                     Value::record(

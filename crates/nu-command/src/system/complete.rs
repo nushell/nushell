@@ -13,7 +13,7 @@ impl Command for Complete {
     fn signature(&self) -> Signature {
         Signature::build("complete")
             .category(Category::System)
-            .input_output_types(vec![(Type::Any, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Any, Type::record())])
     }
 
     fn usage(&self) -> &str {
@@ -62,7 +62,7 @@ impl Command for Complete {
                                 }
                             })
                             .map(|handle| (handle, stderr_span))
-                            .map_err(|err| err.into_spanned(call.head))
+                            .err_span(call.head)
                     })
                     .transpose()?;
 

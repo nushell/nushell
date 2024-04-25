@@ -1,10 +1,9 @@
-use crate::eval_block;
+use crate::ClosureEvalOnce;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr},
-    debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet, PWD_ENV},
-    Config, PipelineData, ShellError, Span, Value, VarId,
+    Config, ShellError, Span, Value, VarId,
 };
 use std::{
     collections::HashMap,
@@ -376,37 +375,12 @@ fn get_converted_value(
         .and_then(|record| record.get(direction));
 
     if let Some(conversion) = conversion {
-        let from_span = conversion.span();
         match conversion.as_closure() {
-            Ok(val) => {
-                let block = engine_state.get_block(val.block_id);
-
-                if let Some(var) = block.signature.get_positional(0) {
-                    let mut stack = stack.captures_to_stack(val.captures.clone());
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, orig_val.clone());
-                    }
-
-                    let val_span = orig_val.span();
-                    // TODO DEBUG
-                    let result = eval_block::<WithoutDebug>(
-                        engine_state,
-                        &mut stack,
-                        block,
-                        PipelineData::new_with_metadata(None, val_span),
-                    );
-
-                    match result {
-                        Ok(data) => ConversionResult::Ok(data.into_value(val_span)),
-                        Err(e) => ConversionResult::ConversionError(e),
-                    }
-                } else {
-                    ConversionResult::ConversionError(ShellError::MissingParameter {
-                        param_name: "block input".into(),
-                        span: from_span,
-                    })
-                }
-            }
+            Ok(closure) => ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                .debug(false)
+                .run_with_value(orig_val.clone())
+                .map(|data| ConversionResult::Ok(data.into_value(orig_val.span())))
+                .unwrap_or_else(ConversionResult::ConversionError),
             Err(e) => ConversionResult::ConversionError(e),
         }
     } else {

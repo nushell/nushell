@@ -1,13 +1,11 @@
 mod append;
 mod columns;
 mod drop_nulls;
-mod dtypes;
 mod dummies;
 mod filter_with;
 mod first;
 mod get;
 mod last;
-mod list;
 mod melt;
 mod open;
 mod query_df;
@@ -35,13 +33,11 @@ pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
 pub use columns::ColumnsDF;
 pub use drop_nulls::DropNulls;
-pub use dtypes::DataTypes;
 pub use dummies::Dummies;
 pub use filter_with::FilterWith;
 pub use first::FirstDF;
 pub use get::GetDF;
 pub use last::LastDF;
-pub use list::ListDF;
 pub use melt::MeltDF;
 use nu_plugin::PluginCommand;
 pub use query_df::QueryDf;
@@ -66,7 +62,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
     vec![
         Box::new(AppendDF),
         Box::new(ColumnsDF),
-        Box::new(DataTypes),
         Box::new(DropNulls),
         Box::new(Dummies),
         Box::new(FilterWith),
@@ -76,7 +71,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(Summary),
         Box::new(FirstDF),
         Box::new(LastDF),
-        Box::new(ListDF),
         Box::new(RenameDF),
         Box::new(SampleDF),
         Box::new(ShapeDF),

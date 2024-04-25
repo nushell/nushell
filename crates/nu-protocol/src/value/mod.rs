@@ -21,7 +21,7 @@ use crate::{
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
-    BlockId, Config, ShellError, Span, Type,
+    Config, ShellError, Span, Type,
 };
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
@@ -123,13 +123,6 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
-    Block {
-        val: BlockId,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
     Closure {
         val: Closure,
         // note: spans are being refactored out of Value
@@ -225,10 +218,6 @@ impl Clone for Value {
                 internal_span,
             } => Value::List {
                 vals: vals.clone(),
-                internal_span: *internal_span,
-            },
-            Value::Block { val, internal_span } => Value::Block {
-                val: *val,
                 internal_span: *internal_span,
             },
             Value::Closure { val, internal_span } => Value::Closure {
@@ -562,38 +551,6 @@ impl Value {
         }
     }
 
-    /// Returns the inner [`BlockId`] or an error if this `Value` is not a block
-    pub fn as_block(&self) -> Result<BlockId, ShellError> {
-        if let Value::Block { val, .. } = self {
-            Ok(*val)
-        } else {
-            self.cant_convert_to("block")
-        }
-    }
-
-    /// Returns this `Value`'s [`BlockId`] or an error if it does not have one
-    ///
-    /// Only the following `Value` cases will return an `Ok` result:
-    /// - `Block`
-    /// - `Closure`
-    ///
-    /// ```
-    /// # use nu_protocol::Value;
-    /// for val in Value::test_values() {
-    ///     assert_eq!(
-    ///         matches!(val, Value::Block { .. } | Value::Closure { .. }),
-    ///         val.coerce_block().is_ok(),
-    ///     );
-    /// }
-    /// ```
-    pub fn coerce_block(&self) -> Result<BlockId, ShellError> {
-        match self {
-            Value::Block { val, .. } => Ok(*val),
-            Value::Closure { val, .. } => Ok(val.block_id),
-            val => val.cant_convert_to("block"),
-        }
-    }
-
     /// Returns a reference to the inner [`Closure`] value or an error if this `Value` is not a closure
     pub fn as_closure(&self) -> Result<&Closure, ShellError> {
         if let Value::Closure { val, .. } = self {
@@ -747,7 +704,6 @@ impl Value {
             | Value::Glob { internal_span, .. }
             | Value::Record { internal_span, .. }
             | Value::List { internal_span, .. }
-            | Value::Block { internal_span, .. }
             | Value::Closure { internal_span, .. }
             | Value::Nothing { internal_span, .. }
             | Value::Binary { internal_span, .. }
@@ -774,7 +730,6 @@ impl Value {
             | Value::LazyRecord { internal_span, .. }
             | Value::List { internal_span, .. }
             | Value::Closure { internal_span, .. }
-            | Value::Block { internal_span, .. }
             | Value::Nothing { internal_span, .. }
             | Value::Binary { internal_span, .. }
             | Value::CellPath { internal_span, .. }
@@ -834,12 +789,11 @@ impl Value {
                 Err(..) => Type::Error,
             },
             Value::Nothing { .. } => Type::Nothing,
-            Value::Block { .. } => Type::Block,
             Value::Closure { .. } => Type::Closure,
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
-            Value::Custom { val, .. } => Type::Custom(val.type_name()),
+            Value::Custom { val, .. } => Type::Custom(val.type_name().into()),
         }
     }
 
@@ -943,7 +897,6 @@ impl Value {
                 .collect()
                 .unwrap_or_else(|err| Value::error(err, span))
                 .to_expanded_string(separator, config),
-            Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
@@ -1879,7 +1832,6 @@ impl Value {
             | Value::Range { .. }
             | Value::String { .. }
             | Value::Glob { .. }
-            | Value::Block { .. }
             | Value::Nothing { .. }
             | Value::Error { .. }
             | Value::Binary { .. }
@@ -2004,13 +1956,6 @@ impl Value {
         }
     }
 
-    pub fn block(val: BlockId, span: Span) -> Value {
-        Value::Block {
-            val,
-            internal_span: span,
-        }
-    }
-
     pub fn closure(val: Closure, span: Span) -> Value {
         Value::Closure {
             val,
@@ -2128,12 +2073,6 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_block(val: BlockId) -> Value {
-        Value::block(val, Span::test_data())
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
     pub fn test_closure(val: Closure) -> Value {
         Value::closure(val, Span::test_data())
     }
@@ -2190,7 +2129,6 @@ impl Value {
             Value::test_record(Record::new()),
             // Value::test_lazy_record(Box::new(todo!())),
             Value::test_list(Vec::new()),
-            Value::test_block(0),
             Value::test_closure(Closure {
                 block_id: 0,
                 captures: Vec::new(),
@@ -2245,7 +2183,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2266,7 +2203,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2287,7 +2223,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2308,7 +2243,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2329,7 +2263,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2350,7 +2283,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2371,7 +2303,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2392,7 +2323,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2413,7 +2343,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2466,7 +2395,6 @@ impl PartialOrd for Value {
                     }
                 }
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2487,28 +2415,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Block { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Block { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
-                Value::Record { .. } => Some(Ordering::Greater),
-                Value::List { .. } => Some(Ordering::Greater),
-                Value::LazyRecord { .. } => Some(Ordering::Greater),
-                Value::Block { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2529,7 +2435,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { val: rhs, .. } => lhs.block_id.partial_cmp(&rhs.block_id),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2550,7 +2455,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Nothing { .. } => Some(Ordering::Equal),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2571,7 +2475,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Equal),
@@ -2592,7 +2495,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
@@ -2613,7 +2515,6 @@ impl PartialOrd for Value {
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),

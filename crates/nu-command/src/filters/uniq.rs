@@ -1,4 +1,3 @@
-use crate::formats::value_to_string;
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::PipelineMetadata;
@@ -216,7 +215,7 @@ fn sort_attributes(val: Value) -> Value {
 
 fn generate_key(item: &ValueCounter) -> Result<String, ShellError> {
     let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
-    value_to_string(&value, Span::unknown(), 0, None)
+    nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(Span::unknown()))
 }
 
 fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Vec<Value> {

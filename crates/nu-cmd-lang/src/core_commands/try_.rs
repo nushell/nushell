@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
-use nu_protocol::engine::{Block, Closure};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Try;
@@ -38,15 +38,18 @@ impl Command for Try {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let try_block: Block = call.req(engine_state, stack, 0)?;
+        let try_block = call
+            .positional_nth(0)
+            .expect("checked through parser")
+            .as_block()
+            .expect("internal error: missing block");
+
         let catch_block: Option<Closure> = call.opt(engine_state, stack, 1)?;
 
-        let try_block = engine_state.get_block(try_block.block_id);
+        let try_block = engine_state.get_block(try_block);
         let eval_block = get_eval_block(engine_state);
 
-        let result = eval_block(engine_state, stack, try_block, input);
-
-        match result {
+        match eval_block(engine_state, stack, try_block, input) {
             Err(error) => {
                 let error = intercept_block_control(error)?;
                 let err_record = err_to_record(error, call.head);

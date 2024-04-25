@@ -522,7 +522,6 @@ fn value_should_be_printed(
         | Value::Date { .. }
         | Value::Range { .. }
         | Value::Float { .. }
-        | Value::Block { .. }
         | Value::Closure { .. }
         | Value::Nothing { .. }
         | Value::Error { .. } => term_equals_value(term, &lower_value, span),
