@@ -74,7 +74,7 @@ pub struct Config {
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
     pub rm_always_trash: bool,
-    // pub shell_integration: bool,
+    // Shell integration OSC meaning is described in the default_config.nu
     pub shell_integration_osc2: bool,
     pub shell_integration_osc7: bool,
     pub shell_integration_osc8: bool,
@@ -653,9 +653,6 @@ impl Value {
                             value,
                             &mut errors);
                     }
-                    // "shell_integration" => {
-                    //     process_bool_config(value, &mut errors, &mut config.shell_integration);
-                    // }
                     "shell_integration" => {
                         if let Value::Record { val, .. } = value {
                             val.to_mut().retain_mut(|key2, value| {
@@ -690,7 +687,7 @@ impl Value {
                             true
                         })
                         } else {
-                            report_invalid_value("should be a record", span, &mut errors);
+                            report_invalid_value("boolean value is deprecated, should be a record. see default_conifg.nu.", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 record! {

@@ -239,7 +239,7 @@ $env.config = {
         osc2: true
         # osc7 is a way to communicate the path to the terminal, this is helpful for spawning new tabs in the same directory
         osc7: true
-        # osc8 is also implemented as the deprecated setting ls.show_clickable_links, it shows clickable links in ls output if your terminal supports it
+        # osc8 is also implemented as the deprecated setting ls.show_clickable_links, it shows clickable links in ls output if your terminal supports it. show_clickable_links is deprecated in favor of osc8
         osc8: true
         # osc9_9 is from ConEmu and is starting to get wider support. It's similar to osc7 in that it communicates the path to the terminal
         osc9_9: false
@@ -251,7 +251,12 @@ $env.config = {
         # This is used to enable terminals to know where the prompt is, the command is, where the command finishes, and where the output of the command is
         osc133: true
         # osc633 is closely related to osc133 but only exists in visual studio code (vscode) and supports their shell integration features
-        # currently only 633;P;Cwd={} is supported in nushell which communicates the working directory to the terminal
+        # 633;A - Mark prompt start
+        # 633;B - Mark prompt end
+        # 633;C - Mark pre-execution
+        # 633;D - Mark execution finished with exit code
+        # 633;E - NOT IMPLMENTED - Explicitly set the command like with an optional nonce
+        # 633;P;Cwd=<path> - Mark the current working directory and communicate it to the terminal
         # and also helps with the run recent menu in vscode
         osc633: true
         # reset_application_mode is escape \x1b[?1l and was added to help ssh work better
