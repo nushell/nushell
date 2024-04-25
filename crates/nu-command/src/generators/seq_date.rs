@@ -67,7 +67,7 @@ impl Command for SeqDate {
             },
             Example {
                 description:
-                    "Retrun the previous 10 days, starting today, in the MM/DD/YYYY format",
+                    "Return the previous 10 days, starting today, in the MM/DD/YYYY format",
                 example: "seq date --days 10 -o '%m/%d/%Y' --reverse",
                 result: None,
             },
