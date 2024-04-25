@@ -36,7 +36,7 @@ impl Command for Version {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        version(engine_state, call)
+        version(engine_state, call.head)
     }
 
     fn run_const(
@@ -45,7 +45,7 @@ impl Command for Version {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        version(working_set.permanent(), call)
+        version(working_set.permanent(), call.head)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -57,7 +57,13 @@ impl Command for Version {
     }
 }
 
-pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
+fn push_non_empty(record: &mut Record, name: &str, value: &str, span: Span) {
+    if !value.is_empty() {
+        record.push(name, Value::string(value, span))
+    }
+}
+
+pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, ShellError> {
     // Pre-allocate the arrays in the worst case (17 items):
     // - version
     // - major
@@ -69,6 +75,7 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
     // - build_os
     // - build_target
     // - rust_version
+    // - rust_channel
     // - cargo_version
     // - build_time
     // - build_rust_channel
@@ -77,68 +84,36 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
     // - installed_plugins
     let mut record = Record::with_capacity(17);
 
-    record.push(
-        "version",
-        Value::string(env!("CARGO_PKG_VERSION"), call.head),
+    record.push("version", Value::string(env!("CARGO_PKG_VERSION"), span));
+
+    push_version_numbers(&mut record, span);
+
+    push_non_empty(&mut record, "pre", build::PKG_VERSION_PRE, span);
+
+    record.push("branch", Value::string(build::BRANCH, span));
+
+    if let Some(commit_hash) = option_env!("NU_COMMIT_HASH") {
+        record.push("commit_hash", Value::string(commit_hash, span));
+    }
+
+    push_non_empty(&mut record, "build_os", build::BUILD_OS, span);
+    push_non_empty(&mut record, "build_target", build::BUILD_TARGET, span);
+    push_non_empty(&mut record, "rust_version", build::RUST_VERSION, span);
+    push_non_empty(&mut record, "rust_channel", build::RUST_CHANNEL, span);
+    push_non_empty(&mut record, "cargo_version", build::CARGO_VERSION, span);
+    push_non_empty(&mut record, "build_time", build::BUILD_TIME, span);
+    push_non_empty(
+        &mut record,
+        "build_rust_channel",
+        build::BUILD_RUST_CHANNEL,
+        span,
     );
 
-    push_version_numbers(&mut record, call.head);
-
-    let version_pre = Some(build::PKG_VERSION_PRE).filter(|x| !x.is_empty());
-    if let Some(version_pre) = version_pre {
-        record.push("pre", Value::string(version_pre, call.head));
-    }
-
-    record.push("branch", Value::string(build::BRANCH, call.head));
-
-    let commit_hash = option_env!("NU_COMMIT_HASH");
-    if let Some(commit_hash) = commit_hash {
-        record.push("commit_hash", Value::string(commit_hash, call.head));
-    }
-
-    let build_os = Some(build::BUILD_OS).filter(|x| !x.is_empty());
-    if let Some(build_os) = build_os {
-        record.push("build_os", Value::string(build_os, call.head));
-    }
-
-    let build_target = Some(build::BUILD_TARGET).filter(|x| !x.is_empty());
-    if let Some(build_target) = build_target {
-        record.push("build_target", Value::string(build_target, call.head));
-    }
-
-    let rust_version = Some(build::RUST_VERSION).filter(|x| !x.is_empty());
-    if let Some(rust_version) = rust_version {
-        record.push("rust_version", Value::string(rust_version, call.head));
-    }
-
-    let rust_channel = Some(build::RUST_CHANNEL).filter(|x| !x.is_empty());
-    if let Some(rust_channel) = rust_channel {
-        record.push("rust_channel", Value::string(rust_channel, call.head));
-    }
-
-    let cargo_version = Some(build::CARGO_VERSION).filter(|x| !x.is_empty());
-    if let Some(cargo_version) = cargo_version {
-        record.push("cargo_version", Value::string(cargo_version, call.head));
-    }
-
-    let build_time = Some(build::BUILD_TIME).filter(|x| !x.is_empty());
-    if let Some(build_time) = build_time {
-        record.push("build_time", Value::string(build_time, call.head));
-    }
-
-    let build_rust_channel = Some(build::BUILD_RUST_CHANNEL).filter(|x| !x.is_empty());
-    if let Some(build_rust_channel) = build_rust_channel {
-        record.push(
-            "build_rust_channel",
-            Value::string(build_rust_channel, call.head),
-        );
-    }
-
-    record.push("allocator", Value::string(global_allocator(), call.head));
+    record.push("allocator", Value::string(global_allocator(), span));
 
     record.push(
         "features",
-        Value::string(features_enabled().join(", "), call.head),
+        Value::string(features_enabled().join(", "), span),
     );
 
     // Get a list of plugin names
@@ -150,10 +125,10 @@ pub fn version(engine_state: &EngineState, call: &Call) -> Result<PipelineData, 
 
     record.push(
         "installed_plugins",
-        Value::string(installed_plugins.join(", "), call.head),
+        Value::string(installed_plugins.join(", "), span),
     );
 
-    Ok(Value::record(record, call.head).into_pipeline_data())
+    Ok(Value::record(record, span).into_pipeline_data())
 }
 
 /// Add version numbers as integers to the given record
@@ -167,9 +142,9 @@ fn push_version_numbers(record: &mut Record, head: Span) {
             build::PKG_VERSION_PATCH.parse().expect("Always set"),
         )
     });
-    record.push("major", Value::int(major as _, head));
-    record.push("minor", Value::int(minor as _, head));
-    record.push("patch", Value::int(patch as _, head));
+    record.push("major", Value::int(major.into(), head));
+    record.push("minor", Value::int(minor.into(), head));
+    record.push("patch", Value::int(patch.into(), head));
 }
 
 fn global_allocator() -> &'static str {

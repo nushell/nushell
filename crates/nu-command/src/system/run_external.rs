@@ -29,14 +29,6 @@ impl Command for External {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .switch("redirect-stdout", "redirect stdout to the pipeline", None)
-            .switch("redirect-stderr", "redirect stderr to the pipeline", None)
-            .switch(
-                "redirect-combine",
-                "redirect both stdout and stderr combined to the pipeline (collected in stdout)",
-                None,
-            )
-            .switch("trim-end-newline", "trimming end newlines", None)
             .required("command", SyntaxShape::String, "External command to run.")
             .rest("args", SyntaxShape::Any, "Arguments for external command.")
             .category(Category::System)
@@ -49,76 +41,7 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let redirect_stdout = call.has_flag(engine_state, stack, "redirect-stdout")?;
-        let redirect_stderr = call.has_flag(engine_state, stack, "redirect-stderr")?;
-        let redirect_combine = call.has_flag(engine_state, stack, "redirect-combine")?;
-        let trim_end_newline = call.has_flag(engine_state, stack, "trim-end-newline")?;
-
-        if redirect_combine && (redirect_stdout || redirect_stderr) {
-            return Err(ShellError::ExternalCommand {
-                label: "Cannot use --redirect-combine with --redirect-stdout or --redirect-stderr"
-                    .into(),
-                help: "use either --redirect-combine or redirect a single output stream".into(),
-                span: call.head,
-            });
-        }
-
-        if trim_end_newline {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--trim-end-newline` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some(
-                        "trailing new lines are now removed by default when collecting into a value"
-                            .into(),
-                    ),
-                    inner: vec![],
-                },
-            );
-        }
-
-        if redirect_combine {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--redirect-combine` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some("use the `o+e>|` pipe redirection instead".into()),
-                    inner: vec![],
-                },
-            );
-        } else if redirect_stdout {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--redirect-stdout` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some(
-                        "`run-external` will now always redirect stdout if there is a pipe `|` afterwards"
-                            .into(),
-                    ),
-                    inner: vec![],
-                },
-            );
-        } else if redirect_stderr {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--redirect-stderr` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some("use the `e>|` stderr pipe redirection instead".into()),
-                    inner: vec![],
-                },
-            );
-        }
-
         let command = create_external_command(engine_state, stack, call)?;
-
         command.run_with_input(engine_state, stack, input, false)
     }
 
