@@ -509,19 +509,29 @@ fn lex_internal(
             // so we need to read all the text until we find a closing `#`. This raw string
             // can contain any character, including newlines and double quotes without needing
             // to escape them.
-            let mut prefix_shart_cnt = 0;
+            //
+            // A raw string can contain many `#` as prefix, incase if there is `'#` in string
+            // itself, e.g: r##"I can use "# in a raw string"##
+            let mut prefix_sharp_cnt = 0;
             let start = curr_offset;
             while let Some(b'#') = input.get(curr_offset + 1) {
-                prefix_shart_cnt += 1;
+                prefix_sharp_cnt += 1;
                 curr_offset += 1;
             }
 
-            if prefix_shart_cnt != 0 {
+            if prefix_sharp_cnt != 0 {
+                // curr_offset is the last `#`, we need to move forward 2 characther to skip the `"`
+                // after the last `#`.  So we move into string body
+                //
+                // e.g: r###"<body>
+                //          ^
+                //          ^
+                //      need to skip it
                 curr_offset += 2;
                 while let Some(ch) = input.get(curr_offset) {
                     if *ch == b'#' {
-                        let start_ch = input[curr_offset - prefix_shart_cnt];
-                        let postfix = &input[curr_offset - prefix_shart_cnt + 1..=curr_offset];
+                        let start_ch = input[curr_offset - prefix_sharp_cnt];
+                        let postfix = &input[curr_offset - prefix_sharp_cnt + 1..=curr_offset];
                         if start_ch == b'"'
                             && postfix
                                 .iter()

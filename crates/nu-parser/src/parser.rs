@@ -1575,55 +1575,60 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
 
     let bytes = working_set.get_span_contents(span);
 
-    let prefix_shart_cnt = if bytes.starts_with(b"r#") {
-        let mut cnt = 1;
+    let prefix_sharp_cnt = if bytes.starts_with(b"r#") {
+        // actually `sharp_cnt` is always `index - 1`
+        // but create a variable here to make it clearer.
+        let mut sharp_cnt = 1;
         let mut index = 2;
         while index < bytes.len() && bytes[index] == b'#' {
             index += 1;
-            cnt += 1;
+            sharp_cnt += 1;
         }
-        cnt
+        sharp_cnt
     } else {
-        0
+        working_set.error(ParseError::Expected("r#", span));
+        return garbage(span);
     };
-    let bytes = &bytes[prefix_shart_cnt + 1 + 1..bytes.len() - 1 - prefix_shart_cnt];
+    let expect_postfix_charp_cnt = prefix_sharp_cnt;
+    // check the length of whole raw string.
+    // the whole raw string should contains at least
+    // 1(r) + prefix_sharp_cnt + 1(") + 1(") + postfix_sharp characters
+    if bytes.len() < prefix_sharp_cnt + expect_postfix_charp_cnt + 3 {
+        working_set.error(ParseError::Unclosed('"'.into(), span));
+        return garbage(span);
+    }
 
-    // // Check for unbalanced # and double quotes:
-    // if bytes.starts_with(b"r#\"") && (bytes.len() == 3 || !bytes.ends_with(b"\"#")) {
-    //     working_set.error(ParseError::Unclosed("\"".into(), span));
-    //     return garbage(span);
-    // }
-    //
-    // // Check if it's a raw-string, r#"string"#
-    // let (bytes, quoted) =
-    //     if bytes.starts_with(b"r#\"") && bytes.ends_with(b"\"#") && bytes.len() > 3 {
-    //         (&bytes[3..(bytes.len() - 2)], true)
-    //     } else {
-    //         working_set.error(ParseError::Unclosed("\"".into(), span));
-    //         return garbage(span);
-    //     };
+    // check for unbalanced # and double quotes.
+    let postfix_bytes = &bytes[bytes.len() - expect_postfix_charp_cnt..bytes.len()];
+    if postfix_bytes
+        .iter()
+        .all(|b| char::from_u32(*b as u32).unwrap() == '#')
+    {
+        working_set.error(ParseError::Unbalanced(
+            "prefix #".to_string(),
+            "postfix #".to_string(),
+            span,
+        ));
+        return garbage(span);
+    }
+    // check for unblanaced double quotes.
+    if bytes[1 + prefix_sharp_cnt] != b'"'
+        || bytes[bytes.len() - expect_postfix_charp_cnt - 1] != b'"'
+    {
+        working_set.error(ParseError::Unclosed('"'.into(), span));
+        return garbage(span);
+    }
 
+    let bytes = &bytes[prefix_sharp_cnt + 1 + 1..bytes.len() - 1 - prefix_sharp_cnt];
     if let Ok(token) = String::from_utf8(bytes.into()) {
-        if true {
-            Expression {
-                expr: Expr::RawString(token),
-                span,
-                ty: Type::RawString,
-                custom_completion: None,
-            }
-        } else if token.contains(' ') {
-            working_set.error(ParseError::Expected("raw-string", span));
-            garbage(span)
-        } else {
-            Expression {
-                expr: Expr::RawString(token),
-                span,
-                ty: Type::RawString,
-                custom_completion: None,
-            }
+        Expression {
+            expr: Expr::RawString(token),
+            span,
+            ty: Type::RawString,
+            custom_completion: None,
         }
     } else {
-        working_set.error(ParseError::Expected("raw-string", span));
+        working_set.error(ParseError::Expected("utf8 raw-string", span));
         garbage(span)
     }
 }
