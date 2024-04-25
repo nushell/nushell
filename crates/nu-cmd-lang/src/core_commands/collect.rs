@@ -38,12 +38,12 @@ impl Command for Collect {
     ) -> Result<PipelineData, ShellError> {
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let block = engine_state.get_block(closure.block_id).clone();
+        let block = engine_state.get_block(closure.block_id);
         let mut stack_captures =
             stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
 
         let metadata = input.metadata();
-        let input: Value = input.into_value(call.head);
+        let input = input.into_value(call.head);
 
         let mut saved_positional = None;
         if let Some(var) = block.signature.get_positional(0) {
@@ -58,7 +58,7 @@ impl Command for Collect {
         let result = eval_block(
             engine_state,
             &mut stack_captures,
-            &block,
+            block,
             input.into_pipeline_data(),
         )
         .map(|x| x.set_metadata(metadata));
