@@ -94,6 +94,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(windows)]
     fn prefix_only() {
         let path = Path::new("C:");
         let mut components = crate::components(path);
@@ -103,6 +104,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(windows)]
     fn prefix_with_trailing_slash() {
         let path = Path::new("C:\\");
         let mut components = crate::components(path);
