@@ -1,12 +1,6 @@
+use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_protocol::engine::Closure;
 use std::{sync::mpsc, thread};
-
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    SyntaxShape, Type, Value,
-};
 
 #[derive(Clone)]
 pub struct Interleave;
@@ -112,23 +106,21 @@ interleave
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let closures: Vec<Closure> = call.rest(engine_state, stack, 0)?;
         let buffer_size: usize = call
             .get_flag(engine_state, stack, "buffer-size")?
             .unwrap_or(0);
-        let (tx, rx) = mpsc::sync_channel(buffer_size);
 
-        let closures: Vec<Closure> = call.rest(engine_state, stack, 0)?;
-        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+        let (tx, rx) = mpsc::sync_channel(buffer_size);
 
         // Spawn the threads for the input and closure outputs
         (!input.is_nothing())
             .then(|| Ok(input))
             .into_iter()
             .chain(closures.into_iter().map(|closure| {
-                // Evaluate the closure on this thread
-                let block = engine_state.get_block(closure.block_id);
-                let mut stack = stack.captures_to_stack(closure.captures);
-                eval_block_with_early_return(engine_state, &mut stack, block, PipelineData::Empty)
+                ClosureEvalOnce::new(engine_state, stack, closure)
+                    .run_with_input(PipelineData::Empty)
             }))
             .try_for_each(|stream| {
                 stream.and_then(|stream| {
@@ -147,7 +139,7 @@ interleave
                         .map(|_| ())
                         .map_err(|err| ShellError::IOErrorSpanned {
                             msg: err.to_string(),
-                            span: call.head,
+                            span: head,
                         })
                 })
             })?;

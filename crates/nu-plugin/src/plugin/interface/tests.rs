@@ -1,9 +1,8 @@
-use std::{path::Path, sync::Arc};
-
-use nu_protocol::{
-    DataSource, ListStream, PipelineData, PipelineMetadata, RawStream, ShellError, Span, Value,
+use super::{
+    stream::{StreamManager, StreamManagerHandle},
+    test_util::TestCase,
+    Interface, InterfaceManager, PluginRead, PluginWrite,
 };
-
 use crate::{
     protocol::{
         ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, PluginInput, PluginOutput,
@@ -11,12 +10,10 @@ use crate::{
     },
     sequence::Sequence,
 };
-
-use super::{
-    stream::{StreamManager, StreamManagerHandle},
-    test_util::TestCase,
-    Interface, InterfaceManager, PluginRead, PluginWrite,
+use nu_protocol::{
+    DataSource, ListStream, PipelineData, PipelineMetadata, RawStream, ShellError, Span, Value,
 };
+use std::{path::Path, sync::Arc};
 
 fn test_metadata() -> PipelineMetadata {
     PipelineMetadata {
@@ -69,7 +66,14 @@ impl InterfaceManager for TestInterfaceManager {
 
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
         match input {
-            PluginInput::Stream(msg) => self.consume_stream_message(msg),
+            PluginInput::Data(..)
+            | PluginInput::End(..)
+            | PluginInput::Drop(..)
+            | PluginInput::Ack(..) => self.consume_stream_message(
+                input
+                    .try_into()
+                    .expect("failed to convert message to StreamMessage"),
+            ),
             _ => unimplemented!(),
         }
     }
@@ -85,6 +89,7 @@ impl InterfaceManager for TestInterfaceManager {
 
 impl Interface for TestInterface {
     type Output = PluginOutput;
+    type DataContext = ();
 
     fn write(&self, output: Self::Output) -> Result<(), ShellError> {
         self.test.write(&output)
@@ -102,7 +107,11 @@ impl Interface for TestInterface {
         &self.stream_manager_handle
     }
 
-    fn prepare_pipeline_data(&self, data: PipelineData) -> Result<PipelineData, ShellError> {
+    fn prepare_pipeline_data(
+        &self,
+        data: PipelineData,
+        _context: &(),
+    ) -> Result<PipelineData, ShellError> {
         // Add an arbitrary check to the data to verify this is being called
         match data {
             PipelineData::Value(Value::Binary { .. }, None) => Err(ShellError::NushellFailed {
@@ -187,8 +196,14 @@ fn read_pipeline_data_external_stream() -> Result<(), ShellError> {
 
     test.add(StreamMessage::Data(14, Value::test_int(1).into()));
     for _ in 0..iterations {
-        test.add(StreamMessage::Data(12, Ok(out_pattern.clone()).into()));
-        test.add(StreamMessage::Data(13, Ok(err_pattern.clone()).into()));
+        test.add(StreamMessage::Data(
+            12,
+            StreamData::Raw(Ok(out_pattern.clone())),
+        ));
+        test.add(StreamMessage::Data(
+            13,
+            StreamData::Raw(Ok(err_pattern.clone())),
+        ));
     }
     test.add(StreamMessage::End(12));
     test.add(StreamMessage::End(13));
@@ -315,7 +330,7 @@ fn write_pipeline_data_empty() -> Result<(), ShellError> {
     let manager = TestInterfaceManager::new(&test);
     let interface = manager.get_interface();
 
-    let (header, writer) = interface.init_write_pipeline_data(PipelineData::Empty)?;
+    let (header, writer) = interface.init_write_pipeline_data(PipelineData::Empty, &())?;
 
     assert!(matches!(header, PipelineDataHeader::Empty));
 
@@ -337,7 +352,7 @@ fn write_pipeline_data_value() -> Result<(), ShellError> {
     let value = Value::test_int(7);
 
     let (header, writer) =
-        interface.init_write_pipeline_data(PipelineData::Value(value.clone(), None))?;
+        interface.init_write_pipeline_data(PipelineData::Value(value.clone(), None), &())?;
 
     match header {
         PipelineDataHeader::Value(read_value) => assert_eq!(value, read_value),
@@ -362,7 +377,7 @@ fn write_pipeline_data_prepared_properly() {
     // Sending a binary should be an error in our test scenario
     let value = Value::test_binary(vec![7, 8]);
 
-    match interface.init_write_pipeline_data(PipelineData::Value(value, None)) {
+    match interface.init_write_pipeline_data(PipelineData::Value(value, None), &()) {
         Ok(_) => panic!("prepare_pipeline_data was not called"),
         Err(err) => {
             assert_eq!(
@@ -394,7 +409,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
         None,
     );
 
-    let (header, writer) = interface.init_write_pipeline_data(pipe)?;
+    let (header, writer) = interface.init_write_pipeline_data(pipe, &())?;
 
     let info = match header {
         PipelineDataHeader::ListStream(info) => info,
@@ -406,7 +421,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
     // Now make sure the stream messages have been written
     for value in values {
         match test.next_written().expect("unexpected end of stream") {
-            PluginOutput::Stream(StreamMessage::Data(id, data)) => {
+            PluginOutput::Data(id, data) => {
                 assert_eq!(info.id, id, "Data id");
                 match data {
                     StreamData::List(read_value) => assert_eq!(value, read_value, "Data value"),
@@ -418,7 +433,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
     }
 
     match test.next_written().expect("unexpected end of stream") {
-        PluginOutput::Stream(StreamMessage::End(id)) => {
+        PluginOutput::End(id) => {
             assert_eq!(info.id, id, "End id");
         }
         other => panic!("unexpected output: {other:?}"),
@@ -469,7 +484,7 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
         trim_end_newline: true,
     };
 
-    let (header, writer) = interface.init_write_pipeline_data(pipe)?;
+    let (header, writer) = interface.init_write_pipeline_data(pipe, &())?;
 
     let info = match header {
         PipelineDataHeader::ExternalStream(info) => info,
@@ -502,7 +517,7 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
     // End must come after all Data
     for msg in test.written() {
         match msg {
-            PluginOutput::Stream(StreamMessage::Data(id, data)) => {
+            PluginOutput::Data(id, data) => {
                 if id == stdout_info.id {
                     let result: Result<Vec<u8>, ShellError> =
                         data.try_into().expect("wrong data in stdout stream");
@@ -527,7 +542,7 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
                     panic!("unrecognized stream id: {id}");
                 }
             }
-            PluginOutput::Stream(StreamMessage::End(id)) => {
+            PluginOutput::End(id) => {
                 if id == stdout_info.id {
                     assert!(!stdout_ended, "double End of stdout");
                     assert!(stdout_iter.next().is_none(), "unexpected end of stdout");

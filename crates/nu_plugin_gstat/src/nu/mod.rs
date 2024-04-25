@@ -1,8 +1,6 @@
 use crate::GStat;
-use nu_plugin::{
-    EngineInterface, EvaluatedCall, LabeledError, Plugin, PluginCommand, SimplePluginCommand,
-};
-use nu_protocol::{Category, PluginSignature, Spanned, SyntaxShape, Value};
+use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
+use nu_protocol::{Category, LabeledError, Signature, Spanned, SyntaxShape, Value};
 
 pub struct GStatPlugin;
 
@@ -15,9 +13,16 @@ impl Plugin for GStatPlugin {
 impl SimplePluginCommand for GStat {
     type Plugin = GStatPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("gstat")
-            .usage("Get the git status of a repo")
+    fn name(&self) -> &str {
+        "gstat"
+    }
+
+    fn usage(&self) -> &str {
+        "Get the git status of a repo"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(PluginCommand::name(self))
             .optional("path", SyntaxShape::Filepath, "path to repo")
             .category(Category::Custom("prompt".to_string()))
     }

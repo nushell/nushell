@@ -1,16 +1,6 @@
 use log::trace;
-use nu_engine::env;
-use nu_engine::CallExt;
-use nu_protocol::record;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
-
-use std::ffi::OsStr;
-use std::path::Path;
+use nu_engine::{command_prelude::*, env};
+use std::{ffi::OsStr, path::Path};
 
 #[derive(Clone)]
 pub struct Which;
@@ -22,7 +12,7 @@ impl Command for Which {
 
     fn signature(&self) -> Signature {
         Signature::build("which")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
             .required("application", SyntaxShape::String, "Application.")
             .rest("rest", SyntaxShape::String, "Additional applications.")

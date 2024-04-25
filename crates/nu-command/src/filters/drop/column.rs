@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 use std::collections::HashSet;
 
@@ -19,8 +13,8 @@ impl Command for DropColumn {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .optional(
                 "columns",
@@ -112,7 +106,7 @@ fn drop_cols(
                 Ok(PipelineData::Empty)
             }
         }
-        PipelineData::Value(v, ..) => {
+        PipelineData::Value(mut v, ..) => {
             let span = v.span();
             match v {
                 Value::List { mut vals, .. } => {
@@ -125,11 +119,12 @@ fn drop_cols(
                     Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                 }
                 Value::Record {
-                    val: mut record, ..
+                    val: ref mut record,
+                    ..
                 } => {
                     let len = record.len().saturating_sub(columns);
-                    record.truncate(len);
-                    Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
+                    record.to_mut().truncate(len);
+                    Ok(v.into_pipeline_data_with_metadata(metadata))
                 }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
@@ -149,7 +144,7 @@ fn drop_cols(
 fn drop_cols_set(val: &mut Value, head: Span, drop: usize) -> Result<HashSet<String>, ShellError> {
     if let Value::Record { val: record, .. } = val {
         let len = record.len().saturating_sub(drop);
-        Ok(record.drain(len..).map(|(col, _)| col).collect())
+        Ok(record.to_mut().drain(len..).map(|(col, _)| col).collect())
     } else {
         Err(unsupported_value_error(val, head))
     }
@@ -161,7 +156,7 @@ fn drop_record_cols(
     drop_cols: &HashSet<String>,
 ) -> Result<(), ShellError> {
     if let Value::Record { val, .. } = val {
-        val.retain(|col, _| !drop_cols.contains(col));
+        val.to_mut().retain(|col, _| !drop_cols.contains(col));
         Ok(())
     } else {
         Err(unsupported_value_error(val, head))

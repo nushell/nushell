@@ -1,19 +1,7 @@
 #[cfg(windows)]
 use itertools::Itertools;
-use nu_engine::CallExt;
-#[cfg(all(
-    unix,
-    not(target_os = "macos"),
-    not(target_os = "windows"),
-    not(target_os = "android"),
-))]
-use nu_protocol::Span;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 #[cfg(all(
     unix,
     not(target_os = "freebsd"),
@@ -22,7 +10,6 @@ use nu_protocol::{
     not(target_os = "android"),
 ))]
 use procfs::WithCurrentSystemInfo;
-
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -36,7 +23,7 @@ impl Command for Ps {
 
     fn signature(&self) -> Signature {
         Signature::build("ps")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .switch(
                 "long",
                 "list all available columns for each entry",

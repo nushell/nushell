@@ -1,5 +1,4 @@
-use core::primitive::str;
-use core::{default::Default, fmt};
+use core::fmt;
 use nu_ansi_term::{Color, Style};
 
 /// Returns a one-line hexdump of `source` grouped in default format without header
@@ -110,7 +109,7 @@ impl HexConfig {
     }
 }
 
-fn categorize_byte(byte: &u8) -> (Style, Option<char>) {
+pub fn categorize_byte(byte: &u8) -> (Style, Option<char>) {
     // This section is here so later we can configure these items
     let null_char_style = Style::default().fg(Color::Fixed(242));
     let null_char = Some('0');

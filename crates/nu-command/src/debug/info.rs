@@ -1,10 +1,7 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, LazyRecord, PipelineData, Record, ShellError,
-    Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::LazyRecord;
 use sysinfo::{MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
+
 const ENV_PATH_SEPARATOR_CHAR: char = {
     #[cfg(target_family = "windows")]
     {
@@ -34,7 +31,7 @@ impl Command for DebugInfo {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("debug info")
-            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::record())])
             .category(Category::Debug)
     }
 
@@ -74,7 +71,7 @@ impl LazySystemInfoRecord {
     ) -> Result<Value, ShellError> {
         let pid = Pid::from(std::process::id() as usize);
         match column {
-            "thread_id" => Ok(Value::int(get_thread_id(), self.span)),
+            "thread_id" => Ok(Value::int(get_thread_id() as i64, self.span)),
             "pid" => Ok(Value::int(pid.as_u32() as i64, self.span)),
             "ppid" => {
                 // only get information requested
@@ -264,13 +261,13 @@ impl<'a, F: Fn() -> RefreshKind> From<(Option<&'a System>, F)> for SystemOpt<'a>
     }
 }
 
-fn get_thread_id() -> i64 {
-    #[cfg(target_family = "windows")]
+fn get_thread_id() -> u64 {
+    #[cfg(windows)]
     {
-        unsafe { windows::Win32::System::Threading::GetCurrentThreadId() as i64 }
+        unsafe { windows::Win32::System::Threading::GetCurrentThreadId().into() }
     }
-    #[cfg(not(target_family = "windows"))]
+    #[cfg(unix)]
     {
-        unsafe { libc::pthread_self() as i64 }
+        nix::sys::pthread::pthread_self() as u64
     }
 }

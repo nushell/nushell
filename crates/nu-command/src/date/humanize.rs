@@ -1,9 +1,8 @@
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, FixedOffset, Local};
 use chrono_humanize::HumanTime;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_engine::command_prelude::*;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -79,9 +78,11 @@ fn helper(value: Value, head: Span) -> Value {
         }
         Value::Date { val, .. } => Value::string(humanize_date(val), head),
         _ => Value::error(
-            ShellError::DatetimeParseError {
-                msg: value.to_debug_string(),
-                span: head,
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "date, string (that represents datetime), or nothing".into(),
+                wrong_type: value.get_type().to_string(),
+                dst_span: head,
+                src_span: span,
             },
             head,
         ),

@@ -2,11 +2,7 @@
 /// All of these expressions have an identical body and only require
 /// to have a change in the name, description and expression function
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 // The structs defined in this file are structs that form part of other commands
 // since they share a similar name

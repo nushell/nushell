@@ -1,9 +1,4 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct HelpOperators;
@@ -20,7 +15,7 @@ impl Command for HelpOperators {
     fn signature(&self) -> Signature {
         Signature::build("help operators")
             .category(Category::Core)
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
     }
 

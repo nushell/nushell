@@ -1,11 +1,5 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 struct Arguments {
     pattern: Vec<u8>,
@@ -32,8 +26,8 @@ impl Command for BytesRemove {
         Signature::build("bytes remove")
             .input_output_types(vec![
                 (Type::Binary, Type::Binary),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .required("pattern", SyntaxShape::Binary, "The pattern to find.")
             .rest(

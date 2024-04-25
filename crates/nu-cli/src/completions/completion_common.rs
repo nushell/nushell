@@ -2,11 +2,15 @@ use crate::completions::{matches, CompletionOptions};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::home_dir;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{engine::StateWorkingSet, Span};
+use nu_protocol::{
+    engine::{EngineState, Stack, StateWorkingSet},
+    Span,
+};
 use nu_utils::get_ls_colors;
-use std::ffi::OsStr;
-use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
+use std::{
+    ffi::OsStr,
+    path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP},
+};
 
 fn complete_rec(
     partial: &[String],

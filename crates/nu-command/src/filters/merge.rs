@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Merge;
@@ -29,8 +23,8 @@ repeating this process with row 1, and so on."#
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("merge")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
             ])
             .required(
                 "value",

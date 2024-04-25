@@ -1,8 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -14,7 +10,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("url join")
-            .input_output_types(vec![(Type::Record(vec![]), Type::String)])
+            .input_output_types(vec![(Type::record(), Type::String)])
             .category(Category::Network)
     }
 
@@ -96,6 +92,7 @@ impl Command for SubCommand {
                 match value {
                     Value::Record { val, .. } => {
                         let url_components = val
+                            .into_owned()
                             .into_iter()
                             .try_fold(UrlComponents::new(), |url, (k, v)| {
                                 url.add_component(k, v, span, engine_state)
@@ -183,6 +180,7 @@ impl UrlComponents {
             return match value {
                 Value::Record { val, .. } => {
                     let mut qs = val
+                        .into_owned()
                         .into_iter()
                         .map(|(k, v)| match v.coerce_into_string() {
                             Ok(val) => Ok(format!("{k}={val}")),

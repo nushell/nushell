@@ -1,14 +1,12 @@
-use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
-use nu_protocol::debugger::WithoutDebug;
+use crate::eval_call;
 use nu_protocol::{
-    ast::Call,
+    ast::{Argument, Call, Expr, Expression, RecordItem},
+    debugger::WithoutDebug,
     engine::{EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
     Value,
 };
 use std::{collections::HashMap, fmt::Write};
-
-use crate::eval_call;
 
 pub fn get_full_help(
     sig: &Signature,
@@ -378,8 +376,8 @@ fn get_argument_for_color_value(
 ) -> Option<Argument> {
     match color {
         Value::Record { val, .. } => {
-            let record_exp: Vec<RecordItem> = val
-                .into_iter()
+            let record_exp: Vec<RecordItem> = (**val)
+                .iter()
                 .map(|(k, v)| {
                     RecordItem::Pair(
                         Expression {
@@ -402,10 +400,13 @@ fn get_argument_for_color_value(
 
             Some(Argument::Positional(Expression {
                 span: Span::unknown(),
-                ty: Type::Record(vec![
-                    ("fg".to_string(), Type::String),
-                    ("attr".to_string(), Type::String),
-                ]),
+                ty: Type::Record(
+                    [
+                        ("fg".to_string(), Type::String),
+                        ("attr".to_string(), Type::String),
+                    ]
+                    .into(),
+                ),
                 expr: Expr::Record(record_exp),
                 custom_completion: None,
             }))

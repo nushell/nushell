@@ -1,9 +1,5 @@
 use super::hex::{operate, ActionType};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct DecodeHex;
@@ -21,8 +17,8 @@ impl Command for DecodeHex {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::Binary)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .rest(

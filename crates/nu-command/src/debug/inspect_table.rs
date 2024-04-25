@@ -1,13 +1,12 @@
+use crate::debug::inspect_table::{
+    global_horizontal_char::SetHorizontalChar, set_widths::SetWidths,
+};
 use nu_protocol::Value;
 use nu_table::{string_width, string_wrap};
 use tabled::{
     grid::config::ColoredConfig,
     settings::{peaker::PriorityMax, width::Wrap, Settings, Style},
     Table,
-};
-
-use crate::debug::inspect_table::{
-    global_horizontal_char::SetHorizontalChar, set_widths::SetWidths,
 };
 
 pub fn build_table(value: Value, description: String, termsize: usize) -> String {
@@ -200,7 +199,7 @@ mod util {
         let span = value.span();
         match value {
             Value::Record { val: record, .. } => {
-                let (cols, vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+                let (cols, vals): (Vec<_>, Vec<_>) = record.into_owned().into_iter().unzip();
                 (
                     cols,
                     vec![vals

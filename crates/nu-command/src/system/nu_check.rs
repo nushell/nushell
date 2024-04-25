@@ -1,11 +1,6 @@
-use nu_engine::{env::get_config, find_in_dirs_env, get_dirs_var_from_call, CallExt};
+use nu_engine::{command_prelude::*, env::get_config, find_in_dirs_env, get_dirs_var_from_call};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
-
+use nu_protocol::engine::{FileStack, StateWorkingSet};
 use std::path::Path;
 
 #[derive(Clone)]
@@ -117,15 +112,6 @@ impl Command for NuCheck {
                         Err(error) => return Err(error),
                     };
 
-                    // Change currently parsed directory
-                    let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-                        let prev = working_set.currently_parsed_cwd.clone();
-                        working_set.currently_parsed_cwd = Some(parent.into());
-                        prev
-                    } else {
-                        working_set.currently_parsed_cwd.clone()
-                    };
-
                     let result = if as_module || path.is_dir() {
                         parse_file_or_dir_module(
                             path.to_string_lossy().as_bytes(),
@@ -135,11 +121,12 @@ impl Command for NuCheck {
                             call.head,
                         )
                     } else {
+                        // Unlike `parse_file_or_dir_module`, `parse_file_script` parses the content directly,
+                        // without adding the file to the stack. Therefore we need to handle this manually.
+                        working_set.files = FileStack::with_file(path.clone());
                         parse_file_script(&path, &mut working_set, is_debug, path_span, call.head)
+                        // The working set is not merged, so no need to pop the file from the stack.
                     };
-
-                    // Restore the currently parsed directory back
-                    working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
                     result
                 } else {

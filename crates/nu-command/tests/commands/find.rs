@@ -14,7 +14,7 @@ fn find_with_list_search_with_string() {
 fn find_with_list_search_with_char() {
     let actual = nu!("[moe larry curly] | find l | to json -r");
 
-    assert_eq!(actual.out, "[\"\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m\",\"\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m\"]");
+    assert_eq!(actual.out, "[\"\\u001b[37m\\u001b[0m\\u001b[41;37ml\\u001b[0m\\u001b[37marry\\u001b[0m\",\"\\u001b[37mcur\\u001b[0m\\u001b[41;37ml\\u001b[0m\\u001b[37my\\u001b[0m\"]");
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn find_with_filepath_search_with_string() {
 
     assert_eq!(
         actual.out,
-        "[\"\u{1b}[37m\u{1b}[0m\u{1b}[41;37marep\u{1b}[0m\u{1b}[37mas.clu\u{1b}[0m\"]"
+        "[\"\\u001b[37m\\u001b[0m\\u001b[41;37marep\\u001b[0m\\u001b[37mas.clu\\u001b[0m\"]"
     );
 }
 
@@ -57,7 +57,7 @@ fn find_with_filepath_search_with_multiple_patterns() {
     let actual =
         nu!(r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find arep ami | to json -r"#);
 
-    assert_eq!(actual.out, "[\"\u{1b}[37m\u{1b}[0m\u{1b}[41;37mami\u{1b}[0m\u{1b}[37mgos.txt\u{1b}[0m\",\"\u{1b}[37m\u{1b}[0m\u{1b}[41;37marep\u{1b}[0m\u{1b}[37mas.clu\u{1b}[0m\"]");
+    assert_eq!(actual.out, "[\"\\u001b[37m\\u001b[0m\\u001b[41;37mami\\u001b[0m\\u001b[37mgos.txt\\u001b[0m\",\"\\u001b[37m\\u001b[0m\\u001b[41;37marep\\u001b[0m\\u001b[37mas.clu\\u001b[0m\"]");
 }
 
 #[test]

@@ -1,10 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use nu_utils::get_system_locale;
 
 #[derive(Clone)]
@@ -22,8 +18,8 @@ impl Command for SubCommand {
                 (Type::Number, Type::Filesize),
                 (Type::String, Type::Filesize),
                 (Type::Filesize, Type::Filesize),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
                 (
                     Type::List(Box::new(Type::Int)),
                     Type::List(Box::new(Type::Filesize)),
@@ -111,6 +107,11 @@ impl Command for SubCommand {
                 example: "4KB | into filesize",
                 result: Some(Value::test_filesize(4000)),
             },
+            Example {
+                description: "Convert string with unit to filesize",
+                example: "'-1KB' | into filesize",
+                result: Some(Value::test_filesize(-1000)),
+            },
         ]
     }
 }
@@ -144,14 +145,29 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     // Now that we know the locale, get the thousands separator and remove it
     // so strings like 1,123,456 can be parsed as 1123456
     let no_comma_string = a_string.replace(locale.separator(), "");
-    match no_comma_string.trim().parse::<bytesize::ByteSize>() {
-        Ok(n) => Ok(n.0 as i64),
-        Err(_) => Err(ShellError::CantConvert {
-            to_type: "int".into(),
-            from_type: "string".into(),
-            span,
-            help: None,
-        }),
+    let clean_string = no_comma_string.trim();
+
+    // Hadle negative file size
+    if let Some(stripped_string) = clean_string.strip_prefix('-') {
+        match stripped_string.parse::<bytesize::ByteSize>() {
+            Ok(n) => Ok(-(n.as_u64() as i64)),
+            Err(_) => Err(ShellError::CantConvert {
+                to_type: "int".into(),
+                from_type: "string".into(),
+                span,
+                help: None,
+            }),
+        }
+    } else {
+        match clean_string.parse::<bytesize::ByteSize>() {
+            Ok(n) => Ok(n.0 as i64),
+            Err(_) => Err(ShellError::CantConvert {
+                to_type: "int".into(),
+                from_type: "string".into(),
+                span,
+                help: None,
+            }),
+        }
     }
 }
 

@@ -1,10 +1,6 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    format_duration_as_timeperiod, record, Category, Example, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::format_duration_as_timeperiod;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -17,11 +13,11 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into record")
             .input_output_types(vec![
-                (Type::Date, Type::Record(vec![])),
-                (Type::Duration, Type::Record(vec![])),
-                (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
-                (Type::Range, Type::Record(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Date, Type::record()),
+                (Type::Duration, Type::record()),
+                (Type::List(Box::new(Type::Any)), Type::record()),
+                (Type::Range, Type::record()),
+                (Type::record(), Type::record()),
             ])
             .category(Category::Conversions)
     }
@@ -129,13 +125,13 @@ fn into_record(
             ),
         },
         Value::Range { val, .. } => Value::record(
-            val.into_range_iter(engine_state.ctrlc.clone())?
+            val.into_range_iter(span, engine_state.ctrlc.clone())
                 .enumerate()
                 .map(|(idx, val)| (format!("{idx}"), val))
                 .collect(),
             span,
         ),
-        Value::Record { val, .. } => Value::record(val, span),
+        Value::Record { .. } => input,
         Value::Error { .. } => input,
         other => Value::error(
             ShellError::TypeMismatch {

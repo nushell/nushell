@@ -1,12 +1,15 @@
 use itertools::Itertools;
-use nu_protocol::debugger::WithoutDebug;
+use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ast::{Block, RangeInclusion},
-    engine::{EngineState, Stack, StateDelta, StateWorkingSet},
-    Example, PipelineData, Signature, Span, Type, Value,
+    ast::Block,
+    debugger::WithoutDebug,
+    engine::{StateDelta, StateWorkingSet},
+    Range,
 };
-use std::collections::HashSet;
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    {collections::HashSet, ops::Bound},
+};
 
 pub fn check_example_input_and_output_types_match_command_signature(
     example: &Example,
@@ -220,17 +223,45 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::Date { val, .. } => {
                 write!(f, "Date({:?})", val)
             }
-            Value::Range { val, .. } => match val.inclusion {
-                RangeInclusion::Inclusive => write!(
-                    f,
-                    "Range({:?}..{:?}, step: {:?})",
-                    val.from, val.to, val.incr
-                ),
-                RangeInclusion::RightExclusive => write!(
-                    f,
-                    "Range({:?}..<{:?}, step: {:?})",
-                    val.from, val.to, val.incr
-                ),
+            Value::Range { val, .. } => match val {
+                Range::IntRange(range) => match range.end() {
+                    Bound::Included(end) => write!(
+                        f,
+                        "Range({:?}..{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Excluded(end) => write!(
+                        f,
+                        "Range({:?}..<{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Unbounded => {
+                        write!(f, "Range({:?}.., step: {:?})", range.start(), range.step())
+                    }
+                },
+                Range::FloatRange(range) => match range.end() {
+                    Bound::Included(end) => write!(
+                        f,
+                        "Range({:?}..{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Excluded(end) => write!(
+                        f,
+                        "Range({:?}..<{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Unbounded => {
+                        write!(f, "Range({:?}.., step: {:?})", range.start(), range.step())
+                    }
+                },
             },
             Value::String { val, .. } | Value::Glob { val, .. } | Value::RawString { val, .. } => {
                 write!(f, "{:?}", val)
@@ -238,7 +269,7 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::Record { val, .. } => {
                 write!(f, "{{")?;
                 let mut first = true;
-                for (col, value) in val.into_iter() {
+                for (col, value) in (&**val).into_iter() {
                     if !first {
                         write!(f, ", ")?;
                     }
@@ -257,9 +288,6 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
                 }
                 write!(f, "]")
             }
-            Value::Block { val, .. } => {
-                write!(f, "Block({:?})", val)
-            }
             Value::Closure { val, .. } => {
                 write!(f, "Closure({:?})", val)
             }
@@ -275,7 +303,7 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::CellPath { val, .. } => {
                 write!(f, "CellPath({:?})", val.to_string())
             }
-            Value::CustomValue { val, .. } => {
+            Value::Custom { val, .. } => {
                 write!(f, "CustomValue({:?})", val)
             }
             Value::LazyRecord { val, .. } => {

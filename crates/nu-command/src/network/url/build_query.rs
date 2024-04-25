@@ -1,8 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -15,8 +11,8 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("url build-query")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::String),
-                (Type::Table(vec![]), Type::String),
+                (Type::record(), Type::String),
+                (Type::table(), Type::String),
             ])
             .category(Category::Network)
     }
@@ -69,7 +65,7 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
             match value {
                 Value::Record { ref val, .. } => {
                     let mut row_vec = vec![];
-                    for (k, v) in val {
+                    for (k, v) in &**val {
                         match v.coerce_string() {
                             Ok(s) => {
                                 row_vec.push((k.clone(), s));

@@ -1,10 +1,5 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 struct Arguments {
     pattern: Vec<u8>,
@@ -33,8 +28,8 @@ impl Command for BytesIndexOf {
                 (Type::Binary, Type::Any),
                 // FIXME: this shouldn't be needed, cell paths should work with the two
                 // above
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .required(

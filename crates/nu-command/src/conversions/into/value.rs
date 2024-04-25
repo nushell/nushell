@@ -1,11 +1,6 @@
 use crate::parse_date_from_string;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, PipelineIterator, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::PipelineIterator;
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
@@ -20,7 +15,7 @@ impl Command for IntoValue {
 
     fn signature(&self) -> Signature {
         Signature::build("into value")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .named(
                 "columns",
                 SyntaxShape::Table(vec![]),
@@ -113,7 +108,8 @@ impl Iterator for UpdateCellIterator {
                 let span = val.span();
                 match val {
                     Value::Record { val, .. } => Some(Value::record(
-                        val.into_iter()
+                        val.into_owned()
+                            .into_iter()
                             .map(|(col, val)| match &self.columns {
                                 Some(cols) if !cols.contains(&col) => (col, val),
                                 _ => (

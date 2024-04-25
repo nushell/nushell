@@ -1,10 +1,4 @@
-use nu_engine::column::get_columns;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Type, Value,
-};
+use nu_engine::{column::get_columns, command_prelude::*};
 
 #[derive(Clone)]
 pub struct Columns;
@@ -17,8 +11,8 @@ impl Command for Columns {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
-                (Type::Record(vec![]), Type::List(Box::new(Type::String))),
+                (Type::table(), Type::List(Box::new(Type::String))),
+                (Type::record(), Type::List(Box::new(Type::String))),
             ])
             .category(Category::Filters)
     }
@@ -100,7 +94,7 @@ fn getcol(
                         .into_pipeline_data(ctrlc)
                         .set_metadata(metadata))
                 }
-                Value::CustomValue { val, .. } => {
+                Value::Custom { val, .. } => {
                     // TODO: should we get CustomValue to expose columns in a more efficient way?
                     // Would be nice to be able to get columns without generating the whole value
                     let input_as_base_value = val.to_base_value(span)?;
@@ -124,6 +118,7 @@ fn getcol(
                     })
                 }
                 Value::Record { val, .. } => Ok(val
+                    .into_owned()
                     .into_iter()
                     .map(move |(x, _)| Value::string(x, head))
                     .into_pipeline_data(ctrlc)

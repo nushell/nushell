@@ -1,12 +1,7 @@
 use super::hashable_value::HashableValue;
 use itertools::Itertools;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -24,7 +19,7 @@ impl Command for Histogram {
 
     fn signature(&self) -> Signature {
         Signature::build("histogram")
-            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Table(vec![])),])
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::table()),])
             .optional("column-name", SyntaxShape::String, "Column name to calc frequency, no need to provide if input is a list.")
             .optional("frequency-column-name", SyntaxShape::String, "Histogram's frequency column, default to be frequency column output.")
             .named("percentage-type", SyntaxShape::String, "percentage calculate method, can be 'normalize' or 'relative', in 'normalize', defaults to be 'normalize'", Some('t'))
@@ -182,9 +177,9 @@ fn run_histogram(
                 match v {
                     // parse record, and fill valid value to actual input.
                     Value::Record { val, .. } => {
-                        for (c, v) in val {
-                            if &c == col_name {
-                                if let Ok(v) = HashableValue::from_value(v, head_span) {
+                        for (c, v) in val.iter() {
+                            if c == col_name {
+                                if let Ok(v) = HashableValue::from_value(v.clone(), head_span) {
                                     inputs.push(v);
                                 }
                             }

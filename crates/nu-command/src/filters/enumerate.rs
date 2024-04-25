@@ -1,9 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Enumerate;
@@ -23,7 +18,7 @@ impl Command for Enumerate {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("enumerate")
-            .input_output_types(vec![(Type::Any, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Any, Type::table())])
             .category(Category::Filters)
     }
 

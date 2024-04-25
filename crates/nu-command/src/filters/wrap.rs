@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Wrap;
@@ -21,9 +15,9 @@ impl Command for Wrap {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("wrap")
             .input_output_types(vec![
-                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
-                (Type::Range, Type::Table(vec![])),
-                (Type::Any, Type::Record(vec![])),
+                (Type::List(Box::new(Type::Any)), Type::table()),
+                (Type::Range, Type::table()),
+                (Type::Any, Type::record()),
             ])
             .required("name", SyntaxShape::String, "The name of the column.")
             .allow_variants_without_examples(true)

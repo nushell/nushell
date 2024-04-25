@@ -132,7 +132,7 @@ fn command_filter_reject_3() -> TestResult {
 fn command_filter_reject_4() -> TestResult {
     run_test(
         "[[lang, gems, grade]; [nu, 100, a]] | reject gems | to json -r",
-        r#"[{"lang": "nu","grade": "a"}]"#,
+        r#"[{"lang":"nu","grade":"a"}]"#,
     )
 }
 

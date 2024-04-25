@@ -1,0 +1,22 @@
+[package]
+name = "nu-plugin-test-support"
+version = "0.92.3"
+edition = "2021"
+license = "MIT"
+description = "Testing support for Nushell plugins"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-test-support"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nu-engine = { path = "../nu-engine", version = "0.92.3", features = ["plugin"] }
+nu-protocol = { path = "../nu-protocol", version = "0.92.3", features = ["plugin"] }
+nu-parser = { path = "../nu-parser", version = "0.92.3", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.92.3" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.92.3" }
+nu-ansi-term = { workspace = true }
+similar = "2.5"
+
+[dev-dependencies]
+typetag = "0.2"
+serde = "1.0"

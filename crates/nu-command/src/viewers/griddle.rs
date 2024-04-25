@@ -1,17 +1,12 @@
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
 use super::icons::icon_for_file;
 use lscolors::Style;
-use nu_engine::env_to_string;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::{command_prelude::*, env_to_string};
+use nu_protocol::Config;
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
 use terminal_size::{Height, Width};
+
 #[derive(Clone)]
 pub struct Griddle;
 
@@ -28,7 +23,7 @@ impl Command for Griddle {
         Signature::build("grid")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::String),
-                (Type::Record(vec![]), Type::String),
+                (Type::record(), Type::String),
             ])
             .named(
                 "width",
@@ -113,7 +108,7 @@ prints out the list properly."#
                 // dbg!("value::record");
                 let mut items = vec![];
 
-                for (i, (c, v)) in val.into_iter().enumerate() {
+                for (i, (c, v)) in val.into_owned().into_iter().enumerate() {
                     items.push((i, c, v.to_expanded_string(", ", config)))
                 }
 

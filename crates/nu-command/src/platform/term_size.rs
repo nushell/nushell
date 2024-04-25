@@ -1,8 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
-};
+use nu_engine::command_prelude::*;
 use terminal_size::{terminal_size, Height, Width};
 
 #[derive(Clone)]
@@ -22,10 +18,7 @@ impl Command for TermSize {
             .category(Category::Platform)
             .input_output_types(vec![(
                 Type::Nothing,
-                Type::Record(vec![
-                    ("columns".into(), Type::Int),
-                    ("rows".into(), Type::Int),
-                ]),
+                Type::Record([("columns".into(), Type::Int), ("rows".into(), Type::Int)].into()),
             )])
     }
 

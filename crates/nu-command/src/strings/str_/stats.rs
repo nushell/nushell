@@ -1,9 +1,5 @@
 use fancy_regex::Regex;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 use std::collections::BTreeMap;
 use std::{fmt, str};
 use unicode_segmentation::UnicodeSegmentation;
@@ -22,7 +18,7 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("str stats")
             .category(Category::Strings)
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::String, Type::record())])
     }
 
     fn usage(&self) -> &str {

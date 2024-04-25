@@ -1,12 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
-    Type, Value,
-};
-
 use super::{horizontal_rotate_value, HorizontalDirection};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct RollLeft;
@@ -23,8 +16,8 @@ impl Command for RollLeft {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
             ])
             .named(
                 "by",

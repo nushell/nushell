@@ -1,12 +1,4 @@
-use std::convert::TryInto;
-
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Skip;
@@ -19,7 +11,7 @@ impl Command for Skip {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
@@ -95,43 +87,12 @@ impl Command for Skip {
         let ctrlc = engine_state.ctrlc.clone();
         let input_span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                span: bytes_span,
-                metadata,
-                ..
-            } => {
-                let mut remaining = n;
-                let mut output = vec![];
-
-                for frame in stream {
-                    let frame = frame?;
-
-                    match frame {
-                        Value::String { val, .. } => {
-                            let bytes = val.as_bytes();
-                            if bytes.len() < remaining {
-                                remaining -= bytes.len();
-                                //output.extend_from_slice(bytes)
-                            } else {
-                                output.extend_from_slice(&bytes[remaining..]);
-                                break;
-                            }
-                        }
-                        Value::Binary { val: bytes, .. } => {
-                            if bytes.len() < remaining {
-                                remaining -= bytes.len();
-                            } else {
-                                output.extend_from_slice(&bytes[remaining..]);
-                                break;
-                            }
-                        }
-                        _ => unreachable!("Raw streams are either bytes or strings"),
-                    }
-                }
-
-                Ok(Value::binary(output, bytes_span).into_pipeline_data_with_metadata(metadata))
-            }
+            PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list, binary or range".into(),
+                wrong_type: "raw data".into(),
+                dst_span: call.head,
+                src_span: input_span,
+            }),
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
 

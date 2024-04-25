@@ -1,19 +1,16 @@
-use nu_engine::current_dir;
-use nu_engine::CallExt;
-use nu_path::expand_path_with;
-use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::IntoSpanned;
-use nu_protocol::{
-    Category, DataSource, Example, IoStream, PipelineData, PipelineMetadata, RawStream, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
-use std::fs::File;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::thread;
-
 use crate::progress_bar;
+use nu_engine::{command_prelude::*, current_dir};
+use nu_path::expand_path_with;
+use nu_protocol::{
+    ast::{Expr, Expression},
+    DataSource, OutDest, PipelineMetadata, RawStream,
+};
+use std::{
+    fs::File,
+    io::Write,
+    path::{Path, PathBuf},
+    thread,
+};
 
 #[derive(Clone)]
 pub struct Save;
@@ -92,19 +89,26 @@ impl Command for Save {
 
         let path_arg = call.req::<Spanned<PathBuf>>(engine_state, stack, 0)?;
         let path = Spanned {
-            item: expand_path_with(path_arg.item, &cwd),
+            item: expand_path_with(path_arg.item, &cwd, true),
             span: path_arg.span,
         };
 
         let stderr_path = call
             .get_flag::<Spanned<PathBuf>>(engine_state, stack, "stderr")?
             .map(|arg| Spanned {
-                item: expand_path_with(arg.item, cwd),
+                item: expand_path_with(arg.item, cwd, true),
                 span: arg.span,
             });
 
         match input {
-            PipelineData::ExternalStream { stdout, stderr, .. } => {
+            PipelineData::ExternalStream {
+                stdout,
+                stderr,
+                metadata,
+                ..
+            } => {
+                check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
+
                 let (file, stderr_file) = get_files(
                     &path,
                     stderr_path.as_ref(),
@@ -129,7 +133,7 @@ impl Command for Save {
                                     .spawn(move || stderr.drain()),
                             })
                             .transpose()
-                            .map_err(|e| e.into_spanned(span))?;
+                            .err_span(span)?;
 
                         let res = stream_to_file(stdout, file, span, progress);
                         if let Some(h) = handler {
@@ -154,38 +158,11 @@ impl Command for Save {
             PipelineData::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
-                if let Some(PipelineMetadata {
-                    data_source: DataSource::FilePath(input_path),
-                }) = pipeline_metadata
-                {
-                    if path.item == input_path {
-                        return Err(ShellError::GenericError {
-                            error: "pipeline input and output are same file".into(),
-                            msg: format!(
-                                "can't save output to '{}' while it's being reading",
-                                path.item.display()
-                            ),
-                            span: Some(path.span),
-                            help: Some("you should change output path".into()),
-                            inner: vec![],
-                        });
-                    }
-
-                    if let Some(ref err_path) = stderr_path {
-                        if err_path.item == input_path {
-                            return Err(ShellError::GenericError {
-                                error: "pipeline input and stderr are same file".into(),
-                                msg: format!(
-                                    "can't save stderr to '{}' while it's being reading",
-                                    err_path.item.display()
-                                ),
-                                span: Some(err_path.span),
-                                help: Some("you should change stderr path".into()),
-                                inner: vec![],
-                            });
-                        }
-                    }
-                }
+                check_saving_to_source_file(
+                    pipeline_metadata.as_ref(),
+                    &path,
+                    stderr_path.as_ref(),
+                )?;
 
                 let (mut file, _) = get_files(
                     &path,
@@ -210,6 +187,12 @@ impl Command for Save {
                 Ok(PipelineData::empty())
             }
             input => {
+                check_saving_to_source_file(
+                    input.metadata().as_ref(),
+                    &path,
+                    stderr_path.as_ref(),
+                )?;
+
                 let bytes =
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
@@ -264,9 +247,44 @@ impl Command for Save {
         ]
     }
 
-    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
-        (Some(IoStream::Capture), Some(IoStream::Capture))
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::Capture), Some(OutDest::Capture))
     }
+}
+
+fn saving_to_source_file_error(dest: &Spanned<PathBuf>) -> ShellError {
+    ShellError::GenericError {
+        error: "pipeline input and output are the same file".into(),
+        msg: format!(
+            "can't save output to '{}' while it's being read",
+            dest.item.display()
+        ),
+        span: Some(dest.span),
+        help: Some("You should use `collect` to run your save command (see `help collect`). Or, you can put the file data in a variable and then pass the variable to `save`.".into()),
+        inner: vec![],
+    }
+}
+
+fn check_saving_to_source_file(
+    metadata: Option<&PipelineMetadata>,
+    dest: &Spanned<PathBuf>,
+    stderr_dest: Option<&Spanned<PathBuf>>,
+) -> Result<(), ShellError> {
+    let Some(DataSource::FilePath(source)) = metadata.map(|meta| &meta.data_source) else {
+        return Ok(());
+    };
+
+    if &dest.item == source {
+        return Err(saving_to_source_file_error(dest));
+    }
+
+    if let Some(dest) = stderr_dest {
+        if &dest.item == source {
+            return Err(saving_to_source_file_error(dest));
+        }
+    }
+
+    Ok(())
 }
 
 /// Convert [`PipelineData`] bytes to write in file, possibly converting

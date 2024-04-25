@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone, Debug)]
 enum BeforeOrAfter {
@@ -27,8 +21,8 @@ impl Command for Move {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("move")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
             ])
             .rest("columns", SyntaxShape::String, "The columns to move.")
             .named(

@@ -1,10 +1,5 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, IntoSpanned, IoStream, PipelineData, Record, ShellError,
-    Signature, Type, Value,
-};
-
+use nu_engine::command_prelude::*;
+use nu_protocol::OutDest;
 use std::thread;
 
 #[derive(Clone)]
@@ -18,7 +13,7 @@ impl Command for Complete {
     fn signature(&self) -> Signature {
         Signature::build("complete")
             .category(Category::System)
-            .input_output_types(vec![(Type::Any, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Any, Type::record())])
     }
 
     fn usage(&self) -> &str {
@@ -67,7 +62,7 @@ impl Command for Complete {
                                 }
                             })
                             .map(|handle| (handle, stderr_span))
-                            .map_err(|err| err.into_spanned(call.head))
+                            .err_span(call.head)
                     })
                     .transpose()?;
 
@@ -123,7 +118,7 @@ impl Command for Complete {
         }]
     }
 
-    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
-        (Some(IoStream::Capture), Some(IoStream::Capture))
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::Capture), Some(OutDest::Capture))
     }
 }

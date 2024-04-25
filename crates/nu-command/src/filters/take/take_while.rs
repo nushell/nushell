@@ -1,10 +1,5 @@
-use nu_engine::{get_eval_block, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, ClosureEval};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct TakeWhile;
@@ -17,7 +12,7 @@ impl Command for TakeWhile {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
@@ -75,34 +70,21 @@ impl Command for TakeWhile {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
+
+        let mut closure = ClosureEval::new(engine_state, stack, closure);
+
         let metadata = input.metadata();
-        let span = call.head;
-
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
-
-        let block = engine_state.get_block(capture_block.block_id).clone();
-        let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
-
-        let mut stack = stack.captures_to_stack(capture_block.captures);
-
-        let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
-
-        let eval_block = get_eval_block(&engine_state);
-
         Ok(input
-            .into_iter_strict(span)?
+            .into_iter_strict(head)?
             .take_while(move |value| {
-                if let Some(var_id) = var_id {
-                    stack.add_var(var_id, value.clone());
-                }
-
-                eval_block(&engine_state, &mut stack, &block, PipelineData::empty())
-                    .map_or(false, |pipeline_data| {
-                        pipeline_data.into_value(span).is_true()
-                    })
+                closure
+                    .run_with_value(value.clone())
+                    .map(|data| data.into_value(head).is_true())
+                    .unwrap_or(false)
             })
-            .into_pipeline_data_with_metadata(metadata, ctrlc))
+            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
     }
 }
 

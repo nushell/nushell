@@ -1,11 +1,7 @@
-use heck::ToSnakeCase;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
-
 use super::operate;
+use heck::ToSnakeCase;
+use nu_engine::command_prelude::*;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -22,8 +18,8 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::String)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .rest(

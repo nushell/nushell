@@ -13,13 +13,13 @@ pub trait Completer {
         offset: usize,
         pos: usize,
         options: &CompletionOptions,
-    ) -> Vec<Suggestion>;
+    ) -> Vec<SemanticSuggestion>;
 
     fn get_sort_by(&self) -> SortBy {
         SortBy::Ascending
     }
 
-    fn sort(&self, items: Vec<Suggestion>, prefix: Vec<u8>) -> Vec<Suggestion> {
+    fn sort(&self, items: Vec<SemanticSuggestion>, prefix: Vec<u8>) -> Vec<SemanticSuggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).to_string();
         let mut filtered_items = items;
 
@@ -27,17 +27,39 @@ pub trait Completer {
         match self.get_sort_by() {
             SortBy::LevenshteinDistance => {
                 filtered_items.sort_by(|a, b| {
-                    let a_distance = levenshtein_distance(&prefix_str, &a.value);
-                    let b_distance = levenshtein_distance(&prefix_str, &b.value);
+                    let a_distance = levenshtein_distance(&prefix_str, &a.suggestion.value);
+                    let b_distance = levenshtein_distance(&prefix_str, &b.suggestion.value);
                     a_distance.cmp(&b_distance)
                 });
             }
             SortBy::Ascending => {
-                filtered_items.sort_by(|a, b| a.value.cmp(&b.value));
+                filtered_items.sort_by(|a, b| a.suggestion.value.cmp(&b.suggestion.value));
             }
             SortBy::None => {}
         };
 
         filtered_items
+    }
+}
+
+#[derive(Debug, Default, PartialEq)]
+pub struct SemanticSuggestion {
+    pub suggestion: Suggestion,
+    pub kind: Option<SuggestionKind>,
+}
+
+// TODO: think about name: maybe suggestion context?
+#[derive(Clone, Debug, PartialEq)]
+pub enum SuggestionKind {
+    Command(nu_protocol::engine::CommandType),
+    Type(nu_protocol::Type),
+}
+
+impl From<Suggestion> for SemanticSuggestion {
+    fn from(suggestion: Suggestion) -> Self {
+        Self {
+            suggestion,
+            ..Default::default()
+        }
     }
 }

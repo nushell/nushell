@@ -1,15 +1,8 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::NaiveTime;
-use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveTime, TimeZone, Utc};
 use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
@@ -69,8 +62,8 @@ impl Command for SubCommand {
             (Type::Int, Type::Date),
             (Type::String, Type::Date),
             (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Date))),
-            (Type::Table(vec![]), Type::Table(vec![])),
-            (Type::Record(vec![]), Type::Record(vec![])),
+            (Type::table(), Type::table()),
+            (Type::record(), Type::record()),
         ])
         .allow_variants_without_examples(true)
         .named(
@@ -339,7 +332,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         None => Value::error(
                             ShellError::DatetimeParseError {
-                                msg: input.to_debug_string(),
+                                msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
                                 span: *span,
                             },
                             *span,
@@ -352,7 +345,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         None => Value::error(
                             ShellError::DatetimeParseError {
-                                msg: input.to_debug_string(),
+                                msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
                                 span: *span,
                             },
                             *span,

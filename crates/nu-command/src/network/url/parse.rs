@@ -1,10 +1,4 @@
-use super::url;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
-
+use nu_engine::command_prelude::*;
 use url::Url;
 
 #[derive(Clone)]
@@ -18,9 +12,9 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("url parse")
             .input_output_types(vec![
-                (Type::String, Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::String, Type::record()),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .rest(

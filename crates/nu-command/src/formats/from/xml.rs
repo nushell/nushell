@@ -1,12 +1,7 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
-use indexmap::map::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    Type, Value,
-};
+use indexmap::IndexMap;
+use nu_engine::command_prelude::*;
+
 use roxmltree::NodeType;
 
 #[derive(Clone)]
@@ -19,7 +14,7 @@ impl Command for FromXml {
 
     fn signature(&self) -> Signature {
         Signature::build("from xml")
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::String, Type::record())])
             .switch("keep-comments", "add comment nodes to result", None)
             .switch(
                 "keep-pi",
@@ -417,7 +412,7 @@ mod tests {
             content_tag(
                 "nu",
                 indexmap! {},
-                &vec![
+                &[
                     content_tag("dev", indexmap! {}, &[content_string("Andrés")]),
                     content_tag("dev", indexmap! {}, &[content_string("JT")]),
                     content_tag("dev", indexmap! {}, &[content_string("Yehuda")])

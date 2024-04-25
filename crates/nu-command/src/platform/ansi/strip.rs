@@ -1,10 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Config, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::Config;
 
 pub struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
@@ -30,8 +26,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .rest(
                 "cell path",

@@ -1,9 +1,4 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
 use reedline::{
     get_reedline_edit_commands, get_reedline_keybinding_modifiers, get_reedline_keycodes,
     get_reedline_prompt_edit_modes, get_reedline_reedline_events,
@@ -19,7 +14,7 @@ impl Command for KeybindingsList {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .switch("modifiers", "list of modifiers", Some('m'))
             .switch("keycodes", "list of keycodes", Some('k'))
             .switch("modes", "list of edit modes", Some('o'))

@@ -1,27 +1,34 @@
-use ical::parser::ical::component::*;
-use ical::property::Property;
-use indexmap::map::IndexMap;
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{
-    record, Category, PluginExample, PluginSignature, ShellError, Span, Type, Value,
-};
-use std::io::BufReader;
-
 use crate::FromCmds;
 
-pub const CMD_NAME: &str = "from ics";
+use ical::{parser::ical::component::*, property::Property};
+use indexmap::IndexMap;
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    record, Category, Example, LabeledError, ShellError, Signature, Span, Type, Value,
+};
+use std::io::BufReader;
 
 pub struct FromIcs;
 
 impl SimplePluginCommand for FromIcs {
     type Plugin = FromCmds;
 
-    fn signature(&self) -> nu_protocol::PluginSignature {
-        PluginSignature::build(CMD_NAME)
-            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
-            .usage("Parse text as .ics and create table.")
-            .plugin_examples(examples())
+    fn name(&self) -> &str {
+        "from ics"
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .ics and create table."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .input_output_types(vec![(Type::String, Type::table())])
             .category(Category::Formats)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        examples()
     }
 
     fn run(
@@ -73,12 +80,11 @@ impl SimplePluginCommand for FromIcs {
     }
 }
 
-pub fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
+pub fn examples() -> Vec<Example<'static>> {
+    vec![Example {
         example: "'BEGIN:VCALENDAR
-            END:VCALENDAR' | from ics"
-            .into(),
-        description: "Converts ics formatted string to table".into(),
+END:VCALENDAR' | from ics",
+        description: "Converts ics formatted string to table",
         result: Some(Value::test_list(vec![Value::test_record(record! {
                 "properties" => Value::test_list(vec![]),
                 "events" =>     Value::test_list(vec![]),
@@ -262,4 +268,11 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
     }
 
     Value::record(row.into_iter().collect(), span)
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromIcs)
 }

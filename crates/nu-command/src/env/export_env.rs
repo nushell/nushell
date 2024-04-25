@@ -1,10 +1,4 @@
-use nu_engine::{get_eval_block, redirect_env, CallExt};
-
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
 
 #[derive(Clone)]
 pub struct ExportEnv;
@@ -36,10 +30,15 @@ impl Command for ExportEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, caller_stack, 0)?;
-        let block = engine_state.get_block(capture_block.block_id);
+        let block_id = call
+            .positional_nth(0)
+            .expect("checked through parser")
+            .as_block()
+            .expect("internal error: missing block");
+
+        let block = engine_state.get_block(block_id);
         let mut callee_stack = caller_stack
-            .captures_to_stack(capture_block.captures)
+            .gather_captures(engine_state, &block.captures)
             .reset_pipes();
 
         let eval_block = get_eval_block(engine_state);

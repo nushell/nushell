@@ -10,7 +10,7 @@ fn help() {
             "example one --help"
         );
 
-        assert!(actual.out.contains("PluginSignature test 1"));
+        assert!(actual.out.contains("test example 1"));
         assert!(actual.out.contains("Extra usage for example one"));
     })
 }

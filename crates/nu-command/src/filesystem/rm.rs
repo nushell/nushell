@@ -1,22 +1,14 @@
-use std::collections::HashMap;
-use std::io::Error;
-use std::io::ErrorKind;
-#[cfg(unix)]
-use std::os::unix::prelude::FileTypeExt;
-use std::path::PathBuf;
-
-use super::util::get_rest_for_glob_pattern;
-use super::util::try_interaction;
-
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
+use super::util::{get_rest_for_glob_pattern, try_interaction};
+use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, NuGlob, PipelineData, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+use nu_protocol::NuGlob;
+#[cfg(unix)]
+use std::os::unix::prelude::FileTypeExt;
+use std::{
+    collections::HashMap,
+    io::{Error, ErrorKind},
+    path::PathBuf,
 };
 
 const TRASH_SUPPORTED: bool = cfg!(all(
@@ -157,7 +149,7 @@ fn rm(
 
     for (idx, path) in paths.clone().into_iter().enumerate() {
         if let Some(ref home) = home {
-            if expand_path_with(path.item.as_ref(), &currentdir_path)
+            if expand_path_with(path.item.as_ref(), &currentdir_path, path.item.is_expand())
                 .to_string_lossy()
                 .as_ref()
                 == home.as_str()
@@ -242,7 +234,11 @@ fn rm(
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
 
     for target in paths {
-        let path = expand_path_with(target.item.as_ref(), &currentdir_path);
+        let path = expand_path_with(
+            target.item.as_ref(),
+            &currentdir_path,
+            target.item.is_expand(),
+        );
         if currentdir_path.to_string_lossy() == path.to_string_lossy()
             || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
@@ -281,7 +277,11 @@ fn rm(
                             }
 
                             all_targets
-                                .entry(nu_path::expand_path_with(f, &currentdir_path))
+                                .entry(nu_path::expand_path_with(
+                                    f,
+                                    &currentdir_path,
+                                    target.item.is_expand(),
+                                ))
                                 .or_insert_with(|| target.span);
                         }
                         Err(e) => {
@@ -382,7 +382,10 @@ fn rm(
                         ))]
                         {
                             trash::delete(&f).map_err(|e: trash::Error| {
-                                Error::new(ErrorKind::Other, format!("{e:?}\nTry '--trash' flag"))
+                                Error::new(
+                                    ErrorKind::Other,
+                                    format!("{e:?}\nTry '--permanent' flag"),
+                                )
                             })
                         }
 

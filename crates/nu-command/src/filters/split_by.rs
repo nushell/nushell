@@ -1,11 +1,5 @@
 use indexmap::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SplitBy;
@@ -17,7 +11,7 @@ impl Command for SplitBy {
 
     fn signature(&self) -> Signature {
         Signature::build("split-by")
-            .input_output_types(vec![(Type::Record(vec![]), Type::Record(vec![]))])
+            .input_output_types(vec![(Type::record(), Type::record())])
             .optional("splitter", SyntaxShape::Any, "The splitter value to use.")
             .category(Category::Filters)
     }
@@ -193,11 +187,11 @@ pub fn data_split(
             let span = v.span();
             match v {
                 Value::Record { val: grouped, .. } => {
-                    for (outer_key, list) in grouped.into_iter() {
+                    for (outer_key, list) in grouped.into_owned() {
                         match data_group(&list, splitter, span) {
                             Ok(grouped_vals) => {
                                 if let Value::Record { val: sub, .. } = grouped_vals {
-                                    for (inner_key, subset) in sub.into_iter() {
+                                    for (inner_key, subset) in sub.into_owned() {
                                         let s: &mut IndexMap<String, Value> =
                                             splits.entry(inner_key).or_default();
 

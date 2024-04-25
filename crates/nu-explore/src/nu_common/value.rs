@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-
+use super::NuSpan;
 use nu_engine::get_columns;
 use nu_protocol::{record, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
-
-use super::NuSpan;
+use std::collections::HashMap;
 
 pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
     match input {
@@ -89,7 +87,7 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     let span = value.span();
     match value {
         Value::Record { val: record, .. } => {
-            let (key, val) = record.into_iter().unzip();
+            let (key, val) = record.into_owned().into_iter().unzip();
             (key, vec![val])
         }
         Value::List { vals, .. } => {

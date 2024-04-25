@@ -1,9 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::LabeledError;
 
 #[derive(Clone)]
 pub struct ErrorMake;
@@ -258,13 +254,10 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
     }
 
     // correct return: everything present
-    ShellError::GenericError {
-        error: msg,
-        msg: text,
-        span: Some(Span::new(span_start as usize, span_end as usize)),
-        help,
-        inner: vec![],
-    }
+    let mut error =
+        LabeledError::new(msg).with_label(text, Span::new(span_start as usize, span_end as usize));
+    error.help = help;
+    error.into()
 }
 
 fn get_span_sides(span: &Record, span_span: Span, side: &str) -> Result<i64, ShellError> {

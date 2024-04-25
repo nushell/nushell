@@ -1,25 +1,18 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::env_to_strings;
-use nu_engine::get_eval_expression;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, Expr},
-    did_you_mean,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoSpanned, IoStream, ListStream, NuGlob, PipelineData, RawStream,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
+use nu_protocol::{ast::Expr, did_you_mean, ListStream, NuGlob, OutDest, RawStream};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Command as CommandSys, Stdio};
-use std::sync::mpsc;
-use std::sync::Arc;
-use std::thread;
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Read, Write},
+    path::{Path, PathBuf},
+    process::{Command as CommandSys, Stdio},
+    sync::{mpsc, Arc},
+    thread,
+};
 
 #[derive(Clone)]
 pub struct External;
@@ -36,14 +29,6 @@ impl Command for External {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .switch("redirect-stdout", "redirect stdout to the pipeline", None)
-            .switch("redirect-stderr", "redirect stderr to the pipeline", None)
-            .switch(
-                "redirect-combine",
-                "redirect both stdout and stderr combined to the pipeline (collected in stdout)",
-                None,
-            )
-            .switch("trim-end-newline", "trimming end newlines", None)
             .required("command", SyntaxShape::String, "External command to run.")
             .rest("args", SyntaxShape::Any, "Arguments for external command.")
             .category(Category::System)
@@ -56,76 +41,7 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let redirect_stdout = call.has_flag(engine_state, stack, "redirect-stdout")?;
-        let redirect_stderr = call.has_flag(engine_state, stack, "redirect-stderr")?;
-        let redirect_combine = call.has_flag(engine_state, stack, "redirect-combine")?;
-        let trim_end_newline = call.has_flag(engine_state, stack, "trim-end-newline")?;
-
-        if redirect_combine && (redirect_stdout || redirect_stderr) {
-            return Err(ShellError::ExternalCommand {
-                label: "Cannot use --redirect-combine with --redirect-stdout or --redirect-stderr"
-                    .into(),
-                help: "use either --redirect-combine or redirect a single output stream".into(),
-                span: call.head,
-            });
-        }
-
-        if trim_end_newline {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--trim-end-newline` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some(
-                        "trailing new lines are now removed by default when collecting into a value"
-                            .into(),
-                    ),
-                    inner: vec![],
-                },
-            );
-        }
-
-        if redirect_combine {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--redirect-combine` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some("use the `o+e>|` pipe redirection instead".into()),
-                    inner: vec![],
-                },
-            );
-        } else if redirect_stdout {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--redirect-stdout` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some(
-                        "`run-external` will now always redirect stdout if there is a pipe `|` afterwards"
-                            .into(),
-                    ),
-                    inner: vec![],
-                },
-            );
-        } else if redirect_stderr {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--redirect-stderr` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some("use the `e>|` stderr pipe redirection instead".into()),
-                    inner: vec![],
-                },
-            );
-        }
-
         let command = create_external_command(engine_state, stack, call)?;
-
         command.run_with_input(engine_state, stack, input, false)
     }
 
@@ -232,8 +148,8 @@ pub struct ExternalCommand {
     pub name: Spanned<String>,
     pub args: Vec<Spanned<String>>,
     pub arg_keep_raw: Vec<bool>,
-    pub out: IoStream,
-    pub err: IoStream,
+    pub out: OutDest,
+    pub err: OutDest,
     pub env_vars: HashMap<String, String>,
 }
 
@@ -401,25 +317,41 @@ impl ExternalCommand {
                             let mut engine_state = engine_state.clone();
                             if let Some(hook) = engine_state.config.hooks.command_not_found.clone()
                             {
+                                let canary = "ENTERED_COMMAND_NOT_FOUND";
                                 let stack = &mut stack.start_capture();
-                                if let Ok(PipelineData::Value(Value::String { val, .. }, ..)) =
-                                    eval_hook(
-                                        &mut engine_state,
-                                        stack,
-                                        None,
-                                        vec![(
-                                            "cmd_name".into(),
-                                            Value::string(
-                                                self.name.item.to_string(),
-                                                self.name.span,
-                                            ),
-                                        )],
-                                        &hook,
-                                        "command_not_found",
-                                    )
-                                {
-                                    err_str = format!("{}\n{}", err_str, val);
+                                if stack.has_env_var(&engine_state, canary) {
+                                    return Err(ShellError::ExternalCommand {
+                                        label: "command_not_found handler could not be run".into(),
+                                        help: "make sure the command_not_found closure itself does not use unknown commands".to_string(),
+                                        span: self.name.span,
+                                    });
                                 }
+                                stack.add_env_var(
+                                    canary.to_string(),
+                                    Value::bool(true, Span::unknown()),
+                                );
+                                match eval_hook(
+                                    &mut engine_state,
+                                    stack,
+                                    None,
+                                    vec![(
+                                        "cmd_name".into(),
+                                        Value::string(self.name.item.to_string(), self.name.span),
+                                    )],
+                                    &hook,
+                                    "command_not_found",
+                                ) {
+                                    Ok(PipelineData::Value(Value::String { val, .. }, ..)) => {
+                                        err_str = format!("{}\n{}", err_str, val);
+                                    }
+
+                                    Err(err) => {
+                                        stack.remove_env_var(&engine_state, canary);
+                                        return Err(err);
+                                    }
+                                    _ => {}
+                                }
+                                stack.remove_env_var(&engine_state, canary);
                             }
                         }
 
@@ -450,20 +382,26 @@ impl ExternalCommand {
                         thread::Builder::new()
                             .name("external stdin worker".to_string())
                             .spawn(move || {
-                                let stack = &mut stack.start_capture();
-                                // Attempt to render the input as a table before piping it to the external.
-                                // This is important for pagers like `less`;
-                                // they need to get Nu data rendered for display to users.
-                                //
-                                // TODO: should we do something different for list<string> inputs?
-                                // Users often expect those to be piped to *nix tools as raw strings separated by newlines
-                                let input = crate::Table::run(
-                                    &crate::Table,
-                                    &engine_state,
-                                    stack,
-                                    &Call::new(head),
-                                    input,
-                                );
+                                let input = match input {
+                                    input @ PipelineData::Value(Value::Binary { .. }, ..) => {
+                                        Ok(input)
+                                    }
+                                    input => {
+                                        let stack = &mut stack.start_capture();
+                                        // Attempt to render the input as a table before piping it to the external.
+                                        // This is important for pagers like `less`;
+                                        // they need to get Nu data rendered for display to users.
+                                        //
+                                        // TODO: should we do something different for list<string> inputs?
+                                        // Users often expect those to be piped to *nix tools as raw strings separated by newlines
+                                        crate::Table.run(
+                                            &engine_state,
+                                            stack,
+                                            &Call::new(head),
+                                            input,
+                                        )
+                                    }
+                                };
 
                                 if let Ok(input) = input {
                                     for value in input.into_iter() {
@@ -480,7 +418,7 @@ impl ExternalCommand {
 
                                 Ok(())
                             })
-                            .map_err(|e| e.into_spanned(head))?;
+                            .err_span(head)?;
                     }
                 }
 
@@ -508,7 +446,7 @@ impl ExternalCommand {
                         RawStream::new(Box::new(ByteLines::new(err)), ctrlc.clone(), head, None)
                     });
 
-                    if matches!(self.err, IoStream::Pipe) {
+                    if matches!(self.err, OutDest::Pipe) {
                         (stderr, stdout)
                     } else {
                         (stdout, stderr)
@@ -518,44 +456,38 @@ impl ExternalCommand {
                 // Create a thread to wait for an exit code.
                 thread::Builder::new()
                     .name("exit code waiter".into())
-                    .spawn(move || {
-                        match child.as_mut().wait() {
-                            Err(err) => Err(ShellError::ExternalCommand {
-                                label: "External command exited with error".into(),
-                                help: err.to_string(),
-                                span
-                            }),
-                            Ok(x) => {
-                                #[cfg(unix)]
-                                {
-                                    use nu_ansi_term::{Color, Style};
-                                    use std::ffi::CStr;
-                                    use std::os::unix::process::ExitStatusExt;
+                    .spawn(move || match child.as_mut().wait() {
+                        Err(err) => Err(ShellError::ExternalCommand {
+                            label: "External command exited with error".into(),
+                            help: err.to_string(),
+                            span,
+                        }),
+                        Ok(x) => {
+                            #[cfg(unix)]
+                            {
+                                use nix::sys::signal::Signal;
+                                use nu_ansi_term::{Color, Style};
+                                use std::os::unix::process::ExitStatusExt;
 
-                                    if x.core_dumped() {
-                                        let cause = x.signal().and_then(|sig| unsafe {
-                                            // SAFETY: We should be the first to call `char * strsignal(int sig)`
-                                            let sigstr_ptr = libc::strsignal(sig);
-                                            if sigstr_ptr.is_null() {
-                                                return None;
-                                            }
-
-                                            // SAFETY: The pointer points to a valid non-null string
-                                            let sigstr = CStr::from_ptr(sigstr_ptr);
-                                            sigstr.to_str().map(String::from).ok()
-                                        });
-
-                                        let cause = cause.as_deref().unwrap_or("Something went wrong");
+                                if x.core_dumped() {
+                                    let cause = x
+                                        .signal()
+                                        .and_then(|sig| {
+                                            Signal::try_from(sig).ok().map(Signal::as_str)
+                                        })
+                                        .unwrap_or("Something went wrong");
 
                                     let style = Style::new().bold().on(Color::Red);
-                                    eprintln!(
-                                        "{}",
-                                        style.paint(format!(
-                                            "{cause}: oops, process '{commandname}' core dumped"
-                                        ))
+                                    let message = format!(
+                                        "{cause}: child process '{commandname}' core dumped"
                                     );
-                                    let _ = exit_code_tx.send(Value::error (
-                                        ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head },
+                                    eprintln!("{}", style.paint(&message));
+                                    let _ = exit_code_tx.send(Value::error(
+                                        ShellError::ExternalCommand {
+                                            label: "core dumped".into(),
+                                            help: message,
+                                            span: head,
+                                        },
                                         head,
                                     ));
                                     return Ok(());
@@ -570,8 +502,8 @@ impl ExternalCommand {
                             }
                             Ok(())
                         }
-                    }
-                }).map_err(|e| e.into_spanned(head))?;
+                    })
+                    .err_span(head)?;
 
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
@@ -625,7 +557,7 @@ impl ExternalCommand {
 
         // If the external is not the last command, its output will get piped
         // either as a string or binary
-        let reader = if matches!(self.out, IoStream::Pipe) && matches!(self.err, IoStream::Pipe) {
+        let reader = if matches!(self.out, OutDest::Pipe) && matches!(self.err, OutDest::Pipe) {
             let (reader, writer) = os_pipe::pipe()?;
             let writer_clone = writer.try_clone()?;
             process.stdout(writer);

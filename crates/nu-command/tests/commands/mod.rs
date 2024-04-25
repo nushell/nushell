@@ -30,6 +30,7 @@ mod every;
 mod exec;
 mod export_def;
 mod fill;
+mod filter;
 mod find;
 mod first;
 mod flatten;
@@ -111,7 +112,10 @@ mod try_;
 mod ucp;
 #[cfg(unix)]
 mod ulimit;
+
+mod debug;
 mod umkdir;
+mod uname;
 mod uniq;
 mod uniq_by;
 mod update;

@@ -1,13 +1,10 @@
 use crate::grapheme_flags;
-use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_cmd_base::util;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Range, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+use nu_cmd_base::{
+    input_handler::{operate, CmdArgument},
+    util,
 };
+use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
@@ -37,8 +34,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::Int),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int))),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .required("string", SyntaxShape::String, "The string to find in the input.")
@@ -254,7 +251,6 @@ mod tests {
 
         let options = Arguments {
             substring: String::from("Lm"),
-
             range: None,
             cell_paths: None,
             end: false,
@@ -269,12 +265,14 @@ mod tests {
     #[test]
     fn returns_index_of_next_substring() {
         let word = Value::test_string("Cargo.Cargo");
-        let range = Range {
-            from: Value::int(1, Span::test_data()),
-            incr: Value::int(1, Span::test_data()),
-            to: Value::nothing(Span::test_data()),
-            inclusion: RangeInclusion::Inclusive,
-        };
+        let range = Range::new(
+            Value::int(1, Span::test_data()),
+            Value::nothing(Span::test_data()),
+            Value::nothing(Span::test_data()),
+            RangeInclusion::Inclusive,
+            Span::test_data(),
+        )
+        .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
@@ -297,12 +295,14 @@ mod tests {
     #[test]
     fn index_does_not_exist_due_to_end_index() {
         let word = Value::test_string("Cargo.Banana");
-        let range = Range {
-            from: Value::nothing(Span::test_data()),
-            inclusion: RangeInclusion::Inclusive,
-            incr: Value::int(1, Span::test_data()),
-            to: Value::int(5, Span::test_data()),
-        };
+        let range = Range::new(
+            Value::nothing(Span::test_data()),
+            Value::nothing(Span::test_data()),
+            Value::int(5, Span::test_data()),
+            RangeInclusion::Inclusive,
+            Span::test_data(),
+        )
+        .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
@@ -325,12 +325,14 @@ mod tests {
     #[test]
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
         let word = Value::test_string("123123123");
-        let range = Range {
-            from: Value::int(2, Span::test_data()),
-            incr: Value::int(1, Span::test_data()),
-            to: Value::int(6, Span::test_data()),
-            inclusion: RangeInclusion::Inclusive,
-        };
+        let range = Range::new(
+            Value::int(2, Span::test_data()),
+            Value::nothing(Span::test_data()),
+            Value::int(6, Span::test_data()),
+            RangeInclusion::Inclusive,
+            Span::test_data(),
+        )
+        .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
@@ -353,12 +355,14 @@ mod tests {
     #[test]
     fn index_does_not_exists_due_to_strict_bounds() {
         let word = Value::test_string("123456");
-        let range = Range {
-            from: Value::int(2, Span::test_data()),
-            incr: Value::int(1, Span::test_data()),
-            to: Value::int(5, Span::test_data()),
-            inclusion: RangeInclusion::RightExclusive,
-        };
+        let range = Range::new(
+            Value::int(2, Span::test_data()),
+            Value::nothing(Span::test_data()),
+            Value::int(5, Span::test_data()),
+            RangeInclusion::RightExclusive,
+            Span::test_data(),
+        )
+        .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
@@ -384,7 +388,6 @@ mod tests {
 
         let options = Arguments {
             substring: String::from("ふが"),
-
             range: None,
             cell_paths: None,
             end: false,
@@ -399,12 +402,14 @@ mod tests {
     fn index_is_not_a_char_boundary() {
         let word = Value::string(String::from("💛"), Span::test_data());
 
-        let range = Range {
-            from: Value::int(0, Span::test_data()),
-            incr: Value::int(1, Span::test_data()),
-            to: Value::int(3, Span::test_data()),
-            inclusion: RangeInclusion::Inclusive,
-        };
+        let range = Range::new(
+            Value::int(0, Span::test_data()),
+            Value::int(1, Span::test_data()),
+            Value::int(3, Span::test_data()),
+            RangeInclusion::Inclusive,
+            Span::test_data(),
+        )
+        .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,
@@ -428,12 +433,14 @@ mod tests {
     fn index_is_out_of_bounds() {
         let word = Value::string(String::from("hello"), Span::test_data());
 
-        let range = Range {
-            from: Value::int(-1, Span::test_data()),
-            incr: Value::int(1, Span::test_data()),
-            to: Value::int(3, Span::test_data()),
-            inclusion: RangeInclusion::Inclusive,
-        };
+        let range = Range::new(
+            Value::int(-1, Span::test_data()),
+            Value::int(1, Span::test_data()),
+            Value::int(3, Span::test_data()),
+            RangeInclusion::Inclusive,
+            Span::test_data(),
+        )
+        .expect("valid range");
 
         let spanned_range = Spanned {
             item: range,

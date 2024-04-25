@@ -1,11 +1,5 @@
-use nu_engine::{get_eval_block, get_eval_expression, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Block, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
+use nu_protocol::ListStream;
 
 #[derive(Clone)]
 pub struct For;
@@ -72,22 +66,27 @@ impl Command for For {
             .as_keyword()
             .expect("internal error: missing keyword");
 
+        let block_id = call
+            .positional_nth(2)
+            .expect("checked through parser")
+            .as_block()
+            .expect("internal error: missing block");
+
         let eval_expression = get_eval_expression(engine_state);
         let eval_block = get_eval_block(engine_state);
 
-        let values = eval_expression(engine_state, stack, keyword_expr)?;
-
-        let block: Block = call.req(engine_state, stack, 2)?;
+        let value = eval_expression(engine_state, stack, keyword_expr)?;
 
         let numbered = call.has_flag(engine_state, stack, "numbered")?;
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
-        let block = engine_state.get_block(block.block_id).clone();
+        let block = engine_state.get_block(block_id);
 
         let stack = &mut stack.push_redirection(None, None);
 
-        match values {
+        let span = value.span();
+        match value {
             Value::List { vals, .. } => {
                 for (idx, x) in ListStream::from_stream(vals.into_iter(), ctrlc).enumerate() {
                     // with_env() is used here to ensure that each iteration uses
@@ -109,7 +108,7 @@ impl Command for For {
                         },
                     );
 
-                    match eval_block(&engine_state, stack, &block, PipelineData::empty()) {
+                    match eval_block(&engine_state, stack, block, PipelineData::empty()) {
                         Err(ShellError::Break { .. }) => {
                             break;
                         }
@@ -131,7 +130,7 @@ impl Command for For {
                 }
             }
             Value::Range { val, .. } => {
-                for (idx, x) in val.into_range_iter(ctrlc)?.enumerate() {
+                for (idx, x) in val.into_range_iter(span, ctrlc).enumerate() {
                     stack.add_var(
                         var_id,
                         if numbered {
@@ -147,7 +146,7 @@ impl Command for For {
                         },
                     );
 
-                    match eval_block(&engine_state, stack, &block, PipelineData::empty()) {
+                    match eval_block(&engine_state, stack, block, PipelineData::empty()) {
                         Err(ShellError::Break { .. }) => {
                             break;
                         }
@@ -171,7 +170,7 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                eval_block(&engine_state, stack, &block, PipelineData::empty())?.into_value(head);
+                eval_block(&engine_state, stack, block, PipelineData::empty())?.into_value(head);
             }
         }
         Ok(PipelineData::empty())

@@ -1,12 +1,7 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
-use nu_engine::{scope::ScopeData, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, scope::ScopeData};
+use nu_protocol::span;
 
 #[derive(Clone)]
 pub struct HelpAliases;
@@ -34,7 +29,7 @@ impl Command for HelpAliases {
                 "string to find in alias names and usage",
                 Some('f'),
             )
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
     }
 

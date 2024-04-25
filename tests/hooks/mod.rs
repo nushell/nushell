@@ -551,3 +551,16 @@ fn err_hook_parse_error() {
     assert!(actual_repl.err.contains("unsupported_config_value"));
     assert_eq!(actual_repl.out, "");
 }
+
+#[test]
+fn env_change_overlay() {
+    let inp = &[
+        "module test { export-env { $env.BAR = 2 } }",
+        &env_change_hook_code("FOO", "'overlay use test'"),
+        "$env.FOO = 1",
+        "$env.BAR",
+    ];
+
+    let actual_repl = nu!(nu_repl_code(inp));
+    assert_eq!(actual_repl.out, "2");
+}

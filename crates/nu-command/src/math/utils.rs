@@ -1,8 +1,6 @@
 use core::slice;
-
-use indexmap::map::IndexMap;
-use nu_protocol::ast::Call;
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
+use indexmap::IndexMap;
+use nu_protocol::{ast::Call, IntoPipelineData, PipelineData, ShellError, Span, Value};
 
 pub fn run_with_function(
     call: &Call,
@@ -29,7 +27,7 @@ fn helper_for_tables(
     for val in values {
         match val {
             Value::Record { val, .. } => {
-                for (key, value) in val {
+                for (key, value) in &**val {
                     column_values
                         .entry(key.clone())
                         .and_modify(|v: &mut Vec<Value>| v.push(value.clone()))
@@ -82,8 +80,8 @@ pub fn calculate(
             ),
             _ => mf(vals, span, name),
         },
-        PipelineData::Value(Value::Record { val: record, .. }, ..) => {
-            let mut record = record;
+        PipelineData::Value(Value::Record { val, .. }, ..) => {
+            let mut record = val.into_owned();
             record
                 .iter_mut()
                 .try_for_each(|(_, val)| -> Result<(), ShellError> {
@@ -94,7 +92,7 @@ pub fn calculate(
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val
-                .into_range_iter(None)?
+                .into_range_iter(span, None)
                 .map(|val| mf(&[val], span, name))
                 .collect();
 

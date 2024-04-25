@@ -1,10 +1,4 @@
-use nu_engine::{get_eval_block, get_eval_expression, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Block, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
 
 #[derive(Clone)]
 pub struct While;
@@ -43,7 +37,11 @@ impl Command for While {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cond = call.positional_nth(0).expect("checked through parser");
-        let block: Block = call.req(engine_state, stack, 1)?;
+        let block_id = call
+            .positional_nth(1)
+            .expect("checked through parser")
+            .as_block()
+            .expect("internal error: missing block");
 
         let eval_expression = get_eval_expression(engine_state);
         let eval_block = get_eval_block(engine_state);
@@ -60,7 +58,7 @@ impl Command for While {
             match &result {
                 Value::Bool { val, .. } => {
                     if *val {
-                        let block = engine_state.get_block(block.block_id);
+                        let block = engine_state.get_block(block_id);
 
                         match eval_block(engine_state, stack, block, PipelineData::empty()) {
                             Err(ShellError::Break { .. }) => {

@@ -1,9 +1,6 @@
+use crate::*;
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
-use crate::{
-    help::{HelpAliases, HelpCommands, HelpEscapes, HelpExterns, HelpModules, HelpOperators},
-    *,
-};
 pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);
@@ -122,6 +119,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Exec,
             NuCheck,
             Sys,
+            UName,
+
         };
 
         // Help
@@ -144,6 +143,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Explain,
             Inspect,
             Metadata,
+            MetadataSet,
             TimeIt,
             View,
             ViewFiles,

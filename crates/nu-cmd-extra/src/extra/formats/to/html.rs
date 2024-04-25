@@ -1,18 +1,11 @@
 use fancy_regex::Regex;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Config, DataSource, Example, IntoPipelineData, PipelineData,
-    PipelineMetadata, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{Config, DataSource, PipelineMetadata};
 use nu_utils::IgnoreCaseExt;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::error::Error;
-use std::fmt::Write;
+use std::{collections::HashMap, error::Error, fmt::Write};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HtmlThemes {
@@ -687,10 +680,9 @@ fn run_regexes(hash: &HashMap<u32, (&'static str, String)>, contents: &str) -> S
     let hash_count: u32 = hash.len() as u32;
     for n in 0..hash_count {
         let value = hash.get(&n).expect("error getting hash at index");
-        //println!("{},{}", value.0, value.1);
         let re = Regex::new(value.0).expect("problem with color regex");
         let after = re.replace_all(&working_string, &value.1[..]).to_string();
-        working_string = after.clone();
+        working_string = after;
     }
     working_string
 }

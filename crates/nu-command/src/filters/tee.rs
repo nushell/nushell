@@ -1,12 +1,6 @@
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_protocol::{engine::Closure, OutDest, RawStream};
 use std::{sync::mpsc, thread};
-
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, IntoSpanned, IoStream, PipelineData,
-    RawStream, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
-};
 
 #[derive(Clone)]
 pub struct Tee;
@@ -79,7 +73,7 @@ use it in your pipeline."#
 
         let closure_engine_state = engine_state.clone();
         let mut closure_stack = stack
-            .captures_to_stack_preserve_stdio(captures)
+            .captures_to_stack_preserve_out_dest(captures)
             .reset_pipes();
 
         let metadata = input.metadata();
@@ -131,8 +125,7 @@ use it in your pipeline."#
                 if use_stderr {
                     let stderr = stderr
                         .map(|stderr| {
-                            let iter = tee(stderr.stream, with_stream)
-                                .map_err(|e| e.into_spanned(call.head))?;
+                            let iter = tee(stderr.stream, with_stream).err_span(call.head)?;
                             Ok::<_, ShellError>(RawStream::new(
                                 Box::new(iter.map(flatten_result)),
                                 stderr.ctrlc,
@@ -152,8 +145,7 @@ use it in your pipeline."#
                 } else {
                     let stdout = stdout
                         .map(|stdout| {
-                            let iter = tee(stdout.stream, with_stream)
-                                .map_err(|e| e.into_spanned(call.head))?;
+                            let iter = tee(stdout.stream, with_stream).err_span(call.head)?;
                             Ok::<_, ShellError>(RawStream::new(
                                 Box::new(iter.map(flatten_result)),
                                 stdout.ctrlc,
@@ -195,7 +187,7 @@ use it in your pipeline."#
                     // Make sure to drain any iterator produced to avoid unexpected behavior
                     result.and_then(|data| data.drain())
                 })
-                .map_err(|e| e.into_spanned(call.head))?
+                .err_span(call.head)?
                 .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
                 .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone());
 
@@ -204,8 +196,8 @@ use it in your pipeline."#
         }
     }
 
-    fn stdio_redirect(&self) -> (Option<IoStream>, Option<IoStream>) {
-        (Some(IoStream::Capture), Some(IoStream::Capture))
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::Capture), Some(OutDest::Capture))
     }
 }
 

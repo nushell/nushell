@@ -1,5 +1,7 @@
 mod call_ext;
+mod closure_eval;
 pub mod column;
+pub mod command_prelude;
 pub mod documentation;
 pub mod env;
 mod eval;
@@ -8,6 +10,7 @@ mod glob_from;
 pub mod scope;
 
 pub use call_ext::CallExt;
+pub use closure_eval::*;
 pub use column::get_columns;
 pub use documentation::get_full_help;
 pub use env::*;

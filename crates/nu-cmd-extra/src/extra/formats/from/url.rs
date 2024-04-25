@@ -1,8 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct FromUrl;
@@ -14,7 +10,7 @@ impl Command for FromUrl {
 
     fn signature(&self) -> Signature {
         Signature::build("from url")
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::String, Type::record())])
             .category(Category::Formats)
     }
 

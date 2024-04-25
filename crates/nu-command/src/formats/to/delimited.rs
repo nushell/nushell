@@ -1,8 +1,7 @@
 use csv::{Writer, WriterBuilder};
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{Config, IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
-use std::collections::VecDeque;
-use std::error::Error;
+use std::{collections::VecDeque, error::Error};
 
 fn from_value_to_delimited_string(
     value: &Value,
@@ -116,7 +115,7 @@ fn to_string_tagged_value(
         | Value::Int { .. }
         | Value::Duration { .. }
         | Value::Binary { .. }
-        | Value::CustomValue { .. }
+        | Value::Custom { .. }
         | Value::Filesize { .. }
         | Value::CellPath { .. }
         | Value::Float { .. } => Ok(v.clone().to_abbreviated_string(config)),

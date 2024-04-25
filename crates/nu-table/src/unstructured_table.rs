@@ -1,3 +1,4 @@
+use crate::{string_width, string_wrap, TableTheme};
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Record, Span, Value};
 use tabled::{
@@ -9,8 +10,6 @@ use tabled::{
     settings::{style::RawStyle, Color, Padding, TableOption},
     tables::{PoolTable, TableValue},
 };
-
-use crate::{string_width, string_wrap, TableTheme};
 
 /// UnstructuredTable has a recursive table representation of nu_protocol::Value.
 ///
@@ -90,7 +89,7 @@ fn build_table(
 
 fn convert_nu_value_to_table_value(value: Value, config: &Config) -> TableValue {
     match value {
-        Value::Record { val, .. } => build_vertical_map(val, config),
+        Value::Record { val, .. } => build_vertical_map(val.into_owned(), config),
         Value::List { vals, .. } => {
             let rebuild_array_as_map = is_valid_record(&vals) && count_columns_in_record(&vals) > 0;
             if rebuild_array_as_map {
@@ -196,7 +195,8 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
     for val in vals {
         match val {
             Value::Record { val, .. } => {
-                for (i, (_key, val)) in val.into_iter().take(count_columns).enumerate() {
+                for (i, (_key, val)) in val.into_owned().into_iter().take(count_columns).enumerate()
+                {
                     let cell = convert_nu_value_to_table_value(val, config);
                     list[i].push(cell);
                 }

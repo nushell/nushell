@@ -1,12 +1,7 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
-use nu_engine::{scope::ScopeData, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    span, Category, DeclId, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, scope::ScopeData};
+use nu_protocol::{span, DeclId};
 
 #[derive(Clone)]
 pub struct HelpModules;
@@ -40,7 +35,7 @@ are also available in the current scope. Commands/aliases that were imported und
                 "string to find in module names and usage",
                 Some('f'),
             )
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
     }
 

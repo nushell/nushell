@@ -1,10 +1,6 @@
 use chrono_humanize::HumanTime;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    format_duration, format_filesize_from_conf, Category, Config, Example, IntoPipelineData,
-    ListStream, PipelineData, RawStream, ShellError, Signature, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{format_duration, format_filesize_from_conf, Config, ListStream, RawStream};
 
 #[derive(Clone)]
 pub struct ToText;
@@ -120,13 +116,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::Date { val, .. } => {
             format!("{} ({})", val.to_rfc2822(), HumanTime::from(val))
         }
-        Value::Range { val, .. } => {
-            format!(
-                "{}..{}",
-                local_into_string(val.from, ", ", config),
-                local_into_string(val.to, ", ", config)
-            )
-        }
+        Value::Range { val, .. } => val.to_string(),
         Value::String { val, .. } => val,
         Value::Glob { val, .. } => val,
         Value::RawString { val, .. } => val,
@@ -136,6 +126,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             .collect::<Vec<_>>()
             .join(separator),
         Value::Record { val, .. } => val
+            .into_owned()
             .into_iter()
             .map(|(x, y)| format!("{}: {}", x, local_into_string(y, ", ", config)))
             .collect::<Vec<_>>()
@@ -144,7 +135,6 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             Ok(val) => local_into_string(val, separator, config),
             Err(error) => format!("{error:?}"),
         },
-        Value::Block { val, .. } => format!("<Block {val}>"),
         Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
@@ -152,7 +142,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::CellPath { val, .. } => val.to_string(),
         // If we fail to collapse the custom value, just print <{type_name}> - failure is not
         // that critical here
-        Value::CustomValue { val, .. } => val
+        Value::Custom { val, .. } => val
             .to_base_value(span)
             .map(|val| local_into_string(val, separator, config))
             .unwrap_or_else(|_| format!("<{}>", val.type_name())),

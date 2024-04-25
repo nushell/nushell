@@ -3,11 +3,12 @@
 //! Profiler implements the Debugger trait and can be used via the `debug profile` command for
 //! profiling Nushell code.
 
-use crate::ast::{Block, Expr, PipelineElement};
-use crate::debugger::Debugger;
-use crate::engine::EngineState;
-use crate::record;
-use crate::{PipelineData, ShellError, Span, Value};
+use crate::{
+    ast::{Block, Expr, PipelineElement},
+    debugger::Debugger,
+    engine::EngineState,
+    record, PipelineData, ShellError, Span, Value,
+};
 use std::time::Instant;
 
 #[derive(Debug, Clone, Copy)]
@@ -68,16 +69,8 @@ impl Profiler {
             duration_sec: 0.0,
             depth: 0,
             element_span: span,
-            element_output: if collect_values {
-                Some(Value::nothing(span))
-            } else {
-                None
-            },
-            expr: if collect_exprs {
-                Some("call".to_string())
-            } else {
-                None
-            },
+            element_output: collect_values.then(|| Value::nothing(span)),
+            expr: collect_exprs.then(|| "call".to_string()),
             children: vec![],
         };
 
@@ -141,11 +134,9 @@ impl Debugger for Profiler {
             return;
         };
 
-        let expr_opt = if self.collect_exprs {
-            Some(expr_to_string(engine_state, &element.expr.expr))
-        } else {
-            None
-        };
+        let expr_opt = self
+            .collect_exprs
+            .then(|| expr_to_string(engine_state, &element.expr.expr));
 
         let new_id = ElementId(self.elements.len());
 
@@ -175,21 +166,17 @@ impl Debugger for Profiler {
 
         let element_span = element.expr.span;
 
-        let out_opt = if self.collect_values {
-            Some(match result {
-                Ok((pipeline_data, _not_sure_what_this_is)) => match pipeline_data {
-                    PipelineData::Value(val, ..) => val.clone(),
-                    PipelineData::ListStream(..) => Value::string("list stream", element_span),
-                    PipelineData::ExternalStream { .. } => {
-                        Value::string("external stream", element_span)
-                    }
-                    _ => Value::nothing(element_span),
-                },
-                Err(e) => Value::error(e.clone(), element_span),
-            })
-        } else {
-            None
-        };
+        let out_opt = self.collect_values.then(|| match result {
+            Ok((pipeline_data, _not_sure_what_this_is)) => match pipeline_data {
+                PipelineData::Value(val, ..) => val.clone(),
+                PipelineData::ListStream(..) => Value::string("list stream", element_span),
+                PipelineData::ExternalStream { .. } => {
+                    Value::string("external stream", element_span)
+                }
+                _ => Value::nothing(element_span),
+            },
+            Err(e) => Value::error(e.clone(), element_span),
+        });
 
         let Some(last_element) = self.last_element_mut() else {
             eprintln!("Profiler Error: Missing last element.");
@@ -256,24 +243,23 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::GlobPattern(_, _) => "glob pattern".to_string(),
         Expr::ImportPattern(_) => "import pattern".to_string(),
         Expr::Int(_) => "int".to_string(),
-        Expr::Keyword(_, _, _) => "keyword".to_string(),
+        Expr::Keyword(_) => "keyword".to_string(),
         Expr::List(_) => "list".to_string(),
         Expr::MatchBlock(_) => "match block".to_string(),
         Expr::Nothing => "nothing".to_string(),
         Expr::Operator(_) => "operator".to_string(),
         Expr::Overlay(_) => "overlay".to_string(),
-        Expr::Range(_, _, _, _) => "range".to_string(),
+        Expr::Range(_) => "range".to_string(),
         Expr::Record(_) => "record".to_string(),
         Expr::RowCondition(_) => "row condition".to_string(),
         Expr::Signature(_) => "signature".to_string(),
-        Expr::Spread(_) => "spread".to_string(),
         Expr::String(_) => "string".to_string(),
         Expr::RawString(_) => "raw-string".to_string(),
         Expr::StringInterpolation(_) => "string interpolation".to_string(),
         Expr::Subexpression(_) => "subexpression".to_string(),
-        Expr::Table(_, _) => "table".to_string(),
+        Expr::Table(_) => "table".to_string(),
         Expr::UnaryNot(_) => "unary not".to_string(),
-        Expr::ValueWithUnit(_, _) => "value with unit".to_string(),
+        Expr::ValueWithUnit(_) => "value with unit".to_string(),
         Expr::Var(_) => "var".to_string(),
         Expr::VarDecl(_) => "var decl".to_string(),
     }

@@ -16,8 +16,8 @@ Welcome to Nushell and thank you for considering contributing!
 
 More resources can be found in the nascent [developer documentation](devdocs/README.md) in this repo.
 
-- [Developer FAQ](FAQ.md)
-- [Platform support policy](PLATFORM_SUPPORT.md)
+- [Developer FAQ](devdocs/FAQ.md)
+- [Platform support policy](devdocs/PLATFORM_SUPPORT.md)
 - [Our Rust style](devdocs/rust_style.md)
 
 ## Proposing design changes

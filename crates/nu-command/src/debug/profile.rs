@@ -1,10 +1,5 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::debugger::{Profiler, WithDebug};
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-};
+use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_protocol::{debugger::Profiler, engine::Closure};
 
 #[derive(Clone)]
 pub struct DebugProfile;
@@ -39,7 +34,7 @@ impl Command for DebugProfile {
                 "How many blocks/closures deep to step into (default 2)",
                 Some('m'),
             )
-            .input_output_types(vec![(Type::Any, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Any, Type::table())])
             .category(Category::Debug)
     }
 
@@ -86,23 +81,18 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
     fn run(
         &self,
         engine_state: &EngineState,
-        caller_stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let closure: Closure = call.req(engine_state, caller_stack, 0)?;
-        let mut callee_stack = caller_stack.captures_to_stack(closure.captures);
-        let block = engine_state.get_block(closure.block_id);
-
-        let default_max_depth = 2;
-        let collect_spans = call.has_flag(engine_state, caller_stack, "spans")?;
-        let collect_expanded_source =
-            call.has_flag(engine_state, caller_stack, "expanded-source")?;
-        let collect_values = call.has_flag(engine_state, caller_stack, "values")?;
-        let collect_exprs = call.has_flag(engine_state, caller_stack, "expr")?;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
+        let collect_spans = call.has_flag(engine_state, stack, "spans")?;
+        let collect_expanded_source = call.has_flag(engine_state, stack, "expanded-source")?;
+        let collect_values = call.has_flag(engine_state, stack, "values")?;
+        let collect_exprs = call.has_flag(engine_state, stack, "expr")?;
         let max_depth = call
-            .get_flag(engine_state, caller_stack, "max-depth")?
-            .unwrap_or(default_max_depth);
+            .get_flag(engine_state, stack, "max-depth")?
+            .unwrap_or(2);
 
         let profiler = Profiler::new(
             max_depth,
@@ -114,26 +104,19 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             call.span(),
         );
 
-        let lock_err = {
-            |_| ShellError::GenericError {
-                error: "Profiler Error".to_string(),
-                msg: "could not lock debugger, poisoned mutex".to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            }
+        let lock_err = |_| ShellError::GenericError {
+            error: "Profiler Error".to_string(),
+            msg: "could not lock debugger, poisoned mutex".to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         };
 
         engine_state
             .activate_debugger(Box::new(profiler))
             .map_err(lock_err)?;
 
-        let result = eval_block_with_early_return::<WithDebug>(
-            engine_state,
-            &mut callee_stack,
-            block,
-            input,
-        );
+        let result = ClosureEvalOnce::new(engine_state, stack, closure).run_with_input(input);
 
         // TODO: See eval_source()
         match result {
@@ -144,10 +127,11 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             Err(_e) => (), // TODO: Report error
         }
 
-        let debugger = engine_state.deactivate_debugger().map_err(lock_err)?;
-        let res = debugger.report(engine_state, call.span());
-
-        res.map(|val| val.into_pipeline_data())
+        Ok(engine_state
+            .deactivate_debugger()
+            .map_err(lock_err)?
+            .report(engine_state, call.span())?
+            .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

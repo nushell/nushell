@@ -1,12 +1,6 @@
-use dialoguer::{console::Term, Select};
-use dialoguer::{FuzzySelect, MultiSelect};
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use dialoguer::{console::Term, FuzzySelect, MultiSelect, Select};
+use nu_engine::command_prelude::*;
+
 use std::fmt::{Display, Formatter};
 
 enum InteractMode {
@@ -134,7 +128,7 @@ impl Command for InputList {
         //     ..Default::default()
         // };
 
-        let ans: InteractMode = if multi {
+        let answer: InteractMode = if multi {
             let multi_select = MultiSelect::new(); //::with_theme(&theme);
 
             InteractMode::Multi(
@@ -185,7 +179,7 @@ impl Command for InputList {
             )
         };
 
-        Ok(match ans {
+        Ok(match answer {
             InteractMode::Multi(res) => {
                 if index {
                     match res {

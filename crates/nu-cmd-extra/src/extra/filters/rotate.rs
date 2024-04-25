@@ -1,11 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::IntoPipelineData;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, PipelineData, Record, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Rotate;
@@ -18,8 +11,8 @@ impl Command for Rotate {
     fn signature(&self) -> Signature {
         Signature::build("rotate")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Table(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::table()),
+                (Type::table(), Type::table()),
             ])
             .switch("ccw", "rotate counter clockwise", None)
             .rest(
@@ -178,7 +171,7 @@ pub fn rotate(
             let span = val.span();
             match val {
                 Value::Record { val: record, .. } => {
-                    let (cols, vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+                    let (cols, vals): (Vec<_>, Vec<_>) = record.into_owned().into_iter().unzip();
                     old_column_names = cols;
                     new_values.extend_from_slice(&vals);
                 }

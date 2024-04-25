@@ -1,12 +1,12 @@
 pub mod support;
 
-use std::path::PathBuf;
-
 use nu_cli::NuCompleter;
+use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::{debugger::WithoutDebug, engine::StateWorkingSet, PipelineData};
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
+use std::path::PathBuf;
 use support::{
     completions_helpers::{new_partial_engine, new_quote_engine},
     file, folder, match_suggestions, new_engine,
@@ -178,7 +178,7 @@ fn dotnu_completions() {
 #[ignore]
 fn external_completer_trailing_space() {
     // https://github.com/nushell/nushell/issues/6378
-    let block = "let external_completer = {|spans| $spans}";
+    let block = "{|spans| $spans}";
     let input = "gh alias ".to_string();
 
     let suggestions = run_external_completion(block, &input);
@@ -848,12 +848,14 @@ fn alias_of_another_alias() {
     match_suggestions(expected_paths, suggestions)
 }
 
-fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
+fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
+    let completer = format!("$env.config.completions.external.completer = {completer}");
+
     // Create a new engine
     let (dir, _, mut engine_state, mut stack) = new_engine();
-    let (_, delta) = {
+    let (block, delta) = {
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let block = parse(&mut working_set, None, block.as_bytes(), false);
+        let block = parse(&mut working_set, None, completer.as_bytes(), false);
         assert!(working_set.parse_errors.is_empty());
 
         (block, working_set.render())
@@ -861,15 +863,12 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
 
     assert!(engine_state.merge_delta(delta).is_ok());
 
+    assert!(
+        eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, PipelineData::Empty).is_ok()
+    );
+
     // Merge environment into the permanent state
     assert!(engine_state.merge_env(&mut stack, &dir).is_ok());
-
-    let latest_block_id = engine_state.num_blocks() - 1;
-
-    // Change config adding the external completer
-    let mut config = engine_state.get_config().clone();
-    config.external_completer = Some(latest_block_id);
-    engine_state.set_config(config);
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack);

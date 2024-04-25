@@ -1,12 +1,9 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Config, Example, PipelineData, Record, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+use nu_engine::command_prelude::*;
+use nu_protocol::Config;
+use std::{
+    cmp::max,
+    collections::{HashMap, HashSet},
 };
-use std::cmp::max;
-use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
 pub struct Join;
@@ -49,7 +46,7 @@ impl Command for Join {
             .switch("left", "Left-outer join", Some('l'))
             .switch("right", "Right-outer join", Some('r'))
             .switch("outer", "Outer join", Some('o'))
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .category(Category::Filters)
     }
 

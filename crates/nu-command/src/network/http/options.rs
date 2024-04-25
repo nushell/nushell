@@ -1,16 +1,8 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
-
 use crate::network::http::client::{
     http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    request_handle_response, request_set_timeout, send_request, RedirectMode, RequestFlags,
 };
-
-use super::client::{RedirectMode, RequestFlags};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;

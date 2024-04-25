@@ -1,9 +1,5 @@
-use nu_protocol::{
-    ast::{Call, CellPath, PathMember},
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct IntoCellPath;
@@ -19,10 +15,9 @@ impl Command for IntoCellPath {
                 (Type::Int, Type::CellPath),
                 (Type::List(Box::new(Type::Any)), Type::CellPath),
                 (
-                    Type::List(Box::new(Type::Record(vec![
-                        ("value".into(), Type::Any),
-                        ("optional".into(), Type::Bool),
-                    ]))),
+                    Type::List(Box::new(Type::Record(
+                        [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
+                    ))),
                     Type::CellPath,
                 ),
             ])

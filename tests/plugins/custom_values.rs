@@ -182,6 +182,42 @@ fn drop_check_custom_value_prints_message_on_drop() {
 }
 
 #[test]
+fn handle_make_then_get_success() {
+    // The drop notification must wait until the `handle get` call has finished in order for this
+    // to succeed
+    let actual = nu_with_plugins!(
+        cwd: "tests",
+        plugin: ("nu_plugin_custom_values"),
+        "42 | custom-value handle make | custom-value handle get"
+    );
+
+    assert_eq!(actual.out, "42");
+    assert!(actual.status.success());
+}
+
+#[test]
+fn handle_update_several_times_doesnt_deadlock() {
+    // Do this in a loop to try to provoke a deadlock on drop
+    for _ in 0..10 {
+        let actual = nu_with_plugins!(
+            cwd: "tests",
+            plugin: ("nu_plugin_custom_values"),
+            r#"
+                "hEllO" |
+                    custom-value handle make |
+                    custom-value handle update { str upcase } |
+                    custom-value handle update { str downcase } |
+                    custom-value handle update { str title-case } |
+                    custom-value handle get
+            "#
+        );
+
+        assert_eq!(actual.out, "Hello");
+        assert!(actual.status.success());
+    }
+}
+
+#[test]
 fn custom_value_in_example_is_rendered() {
     let actual = nu_with_plugins!(
         cwd: "tests",

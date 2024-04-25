@@ -1,7 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Panic;
@@ -17,7 +14,7 @@ impl Command for Panic {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("panic")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
             .optional("msg", SyntaxShape::String, "The glob pattern to use.")

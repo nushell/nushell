@@ -1,9 +1,8 @@
 mod common;
 
+use common::{create_row, test_table, TestCase};
 use nu_protocol::TrimStrategy;
 use nu_table::{NuTable, NuTableConfig, TableTheme as theme};
-
-use common::{create_row, test_table, TestCase};
 use tabled::grid::records::vec_records::CellInfo;
 
 #[test]

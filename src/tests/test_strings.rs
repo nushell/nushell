@@ -68,6 +68,6 @@ fn case_insensitive_sort() -> TestResult {
 fn case_insensitive_sort_columns() -> TestResult {
     run_test(
         r#"[[version, package]; ["two", "Abc"], ["three", "abc"], ["four", "abc"]] | sort-by -i package version | to json --raw"#,
-        r#"[{"version": "four","package": "abc"},{"version": "three","package": "abc"},{"version": "two","package": "Abc"}]"#,
+        r#"[{"version":"four","package":"abc"},{"version":"three","package":"abc"},{"version":"two","package":"Abc"}]"#,
     )
 }

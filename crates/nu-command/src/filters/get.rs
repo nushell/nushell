@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Get;
@@ -33,8 +27,8 @@ If multiple cell paths are given, this will produce a list of values."#
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
-                (Type::Table(vec![]), Type::Any),
-                (Type::Record(vec![]), Type::Any),
+                (Type::table(), Type::Any),
+                (Type::record(), Type::Any),
             ])
             .required(
                 "cell_path",

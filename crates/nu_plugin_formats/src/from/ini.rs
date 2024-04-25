@@ -1,23 +1,31 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, SimplePluginCommand};
-use nu_protocol::{
-    record, Category, PluginExample, PluginSignature, Record, ShellError, Type, Value,
-};
-
 use crate::FromCmds;
 
-pub const CMD_NAME: &str = "from ini";
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    record, Category, Example, LabeledError, Record, ShellError, Signature, Type, Value,
+};
 
 pub struct FromIni;
 
 impl SimplePluginCommand for FromIni {
     type Plugin = FromCmds;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build(CMD_NAME)
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
-            .usage("Parse text as .ini and create table.")
-            .plugin_examples(examples())
+    fn name(&self) -> &str {
+        "from ini"
+    }
+
+    fn usage(&self) -> &str {
+        "Parse text as .ini and create table."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .input_output_types(vec![(Type::String, Type::record())])
             .category(Category::Formats)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        examples()
     }
 
     fn run(
@@ -74,13 +82,12 @@ impl SimplePluginCommand for FromIni {
     }
 }
 
-pub fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
+pub fn examples() -> Vec<Example<'static>> {
+    vec![Example {
         example: "'[foo]
 a=1
-b=2' | from ini"
-            .into(),
-        description: "Converts ini formatted string to record".into(),
+b=2' | from ini",
+        description: "Converts ini formatted string to record",
         result: Some(Value::test_record(record! {
             "foo" => Value::test_record(record! {
                 "a" =>  Value::test_string("1"),
@@ -88,4 +95,11 @@ b=2' | from ini"
             }),
         })),
     }]
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromIni)
 }

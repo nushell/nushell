@@ -1,9 +1,6 @@
-use crate::inc::SemVerAction;
-use crate::Inc;
-use nu_plugin::{
-    EngineInterface, EvaluatedCall, LabeledError, Plugin, PluginCommand, SimplePluginCommand,
-};
-use nu_protocol::{ast::CellPath, PluginSignature, SyntaxShape, Value};
+use crate::{inc::SemVerAction, Inc};
+use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
+use nu_protocol::{ast::CellPath, LabeledError, Signature, SyntaxShape, Value};
 
 pub struct IncPlugin;
 
@@ -16,9 +13,16 @@ impl Plugin for IncPlugin {
 impl SimplePluginCommand for Inc {
     type Plugin = IncPlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("inc")
-            .usage("Increment a value or version. Optionally use the column of a table.")
+    fn name(&self) -> &str {
+        "inc"
+    }
+
+    fn usage(&self) -> &str {
+        "Increment a value or version. Optionally use the column of a table."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(PluginCommand::name(self))
             .optional("cell_path", SyntaxShape::CellPath, "cell path to update")
             .switch(
                 "major",

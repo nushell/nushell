@@ -1,11 +1,13 @@
 macro_rules! generate_tests {
     ($encoder:expr) => {
         use crate::protocol::{
-            CallInfo, CustomValueOp, EvaluatedCall, LabeledError, PipelineDataHeader, PluginCall,
+            CallInfo, CustomValueOp, EvaluatedCall, PipelineDataHeader, PluginCall,
             PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
-            StreamData, StreamMessage,
+            StreamData,
         };
-        use nu_protocol::{PluginSignature, Span, Spanned, SyntaxShape, Value};
+        use nu_protocol::{
+            LabeledError, PluginSignature, Signature, Span, Spanned, SyntaxShape, Value,
+        };
 
         #[test]
         fn decode_eof() {
@@ -211,17 +213,20 @@ macro_rules! generate_tests {
 
         #[test]
         fn response_round_trip_signature() {
-            let signature = PluginSignature::build("nu-plugin")
-                .required("first", SyntaxShape::String, "first required")
-                .required("second", SyntaxShape::Int, "second required")
-                .required_named("first-named", SyntaxShape::String, "first named", Some('f'))
-                .required_named(
-                    "second-named",
-                    SyntaxShape::String,
-                    "second named",
-                    Some('s'),
-                )
-                .rest("remaining", SyntaxShape::Int, "remaining");
+            let signature = PluginSignature::new(
+                Signature::build("nu-plugin")
+                    .required("first", SyntaxShape::String, "first required")
+                    .required("second", SyntaxShape::Int, "second required")
+                    .required_named("first-named", SyntaxShape::String, "first named", Some('f'))
+                    .required_named(
+                        "second-named",
+                        SyntaxShape::String,
+                        "second named",
+                        Some('s'),
+                    )
+                    .rest("remaining", SyntaxShape::Int, "remaining"),
+                vec![],
+            );
 
             let response = PluginCallResponse::Signature(vec![signature.clone()]);
             let output = PluginOutput::CallResponse(3, response);
@@ -315,7 +320,7 @@ macro_rules! generate_tests {
             let data = vec![1, 2, 3, 4, 5];
             let span = Span::new(2, 30);
 
-            let value = Value::custom_value(
+            let value = Value::custom(
                 Box::new(PluginCustomValue::new(
                     name.into(),
                     data.clone(),
@@ -364,11 +369,15 @@ macro_rules! generate_tests {
 
         #[test]
         fn response_round_trip_error() {
-            let error = LabeledError {
-                label: "label".into(),
-                msg: "msg".into(),
-                span: Some(Span::new(2, 30)),
-            };
+            let error = LabeledError::new("label")
+                .with_code("test::error")
+                .with_url("https://example.org/test/error")
+                .with_help("some help")
+                .with_label("msg", Span::new(2, 30))
+                .with_inner(ShellError::IOError {
+                    msg: "io error".into(),
+                });
+
             let response = PluginCallResponse::Error(error.clone());
             let output = PluginOutput::CallResponse(6, response);
 
@@ -392,11 +401,7 @@ macro_rules! generate_tests {
 
         #[test]
         fn response_round_trip_error_none() {
-            let error = LabeledError {
-                label: "label".into(),
-                msg: "msg".into(),
-                span: None,
-            };
+            let error = LabeledError::new("error");
             let response = PluginCallResponse::Error(error.clone());
             let output = PluginOutput::CallResponse(7, response);
 
@@ -424,7 +429,7 @@ macro_rules! generate_tests {
             let item = Value::int(1, span);
 
             let stream_data = StreamData::List(item.clone());
-            let plugin_input = PluginInput::Stream(StreamMessage::Data(0, stream_data));
+            let plugin_input = PluginInput::Data(0, stream_data);
 
             let encoder = $encoder;
             let mut buffer: Vec<u8> = Vec::new();
@@ -437,7 +442,7 @@ macro_rules! generate_tests {
                 .expect("eof");
 
             match returned {
-                PluginInput::Stream(StreamMessage::Data(id, StreamData::List(list_data))) => {
+                PluginInput::Data(id, StreamData::List(list_data)) => {
                     assert_eq!(0, id);
                     assert_eq!(item, list_data);
                 }
@@ -450,7 +455,7 @@ macro_rules! generate_tests {
             let data = b"Hello world";
 
             let stream_data = StreamData::Raw(Ok(data.to_vec()));
-            let plugin_input = PluginInput::Stream(StreamMessage::Data(1, stream_data));
+            let plugin_input = PluginInput::Data(1, stream_data);
 
             let encoder = $encoder;
             let mut buffer: Vec<u8> = Vec::new();
@@ -463,7 +468,7 @@ macro_rules! generate_tests {
                 .expect("eof");
 
             match returned {
-                PluginInput::Stream(StreamMessage::Data(id, StreamData::Raw(bytes))) => {
+                PluginInput::Data(id, StreamData::Raw(bytes)) => {
                     assert_eq!(1, id);
                     match bytes {
                         Ok(bytes) => assert_eq!(data, &bytes[..]),
@@ -480,7 +485,7 @@ macro_rules! generate_tests {
             let item = Value::int(1, span);
 
             let stream_data = StreamData::List(item.clone());
-            let plugin_output = PluginOutput::Stream(StreamMessage::Data(4, stream_data));
+            let plugin_output = PluginOutput::Data(4, stream_data);
 
             let encoder = $encoder;
             let mut buffer: Vec<u8> = Vec::new();
@@ -493,7 +498,7 @@ macro_rules! generate_tests {
                 .expect("eof");
 
             match returned {
-                PluginOutput::Stream(StreamMessage::Data(id, StreamData::List(list_data))) => {
+                PluginOutput::Data(id, StreamData::List(list_data)) => {
                     assert_eq!(4, id);
                     assert_eq!(item, list_data);
                 }
@@ -506,7 +511,7 @@ macro_rules! generate_tests {
             let data = b"Hello world";
 
             let stream_data = StreamData::Raw(Ok(data.to_vec()));
-            let plugin_output = PluginOutput::Stream(StreamMessage::Data(5, stream_data));
+            let plugin_output = PluginOutput::Data(5, stream_data);
 
             let encoder = $encoder;
             let mut buffer: Vec<u8> = Vec::new();
@@ -519,7 +524,7 @@ macro_rules! generate_tests {
                 .expect("eof");
 
             match returned {
-                PluginOutput::Stream(StreamMessage::Data(id, StreamData::Raw(bytes))) => {
+                PluginOutput::Data(id, StreamData::Raw(bytes)) => {
                     assert_eq!(5, id);
                     match bytes {
                         Ok(bytes) => assert_eq!(data, &bytes[..]),

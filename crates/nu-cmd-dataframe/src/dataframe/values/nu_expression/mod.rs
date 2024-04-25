@@ -55,13 +55,13 @@ impl From<Expr> for NuExpression {
 
 impl NuExpression {
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(NuExpression(expr.0.clone())),
                 None => Err(ShellError::CantConvert {
                     to_type: "lazy expression".into(),
@@ -90,7 +90,7 @@ impl NuExpression {
 
     pub fn can_downcast(value: &Value) -> bool {
         match value {
-            Value::CustomValue { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
+            Value::Custom { val, .. } => val.as_any().downcast_ref::<Self>().is_some(),
             Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
             Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {
                 true
@@ -144,7 +144,7 @@ impl ExtractedExpr {
     fn extract_exprs(value: Value) -> Result<ExtractedExpr, ShellError> {
         match value {
             Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
-            Value::CustomValue { .. } => NuExpression::try_from_value(value)
+            Value::Custom { .. } => NuExpression::try_from_value(value)
                 .map(NuExpression::into_polars)
                 .map(ExtractedExpr::Single),
             Value::List { vals, .. } => vals
@@ -313,11 +313,15 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::SortBy {
             expr,
             by,
-            descending,
+            sort_options,
         } => {
             let by: Result<Vec<Value>, ShellError> =
                 by.iter().map(|b| expr_to_value(b, span)).collect();
-            let descending: Vec<Value> = descending.iter().map(|r| Value::bool(*r, span)).collect();
+            let descending: Vec<Value> = sort_options
+                .descending
+                .iter()
+                .map(|r| Value::bool(*r, span))
+                .collect();
 
             Ok(Value::record(
                 record! {

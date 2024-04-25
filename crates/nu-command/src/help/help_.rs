@@ -1,16 +1,10 @@
-use crate::help::help_aliases;
-use crate::help::help_commands;
-use crate::help::help_modules;
+use crate::help::{help_aliases, help_commands, help_modules};
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    span, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::span;
 use nu_utils::IgnoreCaseExt;
+
 #[derive(Clone)]
 pub struct Help;
 
@@ -122,7 +116,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
             },
             Example {
                 description: "show help for single sub-command, alias, or module",
-                example: "help str lpad",
+                example: "help str join",
                 result: None,
             },
             Example {
@@ -145,19 +139,20 @@ pub fn highlight_search_in_table(
     let search_string = search_string.to_folded_case();
     let mut matches = vec![];
 
-    for record in table {
-        let span = record.span();
-        let (mut record, record_span) = if let Value::Record { val, .. } = record {
-            (val, span)
-        } else {
+    for mut value in table {
+        let Value::Record {
+            val: ref mut record,
+            ..
+        } = value
+        else {
             return Err(ShellError::NushellFailedSpanned {
                 msg: "Expected record".to_string(),
-                label: format!("got {}", record.get_type()),
-                span: record.span(),
+                label: format!("got {}", value.get_type()),
+                span: value.span(),
             });
         };
 
-        let has_match = record.iter_mut().try_fold(
+        let has_match = record.to_mut().iter_mut().try_fold(
             false,
             |acc: bool, (col, val)| -> Result<bool, ShellError> {
                 if !searched_cols.contains(&col.as_str()) {
@@ -186,7 +181,7 @@ pub fn highlight_search_in_table(
         )?;
 
         if has_match {
-            matches.push(Value::record(record, record_span));
+            matches.push(value);
         }
     }
 

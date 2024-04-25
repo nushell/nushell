@@ -1,14 +1,7 @@
-use std::path::{Path, PathBuf};
-
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
-
 use super::PathSubcommandArguments;
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
+use std::path::{Path, PathBuf};
 
 struct Arguments {
     append: Vec<Spanned<String>>,
@@ -29,8 +22,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::List(Box::new(Type::String)), Type::String),
-                (Type::Record(vec![]), Type::String),
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
+                (Type::record(), Type::String),
+                (Type::table(), Type::List(Box::new(Type::String))),
             ])
             .rest(
                 "append",

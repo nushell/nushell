@@ -1,8 +1,5 @@
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct ToYaml;
@@ -57,7 +54,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         }
         Value::Record { val, .. } => {
             let mut m = serde_yaml::Mapping::new();
-            for (k, v) in val {
+            for (k, v) in &**val {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
                     value_to_yaml_value(v)?,
@@ -78,7 +75,6 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
 
             serde_yaml::Value::Sequence(out)
         }
-        Value::Block { .. } => serde_yaml::Value::Null,
         Value::Closure { .. } => serde_yaml::Value::Null,
         Value::Nothing { .. } => serde_yaml::Value::Null,
         Value::Error { error, .. } => return Err(*error.clone()),
@@ -98,7 +94,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
                 })
                 .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
         ),
-        Value::CustomValue { .. } => serde_yaml::Value::Null,
+        Value::Custom { .. } => serde_yaml::Value::Null,
     })
 }
 

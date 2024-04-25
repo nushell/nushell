@@ -1,14 +1,8 @@
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::debugger::WithoutDebug;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+use nu_engine::{command_prelude::*, eval_block};
+use nu_protocol::{debugger::WithoutDebug, engine::Closure, LazyRecord};
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    sync::{Arc, Mutex},
 };
 
 #[derive(Clone)]
@@ -21,7 +15,7 @@ impl Command for LazyMake {
 
     fn signature(&self) -> Signature {
         Signature::build("lazy make")
-            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::record())])
             .required_named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -60,6 +54,18 @@ impl Command for LazyMake {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError {
+                error: "Deprecated command".into(),
+                msg: "warning: lazy records and the `lazy make` command will be removed in 0.94.0"
+                    .into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            },
+        );
+
         let span = call.head;
         let columns: Vec<Spanned<String>> = call
             .get_flag(engine_state, stack, "columns")?
@@ -86,7 +92,7 @@ impl Command for LazyMake {
             }
         }
 
-        let stack = stack.clone().reset_stdio().capture();
+        let stack = stack.clone().reset_out_dest().capture();
 
         Ok(Value::lazy_record(
             Box::new(NuLazyRecord {

@@ -1,11 +1,6 @@
-use chrono::prelude::DateTime;
-use chrono::Local;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, LazyRecord, PipelineData, Record, ShellError,
-    Signature, Span, Type, Value,
-};
+use chrono::{DateTime, Local};
+use nu_engine::command_prelude::*;
+use nu_protocol::LazyRecord;
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,
@@ -23,7 +18,7 @@ impl Command for Sys {
         Signature::build("sys")
             .filter()
             .category(Category::System)
-            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::record())])
     }
 
     fn usage(&self) -> &str {

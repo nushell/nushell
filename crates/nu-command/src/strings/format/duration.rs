@@ -1,10 +1,5 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 struct Arguments {
     format_value: String,
@@ -34,7 +29,7 @@ impl Command for FormatDuration {
                     Type::List(Box::new(Type::Duration)),
                     Type::List(Box::new(Type::String)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
             ])
             .allow_variants_without_examples(true)
             .required(

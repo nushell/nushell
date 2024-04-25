@@ -1,13 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
-
-use crate::dataframe::values::NuExpression;
-
-use super::super::values::NuDataFrame;
+use crate::dataframe::values::{NuDataFrame, NuExpression};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct ToNu;
@@ -32,7 +24,7 @@ impl Command for ToNu {
             .switch("tail", "shows tail rows", Some('t'))
             .input_output_types(vec![
                 (Type::Custom("expression".into()), Type::Any),
-                (Type::Custom("dataframe".into()), Type::Table(vec![])),
+                (Type::Custom("dataframe".into()), Type::table()),
             ])
             //.input_output_type(Type::Any, Type::Any)
             .category(Category::Custom("dataframe".into()))

@@ -1,13 +1,8 @@
 use calamine::*;
-use chrono::offset::Utc;
-use chrono::{Local, LocalResult, Offset, TimeZone};
-use indexmap::map::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use chrono::{Local, LocalResult, Offset, TimeZone, Utc};
+use indexmap::IndexMap;
+use nu_engine::command_prelude::*;
+
 use std::io::Cursor;
 
 #[derive(Clone)]
@@ -20,7 +15,7 @@ impl Command for FromXlsx {
 
     fn signature(&self) -> Signature {
         Signature::build("from xlsx")
-            .input_output_types(vec![(Type::Binary, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Binary, Type::table())])
             .allow_variants_without_examples(true)
             .named(
                 "sheets",

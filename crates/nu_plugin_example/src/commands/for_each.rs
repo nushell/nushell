@@ -1,35 +1,48 @@
-use nu_plugin::{EngineInterface, EvaluatedCall, LabeledError, PluginCommand};
-use nu_protocol::{Category, PipelineData, PluginExample, PluginSignature, SyntaxShape, Type};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type};
 
-use crate::Example;
+use crate::ExamplePlugin;
 
 /// `<list> | example for-each { |value| ... }`
 pub struct ForEach;
 
 impl PluginCommand for ForEach {
-    type Plugin = Example;
+    type Plugin = ExamplePlugin;
 
-    fn signature(&self) -> PluginSignature {
-        PluginSignature::build("example for-each")
-            .usage("Example execution of a closure with a stream")
-            .extra_usage("Prints each value the closure returns to stderr")
+    fn name(&self) -> &str {
+        "example for-each"
+    }
+
+    fn usage(&self) -> &str {
+        "Example execution of a closure with a stream"
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Prints each value the closure returns to stderr"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
             .input_output_type(Type::ListStream, Type::Nothing)
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run for each input value",
             )
-            .plugin_examples(vec![PluginExample {
-                example: "ls | get name | example for-each { |f| ^file $f }".into(),
-                description: "example with an external command".into(),
-                result: None,
-            }])
             .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            example: "ls | get name | example for-each { |f| ^file $f }",
+            description: "example with an external command",
+            result: None,
+        }]
     }
 
     fn run(
         &self,
-        _plugin: &Example,
+        _plugin: &ExamplePlugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
         input: PipelineData,
@@ -42,4 +55,10 @@ impl PluginCommand for ForEach {
         }
         Ok(PipelineData::Empty)
     }
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+    PluginTest::new("example", ExamplePlugin.into())?.test_command_examples(&ForEach)
 }

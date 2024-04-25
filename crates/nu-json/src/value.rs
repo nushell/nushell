@@ -2,7 +2,7 @@
 use std::collections::{btree_map, BTreeMap};
 
 #[cfg(feature = "preserve_order")]
-use linked_hash_map::{self, LinkedHashMap};
+use linked_hash_map::LinkedHashMap;
 
 use std::fmt;
 use std::io;
@@ -1094,9 +1094,9 @@ impl<'de> de::MapAccess<'de> for MapDeserializer {
     }
 }
 
-pub fn to_value<T: ?Sized>(value: &T) -> Result<Value>
+pub fn to_value<T>(value: &T) -> Result<Value>
 where
-    T: ser::Serialize,
+    T: ser::Serialize + ?Sized,
 {
     value.serialize(Serializer)
 }

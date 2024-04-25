@@ -6,7 +6,7 @@ use super::helpers;
 use super::tilde::expand_tilde;
 
 // Join a path relative to another path. Paths starting with tilde are considered as absolute.
-fn join_path_relative<P, Q>(path: P, relative_to: Q) -> PathBuf
+fn join_path_relative<P, Q>(path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -19,7 +19,7 @@ where
         // more ugly - so we don't do anything, which should result in an equal
         // path on all supported systems.
         relative_to.into()
-    } else if path.to_string_lossy().as_ref().starts_with('~') {
+    } else if path.to_string_lossy().as_ref().starts_with('~') && expand_tilde {
         // do not end up with "/some/path/~" or "/some/path/~user"
         path.into()
     } else {
@@ -38,20 +38,25 @@ fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
 /// absolute form.
 ///
 /// Fails under the same conditions as
-/// [std::fs::canonicalize](https://doc.rust-lang.org/std/fs/fn.canonicalize.html).
+/// [`std::fs::canonicalize`](https://doc.rust-lang.org/std/fs/fn.canonicalize.html).
 /// The input path is specified relative to another path
 pub fn canonicalize_with<P, Q>(path: P, relative_to: Q) -> io::Result<PathBuf>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
-    let path = join_path_relative(path, relative_to);
+    let path = join_path_relative(path, relative_to, true);
 
     canonicalize(path)
 }
 
-fn expand_path(path: impl AsRef<Path>) -> PathBuf {
-    let path = expand_to_real_path(path);
+fn expand_path(path: impl AsRef<Path>, need_expand_tilde: bool) -> PathBuf {
+    let path = if need_expand_tilde {
+        expand_tilde(path)
+    } else {
+        PathBuf::from(path.as_ref())
+    };
+    let path = expand_ndots(path);
     expand_dots(path)
 }
 
@@ -64,14 +69,14 @@ fn expand_path(path: impl AsRef<Path>) -> PathBuf {
 ///
 /// Does not convert to absolute form nor does it resolve symlinks.
 /// The input path is specified relative to another path
-pub fn expand_path_with<P, Q>(path: P, relative_to: Q) -> PathBuf
+pub fn expand_path_with<P, Q>(path: P, relative_to: Q, expand_tilde: bool) -> PathBuf
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
 {
-    let path = join_path_relative(path, relative_to);
+    let path = join_path_relative(path, relative_to, expand_tilde);
 
-    expand_path(path)
+    expand_path(path, expand_tilde)
 }
 
 /// Resolve to a path that is accepted by the system and no further - tilde is expanded, and ndot path components are expanded.
@@ -86,4 +91,36 @@ where
 {
     let path = expand_tilde(path);
     expand_ndots(path)
+}
+
+/// Attempts to canonicalize the path against the current directory. Failing that, if
+/// the path is relative, it attempts all of the dirs in `dirs`. If that fails, it returns
+/// the original error.
+pub fn locate_in_dirs<I, P>(
+    filename: impl AsRef<Path>,
+    cwd: impl AsRef<Path>,
+    dirs: impl FnOnce() -> I,
+) -> std::io::Result<PathBuf>
+where
+    I: IntoIterator<Item = P>,
+    P: AsRef<Path>,
+{
+    let filename = filename.as_ref();
+    let cwd = cwd.as_ref();
+    match canonicalize_with(filename, cwd) {
+        Ok(path) => Ok(path),
+        Err(err) => {
+            // Try to find it in `dirs` first, before giving up
+            let mut found = None;
+            for dir in dirs() {
+                if let Ok(path) =
+                    canonicalize_with(dir, cwd).and_then(|dir| canonicalize_with(filename, dir))
+                {
+                    found = Some(path);
+                    break;
+                }
+            }
+            found.ok_or(err)
+        }
+    }
 }

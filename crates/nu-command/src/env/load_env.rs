@@ -1,9 +1,4 @@
-use nu_engine::{current_dir, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct LoadEnv;
@@ -20,7 +15,7 @@ impl Command for LoadEnv {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("load-env")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Nothing),
+                (Type::record(), Type::Nothing),
                 (Type::Nothing, Type::Nothing),
             ])
             .allow_variants_without_examples(true)
@@ -42,53 +37,34 @@ impl Command for LoadEnv {
         let arg: Option<Record> = call.opt(engine_state, stack, 0)?;
         let span = call.head;
 
-        match arg {
-            Some(record) => {
-                for (env_var, rhs) in record {
-                    let env_var_ = env_var.as_str();
-                    if ["FILE_PWD", "CURRENT_FILE", "PWD"].contains(&env_var_) {
-                        return Err(ShellError::AutomaticEnvVarSetManually {
-                            envvar_name: env_var,
-                            span: call.head,
-                        });
-                    }
-                    stack.add_env_var(env_var, rhs);
-                }
-                Ok(PipelineData::empty())
-            }
+        let record = match arg {
+            Some(record) => record,
             None => match input {
-                PipelineData::Value(Value::Record { val, .. }, ..) => {
-                    for (env_var, rhs) in val {
-                        let env_var_ = env_var.as_str();
-                        if ["FILE_PWD", "CURRENT_FILE"].contains(&env_var_) {
-                            return Err(ShellError::AutomaticEnvVarSetManually {
-                                envvar_name: env_var,
-                                span: call.head,
-                            });
-                        }
-
-                        if env_var == "PWD" {
-                            let cwd = current_dir(engine_state, stack)?;
-                            let rhs = rhs.coerce_into_string()?;
-                            let rhs = nu_path::expand_path_with(rhs, cwd);
-                            stack.add_env_var(
-                                env_var,
-                                Value::string(rhs.to_string_lossy(), call.head),
-                            );
-                        } else {
-                            stack.add_env_var(env_var, rhs);
-                        }
-                    }
-                    Ok(PipelineData::empty())
+                PipelineData::Value(Value::Record { val, .. }, ..) => val.into_owned(),
+                _ => {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "'load-env' expects a single record".into(),
+                        input: "value originated from here".into(),
+                        msg_span: span,
+                        input_span: input.span().unwrap_or(span),
+                    })
                 }
-                _ => Err(ShellError::UnsupportedInput {
-                    msg: "'load-env' expects a single record".into(),
-                    input: "value originated from here".into(),
-                    msg_span: span,
-                    input_span: input.span().unwrap_or(span),
-                }),
             },
+        };
+
+        for prohibited in ["FILE_PWD", "CURRENT_FILE", "PWD"] {
+            if record.contains(prohibited) {
+                return Err(ShellError::AutomaticEnvVarSetManually {
+                    envvar_name: prohibited.to_string(),
+                    span: call.head,
+                });
+            }
         }
+
+        for (env_var, rhs) in record {
+            stack.add_env_var(env_var, rhs);
+        }
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example> {

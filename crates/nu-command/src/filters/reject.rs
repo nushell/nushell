@@ -1,12 +1,6 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
-use std::cmp::Reverse;
-use std::collections::HashSet;
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
+use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]
 pub struct Reject;
@@ -19,8 +13,8 @@ impl Command for Reject {
     fn signature(&self) -> Signature {
         Signature::build("reject")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
             ])
             .switch(
                 "ignore-errors",

@@ -1,10 +1,8 @@
-use crate::math::reducers::{reducer_for, Reduce};
-use crate::math::utils::run_with_function;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+use crate::math::{
+    reducers::{reducer_for, Reduce},
+    utils::run_with_function,
 };
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -21,8 +19,8 @@ impl Command for SubCommand {
                 (Type::List(Box::new(Type::Duration)), Type::Duration),
                 (Type::List(Box::new(Type::Filesize)), Type::Filesize),
                 (Type::Range, Type::Number),
-                (Type::Table(vec![]), Type::Record(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::record()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)

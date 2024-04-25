@@ -1,11 +1,6 @@
 use alphanumeric_sort::compare_str;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
@@ -22,7 +17,7 @@ impl Command for Sort {
         .input_output_types(vec![(
             Type::List(Box::new(Type::Any)),
             Type::List(Box::new(Type::Any)),
-        ), (Type::Record(vec![]), Type::Record(vec![])),])
+        ), (Type::record(), Type::record()),])
     .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",
@@ -149,7 +144,14 @@ impl Command for Sort {
             // Records have two sorting methods, toggled by presence or absence of -v
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 let sort_by_value = call.has_flag(engine_state, stack, "values")?;
-                let record = sort_record(val, span, sort_by_value, reverse, insensitive, natural);
+                let record = sort_record(
+                    val.into_owned(),
+                    span,
+                    sort_by_value,
+                    reverse,
+                    insensitive,
+                    natural,
+                );
                 Ok(record.into_pipeline_data())
             }
             // Other values are sorted here

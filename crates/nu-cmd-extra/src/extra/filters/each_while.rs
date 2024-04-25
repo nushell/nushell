@@ -1,11 +1,5 @@
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct EachWhile;
@@ -73,116 +67,56 @@ impl Command for EachWhile {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
+        let head = call.head;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
-        let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack = stack.captures_to_stack(capture_block.captures);
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
-        let span = call.head;
-        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
-
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream { .. } => Ok(input
-                // TODO: Could this be changed to .into_interruptible_iter(ctrlc) ?
-                .into_iter()
-                .map_while(move |x| {
-                    // with_env() is used here to ensure that each iteration uses
-                    // a different set of environment variables.
-                    // Hence, a 'cd' in the first loop won't affect the next loop.
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, x.clone());
-                        }
-                    }
-
-                    match eval_block_with_early_return(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        x.into_pipeline_data(),
-                    ) {
-                        Ok(v) => {
-                            let value = v.into_value(span);
-                            if value.is_nothing() {
-                                None
-                            } else {
-                                Some(value)
-                            }
+            | PipelineData::ListStream(..) => {
+                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                Ok(input
+                    .into_iter()
+                    .map_while(move |value| match closure.run_with_value(value) {
+                        Ok(data) => {
+                            let value = data.into_value(head);
+                            (!value.is_nothing()).then_some(value)
                         }
                         Err(_) => None,
-                    }
-                })
-                .fuse()
-                .into_pipeline_data(ctrlc)),
+                    })
+                    .fuse()
+                    .into_pipeline_data(engine_state.ctrlc.clone()))
+            }
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..
-            } => Ok(stream
-                .into_iter()
-                .map_while(move |x| {
-                    // with_env() is used here to ensure that each iteration uses
-                    // a different set of environment variables.
-                    // Hence, a 'cd' in the first loop won't affect the next loop.
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-                    let x = match x {
-                        Ok(x) => x,
-                        Err(_) => return None,
-                    };
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, x.clone());
-                        }
-                    }
-
-                    match eval_block_with_early_return(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        x.into_pipeline_data(),
-                    ) {
-                        Ok(v) => {
-                            let value = v.into_value(span);
-                            if value.is_nothing() {
-                                None
-                            } else {
-                                Some(value)
+            } => {
+                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                Ok(stream
+                    .into_iter()
+                    .map_while(move |value| {
+                        let value = value.ok()?;
+                        match closure.run_with_value(value) {
+                            Ok(data) => {
+                                let value = data.into_value(head);
+                                (!value.is_nothing()).then_some(value)
                             }
+                            Err(_) => None,
                         }
-                        Err(_) => None,
-                    }
-                })
-                .fuse()
-                .into_pipeline_data(ctrlc)),
+                    })
+                    .fuse()
+                    .into_pipeline_data(engine_state.ctrlc.clone()))
+            }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(x, ..) => {
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, x.clone());
-                    }
-                }
-
-                eval_block_with_early_return(
-                    &engine_state,
-                    &mut stack,
-                    &block,
-                    x.into_pipeline_data(),
-                )
+            PipelineData::Value(value, ..) => {
+                ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
             }
         }
-        .map(|x| x.set_metadata(metadata))
+        .map(|data| data.set_metadata(metadata))
     }
 }
 

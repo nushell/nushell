@@ -1,15 +1,11 @@
-use std::{fs::File, path::PathBuf};
+use crate::dataframe::values::NuDataFrame;
+use nu_engine::command_prelude::*;
 
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+use polars_io::{
+    avro::{AvroCompression, AvroWriter},
+    SerWriter,
 };
-use polars_io::avro::{AvroCompression, AvroWriter};
-use polars_io::SerWriter;
-
-use super::super::values::NuDataFrame;
+use std::{fs::File, path::PathBuf};
 
 #[derive(Clone)]
 pub struct ToAvro;

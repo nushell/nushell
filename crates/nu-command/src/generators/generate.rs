@@ -1,12 +1,6 @@
 use itertools::unfold;
-use nu_engine::{get_eval_block_with_early_return, CallExt};
-
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, ClosureEval};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Generate;
@@ -97,43 +91,19 @@ used as the next argument to the closure, otherwise generation stops.
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let initial: Value = call.req(engine_state, stack, 0)?;
-        let capture_block: Spanned<Closure> = call.req(engine_state, stack, 1)?;
-        let block_span = capture_block.span;
-        let block = engine_state.get_block(capture_block.item.block_id).clone();
-        let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
-        let mut stack = stack.captures_to_stack(capture_block.item.captures);
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
-        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state);
+        let closure: Closure = call.req(engine_state, stack, 1)?;
+
+        let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         // A type of Option<S> is used to represent state. Invocation
         // will stop on None. Using Option<S> allows functions to output
         // one final value before stopping.
         let iter = unfold(Some(initial), move |state| {
-            let arg = match state {
-                Some(state) => state.clone(),
-                None => return None,
-            };
+            let arg = state.take()?;
 
-            // with_env() is used here to ensure that each iteration uses
-            // a different set of environment variables.
-            // Hence, a 'cd' in the first loop won't affect the next loop.
-            stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-            if let Some(var) = block.signature.get_positional(0) {
-                if let Some(var_id) = &var.var_id {
-                    stack.add_var(*var_id, arg.clone());
-                }
-            }
-
-            let (output, next_input) = match eval_block_with_early_return(
-                &engine_state,
-                &mut stack,
-                &block,
-                arg.into_pipeline_data(),
-            ) {
+            let (output, next_input) = match closure.run_with_value(arg) {
                 // no data -> output nothing and stop.
                 Ok(PipelineData::Empty) => (None, None),
 
@@ -142,7 +112,7 @@ used as the next argument to the closure, otherwise generation stops.
                     match value {
                         // {out: ..., next: ...} -> output and continue
                         Value::Record { val, .. } => {
-                            let iter = val.into_iter();
+                            let iter = val.into_owned().into_iter();
                             let mut out = None;
                             let mut next = None;
                             let mut err = None;
@@ -160,7 +130,7 @@ used as the next argument to the closure, otherwise generation stops.
                                         help: None,
                                         inner: vec![],
                                     };
-                                    err = Some(Value::error(error, block_span));
+                                    err = Some(Value::error(error, head));
                                     break;
                                 }
                             }
@@ -182,13 +152,13 @@ used as the next argument to the closure, otherwise generation stops.
                                 inner: vec![],
                             };
 
-                            (Some(Value::error(error, block_span)), None)
+                            (Some(Value::error(error, head)), None)
                         }
                     }
                 }
 
                 Ok(other) => {
-                    let val = other.into_value(block_span);
+                    let val = other.into_value(head);
                     let error = ShellError::GenericError {
                         error: "Invalid block return".into(),
                         msg: format!("Expected record, found {}", val.get_type()),
@@ -197,11 +167,11 @@ used as the next argument to the closure, otherwise generation stops.
                         inner: vec![],
                     };
 
-                    (Some(Value::error(error, block_span)), None)
+                    (Some(Value::error(error, head)), None)
                 }
 
                 // error -> error and stop
-                Err(error) => (Some(Value::error(error, block_span)), None),
+                Err(error) => (Some(Value::error(error, head)), None),
             };
 
             // We use `state` to control when to stop, not `output`. By wrapping
@@ -211,7 +181,9 @@ used as the next argument to the closure, otherwise generation stops.
             Some(output)
         });
 
-        Ok(iter.flatten().into_pipeline_data(ctrlc))
+        Ok(iter
+            .flatten()
+            .into_pipeline_data(engine_state.ctrlc.clone()))
     }
 }
 

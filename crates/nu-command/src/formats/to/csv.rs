@@ -1,11 +1,6 @@
 use crate::formats::to::delimited::to_delimited_data;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Config, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::Config;
 
 #[derive(Clone)]
 pub struct ToCsv;
@@ -18,8 +13,8 @@ impl Command for ToCsv {
     fn signature(&self) -> Signature {
         Signature::build("to csv")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::String),
-                (Type::Table(vec![]), Type::String),
+                (Type::record(), Type::String),
+                (Type::table(), Type::String),
             ])
             .named(
                 "separator",

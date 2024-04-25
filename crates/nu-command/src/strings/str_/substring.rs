@@ -1,14 +1,10 @@
 use crate::grapheme_flags;
-use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_cmd_base::util;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::ast::CellPath;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
+use nu_cmd_base::{
+    input_handler::{operate, CmdArgument},
+    util,
 };
+use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 use std::cmp::Ordering;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -46,8 +42,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .switch(

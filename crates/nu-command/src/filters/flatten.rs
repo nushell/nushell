@@ -1,12 +1,6 @@
 use indexmap::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath, PathMember};
-
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct Flatten;
@@ -23,7 +17,7 @@ impl Command for Flatten {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Record(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::table()),
             ])
             .rest(
                 "rest",
@@ -162,15 +156,15 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
 
-            for (column_index, (column, value)) in val.into_iter().enumerate() {
+            for (column_index, (column, value)) in val.into_owned().into_iter().enumerate() {
                 let column_requested = columns.iter().find(|c| c.to_string() == column);
                 let need_flatten = { columns.is_empty() || column_requested.is_some() };
                 let span = value.span();
 
                 match value {
-                    Value::Record { val, .. } => {
+                    Value::Record { ref val, .. } => {
                         if need_flatten {
-                            for (col, val) in val {
+                            for (col, val) in val.clone().into_owned() {
                                 if out.contains_key(&col) {
                                     out.insert(format!("{column}_{col}"), val);
                                 } else {
@@ -178,9 +172,9 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                                 }
                             }
                         } else if out.contains_key(&column) {
-                            out.insert(format!("{column}_{column}"), Value::record(val, span));
+                            out.insert(format!("{column}_{column}"), value);
                         } else {
-                            out.insert(column, Value::record(val, span));
+                            out.insert(column, value);
                         }
                     }
                     Value::List { vals, .. } => {

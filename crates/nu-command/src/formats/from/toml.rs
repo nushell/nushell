@@ -1,9 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
 use std::str::FromStr;
 
 #[derive(Clone)]
@@ -16,7 +11,7 @@ impl Command for FromToml {
 
     fn signature(&self) -> Signature {
         Signature::build("from toml")
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::String, Type::record())])
             .category(Category::Formats)
     }
 

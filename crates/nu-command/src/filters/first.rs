@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct First;
@@ -85,66 +79,70 @@ fn first_helper(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
+    let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+
     // FIXME: for backwards compatibility reasons, if `rows` is not specified we
     // return a single element and otherwise we return a single list. We should probably
     // remove `rows` so that `first` always returns a single element; getting a list of
     // the first N elements is covered by `take`
     let return_single_element = rows.is_none();
-    let rows_desired: usize = match rows {
-        Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue { span: head }),
-        Some(x) => x as usize,
-        None => 1,
+    let rows = if let Some(rows) = rows {
+        if rows.item < 0 {
+            return Err(ShellError::NeedsPositiveValue { span: rows.span });
+        } else {
+            rows.item as usize
+        }
+    } else {
+        1
     };
 
-    let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
 
     // early exit for `first 0`
-    if rows_desired == 0 {
-        return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
+    if rows == 0 {
+        return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
     }
 
     match input {
         PipelineData::Value(val, _) => {
             let span = val.span();
             match val {
-                Value::List { vals, .. } => {
+                Value::List { mut vals, .. } => {
                     if return_single_element {
-                        if vals.is_empty() {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                        if let Some(val) = vals.first_mut() {
+                            Ok(std::mem::take(val).into_pipeline_data())
                         } else {
-                            Ok(vals[0].clone().into_pipeline_data())
+                            Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
-                        Ok(vals
-                            .into_iter()
-                            .take(rows_desired)
-                            .into_pipeline_data_with_metadata(metadata, ctrlc))
+                        vals.truncate(rows);
+                        Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                     }
                 }
-                Value::Binary { val, .. } => {
+                Value::Binary { mut val, .. } => {
                     if return_single_element {
-                        if val.is_empty() {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                        if let Some(&val) = val.first() {
+                            Ok(Value::int(val.into(), span).into_pipeline_data())
                         } else {
-                            Ok(PipelineData::Value(
-                                Value::int(val[0] as i64, span),
-                                metadata,
-                            ))
+                            Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
-                        let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
-                        Ok(PipelineData::Value(Value::binary(slice, span), metadata))
+                        val.truncate(rows);
+                        Ok(Value::binary(val, span).into_pipeline_data_with_metadata(metadata))
                     }
                 }
                 Value::Range { val, .. } => {
+                    let ctrlc = engine_state.ctrlc.clone();
+                    let mut iter = val.into_range_iter(span, ctrlc.clone());
                     if return_single_element {
-                        Ok(val.from.into_pipeline_data())
+                        if let Some(v) = iter.next() {
+                            Ok(v.into_pipeline_data())
+                        } else {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        }
                     } else {
-                        Ok(val
-                            .into_range_iter(ctrlc.clone())?
-                            .take(rows_desired)
+                        Ok(iter
+                            .take(rows)
                             .into_pipeline_data_with_metadata(metadata, ctrlc))
                     }
                 }
@@ -167,8 +165,8 @@ fn first_helper(
                 }
             } else {
                 Ok(ls
-                    .take(rows_desired)
-                    .into_pipeline_data_with_metadata(metadata, ctrlc))
+                    .take(rows)
+                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
             }
         }
         PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {

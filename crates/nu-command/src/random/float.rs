@@ -1,12 +1,7 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, Range, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{FloatRange, Range};
 use rand::prelude::{thread_rng, Rng};
-use std::cmp::Ordering;
+use std::ops::Bound;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -73,43 +68,39 @@ fn float(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let mut range_span = call.head;
+    let span = call.head;
     let range: Option<Spanned<Range>> = call.opt(engine_state, stack, 0)?;
 
-    let (min, max) = if let Some(spanned_range) = range {
-        let r = spanned_range.item;
-        range_span = spanned_range.span;
+    let mut thread_rng = thread_rng();
 
-        if r.is_end_inclusive() {
-            (r.from.coerce_float()?, r.to.coerce_float()?)
-        } else if r.to.coerce_float()? >= 1.0 {
-            (r.from.coerce_float()?, r.to.coerce_float()? - 1.0)
-        } else {
-            (0.0, 0.0)
+    match range {
+        Some(range) => {
+            let range_span = range.span;
+            let range = FloatRange::from(range.item);
+
+            if range.step() < 0.0 {
+                return Err(ShellError::InvalidRange {
+                    left_flank: range.start().to_string(),
+                    right_flank: match range.end() {
+                        Bound::Included(end) | Bound::Excluded(end) => end.to_string(),
+                        Bound::Unbounded => "".into(),
+                    },
+                    span: range_span,
+                });
+            }
+
+            let value = match range.end() {
+                Bound::Included(end) => thread_rng.gen_range(range.start()..=end),
+                Bound::Excluded(end) => thread_rng.gen_range(range.start()..end),
+                Bound::Unbounded => thread_rng.gen_range(range.start()..f64::INFINITY),
+            };
+
+            Ok(PipelineData::Value(Value::float(value, span), None))
         }
-    } else {
-        (0.0, 1.0)
-    };
-
-    match min.partial_cmp(&max) {
-        Some(Ordering::Greater) => Err(ShellError::InvalidRange {
-            left_flank: min.to_string(),
-            right_flank: max.to_string(),
-            span: range_span,
-        }),
-        Some(Ordering::Equal) => Ok(PipelineData::Value(
-            Value::float(min, Span::new(64, 64)),
+        None => Ok(PipelineData::Value(
+            Value::float(thread_rng.gen_range(0.0..1.0), span),
             None,
         )),
-        _ => {
-            let mut thread_rng = thread_rng();
-            let result: f64 = thread_rng.gen_range(min..max);
-
-            Ok(PipelineData::Value(
-                Value::float(result, Span::new(64, 64)),
-                None,
-            ))
-        }
     }
 }
 

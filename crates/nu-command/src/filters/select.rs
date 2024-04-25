@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineIterator, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{ast::PathMember, PipelineIterator};
 use std::collections::BTreeSet;
 
 #[derive(Clone)]
@@ -19,8 +14,8 @@ impl Command for Select {
     fn signature(&self) -> Signature {
         Signature::build("select")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
                 (Type::List(Box::new(Type::Any)), Type::Any),
             ])
             .switch(
@@ -76,7 +71,15 @@ produce a table, a list will produce a list, and a record will produce a record.
                     };
                     new_columns.push(cv.clone());
                 }
-                Value::Int { val, .. } => {
+                Value::Int { val, internal_span } => {
+                    if val < 0 {
+                        return Err(ShellError::CantConvert {
+                            to_type: "cell path".into(),
+                            from_type: "negative number".into(),
+                            span: internal_span,
+                            help: None,
+                        });
+                    }
                     let cv = CellPath {
                         members: vec![PathMember::Int {
                             val: val as usize,

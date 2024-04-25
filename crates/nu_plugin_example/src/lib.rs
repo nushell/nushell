@@ -4,9 +4,9 @@ mod commands;
 mod example;
 
 pub use commands::*;
-pub use example::Example;
+pub use example::ExamplePlugin;
 
-impl Plugin for Example {
+impl Plugin for ExamplePlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         // This is a list of all of the commands you would like Nu to register when your plugin is
         // loaded.
@@ -21,6 +21,7 @@ impl Plugin for Example {
             // Engine interface demos
             Box::new(Config),
             Box::new(Env),
+            Box::new(ViewSpan),
             Box::new(DisableGc),
             // Stream demos
             Box::new(CollectExternal),

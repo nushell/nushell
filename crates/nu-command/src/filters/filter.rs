@@ -1,12 +1,6 @@
 use super::utils::chain_error_with_input;
-use nu_engine::{get_eval_block, CallExt};
-use nu_protocol::ast::Call;
-
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Filter;
@@ -53,135 +47,71 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
-        let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
-        let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack = stack.captures_to_stack(capture_block.captures);
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
-        let span = call.head;
-        let eval_block = get_eval_block(&engine_state);
+        let head = call.head;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
 
+        let metadata = input.metadata();
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream { .. } => Ok(input
-                // To enumerate over the input (for the index argument),
-                // it must be converted into an iterator using into_iter().
-                .into_iter()
-                .filter_map(move |x| {
-                    // with_env() is used here to ensure that each iteration uses
-                    // a different set of environment variables.
-                    // Hence, a 'cd' in the first loop won't affect the next loop.
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, x.clone());
+            | PipelineData::ListStream(..) => {
+                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                Ok(input
+                    .into_iter()
+                    .filter_map(move |value| match closure.run_with_value(value.clone()) {
+                        Ok(pred) => pred.into_value(head).is_true().then_some(value),
+                        Err(err) => {
+                            let span = value.span();
+                            let err = chain_error_with_input(err, value.is_error(), span);
+                            Some(Value::error(err, span))
                         }
-                    }
-
-                    match eval_block(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        // clone() is used here because x is given to Ok() below.
-                        x.clone().into_pipeline_data(),
-                    ) {
-                        Ok(v) => {
-                            if v.into_value(span).is_true() {
-                                Some(x)
-                            } else {
-                                None
-                            }
-                        }
-                        Err(error) => Some(Value::error(
-                            chain_error_with_input(error, x.is_error(), x.span()),
-                            x.span(),
-                        )),
-                    }
-                })
-                .into_pipeline_data(ctrlc)),
+                    })
+                    .into_pipeline_data(engine_state.ctrlc.clone()))
+            }
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 ..
-            } => Ok(stream
-                .into_iter()
-                .filter_map(move |x| {
-                    // see note above about with_env()
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+            } => {
+                let mut closure = ClosureEval::new(engine_state, stack, closure);
+                Ok(stream
+                    .into_iter()
+                    .filter_map(move |value| {
+                        let value = match value {
+                            Ok(value) => value,
+                            Err(err) => return Some(Value::error(err, head)),
+                        };
 
-                    let x = match x {
-                        Ok(x) => x,
-                        Err(err) => return Some(Value::error(err, span)),
-                    };
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, x.clone());
-                        }
-                    }
-
-                    match eval_block(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        // clone() is used here because x is given to Ok() below.
-                        x.clone().into_pipeline_data(),
-                    ) {
-                        Ok(v) => {
-                            if v.into_value(span).is_true() {
-                                Some(x)
-                            } else {
-                                None
+                        match closure.run_with_value(value.clone()) {
+                            Ok(pred) => pred.into_value(head).is_true().then_some(value),
+                            Err(err) => {
+                                let span = value.span();
+                                let err = chain_error_with_input(err, value.is_error(), span);
+                                Some(Value::error(err, span))
                             }
                         }
-                        Err(error) => Some(Value::error(
-                            chain_error_with_input(error, x.is_error(), x.span()),
-                            x.span(),
-                        )),
-                    }
-                })
-                .into_pipeline_data(ctrlc)),
+                    })
+                    .into_pipeline_data(engine_state.ctrlc.clone()))
+            }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(x, ..) => {
-                // see note above about with_env()
-                stack.with_env(&orig_env_vars, &orig_env_hidden);
+            PipelineData::Value(value, ..) => {
+                let result = ClosureEvalOnce::new(engine_state, stack, closure)
+                    .run_with_value(value.clone());
 
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, x.clone());
+                Ok(match result {
+                    Ok(pred) => pred.into_value(head).is_true().then_some(value),
+                    Err(err) => {
+                        let span = value.span();
+                        let err = chain_error_with_input(err, value.is_error(), span);
+                        Some(Value::error(err, span))
                     }
                 }
-
-                Ok(match eval_block(
-                    &engine_state,
-                    &mut stack,
-                    &block,
-                    // clone() is used here because x is given to Ok() below.
-                    x.clone().into_pipeline_data(),
-                ) {
-                    Ok(v) => {
-                        if v.into_value(span).is_true() {
-                            Some(x)
-                        } else {
-                            None
-                        }
-                    }
-                    Err(error) => Some(Value::error(
-                        chain_error_with_input(error, x.is_error(), x.span()),
-                        x.span(),
-                    )),
-                }
-                .into_pipeline_data(ctrlc))
+                .into_pipeline_data(engine_state.ctrlc.clone()))
             }
         }
-        .map(|x| x.set_metadata(metadata))
+        .map(|data| data.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

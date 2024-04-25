@@ -1,16 +1,12 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+use nu_engine::command_prelude::*;
+
+use quick_xml::{
+    escape,
+    events::{BytesEnd, BytesStart, BytesText, Event},
 };
-use quick_xml::escape;
-use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
-use std::borrow::Cow;
-use std::io::Cursor;
+use std::{borrow::Cow, io::Cursor};
 
 #[derive(Clone)]
 pub struct ToXml;
@@ -22,7 +18,7 @@ impl Command for ToXml {
 
     fn signature(&self) -> Signature {
         Signature::build("to xml")
-            .input_output_types(vec![(Type::Record(vec![]), Type::String)])
+            .input_output_types(vec![(Type::record(), Type::String)])
             .named(
                 "indent",
                 SyntaxShape::Int,
@@ -273,8 +269,7 @@ impl Job {
     fn find_invalid_column(record: &Record) -> Option<&String> {
         const VALID_COLS: [&str; 3] = [COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME];
         record
-            .cols
-            .iter()
+            .columns()
             .find(|col| !VALID_COLS.contains(&col.as_str()))
     }
 
@@ -305,7 +300,7 @@ impl Job {
             if top_level {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
-                    from_type: Type::Record(vec![]).to_string(),
+                    from_type: Type::record().to_string(),
                     span: entry_span,
                     help: Some("PIs can not be a root element of document".into()),
                 });
@@ -317,7 +312,7 @@ impl Job {
                 _ => {
                     return Err(ShellError::CantConvert {
                         to_type: "XML".into(),
-                        from_type: Type::Record(vec![]).to_string(),
+                        from_type: Type::record().to_string(),
                         span: content.span(),
                         help: Some("PI content expected to be a string".into()),
                     });
@@ -330,7 +325,7 @@ impl Job {
             // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
             // content: null}, {tag: a}. See to_xml_entry for more
             let attrs = match attrs {
-                Value::Record { val, .. } => val,
+                Value::Record { val, .. } => val.into_owned(),
                 Value::Nothing { .. } => Record::new(),
                 _ => {
                     return Err(ShellError::CantConvert {
@@ -374,7 +369,7 @@ impl Job {
                     .write_event(Event::Comment(comment_content))
                     .map_err(|_| ShellError::CantConvert {
                         to_type: "XML".to_string(),
-                        from_type: Type::Record(vec![]).to_string(),
+                        from_type: Type::record().to_string(),
                         span: entry_span,
                         help: Some("Failure writing comment to xml".into()),
                     })
@@ -398,7 +393,7 @@ impl Job {
         if !matches!(attrs, Value::Nothing { .. }) {
             return Err(ShellError::CantConvert {
                 to_type: "XML".into(),
-                from_type: Type::Record(vec![]).to_string(),
+                from_type: Type::record().to_string(),
                 span: entry_span,
                 help: Some("PIs do not have attributes".into()),
             });
@@ -413,7 +408,7 @@ impl Job {
             .write_event(Event::PI(pi_content))
             .map_err(|_| ShellError::CantConvert {
                 to_type: "XML".to_string(),
-                from_type: Type::Record(vec![]).to_string(),
+                from_type: Type::record().to_string(),
                 span: entry_span,
                 help: Some("Failure writing PI to xml".into()),
             })
@@ -430,7 +425,7 @@ impl Job {
         if tag.starts_with('!') || tag.starts_with('?') {
             return Err(ShellError::CantConvert {
                 to_type: "XML".to_string(),
-                from_type: Type::Record(vec![]).to_string(),
+                from_type: Type::record().to_string(),
                 span: tag_span,
                 help: Some(format!(
                     "Incorrect tag name {}, tag name can not start with ! or ?",
@@ -453,7 +448,7 @@ impl Job {
             .write_event(open_tag_event)
             .map_err(|_| ShellError::CantConvert {
                 to_type: "XML".to_string(),
-                from_type: Type::Record(vec![]).to_string(),
+                from_type: Type::record().to_string(),
                 span: entry_span,
                 help: Some("Failure writing tag to xml".into()),
             })?;
@@ -468,7 +463,7 @@ impl Job {
                 .write_event(close_tag_event)
                 .map_err(|_| ShellError::CantConvert {
                     to_type: "XML".to_string(),
-                    from_type: Type::Record(vec![]).to_string(),
+                    from_type: Type::record().to_string(),
                     span: entry_span,
                     help: Some("Failure writing tag to xml".into()),
                 })?;
