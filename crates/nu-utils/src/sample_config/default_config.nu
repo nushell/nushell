@@ -255,7 +255,7 @@ $env.config = {
         # 633;B - Mark prompt end
         # 633;C - Mark pre-execution
         # 633;D - Mark execution finished with exit code
-        # 633;E - NOT IMPLMENTED - Explicitly set the command like with an optional nonce
+        # 633;E - NOT IMPLEMENTED - Explicitly set the command like with an optional nonce
         # 633;P;Cwd=<path> - Mark the current working directory and communicate it to the terminal
         # and also helps with the run recent menu in vscode
         osc633: true
