@@ -509,23 +509,51 @@ fn lex_internal(
             // so we need to read all the text until we find a closing `#`. This raw string
             // can contain any character, including newlines and double quotes without needing
             // to escape them.
-            if let Some(b'#') = input.get(curr_offset + 1) {
-                let start = curr_offset;
+            let mut prefix_shart_cnt = 0;
+            let start = curr_offset;
+            while let Some(b'#') = input.get(curr_offset + 1) {
+                prefix_shart_cnt += 1;
+                curr_offset += 1;
+            }
+
+            if prefix_shart_cnt != 0 {
                 curr_offset += 2;
                 while let Some(ch) = input.get(curr_offset) {
                     if *ch == b'#' {
-                        // Does the raw string end with `"#`
-                        if let Some(b'"') = input.get(curr_offset - 1) {
+                        let start_ch = input[curr_offset - prefix_shart_cnt];
+                        let postfix = &input[curr_offset - prefix_shart_cnt + 1..=curr_offset];
+                        if start_ch == b'"'
+                            && postfix
+                                .iter()
+                                .all(|x| char::from_u32(*x as u32).unwrap() == '#')
+                        {
                             curr_offset += 1;
                             break;
                         }
                     }
-                    curr_offset += 1;
+                    curr_offset += 1
                 }
                 output.push(Token::new(
                     TokenContents::Item,
                     Span::new(span_offset + start, span_offset + curr_offset),
                 ));
+            // if let Some(b'#') = input.get(curr_offset + 1) {
+            //     let start = curr_offset;
+            //     curr_offset += 2;
+            //     while let Some(ch) = input.get(curr_offset) {
+            //         if *ch == b'#' {
+            //             // Does the raw string end with `"#`
+            //             if let Some(b'"') = input.get(curr_offset - 1) {
+            //                 curr_offset += 1;
+            //                 break;
+            //             }
+            //         }
+            //         curr_offset += 1;
+            //     }
+            //     output.push(Token::new(
+            //         TokenContents::Item,
+            //         Span::new(span_offset + start, span_offset + curr_offset),
+            //     ));
             } else {
                 let (token, err) = lex_item(
                     input,

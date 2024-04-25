@@ -66,6 +66,10 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
 
     let b = bytes[0];
 
+    if bytes.starts_with(b"r#") {
+        return true;
+    }
+
     if b == b'(' || b == b'{' || b == b'[' || b == b'$' || b == b'"' || b == b'\'' || b == b'-' {
         return true;
     }
@@ -1571,23 +1575,36 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
 
     let bytes = working_set.get_span_contents(span);
 
-    // Check for unbalanced # and double quotes:
-    if bytes.starts_with(b"r#\"") && (bytes.len() == 3 || !bytes.ends_with(b"\"#")) {
-        working_set.error(ParseError::Unclosed("\"".into(), span));
-        return garbage(span);
-    }
+    let prefix_shart_cnt = if bytes.starts_with(b"r#") {
+        let mut cnt = 1;
+        let mut index = 2;
+        while index < bytes.len() && bytes[index] == b'#' {
+            index += 1;
+            cnt += 1;
+        }
+        cnt
+    } else {
+        0
+    };
+    let bytes = &bytes[prefix_shart_cnt + 1 + 1..bytes.len() - 1 - prefix_shart_cnt];
 
-    // Check if it's a raw-string, r#"string"#
-    let (bytes, quoted) =
-        if bytes.starts_with(b"r#\"") && bytes.ends_with(b"\"#") && bytes.len() > 3 {
-            (&bytes[3..(bytes.len() - 2)], true)
-        } else {
-            working_set.error(ParseError::Unclosed("\"".into(), span));
-            return garbage(span);
-        };
+    // // Check for unbalanced # and double quotes:
+    // if bytes.starts_with(b"r#\"") && (bytes.len() == 3 || !bytes.ends_with(b"\"#")) {
+    //     working_set.error(ParseError::Unclosed("\"".into(), span));
+    //     return garbage(span);
+    // }
+    //
+    // // Check if it's a raw-string, r#"string"#
+    // let (bytes, quoted) =
+    //     if bytes.starts_with(b"r#\"") && bytes.ends_with(b"\"#") && bytes.len() > 3 {
+    //         (&bytes[3..(bytes.len() - 2)], true)
+    //     } else {
+    //         working_set.error(ParseError::Unclosed("\"".into(), span));
+    //         return garbage(span);
+    //     };
 
     if let Ok(token) = String::from_utf8(bytes.into()) {
-        if quoted {
+        if true {
             Expression {
                 expr: Expr::RawString(token),
                 span,
