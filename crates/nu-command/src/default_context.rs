@@ -273,6 +273,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ToCsv,
             ToJson,
             ToMd,
+            ToMsgpack,
             ToNuon,
             ToText,
             ToToml,
