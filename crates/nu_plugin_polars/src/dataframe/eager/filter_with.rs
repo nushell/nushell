@@ -133,7 +133,7 @@ fn command_eager(
                 help: Some("The only allowed column types for dummies are String or Int".into()),
                 inner: vec![],
             })?;
-        let df = NuDataFrame::new(df.from_lazy, polars_df);
+        let df = NuDataFrame::new(polars_df);
         df.to_pipeline_data(plugin, engine, call.head)
     }
 }

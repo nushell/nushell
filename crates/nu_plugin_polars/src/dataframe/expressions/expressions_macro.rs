@@ -164,7 +164,6 @@ macro_rules! lazy_expr_command {
                     let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
                         .map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
-                        lazy.from_eager,
                         lazy.to_polars()
                             .$func()
                             .map_err(|e| ShellError::GenericError {
@@ -245,7 +244,6 @@ macro_rules! lazy_expr_command {
                     let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
                         .map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
-                        lazy.from_eager,
                         lazy.to_polars()
                             .$func($ddof)
                             .map_err(|e| ShellError::GenericError {

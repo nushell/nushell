@@ -143,7 +143,7 @@ fn command(
             inner: vec![],
         })?;
 
-    let df = NuDataFrame::new(df.from_lazy, polars_df);
+    let df = NuDataFrame::new(polars_df);
     df.to_pipeline_data(plugin, engine, call.head)
 }
 

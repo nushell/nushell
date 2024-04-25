@@ -96,7 +96,7 @@ fn cmd_lazy(
     fill: Value,
 ) -> Result<PipelineData, ShellError> {
     let expr = NuExpression::try_from_value(plugin, &fill)?.to_polars();
-    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().fill_null(expr));
+    let lazy = NuLazyFrame::new(lazy.to_polars().fill_null(expr));
     lazy.to_pipeline_data(plugin, engine, call.head)
 }
 

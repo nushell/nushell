@@ -179,7 +179,7 @@ fn command(
             })?;
     }
 
-    let res = NuDataFrame::new(false, res);
+    let res = NuDataFrame::new(res);
     res.to_pipeline_data(plugin, engine, call.head)
 }
 

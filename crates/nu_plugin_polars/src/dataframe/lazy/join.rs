@@ -230,7 +230,6 @@ impl PluginCommand for LazyJoin {
 
         let value = input.into_value(call.head);
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
-        let from_eager = lazy.from_eager;
         let lazy = lazy.to_polars();
 
         let lazy = lazy
@@ -243,7 +242,7 @@ impl PluginCommand for LazyJoin {
             .suffix(suffix)
             .finish();
 
-        let lazy = NuLazyFrame::new(from_eager, lazy);
+        let lazy = NuLazyFrame::new(lazy);
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
     }

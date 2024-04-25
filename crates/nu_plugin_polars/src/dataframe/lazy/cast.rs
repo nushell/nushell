@@ -143,7 +143,7 @@ fn command_lazy(
 ) -> Result<PipelineData, ShellError> {
     let column = col(&column_nm).cast(dtype);
     let lazy = lazy.to_polars().with_columns(&[column]);
-    let lazy = NuLazyFrame::new(false, lazy);
+    let lazy = NuLazyFrame::new(lazy);
     lazy.to_pipeline_data(plugin, engine, call.head)
 }
 

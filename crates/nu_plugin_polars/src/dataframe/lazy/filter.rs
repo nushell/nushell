@@ -85,10 +85,7 @@ fn command(
     lazy: NuLazyFrame,
     filter_expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let lazy = NuLazyFrame::new(
-        lazy.from_eager,
-        lazy.to_polars().filter(filter_expr.to_polars()),
-    );
+    let lazy = NuLazyFrame::new(lazy.to_polars().filter(filter_expr.to_polars()));
     lazy.to_pipeline_data(plugin, engine, call.head)
 }
 

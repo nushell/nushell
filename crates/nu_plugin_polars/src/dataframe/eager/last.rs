@@ -96,7 +96,7 @@ fn command(
     let rows = rows.unwrap_or(DEFAULT_ROWS);
 
     let res = df.as_ref().tail(Some(rows));
-    let res = NuDataFrame::new(false, res);
+    let res = NuDataFrame::new(res);
     res.to_pipeline_data(plugin, engine, call.head)
 }
 

@@ -130,6 +130,6 @@ fn command(
             inner: vec![],
         }),
     };
-    let df = NuDataFrame::new(false, df?);
+    let df = NuDataFrame::new(df?);
     df.to_pipeline_data(plugin, engine, call.head)
 }

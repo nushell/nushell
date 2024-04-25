@@ -147,7 +147,7 @@ impl PluginCommand for LazyAggregate {
         }
 
         let polars = group_by.to_polars();
-        let lazy = NuLazyFrame::new(false, polars.agg(&expressions));
+        let lazy = NuLazyFrame::new(polars.agg(&expressions));
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
     }

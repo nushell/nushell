@@ -141,7 +141,7 @@ fn command_eager(
         let vals: Vec<Value> = call.rest(0)?;
         let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, value)?;
-        let lazy = NuLazyFrame::new(true, df.lazy().to_polars().with_columns(&expressions));
+        let lazy = NuLazyFrame::new(df.lazy().to_polars().with_columns(&expressions));
         let df = lazy.collect(call.head)?;
         df.to_pipeline_data(plugin, engine, call.head)
     } else {
@@ -166,7 +166,7 @@ fn command_eager(
                 inner: vec![],
             })?;
 
-        let df = NuDataFrame::new(df.from_lazy, polars_df);
+        let df = NuDataFrame::new(polars_df);
         df.to_pipeline_data(plugin, engine, call.head)
     }
 }

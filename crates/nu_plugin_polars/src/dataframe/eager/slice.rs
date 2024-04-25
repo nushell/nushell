@@ -74,7 +74,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let res = df.as_ref().slice(offset, size);
-    let res = NuDataFrame::new(false, res);
+    let res = NuDataFrame::new(res);
 
     res.to_pipeline_data(plugin, engine, call.head)
 }

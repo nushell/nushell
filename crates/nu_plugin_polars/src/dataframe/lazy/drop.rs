@@ -74,7 +74,7 @@ fn command(
 
     let df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let polars_df = df.to_polars().drop(col_string.iter().map(|s| &s.item));
-    let final_df = NuLazyFrame::new(false, polars_df);
+    let final_df = NuLazyFrame::new(polars_df);
 
     final_df.to_pipeline_data(plugin, engine, call.head)
 }

@@ -160,7 +160,7 @@ fn command_eager(
             })?;
     }
 
-    let df = NuDataFrame::new(false, polars_df);
+    let df = NuDataFrame::new(polars_df);
     df.to_pipeline_data(plugin, engine, call.head)
 }
 
