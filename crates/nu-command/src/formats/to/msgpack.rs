@@ -5,8 +5,11 @@ use std::io;
 
 use byteorder::{BigEndian, WriteBytesExt};
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, Spanned};
 use rmp::encode as mp;
+
+/// Max recursion depth
+const MAX_DEPTH: usize = 50;
 
 #[derive(Clone)]
 pub struct ToMsgpack;
@@ -75,17 +78,7 @@ MessagePack: https://msgpack.org/
         let value = input.into_value(value_span);
         let mut out = vec![];
 
-        write_value(&mut out, &value).map_err(|err| match err {
-            WriteError::ValueWriteError(err) => ShellError::GenericError {
-                error: "Failed to encode MessagePack data".into(),
-                msg: err.to_string(),
-                span: Some(value_span),
-                help: None,
-                inner: vec![],
-            },
-            WriteError::IoError(err) => err.into_spanned(value_span).into(),
-            WriteError::ShellError(err) => *err,
-        })?;
+        write_value(&mut out, &value, 0)?;
 
         Ok(Value::binary(out, call.head).into_pipeline_data())
     }
@@ -93,20 +86,21 @@ MessagePack: https://msgpack.org/
 
 #[derive(Debug)]
 pub(crate) enum WriteError {
-    ValueWriteError(mp::ValueWriteError<io::Error>),
-    IoError(io::Error),
+    MaxDepth(Span),
+    ValueWriteError(mp::ValueWriteError<io::Error>, Span),
+    IoError(io::Error, Span),
     ShellError(Box<ShellError>),
 }
 
-impl From<mp::ValueWriteError<io::Error>> for WriteError {
-    fn from(v: mp::ValueWriteError<io::Error>) -> Self {
-        Self::ValueWriteError(v)
+impl From<Spanned<mp::ValueWriteError<io::Error>>> for WriteError {
+    fn from(v: Spanned<mp::ValueWriteError<io::Error>>) -> Self {
+        Self::ValueWriteError(v.item, v.span)
     }
 }
 
-impl From<io::Error> for WriteError {
-    fn from(v: io::Error) -> Self {
-        Self::IoError(v)
+impl From<Spanned<io::Error>> for WriteError {
+    fn from(v: Spanned<io::Error>) -> Self {
+        Self::IoError(v.item, v.span)
     }
 }
 
@@ -122,24 +116,57 @@ impl From<ShellError> for WriteError {
     }
 }
 
-pub(crate) fn write_value(out: &mut impl io::Write, value: &Value) -> Result<(), WriteError> {
+impl From<WriteError> for ShellError {
+    fn from(value: WriteError) -> Self {
+        match value {
+            WriteError::MaxDepth(span) => ShellError::GenericError {
+                error: "MessagePack data is nested too deeply".into(),
+                msg: format!("exceeded depth limit ({MAX_DEPTH})"),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
+            WriteError::ValueWriteError(err, span) => ShellError::GenericError {
+                error: "Failed to encode MessagePack data".into(),
+                msg: err.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
+            WriteError::IoError(err, span) => err.into_spanned(span).into(),
+            WriteError::ShellError(err) => *err,
+        }
+    }
+}
+
+pub(crate) fn write_value(
+    out: &mut impl io::Write,
+    value: &Value,
+    depth: usize,
+) -> Result<(), WriteError> {
     use mp::ValueWriteError::InvalidMarkerWrite;
     let span = value.span();
+    // Prevent stack overflow
+    if depth >= MAX_DEPTH {
+        return Err(WriteError::MaxDepth(span));
+    }
     match value {
         Value::Bool { val, .. } => {
-            mp::write_bool(out, *val).map_err(InvalidMarkerWrite)?;
+            mp::write_bool(out, *val)
+                .map_err(InvalidMarkerWrite)
+                .err_span(span)?;
         }
         Value::Int { val, .. } => {
-            mp::write_sint(out, *val)?;
+            mp::write_sint(out, *val).err_span(span)?;
         }
         Value::Float { val, .. } => {
-            mp::write_f64(out, *val)?;
+            mp::write_f64(out, *val).err_span(span)?;
         }
         Value::Filesize { val, .. } => {
-            mp::write_sint(out, *val)?;
+            mp::write_sint(out, *val).err_span(span)?;
         }
         Value::Duration { val, .. } => {
-            mp::write_sint(out, *val)?;
+            mp::write_sint(out, *val).err_span(span)?;
         }
         Value::Date { val, .. } => {
             if val.timestamp_subsec_nanos() == 0
@@ -147,13 +174,15 @@ pub(crate) fn write_value(out: &mut impl io::Write, value: &Value) -> Result<(),
                 && val.timestamp() < u32::MAX as i64
             {
                 // Timestamp extension type, 32-bit. u32 seconds since UNIX epoch only.
-                mp::write_ext_meta(out, 4, -1)?;
-                out.write_u32::<BigEndian>(val.timestamp() as u32)?;
+                mp::write_ext_meta(out, 4, -1).err_span(span)?;
+                out.write_u32::<BigEndian>(val.timestamp() as u32)
+                    .err_span(span)?;
             } else {
                 // Timestamp extension type, 96-bit. u32 nanoseconds and i64 seconds.
-                mp::write_ext_meta(out, 12, -1)?;
-                out.write_u32::<BigEndian>(val.timestamp_subsec_nanos())?;
-                out.write_i64::<BigEndian>(val.timestamp())?;
+                mp::write_ext_meta(out, 12, -1).err_span(span)?;
+                out.write_u32::<BigEndian>(val.timestamp_subsec_nanos())
+                    .err_span(span)?;
+                out.write_i64::<BigEndian>(val.timestamp()).err_span(span)?;
             }
         }
         Value::Range { val, .. } => {
@@ -161,59 +190,64 @@ pub(crate) fn write_value(out: &mut impl io::Write, value: &Value) -> Result<(),
             write_value(
                 out,
                 &Value::list(val.into_range_iter(span, None).collect(), span),
+                depth,
             )?;
         }
         Value::String { val, .. } => {
-            mp::write_str(out, val)?;
+            mp::write_str(out, val).err_span(span)?;
         }
         Value::Glob { val, .. } => {
-            mp::write_str(out, val)?;
+            mp::write_str(out, val).err_span(span)?;
         }
         Value::Record { val, .. } => {
-            mp::write_map_len(out, convert(val.len(), span)?)?;
+            mp::write_map_len(out, convert(val.len(), span)?).err_span(span)?;
             for (k, v) in val.iter() {
-                mp::write_str(out, k)?;
-                write_value(out, v)?;
+                mp::write_str(out, k).err_span(span)?;
+                write_value(out, v, depth + 1)?;
             }
         }
         Value::List { vals, .. } => {
-            mp::write_array_len(out, convert(vals.len(), span)?)?;
+            mp::write_array_len(out, convert(vals.len(), span)?).err_span(span)?;
             for val in vals {
-                write_value(out, val)?;
+                write_value(out, val, depth + 1)?;
             }
         }
         Value::Nothing { .. } => {
-            mp::write_nil(out).map_err(InvalidMarkerWrite)?;
+            mp::write_nil(out)
+                .map_err(InvalidMarkerWrite)
+                .err_span(span)?;
         }
         Value::Closure { .. } => {
             // Closures can't be converted
-            mp::write_nil(out).map_err(InvalidMarkerWrite)?;
+            mp::write_nil(out)
+                .map_err(InvalidMarkerWrite)
+                .err_span(span)?;
         }
         Value::Error { error, .. } => {
             return Err(WriteError::ShellError(error.clone()));
         }
         Value::CellPath { val, .. } => {
             // Write as a list of strings/ints
-            mp::write_array_len(out, convert(val.members.len(), span)?)?;
+            mp::write_array_len(out, convert(val.members.len(), span)?).err_span(span)?;
             for member in &val.members {
                 match member {
                     PathMember::String { val, .. } => {
-                        mp::write_str(out, val)?;
+                        mp::write_str(out, val).err_span(span)?;
                     }
                     PathMember::Int { val, .. } => {
-                        mp::write_uint(out, *val as u64)?;
+                        mp::write_uint(out, *val as u64).err_span(span)?;
                     }
                 }
             }
         }
         Value::Binary { val, .. } => {
-            mp::write_bin(out, val)?;
+            mp::write_bin(out, val).err_span(span)?;
         }
         Value::Custom { val, .. } => {
-            write_value(out, &val.to_base_value(span)?)?;
+            write_value(out, &val.to_base_value(span)?, depth)?;
         }
         Value::LazyRecord { val, .. } => {
-            write_value(out, &val.collect()?)?;
+            write_value(out, &val.collect()?, depth)?;
         }
     }
     Ok(())

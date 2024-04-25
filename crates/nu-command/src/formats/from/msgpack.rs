@@ -13,6 +13,9 @@ use nu_engine::command_prelude::*;
 use nu_protocol::RawStream;
 use rmp::decode::{self as mp, ValueReadError};
 
+/// Max recursion depth
+const MAX_DEPTH: usize = 50;
+
 #[derive(Clone)]
 pub struct FromMsgpack;
 
@@ -97,7 +100,7 @@ MessagePack: https://msgpack.org/
         match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
-                let result = read_value(&mut &bytes[..], span)?;
+                let result = read_value(&mut &bytes[..], span, 0)?;
                 Ok(result.into_pipeline_data())
             }
             // Deserialize from a raw stream directly without having to collect it
@@ -106,7 +109,7 @@ MessagePack: https://msgpack.org/
                 ..
             } => {
                 let mut reader = ReadRawStream(raw_stream);
-                let result = read_value(&mut reader, span)?;
+                let result = read_value(&mut reader, span, 0)?;
                 Ok(result.into_pipeline_data())
             }
             _ => Err(ShellError::PipelineMismatch {
@@ -120,6 +123,7 @@ MessagePack: https://msgpack.org/
 
 #[derive(Debug)]
 pub(crate) enum ReadError {
+    MaxDepth(Span),
     IoError(io::Error, Span),
     TypeMismatch(rmp::Marker, Span),
     Utf8(FromUtf8Error, Span),
@@ -165,6 +169,13 @@ impl From<Spanned<FromUtf8Error>> for ReadError {
 impl From<ReadError> for ShellError {
     fn from(value: ReadError) -> Self {
         match value {
+            ReadError::MaxDepth(span) => ShellError::GenericError {
+                error: "MessagePack data is nested too deeply".into(),
+                msg: format!("exceeded depth limit ({MAX_DEPTH})"),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
             ReadError::IoError(err, span) => ShellError::GenericError {
                 error: "Error while reading MessagePack data".into(),
                 msg: err.to_string(),
@@ -194,7 +205,16 @@ impl From<ReadError> for ShellError {
     }
 }
 
-pub(crate) fn read_value(input: &mut impl io::Read, span: Span) -> Result<Value, ReadError> {
+pub(crate) fn read_value(
+    input: &mut impl io::Read,
+    span: Span,
+    depth: usize,
+) -> Result<Value, ReadError> {
+    // Prevent stack overflow
+    if depth >= MAX_DEPTH {
+        return Err(ReadError::MaxDepth(span));
+    }
+
     let marker = mp::read_marker(input)
         .map_err(ValueReadError::from)
         .err_span(span)?;
@@ -266,23 +286,23 @@ pub(crate) fn read_value(input: &mut impl io::Read, span: Span) -> Result<Value,
             let len = input.read_u32::<BigEndian>().err_span(span)?;
             read_bin(input, len as usize, span)
         }
-        rmp::Marker::FixArray(len) => read_array(input, len as usize, span),
+        rmp::Marker::FixArray(len) => read_array(input, len as usize, span, depth),
         rmp::Marker::Array16 => {
             let len = input.read_u16::<BigEndian>().err_span(span)?;
-            read_array(input, len as usize, span)
+            read_array(input, len as usize, span, depth)
         }
         rmp::Marker::Array32 => {
             let len = input.read_u32::<BigEndian>().err_span(span)?;
-            read_array(input, len as usize, span)
+            read_array(input, len as usize, span, depth)
         }
-        rmp::Marker::FixMap(len) => read_map(input, len as usize, span),
+        rmp::Marker::FixMap(len) => read_map(input, len as usize, span, depth),
         rmp::Marker::Map16 => {
             let len = input.read_u16::<BigEndian>().err_span(span)?;
-            read_map(input, len as usize, span)
+            read_map(input, len as usize, span, depth)
         }
         rmp::Marker::Map32 => {
             let len = input.read_u32::<BigEndian>().err_span(span)?;
-            read_map(input, len as usize, span)
+            read_map(input, len as usize, span, depth)
         }
         rmp::Marker::FixExt1 => read_ext(input, 1, span),
         rmp::Marker::FixExt2 => read_ext(input, 2, span),
@@ -317,27 +337,36 @@ fn read_bin(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
     Ok(Value::binary(buf, span))
 }
 
-fn read_array(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, ReadError> {
+fn read_array(
+    input: &mut impl io::Read,
+    len: usize,
+    span: Span,
+    depth: usize,
+) -> Result<Value, ReadError> {
     let vec = (0..len)
-        .map(|_| read_value(input, span))
+        .map(|_| read_value(input, span, depth + 1))
         .collect::<Result<Vec<Value>, ReadError>>()?;
     Ok(Value::list(vec, span))
 }
 
-fn read_map(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, ReadError> {
+fn read_map(
+    input: &mut impl io::Read,
+    len: usize,
+    span: Span,
+    depth: usize,
+) -> Result<Value, ReadError> {
     let rec = (0..len)
         .map(|_| {
-            let key =
-                read_value(input, span)?
-                    .into_string()
-                    .map_err(|err| ShellError::GenericError {
-                        error: "Invalid non-string value in MessagePack map".into(),
-                        msg: "only maps with string keys are supported".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![err],
-                    })?;
-            let val = read_value(input, span)?;
+            let key = read_value(input, span, depth + 1)?
+                .into_string()
+                .map_err(|err| ShellError::GenericError {
+                    error: "Invalid non-string value in MessagePack map".into(),
+                    msg: "only maps with string keys are supported".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![err],
+                })?;
+            let val = read_value(input, span, depth + 1)?;
             Ok((key, val))
         })
         .collect::<Result<Record, ReadError>>()?;
