@@ -4,7 +4,6 @@ use crate::{
     PolarsPlugin,
 };
 
-use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
@@ -99,7 +98,7 @@ impl PluginCommand for CastDF {
             }
             PolarsPluginObject::NuDataFrame(df) => {
                 let (dtype, column_nm) = df_args(call)?;
-                command_eager(plugin, engine, call, column_nm, dtype, df)
+                command_lazy(plugin, engine, call, column_nm, dtype, df.lazy())
             }
             PolarsPluginObject::NuExpression(expr) => {
                 let dtype: String = call.req(0)?;
@@ -146,47 +145,6 @@ fn command_lazy(
     let lazy = lazy.to_polars().with_columns(&[column]);
     let lazy = NuLazyFrame::new(false, lazy);
     lazy.to_pipeline_data(plugin, engine, call.head)
-}
-
-fn command_eager(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    call: &EvaluatedCall,
-    column_nm: String,
-    dtype: DataType,
-    nu_df: NuDataFrame,
-) -> Result<PipelineData, ShellError> {
-    let mut df = (*nu_df.df).clone();
-    let column = df
-        .column(&column_nm)
-        .map_err(|e| ShellError::GenericError {
-            error: format!("{e}"),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
-
-    let casted = column.cast(&dtype).map_err(|e| ShellError::GenericError {
-        error: format!("{e}"),
-        msg: "".into(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
-    })?;
-
-    let _ = df
-        .with_column(casted)
-        .map_err(|e| ShellError::GenericError {
-            error: format!("{e}"),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
-
-    let df = NuDataFrame::new(false, df);
-    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
