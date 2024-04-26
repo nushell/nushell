@@ -510,7 +510,7 @@ fn lex_internal(
             // can contain any character, including newlines and double quotes without needing
             // to escape them.
             //
-            // A raw string can contain many `#` as prefix, incase if there is `'#` in string
+            // A raw string can contain many `#` as prefix, incase if there is `"#` in string
             // itself, e.g: r##"I can use "# in a raw string"##
             let mut prefix_sharp_cnt = 0;
             let start = curr_offset;
@@ -531,11 +531,7 @@ fn lex_internal(
                     if *ch == b'#' {
                         let start_ch = input[curr_offset - prefix_sharp_cnt];
                         let postfix = &input[curr_offset - prefix_sharp_cnt + 1..=curr_offset];
-                        if start_ch == b'"'
-                            && postfix
-                                .iter()
-                                .all(|x| char::from_u32(*x as u32).unwrap() == '#')
-                        {
+                        if start_ch == b'"' && postfix.iter().all(|x| *x == b'#') {
                             curr_offset += 1;
                             break;
                         }

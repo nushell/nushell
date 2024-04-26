@@ -1600,10 +1600,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
 
     // check for unbalanced # and double quotes.
     let postfix_bytes = &bytes[bytes.len() - expect_postfix_charp_cnt..bytes.len()];
-    if postfix_bytes
-        .iter()
-        .any(|b| char::from_u32(*b as u32).unwrap() != '#')
-    {
+    if postfix_bytes.iter().any(|b| *b != b'#') {
         working_set.error(ParseError::Unbalanced(
             "prefix #".to_string(),
             "postfix #".to_string(),
