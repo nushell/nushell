@@ -105,6 +105,7 @@ mod table;
 mod take;
 mod tee;
 mod terminal;
+mod to_raw;
 mod to_text;
 mod touch;
 mod transpose;
