@@ -3040,6 +3040,7 @@ dependencies = [
  "alphanumeric-sort",
  "base64 0.22.0",
  "bracoxide",
+ "brotli 5.0.0",
  "byteorder",
  "bytesize",
  "calamine",

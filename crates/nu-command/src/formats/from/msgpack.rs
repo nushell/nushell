@@ -25,7 +25,7 @@ impl Command for FromMsgpack {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from msgpack")
+        Signature::build(self.name())
             .input_output_type(Type::Binary, Type::Any)
             .category(Category::Formats)
     }
@@ -430,7 +430,7 @@ where
 /// Adapter to read MessagePack from a `RawStream`
 ///
 /// TODO: contribute this back to `RawStream` in general, with more polish, if it works
-pub(crate) struct ReadRawStream(RawStream);
+pub(crate) struct ReadRawStream(pub RawStream);
 
 impl io::Read for ReadRawStream {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {

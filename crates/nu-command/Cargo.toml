@@ -32,6 +32,7 @@ nuon = { path = "../nuon", version = "0.92.3" }
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
 bracoxide = { workspace = true }
+brotli = { workspace = true }
 byteorder = { workspace = true }
 bytesize = { workspace = true }
 calamine = { workspace = true, features = ["dates"] }
