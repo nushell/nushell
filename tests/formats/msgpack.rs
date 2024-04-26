@@ -40,7 +40,10 @@ fn sample() {
 
     assert!(outcome.status.success());
     assert!(outcome.err.is_empty());
-    assert_eq!(sample_nuon, outcome.out);
+    assert_eq!(
+        sample_nuon.replace("\r\n", "\n"),
+        outcome.out.replace("\r\n", "\n")
+    );
 }
 
 #[test]
@@ -63,7 +66,10 @@ fn sample_roundtrip() {
 
     assert!(outcome.status.success());
     assert!(outcome.err.is_empty());
-    assert_eq!(sample_nuon, outcome.out);
+    assert_eq!(
+        sample_nuon.replace("\r\n", "\n"),
+        outcome.out.replace("\r\n", "\n")
+    );
 }
 
 #[test]
