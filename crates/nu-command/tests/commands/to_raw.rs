@@ -61,8 +61,7 @@ fn test_binary_stream() {
         let data = std::fs::read(dirs.test().join("test.bin")).expect("failed to read test.bin");
 
         let expectation = (1i64..=10)
-            .map(|n| n.to_ne_bytes())
-            .flatten()
+            .flat_map(|n| n.to_ne_bytes())
             .collect::<Vec<u8>>();
 
         assert_eq!(expectation, data);
