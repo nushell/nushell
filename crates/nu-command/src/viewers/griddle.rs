@@ -233,14 +233,17 @@ fn create_grid_output(
         }
     }
 
-    Ok(
-        if let Some(grid_display) = grid.fit_into_width(cols as usize) {
-            Value::string(grid_display.to_string(), call.head)
-        } else {
-            Value::string(format!("Couldn't fit grid into {cols} columns!"), call.head)
-        }
-        .into_pipeline_data(),
-    )
+    if let Some(grid_display) = grid.fit_into_width(cols as usize) {
+        Ok(Value::string(grid_display.to_string(), call.head).into_pipeline_data())
+    } else {
+        Err(ShellError::GenericError {
+            error: format!("Couldn't fit grid into {cols} columns"),
+            msg: "too few columns to fit the grid into".into(),
+            span: Some(call.head),
+            help: Some("try rerunning with a different --width".into()),
+            inner: Vec::new(),
+        })
+    }
 }
 
 #[allow(clippy::type_complexity)]
