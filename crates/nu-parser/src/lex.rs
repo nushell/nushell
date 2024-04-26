@@ -509,23 +509,58 @@ fn lex_internal(
             // so we need to read all the text until we find a closing `#`. This raw string
             // can contain any character, including newlines and double quotes without needing
             // to escape them.
-            if let Some(b'#') = input.get(curr_offset + 1) {
-                let start = curr_offset;
-                curr_offset += 2;
+            //
+            // A raw string can contain many `#` as prefix, incase if there is `"#` in string
+            // itself, e.g: r##"I can use "# in a raw string"##
+            let mut prefix_sharp_cnt = 0;
+            let start = curr_offset;
+            while let Some(b'#') = input.get(start + prefix_sharp_cnt + 1) {
+                prefix_sharp_cnt += 1;
+            }
+
+            if prefix_sharp_cnt != 0 {
+                // curr_offset is the character `r`, we need to move forward and skip all `#`
+                // characters.
+                //
+                // e.g: r###"<body>
+                //      ^
+                //      ^
+                //   curr_offset
+                curr_offset += start + prefix_sharp_cnt + 1;
+                let mut matches = false;
+                let mut meet_quote = false;
                 while let Some(ch) = input.get(curr_offset) {
+                    // check for postfix "###
                     if *ch == b'#' {
-                        // Does the raw string end with `"#`
-                        if let Some(b'"') = input.get(curr_offset - 1) {
+                        let start_ch = input[curr_offset - prefix_sharp_cnt];
+                        let postfix = &input[curr_offset - prefix_sharp_cnt + 1..=curr_offset];
+                        if start_ch == b'"' && postfix.iter().all(|x| *x == b'#') {
+                            matches = true;
                             curr_offset += 1;
                             break;
                         }
+                    } else if *ch == b'"' {
+                        meet_quote = true;
                     }
-                    curr_offset += 1;
+                    curr_offset += 1
                 }
-                output.push(Token::new(
-                    TokenContents::Item,
-                    Span::new(span_offset + start, span_offset + curr_offset),
-                ));
+                if matches {
+                    output.push(Token::new(
+                        TokenContents::Item,
+                        Span::new(span_offset + start, span_offset + curr_offset),
+                    ));
+                } else if !meet_quote {
+                    let quote_pos = span_offset + start + prefix_sharp_cnt + 1;
+                    error = Some(ParseError::Expected(
+                        "\"",
+                        Span::new(quote_pos, quote_pos + 1),
+                    ))
+                } else if error.is_none() {
+                    error = Some(ParseError::UnexpectedEof(
+                        "#".to_string(),
+                        Span::new(span_offset + curr_offset, span_offset + curr_offset),
+                    ))
+                }
             } else {
                 let (token, err) = lex_item(
                     input,
