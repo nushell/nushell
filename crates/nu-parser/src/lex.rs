@@ -546,23 +546,6 @@ fn lex_internal(
                     TokenContents::Item,
                     Span::new(span_offset + start, span_offset + curr_offset),
                 ));
-            // if let Some(b'#') = input.get(curr_offset + 1) {
-            //     let start = curr_offset;
-            //     curr_offset += 2;
-            //     while let Some(ch) = input.get(curr_offset) {
-            //         if *ch == b'#' {
-            //             // Does the raw string end with `"#`
-            //             if let Some(b'"') = input.get(curr_offset - 1) {
-            //                 curr_offset += 1;
-            //                 break;
-            //             }
-            //         }
-            //         curr_offset += 1;
-            //     }
-            //     output.push(Token::new(
-            //         TokenContents::Item,
-            //         Span::new(span_offset + start, span_offset + curr_offset),
-            //     ));
             } else {
                 let (token, err) = lex_item(
                     input,
