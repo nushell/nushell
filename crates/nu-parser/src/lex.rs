@@ -514,20 +514,19 @@ fn lex_internal(
             // itself, e.g: r##"I can use "# in a raw string"##
             let mut prefix_sharp_cnt = 0;
             let start = curr_offset;
-            while let Some(b'#') = input.get(curr_offset + 1) {
+            while let Some(b'#') = input.get(start + prefix_sharp_cnt + 1) {
                 prefix_sharp_cnt += 1;
-                curr_offset += 1;
             }
 
             if prefix_sharp_cnt != 0 {
-                // curr_offset is the last `#`, we need to move forward 2 characther to skip the `"`
-                // after the last `#`.  So we move into string body
+                // curr_offset is the character `r`, we need to move forward and skip all `#`
+                // characters.
                 //
                 // e.g: r###"<body>
-                //          ^
-                //          ^
-                //      need to skip it
-                curr_offset += 2;
+                //      ^
+                //      ^
+                //   curr_offset
+                curr_offset += start + prefix_sharp_cnt + 1;
                 while let Some(ch) = input.get(curr_offset) {
                     if *ch == b'#' {
                         let start_ch = input[curr_offset - prefix_sharp_cnt];

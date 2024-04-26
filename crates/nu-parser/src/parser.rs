@@ -1602,7 +1602,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     let postfix_bytes = &bytes[bytes.len() - expect_postfix_charp_cnt..bytes.len()];
     if postfix_bytes
         .iter()
-        .all(|b| char::from_u32(*b as u32).unwrap() == '#')
+        .any(|b| char::from_u32(*b as u32).unwrap() != '#')
     {
         working_set.error(ParseError::Unbalanced(
             "prefix #".to_string(),
