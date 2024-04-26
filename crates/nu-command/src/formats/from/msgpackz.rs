@@ -1,6 +1,8 @@
+use std::io::Cursor;
+
 use nu_engine::command_prelude::*;
 
-use super::msgpack::{read_value, ReadRawStream};
+use super::msgpack::{read_msgpack, Opts, ReadRawStream};
 
 const BUFFER_SIZE: usize = 65536;
 
@@ -15,6 +17,7 @@ impl Command for FromMsgpackz {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_type(Type::Binary, Type::Any)
+            .switch("objects", "Read multiple objects from input", None)
             .category(Category::Formats)
     }
 
@@ -28,27 +31,31 @@ impl Command for FromMsgpackz {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = input.span().unwrap_or(call.head);
+        let objects = call.has_flag(engine_state, stack, "objects")?;
+        let opts = Opts {
+            span,
+            objects,
+            ctrlc: engine_state.ctrlc.clone(),
+        };
         match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
-                let mut reader = brotli::Decompressor::new(&bytes[..], BUFFER_SIZE);
-                let result = read_value(&mut reader, span, 0)?;
-                Ok(result.into_pipeline_data())
+                let reader = brotli::Decompressor::new(Cursor::new(bytes), BUFFER_SIZE);
+                read_msgpack(reader, opts)
             }
             // Deserialize from a raw stream directly without having to collect it
             PipelineData::ExternalStream {
                 stdout: Some(raw_stream),
                 ..
             } => {
-                let mut reader = brotli::Decompressor::new(ReadRawStream(raw_stream), BUFFER_SIZE);
-                let result = read_value(&mut reader, span, 0)?;
-                Ok(result.into_pipeline_data())
+                let reader = brotli::Decompressor::new(ReadRawStream::new(raw_stream), BUFFER_SIZE);
+                read_msgpack(reader, opts)
             }
             _ => Err(ShellError::PipelineMismatch {
                 exp_input_type: "binary".into(),

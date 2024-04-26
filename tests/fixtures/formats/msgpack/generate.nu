@@ -28,10 +28,10 @@ def 'main sample' [] {
     0x[ca c480 0400] # float 32 (-1024.125)
     0x[cb c090 0080 0000 0000] # float 64 (-1024.125)
     0x[a0] # fixstr, length = 0
-    0x[a3] ("foo" | into binary) # fixstr, length = 3
-    0x[d9 05] ("hello" | into binary) # str 8, length = 5
-    0x[da 0007] ("nushell" | into binary) # str 16, length = 7
-    0x[db 0000 0008] ("love you" | into binary) # str 32, length = 8
+    0x[a3] "foo" # fixstr, length = 3
+    0x[d9 05] "hello" # str 8, length = 5
+    0x[da 0007] "nushell" # str 16, length = 7
+    0x[db 0000 0008] "love you" # str 32, length = 8
     0x[c4 03 f0ff00] # bin 8, length = 3
     0x[c5 0004 deadbeef] # bin 16, length = 4
     0x[c6 0000 0005 c0ffeeffee] # bin 32, length = 5
@@ -40,29 +40,39 @@ def 'main sample' [] {
     0x[dd 0000 0002 cac4800400 a3666f6f] # array 32, length = 2, [-1024.125, 'foo']
     # fixmap, length = 2, {foo: -2, bar: "hello"}
     0x[82]
-      0x[a3] ("foo" | into binary)
+      0x[a3] "foo"
       0x[fe]
-      0x[a3] ("bar" | into binary)
-      0x[d9 05] ("hello" | into binary)
+      0x[a3] "bar"
+      0x[d9 05] "hello"
     # map 16, length = 1, {hello: true}
     0x[de 0001]
-      0x[a5] ("hello" | into binary)
+      0x[a5] "hello"
       0x[c3]
     # map 32, length = 3, {nushell: rocks, foo: bar, hello: world}
     0x[df 0000 0003]
-      0x[a7] ("nushell" | into binary)
-      0x[a5] ("rocks" | into binary)
-      0x[a3] ("foo" | into binary)
-      0x[a3] ("bar" | into binary)
-      0x[a5] ("hello" | into binary)
-      0x[a5] ("world" | into binary)
+      0x[a7] "nushell"
+      0x[a5] "rocks"
+      0x[a3] "foo"
+      0x[a3] "bar"
+      0x[a5] "hello"
+      0x[a5] "world"
     # fixext 4, timestamp (-1), 1970-01-01T00:00:01
     0x[d6 ff 0000 0001]
     # fixext 8, timestamp (-1), 1970-01-01T00:00:01.1
     0x[d7 ff 17d7 8400 0000 0001]
     # ext 8, timestamp (-1), 1970-01-01T00:00:01.1
     0x[c7 0c ff 05f5 e100 0000 0000 0000 0001]
-  ] | bytes collect | save --force --raw sample.msgpack
+  ] | each { into binary } | bytes collect | save --force --raw sample.msgpack
+}
+
+# This is a stream of a map and a string
+def 'main objects' [] {
+  [
+    0x[81]
+      0x[a7] "nushell"
+      0x[a5] "rocks"
+    0x[a9] "seriously"
+  ] | each { into binary } | bytes collect | save --force --raw objects.msgpack
 }
 
 # This should break the recursion limit
@@ -87,6 +97,11 @@ def 'main empty' [] {
 # EOF when data was expected
 def 'main eof' [] {
   0x[92 92 c0] | save --force --raw eof.msgpack
+}
+
+# Extra data after EOF
+def 'main after-eof' [] {
+  0x[c2 c0] | save --force --raw after-eof.msgpack
 }
 
 # Reserved marker

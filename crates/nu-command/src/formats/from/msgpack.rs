@@ -2,9 +2,11 @@
 // implementation here is unique.
 
 use std::{
+    collections::VecDeque,
     error::Error,
-    io::{self, ErrorKind},
+    io::{self, Cursor, ErrorKind, Write},
     string::FromUtf8Error,
+    sync::{atomic::AtomicBool, Arc},
 };
 
 use byteorder::{BigEndian, ReadBytesExt};
@@ -27,6 +29,7 @@ impl Command for FromMsgpack {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_type(Type::Binary, Type::Any)
+            .switch("objects", "Read multiple objects from input", None)
             .category(Category::Formats)
     }
 
@@ -91,27 +94,28 @@ MessagePack: https://msgpack.org/
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = input.span().unwrap_or(call.head);
+        let objects = call.has_flag(engine_state, stack, "objects")?;
+        let opts = Opts {
+            span,
+            objects,
+            ctrlc: engine_state.ctrlc.clone(),
+        };
         match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {
-                let result = read_value(&mut &bytes[..], span, 0)?;
-                Ok(result.into_pipeline_data())
+                read_msgpack(Cursor::new(bytes), opts)
             }
             // Deserialize from a raw stream directly without having to collect it
             PipelineData::ExternalStream {
                 stdout: Some(raw_stream),
                 ..
-            } => {
-                let mut reader = ReadRawStream(raw_stream);
-                let result = read_value(&mut reader, span, 0)?;
-                Ok(result.into_pipeline_data())
-            }
+            } => read_msgpack(ReadRawStream::new(raw_stream), opts),
             _ => Err(ShellError::PipelineMismatch {
                 exp_input_type: "binary".into(),
                 dst_span: call.head,
@@ -205,11 +209,54 @@ impl From<ReadError> for ShellError {
     }
 }
 
-pub(crate) fn read_value(
-    input: &mut impl io::Read,
-    span: Span,
-    depth: usize,
-) -> Result<Value, ReadError> {
+pub(crate) struct Opts {
+    pub span: Span,
+    pub objects: bool,
+    pub ctrlc: Option<Arc<AtomicBool>>,
+}
+
+/// Read single or multiple values into PipelineData
+pub(crate) fn read_msgpack(
+    mut input: impl io::Read + Send + 'static,
+    opts: Opts,
+) -> Result<PipelineData, ShellError> {
+    let Opts {
+        span,
+        objects,
+        ctrlc,
+    } = opts;
+    if objects {
+        // Make an iterator that reads multiple values from the reader
+        let mut done = false;
+        Ok(std::iter::from_fn(move || {
+            if !done {
+                let result = read_value(&mut input, span, 0);
+                match result {
+                    Ok(value) => Some(value),
+                    // Any error should cause us to not read anymore
+                    Err(ReadError::Io(err, _)) if err.kind() == ErrorKind::UnexpectedEof => {
+                        done = true;
+                        None
+                    }
+                    Err(other_err) => {
+                        done = true;
+                        Some(Value::error(other_err.into(), span))
+                    }
+                }
+            } else {
+                None
+            }
+        })
+        .into_pipeline_data(ctrlc))
+    } else {
+        // Read a single value and then make sure it's EOF
+        let result = read_value(&mut input, span, 0)?;
+        assert_eof(&mut input, span)?;
+        Ok(result.into_pipeline_data())
+    }
+}
+
+fn read_value(input: &mut impl io::Read, span: Span, depth: usize) -> Result<Value, ReadError> {
     // Prevent stack overflow
     if depth >= MAX_DEPTH {
         return Err(ReadError::MaxDepth(span));
@@ -430,31 +477,40 @@ where
 /// Adapter to read MessagePack from a `RawStream`
 ///
 /// TODO: contribute this back to `RawStream` in general, with more polish, if it works
-pub(crate) struct ReadRawStream(pub RawStream);
+pub(crate) struct ReadRawStream {
+    pub stream: RawStream,
+    // Use a `VecDeque` for read efficiency
+    pub leftover: VecDeque<u8>,
+}
+
+impl ReadRawStream {
+    pub(crate) fn new(mut stream: RawStream) -> ReadRawStream {
+        ReadRawStream {
+            leftover: std::mem::take(&mut stream.leftover).into(),
+            stream,
+        }
+    }
+}
 
 impl io::Read for ReadRawStream {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         if buf.is_empty() {
             Ok(0)
-        } else if !self.0.leftover.is_empty() {
+        } else if !self.leftover.is_empty() {
             // Take as many leftover bytes as possible
-            let min_len = self.0.leftover.len().min(buf.len());
-            buf[0..min_len].copy_from_slice(&self.0.leftover[0..min_len]);
-            // Shift the leftover buffer back
-            self.0.leftover.drain(0..min_len);
-            Ok(min_len)
+            self.leftover.read(buf)
         } else {
             // Try to get data from the RawStream. We have to be careful not to break on a zero-len
             // buffer though, since that would mean EOF
             loop {
-                if let Some(result) = self.0.stream.next() {
+                if let Some(result) = self.stream.stream.next() {
                     let bytes = result.map_err(|err| io::Error::new(ErrorKind::Other, err))?;
                     if !bytes.is_empty() {
                         let min_len = bytes.len().min(buf.len());
                         let (source, leftover_bytes) = bytes.split_at(min_len);
                         buf[0..min_len].copy_from_slice(source);
                         // Keep whatever bytes we couldn't use in the leftover vec
-                        self.0.leftover.extend(leftover_bytes.iter().copied());
+                        self.leftover.write_all(leftover_bytes)?;
                         return Ok(min_len);
                     } else {
                         // Zero-length buf, continue
@@ -466,6 +522,25 @@ impl io::Read for ReadRawStream {
                 }
             }
         }
+    }
+}
+
+/// Return an error if this is not the end of file.
+///
+/// This can help detect if parsing succeeded incorrectly, perhaps due to corruption.
+fn assert_eof(input: &mut impl io::Read, span: Span) -> Result<(), ShellError> {
+    let mut buf = [0u8];
+    match input.read(&mut buf) {
+        // End of file
+        Ok(0) | Err(_) => Ok(()),
+        // More bytes
+        Ok(_) => Err(ShellError::GenericError {
+            error: "Additional data after end of MessagePack object".into(),
+            msg: "there was more data available after parsing".into(),
+            span: Some(span),
+            help: Some("this might be invalid data, but you can use `from msgpack --objects` to read multiple objects".into()),
+            inner: vec![],
+        })
     }
 }
 

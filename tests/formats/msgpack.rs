@@ -20,23 +20,26 @@ fn msgpack_test(fixture_name: &str, commands: Option<&str>) -> nu_test_support::
         outcome = Some(nu!(
             cwd: dirs.test(),
             collapse_output: false,
-            format!("open {fixture_name}.msgpack | {}", commands.unwrap_or("echo"))
+            commands.map(|c| c.to_owned()).unwrap_or_else(|| format!("open {fixture_name}.msgpack"))
         ));
     });
     outcome.expect("failed to get outcome")
 }
 
-#[test]
-fn sample() {
-    let path_to_sample_nuon = nu_test_support::fs::fixtures()
+fn msgpack_nuon_test(fixture_name: &str, opts: &str) {
+    let path_to_nuon = nu_test_support::fs::fixtures()
         .join("formats")
         .join("msgpack")
-        .join("sample.nuon");
+        .join(format!("{fixture_name}.nuon"));
 
-    let sample_nuon =
-        std::fs::read_to_string(path_to_sample_nuon).expect("failed to open sample.nuon");
+    let sample_nuon = std::fs::read_to_string(path_to_nuon).expect("failed to open sample.nuon");
 
-    let outcome = msgpack_test("sample", Some("to nuon --indent 4"));
+    let outcome = msgpack_test(
+        fixture_name,
+        Some(&format!(
+            "open --raw {fixture_name}.msgpack | from msgpack {opts} | to nuon --indent 4"
+        )),
+    );
 
     assert!(outcome.status.success());
     assert!(outcome.err.is_empty());
@@ -44,6 +47,11 @@ fn sample() {
         sample_nuon.replace("\r\n", "\n"),
         outcome.out.replace("\r\n", "\n")
     );
+}
+
+#[test]
+fn sample() {
+    msgpack_nuon_test("sample", "");
 }
 
 #[test]
@@ -73,6 +81,11 @@ fn sample_roundtrip() {
 }
 
 #[test]
+fn objects() {
+    msgpack_nuon_test("objects", "--objects");
+}
+
+#[test]
 fn max_depth() {
     let outcome = msgpack_test("max-depth", None);
     assert!(!outcome.status.success());
@@ -98,6 +111,13 @@ fn eof() {
     let outcome = msgpack_test("eof", None);
     assert!(!outcome.status.success());
     assert!(outcome.err.contains("fill whole buffer"));
+}
+
+#[test]
+fn after_eof() {
+    let outcome = msgpack_test("after-eof", None);
+    assert!(!outcome.status.success());
+    assert!(outcome.err.contains("after end of"));
 }
 
 #[test]
