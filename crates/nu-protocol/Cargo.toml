@@ -39,6 +39,7 @@ strum = "0.26"
 strum_macros = "0.26"
 nu-test-support = { path = "../nu-test-support", version = "0.92.3" }
 rstest = { workspace = true }
+tempfile = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

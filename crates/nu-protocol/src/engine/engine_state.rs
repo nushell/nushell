@@ -962,8 +962,6 @@ impl EngineState {
     ///
     /// If `stack` is supplied, also considers modifications to the working directory on the stack
     /// that have yet to be merged into the engine state.
-    ///
-    /// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
     pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
         // Helper function to create a simple generic error.
         // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
@@ -977,6 +975,12 @@ impl EngineState {
             })
         }
 
+        // Helper function to check if a path has trailing slashes.
+        fn has_trailing_slash(path: &Path) -> bool {
+            nu_path::components(&path).last()
+                == Some(std::path::Component::Normal(std::ffi::OsStr::new("")))
+        }
+
         // Retrieve $env.PWD from the stack or the engine state.
         let pwd = if let Some(stack) = stack {
             stack.get_env_var(self, "PWD")
@@ -987,10 +991,17 @@ impl EngineState {
         if let Some(pwd) = pwd {
             if let Value::String { val, .. } = pwd {
                 let path = PathBuf::from(val);
-                if path.is_absolute() {
-                    Ok(path)
-                } else {
+
+                if has_trailing_slash(&path) {
+                    error("$env.PWD contains trailing slashes")
+                } else if !path.is_absolute() {
                     error("$env.PWD is not an absolute path")
+                } else if !path.exists() {
+                    error("$env.PWD points to a non-existent directory")
+                } else if !path.is_dir() {
+                    error("$env.PWD points to a non-directory")
+                } else {
+                    Ok(path)
                 }
             } else {
                 error("$env.PWD is not a string")
@@ -1147,5 +1158,215 @@ mod engine_state_tests {
             engine_state.get_plugin_config("example").is_some(),
             "Plugin configuration not found"
         );
+    }
+}
+
+#[cfg(test)]
+mod test_cwd {
+    //! Here're the test cases we need to cover:
+    //!
+    //! `EngineState::cwd()` computes the result from `self.env_vars["PWD"]` and
+    //! optionally `stack.env_vars["PWD"]`.
+    //!
+    //! PWD may be unset in either `env_vars`.
+    //! PWD should NOT be an empty string.
+    //! PWD should NOT be a non-string value.
+    //! PWD should NOT be a relative path.
+    //! PWD should NOT contain trailing slashes.
+    //! PWD may point to a directory or a symlink to directory.
+    //! PWD should NOT point to a file or a symlink to file.
+    //! PWD should NOT point to non-existent entities in the filesystem.
+
+    use crate::{
+        engine::{EngineState, Stack},
+        Span, Value,
+    };
+    use nu_path::assert_path_eq;
+    use std::path::Path;
+    use tempfile::{NamedTempFile, TempDir};
+
+    /// Creates a symlink. Works on both Unix and Windows.
+    #[cfg(any(unix, windows))]
+    fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(original, link)
+        }
+        #[cfg(windows)]
+        {
+            if original.as_ref().is_dir() {
+                std::os::windows::fs::symlink_dir(original, link)
+            } else {
+                std::os::windows::fs::symlink_file(original, link)
+            }
+        }
+    }
+
+    /// Create an engine state initialized with the given PWD.
+    fn engine_state_with_pwd(path: impl AsRef<Path>) -> EngineState {
+        let mut engine_state = EngineState::new();
+        engine_state.add_env_var(
+            "PWD".into(),
+            Value::String {
+                val: path.as_ref().to_string_lossy().to_string(),
+                internal_span: Span::unknown(),
+            },
+        );
+        engine_state
+    }
+
+    /// Create a stack initialized with the given PWD.
+    fn stack_with_pwd(path: impl AsRef<Path>) -> Stack {
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            "PWD".into(),
+            Value::String {
+                val: path.as_ref().to_string_lossy().to_string(),
+                internal_span: Span::unknown(),
+            },
+        );
+        stack
+    }
+
+    #[test]
+    fn pwd_not_set() {
+        let engine_state = EngineState::new();
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_is_empty_string() {
+        let engine_state = engine_state_with_pwd("");
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_is_non_string_value() {
+        let mut engine_state = EngineState::new();
+        engine_state.add_env_var(
+            "PWD".into(),
+            Value::Glob {
+                val: "*".into(),
+                no_expand: false,
+                internal_span: Span::unknown(),
+            },
+        );
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_is_relative_path() {
+        let engine_state = engine_state_with_pwd("./foo");
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_has_trailing_slash() {
+        let dir = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir.path().join(""));
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_normal_file() {
+        let file = NamedTempFile::new().unwrap();
+        let engine_state = engine_state_with_pwd(file.path());
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_normal_directory() {
+        let dir = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir.path());
+
+        let cwd = engine_state.cwd(None).unwrap();
+        assert_path_eq!(cwd, dir.path());
+    }
+
+    #[test]
+    fn pwd_points_to_symlink_to_file() {
+        let file = NamedTempFile::new().unwrap();
+        let dir = TempDir::new().unwrap();
+        let link = dir.path().join("link");
+        symlink(file.path(), &link).unwrap();
+        let engine_state = engine_state_with_pwd(&link);
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_symlink_to_directory() {
+        let dir = TempDir::new().unwrap();
+        let link = dir.path().join("link");
+        symlink(dir.path(), &link).unwrap();
+        let engine_state = engine_state_with_pwd(&link);
+
+        let cwd = engine_state.cwd(None).unwrap();
+        assert_path_eq!(cwd, link);
+    }
+
+    #[test]
+    fn pwd_points_to_broken_symlink() {
+        let dir = TempDir::new().unwrap();
+        let link = dir.path().join("link");
+        symlink(TempDir::new().unwrap().path(), &link).unwrap();
+        let engine_state = engine_state_with_pwd(&link);
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_nonexistent_entity() {
+        let engine_state = engine_state_with_pwd(TempDir::new().unwrap().path());
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn stack_pwd_not_set() {
+        let dir = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir.path());
+        let stack = Stack::new();
+
+        let cwd = engine_state.cwd(Some(&stack)).unwrap();
+        assert_eq!(cwd, dir.path());
+    }
+
+    #[test]
+    fn stack_pwd_is_empty_string() {
+        let dir = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir.path());
+        let stack = stack_with_pwd("");
+
+        engine_state.cwd(Some(&stack)).unwrap_err();
+    }
+
+    #[test]
+    fn stack_pwd_points_to_normal_directory() {
+        let dir1 = TempDir::new().unwrap();
+        let dir2 = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir1.path());
+        let stack = stack_with_pwd(dir2.path());
+
+        let cwd = engine_state.cwd(Some(&stack)).unwrap();
+        assert_path_eq!(cwd, dir2.path());
+    }
+
+    #[test]
+    fn stack_pwd_points_to_normal_directory_with_symlink_components() {
+        // `/tmp/dir/link` points to `/tmp/dir`, then we set PWD to `/tmp/dir/link/foo`
+        let dir = TempDir::new().unwrap();
+        let link = dir.path().join("link");
+        symlink(dir.path(), &link).unwrap();
+        let foo = link.join("foo");
+        std::fs::create_dir(dir.path().join("foo")).unwrap();
+        let engine_state = EngineState::new();
+        let stack = stack_with_pwd(&foo);
+
+        let cwd = engine_state.cwd(Some(&stack)).unwrap();
+        assert_path_eq!(cwd, foo);
     }
 }
