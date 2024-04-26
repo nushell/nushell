@@ -125,3 +125,15 @@ fn mut_glob_type() {
     let actual = nu!("mut x: glob = 'aa'; $x | describe");
     assert_eq!(actual.out, "glob");
 }
+
+#[test]
+fn mut_raw_string() {
+    let actual = nu!(r##"mut x = r#"abcde''fghi'""""jkl"#; $x"##);
+    assert_eq!(actual.out, r#"abcde''fghi'""""jkl"#);
+
+    let actual = nu!(r###"mut x = r##"abcde''fghi'""""#jkl"##; $x"###);
+    assert_eq!(actual.out, r##"abcde''fghi'""""#jkl"##);
+
+    let actual = nu!(r####"mut x = r###"abcde''fghi'"""##"#jkl"###; $x"####);
+    assert_eq!(actual.out, r###"abcde''fghi'"""##"#jkl"###);
+}
