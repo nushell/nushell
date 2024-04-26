@@ -504,42 +504,43 @@ fn lex_internal(
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
         } else if c == b'r' {
-            // A raw string literal looks like `echo r#"Look, I can use "double quotes"!"#`
-            // If the next character is `#` we're probably looking at a raw string literal
-            // so we need to read all the text until we find a closing `#`. This raw string
+            // A raw string literal looks like `echo r@'Look, I can use 'single quotes'!'@`
+            // If the next character is `@` we're probably looking at a raw string literal
+            // so we need to read all the text until we find a closing `@`. This raw string
             // can contain any character, including newlines and double quotes without needing
             // to escape them.
             //
-            // A raw string can contain many `#` as prefix, incase if there is `"#` in string
-            // itself, e.g: r##"I can use "# in a raw string"##
-            let mut prefix_sharp_cnt = 0;
+            // A raw string can contain many `@` as prefix,
+            // incase if there is a `'@` or `@'` in the string itself.
+            // E.g: r@@'I can use '@' in a raw string'@@
+            let mut prefix_at_cnt = 0;
             let start = curr_offset;
-            while let Some(b'#') = input.get(start + prefix_sharp_cnt + 1) {
-                prefix_sharp_cnt += 1;
+            while let Some(b'@') = input.get(start + prefix_at_cnt + 1) {
+                prefix_at_cnt += 1;
             }
 
-            if prefix_sharp_cnt != 0 {
-                // curr_offset is the character `r`, we need to move forward and skip all `#`
+            if prefix_at_cnt != 0 {
+                // curr_offset is the character `r`, we need to move forward and skip all `@`
                 // characters.
                 //
-                // e.g: r###"<body>
+                // e.g: r@@@'<body>
                 //      ^
                 //      ^
                 //   curr_offset
-                curr_offset += start + prefix_sharp_cnt + 1;
+                curr_offset += start + prefix_at_cnt + 1;
                 let mut matches = false;
                 let mut meet_quote = false;
                 while let Some(ch) = input.get(curr_offset) {
-                    // check for postfix "###
-                    if *ch == b'#' {
-                        let start_ch = input[curr_offset - prefix_sharp_cnt];
-                        let postfix = &input[curr_offset - prefix_sharp_cnt + 1..=curr_offset];
-                        if start_ch == b'"' && postfix.iter().all(|x| *x == b'#') {
+                    // check for postfix '@@@
+                    if *ch == b'@' {
+                        let start_ch = input[curr_offset - prefix_at_cnt];
+                        let postfix = &input[curr_offset - prefix_at_cnt + 1..=curr_offset];
+                        if start_ch == b'\'' && postfix.iter().all(|x| *x == b'@') {
                             matches = true;
                             curr_offset += 1;
                             break;
                         }
-                    } else if *ch == b'"' {
+                    } else if *ch == b'\'' {
                         meet_quote = true;
                     }
                     curr_offset += 1
@@ -550,14 +551,14 @@ fn lex_internal(
                         Span::new(span_offset + start, span_offset + curr_offset),
                     ));
                 } else if !meet_quote {
-                    let quote_pos = span_offset + start + prefix_sharp_cnt + 1;
+                    let quote_pos = span_offset + start + prefix_at_cnt + 1;
                     error = Some(ParseError::Expected(
-                        "\"",
+                        "'",
                         Span::new(quote_pos, quote_pos + 1),
                     ))
                 } else if error.is_none() {
                     error = Some(ParseError::UnexpectedEof(
-                        "#".to_string(),
+                        "@".to_string(),
                         Span::new(span_offset + curr_offset, span_offset + curr_offset),
                     ))
                 }
