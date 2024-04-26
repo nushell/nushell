@@ -161,6 +161,13 @@ mod test_expand_dots {
     }
 
     #[test]
+    fn more_single_dots() {
+        let path = Path::new("././.");
+        let expected = ".";
+        assert_path_eq!(expand_dots(path), expected);
+    }
+
+    #[test]
     fn double_dots() {
         let path = Path::new("../../..");
         let expected = if cfg!(windows) {
