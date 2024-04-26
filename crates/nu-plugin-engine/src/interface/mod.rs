@@ -1,7 +1,7 @@
 //! Interface used by the engine to communicate with the plugin.
 
 use nu_plugin_core::{
-    util::{with_custom_values_in, Sequence, Waitable},
+    util::{with_custom_values_in, Sequence, Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
 };
@@ -107,6 +107,8 @@ struct PluginCallState {
     ctrlc: Option<Arc<AtomicBool>>,
     /// Channel to receive context on to be used if needed
     context_rx: Option<mpsc::Receiver<Context>>,
+    /// Span associated with the call, if any
+    span: Option<Span>,
     /// Channel for plugin custom values that should be kept alive for the duration of the plugin
     /// call. The plugin custom values on this channel are never read, we just hold on to it to keep
     /// them in memory so they can be dropped at the end of the call. We hold the sender as well so
@@ -134,6 +136,8 @@ impl Drop for PluginCallState {
 pub struct PluginInterfaceManager {
     /// Shared state
     state: Arc<PluginInterfaceState>,
+    /// The writer for protocol info
+    protocol_info_mut: WaitableMut<Arc<ProtocolInfo>>,
     /// Manages stream messages and state
     stream_manager: StreamManager,
     /// State related to plugin calls
@@ -155,18 +159,20 @@ impl PluginInterfaceManager {
         writer: impl PluginWrite<PluginInput> + 'static,
     ) -> PluginInterfaceManager {
         let (subscription_tx, subscription_rx) = mpsc::channel();
+        let protocol_info_mut = WaitableMut::new();
 
         PluginInterfaceManager {
             state: Arc::new(PluginInterfaceState {
                 source,
                 process: pid.map(PluginProcess::new),
-                protocol_info: Waitable::new(),
+                protocol_info: protocol_info_mut.reader(),
                 plugin_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 plugin_call_subscription_sender: subscription_tx,
                 error: OnceLock::new(),
                 writer: Box::new(writer),
             }),
+            protocol_info_mut,
             stream_manager: StreamManager::new(),
             plugin_call_states: BTreeMap::new(),
             plugin_call_subscription_receiver: subscription_rx,
@@ -297,6 +303,7 @@ impl PluginInterfaceManager {
                     context_tx: None,
                     keep_plugin_custom_values_tx: Some(state.keep_plugin_custom_values.0.clone()),
                     entered_foreground: false,
+                    span: state.span,
                 };
 
                 let handler = move || {
@@ -459,7 +466,7 @@ impl InterfaceManager for PluginInterfaceManager {
         match input {
             PluginOutput::Hello(info) => {
                 let info = Arc::new(info);
-                self.state.protocol_info.set(info.clone())?;
+                self.protocol_info_mut.set(info.clone())?;
 
                 let local_info = ProtocolInfo::default();
                 if local_info.is_compatible_with(&info)? {
@@ -629,7 +636,14 @@ impl PluginInterface {
 
     /// Get the protocol info for the plugin. Will block to receive `Hello` if not received yet.
     pub fn protocol_info(&self) -> Result<Arc<ProtocolInfo>, ShellError> {
-        self.state.protocol_info.get()
+        self.state.protocol_info.get().and_then(|info| {
+            info.ok_or_else(|| ShellError::PluginFailedToLoad {
+                msg: format!(
+                    "Failed to get protocol info (`Hello` message) from the `{}` plugin",
+                    self.state.source.identity.name()
+                ),
+            })
+        })
     }
 
     /// Write the protocol info. This should be done after initialization
@@ -693,6 +707,7 @@ impl PluginInterface {
             context_tx: Some(context_tx),
             keep_plugin_custom_values_tx: Some(keep_plugin_custom_values.0.clone()),
             entered_foreground: false,
+            span: call.span(),
         };
 
         // Prepare the call with the state.
@@ -731,24 +746,24 @@ impl PluginInterface {
                     dont_send_response,
                     ctrlc,
                     context_rx: Some(context_rx),
+                    span: call.span(),
                     keep_plugin_custom_values,
                     remaining_streams_to_read: 0,
                 },
             ))
-            .map_err(|_| ShellError::GenericError {
-                error: format!("Plugin `{}` closed unexpectedly", self.state.source.name()),
-                msg: "can't complete this operation because the plugin is closed".into(),
-                span: match &call {
-                    PluginCall::Signature => None,
-                    PluginCall::Run(CallInfo { call, .. }) => Some(call.head),
-                    PluginCall::CustomValueOp(val, _) => Some(val.span),
-                },
-                help: Some(format!(
-                    "the plugin may have experienced an error. Try loading the plugin again \
+            .map_err(|_| {
+                let existing_error = self.state.error.get().cloned();
+                ShellError::GenericError {
+                    error: format!("Plugin `{}` closed unexpectedly", self.state.source.name()),
+                    msg: "can't complete this operation because the plugin is closed".into(),
+                    span: call.span(),
+                    help: Some(format!(
+                        "the plugin may have experienced an error. Try loading the plugin again \
                         with `{}`",
-                    self.state.source.identity.use_command(),
-                )),
-                inner: vec![],
+                        self.state.source.identity.use_command(),
+                    )),
+                    inner: existing_error.into_iter().collect(),
+                }
             })?;
 
         // Starting a plugin call adds a lock on the GC. Locks are not added for streams being read
@@ -814,14 +829,21 @@ impl PluginInterface {
             }
         }
         // If we fail to get a response, check for an error in the state first, and return it if
-        // set. This is probably a much more helpful error than 'failed to receive response'
-        if let Some(error) = self.state.error.get() {
-            Err(error.clone())
-        } else {
-            Err(ShellError::PluginFailedToDecode {
-                msg: "Failed to receive response to plugin call".into(),
-            })
-        }
+        // set. This is probably a much more helpful error than 'failed to receive response' alone
+        let existing_error = self.state.error.get().cloned();
+        Err(ShellError::GenericError {
+            error: format!(
+                "Failed to receive response to plugin call from `{}`",
+                self.state.source.identity.name()
+            ),
+            msg: "while waiting for this operation to complete".into(),
+            span: state.span,
+            help: Some(format!(
+                "try restarting the plugin with `{}`",
+                self.state.source.identity.use_command()
+            )),
+            inner: existing_error.into_iter().collect(),
+        })
     }
 
     /// Handle an engine call and write the response.
@@ -866,7 +888,20 @@ impl PluginInterface {
     ) -> Result<PluginCallResponse<PipelineData>, ShellError> {
         // Check for an error in the state first, and return it if set.
         if let Some(error) = self.state.error.get() {
-            return Err(error.clone());
+            return Err(ShellError::GenericError {
+                error: format!(
+                    "Failed to send plugin call to `{}`",
+                    self.state.source.identity.name()
+                ),
+                msg: "the plugin encountered an error before this operation could be attempted"
+                    .into(),
+                span: call.span(),
+                help: Some(format!(
+                    "try loading the plugin again with `{}`",
+                    self.state.source.identity.use_command(),
+                )),
+                inner: vec![error.clone()],
+            });
         }
 
         let result = self.write_plugin_call(call, context.as_deref())?;
@@ -1087,6 +1122,8 @@ pub struct CurrentCallState {
     /// The plugin call entered the foreground: this should be cleaned up automatically when the
     /// plugin call returns.
     entered_foreground: bool,
+    /// The span that caused the plugin call.
+    span: Option<Span>,
 }
 
 impl CurrentCallState {

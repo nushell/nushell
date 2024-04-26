@@ -442,13 +442,13 @@ pub enum ParseError {
     #[error("Plugin not found")]
     #[diagnostic(
         code(nu::parser::plugin_not_found),
-        help("plugins need to be added to the plugin cache file before your script is run (see `plugin add`)"),
+        help("plugins need to be added to the plugin registry file before your script is run (see `plugin add`)"),
     )]
     PluginNotFound {
         name: String,
         #[label("Plugin not found: {name}")]
         name_span: Span,
-        #[label("in this cache file")]
+        #[label("in this registry file")]
         plugin_config_span: Option<Span>,
     },
 

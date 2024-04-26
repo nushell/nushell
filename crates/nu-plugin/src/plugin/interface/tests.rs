@@ -300,8 +300,7 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
 
 fn set_default_protocol_info(manager: &mut EngineInterfaceManager) -> Result<(), ShellError> {
     manager
-        .state
-        .protocol_info
+        .protocol_info_mut
         .set(Arc::new(ProtocolInfo::default()))
 }
 

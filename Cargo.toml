@@ -227,7 +227,7 @@ dirs-next = { workspace = true }
 divan = "0.1.14"
 pretty_assertions = "1.4"
 rstest = { workspace = true, default-features = false }
-serial_test = "3.0"
+serial_test = "3.1"
 tempfile = { workspace = true }
 
 [features]

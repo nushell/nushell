@@ -11,7 +11,7 @@ impl Command for StorDelete {
 
     fn signature(&self) -> Signature {
         Signature::build("stor delete")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .required_named(
                 "table-name",
                 SyntaxShape::String,

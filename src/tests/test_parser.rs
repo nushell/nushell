@@ -416,10 +416,7 @@ fn proper_missing_param() -> TestResult {
 
 #[test]
 fn block_arity_check1() -> TestResult {
-    fail_test(
-        r#"ls | each { |x, y, z| 1}"#,
-        "expected 2 closure parameters",
-    )
+    fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 closure parameter")
 }
 
 // deprecating former support for escapes like `/uNNNN`, dropping test.
@@ -598,7 +595,7 @@ register $file
 fn plugin_use_with_string_literal() -> TestResult {
     fail_test(
         r#"plugin use 'nu-plugin-math'"#,
-        "Plugin cache file not set",
+        "Plugin registry file not set",
     )
 }
 
@@ -609,7 +606,7 @@ const file = 'nu-plugin-math'
 plugin use $file
 ";
     // should not fail with `not a constant`
-    fail_test(input, "Plugin cache file not set")
+    fail_test(input, "Plugin registry file not set")
 }
 
 #[test]

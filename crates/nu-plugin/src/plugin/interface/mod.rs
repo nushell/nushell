@@ -1,7 +1,7 @@
 //! Interface used by the plugin to communicate with the engine.
 
 use nu_plugin_core::{
-    util::{Sequence, Waitable},
+    util::{Sequence, Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
 };
@@ -83,6 +83,8 @@ impl std::fmt::Debug for EngineInterfaceState {
 pub struct EngineInterfaceManager {
     /// Shared state
     state: Arc<EngineInterfaceState>,
+    /// The writer for protocol info
+    protocol_info_mut: WaitableMut<Arc<ProtocolInfo>>,
     /// Channel to send received PluginCalls to. This is removed after `Goodbye` is received.
     plugin_call_sender: Option<mpsc::Sender<ReceivedPluginCall>>,
     /// Receiver for PluginCalls. This is usually taken after initialization
@@ -101,15 +103,17 @@ impl EngineInterfaceManager {
     pub(crate) fn new(writer: impl PluginWrite<PluginOutput> + 'static) -> EngineInterfaceManager {
         let (plug_tx, plug_rx) = mpsc::channel();
         let (subscription_tx, subscription_rx) = mpsc::channel();
+        let protocol_info_mut = WaitableMut::new();
 
         EngineInterfaceManager {
             state: Arc::new(EngineInterfaceState {
-                protocol_info: Waitable::new(),
+                protocol_info: protocol_info_mut.reader(),
                 engine_call_id_sequence: Sequence::default(),
                 stream_id_sequence: Sequence::default(),
                 engine_call_subscription_sender: subscription_tx,
                 writer: Box::new(writer),
             }),
+            protocol_info_mut,
             plugin_call_sender: Some(plug_tx),
             plugin_call_receiver: Some(plug_rx),
             engine_call_subscriptions: BTreeMap::new(),
@@ -231,7 +235,7 @@ impl InterfaceManager for EngineInterfaceManager {
         match input {
             PluginInput::Hello(info) => {
                 let info = Arc::new(info);
-                self.state.protocol_info.set(info.clone())?;
+                self.protocol_info_mut.set(info.clone())?;
 
                 let local_info = ProtocolInfo::default();
                 if local_info.is_compatible_with(&info)? {

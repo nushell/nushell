@@ -23,7 +23,7 @@ impl SimplePluginCommand for Config {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Experimental)
-            .input_output_type(Type::Nothing, Type::Table(vec![]))
+            .input_output_type(Type::Nothing, Type::table())
     }
 
     fn search_terms(&self) -> Vec<&str> {

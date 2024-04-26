@@ -9,7 +9,7 @@ impl Command for PluginUse {
     }
 
     fn usage(&self) -> &str {
-        "Load a plugin from the plugin cache file into scope."
+        "Load a plugin from the plugin registry file into scope."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -18,7 +18,7 @@ impl Command for PluginUse {
             .named(
                 "plugin-config",
                 SyntaxShape::Filepath,
-                "Use a plugin cache file other than the one set in `$nu.plugin-path`",
+                "Use a plugin registry file other than the one set in `$nu.plugin-path`",
                 None,
             )
             .required(
@@ -34,13 +34,13 @@ impl Command for PluginUse {
 This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html
 
-The plugin definition must be available in the plugin cache file at parse time.
-Run `plugin add` first in the REPL to do this, or from a script consider
-preparing a plugin cache file and passing `--plugin-config`, or using the
+The plugin definition must be available in the plugin registry file at parse
+time. Run `plugin add` first in the REPL to do this, or from a script consider
+preparing a plugin registry file and passing `--plugin-config`, or using the
 `--plugin` option to `nu` instead.
 
 If the plugin was already loaded, this will reload the latest definition from
-the cache file into scope.
+the registry file into scope.
 
 Note that even if the plugin filename is specified, it will only be loaded if
 it was already previously registered with `plugin add`.
@@ -80,7 +80,7 @@ it was already previously registered with `plugin add`.
             },
             Example {
                 description:
-                    "Load the commands for the `query` plugin from a custom plugin cache file",
+                    "Load the commands for the `query` plugin from a custom plugin registry file",
                 example: r#"plugin use --plugin-config local-plugins.msgpackz query"#,
                 result: None,
             },

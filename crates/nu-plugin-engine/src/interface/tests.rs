@@ -192,6 +192,7 @@ fn fake_plugin_call(
             dont_send_response: false,
             ctrlc: None,
             context_rx: None,
+            span: None,
             keep_plugin_custom_values: mpsc::channel(),
             remaining_streams_to_read: 0,
         },
@@ -316,8 +317,7 @@ fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(),
 
 fn set_default_protocol_info(manager: &mut PluginInterfaceManager) -> Result<(), ShellError> {
     manager
-        .state
-        .protocol_info
+        .protocol_info_mut
         .set(Arc::new(ProtocolInfo::default()))
 }
 
@@ -498,6 +498,7 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
             dont_send_response: false,
             ctrlc: None,
             context_rx: Some(context_rx),
+            span: None,
             keep_plugin_custom_values: mpsc::channel(),
             remaining_streams_to_read: 1,
         },
@@ -563,6 +564,7 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
                 dont_send_response: false,
                 ctrlc: None,
                 context_rx: None,
+                span: None,
                 keep_plugin_custom_values: mpsc::channel(),
                 remaining_streams_to_read: n as i32,
             },
@@ -598,6 +600,7 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
                 dont_send_response: false,
                 ctrlc: None,
                 context_rx: None,
+                span: None,
                 keep_plugin_custom_values: mpsc::channel(),
                 remaining_streams_to_read: n as i32,
             },
