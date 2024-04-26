@@ -1,4 +1,5 @@
 use nu_test_support::nu;
+use pretty_assertions::assert_eq;
 
 #[test]
 fn sample_roundtrip() {
@@ -20,5 +21,8 @@ fn sample_roundtrip() {
 
     assert!(outcome.status.success());
     assert!(outcome.err.is_empty());
-    assert_eq!(sample_nuon, outcome.out);
+    assert_eq!(
+        sample_nuon.replace("\r\n", "\n"),
+        outcome.out.replace("\r\n", "\n")
+    );
 }
