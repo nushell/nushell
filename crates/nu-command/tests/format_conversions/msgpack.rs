@@ -1,4 +1,3 @@
-use assert_cmd::Command;
 use nu_test_support::{nu, playground::Playground};
 use pretty_assertions::assert_eq;
 
@@ -10,13 +9,17 @@ fn msgpack_test(fixture_name: &str, commands: Option<&str>) -> nu_test_support::
 
     let mut outcome = None;
     Playground::setup(&format!("msgpack test {}", fixture_name), |dirs, _| {
-        Command::new(nu_test_support::fs::executable_path())
-            .current_dir(dirs.test())
-            .arg("--no-config-file")
-            .arg(path_to_generate_nu)
-            .arg(fixture_name)
-            .assert()
-            .success();
+        assert!(nu!(
+            cwd: dirs.test(),
+            format!(
+                "nu -n '{}' '{}'",
+                path_to_generate_nu.display(),
+                fixture_name
+            ),
+        )
+        .status
+        .success());
+
         outcome = Some(nu!(
             cwd: dirs.test(),
             collapse_output: false,
@@ -32,7 +35,7 @@ fn msgpack_nuon_test(fixture_name: &str, opts: &str) {
         .join("msgpack")
         .join(format!("{fixture_name}.nuon"));
 
-    let sample_nuon = std::fs::read_to_string(path_to_nuon).expect("failed to open sample.nuon");
+    let sample_nuon = std::fs::read_to_string(path_to_nuon).expect("failed to open nuon file");
 
     let outcome = msgpack_test(
         fixture_name,

@@ -3096,6 +3096,7 @@ dependencies = [
  "os_pipe",
  "pathdiff",
  "percent-encoding",
+ "pretty_assertions",
  "print-positions",
  "procfs",
  "quick-xml",
