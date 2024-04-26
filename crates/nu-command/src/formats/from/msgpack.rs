@@ -359,12 +359,12 @@ fn read_map(
         .map(|_| {
             let key = read_value(input, span, depth + 1)?
                 .into_string()
-                .map_err(|err| ShellError::GenericError {
+                .map_err(|_| ShellError::GenericError {
                     error: "Invalid non-string value in MessagePack map".into(),
                     msg: "only maps with string keys are supported".into(),
                     span: Some(span),
                     help: None,
-                    inner: vec![err],
+                    inner: vec![],
                 })?;
             let val = read_value(input, span, depth + 1)?;
             Ok((key, val))
