@@ -124,15 +124,15 @@ MessagePack: https://msgpack.org/
 #[derive(Debug)]
 pub(crate) enum ReadError {
     MaxDepth(Span),
-    IoError(io::Error, Span),
+    Io(io::Error, Span),
     TypeMismatch(rmp::Marker, Span),
     Utf8(FromUtf8Error, Span),
-    ShellError(Box<ShellError>),
+    Shell(Box<ShellError>),
 }
 
 impl From<Box<ShellError>> for ReadError {
     fn from(v: Box<ShellError>) -> Self {
-        Self::ShellError(v)
+        Self::Shell(v)
     }
 }
 
@@ -147,7 +147,7 @@ impl From<Spanned<ValueReadError>> for ReadError {
         match value.item {
             // All I/O errors:
             ValueReadError::InvalidMarkerRead(err) | ValueReadError::InvalidDataRead(err) => {
-                ReadError::IoError(err, value.span)
+                ReadError::Io(err, value.span)
             }
             ValueReadError::TypeMismatch(marker) => ReadError::TypeMismatch(marker, value.span),
         }
@@ -156,7 +156,7 @@ impl From<Spanned<ValueReadError>> for ReadError {
 
 impl From<Spanned<io::Error>> for ReadError {
     fn from(value: Spanned<io::Error>) -> Self {
-        ReadError::IoError(value.item, value.span)
+        ReadError::Io(value.item, value.span)
     }
 }
 
@@ -176,7 +176,7 @@ impl From<ReadError> for ShellError {
                 help: None,
                 inner: vec![],
             },
-            ReadError::IoError(err, span) => ShellError::GenericError {
+            ReadError::Io(err, span) => ShellError::GenericError {
                 error: "Error while reading MessagePack data".into(),
                 msg: err.to_string(),
                 span: Some(span),
@@ -200,7 +200,7 @@ impl From<ReadError> for ShellError {
                 msg: format!("in MessagePack data: {err}"),
                 span,
             },
-            ReadError::ShellError(err) => *err,
+            ReadError::Shell(err) => *err,
         }
     }
 }
@@ -406,7 +406,7 @@ fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
 }
 
 fn make_date(secs: i64, nanos: u32, span: Span) -> Result<Value, ReadError> {
-    match Utc.timestamp_opt(secs as i64, nanos as u32) {
+    match Utc.timestamp_opt(secs, nanos) {
         chrono::offset::LocalResult::Single(dt) => Ok(Value::date(dt.into(), span)),
         _ => Err(ShellError::GenericError {
             error: "Invalid MessagePack timestamp".into(),
@@ -424,7 +424,7 @@ where
     T: Into<i64>,
 {
     num.map(|num| Value::int(num.into(), span))
-        .map_err(|err| ReadError::IoError(err, span))
+        .map_err(|err| ReadError::Io(err, span))
 }
 
 /// Adapter to read MessagePack from a `RawStream`
@@ -449,7 +449,7 @@ impl io::Read for ReadRawStream {
             loop {
                 if let Some(result) = self.0.stream.next() {
                     let bytes = result.map_err(|err| io::Error::new(ErrorKind::Other, err))?;
-                    if bytes.len() > 0 {
+                    if !bytes.is_empty() {
                         let min_len = bytes.len().min(buf.len());
                         let (source, leftover_bytes) = bytes.split_at(min_len);
                         buf[0..min_len].copy_from_slice(source);

@@ -87,26 +87,26 @@ MessagePack: https://msgpack.org/
 #[derive(Debug)]
 pub(crate) enum WriteError {
     MaxDepth(Span),
-    ValueWriteError(mp::ValueWriteError<io::Error>, Span),
-    IoError(io::Error, Span),
-    ShellError(Box<ShellError>),
+    Rmp(mp::ValueWriteError<io::Error>, Span),
+    Io(io::Error, Span),
+    Shell(Box<ShellError>),
 }
 
 impl From<Spanned<mp::ValueWriteError<io::Error>>> for WriteError {
     fn from(v: Spanned<mp::ValueWriteError<io::Error>>) -> Self {
-        Self::ValueWriteError(v.item, v.span)
+        Self::Rmp(v.item, v.span)
     }
 }
 
 impl From<Spanned<io::Error>> for WriteError {
     fn from(v: Spanned<io::Error>) -> Self {
-        Self::IoError(v.item, v.span)
+        Self::Io(v.item, v.span)
     }
 }
 
 impl From<Box<ShellError>> for WriteError {
     fn from(v: Box<ShellError>) -> Self {
-        Self::ShellError(v)
+        Self::Shell(v)
     }
 }
 
@@ -126,15 +126,15 @@ impl From<WriteError> for ShellError {
                 help: None,
                 inner: vec![],
             },
-            WriteError::ValueWriteError(err, span) => ShellError::GenericError {
+            WriteError::Rmp(err, span) => ShellError::GenericError {
                 error: "Failed to encode MessagePack data".into(),
                 msg: err.to_string(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
             },
-            WriteError::IoError(err, span) => err.into_spanned(span).into(),
-            WriteError::ShellError(err) => *err,
+            WriteError::Io(err, span) => err.into_spanned(span).into(),
+            WriteError::Shell(err) => *err,
         }
     }
 }
@@ -224,7 +224,7 @@ pub(crate) fn write_value(
                 .err_span(span)?;
         }
         Value::Error { error, .. } => {
-            return Err(WriteError::ShellError(error.clone()));
+            return Err(WriteError::Shell(error.clone()));
         }
         Value::CellPath { val, .. } => {
             // Write as a list of strings/ints
