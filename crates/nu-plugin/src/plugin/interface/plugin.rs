@@ -1037,11 +1037,21 @@ impl Interface for PluginInterface {
 
     fn write(&self, input: PluginInput) -> Result<(), ShellError> {
         log::trace!("to plugin: {:?}", input);
-        self.state.writer.write(&input)
+        self.state.writer.write(&input).map_err(|err| {
+            log::warn!("write() error: {}", err);
+            // If there's an error in the state, return that instead because it's likely more
+            // descriptive
+            self.state.error.get().cloned().unwrap_or(err)
+        })
     }
 
     fn flush(&self) -> Result<(), ShellError> {
-        self.state.writer.flush()
+        self.state.writer.flush().map_err(|err| {
+            log::warn!("flush() error: {}", err);
+            // If there's an error in the state, return that instead because it's likely more
+            // descriptive
+            self.state.error.get().cloned().unwrap_or(err)
+        })
     }
 
     fn stream_id_sequence(&self) -> &Sequence {
