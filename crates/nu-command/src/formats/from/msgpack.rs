@@ -540,11 +540,11 @@ impl io::Read for ReadRawStream {
 /// This can help detect if parsing succeeded incorrectly, perhaps due to corruption.
 fn assert_eof(input: &mut impl io::Read, span: Span) -> Result<(), ShellError> {
     let mut buf = [0u8];
-    match input.read(&mut buf) {
+    match input.read_exact(&mut buf) {
         // End of file
-        Ok(0) | Err(_) => Ok(()),
+        Err(_) => Ok(()),
         // More bytes
-        Ok(_) => Err(ShellError::GenericError {
+        Ok(()) => Err(ShellError::GenericError {
             error: "Additional data after end of MessagePack object".into(),
             msg: "there was more data available after parsing".into(),
             span: Some(span),
