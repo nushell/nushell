@@ -1621,7 +1621,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
         Expression {
             expr: Expr::RawString(token),
             span,
-            ty: Type::RawString,
+            ty: Type::String,
             custom_completion: None,
         }
     } else {

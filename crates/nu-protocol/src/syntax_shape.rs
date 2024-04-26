@@ -110,9 +110,6 @@ pub enum SyntaxShape {
     /// Strings and string-like bare words are allowed
     String,
 
-    /// RawStrings are allowed, e.g. `r"some string"`
-    RawString,
-
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table(Vec<(String, SyntaxShape)>),
 
@@ -174,7 +171,6 @@ impl SyntaxShape {
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
             SyntaxShape::String => Type::String,
-            SyntaxShape::RawString => Type::RawString,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,
         }
@@ -196,7 +192,6 @@ impl Display for SyntaxShape {
             }
             SyntaxShape::Any => write!(f, "any"),
             SyntaxShape::String => write!(f, "string"),
-            SyntaxShape::RawString => write!(f, "rawstring"),
             SyntaxShape::CellPath => write!(f, "cell-path"),
             SyntaxShape::FullCellPath => write!(f, "cell-path"),
             SyntaxShape::Number => write!(f, "number"),

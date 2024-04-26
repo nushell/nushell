@@ -228,7 +228,6 @@ fn value_to_string(
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)
         Value::String { val, .. } => Ok(escape_quote_string(val)),
-        Value::RawString { val, .. } => Ok(escape_quote_string(val)),
         Value::Glob { val, .. } => Ok(escape_quote_string(val)),
     }
 }

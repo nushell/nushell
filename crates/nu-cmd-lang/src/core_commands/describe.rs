@@ -294,7 +294,6 @@ fn describe_value(
         | Value::Range { .. }
         | Value::String { .. }
         | Value::Glob { .. }
-        | Value::RawString { .. }
         | Value::Nothing { .. } => Value::record(
             record!(
                 "type" => Value::string(value.get_type().to_string(), head),

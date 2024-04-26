@@ -348,7 +348,6 @@ fn insert_value(
 fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
     match val.get_type() {
         Type::String => Ok("TEXT"),
-        Type::RawString => Ok("TEXT"),
         Type::Int => Ok("INTEGER"),
         Type::Float => Ok("REAL"),
         Type::Number => Ok("REAL"),

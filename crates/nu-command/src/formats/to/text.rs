@@ -119,7 +119,6 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::Range { val, .. } => val.to_string(),
         Value::String { val, .. } => val,
         Value::Glob { val, .. } => val,
-        Value::RawString { val, .. } => val,
         Value::List { vals: val, .. } => val
             .into_iter()
             .map(|x| local_into_string(x, ", ", config))
