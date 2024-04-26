@@ -93,3 +93,9 @@ fn can_catch_infinite_recursion() {
         "#);
     assert_eq!(actual.out, "Caught infinite recursion");
 }
+
+#[test]
+fn exit_code_available_in_catch() {
+    let actual = nu!("try { nu -c 'exit 42' } catch { $env.LAST_EXIT_CODE }");
+    assert_eq!(actual.out, "42");
+}
