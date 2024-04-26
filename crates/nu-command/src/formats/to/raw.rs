@@ -10,11 +10,17 @@ impl Command for ToRaw {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Formats)
+        Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::String, Type::Any),
+                (Type::Binary, Type::Any),
+                (Type::List(Type::Any.into()), Type::Any),
+            ])
+            .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
-        "Convert a stream to raw input"
+        "Convert a stream to raw input."
     }
 
     fn extra_usage(&self) -> &str {
