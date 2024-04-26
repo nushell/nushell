@@ -82,5 +82,11 @@ fn raw_string() -> TestResult {
     run_test(
         r####"r###"abcde''fghi'"""##"#jkl"###"####,
         r###"abcde''fghi'"""##"#jkl"###,
-    )
+    )?;
+    run_test(r##"r#""#"##, "")
+}
+
+#[test]
+fn incomplete_raw_string() -> TestResult {
+    fail_test(r##"r#abc"##, "expected \"")
 }
