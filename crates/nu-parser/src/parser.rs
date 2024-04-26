@@ -66,6 +66,7 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
 
     let b = bytes[0];
 
+    // check for raw string
     if bytes.starts_with(b"r#") {
         return true;
     }

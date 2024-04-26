@@ -71,3 +71,16 @@ fn case_insensitive_sort_columns() -> TestResult {
         r#"[{"version":"four","package":"abc"},{"version":"three","package":"abc"},{"version":"two","package":"Abc"}]"#,
     )
 }
+
+#[test]
+fn raw_string() -> TestResult {
+    run_test(r##"r#"abcde''fghi'""""jkl"#"##, r#"abcde''fghi'""""jkl"#)?;
+    run_test(
+        r###"r##"abcde''fghi'""""#jkl"##"###,
+        r##"abcde''fghi'""""#jkl"##,
+    )?;
+    run_test(
+        r####"r###"abcde''fghi'"""##"#jkl"###"####,
+        r###"abcde''fghi'"""##"#jkl"###,
+    )
+}
