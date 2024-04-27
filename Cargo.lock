@@ -3279,6 +3279,7 @@ dependencies = [
  "serde_json",
  "strum",
  "strum_macros 0.26.2",
+ "tempfile",
  "thiserror",
  "typetag",
 ]
