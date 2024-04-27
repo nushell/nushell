@@ -73,25 +73,13 @@ once at first would be undesirable.
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
-        let iter = input.into_iter().map(|data| {
-            if let Value::Error { error, .. } = data {
-                Err(*error)
-            } else {
-                data.coerce_into_binary()
-            }
-        });
         Ok(PipelineData::ExternalStream {
-            stdout: Some(RawStream::new(
-                Box::new(iter),
-                engine_state.ctrlc.clone(),
-                call.head,
-                None,
-            )),
+            stdout: Some(input.to_raw_stream(&engine_state.ctrlc, call.head)),
             stderr: None,
             exit_code: None,
             span: call.head,
             metadata,
-            trim_end_newline: true,
+            trim_end_newline: false,
         })
     }
 }

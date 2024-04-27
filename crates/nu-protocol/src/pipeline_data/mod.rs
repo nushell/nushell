@@ -945,6 +945,38 @@ impl PipelineData {
 
         Ok(0)
     }
+
+    /// Create a [`RawStream`] from the [`PipelineData`] by coercing all of the elements to binary
+    /// (see [`Value::coerce_into_binary()`]). This implies that for:
+    ///
+    /// - `Empty`: a `RawStream` that produces no data
+    /// - `Value`: if it's a string or binary, the `RawStream` will produce one chunk, or else an
+    ///   error
+    /// - `ListStream`: for each item in the stream, if it's a string or binary, those chunks are
+    ///   concatenated into the raw stream. If it's not, then an error is produced, but the stream
+    ///   continues
+    /// - `ExternalStream`: just takes `stdout` if present, or empty stream otherwise
+    pub fn to_raw_stream(self, ctrlc: &Option<Arc<AtomicBool>>, span: Span) -> RawStream {
+        if let PipelineData::ExternalStream { stdout, .. } = self {
+            stdout
+                .map(|mut stream| {
+                    stream.span = span;
+                    stream
+                })
+                .unwrap_or_else(|| {
+                    RawStream::new(Box::new(std::iter::empty()), ctrlc.clone(), span, None)
+                })
+        } else {
+            let iter = self.into_iter().map(|data| {
+                if let Value::Error { error, .. } = data {
+                    Err(*error)
+                } else {
+                    data.coerce_into_binary()
+                }
+            });
+            RawStream::new(Box::new(iter), ctrlc.clone(), span, None)
+        }
+    }
 }
 
 pub struct PipelineIterator(PipelineData);
