@@ -80,63 +80,75 @@ fn all_columns(span: Span) -> Value {
     );
 
     let process = if let Some(p) = sys.process(pid) {
+        let root = if let Some(path) = p.exe().and_then(|p| p.parent()) {
+            Value::string(path.to_string_lossy().to_string(), span)
+        } else {
+            Value::nothing(span)
+        };
+
+        let cwd = if let Some(path) = p.cwd() {
+            Value::string(path.to_string_lossy().to_string(), span)
+        } else {
+            Value::nothing(span)
+        };
+
+        let exe_path = if let Some(path) = p.exe() {
+            Value::string(path.to_string_lossy().to_string(), span)
+        } else {
+            Value::nothing(span)
+        };
+
+        let environment = {
+            let mut env_rec = Record::new();
+            for val in p.environ() {
+                if let Some((key, value)) = val.split_once('=') {
+                    let is_env_var_a_list = {
+                        {
+                            #[cfg(target_family = "windows")]
+                            {
+                                key == "Path"
+                                    || key == "PATHEXT"
+                                    || key == "PSMODULEPATH"
+                                    || key == "PSModulePath"
+                            }
+                            #[cfg(not(target_family = "windows"))]
+                            {
+                                key == "PATH" || key == "DYLD_FALLBACK_LIBRARY_PATH"
+                            }
+                        }
+                    };
+                    if is_env_var_a_list {
+                        let items = value
+                            .split(ENV_PATH_SEPARATOR_CHAR)
+                            .map(|r| Value::string(r.to_string(), span))
+                            .collect::<Vec<_>>();
+                        env_rec.push(key.to_string(), Value::list(items, span));
+                    } else if key == "LS_COLORS" {
+                        // LS_COLORS is a special case, it's a colon separated list of key=value pairs
+                        let items = value
+                            .split(':')
+                            .map(|r| Value::string(r.to_string(), span))
+                            .collect::<Vec<_>>();
+                        env_rec.push(key.to_string(), Value::list(items, span));
+                    } else {
+                        env_rec.push(key.to_string(), Value::string(value.to_string(), span));
+                    }
+                }
+            }
+            Value::record(env_rec, span)
+        };
+
         Value::record(
             record! {
                 "memory" => Value::filesize(p.memory() as i64, span),
                 "virtual_memory" => Value::filesize(p.virtual_memory() as i64, span),
                 "status" => Value::string(p.status().to_string(), span),
-                "root" => {
-                    if let Some(path) = p.exe().and_then(|p| p.parent()) {
-                        Value::string(path.to_string_lossy().to_string(), span)
-                    } else {
-                        Value::nothing(span)
-                    }
-                },
-                "cwd" => {
-                    if let Some(path) = p.cwd() {
-                        Value::string(path.to_string_lossy().to_string(), span)
-                    }else{
-                        Value::nothing(span)
-                    }
-                },
-                "exe_path" => {
-                    if let Some(path)= p.exe() {
-                        Value::string(path.to_string_lossy().to_string(), span)
-                    }else{
-                        Value::nothing(span)
-                    }
-                },
+                "root" => root,
+                "cwd" => cwd,
+                "exe_path" => exe_path,
                 "command" => Value::string(p.cmd().join(" "), span),
-                "name" => Value::string(p.name().to_string(), span),
-                "environment" => {
-                    let mut env_rec = Record::new();
-                    for val in p.environ() {
-                        if let Some((key, value)) = val.split_once('=') {
-                            let is_env_var_a_list = {
-                                {
-                                    #[cfg(target_family = "windows")]
-                                    {
-                                        key == "Path" || key == "PATHEXT" || key == "PSMODULEPATH" || key == "PSModulePath"
-                                    }
-                                    #[cfg(not(target_family = "windows"))]
-                                    {
-                                        key == "PATH" || key == "DYLD_FALLBACK_LIBRARY_PATH"
-                                    }
-                                }
-                            };
-                            if is_env_var_a_list {
-                                let items = value.split(ENV_PATH_SEPARATOR_CHAR).map(|r| Value::string(r.to_string(), span)).collect::<Vec<_>>();
-                                env_rec.push(key.to_string(), Value::list(items, span));
-                            } else if key == "LS_COLORS" { // LS_COLORS is a special case, it's a colon separated list of key=value pairs
-                                let items = value.split(':').map(|r| Value::string(r.to_string(), span)).collect::<Vec<_>>();
-                                env_rec.push(key.to_string(), Value::list(items, span));
-                            } else {
-                                env_rec.push(key.to_string(), Value::string(value.to_string(), span));
-                            }
-                        }
-                    }
-                    Value::record(env_rec, span)
-                },
+                "name" => Value::string(p.name(), span),
+                "environment" => environment,
             },
             span,
         )
