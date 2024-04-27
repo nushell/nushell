@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::RawStream;
 
@@ -50,36 +51,27 @@ impl Command for StrJoin {
         let config = engine_state.config.clone();
         let metadata = input.metadata();
 
-        // Create an iterator that contains individual chunks, prepending the separator for chunks
-        // after the first one.
+        // Create an iterator that contains individual chunks, interspersing the separator if it
+        // was specified.
         //
         // This iterator doesn't borrow anything, so we can also use it to construct the
         // `RawStream`.
-        let mut first = true;
-        let iter = input.into_iter().map(move |value| {
-            use std::fmt::Write;
-
-            let mut string = if first {
-                first = false;
-                String::new()
-            } else if let Some(separator) = separator.as_ref() {
-                separator.clone()
-            } else {
-                String::new()
-            };
-
-            match value {
-                Value::Error { error, .. } => {
-                    return Err(*error);
-                }
-                Value::Date { val, .. } => {
-                    // very unlikely that this fails, and format!() panics anyway
-                    write!(string, "{val:?}").expect("formatting failed");
-                }
-                value => string.push_str(&value.to_expanded_string("\n", &config)),
-            }
-            Ok(string)
-        });
+        let iter = Itertools::intersperse(
+            input.into_iter().map(move |value| {
+                // This is wrapped in Some so that we can intersperse an optional separator and then
+                // flatten it without that
+                Some(match value {
+                    // Propagate errors
+                    Value::Error { error, .. } => Err(*error),
+                    // Format dates using their debug format
+                    Value::Date { val, .. } => Ok(format!("{val:?}")),
+                    // Use `to_expanded_string()` on all other values
+                    value => Ok(value.to_expanded_string("\n", &config)),
+                })
+            }),
+            separator.map(Ok),
+        )
+        .flatten();
 
         if should_stream {
             Ok(PipelineData::ExternalStream {
