@@ -31,11 +31,7 @@ impl Command for Sys {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.span();
-        todo!()
-        // let ret = Value::lazy_record(Box::new(SysResult { span }), span);
-
-        // Ok(ret.into_pipeline_data())
+        Ok(all_columns(call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -64,37 +60,19 @@ pub struct SysResult {
     pub span: Span,
 }
 
-// impl LazyRecord<'_> for SysResult {
-//     fn column_names(&self) -> Vec<&'static str> {
-//         vec!["host", "cpu", "disks", "mem", "temp", "net"]
-//     }
-
-//     fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
-//         let span = self.span;
-
-//         match column {
-//             "host" => Ok(host(span)),
-//             "cpu" => Ok(cpu(span)),
-//             "disks" => Ok(disks(span)),
-//             "mem" => Ok(mem(span)),
-//             "temp" => Ok(temp(span)),
-//             "net" => Ok(net(span)),
-//             _ => Err(ShellError::LazyRecordAccessFailed {
-//                 message: format!("Could not find column '{column}'"),
-//                 column_name: column.to_string(),
-//                 span,
-//             }),
-//         }
-//     }
-
-//     fn span(&self) -> Span {
-//         self.span
-//     }
-
-//     fn clone_value(&self, span: Span) -> Value {
-//         Value::lazy_record(Box::new((*self).clone()), span)
-//     }
-// }
+fn all_columns(span: Span) -> Value {
+    Value::record(
+        record! {
+            "host" => host(span),
+            "cpu" => cpu(span),
+            "disks" => disks(span),
+            "mem" => mem(span),
+            "temp" => temp(span),
+            "net" => net(span),
+        },
+        span,
+    )
+}
 
 pub fn trim_cstyle_null(s: String) -> String {
     s.trim_matches(char::from(0)).to_string()
