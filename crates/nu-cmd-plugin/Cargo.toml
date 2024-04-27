@@ -13,7 +13,7 @@ version = "0.92.3"
 nu-engine = { path = "../nu-engine", version = "0.92.3" }
 nu-path = { path = "../nu-path", version = "0.92.3" }
 nu-protocol = { path = "../nu-protocol", version = "0.92.3", features = ["plugin"] }
-nu-plugin = { path = "../nu-plugin", version = "0.92.3" }
+nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.92.3" }
 
 itertools = { workspace = true }
 

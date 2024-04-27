@@ -1,0 +1,34 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Functionality for running Nushell plugins from a Nushell engine"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-engine"
+edition = "2021"
+license = "MIT"
+name = "nu-plugin-engine"
+version = "0.92.3"
+
+[lib]
+bench = false
+
+[dependencies]
+nu-engine = { path = "../nu-engine", version = "0.92.3" }
+nu-protocol = { path = "../nu-protocol", version = "0.92.3" }
+nu-system = { path = "../nu-system", version = "0.92.3" }
+nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.92.3" }
+nu-plugin-core = { path = "../nu-plugin-core", version = "0.92.3", default-features = false }
+
+serde = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+typetag = "0.2"
+
+[features]
+default = ["local-socket"]
+local-socket = ["nu-plugin-core/local-socket"]
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = [
+  # For setting process creation flags
+  "Win32_System_Threading",
+] }

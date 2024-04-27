@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use nu_engine::{command_prelude::*, current_dir};
-use nu_plugin::{GetPlugin, PersistentPlugin};
+use nu_plugin_engine::{GetPlugin, PersistentPlugin};
 use nu_protocol::{PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 
 use crate::util::{get_plugin_dirs, modify_plugin_file};
