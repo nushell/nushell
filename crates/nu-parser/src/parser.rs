@@ -1577,15 +1577,15 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     let bytes = working_set.get_span_contents(span);
 
     let prefix_at_cnt = if bytes.starts_with(b"r@") {
-        // actually `sharp_cnt` is always `index - 1`
+        // actually `at_cnt` is always `index - 1`
         // but create a variable here to make it clearer.
-        let mut sharp_cnt = 1;
+        let mut at_cnt = 1;
         let mut index = 2;
         while index < bytes.len() && bytes[index] == b'@' {
             index += 1;
-            sharp_cnt += 1;
+            at_cnt += 1;
         }
-        sharp_cnt
+        at_cnt
     } else {
         working_set.error(ParseError::Expected("r@", span));
         return garbage(span);
@@ -1593,7 +1593,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     let expect_postfix_at_cnt = prefix_at_cnt;
     // check the length of whole raw string.
     // the whole raw string should contains at least
-    // 1(r) + prefix_sharp_cnt + 1(') + 1(') + postfix_sharp characters
+    // 1(r) + prefix_at_cnt + 1(') + 1(') + postfix_at characters
     if bytes.len() < prefix_at_cnt + expect_postfix_at_cnt + 3 {
         working_set.error(ParseError::Unclosed('\''.into(), span));
         return garbage(span);
