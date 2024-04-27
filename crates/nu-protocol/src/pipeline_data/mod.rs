@@ -998,8 +998,16 @@ pub fn print_if_stream(
                     if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                         break;
                     }
-                    if let Ok(bytes) = bytes {
-                        let _ = stderr.write_all(&bytes);
+                    match bytes {
+                        Ok(bytes) => {
+                            let _ = stderr.write_all(&bytes);
+                        }
+                        Err(err) => {
+                            // we don't have access to EngineState, but maybe logging the debug
+                            // impl is better than nothing
+                            eprintln!("Error in stderr stream: {err:?}");
+                            break;
+                        }
                     }
                 }
             })?;
