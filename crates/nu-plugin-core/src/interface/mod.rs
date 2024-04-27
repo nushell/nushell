@@ -183,7 +183,7 @@ pub trait InterfaceManager {
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                PipelineData::ListStream(ListStream::new(reader, info.span, ctrlc.cloned()), None)
+                ListStream::new(reader, info.span, ctrlc.cloned()).into()
             }
             PipelineDataHeader::ExternalStream(info) => {
                 let handle = self.stream_manager().get_handle();
