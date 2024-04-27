@@ -1,4 +1,6 @@
+use itertools::Itertools;
 use nu_engine::command_prelude::*;
+use nu_protocol::RawStream;
 
 #[derive(Clone, Copy)]
 pub struct BytesCollect;
@@ -11,6 +13,11 @@ impl Command for BytesCollect {
     fn signature(&self) -> Signature {
         Signature::build("bytes collect")
             .input_output_types(vec![(Type::List(Box::new(Type::Binary)), Type::Binary)])
+            .switch(
+                "stream",
+                "Output the result as a raw stream, instead of collecting to a binary.",
+                Some('s'),
+            )
             .optional(
                 "separator",
                 SyntaxShape::Binary,
@@ -34,46 +41,58 @@ impl Command for BytesCollect {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let should_stream = call.has_flag(engine_state, stack, "stream")?;
         let separator: Option<Vec<u8>> = call.opt(engine_state, stack, 0)?;
-        // input should be a list of binary data.
-        let mut output_binary = vec![];
-        for value in input {
-            match value {
-                Value::Binary { mut val, .. } => {
-                    output_binary.append(&mut val);
-                    // manually concat
-                    // TODO: make use of std::slice::Join when it's available in stable.
-                    if let Some(sep) = &separator {
-                        let mut work_sep = sep.clone();
-                        output_binary.append(&mut work_sep)
-                    }
-                }
-                // Explicitly propagate errors instead of dropping them.
-                Value::Error { error, .. } => return Err(*error),
-                other => {
-                    return Err(ShellError::OnlySupportsThisInputType {
+
+        let span = call.head;
+        let metadata = input.metadata();
+
+        // Create an iterator that contains individual chunks, interspersing the separator if it
+        // was specified.
+        //
+        // This iterator doesn't borrow anything, so we can also use it to construct the
+        // `RawStream`.
+        let iter = Itertools::intersperse(
+            input.into_iter().map(move |value| {
+                // This is wrapped in Some so that we can intersperse an optional separator and then
+                // flatten it without that
+                Some(match value {
+                    Value::Binary { val, .. } => Ok(val),
+                    // Propagate errors
+                    Value::Error { error, .. } => Err(*error),
+                    // We only accept binary data
+                    other => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "binary".into(),
                         wrong_type: other.get_type().to_string(),
-                        dst_span: call.head,
+                        dst_span: span,
                         src_span: other.span(),
-                    });
-                }
-            }
-        }
+                    }),
+                })
+            }),
+            separator.map(Ok),
+        )
+        .flatten();
 
-        match separator {
-            None => Ok(Value::binary(output_binary, call.head).into_pipeline_data()),
-            Some(sep) => {
-                if output_binary.is_empty() {
-                    Ok(Value::binary(output_binary, call.head).into_pipeline_data())
-                } else {
-                    // have push one extra separator in previous step, pop them out.
-                    for _ in sep {
-                        let _ = output_binary.pop();
-                    }
-                    Ok(Value::binary(output_binary, call.head).into_pipeline_data())
-                }
+        if should_stream {
+            Ok(PipelineData::ExternalStream {
+                stdout: Some(RawStream::new(
+                    Box::new(iter),
+                    engine_state.ctrlc.clone(),
+                    span,
+                    None,
+                )),
+                stderr: None,
+                exit_code: None,
+                span,
+                metadata,
+                trim_end_newline: false,
+            })
+        } else {
+            let mut binary = Vec::new();
+            for chunk in iter {
+                binary.extend_from_slice(&chunk?);
             }
+            Ok(Value::binary(binary, span).into_pipeline_data())
         }
     }
 
@@ -90,6 +109,19 @@ impl Command for BytesCollect {
                 result: Some(Value::binary(
                     vec![0x11, 0x01, 0x33, 0x01, 0x44],
                     Span::test_data(),
+                )),
+            },
+            // TODO: replace this example with something that doesn't depend on endianness...
+            // but our options for creating binary data algorithmically for the moment are a bit
+            // limited
+            Example {
+                description: "Create a byte stream from a stream of chunks",
+                example: "0x00..0x40..0x100 | each { into binary } | bytes collect --stream",
+                result: Some(Value::test_binary(
+                    [0x00, 0x40, 0x80, 0xC0, 0x100]
+                        .into_iter()
+                        .flat_map(i64::to_ne_bytes)
+                        .collect::<Vec<u8>>(),
                 )),
             },
         ]
