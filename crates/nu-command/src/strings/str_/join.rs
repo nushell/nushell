@@ -50,9 +50,15 @@ impl Command for StrJoin {
         let config = engine_state.config.clone();
         let metadata = input.metadata();
 
+        // Create an iterator that contains individual chunks, prepending the separator for chunks
+        // after the first one.
+        //
+        // This iterator doesn't borrow anything, so we can also use it to construct the
+        // `RawStream`.
         let mut first = true;
         let iter = input.into_iter().map(move |value| {
             use std::fmt::Write;
+
             let mut string = if first {
                 first = false;
                 String::new()
@@ -61,6 +67,7 @@ impl Command for StrJoin {
             } else {
                 String::new()
             };
+
             match value {
                 Value::Error { error, .. } => {
                     return Err(*error);
@@ -73,6 +80,7 @@ impl Command for StrJoin {
             }
             Ok(string)
         });
+
         if should_stream {
             Ok(PipelineData::ExternalStream {
                 stdout: Some(RawStream::new(
