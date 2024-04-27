@@ -112,7 +112,6 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         Value::Nothing { .. } => nu_json::Value::Null,
         Value::String { val, .. } => nu_json::Value::String(val.to_string()),
         Value::Glob { val, .. } => nu_json::Value::String(val.to_string()),
-        Value::RawString { val, .. } => nu_json::Value::String(val.to_string()),
         Value::CellPath { val, .. } => nu_json::Value::Array(
             val.members
                 .iter()

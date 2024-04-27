@@ -263,7 +263,7 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
                     }
                 },
             },
-            Value::String { val, .. } | Value::Glob { val, .. } | Value::RawString { val, .. } => {
+            Value::String { val, .. } | Value::Glob { val, .. } => {
                 write!(f, "{:?}", val)
             }
             Value::Record { val, .. } => {

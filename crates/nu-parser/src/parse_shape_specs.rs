@@ -68,7 +68,6 @@ pub fn parse_shape_name(
         _ if bytes.starts_with(b"table") => {
             parse_collection_shape(working_set, bytes, span, use_loc)
         }
-        b"raw-string" => SyntaxShape::RawString,
         _ => {
             if bytes.contains(&b'@') {
                 let mut split = bytes.splitn(2, |b| b == &b'@');

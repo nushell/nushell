@@ -102,7 +102,6 @@ impl<'a> StyleComputer<'a> {
             Value::Float { .. } => TextStyle::with_style(Right, s),
             Value::String { .. } => TextStyle::with_style(Left, s),
             Value::Glob { .. } => TextStyle::with_style(Left, s),
-            Value::RawString { .. } => TextStyle::with_style(Left, s),
             Value::Nothing { .. } => TextStyle::with_style(Left, s),
             Value::Binary { .. } => TextStyle::with_style(Left, s),
             Value::CellPath { .. } => TextStyle::with_style(Left, s),

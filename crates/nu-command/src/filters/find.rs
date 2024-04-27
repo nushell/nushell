@@ -527,7 +527,6 @@ fn value_should_be_printed(
         | Value::Error { .. } => term_equals_value(term, &lower_value, span),
         Value::String { .. }
         | Value::Glob { .. }
-        | Value::RawString { .. }
         | Value::List { .. }
         | Value::CellPath { .. }
         | Value::Custom { .. } => term_contains_value(term, &lower_value, span),
