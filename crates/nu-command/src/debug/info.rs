@@ -141,9 +141,7 @@ fn all_columns(span: Span) -> Value {
             span,
         )
     } else {
-        // If we can't get the process information, just return the system information
-        // only get information requested
-        system.clone()
+        Value::nothing(span)
     };
 
     Value::record(
