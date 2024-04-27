@@ -527,7 +527,7 @@ fn lex_internal(
                 //      ^
                 //      ^
                 //   curr_offset
-                curr_offset += start + prefix_at_cnt + 1;
+                curr_offset += prefix_at_cnt + 1;
                 let mut matches = false;
                 let mut meet_quote = false;
                 while let Some(ch) = input.get(curr_offset) {

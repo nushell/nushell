@@ -411,4 +411,7 @@ fn const_raw_string() {
 
     let actual = nu!(r#"const x = r@@@'abcde""fghi"'''@@'@jkl'@@@; $x"#);
     assert_eq!(actual.out, r#"abcde""fghi"'''@@'@jkl"#);
+
+    let actual = nu!(r#"const x = r@'abc'@; $x"#);
+    assert_eq!(actual.out, "abc");
 }
