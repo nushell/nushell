@@ -1,3 +1,5 @@
+use std::{sync::mpsc, time::Duration};
+
 use nu_test_support::nu_with_plugins;
 
 fn ensure_stress_env_vars_unset() {
@@ -73,6 +75,30 @@ fn test_failing_local_socket_fallback() {
 
     // In the end it should not be running in local socket mode, but should succeed
     assert!(result.out.contains("local_socket_path: None"));
+}
+
+#[test]
+fn test_exit_before_hello_stdio() {
+    ensure_stress_env_vars_unset();
+    // This can deadlock if not handled properly, so we try several times and timeout
+    for _ in 0..5 {
+        let (tx, rx) = mpsc::channel();
+        std::thread::spawn(move || {
+            let result = nu_with_plugins!(
+                cwd: ".",
+                envs: vec![
+                    ("STRESS_EXIT_BEFORE_HELLO", "1"),
+                ],
+                plugin: ("nu_plugin_stress_internals"),
+                "stress_internals"
+            );
+            let _ = tx.send(result);
+        });
+        let result = rx
+            .recv_timeout(Duration::from_secs(15))
+            .expect("timed out. probably a deadlock");
+        assert!(!result.status.success());
+    }
 }
 
 #[test]

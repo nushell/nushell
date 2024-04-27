@@ -29,7 +29,7 @@ impl Command for HelpAliases {
                 "string to find in alias names and usage",
                 Some('f'),
             )
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
     }
 

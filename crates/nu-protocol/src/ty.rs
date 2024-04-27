@@ -15,7 +15,7 @@ pub enum Type {
     Bool,
     CellPath,
     Closure,
-    Custom(String),
+    Custom(Box<str>),
     Date,
     Duration,
     Error,
@@ -28,14 +28,22 @@ pub enum Type {
     Nothing,
     Number,
     Range,
-    Record(Vec<(String, Type)>),
+    Record(Box<[(String, Type)]>),
     Signature,
     String,
     Glob,
-    Table(Vec<(String, Type)>),
+    Table(Box<[(String, Type)]>),
 }
 
 impl Type {
+    pub fn record() -> Self {
+        Self::Record([].into())
+    }
+
+    pub fn table() -> Self {
+        Self::Table([].into())
+    }
+
     pub fn is_subtype(&self, other: &Type) -> bool {
         // Structural subtyping
         let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {

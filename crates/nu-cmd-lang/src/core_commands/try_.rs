@@ -49,9 +49,7 @@ impl Command for Try {
         let try_block = engine_state.get_block(try_block);
         let eval_block = get_eval_block(engine_state);
 
-        let result = eval_block(engine_state, stack, try_block, input);
-
-        match result {
+        match eval_block(engine_state, stack, try_block, input) {
             Err(error) => {
                 let error = intercept_block_control(error)?;
                 let err_record = err_to_record(error, call.head);
@@ -66,9 +64,8 @@ impl Command for Try {
             Ok(pipeline) => {
                 let (pipeline, external_failed) = pipeline.check_external_failed();
                 if external_failed {
-                    // Because external command errors aren't "real" errors,
-                    // (unless do -c is in effect)
-                    // they can't be passed in as Nushell values.
+                    let exit_code = pipeline.drain_with_exit_code()?;
+                    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(exit_code, call.head));
                     let err_value = Value::nothing(call.head);
                     handle_catch(err_value, catch_block, engine_state, stack, eval_block)
                 } else {

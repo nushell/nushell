@@ -2,6 +2,8 @@ mod csv;
 mod html;
 mod json;
 mod markdown;
+mod msgpack;
+mod msgpackz;
 mod nuon;
 mod ods;
 mod ssv;

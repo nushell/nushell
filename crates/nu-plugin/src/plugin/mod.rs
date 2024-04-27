@@ -24,8 +24,8 @@ use std::{
 use nu_engine::documentation::get_flags_section;
 use nu_protocol::{
     ast::Operator, engine::StateWorkingSet, report_error_new, CustomValue, IntoSpanned,
-    LabeledError, PipelineData, PluginCacheFile, PluginCacheItem, PluginCacheItemData,
-    PluginIdentity, PluginSignature, ShellError, Span, Spanned, Value,
+    LabeledError, PipelineData, PluginIdentity, PluginRegistryFile, PluginRegistryItem,
+    PluginRegistryItemData, PluginSignature, RegisteredPlugin, ShellError, Span, Spanned, Value,
 };
 use thiserror::Error;
 
@@ -925,12 +925,12 @@ pub fn get_plugin_encoding(
 #[doc(hidden)]
 pub fn load_plugin_file(
     working_set: &mut StateWorkingSet,
-    plugin_cache_file: &PluginCacheFile,
+    plugin_registry_file: &PluginRegistryFile,
     span: Option<Span>,
 ) {
-    for plugin in &plugin_cache_file.plugins {
+    for plugin in &plugin_registry_file.plugins {
         // Any errors encountered should just be logged.
-        if let Err(err) = load_plugin_cache_item(working_set, plugin, span) {
+        if let Err(err) = load_plugin_registry_item(working_set, plugin, span) {
             report_error_new(working_set.permanent_state, &err)
         }
     }
@@ -938,15 +938,15 @@ pub fn load_plugin_file(
 
 /// Load a definition from the plugin file into the engine state
 #[doc(hidden)]
-pub fn load_plugin_cache_item(
+pub fn load_plugin_registry_item(
     working_set: &mut StateWorkingSet,
-    plugin: &PluginCacheItem,
+    plugin: &PluginRegistryItem,
     span: Option<Span>,
-) -> Result<(), ShellError> {
+) -> Result<Arc<PersistentPlugin>, ShellError> {
     let identity =
         PluginIdentity::new(plugin.filename.clone(), plugin.shell.clone()).map_err(|_| {
             ShellError::GenericError {
-                error: "Invalid plugin filename in plugin cache file".into(),
+                error: "Invalid plugin filename in plugin registry file".into(),
                 msg: "loaded from here".into(),
                 span,
                 help: Some(format!(
@@ -959,40 +959,55 @@ pub fn load_plugin_cache_item(
         })?;
 
     match &plugin.data {
-        PluginCacheItemData::Valid { commands } => {
-            // Find garbage collection config for the plugin
-            let gc_config = working_set
-                .get_config()
-                .plugin_gc
-                .get(identity.name())
-                .clone();
+        PluginRegistryItemData::Valid { commands } => {
+            let plugin = add_plugin_to_working_set(working_set, &identity)?;
 
-            // Add it to / get it from the working set
-            let plugin = working_set.find_or_create_plugin(&identity, || {
-                Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
-            });
-
-            // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed.
-            // The trait object only exists so that nu-protocol can contain plugins without knowing
-            // anything about their implementation, but we only use `PersistentPlugin` in practice.
-            let plugin: Arc<PersistentPlugin> =
-                plugin
-                    .as_any()
-                    .downcast()
-                    .map_err(|_| ShellError::NushellFailed {
-                        msg: "encountered unexpected RegisteredPlugin type".into(),
-                    })?;
+            // Ensure that the plugin is reset. We're going to load new signatures, so we want to
+            // make sure the running plugin reflects those new signatures, and it's possible that it
+            // doesn't.
+            plugin.reset()?;
 
             // Create the declarations from the commands
             for signature in commands {
                 let decl = PluginDeclaration::new(plugin.clone(), signature.clone());
                 working_set.add_decl(Box::new(decl));
             }
-            Ok(())
+            Ok(plugin)
         }
-        PluginCacheItemData::Invalid => Err(ShellError::PluginCacheDataInvalid {
+        PluginRegistryItemData::Invalid => Err(ShellError::PluginRegistryDataInvalid {
             plugin_name: identity.name().to_owned(),
-            register_command: identity.register_command(),
+            span,
+            add_command: identity.add_command(),
         }),
     }
+}
+
+#[doc(hidden)]
+pub fn add_plugin_to_working_set(
+    working_set: &mut StateWorkingSet,
+    identity: &PluginIdentity,
+) -> Result<Arc<PersistentPlugin>, ShellError> {
+    // Find garbage collection config for the plugin
+    let gc_config = working_set
+        .get_config()
+        .plugin_gc
+        .get(identity.name())
+        .clone();
+
+    // Add it to / get it from the working set
+    let plugin = working_set.find_or_create_plugin(identity, || {
+        Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
+    });
+
+    plugin.set_gc_config(&gc_config);
+
+    // Downcast the plugin to `PersistentPlugin` - we generally expect this to succeed.
+    // The trait object only exists so that nu-protocol can contain plugins without knowing
+    // anything about their implementation, but we only use `PersistentPlugin` in practice.
+    plugin
+        .as_any()
+        .downcast()
+        .map_err(|_| ShellError::NushellFailed {
+            msg: "encountered unexpected RegisteredPlugin type".into(),
+        })
 }

@@ -78,10 +78,11 @@ pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
 // Used by other nu crates.
 #[doc(hidden)]
 pub use plugin::{
-    create_plugin_signature, get_signature, load_plugin_cache_item, load_plugin_file,
-    serve_plugin_io, EngineInterfaceManager, GetPlugin, Interface, InterfaceManager,
-    PersistentPlugin, PluginDeclaration, PluginExecutionCommandContext, PluginExecutionContext,
-    PluginInterface, PluginInterfaceManager, PluginSource, ServePluginError,
+    add_plugin_to_working_set, create_plugin_signature, get_signature, load_plugin_file,
+    load_plugin_registry_item, serve_plugin_io, EngineInterfaceManager, GetPlugin, Interface,
+    InterfaceManager, PersistentPlugin, PluginDeclaration, PluginExecutionCommandContext,
+    PluginExecutionContext, PluginInterface, PluginInterfaceManager, PluginSource,
+    ServePluginError,
 };
 #[doc(hidden)]
 pub use protocol::{PluginCustomValue, PluginInput, PluginOutput};

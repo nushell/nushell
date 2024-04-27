@@ -416,10 +416,7 @@ fn proper_missing_param() -> TestResult {
 
 #[test]
 fn block_arity_check1() -> TestResult {
-    fail_test(
-        r#"ls | each { |x, y, z| 1}"#,
-        "expected 2 closure parameters",
-    )
+    fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 closure parameter")
 }
 
 // deprecating former support for escapes like `/uNNNN`, dropping test.
@@ -590,6 +587,42 @@ fn register_with_non_string_constant() -> TestResult {
     let input = "\
 const file = 6
 register $file
+";
+    fail_test(input, "expected string, found int")
+}
+
+#[test]
+fn plugin_use_with_string_literal() -> TestResult {
+    fail_test(
+        r#"plugin use 'nu-plugin-math'"#,
+        "Plugin registry file not set",
+    )
+}
+
+#[test]
+fn plugin_use_with_string_constant() -> TestResult {
+    let input = "\
+const file = 'nu-plugin-math'
+plugin use $file
+";
+    // should not fail with `not a constant`
+    fail_test(input, "Plugin registry file not set")
+}
+
+#[test]
+fn plugin_use_with_string_variable() -> TestResult {
+    let input = "\
+let file = 'nu-plugin-math'
+plugin use $file
+";
+    fail_test(input, "Value is not a parse-time constant")
+}
+
+#[test]
+fn plugin_use_with_non_string_constant() -> TestResult {
+    let input = "\
+const file = 6
+plugin use $file
 ";
     fail_test(input, "expected string, found int")
 }

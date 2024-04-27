@@ -32,6 +32,7 @@ nuon = { path = "../nuon", version = "0.92.3" }
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
 bracoxide = { workspace = true }
+brotli = { workspace = true }
 byteorder = { workspace = true }
 bytesize = { workspace = true }
 calamine = { workspace = true, features = ["dates"] }
@@ -74,6 +75,7 @@ rayon = { workspace = true }
 regex = { workspace = true }
 roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = ["bundled", "backup", "chrono"], optional = true }
+rmp = { workspace = true }
 same-file = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["preserve_order"] }
@@ -143,3 +145,4 @@ mockito = { workspace = true, default-features = false }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }
+pretty_assertions = { workspace = true }

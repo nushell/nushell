@@ -15,34 +15,34 @@ const COMPRESSION_QUALITY: u32 = 1;
 const WIN_SIZE: u32 = 20; // recommended 20-22
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PluginCacheFile {
+pub struct PluginRegistryFile {
     /// The Nushell version that last updated the file.
     pub nushell_version: String,
 
     /// The installed plugins.
-    pub plugins: Vec<PluginCacheItem>,
+    pub plugins: Vec<PluginRegistryItem>,
 }
 
-impl Default for PluginCacheFile {
+impl Default for PluginRegistryFile {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl PluginCacheFile {
-    /// Create a new, empty plugin cache file.
-    pub fn new() -> PluginCacheFile {
-        PluginCacheFile {
+impl PluginRegistryFile {
+    /// Create a new, empty plugin registry file.
+    pub fn new() -> PluginRegistryFile {
+        PluginRegistryFile {
             nushell_version: env!("CARGO_PKG_VERSION").to_owned(),
             plugins: vec![],
         }
     }
 
-    /// Read the plugin cache file from a reader, e.g. [`File`](std::fs::File).
+    /// Read the plugin registry file from a reader, e.g. [`File`](std::fs::File).
     pub fn read_from(
         reader: impl Read,
         error_span: Option<Span>,
-    ) -> Result<PluginCacheFile, ShellError> {
+    ) -> Result<PluginRegistryFile, ShellError> {
         // Format is brotli compressed messagepack
         let brotli_reader = brotli::Decompressor::new(reader, BUFFER_SIZE);
 
@@ -57,7 +57,7 @@ impl PluginCacheFile {
         })
     }
 
-    /// Write the plugin cache file to a writer, e.g. [`File`](std::fs::File).
+    /// Write the plugin registry file to a writer, e.g. [`File`](std::fs::File).
     ///
     /// The `nushell_version` will be updated to the current version before writing.
     pub fn write_to(
@@ -84,8 +84,8 @@ impl PluginCacheFile {
             })
     }
 
-    /// Insert or update a plugin in the plugin cache file.
-    pub fn upsert_plugin(&mut self, item: PluginCacheItem) {
+    /// Insert or update a plugin in the plugin registry file.
+    pub fn upsert_plugin(&mut self, item: PluginRegistryItem) {
         if let Some(existing_item) = self.plugins.iter_mut().find(|p| p.name == item.name) {
             *existing_item = item;
         } else {
@@ -96,19 +96,14 @@ impl PluginCacheFile {
                 .sort_by(|item1, item2| item1.name.cmp(&item2.name));
         }
     }
-
-    /// Remove a plugin from the plugin cache file by name.
-    pub fn remove_plugin(&mut self, name: &str) {
-        self.plugins.retain_mut(|item| item.name != name)
-    }
 }
 
-/// A single plugin definition from a [`PluginCacheFile`].
+/// A single plugin definition from a [`PluginRegistryFile`].
 ///
 /// Contains the information necessary for the [`PluginIdentity`], as well as possibly valid data
-/// about the plugin including the cached command signatures.
+/// about the plugin including the registered command signatures.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PluginCacheItem {
+pub struct PluginRegistryItem {
     /// The name of the plugin, as would show in `plugin list`. This does not include the file
     /// extension or the `nu_plugin_` prefix.
     pub name: String,
@@ -122,29 +117,32 @@ pub struct PluginCacheItem {
     /// Additional data that might be invalid so that we don't fail to load the whole plugin file
     /// if there's a deserialization error.
     #[serde(flatten)]
-    pub data: PluginCacheItemData,
+    pub data: PluginRegistryItemData,
 }
 
-impl PluginCacheItem {
-    /// Create a [`PluginCacheItem`] from an identity and signatures.
-    pub fn new(identity: &PluginIdentity, mut commands: Vec<PluginSignature>) -> PluginCacheItem {
+impl PluginRegistryItem {
+    /// Create a [`PluginRegistryItem`] from an identity and signatures.
+    pub fn new(
+        identity: &PluginIdentity,
+        mut commands: Vec<PluginSignature>,
+    ) -> PluginRegistryItem {
         // Sort the commands for consistency
         commands.sort_by(|cmd1, cmd2| cmd1.sig.name.cmp(&cmd2.sig.name));
 
-        PluginCacheItem {
+        PluginRegistryItem {
             name: identity.name().to_owned(),
             filename: identity.filename().to_owned(),
             shell: identity.shell().map(|p| p.to_owned()),
-            data: PluginCacheItemData::Valid { commands },
+            data: PluginRegistryItemData::Valid { commands },
         }
     }
 }
 
-/// Possibly valid data about a plugin in a [`PluginCacheFile`]. If deserialization fails, it will
+/// Possibly valid data about a plugin in a [`PluginRegistryFile`]. If deserialization fails, it will
 /// be `Invalid`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]
-pub enum PluginCacheItemData {
+pub enum PluginRegistryItemData {
     Valid {
         /// Signatures and examples for each command provided by the plugin.
         commands: Vec<PluginSignature>,

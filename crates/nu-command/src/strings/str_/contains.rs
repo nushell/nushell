@@ -29,8 +29,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::Bool),
                 // TODO figure out cell-path type behavior
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
             ])
             .required("string", SyntaxShape::String, "The substring to find.")
