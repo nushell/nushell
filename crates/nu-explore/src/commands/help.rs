@@ -15,10 +15,14 @@ impl HelpCmd {
 
 const HELP_MESSAGE: &str = r#"                        Explore - main help file
 
-              Move around:  Use the cursor keys.
-               Close help:  Press "<Esc>".
-             Exit Explore:  Type ":q" then then <Enter> (or press Ctrl+D).
- Open an interactive REPL:  Type ":try" then enter
+                           Move around:  Use the cursor keys
+        Drill down into records+tables:  Press <Enter> to select a cell, move around with cursor keys, then press <Enter> again
+                    Go back/up a level:  Press <Esc>
+Transpose data (flip rows and columns):  Press "t"
+    Expand data (show all nested data):  Press "e"
+              Open an interactive REPL:  Type ":try" then <Enter>
+                        Scroll up/down:  Use the "Page Up" and "Page Down" keys
+                          Exit Explore:  Type ":q" then <Enter>, or Ctrl+D. Alternately, press <Esc> until Explore exits
 
 ------------------------------------------------------------------------------------
 
