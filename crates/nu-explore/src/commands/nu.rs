@@ -4,12 +4,12 @@ use crate::{
     pager::Frame,
     views::{Layout, Orientation, Preview, RecordView, View, ViewConfig},
 };
+use anyhow::Result;
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
 use ratatui::layout::Rect;
-use std::io::{self, Result};
 
 #[derive(Debug, Default, Clone)]
 pub struct NuCmd {
@@ -75,12 +75,11 @@ impl ViewCommand for NuCmd {
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
 
-        let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)?;
 
         let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 
-        let (columns, values) = collect_pipeline(pipeline);
+        let (columns, values) = collect_pipeline(pipeline)?;
 
         if let Some(value) = has_simple_value(&values) {
             let text = value.to_abbreviated_string(&engine_state.config);

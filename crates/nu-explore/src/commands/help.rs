@@ -4,16 +4,14 @@ use crate::{
     pager::{Frame, Transition, ViewInfo},
     views::{Layout, Preview, RecordView, View, ViewConfig},
 };
+use anyhow::{anyhow, bail, Result};
 use crossterm::event::KeyEvent;
 use nu_protocol::{
     engine::{EngineState, Stack},
     record, Value,
 };
 use ratatui::layout::Rect;
-use std::{
-    collections::HashMap,
-    io::{self, Result},
-};
+use std::collections::HashMap;
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpCmd {
@@ -115,10 +113,7 @@ impl ViewCommand for HelpCmd {
         }
 
         if !self.input_command.starts_with(':') {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "unexpected help argument",
-            ));
+            bail!("unexpected help argument");
         }
 
         if self.input_command == ":" {
@@ -136,7 +131,7 @@ impl ViewCommand for HelpCmd {
             .supported_commands
             .iter()
             .find(|manual| manual.name == command)
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "a given command was not found"))?;
+            .ok_or_else(|| anyhow!("a given command was not found"))?;
 
         let aliases = self
             .aliases
@@ -169,7 +164,7 @@ fn help_frame_data(
         .collect();
     let commands = Value::list(commands, NuSpan::unknown());
 
-    collect_input(commands)
+    collect_input(commands).unwrap()
 }
 
 fn help_manual_data(manual: &HelpManual, aliases: &[String]) -> (Vec<String>, Vec<Vec<Value>>) {

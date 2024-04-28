@@ -4,6 +4,7 @@ use crate::{
     commands::{SimpleCommand, ViewCommand},
     views::View,
 };
+use anyhow::Result;
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -53,7 +54,7 @@ impl CommandRegistry {
         );
     }
 
-    pub fn find(&self, args: &str) -> Option<std::io::Result<Command>> {
+    pub fn find(&self, args: &str) -> Option<Result<Command>> {
         let cmd = args.split_once(' ').map_or(args, |(cmd, _)| cmd);
         let args = &args[cmd.len()..];
 

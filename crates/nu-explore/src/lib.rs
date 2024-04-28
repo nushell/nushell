@@ -6,10 +6,10 @@ mod pager;
 mod registry;
 mod views;
 
+use anyhow::Result;
+use commands::{ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd, TableCmd, TryCmd};
 pub use default_context::add_explore_context;
 pub use explore::Explore;
-
-use commands::{ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd, TableCmd, TryCmd};
 use nu_common::{collect_pipeline, has_simple_value, CtrlC};
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -17,7 +17,6 @@ use nu_protocol::{
 };
 use pager::{Page, Pager, PagerConfig, StyleConfig};
 use registry::{Command, CommandRegistry};
-use std::io;
 use terminal_size::{Height, Width};
 use views::{BinaryView, InformationView, Orientation, Preview, RecordView};
 
@@ -31,7 +30,7 @@ fn run_pager(
     ctrlc: CtrlC,
     input: PipelineData,
     config: PagerConfig,
-) -> io::Result<Option<Value>> {
+) -> Result<Option<Value>> {
     let mut p = Pager::new(config.clone());
     let commands = create_command_registry();
 
@@ -45,7 +44,7 @@ fn run_pager(
         return p.run(engine_state, stack, ctrlc, view, commands);
     }
 
-    let (columns, data) = collect_pipeline(input);
+    let (columns, data) = collect_pipeline(input).unwrap();
 
     let has_no_input = columns.is_empty() && data.is_empty();
     if has_no_input {

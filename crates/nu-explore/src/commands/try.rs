@@ -1,10 +1,10 @@
 use super::{default_color_list, ConfigOption, HelpExample, HelpManual, Shortcode, ViewCommand};
 use crate::views::InteractiveView;
+use anyhow::Result;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use std::io::{Error, ErrorKind, Result};
 
 #[derive(Debug, Default, Clone)]
 pub struct TryCmd {
@@ -78,8 +78,7 @@ impl ViewCommand for TryCmd {
         let value = value.unwrap_or_default();
         let mut view = InteractiveView::new(value);
         view.init(self.command.clone());
-        view.try_run(engine_state, stack)
-            .map_err(|e| Error::new(ErrorKind::Other, e))?;
+        view.try_run(engine_state, stack)?;
 
         Ok(view)
     }

@@ -88,10 +88,23 @@ impl Command for Explore {
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
             Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
-            Err(err) => Ok(PipelineData::Value(
-                Value::error(err.into(), call.head),
-                None,
-            )),
+            Err(err) => {
+                let shell_error = match err.downcast::<ShellError>() {
+                    Ok(e) => e,
+                    Err(e) => ShellError::GenericError {
+                        error: e.to_string(),
+                        msg: "".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    },
+                };
+
+                Ok(PipelineData::Value(
+                    Value::error(shell_error, call.head),
+                    None,
+                ))
+            }
         }
     }
 

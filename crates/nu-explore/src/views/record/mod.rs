@@ -597,7 +597,7 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
 }
 
 fn create_layer(value: Value) -> RecordLayer<'static> {
-    let (columns, values) = collect_input(value);
+    let (columns, values) = collect_input(value).unwrap();
 
     RecordLayer::new(columns, values)
 }

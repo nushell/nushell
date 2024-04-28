@@ -6,12 +6,12 @@ use crate::{
     nu_common::collect_input,
     views::{Orientation, RecordView},
 };
+use anyhow::Result;
 use nu_ansi_term::Style;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use std::io::Result;
 
 #[derive(Debug, Default, Clone)]
 pub struct TableCmd {
@@ -119,7 +119,7 @@ impl ViewCommand for TableCmd {
         let value = value.unwrap_or_default();
         let is_record = matches!(value, Value::Record { .. });
 
-        let (columns, data) = collect_input(value);
+        let (columns, data) = collect_input(value).unwrap();
 
         let mut view = RecordView::new(columns, data);
 

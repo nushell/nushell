@@ -2,6 +2,7 @@ use crate::{
     commands::{HelpManual, SimpleCommand, ViewCommand},
     views::View,
 };
+use anyhow::Result;
 
 #[derive(Clone)]
 pub enum Command {
@@ -41,7 +42,7 @@ impl Command {
         }
     }
 
-    pub fn parse(&mut self, args: &str) -> std::io::Result<()> {
+    pub fn parse(&mut self, args: &str) -> Result<()> {
         match self {
             Command::Reactive(cmd) => cmd.parse(args),
             Command::View { cmd, .. } => cmd.parse(args),
@@ -72,7 +73,7 @@ where
         self.0.help()
     }
 
-    fn parse(&mut self, args: &str) -> std::io::Result<()> {
+    fn parse(&mut self, args: &str) -> Result<()> {
         self.0.parse(args)
     }
 
@@ -81,7 +82,7 @@ where
         engine_state: &nu_protocol::engine::EngineState,
         stack: &mut nu_protocol::engine::Stack,
         value: Option<nu_protocol::Value>,
-    ) -> std::io::Result<Self::View> {
+    ) -> Result<Self::View> {
         let view = self.0.spawn(engine_state, stack, value)?;
         Ok(Box::new(view) as Box<dyn View>)
     }

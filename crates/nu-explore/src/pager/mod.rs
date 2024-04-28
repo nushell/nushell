@@ -15,6 +15,7 @@ use crate::{
     util::map_into_value,
     views::{util::nu_style_to_tui, ViewConfig},
 };
+use anyhow::Result;
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
@@ -34,7 +35,7 @@ use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 use std::{
     cmp::min,
     collections::HashMap,
-    io::{self, Result, Stdout},
+    io::{self, Stdout},
     result,
     sync::atomic::Ordering,
 };

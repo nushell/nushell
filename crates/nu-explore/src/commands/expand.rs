@@ -3,12 +3,13 @@ use crate::{
     nu_common::{self, collect_input},
     views::Preview,
 };
+use anyhow::Result;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use std::{io::Result, vec};
+use std::vec;
 
 #[derive(Default, Clone)]
 pub struct ExpandCmd;
@@ -76,7 +77,7 @@ impl ViewCommand for ExpandCmd {
 }
 
 fn convert_value_to_string(value: Value, engine_state: &EngineState, stack: &mut Stack) -> String {
-    let (cols, vals) = collect_input(value.clone());
+    let (cols, vals) = collect_input(value.clone()).unwrap();
 
     let has_no_head = cols.is_empty() || (cols.len() == 1 && cols[0].is_empty());
     let has_single_value = vals.len() == 1 && vals[0].len() == 1;
