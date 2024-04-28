@@ -18,7 +18,7 @@ use nu_protocol::{
 use pager::{Page, Pager, PagerConfig, StyleConfig};
 use registry::CommandRegistry;
 use terminal_size::{Height, Width};
-use views::{BinaryView, InformationView, Orientation, Preview, RecordView};
+use views::{BinaryView, Orientation, Preview, RecordView};
 
 mod util {
     pub use super::nu_common::{create_lscolors, create_map, map_into_value};
@@ -48,7 +48,7 @@ fn run_pager(
 
     let has_no_input = columns.is_empty() && data.is_empty();
     if has_no_input {
-        return p.run(engine_state, stack, ctrlc, information_view(), commands);
+        return p.run(engine_state, stack, ctrlc, help_view(), commands);
     }
 
     p.show_message("For help type :help");
@@ -84,8 +84,8 @@ fn create_record_view(
     Some(Page::new(view, true))
 }
 
-fn information_view() -> Option<Page> {
-    Some(Page::new(InformationView, false))
+fn help_view() -> Option<Page> {
+    Some(Page::new(HelpCmd::view(), false))
 }
 
 fn binary_view(input: PipelineData) -> Option<Page> {

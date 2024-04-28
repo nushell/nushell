@@ -11,24 +11,31 @@ pub struct HelpCmd {}
 
 impl HelpCmd {
     pub const NAME: &'static str = "help";
+    pub fn view() -> Preview {
+        Preview::new(HELP_MESSAGE)
+    }
 }
 
-const HELP_MESSAGE: &str = r#"                        Explore - main help file
+// TODO: search help could use some updating... search results get shown immediately after typing, don't need to press Enter
+const HELP_MESSAGE: &str = r#"# Explore
+
+Explore helps you dynamically navigate through your data
+
+## Basics
 
                            Move around:  Use the cursor keys
         Drill down into records+tables:  Press <Enter> to select a cell, move around with cursor keys, then press <Enter> again
                     Go back/up a level:  Press <Esc>
 Transpose data (flip rows and columns):  Press "t"
     Expand data (show all nested data):  Press "e"
+                  Open this help page :  Type ":help" then <Enter>
               Open an interactive REPL:  Type ":try" then <Enter>
                         Scroll up/down:  Use the "Page Up" and "Page Down" keys
                           Exit Explore:  Type ":q" then <Enter>, or Ctrl+D. Alternately, press <Esc> until Explore exits
 
-------------------------------------------------------------------------------------
+## Search
 
-# Regular expressions
-
-Most commands support regular expressions.
+Most commands support search via regular expressions.
 
 You can type "/" and type a pattern you want to search on.
 Then hit <Enter> and you will see the search results.
@@ -54,6 +61,6 @@ impl ViewCommand for HelpCmd {
     }
 
     fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
-        Ok(Preview::new(HELP_MESSAGE))
+        Ok(HelpCmd::view())
     }
 }
