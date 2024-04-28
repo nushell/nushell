@@ -1,5 +1,5 @@
 pub mod dots;
-mod expansions;
+pub mod expansions;
 mod helpers;
 mod tilde;
 mod util;
