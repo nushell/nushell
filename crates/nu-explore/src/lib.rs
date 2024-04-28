@@ -7,7 +7,7 @@ mod registry;
 mod views;
 
 use anyhow::Result;
-use commands::{ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd, TableCmd, TryCmd};
+use commands::{ExpandCmd, HelpCmd, NuCmd, QuitCmd, TableCmd, TryCmd};
 pub use default_context::add_explore_context;
 pub use explore::Explore;
 use nu_common::{collect_pipeline, has_simple_value, CtrlC};
@@ -16,7 +16,7 @@ use nu_protocol::{
     PipelineData, Value,
 };
 use pager::{Page, Pager, PagerConfig, StyleConfig};
-use registry::{Command, CommandRegistry};
+use registry::CommandRegistry;
 use terminal_size::{Height, Width};
 use views::{BinaryView, InformationView, Orientation, Preview, RecordView};
 
@@ -44,7 +44,7 @@ fn run_pager(
         return p.run(engine_state, stack, ctrlc, view, commands);
     }
 
-    let (columns, data) = collect_pipeline(input).unwrap();
+    let (columns, data) = collect_pipeline(input)?;
 
     let has_no_input = columns.is_empty() && data.is_empty();
     if has_no_input {
@@ -103,14 +103,6 @@ fn create_command_registry() -> CommandRegistry {
     create_commands(&mut registry);
     create_aliases(&mut registry);
 
-    // reregister help && config commands
-    let commands = registry.get_commands().cloned().collect::<Vec<_>>();
-    let aliases = registry.get_aliases().collect::<Vec<_>>();
-
-    let help_cmd = create_help_command(&commands, &aliases);
-
-    registry.register_command_view(help_cmd, true);
-
     registry
 }
 
@@ -130,35 +122,4 @@ fn create_aliases(registry: &mut CommandRegistry) {
     registry.create_aliases("e", ExpandCmd::NAME);
     registry.create_aliases("q", QuitCmd::NAME);
     registry.create_aliases("q!", QuitCmd::NAME);
-}
-
-fn create_help_command(commands: &[Command], aliases: &[(&str, &str)]) -> HelpCmd {
-    let help_manuals = create_help_manuals(commands);
-
-    HelpCmd::new(help_manuals, aliases)
-}
-
-fn create_help_manuals(cmd_list: &[Command]) -> Vec<HelpManual> {
-    cmd_list.iter().map(create_help_manual).collect()
-}
-
-fn create_help_manual(cmd: &Command) -> HelpManual {
-    let name = match cmd {
-        Command::Reactive(cmd) => cmd.name(),
-        Command::View { cmd, .. } => cmd.name(),
-    };
-
-    let manual = match cmd {
-        Command::Reactive(cmd) => cmd.help(),
-        Command::View { cmd, .. } => cmd.help(),
-    };
-
-    __create_help_manual(manual, name)
-}
-
-fn __create_help_manual(manual: Option<HelpManual>, name: &'static str) -> HelpManual {
-    manual.unwrap_or(HelpManual {
-        name,
-        ..HelpManual::default()
-    })
 }

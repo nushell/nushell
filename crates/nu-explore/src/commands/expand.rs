@@ -1,4 +1,4 @@
-use super::{HelpManual, Shortcode, ViewCommand};
+use super::ViewCommand;
 use crate::{
     nu_common::{self, collect_input},
     views::Preview,
@@ -9,7 +9,6 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use std::vec;
 
 #[derive(Default, Clone)]
 pub struct ExpandCmd;
@@ -33,29 +32,6 @@ impl ViewCommand for ExpandCmd {
 
     fn usage(&self) -> &'static str {
         ""
-    }
-
-    fn help(&self) -> Option<HelpManual> {
-        #[rustfmt::skip]
-        let shortcodes = vec![
-            Shortcode::new("Up",        "",     "Moves the viewport one row up"),
-            Shortcode::new("Down",      "",     "Moves the viewport one row down"),
-            Shortcode::new("Left",      "",     "Moves the viewport one column left"),
-            Shortcode::new("Right",     "",     "Moves the viewport one column right"),
-            Shortcode::new("PgDown",    "",     "Moves the viewport one page of rows down"),
-            Shortcode::new("PgUp",      "",     "Moves the cursor or viewport one page of rows up"),
-            Shortcode::new("Esc",       "",     "Exits cursor mode. Exits the currently explored data."),
-        ];
-
-        Some(HelpManual {
-            name: "expand",
-            description:
-                "View the currently selected cell's data using the `table` Nushell command",
-            arguments: vec![],
-            examples: vec![],
-            config_options: vec![],
-            input: shortcodes,
-        })
     }
 
     fn parse(&mut self, _: &str) -> Result<()> {

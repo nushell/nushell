@@ -287,7 +287,7 @@ fn run_command(
 
     let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 
-    let (columns, values) = collect_pipeline(pipeline).unwrap();
+    let (columns, values) = collect_pipeline(pipeline)?;
 
     let mut view = RecordView::new(columns, values);
     if is_record {

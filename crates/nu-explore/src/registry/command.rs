@@ -1,5 +1,5 @@
 use crate::{
-    commands::{HelpManual, SimpleCommand, ViewCommand},
+    commands::{SimpleCommand, ViewCommand},
     views::View,
 };
 use anyhow::Result;
@@ -67,10 +67,6 @@ where
 
     fn usage(&self) -> &'static str {
         self.0.usage()
-    }
-
-    fn help(&self) -> Option<HelpManual> {
-        self.0.help()
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {

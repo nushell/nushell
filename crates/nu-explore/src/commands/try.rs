@@ -1,4 +1,4 @@
-use super::{default_color_list, ConfigOption, HelpExample, HelpManual, Shortcode, ViewCommand};
+use super::ViewCommand;
 use crate::views::InteractiveView;
 use anyhow::Result;
 use nu_protocol::{
@@ -30,37 +30,6 @@ impl ViewCommand for TryCmd {
 
     fn usage(&self) -> &'static str {
         ""
-    }
-
-    fn help(&self) -> Option<HelpManual> {
-        #[rustfmt::skip]
-        let shortcuts = vec![
-            Shortcode::new("Up",     "",        "Switches between input and a output panes"),
-            Shortcode::new("Down",   "",        "Switches between input and a output panes"),
-            Shortcode::new("Esc",    "",        "Switches between input and a output panes"),
-            Shortcode::new("Tab",    "",        "Switches between input and a output panes"),
-        ];
-
-        #[rustfmt::skip]
-        let config_options = vec![
-            ConfigOption::boolean(":try options", "In the `:try` REPL, attempt to run the command on every keypress", "try.reactive"),
-            ConfigOption::new(":try options", "Change a highlighted menu color", "try.highlighted_color", default_color_list()),
-        ];
-
-        #[rustfmt::skip]
-        let examples = vec![
-            HelpExample::new("try", "Open a interactive :try command"),
-            HelpExample::new("try open Cargo.toml", "Optionally, you can provide a command which will be run immediately"),
-        ];
-
-        Some(HelpManual {
-            name: "try",
-            description: "Opens a panel in which to run Nushell commands and explore their output. The explorer acts like `:table`.",
-            arguments: vec![],
-            examples,
-            input: shortcuts,
-            config_options,
-        })
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {

@@ -1,4 +1,4 @@
-use super::{HelpExample, HelpManual, ViewCommand};
+use super::ViewCommand;
 use crate::{
     nu_common::{collect_pipeline, has_simple_value, run_command_with_value},
     pager::Frame,
@@ -35,30 +35,6 @@ impl ViewCommand for NuCmd {
 
     fn usage(&self) -> &'static str {
         ""
-    }
-
-    fn help(&self) -> Option<HelpManual> {
-        let examples = vec![
-            HelpExample::new(
-                "where type == 'file'",
-                "Filter data to show only rows whose type is 'file'",
-            ),
-            HelpExample::new(
-                "get scope.examples",
-                "Navigate to a deeper value inside the data",
-            ),
-            HelpExample::new("open Cargo.toml", "Open a Cargo.toml file"),
-        ];
-
-        Some(HelpManual {
-            name: "nu",
-            description:
-                "Run a Nushell command. The data currently being explored is piped into it.",
-            examples,
-            arguments: vec![],
-            input: vec![],
-            config_options: vec![],
-        })
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {
