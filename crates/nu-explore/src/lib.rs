@@ -55,7 +55,7 @@ fn run_pager(
 
     if let Some(value) = has_simple_value(&data) {
         let text = value.to_abbreviated_string(config.nu_config);
-        let view = Some(Page::new(Preview::new(&text), true));
+        let view = Some(Page::new(Preview::new(&text), false));
         return p.run(engine_state, stack, ctrlc, view, commands);
     }
 
@@ -80,11 +80,11 @@ fn create_record_view(
         }
     }
 
-    Some(Page::new(view, false))
+    Some(Page::new(view, true))
 }
 
 fn information_view() -> Option<Page> {
-    Some(Page::new(InformationView, true))
+    Some(Page::new(InformationView, false))
 }
 
 fn binary_view(input: PipelineData) -> Option<Page> {
@@ -95,7 +95,7 @@ fn binary_view(input: PipelineData) -> Option<Page> {
 
     let view = BinaryView::new(data);
 
-    Some(Page::new(view, false))
+    Some(Page::new(view, true))
 }
 
 fn create_command_registry() -> CommandRegistry {
@@ -107,12 +107,12 @@ fn create_command_registry() -> CommandRegistry {
 }
 
 fn create_commands(registry: &mut CommandRegistry) {
-    registry.register_command_view(NuCmd::new(), false);
-    registry.register_command_view(TableCmd::new(), false);
+    registry.register_command_view(NuCmd::new(), true);
+    registry.register_command_view(TableCmd::new(), true);
 
-    registry.register_command_view(ExpandCmd::new(), true);
-    registry.register_command_view(TryCmd::new(), true);
-    registry.register_command_view(HelpCmd::default(), true);
+    registry.register_command_view(ExpandCmd::new(), false);
+    registry.register_command_view(TryCmd::new(), false);
+    registry.register_command_view(HelpCmd::default(), false);
 
     registry.register_command_reactive(QuitCmd);
 }

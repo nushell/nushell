@@ -9,19 +9,19 @@ pub enum Command {
     Reactive(Box<dyn SCommand>),
     View {
         cmd: Box<dyn VCommand>,
-        is_light: bool,
+        stackable: bool,
     },
 }
 
 impl Command {
-    pub fn view<C>(command: C, is_light: bool) -> Self
+    pub fn view<C>(command: C, stackable: bool) -> Self
     where
         C: ViewCommand + Clone + 'static,
         C::View: View,
     {
         let cmd = Box::new(ViewCmd(command)) as Box<dyn VCommand>;
 
-        Self::View { cmd, is_light }
+        Self::View { cmd, stackable }
     }
 
     pub fn reactive<C>(command: C) -> Self
