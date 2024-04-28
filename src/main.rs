@@ -391,7 +391,7 @@ fn main() -> Result<()> {
 
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
-        use nu_plugin::{GetPlugin, PluginDeclaration};
+        use nu_plugin_engine::{GetPlugin, PluginDeclaration};
         use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity};
 
         // Load any plugins specified with --plugins
@@ -409,7 +409,7 @@ fn main() -> Result<()> {
                 .map_err(ShellError::from)?;
 
             // Create the plugin and add it to the working set
-            let plugin = nu_plugin::add_plugin_to_working_set(&mut working_set, &identity)?;
+            let plugin = nu_plugin_engine::add_plugin_to_working_set(&mut working_set, &identity)?;
 
             // Spawn the plugin to get its signatures, and then add the commands to the working set
             for signature in plugin.clone().get_plugin(None)?.get_signature()? {

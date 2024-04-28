@@ -245,6 +245,7 @@ use tempfile::tempdir;
 pub struct NuOpts {
     pub cwd: Option<String>,
     pub locale: Option<String>,
+    pub collapse_output: Option<bool>,
 }
 
 pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> Outcome {
@@ -299,8 +300,14 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         .wait_with_output()
         .expect("couldn't read from stdout/stderr");
 
-    let out = collapse_output(&output.stdout);
+    let out = String::from_utf8_lossy(&output.stdout);
     let err = String::from_utf8_lossy(&output.stderr);
+
+    let out = if opts.collapse_output.unwrap_or(true) {
+        collapse_output(&out)
+    } else {
+        out.into_owned()
+    };
 
     println!("=== stderr\n{}", err);
 
@@ -382,7 +389,7 @@ where
         .wait_with_output()
         .expect("couldn't read from stdout/stderr");
 
-    let out = collapse_output(&output.stdout);
+    let out = collapse_output(&String::from_utf8_lossy(&output.stdout));
     let err = String::from_utf8_lossy(&output.stderr);
 
     println!("=== stderr\n{}", err);
@@ -416,8 +423,7 @@ fn with_exe(name: &str) -> String {
     }
 }
 
-fn collapse_output(std: &[u8]) -> String {
-    let out = String::from_utf8_lossy(std);
+fn collapse_output(out: &str) -> String {
     let out = out.lines().collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
     out.replace('\n', "")

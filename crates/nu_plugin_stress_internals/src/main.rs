@@ -82,6 +82,12 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         std::process::exit(1)
     }
 
+    // Read `Hello` message
+    let mut de = serde_json::Deserializer::from_reader(&mut input);
+    let hello: Value = Value::deserialize(&mut de)?;
+
+    assert!(hello.get("Hello").is_some());
+
     // Send `Hello` message
     write(
         &mut output,
@@ -102,12 +108,6 @@ pub fn main() -> Result<(), Box<dyn Error>> {
             }
         }),
     )?;
-
-    // Read `Hello` message
-    let mut de = serde_json::Deserializer::from_reader(&mut input);
-    let hello: Value = Value::deserialize(&mut de)?;
-
-    assert!(hello.get("Hello").is_some());
 
     if opts.exit_early {
         // Exit without handling anything other than Hello

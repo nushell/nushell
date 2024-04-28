@@ -43,6 +43,7 @@ fn plugin_process_exits_after_stop() {
         plugin: ("nu_plugin_inc"),
         r#"
             "2.0.0" | inc -m | ignore
+            sleep 500ms
             let pid = (plugin list).0.pid
             if (ps | where pid == $pid | is-empty) {
                 error make {
@@ -101,7 +102,7 @@ fn plugin_process_exits_when_nushell_exits() {
     // use nu to check if process exists
     assert_eq!(
         "0",
-        nu!(format!("ps | where pid == {pid} | length")).out,
+        nu!(format!("sleep 500ms; ps | where pid == {pid} | length")).out,
         "plugin process {pid} is still running"
     );
 }

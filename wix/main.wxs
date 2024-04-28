@@ -291,6 +291,14 @@
                                 KeyPath='yes'/>
                         </Component>
                         -->
+                        <Component Id='binary24' Guid='*' Win64='$(var.Win64)'>
+                            <File 
+                                Id='exe24' 
+                                Name='nu_plugin_polars.exe' 
+                                DiskId='1' 
+                                Source='target\$(var.Profile)\nu_plugin_polars.exe' 
+                                KeyPath='yes'/>
+                        </Component>
                     </Directory>
                 </Directory>
             </Directory>
@@ -356,6 +364,7 @@
             <ComponentRef Id='binary21'/> -->
             <ComponentRef Id='binary22'/>
             <!-- <ComponentRef Id='binary23'/> -->
+            <ComponentRef Id='binary24'/>
 
             <Feature
                 Id='Environment'
