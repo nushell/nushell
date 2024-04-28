@@ -30,10 +30,6 @@ impl Command for MimeGuess {
             .category(Category::Strings)
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["mime", "guess"]
-    }
-
     fn usage(&self) -> &str {
         "Guess the MIME/Media Type of an extension or path. No disk access is performed."
     }

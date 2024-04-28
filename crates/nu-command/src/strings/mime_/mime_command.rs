@@ -9,11 +9,9 @@ impl Command for MimeCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Strings)
-    }
-
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["mime", "guess"]
+        Signature::build(self.name())
+            .input_output_type(Type::Nothing, Type::String)
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {

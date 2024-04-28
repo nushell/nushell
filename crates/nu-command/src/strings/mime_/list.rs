@@ -23,10 +23,6 @@ If <main type> is "*" all known extensions are returned."#,
             .category(Category::Strings)
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["mime", "list"]
-    }
-
     fn usage(&self) -> &str {
         "Get a list of known extensions for a MIME type string."
     }
