@@ -150,7 +150,7 @@ pub fn read_plugin_file(
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        nu_plugin::load_plugin_file(&mut working_set, &contents, span);
+        nu_plugin_engine::load_plugin_file(&mut working_set, &contents, span);
 
         if let Err(err) = engine_state.merge_delta(working_set.render()) {
             report_error_new(engine_state, &err);

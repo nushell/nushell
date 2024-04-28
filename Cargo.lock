@@ -2876,7 +2876,9 @@ dependencies = [
  "nu-lsp",
  "nu-parser",
  "nu-path",
- "nu-plugin",
+ "nu-plugin-core",
+ "nu-plugin-engine",
+ "nu-plugin-protocol",
  "nu-protocol",
  "nu-std",
  "nu-system",
@@ -2923,7 +2925,7 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-path",
- "nu-plugin",
+ "nu-plugin-engine",
  "nu-protocol",
  "nu-test-support",
  "nu-utils",
@@ -3017,7 +3019,7 @@ dependencies = [
  "itertools 0.12.1",
  "nu-engine",
  "nu-path",
- "nu-plugin",
+ "nu-plugin-engine",
  "nu-protocol",
 ]
 
@@ -3221,7 +3223,7 @@ dependencies = [
  "log",
  "nu-engine",
  "nu-path",
- "nu-plugin",
+ "nu-plugin-engine",
  "nu-protocol",
  "rstest",
  "serde_json",
@@ -3240,22 +3242,56 @@ dependencies = [
 name = "nu-plugin"
 version = "0.92.3"
 dependencies = [
- "bincode",
- "interprocess",
  "log",
- "miette",
  "nix",
  "nu-engine",
+ "nu-plugin-core",
+ "nu-plugin-protocol",
  "nu-protocol",
- "nu-system",
- "nu-utils",
- "rmp-serde",
- "semver",
  "serde",
- "serde_json",
  "thiserror",
  "typetag",
+]
+
+[[package]]
+name = "nu-plugin-core"
+version = "0.92.3"
+dependencies = [
+ "interprocess",
+ "log",
+ "nu-plugin-protocol",
+ "nu-protocol",
+ "rmp-serde",
+ "serde",
+ "serde_json",
  "windows 0.54.0",
+]
+
+[[package]]
+name = "nu-plugin-engine"
+version = "0.92.3"
+dependencies = [
+ "log",
+ "nu-engine",
+ "nu-plugin-core",
+ "nu-plugin-protocol",
+ "nu-protocol",
+ "nu-system",
+ "serde",
+ "typetag",
+ "windows 0.54.0",
+]
+
+[[package]]
+name = "nu-plugin-protocol"
+version = "0.92.3"
+dependencies = [
+ "bincode",
+ "nu-protocol",
+ "nu-utils",
+ "semver",
+ "serde",
+ "typetag",
 ]
 
 [[package]]
@@ -3267,6 +3303,9 @@ dependencies = [
  "nu-engine",
  "nu-parser",
  "nu-plugin",
+ "nu-plugin-core",
+ "nu-plugin-engine",
+ "nu-plugin-protocol",
  "nu-protocol",
  "serde",
  "similar",
@@ -4980,9 +5019,9 @@ checksum = "3582f63211428f83597b51b2ddb88e2a91a9d52d12831f9d08f5e624e8977422"
 
 [[package]]
 name = "rmp"
-version = "0.8.13"
+version = "0.8.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bddb316f4b9cae1a3e89c02f1926d557d1142d0d2e684b038c11c1b77705229a"
+checksum = "228ed7c16fa39782c3b3468e974aec2795e9089153cd08ee2e9aefb3613334c4"
 dependencies = [
  "byteorder",
  "num-traits",
