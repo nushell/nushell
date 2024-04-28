@@ -117,6 +117,10 @@ pub fn collect_input(value: Value) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
             collect_input(materialized)
         }
         Value::Nothing { .. } => Ok((vec![], vec![])),
+        Value::Custom { val, .. } => {
+            let materialized = val.to_base_value(span)?;
+            collect_input(materialized)
+        }
         value => Ok((vec![String::from("")], vec![vec![value]])),
     }
 }
