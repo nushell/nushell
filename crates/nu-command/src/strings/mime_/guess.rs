@@ -1,0 +1,167 @@
+use nu_engine::command_prelude::*;
+
+const NO_SPAN: Span = Span::unknown();
+
+#[derive(Clone)]
+pub struct MimeGuess;
+
+impl Command for MimeGuess {
+    fn name(&self) -> &str {
+        "mime guess"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::Table(Box::new([
+                        ("name".to_string(), Type::String),
+                        ("type".to_string(), Type::String),
+                    ])),
+                ),
+            ])
+            .switch(
+                "extension",
+                "Accept extensions as input rather than file paths",
+                Some('e'),
+            )
+            .category(Category::Strings)
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["mime", "guess"]
+    }
+
+    fn usage(&self) -> &str {
+        "Guess the MIME/Media Type of an extension or path. No disk access is performed."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Because no disk access is performed, inputs that have no extensions, such as directory names, will return "unknown"."#
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                example: r#""video.mp4" | mime guess"#,
+                description: "Guess the MIME type from the path and return a string.",
+                result: Some(Value::string(r#""video/mp4""#, NO_SPAN)),
+            },
+            Example {
+                example: r#"["video.mp4" "audio.mp3"] | mime guess"#,
+                description: "Guess the MIME types from the paths and return a table.",
+                result: Some(Value::list(
+                    vec![
+                        Value::record(
+                            record!("name" => Value::string("video.mp4".to_string(), NO_SPAN), "type" => Value::string("video/mp4", NO_SPAN)),
+                            NO_SPAN,
+                        ),
+                        Value::record(
+                            record!("name" => Value::string("audio.mp3".to_string(), NO_SPAN), "type" => Value::string("audio/mpeg", NO_SPAN)),
+                            NO_SPAN,
+                        ),
+                    ],
+                    NO_SPAN,
+                )),
+            },
+            Example {
+                example: r#"["mp4" "mp3"] | mime guess -e"#,
+                description: "Guess the MIME types from the extensions and return a table.",
+                result: Some(Value::list(
+                    vec![
+                        Value::record(
+                            record!("name" => Value::string("mp4".to_string(), NO_SPAN), "type" => Value::string("video/mp4", NO_SPAN)),
+                            NO_SPAN,
+                        ),
+                        Value::record(
+                            record!("name" => Value::string("mp3".to_string(), NO_SPAN), "type" => Value::string("audio/mpeg", NO_SPAN)),
+                            NO_SPAN,
+                        ),
+                    ],
+                    NO_SPAN,
+                )),
+            },
+            Example {
+                example: r#"let input = glob -d 1 * | wrap filename; $input | merge ($input | get filename | mime guess | select type)"#,
+                description: "Add a MIME type column to a table.",
+                result: Some(Value::list(
+                    vec![Value::record(
+                        record!("filename" => Value::string("...".to_string(), NO_SPAN), "type" => Value::string("...", NO_SPAN)),
+                        NO_SPAN,
+                    )],
+                    NO_SPAN,
+                )),
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let use_extension: bool = call.has_flag(engine_state, stack, "extension")?;
+
+        let guess_function = if use_extension {
+            // I don't know how to satisfy the compiler here without a closure, but I cannot return the function directly because of a mismatched types error.
+            #[allow(clippy::redundant_closure)]
+            |input| mime_guess::from_ext(input)
+        } else {
+            mime_guess::from_path
+        };
+
+        let result = match input {
+            PipelineData::Value(Value::String { val, internal_span }, ..) => {
+                let mime_type = guess_function(&val)
+                    .first()
+                    .map(|mime| mime.to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+
+                Ok(Value::string(mime_type, internal_span))
+            }
+            PipelineData::Value(
+                Value::List {
+                    vals,
+                    internal_span,
+                },
+                ..,
+            ) => {
+                let string_list = vals
+                    .iter()
+                    .map(|val| val.as_str())
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let mime_records = string_list
+                    .into_iter()
+                    .map(|s| {
+                        let name = Value::string(s.to_string(), internal_span);
+                        let mime_type = Value::string(
+                            guess_function(s)
+                                .first()
+                                .map(|mime| mime.to_string())
+                                .unwrap_or_else(|| "unknown".to_string()),
+                            internal_span,
+                        );
+
+                        Value::record(record!("name" => name, "type" => mime_type), internal_span)
+                    })
+                    .collect::<Vec<_>>();
+
+                Ok(Value::list(mime_records, internal_span))
+            }
+            PipelineData::ListStream(stream, ..) => {
+                todo!()
+            }
+            _ => Err(ShellError::TypeMismatch {
+                err_message: "Only string input is supported".to_string(),
+                span: input.span().unwrap_or(NO_SPAN),
+            }),
+        };
+
+        result.map(|res| res.into_pipeline_data())
+    }
+}
