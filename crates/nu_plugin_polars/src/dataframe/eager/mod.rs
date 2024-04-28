@@ -1,6 +1,5 @@
 mod append;
 mod columns;
-mod drop_nulls;
 mod dummies;
 mod filter_with;
 mod first;
@@ -32,7 +31,6 @@ use crate::PolarsPlugin;
 pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
 pub use columns::ColumnsDF;
-pub use drop_nulls::DropNulls;
 pub use dummies::Dummies;
 pub use filter_with::FilterWith;
 pub use first::FirstDF;
@@ -62,7 +60,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
     vec![
         Box::new(AppendDF),
         Box::new(ColumnsDF),
-        Box::new(DropNulls),
         Box::new(Dummies),
         Box::new(FilterWith),
         Box::new(GetDF),

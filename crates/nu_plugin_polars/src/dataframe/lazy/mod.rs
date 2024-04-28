@@ -3,6 +3,7 @@ mod cast;
 mod collect;
 mod drop;
 mod drop_duplicates;
+mod drop_nulls;
 mod explode;
 mod fetch;
 mod fill_nan;
@@ -42,6 +43,7 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(cast::CastDF),
         Box::new(drop::DropDF),
         Box::new(drop_duplicates::DropDuplicates),
+        Box::new(drop_nulls::DropNulls),
         Box::new(LazyAggregate),
         Box::new(LazyCache),
         Box::new(LazyCollect),
