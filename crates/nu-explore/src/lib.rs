@@ -66,6 +66,7 @@ fn run_pager(
 fn create_record_view(
     columns: Vec<String>,
     data: Vec<Vec<Value>>,
+    // wait, why would we use RecordView for something that isn't a record?
     is_record: bool,
     config: PagerConfig,
 ) -> Option<Page> {
@@ -74,9 +75,9 @@ fn create_record_view(
         view.set_orientation_current(Orientation::Left);
     }
 
-    if config.reverse {
+    if config.tail {
         if let Some((Width(w), Height(h))) = terminal_size::terminal_size() {
-            view.reverse(w, h);
+            view.tail(w, h);
         }
     }
 

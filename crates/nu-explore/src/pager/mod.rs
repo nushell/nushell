@@ -159,7 +159,7 @@ pub struct PagerConfig<'a> {
     pub style: StyleConfig,
     // If true, when quitting output the value of the cell the cursor was on
     pub peek_value: bool,
-    pub reverse: bool,
+    pub tail: bool,
 }
 
 impl<'a> PagerConfig<'a> {
@@ -175,7 +175,7 @@ impl<'a> PagerConfig<'a> {
             config,
             lscolors,
             peek_value: false,
-            reverse: false,
+            tail: false,
             style: StyleConfig::default(),
         }
     }

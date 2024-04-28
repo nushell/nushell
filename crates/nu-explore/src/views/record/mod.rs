@@ -48,10 +48,10 @@ impl<'a> RecordView<'a> {
         }
     }
 
-    pub fn reverse(&mut self, width: u16, height: u16) {
+    pub fn tail(&mut self, width: u16, height: u16) {
         let page_size =
             estimate_page_size(Rect::new(0, 0, width, height), self.theme.table.show_header);
-        state_reverse_data(self, page_size as usize);
+        tail_data(self, page_size as usize);
     }
 
     pub fn set_style_split_line(&mut self, style: NuStyle) {
@@ -637,7 +637,8 @@ fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
     available_height
 }
 
-fn state_reverse_data(state: &mut RecordView<'_>, page_size: usize) {
+/// scroll to the end of the data
+fn tail_data(state: &mut RecordView<'_>, page_size: usize) {
     let layer = state.get_layer_last_mut();
     let count_rows = layer.records.len();
     if count_rows > page_size {

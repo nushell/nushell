@@ -36,9 +36,9 @@ impl Command for Explore {
             )
             .switch("index", "Show row indexes when viewing a list", Some('i'))
             .switch(
-                "reverse",
+                "tail",
                 "Start with the viewport scrolled to the bottom",
-                Some('r'),
+                Some('t'),
             )
             .switch(
                 "peek",
@@ -61,7 +61,7 @@ impl Command for Explore {
     ) -> Result<PipelineData, ShellError> {
         let show_head: bool = call.get_flag(engine_state, stack, "head")?.unwrap_or(true);
         let show_index: bool = call.has_flag(engine_state, stack, "index")?;
-        let is_reverse: bool = call.has_flag(engine_state, stack, "reverse")?;
+        let tail: bool = call.has_flag(engine_state, stack, "tail")?;
         let peek_value: bool = call.has_flag(engine_state, stack, "peek")?;
 
         let ctrlc = engine_state.ctrlc.clone();
@@ -79,9 +79,8 @@ impl Command for Explore {
 
         let mut config = PagerConfig::new(nu_config, &style_computer, &lscolors, config);
         config.style = style;
-        config.reverse = is_reverse;
         config.peek_value = peek_value;
-        config.reverse = is_reverse;
+        config.tail = tail;
 
         let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
 
