@@ -15,6 +15,7 @@ use crate::{
     util::create_map,
     views::ElementInfo,
 };
+use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_protocol::{
@@ -266,16 +267,26 @@ impl View for RecordView<'_> {
         key: KeyEvent,
     ) -> Option<Transition> {
         let result = match self.mode {
-            UIMode::View => handle_key_event_view_mode(self, &key),
+            UIMode::View => Ok(handle_key_event_view_mode(self, &key)),
             UIMode::Cursor => handle_key_event_cursor_mode(self, &key),
         };
 
-        if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
-            let report = self.create_records_report();
-            info.status = Some(report);
-        }
+        match result {
+            Ok(result) => {
+                if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
+                    let report = self.create_records_report();
+                    info.status = Some(report);
+                }
 
-        result
+                result
+            }
+            Err(e) => {
+                log::error!("Error handling input in RecordView: {e}");
+                let report = Report::message(e.to_string(), Severity::Err);
+                info.status = Some(report);
+                None
+            }
+        }
     }
 
     fn collect_data(&self) -> Vec<NuText> {
@@ -508,7 +519,10 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
     }
 }
 
-fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
+fn handle_key_event_cursor_mode(
+    view: &mut RecordView,
+    key: &KeyEvent,
+) -> Result<Option<Transition>> {
     match key {
         KeyEvent {
             code: KeyCode::Char('u'),
@@ -521,7 +535,7 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         } => {
             view.get_layer_last_mut().cursor.prev_row_page();
 
-            return Some(Transition::Ok);
+            return Ok(Some(Transition::Ok));
         }
         KeyEvent {
             code: KeyCode::Char('d'),
@@ -534,7 +548,7 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         } => {
             view.get_layer_last_mut().cursor.next_row_page();
 
-            return Some(Transition::Ok);
+            return Ok(Some(Transition::Ok));
         }
         _ => {}
     }
@@ -543,43 +557,42 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         KeyCode::Esc => {
             view.set_view_mode();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Up | KeyCode::Char('k') => {
             view.get_layer_last_mut().cursor.prev_row();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Down | KeyCode::Char('j') => {
             view.get_layer_last_mut().cursor.next_row();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Left | KeyCode::Char('h') => {
             view.get_layer_last_mut().cursor.prev_column();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Right | KeyCode::Char('l') => {
             view.get_layer_last_mut().cursor.next_column();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Home | KeyCode::Char('g') => {
             view.get_layer_last_mut().cursor.row_move_to_start();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::End | KeyCode::Char('G') => {
             view.get_layer_last_mut().cursor.row_move_to_end();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Enter => {
             let value = view.get_current_value();
             let is_record = matches!(value, Value::Record { .. });
-            let next_layer = create_layer(value);
-
+            let next_layer = create_layer(value)?;
             push_layer(view, next_layer);
 
             if is_record {
@@ -590,16 +603,16 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
                 view.set_orientation_current(view.orientation);
             }
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
 
-fn create_layer(value: Value) -> RecordLayer<'static> {
-    let (columns, values) = collect_input(value).unwrap();
+fn create_layer(value: Value) -> Result<RecordLayer<'static>> {
+    let (columns, values) = collect_input(value)?;
 
-    RecordLayer::new(columns, values)
+    Ok(RecordLayer::new(columns, values))
 }
 
 fn push_layer(view: &mut RecordView<'_>, mut next_layer: RecordLayer<'static>) {

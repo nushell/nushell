@@ -3166,6 +3166,7 @@ dependencies = [
  "ansi-str",
  "anyhow",
  "crossterm",
+ "log",
  "lscolors",
  "nu-ansi-term",
  "nu-color-config",

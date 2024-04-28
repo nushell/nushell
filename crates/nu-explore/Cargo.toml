@@ -22,6 +22,7 @@ nu-ansi-term = { workspace = true }
 nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.92.3" }
 
 anyhow = { workspace = true }
+log = { workspace = true }
 terminal_size = { workspace = true }
 strip-ansi-escapes = { workspace = true }
 crossterm = { workspace = true }
