@@ -656,63 +656,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                     ReplOperation::AutoCd { cwd, target, span } => {
                         do_auto_cd(target, cwd, &mut stack, engine_state, span);
 
-                        if shell_integration_osc633 {
-                            // Only run osc633 if we are in vscode
-                            if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                                == Some(Value::test_string("vscode"))
-                            {
-                                start_time = Instant::now();
-
-                                run_ansi_sequence(&get_command_finished_marker(
-                                    &stack,
-                                    engine_state,
-                                    true,
-                                ));
-
-                                perf(
-                                    "post_execute_marker (633;D) ansi escape sequences",
-                                    start_time,
-                                    file!(),
-                                    line!(),
-                                    column!(),
-                                    use_color,
-                                );
-                            } else {
-                                start_time = Instant::now();
-
-                                run_ansi_sequence(&get_command_finished_marker(
-                                    &stack,
-                                    engine_state,
-                                    false,
-                                ));
-
-                                perf(
-                                    "post_execute_marker (133;D) ansi escape sequences",
-                                    start_time,
-                                    file!(),
-                                    line!(),
-                                    column!(),
-                                    use_color,
-                                );
-                            }
-                        } else if shell_integration_osc133 {
-                            start_time = Instant::now();
-
-                            run_ansi_sequence(&get_command_finished_marker(
-                                &stack,
-                                engine_state,
-                                false,
-                            ));
-
-                            perf(
-                                "post_execute_marker (133;D) ansi escape sequences",
-                                start_time,
-                                file!(),
-                                line!(),
-                                column!(),
-                                use_color,
-                            );
-                        }
+                        run_finaliziation_ansi_sequence(
+                            &stack,
+                            engine_state,
+                            shell_integration_osc633,
+                            shell_integration_osc133,
+                            use_color,
+                        );
                     }
                     ReplOperation::RunCommand(cmd) => {
                         line_editor = do_run_cmd(
@@ -725,63 +675,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                             use_color,
                         );
 
-                        if shell_integration_osc633 {
-                            // Only run osc633 if we are in vscode
-                            if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                                == Some(Value::test_string("vscode"))
-                            {
-                                start_time = Instant::now();
-
-                                run_ansi_sequence(&get_command_finished_marker(
-                                    &stack,
-                                    engine_state,
-                                    true,
-                                ));
-
-                                perf(
-                                    "post_execute_marker (633;D) ansi escape sequences",
-                                    start_time,
-                                    file!(),
-                                    line!(),
-                                    column!(),
-                                    use_color,
-                                );
-                            } else {
-                                start_time = Instant::now();
-
-                                run_ansi_sequence(&get_command_finished_marker(
-                                    &stack,
-                                    engine_state,
-                                    false,
-                                ));
-
-                                perf(
-                                    "post_execute_marker (133;D) ansi escape sequences",
-                                    start_time,
-                                    file!(),
-                                    line!(),
-                                    column!(),
-                                    use_color,
-                                );
-                            }
-                        } else if shell_integration_osc133 {
-                            start_time = Instant::now();
-
-                            run_ansi_sequence(&get_command_finished_marker(
-                                &stack,
-                                engine_state,
-                                false,
-                            ));
-
-                            perf(
-                                "post_execute_marker (133;D) ansi escape sequences",
-                                start_time,
-                                file!(),
-                                line!(),
-                                column!(),
-                                use_color,
-                            );
-                        }
+                        run_finaliziation_ansi_sequence(
+                            &stack,
+                            engine_state,
+                            shell_integration_osc633,
+                            shell_integration_osc133,
+                            use_color,
+                        );
                     }
                     // as the name implies, we do nothing in this case
                     ReplOperation::DoNothing => {}
@@ -827,101 +727,24 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         }
         Ok(Signal::CtrlC) => {
             // `Reedline` clears the line content. New prompt is shown
-
-            if shell_integration_osc633 {
-                // Only run osc633 if we are in vscode
-                if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                    == Some(Value::test_string("vscode"))
-                {
-                    start_time = Instant::now();
-
-                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state, true));
-
-                    perf(
-                        "post_execute_marker (633;D) ansi escape sequences",
-                        start_time,
-                        file!(),
-                        line!(),
-                        column!(),
-                        use_color,
-                    );
-                } else {
-                    start_time = Instant::now();
-
-                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state, false));
-
-                    perf(
-                        "post_execute_marker (133;D) ansi escape sequences",
-                        start_time,
-                        file!(),
-                        line!(),
-                        column!(),
-                        use_color,
-                    );
-                }
-            } else if shell_integration_osc133 {
-                start_time = Instant::now();
-
-                run_ansi_sequence(&get_command_finished_marker(&stack, engine_state, false));
-
-                perf(
-                    "post_execute_marker (133;D) ansi escape sequences",
-                    start_time,
-                    file!(),
-                    line!(),
-                    column!(),
-                    use_color,
-                );
-            }
+            run_finaliziation_ansi_sequence(
+                &stack,
+                engine_state,
+                shell_integration_osc633,
+                shell_integration_osc133,
+                use_color,
+            );
         }
         Ok(Signal::CtrlD) => {
             // When exiting clear to a new line
 
-            if shell_integration_osc633 {
-                // Only run osc633 if we are in vscode
-                if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                    == Some(Value::test_string("vscode"))
-                {
-                    start_time = Instant::now();
-
-                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state, true));
-
-                    perf(
-                        "post_execute_marker (633;D) ansi escape sequences",
-                        start_time,
-                        file!(),
-                        line!(),
-                        column!(),
-                        use_color,
-                    );
-                } else {
-                    start_time = Instant::now();
-
-                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state, false));
-
-                    perf(
-                        "post_execute_marker (133;D) ansi escape sequences",
-                        start_time,
-                        file!(),
-                        line!(),
-                        column!(),
-                        use_color,
-                    );
-                }
-            } else if shell_integration_osc133 {
-                start_time = Instant::now();
-
-                run_ansi_sequence(&get_command_finished_marker(&stack, engine_state, false));
-
-                perf(
-                    "post_execute_marker (133;D) ansi escape sequences",
-                    start_time,
-                    file!(),
-                    line!(),
-                    column!(),
-                    use_color,
-                );
-            }
+            run_finaliziation_ansi_sequence(
+                &stack,
+                engine_state,
+                shell_integration_osc633,
+                shell_integration_osc133,
+                use_color,
+            );
 
             println!();
             return (false, stack, line_editor);
@@ -936,51 +759,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 // Alternatively only allow that expected failures let the REPL loop
             }
 
-            if shell_integration_osc633 {
-                // Only run osc633 if we are in vscode
-                if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                    == Some(Value::test_string("vscode"))
-                {
-                    start_time = Instant::now();
-
-                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state, true));
-
-                    perf(
-                        "post_execute_marker (633;D) ansi escape sequences",
-                        start_time,
-                        file!(),
-                        line!(),
-                        column!(),
-                        use_color,
-                    );
-                } else {
-                    start_time = Instant::now();
-
-                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state, false));
-
-                    perf(
-                        "post_execute_marker (133;D) ansi escape sequences",
-                        start_time,
-                        file!(),
-                        line!(),
-                        column!(),
-                        use_color,
-                    );
-                }
-            } else if shell_integration_osc133 {
-                start_time = Instant::now();
-
-                run_ansi_sequence(&get_command_finished_marker(&stack, engine_state, false));
-
-                perf(
-                    "post_execute_marker (133;D) ansi escape sequences",
-                    start_time,
-                    file!(),
-                    line!(),
-                    column!(),
-                    use_color,
-                );
-            }
+            run_finaliziation_ansi_sequence(
+                &stack,
+                engine_state,
+                shell_integration_osc633,
+                shell_integration_osc133,
+                use_color,
+            );
         }
     }
     perf(
@@ -1567,6 +1352,58 @@ fn run_ansi_sequence(seq: &str) {
         warn!("Error writing ansi sequence {e}");
     } else if let Err(e) = io::stdout().flush() {
         warn!("Error flushing stdio {e}");
+    }
+}
+
+fn run_finaliziation_ansi_sequence(
+    stack: &Stack,
+    engine_state: &EngineState,
+    use_color: bool,
+    shell_integration_osc633: bool,
+    shell_integration_osc133: bool,
+) {
+    if shell_integration_osc633 {
+        // Only run osc633 if we are in vscode
+        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+            let start_time = Instant::now();
+
+            run_ansi_sequence(&get_command_finished_marker(stack, engine_state, true));
+
+            perf(
+                "post_execute_marker (633;D) ansi escape sequences",
+                start_time,
+                file!(),
+                line!(),
+                column!(),
+                use_color,
+            );
+        } else {
+            let start_time = Instant::now();
+
+            run_ansi_sequence(&get_command_finished_marker(stack, engine_state, false));
+
+            perf(
+                "post_execute_marker (133;D) ansi escape sequences",
+                start_time,
+                file!(),
+                line!(),
+                column!(),
+                use_color,
+            );
+        }
+    } else if shell_integration_osc133 {
+        let start_time = Instant::now();
+
+        run_ansi_sequence(&get_command_finished_marker(stack, engine_state, false));
+
+        perf(
+            "post_execute_marker (133;D) ansi escape sequences",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
     }
 }
 
