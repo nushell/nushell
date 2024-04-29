@@ -400,10 +400,13 @@ fn get_argument_for_color_value(
 
             Some(Argument::Positional(Expression {
                 span: Span::unknown(),
-                ty: Type::Record(vec![
-                    ("fg".to_string(), Type::String),
-                    ("attr".to_string(), Type::String),
-                ]),
+                ty: Type::Record(
+                    [
+                        ("fg".to_string(), Type::String),
+                        ("attr".to_string(), Type::String),
+                    ]
+                    .into(),
+                ),
                 expr: Expr::Record(record_exp),
                 custom_completion: None,
             }))

@@ -15,7 +15,7 @@ impl Command for LazyMake {
 
     fn signature(&self) -> Signature {
         Signature::build("lazy make")
-            .input_output_types(vec![(Type::Nothing, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::record())])
             .required_named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -54,6 +54,18 @@ impl Command for LazyMake {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError {
+                error: "Deprecated command".into(),
+                msg: "warning: lazy records and the `lazy make` command will be removed in 0.94.0"
+                    .into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            },
+        );
+
         let span = call.head;
         let columns: Vec<Spanned<String>> = call
             .get_flag(engine_state, stack, "columns")?

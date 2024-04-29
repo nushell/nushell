@@ -20,12 +20,15 @@ impl Command for ViewFiles {
         Signature::build("view files")
             .input_output_types(vec![(
                 Type::Nothing,
-                Type::Table(vec![
-                    ("filename".into(), Type::String),
-                    ("start".into(), Type::Int),
-                    ("end".into(), Type::Int),
-                    ("size".into(), Type::Int),
-                ]),
+                Type::Table(
+                    [
+                        ("filename".into(), Type::String),
+                        ("start".into(), Type::Int),
+                        ("end".into(), Type::Int),
+                        ("size".into(), Type::Int),
+                    ]
+                    .into(),
+                ),
             )])
             .category(Category::Debug)
     }

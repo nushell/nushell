@@ -41,6 +41,9 @@ members = [
   "crates/nu-pretty-hex",
   "crates/nu-protocol",
   "crates/nu-plugin",
+  "crates/nu-plugin-core",
+  "crates/nu-plugin-engine",
+  "crates/nu-plugin-protocol",
   "crates/nu-plugin-test-support",
   "crates/nu_plugin_inc",
   "crates/nu_plugin_gstat",
@@ -90,6 +93,7 @@ heck = "0.5.0"
 human-date-parser = "0.1.1"
 indexmap = "2.2"
 indicatif = "0.17"
+interprocess = "1.2.1"
 is_executable = "1.0"
 itertools = "0.12"
 libc = "0.2"
@@ -117,6 +121,7 @@ open = "5.1"
 os_pipe = "1.1"
 pathdiff = "0.2"
 percent-encoding = "2"
+pretty_assertions = "1.4"
 print-positions = "0.6"
 procfs = "0.16.0"
 pwd = "1.3"
@@ -128,6 +133,7 @@ ratatui = "0.26"
 rayon = "1.10"
 reedline = "0.31.0"
 regex = "1.9.5"
+rmp = "0.8"
 rmp-serde = "1.2"
 ropey = "1.6.1"
 roxmltree = "0.19"
@@ -182,7 +188,7 @@ nu-explore = { path = "./crates/nu-explore", version = "0.92.3" }
 nu-lsp = { path = "./crates/nu-lsp/", version = "0.92.3" }
 nu-parser = { path = "./crates/nu-parser", version = "0.92.3" }
 nu-path = { path = "./crates/nu-path", version = "0.92.3" }
-nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.92.3" }
+nu-plugin-engine = { path = "./crates/nu-plugin-engine", optional = true, version = "0.92.3" }
 nu-protocol = { path = "./crates/nu-protocol", version = "0.92.3" }
 nu-std = { path = "./crates/nu-std", version = "0.92.3" }
 nu-system = { path = "./crates/nu-system", version = "0.92.3" }
@@ -216,17 +222,19 @@ nix = { workspace = true, default-features = false, features = [
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.92.3" }
+nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.92.3" }
+nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.92.3" }
 assert_cmd = "2.0"
 dirs-next = { workspace = true }
 divan = "0.1.14"
-pretty_assertions = "1.4"
+pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
-serial_test = "3.0"
+serial_test = "3.1"
 tempfile = { workspace = true }
 
 [features]
 plugin = [
-  "nu-plugin",
+  "nu-plugin-engine",
   "nu-cmd-plugin",
   "nu-cli/plugin",
   "nu-parser/plugin",

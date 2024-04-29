@@ -242,7 +242,7 @@ pub fn flatten_expression(
                 }
             }
 
-            for arg in args {
+            for arg in args.as_ref() {
                 //output.push((*arg, FlatShape::ExternalArg));
                 match arg {
                     ExternalArgument::Regular(expr) => match expr {
@@ -297,9 +297,9 @@ pub fn flatten_expression(
 
             output
         }
-        Expr::ValueWithUnit(x, unit) => {
-            let mut output = flatten_expression(working_set, x);
-            output.push((unit.span, FlatShape::String));
+        Expr::ValueWithUnit(value) => {
+            let mut output = flatten_expression(working_set, &value.expr);
+            output.push((value.unit.span, FlatShape::String));
 
             output
         }
@@ -346,17 +346,17 @@ pub fn flatten_expression(
         Expr::Overlay(_) => {
             vec![(expr.span, FlatShape::String)]
         }
-        Expr::Range(from, next, to, op) => {
+        Expr::Range(range) => {
             let mut output = vec![];
-            if let Some(f) = from {
+            if let Some(f) = &range.from {
                 output.extend(flatten_expression(working_set, f));
             }
-            if let Some(s) = next {
-                output.extend(vec![(op.next_op_span, FlatShape::Operator)]);
+            if let Some(s) = &range.next {
+                output.extend(vec![(range.operator.next_op_span, FlatShape::Operator)]);
                 output.extend(flatten_expression(working_set, s));
             }
-            output.extend(vec![(op.span, FlatShape::Operator)]);
-            if let Some(t) = to {
+            output.extend(vec![(range.operator.span, FlatShape::Operator)]);
+            if let Some(t) = &range.to {
                 output.extend(flatten_expression(working_set, t));
             }
             output
@@ -495,9 +495,9 @@ pub fn flatten_expression(
 
             output
         }
-        Expr::Keyword(_, span, expr) => {
-            let mut output = vec![(*span, FlatShape::Keyword)];
-            output.extend(flatten_expression(working_set, expr));
+        Expr::Keyword(kw) => {
+            let mut output = vec![(kw.span, FlatShape::Keyword)];
+            output.extend(flatten_expression(working_set, &kw.expr));
             output
         }
         Expr::Operator(_) => {
@@ -509,12 +509,12 @@ pub fn flatten_expression(
         Expr::String(_) => {
             vec![(expr.span, FlatShape::String)]
         }
-        Expr::Table(headers, cells) => {
+        Expr::Table(table) => {
             let outer_span = expr.span;
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
-            for e in headers {
+            for e in table.columns.as_ref() {
                 let flattened = flatten_expression(working_set, e);
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
@@ -528,8 +528,8 @@ pub fn flatten_expression(
 
                 output.extend(flattened);
             }
-            for row in cells {
-                for expr in row {
+            for row in table.rows.as_ref() {
+                for expr in row.as_ref() {
                     let flattened = flatten_expression(working_set, expr);
                     if let Some(first) = flattened.first() {
                         if first.0.start > last_end {

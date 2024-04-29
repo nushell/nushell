@@ -1,25 +1,28 @@
-use std::fs::{self, File};
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+};
 
 use nu_engine::{command_prelude::*, current_dir};
-use nu_protocol::PluginCacheFile;
+use nu_protocol::{engine::StateWorkingSet, PluginRegistryFile};
 
 pub(crate) fn modify_plugin_file(
     engine_state: &EngineState,
     stack: &mut Stack,
     span: Span,
     custom_path: Option<Spanned<String>>,
-    operate: impl FnOnce(&mut PluginCacheFile) -> Result<(), ShellError>,
+    operate: impl FnOnce(&mut PluginRegistryFile) -> Result<(), ShellError>,
 ) -> Result<(), ShellError> {
     let cwd = current_dir(engine_state, stack)?;
 
-    let plugin_cache_file_path = if let Some(ref custom_path) = custom_path {
+    let plugin_registry_file_path = if let Some(ref custom_path) = custom_path {
         nu_path::expand_path_with(&custom_path.item, cwd, true)
     } else {
         engine_state
             .plugin_path
             .clone()
             .ok_or_else(|| ShellError::GenericError {
-                error: "Plugin cache file not set".into(),
+                error: "Plugin registry file not set".into(),
                 msg: "pass --plugin-config explicitly here".into(),
                 span: Some(span),
                 help: Some("you may be running `nu` with --no-config-file".into()),
@@ -28,13 +31,13 @@ pub(crate) fn modify_plugin_file(
     };
 
     // Try to read the plugin file if it exists
-    let mut contents = if fs::metadata(&plugin_cache_file_path).is_ok_and(|m| m.len() > 0) {
-        PluginCacheFile::read_from(
-            File::open(&plugin_cache_file_path).map_err(|err| err.into_spanned(span))?,
+    let mut contents = if fs::metadata(&plugin_registry_file_path).is_ok_and(|m| m.len() > 0) {
+        PluginRegistryFile::read_from(
+            File::open(&plugin_registry_file_path).err_span(span)?,
             Some(span),
         )?
     } else {
-        PluginCacheFile::default()
+        PluginRegistryFile::default()
     };
 
     // Do the operation
@@ -42,9 +45,45 @@ pub(crate) fn modify_plugin_file(
 
     // Save the modified file on success
     contents.write_to(
-        File::create(&plugin_cache_file_path).map_err(|err| err.into_spanned(span))?,
+        File::create(&plugin_registry_file_path).err_span(span)?,
         Some(span),
     )?;
 
     Ok(())
+}
+
+pub(crate) fn canonicalize_possible_filename_arg(
+    engine_state: &EngineState,
+    stack: &Stack,
+    arg: &str,
+) -> PathBuf {
+    // This results in the best possible chance of a match with the plugin item
+    if let Ok(cwd) = nu_engine::current_dir(engine_state, stack) {
+        let path = nu_path::expand_path_with(arg, &cwd, true);
+        // Try to canonicalize
+        nu_path::locate_in_dirs(&path, &cwd, || get_plugin_dirs(engine_state, stack))
+            // If we couldn't locate it, return the expanded path alone
+            .unwrap_or(path)
+    } else {
+        arg.into()
+    }
+}
+
+pub(crate) fn get_plugin_dirs(
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> impl Iterator<Item = String> {
+    // Get the NU_PLUGIN_DIRS constant or env var
+    let working_set = StateWorkingSet::new(engine_state);
+    let value = working_set
+        .find_variable(b"$NU_PLUGIN_DIRS")
+        .and_then(|var_id| working_set.get_constant(var_id).ok().cloned())
+        .or_else(|| stack.get_env_var(engine_state, "NU_PLUGIN_DIRS"));
+
+    // Get all of the strings in the list, if possible
+    value
+        .into_iter()
+        .flat_map(|value| value.into_list().ok())
+        .flatten()
+        .flat_map(|list_item| list_item.coerce_into_string().ok())
 }

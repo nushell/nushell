@@ -1,6 +1,6 @@
 use nu_parser::*;
 use nu_protocol::{
-    ast::{Argument, Call, Expr, PathMember},
+    ast::{Argument, Call, Expr, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape,
 };
@@ -311,7 +311,7 @@ pub fn parse_cell_path() {
     working_set.add_variable(
         "foo".to_string().into_bytes(),
         Span::test_data(),
-        nu_protocol::Type::Record(vec![]),
+        nu_protocol::Type::record(),
         false,
     );
 
@@ -356,7 +356,7 @@ pub fn parse_cell_path_optional() {
     working_set.add_variable(
         "foo".to_string().into_bytes(),
         Span::test_data(),
-        nu_protocol::Type::Record(vec![]),
+        nu_protocol::Type::record(),
         false,
     );
 
@@ -986,20 +986,25 @@ mod range {
         assert_eq!(pipeline.len(), 1, "{tag}: expression length");
         let element = &pipeline.elements[0];
         assert!(element.redirection.is_none());
-        if let Expr::Range(
-            Some(_),
-            None,
-            Some(_),
-            RangeOperator {
-                inclusion: the_inclusion,
-                ..
-            },
-        ) = element.expr.expr
-        {
-            assert_eq!(
-                the_inclusion, inclusion,
-                "{tag}: wrong RangeInclusion {the_inclusion:?}"
-            );
+        if let Expr::Range(range) = &element.expr.expr {
+            if let Range {
+                from: Some(_),
+                next: None,
+                to: Some(_),
+                operator:
+                    RangeOperator {
+                        inclusion: the_inclusion,
+                        ..
+                    },
+            } = range.as_ref()
+            {
+                assert_eq!(
+                    *the_inclusion, inclusion,
+                    "{tag}: wrong RangeInclusion {the_inclusion:?}"
+                );
+            } else {
+                panic!("{tag}: expression mismatch.")
+            }
         } else {
             panic!("{tag}: expression mismatch.")
         };
@@ -1040,20 +1045,25 @@ mod range {
         assert_eq!(pipeline.len(), 1, "{tag}: expression length 1");
         let element = &pipeline.elements[0];
         assert!(element.redirection.is_none());
-        if let Expr::Range(
-            Some(_),
-            None,
-            Some(_),
-            RangeOperator {
-                inclusion: the_inclusion,
-                ..
-            },
-        ) = element.expr.expr
-        {
-            assert_eq!(
-                the_inclusion, inclusion,
-                "{tag}: wrong RangeInclusion {the_inclusion:?}"
-            );
+        if let Expr::Range(range) = &element.expr.expr {
+            if let Range {
+                from: Some(_),
+                next: None,
+                to: Some(_),
+                operator:
+                    RangeOperator {
+                        inclusion: the_inclusion,
+                        ..
+                    },
+            } = range.as_ref()
+            {
+                assert_eq!(
+                    *the_inclusion, inclusion,
+                    "{tag}: wrong RangeInclusion {the_inclusion:?}"
+                );
+            } else {
+                panic!("{tag}: expression mismatch.")
+            }
         } else {
             panic!("{tag}: expression mismatch.")
         };
@@ -1081,20 +1091,25 @@ mod range {
         assert_eq!(pipeline.len(), 1, "{tag}: expression length");
         let element = &pipeline.elements[0];
         assert!(element.redirection.is_none());
-        if let Expr::Range(
-            Some(_),
-            None,
-            None,
-            RangeOperator {
-                inclusion: the_inclusion,
-                ..
-            },
-        ) = element.expr.expr
-        {
-            assert_eq!(
-                the_inclusion, inclusion,
-                "{tag}: wrong RangeInclusion {the_inclusion:?}"
-            );
+        if let Expr::Range(range) = &element.expr.expr {
+            if let Range {
+                from: Some(_),
+                next: None,
+                to: None,
+                operator:
+                    RangeOperator {
+                        inclusion: the_inclusion,
+                        ..
+                    },
+            } = range.as_ref()
+            {
+                assert_eq!(
+                    *the_inclusion, inclusion,
+                    "{tag}: wrong RangeInclusion {the_inclusion:?}"
+                );
+            } else {
+                panic!("{tag}: expression mismatch.")
+            }
         } else {
             panic!("{tag}: expression mismatch.")
         };
@@ -1122,20 +1137,25 @@ mod range {
         assert_eq!(pipeline.len(), 1, "{tag}: expression length");
         let element = &pipeline.elements[0];
         assert!(element.redirection.is_none());
-        if let Expr::Range(
-            None,
-            None,
-            Some(_),
-            RangeOperator {
-                inclusion: the_inclusion,
-                ..
-            },
-        ) = element.expr.expr
-        {
-            assert_eq!(
-                the_inclusion, inclusion,
-                "{tag}: wrong RangeInclusion {the_inclusion:?}"
-            );
+        if let Expr::Range(range) = &element.expr.expr {
+            if let Range {
+                from: None,
+                next: None,
+                to: Some(_),
+                operator:
+                    RangeOperator {
+                        inclusion: the_inclusion,
+                        ..
+                    },
+            } = range.as_ref()
+            {
+                assert_eq!(
+                    *the_inclusion, inclusion,
+                    "{tag}: wrong RangeInclusion {the_inclusion:?}"
+                );
+            } else {
+                panic!("{tag}: expression mismatch.")
+            }
         } else {
             panic!("{tag}: expression mismatch.")
         };
@@ -1163,20 +1183,25 @@ mod range {
         assert_eq!(pipeline.len(), 1, "{tag}: expression length");
         let element = &pipeline.elements[0];
         assert!(element.redirection.is_none());
-        if let Expr::Range(
-            Some(_),
-            Some(_),
-            Some(_),
-            RangeOperator {
-                inclusion: the_inclusion,
-                ..
-            },
-        ) = element.expr.expr
-        {
-            assert_eq!(
-                the_inclusion, inclusion,
-                "{tag}: wrong RangeInclusion {the_inclusion:?}"
-            );
+        if let Expr::Range(range) = &element.expr.expr {
+            if let Range {
+                from: Some(_),
+                next: Some(_),
+                to: Some(_),
+                operator:
+                    RangeOperator {
+                        inclusion: the_inclusion,
+                        ..
+                    },
+            } = range.as_ref()
+            {
+                assert_eq!(
+                    *the_inclusion, inclusion,
+                    "{tag}: wrong RangeInclusion {the_inclusion:?}"
+                );
+            } else {
+                panic!("{tag}: expression mismatch.")
+            }
         } else {
             panic!("{tag}: expression mismatch.")
         };

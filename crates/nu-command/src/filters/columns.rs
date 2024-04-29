@@ -11,8 +11,8 @@ impl Command for Columns {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
-                (Type::Record(vec![]), Type::List(Box::new(Type::String))),
+                (Type::table(), Type::List(Box::new(Type::String))),
+                (Type::record(), Type::List(Box::new(Type::String))),
             ])
             .category(Category::Filters)
     }

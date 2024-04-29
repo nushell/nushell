@@ -46,6 +46,19 @@ impl Command for Describe {
             detailed: call.has_flag(engine_state, stack, "detailed")?,
             collect_lazyrecords: call.has_flag(engine_state, stack, "collect-lazyrecords")?,
         };
+        if options.collect_lazyrecords {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated flag".into(),
+                    msg: "the `--collect-lazyrecords` flag is deprecated, since lazy records will be removed in 0.94.0"
+                        .into(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                },
+            );
+        }
         run(Some(engine_state), call, input, options)
     }
 

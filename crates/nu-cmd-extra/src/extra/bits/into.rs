@@ -30,8 +30,8 @@ impl Command for BitsInto {
                 (Type::Duration, Type::String),
                 (Type::String, Type::String),
                 (Type::Bool, Type::String),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(
@@ -64,7 +64,7 @@ impl Command for BitsInto {
         vec![
             Example {
                 description: "convert a binary value into a string, padded to 8 places with 0s",
-                example: "01b | into bits",
+                example: "0x[1] | into bits",
                 result: Some(Value::string("00000001",
                     Span::test_data(),
                 )),
