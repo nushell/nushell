@@ -194,3 +194,34 @@ fn env_var_not_var() {
         ");
     assert!(actual.err.contains("use $env.PWD instead of $PWD"));
 }
+
+#[test]
+#[cfg(not(windows))]
+fn env_var_case_sensitive() {
+    let actual = nu!("
+        $env.foo = 111
+        print $env.Foo
+    ");
+    dbg!(&actual.err.contains("nu::shell::column_not_found"));
+
+    let actual = nu!("
+        $env.foo = 111
+        $env.FOO = 222
+        print $env.foo
+    ");
+    dbg!(&actual.out.contains("111"));
+}
+
+#[test]
+#[cfg(windows)]
+fn env_var_case_insensitive() {
+    let actual = nu!("
+        $env.foo = 111
+        print $env.Foo
+        $env.FOO = 222
+        print $env.foo
+    ");
+    dbg!(&actual.out);
+    assert!(actual.out.contains("111"));
+    assert!(actual.out.contains("222"));
+}
