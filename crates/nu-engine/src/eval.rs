@@ -790,13 +790,13 @@ impl Eval for EvalRuntime {
                                         .rev()
                                         .map(|(k, _)| k)
                                         .find(|x| x.eq_ignore_case(&key))
-                                        .map(|k| k.clone())
+                                        .cloned()
                                         .unwrap_or(key)
                                 } else {
                                     key
                                 };
 
-                                // Retrive the updated environment value.
+                                // Retrieve the updated environment value.
                                 lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                 let value = lhs.follow_cell_path(
                                     &[cell_path.tail[0].clone()],
@@ -872,7 +872,7 @@ impl Eval for EvalRuntime {
 /// An automatic environment variable cannot be assigned to by user code.
 /// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
 fn is_automatic_env_var(var: &str) -> bool {
-    let names = vec!["PWD", "FILE_PWD", "CURRENT_FILE"];
+    let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
     names.iter().any(|&name| {
         if cfg!(windows) {
             name.eq_ignore_case(var)
