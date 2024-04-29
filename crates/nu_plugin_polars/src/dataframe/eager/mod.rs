@@ -6,7 +6,6 @@ mod last;
 mod melt;
 mod open;
 mod query_df;
-mod rename;
 mod sample;
 mod schema;
 mod shape;
@@ -35,7 +34,6 @@ pub use last::LastDF;
 pub use melt::MeltDF;
 use nu_plugin::PluginCommand;
 pub use query_df::QueryDf;
-pub use rename::RenameDF;
 pub use sample::SampleDF;
 pub use schema::SchemaCmd;
 pub use shape::ShapeDF;
@@ -62,7 +60,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(Summary),
         Box::new(FirstDF),
         Box::new(LastDF),
-        Box::new(RenameDF),
         Box::new(SampleDF),
         Box::new(ShapeDF),
         Box::new(SliceDF),
