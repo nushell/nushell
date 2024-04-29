@@ -24,15 +24,15 @@ impl PluginCommand for FilterWith {
     }
 
     fn usage(&self) -> &str {
-        "Filters dataframe using a mask or expression as reference."
+        "Filters dataframe using an expression."
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required(
-                "mask or expression",
+                "filter expression",
                 SyntaxShape::Any,
-                "boolean mask used to filter data",
+                "filter expression used to filter dataframe",
             )
             .input_output_type(
                 Type::Custom("dataframe".into()),
