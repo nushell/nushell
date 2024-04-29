@@ -1,7 +1,6 @@
 mod append;
 mod columns;
 mod dummies;
-mod filter_with;
 mod first;
 mod get;
 mod last;
@@ -32,7 +31,6 @@ pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
 pub use columns::ColumnsDF;
 pub use dummies::Dummies;
-pub use filter_with::FilterWith;
 pub use first::FirstDF;
 pub use get::GetDF;
 pub use last::LastDF;
@@ -61,7 +59,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(AppendDF),
         Box::new(ColumnsDF),
         Box::new(Dummies),
-        Box::new(FilterWith),
         Box::new(GetDF),
         Box::new(OpenDataFrame),
         Box::new(MeltDF),
