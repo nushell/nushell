@@ -12,7 +12,7 @@ bench = false
 
 [dependencies]
 nu-protocol = { path = "../nu-protocol", version = "0.92.3" }
-nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.92.3" }
+nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.92.3", default-features = false }
 
 rmp-serde = { workspace = true }
 serde = { workspace = true }
@@ -22,7 +22,7 @@ interprocess = { workspace = true, optional = true }
 
 [features]
 default = ["local-socket"]
-local-socket = ["interprocess"]
+local-socket = ["interprocess", "nu-plugin-protocol/local-socket"]
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { workspace = true }

@@ -18,3 +18,7 @@ bincode = "1.3"
 serde = { workspace = true, features = ["derive"] }
 semver = "1.0"
 typetag = "0.2"
+
+[features]
+default = ["local-socket"]
+local-socket = []
