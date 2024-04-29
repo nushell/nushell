@@ -26,6 +26,7 @@ log = { workspace = true }
 terminal_size = { workspace = true }
 strip-ansi-escapes = { workspace = true }
 crossterm = { workspace = true }
+once_cell = { workspace = true }
 ratatui = { workspace = true }
 ansi-str = { workspace = true }
 unicode-width = { workspace = true }

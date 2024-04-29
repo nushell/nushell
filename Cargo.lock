@@ -3177,6 +3177,7 @@ dependencies = [
  "nu-protocol",
  "nu-table",
  "nu-utils",
+ "once_cell",
  "ratatui",
  "strip-ansi-escapes",
  "terminal_size",
