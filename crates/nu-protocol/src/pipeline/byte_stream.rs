@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::{
     process::{ChildPipe, ChildProcess, ExitStatus},
-    ErrSpan, IntoSpanned, OutDest, PipelineData, ShellError, Span, Value,
+    ErrSpan, IntoSpanned, OutDest, PipelineData, ShellError, Span, Type, Value,
 };
 #[cfg(unix)]
 use std::os::fd::OwnedFd;
@@ -43,6 +45,16 @@ impl ByteStreamSource {
     }
 }
 
+impl Debug for ByteStreamSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ByteStreamSource::Read(_) => f.debug_tuple("Read").field(&"..").finish(),
+            ByteStreamSource::File(file) => f.debug_tuple("File").field(file).finish(),
+            ByteStreamSource::Child(child) => f.debug_tuple("Child").field(child).finish(),
+        }
+    }
+}
+
 enum SourceReader {
     Read(Box<dyn Read + Send + 'static>),
     File(File),
@@ -53,6 +65,43 @@ impl Read for SourceReader {
         match self {
             SourceReader::Read(reader) => reader.read(buf),
             SourceReader::File(file) => file.read(buf),
+        }
+    }
+}
+
+impl Debug for SourceReader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SourceReader::Read(_) => f.debug_tuple("Read").field(&"..").finish(),
+            SourceReader::File(file) => f.debug_tuple("File").field(file).finish(),
+        }
+    }
+}
+
+/// Optional type color for [`ByteStream`], which determines type compatibility.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ByteStreamType {
+    /// Compatible with [`Type::Binary`], and should only be converted to binary, even when the
+    /// desired type is unknown.
+    Binary,
+    /// Compatible with [`Type::String`], and should only be converted to string, even when the
+    /// desired type is unknown.
+    ///
+    /// This does not guarantee valid UTF-8 data, but it is conventionally so. Converting to
+    /// `String` still requires validation of the data.
+    String,
+    /// Unknown whether the stream should contain binary or string data. This usually is the result
+    /// of an external stream, e.g. an external command or file.
+    #[default]
+    Unknown,
+}
+
+impl From<ByteStreamType> for Type {
+    fn from(value: ByteStreamType) -> Self {
+        match value {
+            ByteStreamType::Binary => Type::Binary,
+            ByteStreamType::String => Type::String,
+            ByteStreamType::Unknown => Type::Any,
         }
     }
 }
@@ -88,54 +137,135 @@ impl Read for SourceReader {
 ///
 /// Internally, [`ByteStream`]s currently come in three flavors according to [`ByteStreamSource`].
 /// See its documentation for more information.
+#[derive(Debug)]
 pub struct ByteStream {
     stream: ByteStreamSource,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
+    r#type: ByteStreamType,
     known_size: Option<u64>,
 }
 
 impl ByteStream {
     /// Create a new [`ByteStream`] from a [`ByteStreamSource`].
-    pub fn new(stream: ByteStreamSource, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self {
+    pub fn new(
+        stream: ByteStreamSource,
+        span: Span,
+        interrupt: Option<Arc<AtomicBool>>,
+        r#type: ByteStreamType,
+    ) -> Self {
         Self {
             stream,
             span,
             ctrlc: interrupt,
+            r#type,
             known_size: None,
         }
     }
 
-    /// Create a new [`ByteStream`] from a [`ByteStreamSource::Read`].
+    /// Create a [`ByteStream`] from an arbitrary reader. The type must be provided.
     pub fn read(
         reader: impl Read + Send + 'static,
         span: Span,
         interrupt: Option<Arc<AtomicBool>>,
+        r#type: ByteStreamType,
     ) -> Self {
-        Self::new(ByteStreamSource::Read(Box::new(reader)), span, interrupt)
+        Self::new(
+            ByteStreamSource::Read(Box::new(reader)),
+            span,
+            interrupt,
+            r#type,
+        )
     }
 
-    /// Create a new [`ByteStream`] from a [`ByteStreamSource::File`].
+    /// Create a [`ByteStream`] from a string. The type of the stream is always `String`.
+    pub fn read_string(string: String, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self {
+        let len = string.len();
+        ByteStream::read(
+            Cursor::new(string.into_bytes()),
+            span,
+            interrupt,
+            ByteStreamType::String,
+        )
+        .with_known_size(Some(len as u64))
+    }
+
+    /// Create a [`ByteStream`] from a byte vector. The type of the stream is always `Binary`.
+    pub fn read_binary(bytes: Vec<u8>, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self {
+        let len = bytes.len();
+        ByteStream::read(Cursor::new(bytes), span, interrupt, ByteStreamType::Binary)
+            .with_known_size(Some(len as u64))
+    }
+
+    /// Create a [`ByteStream`] from a file.
+    ///
+    /// The type is implicitly `Unknown`, as it's not typically known whether files will
+    /// return text or binary.
     pub fn file(file: File, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self {
-        Self::new(ByteStreamSource::File(file), span, interrupt)
+        Self::new(
+            ByteStreamSource::File(file),
+            span,
+            interrupt,
+            ByteStreamType::Unknown,
+        )
     }
 
-    /// Create a new [`ByteStream`] from a [`ByteStreamSource::Child`].
+    /// Create a [`ByteStream`] from a child process's stdout and stderr.
+    ///
+    /// The type is implicitly `Unknown`, as it's not typically known whether child processes will
+    /// return text or binary.
     pub fn child(child: ChildProcess, span: Span) -> Self {
-        Self::new(ByteStreamSource::Child(Box::new(child)), span, None)
+        Self::new(
+            ByteStreamSource::Child(Box::new(child)),
+            span,
+            None,
+            ByteStreamType::Unknown,
+        )
     }
 
-    /// Create a new [`ByteStream`] that reads from stdin.
+    /// Create a [`ByteStream`] that reads from stdin.
+    ///
+    /// The type is implicitly `Unknown`, as it's not typically known whether stdin is text or
+    /// binary.
     pub fn stdin(span: Span) -> Result<Self, ShellError> {
         let stdin = os_pipe::dup_stdin().err_span(span)?;
         let source = ByteStreamSource::File(convert_file(stdin));
-        Ok(Self::new(source, span, None))
+        Ok(Self::new(source, span, None, ByteStreamType::Unknown))
+    }
+
+    /// Create a [`ByteStream`] from a generator function that writes data to the given buffer
+    /// when called, and returns `Ok(false)` on end of stream.
+    pub fn from_fn(
+        span: Span,
+        interrupt: Option<Arc<AtomicBool>>,
+        r#type: ByteStreamType,
+        generator: impl FnMut(&mut Vec<u8>) -> Result<bool, ShellError> + Send + 'static,
+    ) -> Self {
+        Self::read(
+            ReadGenerator {
+                buffer: Cursor::new(Vec::new()),
+                generator,
+            },
+            span,
+            interrupt,
+            r#type,
+        )
+    }
+
+    pub fn with_type(mut self, r#type: ByteStreamType) -> Self {
+        self.r#type = r#type;
+        self
     }
 
     /// Create a new [`ByteStream`] from an [`Iterator`] of bytes slices.
     ///
     /// The returned [`ByteStream`] will have a [`ByteStreamSource`] of `Read`.
-    pub fn from_iter<I>(iter: I, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self
+    pub fn from_iter<I>(
+        iter: I,
+        span: Span,
+        interrupt: Option<Arc<AtomicBool>>,
+        r#type: ByteStreamType,
+    ) -> Self
     where
         I: IntoIterator,
         I::IntoIter: Send + 'static,
@@ -143,13 +273,18 @@ impl ByteStream {
     {
         let iter = iter.into_iter();
         let cursor = Some(Cursor::new(I::Item::default()));
-        Self::read(ReadIterator { iter, cursor }, span, interrupt)
+        Self::read(ReadIterator { iter, cursor }, span, interrupt, r#type)
     }
 
     /// Create a new [`ByteStream`] from an [`Iterator`] of [`Result`] bytes slices.
     ///
     /// The returned [`ByteStream`] will have a [`ByteStreamSource`] of `Read`.
-    pub fn from_result_iter<I, T>(iter: I, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self
+    pub fn from_result_iter<I, T>(
+        iter: I,
+        span: Span,
+        interrupt: Option<Arc<AtomicBool>>,
+        r#type: ByteStreamType,
+    ) -> Self
     where
         I: IntoIterator<Item = Result<T, ShellError>>,
         I::IntoIter: Send + 'static,
@@ -157,7 +292,7 @@ impl ByteStream {
     {
         let iter = iter.into_iter();
         let cursor = Some(Cursor::new(T::default()));
-        Self::read(ReadResultIterator { iter, cursor }, span, interrupt)
+        Self::read(ReadResultIterator { iter, cursor }, span, interrupt, r#type)
     }
 
     /// Set the known size, in number of bytes, of the [`ByteStream`].
@@ -179,6 +314,11 @@ impl ByteStream {
     /// Returns the [`Span`] associated with the [`ByteStream`].
     pub fn span(&self) -> Span {
         self.span
+    }
+
+    /// Returns the [`ByteStreamType`] associated with the [`ByteStream`].
+    pub fn r#type(&self) -> ByteStreamType {
+        self.r#type
     }
 
     /// Returns the known size, in number of bytes, of the [`ByteStream`].
@@ -305,33 +445,64 @@ impl ByteStream {
         }
     }
 
-    /// Collect all the bytes of the [`ByteStream`] into a [`String`].
+    /// Collect the stream into a `String` in-memory. This can only succeed if the data contained is
+    /// valid UTF-8.
     ///
-    /// The trailing new line (`\n` or `\r\n`), if any, is removed from the [`String`] prior to being returned.
+    /// The trailing new line (`\n` or `\r\n`), if any, is removed from the [`String`] prior to
+    /// being returned, if this is a stream coming from an external process.
     ///
-    /// If utf-8 decoding fails, an error is returned.
+    /// If the [type](.r#type()) is specified as `Binary`, this operation always fails, even if the
+    /// data would have been valid UTF-8.
     pub fn into_string(self) -> Result<String, ShellError> {
         let span = self.span;
-        let bytes = self.into_bytes()?;
-        let mut string = String::from_utf8(bytes).map_err(|_| ShellError::NonUtf8 { span })?;
-        trim_end_newline(&mut string);
-        Ok(string)
+        if self.r#type != ByteStreamType::Binary {
+            let trim = matches!(self.stream, ByteStreamSource::Child(..));
+            let bytes = self.into_bytes()?;
+            let mut string = String::from_utf8(bytes).map_err(|err| ShellError::NonUtf8Custom {
+                span,
+                msg: err.to_string(),
+            })?;
+            if trim {
+                trim_end_newline(&mut string);
+            }
+            Ok(string)
+        } else {
+            Err(ShellError::TypeMismatch {
+                err_message: "expected string, but got binary".into(),
+                span,
+            })
+        }
     }
 
     /// Collect all the bytes of the [`ByteStream`] into a [`Value`].
     ///
-    /// If the collected bytes are successfully decoded as utf-8, then a [`Value::String`] is returned.
-    /// The trailing new line (`\n` or `\r\n`), if any, is removed from the [`String`] prior to being returned.
-    /// Otherwise, a [`Value::Binary`] is returned with any trailing new lines preserved.
+    /// If this is a `String` stream, the stream is decoded to UTF-8. If the stream came from an
+    /// external process, the trailing new line (`\n` or `\r\n`), if any, is removed from the
+    /// [`String`] prior to being returned.
+    ///
+    /// If this is a `Binary` stream, a [`Value::Binary`] is returned with any trailing new lines
+    /// preserved.
+    ///
+    /// If this is an `Unknown` stream, the behavior depends on whether the stream parses as valid
+    /// UTF-8 or not. If it does, this is uses the `String` behavior; if not, it uses the `Binary`
+    /// behavior.
     pub fn into_value(self) -> Result<Value, ShellError> {
         let span = self.span;
-        let bytes = self.into_bytes()?;
-        let value = match String::from_utf8(bytes) {
-            Ok(mut str) => {
-                trim_end_newline(&mut str);
-                Value::string(str, span)
-            }
-            Err(err) => Value::binary(err.into_bytes(), span),
+        let trim = matches!(self.stream, ByteStreamSource::Child(..));
+        let value = match self.r#type {
+            // If the type is specified, then the stream should always become that type:
+            ByteStreamType::Binary => Value::binary(self.into_bytes()?, span),
+            ByteStreamType::String => Value::string(self.into_string()?, span),
+            // If the type is not specified, then it just depends on whether it parses or not:
+            ByteStreamType::Unknown => match String::from_utf8(self.into_bytes()?) {
+                Ok(mut str) => {
+                    if trim {
+                        trim_end_newline(&mut str);
+                    }
+                    Value::string(str, span)
+                }
+                Err(err) => Value::binary(err.into_bytes(), span),
+            },
         };
         Ok(value)
     }
@@ -474,12 +645,6 @@ impl ByteStream {
                 Ok(Some(child.wait()?))
             }
         }
-    }
-}
-
-impl Debug for ByteStream {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ByteStream").finish()
     }
 }
 
@@ -774,6 +939,53 @@ where
         writer.write_all(&buf[..n]).err_span(span)?;
     }
     Ok(len as u64)
+}
+
+struct ReadGenerator<F>
+where
+    F: FnMut(&mut Vec<u8>) -> Result<bool, ShellError> + Send + 'static,
+{
+    buffer: Cursor<Vec<u8>>,
+    generator: F,
+}
+
+impl<F> BufRead for ReadGenerator<F>
+where
+    F: FnMut(&mut Vec<u8>) -> Result<bool, ShellError> + Send + 'static,
+{
+    fn fill_buf(&mut self) -> std::io::Result<&[u8]> {
+        // We have to loop, because it's important that we don't leave the buffer empty unless we're
+        // truly at the end of the stream.
+        while self.buffer.fill_buf()?.is_empty() {
+            // Reset the cursor to the beginning and truncate
+            self.buffer.set_position(0);
+            self.buffer.get_mut().truncate(0);
+            // Ask the generator to generate data
+            if !(self.generator)(self.buffer.get_mut())? {
+                // End of stream
+                break;
+            }
+        }
+        self.buffer.fill_buf()
+    }
+
+    fn consume(&mut self, amt: usize) {
+        self.buffer.consume(amt);
+    }
+}
+
+impl<F> Read for ReadGenerator<F>
+where
+    F: FnMut(&mut Vec<u8>) -> Result<bool, ShellError> + Send + 'static,
+{
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        // Straightforward implementation on top of BufRead
+        let slice = self.fill_buf()?;
+        let len = buf.len().min(slice.len());
+        buf[0..len].copy_from_slice(&slice[0..len]);
+        self.consume(len);
+        Ok(len)
+    }
 }
 
 #[cfg(test)]

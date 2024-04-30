@@ -1017,7 +1017,10 @@ pub enum ShellError {
     ///
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
-    #[diagnostic(code(nu::parser::non_utf8))]
+    #[diagnostic(
+        code(nu::parser::non_utf8),
+        help("see `decode` for handling character sets other than UTF-8")
+    )]
     NonUtf8 {
         #[label("non-UTF8 string")]
         span: Span,
@@ -1029,7 +1032,10 @@ pub enum ShellError {
     ///
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
-    #[diagnostic(code(nu::parser::non_utf8_custom))]
+    #[diagnostic(
+        code(nu::parser::non_utf8_custom),
+        help("see `decode` for handling character sets other than UTF-8")
+    )]
     NonUtf8Custom {
         msg: String,
         #[label("{msg}")]

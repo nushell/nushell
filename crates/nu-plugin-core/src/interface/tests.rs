@@ -10,8 +10,8 @@ use nu_plugin_protocol::{
     StreamMessage,
 };
 use nu_protocol::{
-    ByteStream, ByteStreamSource, DataSource, ListStream, PipelineData, PipelineMetadata,
-    ShellError, Span, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream, PipelineData,
+    PipelineMetadata, ShellError, Span, Value,
 };
 use std::{path::Path, sync::Arc};
 
@@ -208,6 +208,7 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
     let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
         id: 12,
         span: test_span,
+        r#type: ByteStreamType::Unknown,
     });
 
     let pipe = manager.read_pipeline_data(header, None)?;
@@ -401,7 +402,12 @@ fn write_pipeline_data_byte_stream() -> Result<(), ShellError> {
 
     // Set up pipeline data for a byte stream
     let data = PipelineData::ByteStream(
-        ByteStream::read(std::io::Cursor::new(expected), span, None),
+        ByteStream::read(
+            std::io::Cursor::new(expected),
+            span,
+            None,
+            ByteStreamType::Unknown,
+        ),
         None,
     );
 

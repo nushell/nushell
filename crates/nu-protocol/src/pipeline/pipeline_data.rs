@@ -2,8 +2,8 @@ use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     process::{ChildPipe, ChildProcess, ExitStatus},
-    ByteStream, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range, ShellError, Span,
-    Value,
+    ByteStream, ByteStreamType, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range,
+    ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
@@ -170,6 +170,8 @@ impl PipelineData {
     /// Try convert from self into iterator
     ///
     /// It returns Err if the `self` cannot be converted to an iterator.
+    ///
+    /// The `span` should be the span of the command or operation that would raise an error.
     pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
         Ok(PipelineIterator(match self {
             PipelineData::Value(value, ..) => {
@@ -313,14 +315,7 @@ impl PipelineData {
             }
             PipelineData::ByteStream(stream, ..) => {
                 // TODO: is this behavior desired / correct ?
-                let span = stream.span();
-                match String::from_utf8(stream.into_bytes()?) {
-                    Ok(mut str) => {
-                        str.truncate(str.trim_end_matches(LINE_ENDING_PATTERN).len());
-                        Ok(f(Value::string(str, span)).into_pipeline_data())
-                    }
-                    Err(err) => Ok(f(Value::binary(err.into_bytes(), span)).into_pipeline_data()),
-                }
+                Ok(f(stream.into_value()?).into_pipeline_data())
             }
         }
     }
@@ -535,24 +530,48 @@ impl PipelineData {
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<Option<ExitStatus>, ShellError> {
-        if let PipelineData::ByteStream(stream, ..) = self {
-            stream.print(to_stderr)
-        } else {
-            // If the table function is in the declarations, then we can use it
-            // to create the table value that will be printed in the terminal
-            if let Some(decl_id) = engine_state.table_decl_id {
-                let command = engine_state.get_decl(decl_id);
-                if command.get_block_id().is_some() {
-                    self.write_all_and_flush(engine_state, no_newline, to_stderr)
+        match self {
+            // Print byte streams directly as long as they aren't binary.
+            PipelineData::ByteStream(stream, ..) if stream.r#type() != ByteStreamType::Binary => {
+                stream.print(to_stderr)
+            }
+            _ => {
+                // If the table function is in the declarations, then we can use it
+                // to create the table value that will be printed in the terminal
+                if let Some(decl_id) = engine_state.table_decl_id {
+                    let command = engine_state.get_decl(decl_id);
+                    if command.get_block_id().is_some() {
+                        self.write_all_and_flush(engine_state, no_newline, to_stderr)
+                    } else {
+                        let call = Call::new(Span::new(0, 0));
+                        let table = command.run(engine_state, stack, &call, self)?;
+                        table.write_all_and_flush(engine_state, no_newline, to_stderr)
+                    }
                 } else {
-                    let call = Call::new(Span::new(0, 0));
-                    let table = command.run(engine_state, stack, &call, self)?;
-                    table.write_all_and_flush(engine_state, no_newline, to_stderr)
+                    self.write_all_and_flush(engine_state, no_newline, to_stderr)
                 }
-            } else {
-                self.write_all_and_flush(engine_state, no_newline, to_stderr)
             }
         }
+    }
+
+    /// Consume and print self data immediately.
+    ///
+    /// Unlike [`.print()`] does not call `table` to format data and just prints it
+    /// one element on a line
+    /// * `no_newline` controls if we need to attach newline character to output.
+    /// * `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
+    pub fn print_not_formatted(
+        self,
+        engine_state: &EngineState,
+        no_newline: bool,
+        to_stderr: bool,
+    ) -> Result<(), ShellError> {
+        if let PipelineData::ByteStream(stream, ..) = self {
+            stream.print(to_stderr)?;
+        } else {
+            self.write_all_and_flush(engine_state, no_newline, to_stderr)?;
+        }
+        Ok(())
     }
 
     fn write_all_and_flush(

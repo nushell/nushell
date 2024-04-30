@@ -156,9 +156,23 @@ fn string_helper(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    if let PipelineData::ByteStream(stream, ..) = input {
-        // TODO: in the future, we may want this to stream out, converting each to bytes
-        Ok(Value::string(stream.into_string()?, head).into_pipeline_data())
+    if let PipelineData::ByteStream(stream, metadata) = input {
+        // Just set the type - that should be good enough. There is no guarantee that the data
+        // within a string stream is actually valid UTF-8. But refuse to do it if it was already set
+        // to binary
+        if stream.r#type() != ByteStreamType::Binary {
+            Ok(PipelineData::ByteStream(
+                stream.with_type(ByteStreamType::String),
+                metadata,
+            ))
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: "binary".into(),
+                span: stream.span(),
+                help: Some("try using the `decode` command".into()),
+            })
+        }
     } else {
         let config = engine_state.get_config().clone();
         let args = Arguments {

@@ -276,8 +276,8 @@ fn evaluate_source(
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
 
-    let status = if let PipelineData::ByteStream(stream, ..) = pipeline {
-        stream.print(false)?
+    let status = if let PipelineData::ByteStream(..) = pipeline {
+        pipeline.print(engine_state, stack, false, false)?
     } else {
         if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
             let pipeline = eval_hook(

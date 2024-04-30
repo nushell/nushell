@@ -9,8 +9,8 @@ use nu_plugin_protocol::{
     PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
 };
 use nu_protocol::{
-    engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
+    engine::Closure, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData,
+    LabeledError, PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
 };
 use std::{
     collections::HashMap,
@@ -160,6 +160,7 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
         PipelineDataHeader::ByteStream(ByteStreamInfo {
             id: 0,
             span: Span::test_data(),
+            r#type: ByteStreamType::Unknown,
         }),
         None,
     )?;
