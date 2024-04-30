@@ -202,14 +202,14 @@ fn env_var_case_sensitive() {
         $env.foo = 111
         print $env.Foo
     ");
-    dbg!(&actual.err.contains("nu::shell::column_not_found"));
+    &actual.err.contains("nu::shell::column_not_found");
 
     let actual = nu!("
         $env.foo = 111
         $env.FOO = 222
         print $env.foo
     ");
-    dbg!(&actual.out.contains("111"));
+    &actual.out.contains("111");
 }
 
 #[test]
@@ -221,7 +221,6 @@ fn env_var_case_insensitive() {
         $env.FOO = 222
         print $env.foo
     ");
-    dbg!(&actual.out);
     assert!(actual.out.contains("111"));
     assert!(actual.out.contains("222"));
 }
