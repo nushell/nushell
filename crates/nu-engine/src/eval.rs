@@ -778,13 +778,12 @@ impl Eval for EvalRuntime {
                                     });
                                 }
 
-                                // Updating environment variables on Windows should be case-preserving,
+                                // Updating environment variables should be case-preserving,
                                 // so we need to figure out the original key before we do anything.
                                 let (key, span) = match &cell_path.tail[0] {
                                     PathMember::String { val, span, .. } => (val.to_string(), span),
                                     PathMember::Int { val, span, .. } => (val.to_string(), span),
                                 };
-                                #[cfg(windows)]
                                 let original_key = if let Value::Record { val: record, .. } = &lhs {
                                     record
                                         .iter()
@@ -796,15 +795,11 @@ impl Eval for EvalRuntime {
                                 } else {
                                     key
                                 };
-                                #[cfg(not(windows))]
-                                let original_key = key;
 
                                 // Retrieve the updated environment value.
                                 lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
-                                let value = lhs.follow_cell_path(
-                                    &[cell_path.tail[0].clone()],
-                                    cfg!(windows),
-                                )?;
+                                let value =
+                                    lhs.follow_cell_path(&[cell_path.tail[0].clone()], true)?;
 
                                 // Reject attempts to set automatic environment variables.
                                 if is_automatic_env_var(&original_key) {

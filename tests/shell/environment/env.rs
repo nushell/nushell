@@ -196,24 +196,6 @@ fn env_var_not_var() {
 }
 
 #[test]
-#[cfg(not(windows))]
-fn env_var_case_sensitive() {
-    let actual = nu!("
-        $env.foo = 111
-        print $env.Foo
-    ");
-    assert!(actual.err.contains("nu::shell::name_not_found"));
-
-    let actual = nu!("
-        $env.foo = 111
-        $env.FOO = 222
-        print $env.foo
-    ");
-    assert!(actual.out.contains("111"));
-}
-
-#[test]
-#[cfg(windows)]
 fn env_var_case_insensitive() {
     let actual = nu!("
         $env.foo = 111

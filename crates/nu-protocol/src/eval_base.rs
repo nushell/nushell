@@ -38,10 +38,9 @@ pub trait Eval {
             Expr::FullCellPath(cell_path) => {
                 let value = Self::eval::<D>(state, mut_state, &cell_path.head)?;
 
-                // Cell paths are usually case-sensitive. However, we want to
-                // give `$env` special treatment, because environment variables
-                // on Windows are case-insensitive.
-                if cfg!(windows) && cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID) {
+                // Cell paths are usually case-sensitive, but we give $env
+                // special treatment.
+                if cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID) {
                     value.follow_cell_path(&cell_path.tail, true)
                 } else {
                     value.follow_cell_path(&cell_path.tail, false)
