@@ -170,7 +170,8 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
 
     print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls $dest | print
 
-    tar -czf $archive $dest
+    # https://reproducible-builds.org/docs/archives/
+    tar --sort=name $"--mtime=@($env.SOURCE_DATE_EPOCH)" --owner=0 --group=0 --numeric-owner '--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime' -czf $archive $dest
     print $'archive: ---> ($archive)'; ls $archive
     # REF: https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/
     echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
