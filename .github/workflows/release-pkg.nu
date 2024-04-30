@@ -134,9 +134,15 @@ print $'(char nl)All executable files:'; hr-line
 print (ls -f ($executable | into glob)); sleep 1sec
 
 print $'(char nl)Copying release files...'; hr-line
-"To use Nu plugins, use the register command to tell Nu where to find the plugin. For example:
+"To use the included Nushell plugins, register the binaries with the `plugin add` command to tell Nu where to find the plugin.
+Then you can use `plugin use` to load the plugin into your session.
+For example:
 
-> register ./nu_plugin_query" | save $'($dist)/README.txt' -f
+> plugin add ./nu_plugin_query
+> plugin use query
+
+For more information, refer to https://www.nushell.sh/book/plugins.html
+" | save $'($dist)/README.txt' -f
 [LICENSE ...(glob $executable)] | each {|it| cp -rv $it $dist } | flatten
 
 print $'(char nl)Check binary release version detail:'; hr-line
