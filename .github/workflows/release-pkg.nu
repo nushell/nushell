@@ -140,6 +140,8 @@ For example:
 
 > plugin add ./nu_plugin_query
 > plugin use query
+
+For more information, refer to https://www.nushell.sh/book/plugins.html
 " | save $'($dist)/README.txt' -f
 [LICENSE ...(glob $executable)] | each {|it| cp -rv $it $dist } | flatten
 
