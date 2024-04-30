@@ -784,6 +784,7 @@ impl Eval for EvalRuntime {
                                     PathMember::String { val, span, .. } => (val.to_string(), span),
                                     PathMember::Int { val, span, .. } => (val.to_string(), span),
                                 };
+                                #[cfg(windows)]
                                 let original_key = if let Value::Record { val: record, .. } = &lhs {
                                     record
                                         .iter()
@@ -795,6 +796,8 @@ impl Eval for EvalRuntime {
                                 } else {
                                     key
                                 };
+                                #[cfg(not(windows))]
+                                let original_key = key;
 
                                 // Retrieve the updated environment value.
                                 lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
