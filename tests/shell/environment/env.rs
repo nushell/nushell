@@ -202,7 +202,7 @@ fn env_var_case_sensitive() {
         $env.foo = 111
         print $env.Foo
     ");
-    assert!(actual.err.contains("nu::shell::column_not_found"));
+    assert!(actual.err.contains("nu::shell::name_not_found"));
 
     let actual = nu!("
         $env.foo = 111
