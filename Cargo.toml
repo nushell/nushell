@@ -131,7 +131,7 @@ quickcheck_macros = "1.0"
 rand = "0.8"
 ratatui = "0.26"
 rayon = "1.10"
-reedline = "0.31.0"
+reedline = "0.32.0"
 regex = "1.9.5"
 rmp = "0.8"
 rmp-serde = "1.2"
@@ -304,7 +304,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Run all benchmarks with `cargo bench`
