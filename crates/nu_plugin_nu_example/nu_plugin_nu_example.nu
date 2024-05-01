@@ -6,7 +6,7 @@
 # it also allows us to test the plugin interface with something manually implemented in a scripting
 # language without adding any extra dependencies to our tests.
 
-const NUSHELL_VERSION = "0.93.0"
+const NUSHELL_VERSION = "0.93.1"
 
 def main [--stdio] {
   if ($stdio) {
