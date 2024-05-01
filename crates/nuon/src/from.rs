@@ -148,12 +148,7 @@ fn convert_to_value(
             msg: "calls not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::CellPath(..) => Err(ShellError::OutsideSpannedLabeledError {
-            src: original_text.to_string(),
-            error: "Error when loading".into(),
-            msg: "subexpressions and cellpaths not supported in nuon".into(),
-            span: expr.span,
-        }),
+        Expr::CellPath(val) => Ok(Value::cell_path(val, span)),
         Expr::DateTime(dt) => Ok(Value::date(dt, span)),
         Expr::ExternalCall(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
