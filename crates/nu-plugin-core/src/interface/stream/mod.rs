@@ -202,10 +202,13 @@ where
         if !self.ended {
             self.writer
                 .write_stream_message(StreamMessage::Data(self.id, data.into()))?;
+            // Flush after each data message to ensure they do predictably appear on the other side
+            // when they're generated
+            //
+            // TODO: make the buffering configurable, as this is a factor for performance
+            self.writer.flush()?;
             // This implements flow control, so we don't write too many messages:
             if !self.signal.notify_sent()? {
-                // Flush the output, and then wait for acknowledgements
-                self.writer.flush()?;
                 self.signal.wait_for_drain()
             } else {
                 Ok(())
