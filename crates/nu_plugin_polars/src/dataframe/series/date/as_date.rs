@@ -41,11 +41,18 @@ impl PluginCommand for AsDate {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Converts string to date",
-            example: r#"["2021-12-30" "2021-12-31"] | polars into-df | polars as-date "%Y-%m-%d""#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Converts string to date",
+                example: r#"["2021-12-30" "2021-12-31"] | polars into-df | polars as-date "%Y-%m-%d""#,
+                result: None, // help is needed on how to provide results 
+            },
+            Example {
+                description: "Converts string to date",
+                example: r#"["2021-12-30" "2021-12-31 21:00:00"] | polars into-df | polars as-date "%Y-%m-%d" --not-exact"#,
+                result: None,
+            },
+        ]
     }
 
     fn run(
