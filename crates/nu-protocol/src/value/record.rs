@@ -316,15 +316,15 @@ impl<'de> Deserialize<'de> for Record {
     /// // A `Record` in json is a Record with a packed `Value`
     /// // The `Value` record has a single key indicating its type and the inner record describing
     /// // its representation of value and the associated `Span`
-    /// let ok = r#"{"a": {"Int": {"val": 42, "span": {"start": 0, "end": 0}}},
-    ///              "b": {"Int": {"val": 37, "span": {"start": 0, "end": 0}}}}"#;
+    /// let ok = r#"{"a": {"Int": {"val": 42, "span": {"start": 0, "end": 0, "id": 0}}},
+    ///              "b": {"Int": {"val": 37, "span": {"start": 0, "end": 0, "id": 0}}}}"#;
     /// let ok_rec: Record = from_str(ok).unwrap();
     /// assert_eq!(Value::test_record(ok_rec),
     ///            Value::test_record(record!{"a" => Value::test_int(42),
     ///                                       "b" => Value::test_int(37)}));
     /// // A repeated key will lead to a deserialization error
-    /// let bad = r#"{"a": {"Int": {"val": 42, "span": {"start": 0, "end": 0}}},
-    ///               "a": {"Int": {"val": 37, "span": {"start": 0, "end": 0}}}}"#;
+    /// let bad = r#"{"a": {"Int": {"val": 42, "span": {"start": 0, "end": 0, "id": 0}}},
+    ///               "a": {"Int": {"val": 37, "span": {"start": 0, "end": 0, "id": 0}}}}"#;
     /// let bad_rec: Result<Record> = from_str(bad);
     /// assert!(bad_rec.is_err());
     /// ```
