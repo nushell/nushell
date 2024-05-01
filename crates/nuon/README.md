@@ -29,7 +29,7 @@ below is some data in the JSON format
 ```
 
 and an equivalent piece of data written in NUON
-```json
+```nuon
 {
     name: "Some One",       # the name of the person
     birth: "1970-01-01",    # their date of birth
