@@ -64,7 +64,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command --foo`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -80,7 +80,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command --bar`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -96,7 +96,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command --foo=true`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -112,7 +112,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command --foo=false`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -128,7 +128,7 @@ impl EvaluatedCall {
     /// Invoked with wrong type as `my_command --foo=1`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -165,7 +165,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command --foo 123`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -186,7 +186,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -216,7 +216,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command a b c`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -246,7 +246,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command --foo 123`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -263,7 +263,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command --bar 123`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -280,7 +280,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command --foo abc`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
@@ -307,7 +307,7 @@ impl EvaluatedCall {
     /// Invoked as `my_command zero one two three`:
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
-    /// # use nu_plugin::EvaluatedCall;
+    /// # use nu_plugin_protocol::EvaluatedCall;
     /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
