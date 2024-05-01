@@ -123,14 +123,14 @@ impl FutureSpanId {
         Self::unknown()
     }
 
-    pub fn contains(&self, _state: &impl GetSpan, pos: usize) -> bool {
-        // let span = state.get_span(self.id);  // TODO SPAN: This breaks nu-lsp
-        pos >= self.start && pos < self.end
+    pub fn contains(&self, state: &impl GetSpan, pos: usize) -> bool {
+        let self_span = state.get_span(self.id);
+        pos >= self_span.start && pos < self_span.end
     }
 
-    pub fn contains_span(&self, _state: &impl GetSpan, span: FutureSpanId) -> bool {
-        // let self_span = state.get_span(self.id);  // TODO SPAN: This breaks const tests
-        span.start >= self.start && span.end <= self.end
+    pub fn contains_span(&self, state: &impl GetSpan, span: FutureSpanId) -> bool {
+        let self_span = state.get_span(self.id);
+        span.start >= self_span.start && span.end <= self_span.end
     }
 
     // TODO SPAN: This will later require engine_state/working_set reference once Span becomes SpanId

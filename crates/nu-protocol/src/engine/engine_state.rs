@@ -902,12 +902,18 @@ impl EngineState {
         let next_span_start = self.next_span_start();
         let next_span_end = next_span_start + content.len();
 
-        let covered_span = FutureSpanId::new(next_span_start, next_span_end);
+        let covered_span = ActualSpan::new(next_span_start, next_span_end);
+        let covered_span_id = self.add_span(covered_span);
+        let covered_span_future_id = FutureSpanId {
+            start: next_span_start,
+            end: next_span_end,
+            id: covered_span_id,
+        };
 
         self.files.push(CachedFile {
             name: filename,
             content,
-            covered_span,
+            covered_span: covered_span_future_id,
         });
 
         self.num_files() - 1
