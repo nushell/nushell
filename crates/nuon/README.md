@@ -4,3 +4,4 @@ The NUON format is a superset of JSON designed to fit the feel of Nushell.
 Some of its extra features are
 - trailing commas are allowed
 - quotes are not required around keys
+- comments are allowed, though not preserved when using [`from_nuon`]
