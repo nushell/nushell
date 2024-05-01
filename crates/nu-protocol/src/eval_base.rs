@@ -5,6 +5,7 @@ use crate::{
     },
     debugger::DebugContext,
     Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
+    ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -37,7 +38,13 @@ pub trait Eval {
             Expr::FullCellPath(cell_path) => {
                 let value = Self::eval::<D>(state, mut_state, &cell_path.head)?;
 
-                value.follow_cell_path(&cell_path.tail, false)
+                // Cell paths are usually case-sensitive, but we give $env
+                // special treatment.
+                if cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID) {
+                    value.follow_cell_path(&cell_path.tail, true)
+                } else {
+                    value.follow_cell_path(&cell_path.tail, false)
+                }
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
             Expr::List(list) => {
