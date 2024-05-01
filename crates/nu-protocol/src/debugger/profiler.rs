@@ -225,7 +225,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Bool(_) => "bool".to_string(),
         Expr::Call(call) => {
             let decl = engine_state.get_decl(call.decl_id);
-            if decl.name() == "collect" && call.head == FutureSpanId::new(0, 0) {
+            if decl.name() == "collect" && call.head == FutureSpanId::unknown() {
                 "call (implicit collect)"
             } else {
                 "call"

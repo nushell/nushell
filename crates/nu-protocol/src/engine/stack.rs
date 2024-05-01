@@ -285,7 +285,7 @@ impl Stack {
     pub fn gather_captures(&self, engine_state: &EngineState, captures: &[VarId]) -> Stack {
         let mut vars = vec![];
 
-        let fake_span = FutureSpanId::new(0, 0);
+        let fake_span = FutureSpanId::unknown();
 
         for capture in captures {
             // Note: this assumes we have calculated captures correctly and that commands

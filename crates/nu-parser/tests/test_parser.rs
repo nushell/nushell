@@ -885,7 +885,7 @@ mod string {
 
             working_set.add_variable(
                 "foo".to_string().into_bytes(),
-                FutureSpanId::new(0, 0),
+                FutureSpanId::unknown(),
                 nu_protocol::Type::CellPath,
                 false,
             );
@@ -909,7 +909,7 @@ mod string {
 
             working_set.add_variable(
                 "foo".to_string().into_bytes(),
-                FutureSpanId::new(0, 0),
+                FutureSpanId::unknown(),
                 nu_protocol::Type::CellPath,
                 false,
             );

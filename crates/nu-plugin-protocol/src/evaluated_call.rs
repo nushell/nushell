@@ -65,7 +65,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -81,7 +81,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -97,7 +97,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -113,7 +113,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -129,7 +129,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -166,7 +166,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -187,7 +187,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -217,7 +217,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: vec![
@@ -247,7 +247,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -264,7 +264,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -281,7 +281,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: Vec::new(),
@@ -308,7 +308,7 @@ impl EvaluatedCall {
     /// ```
     /// # use nu_protocol::{Spanned, FutureSpanId, Value};
     /// # use nu_plugin::EvaluatedCall;
-    /// # let null_span = FutureSpanId::new(0, 0);
+    /// # let null_span = FutureSpanId::unknown();
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: vec![

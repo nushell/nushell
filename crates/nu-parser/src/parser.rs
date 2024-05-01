@@ -6227,7 +6227,7 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         Expression::new(
             working_set,
             Expr::Call(Box::new(Call {
-                head: FutureSpanId::new(0, 0),
+                head: FutureSpanId::unknown(),
                 arguments: Spanned {
                     item: output,
                     span: span_concat(&output_spans).id(),
