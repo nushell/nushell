@@ -66,6 +66,13 @@ impl PluginCommand for SampleDF {
                     "[[a b]; [1 2] [3 4] [5 6]] | polars into-df | polars sample --fraction 0.5 --replace",
                 result: None, // No expected value because sampling is random
             },
+            Example {
+                description: "Shows sample row using using predefined seed 1",
+                example:
+                    "[[a b]; [1 2] [3 4] [5 6]] | polars into-df | polars sample --seed 1 --n-rows 1",
+                result: None, // help needed! the result are [[a b];[5 6]], I don't know how to put it here
+            },
+
         ]
     }
 
