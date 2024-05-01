@@ -64,6 +64,7 @@ members = [
 [workspace.dependencies]
 alphanumeric-sort = "1.5"
 ansi-str = "0.8"
+anyhow = "1.0.82"
 base64 = "0.22"
 bracoxide = "0.1.2"
 brotli = "5.0"

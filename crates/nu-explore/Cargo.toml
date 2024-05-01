@@ -21,9 +21,12 @@ nu-utils = { path = "../nu-utils", version = "0.93.1" }
 nu-ansi-term = { workspace = true }
 nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.93.1" }
 
+anyhow = { workspace = true }
+log = { workspace = true }
 terminal_size = { workspace = true }
 strip-ansi-escapes = { workspace = true }
 crossterm = { workspace = true }
+once_cell = { workspace = true }
 ratatui = { workspace = true }
 ansi-str = { workspace = true }
 unicode-width = { workspace = true }
