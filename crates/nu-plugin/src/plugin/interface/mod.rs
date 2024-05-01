@@ -709,7 +709,7 @@ impl EngineInterface {
         }
     }
 
-    /// Get the contents of a [`Span`] from the engine.
+    /// Get the contents of a [`FutureSpanId`] from the engine.
     ///
     /// This method returns `Vec<u8>` as it's possible for the matched span to not be a valid UTF-8
     /// string, perhaps because it sliced through the middle of a UTF-8 byte sequence, as the

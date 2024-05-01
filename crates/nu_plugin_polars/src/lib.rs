@@ -181,7 +181,7 @@ pub mod test {
     use super::*;
     use crate::values::PolarsPluginObject;
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{engine::Command, ShellError, FutureSpanId};
+    use nu_protocol::{engine::Command, FutureSpanId, ShellError};
 
     impl PolarsPlugin {
         /// Creates a new polars plugin in test mode

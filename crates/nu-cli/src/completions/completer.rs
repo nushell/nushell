@@ -8,7 +8,7 @@ use nu_parser::{flatten_pipeline_element, parse, FlatShape};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    PipelineData, FutureSpanId, Value,
+    FutureSpanId, PipelineData, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::{str, sync::Arc};

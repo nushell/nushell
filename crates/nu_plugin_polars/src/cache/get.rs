@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 use polars::{prelude::NamedFrom, series::Series};
 use uuid::Uuid;
@@ -43,10 +43,10 @@ impl PluginCommand for CacheGet {
             result: Some(
                 NuDataFrame::try_from_series_vec(
                     vec![Series::new("a", &[1_i64, 3]), Series::new("b", &[2_i64, 4])],
-                    Span::test_data(),
+                    FutureSpanId::test_data(),
                 )
                 .expect("could not create dataframe")
-                .into_value(Span::test_data()),
+                .into_value(FutureSpanId::test_data()),
             ),
         }]
     }
@@ -73,7 +73,7 @@ impl PluginCommand for CacheGet {
     }
 }
 
-fn as_uuid(s: &str, span: Span) -> Result<Uuid, ShellError> {
+fn as_uuid(s: &str, span: FutureSpanId) -> Result<Uuid, ShellError> {
     Uuid::parse_str(s).map_err(|e| ShellError::GenericError {
         error: format!("Failed to convert key string to UUID: {e}"),
         msg: "".into(),

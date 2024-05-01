@@ -193,8 +193,15 @@ impl Command for Save {
                     stderr_path.as_ref(),
                 )?;
 
-                let bytes =
-                    input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
+                let bytes = input_to_bytes(
+                    input,
+                    Path::new(&path.item),
+                    raw,
+                    engine_state,
+                    stack,
+                    span,
+                    call.arguments_span(),
+                )?;
 
                 // Only open file after successful conversion
                 let (mut file, _) = get_files(

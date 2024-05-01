@@ -1,6 +1,6 @@
 use std::sync::{atomic::AtomicU32, Arc, Mutex, MutexGuard};
 
-use nu_protocol::{ShellError, Span};
+use nu_protocol::{FutureSpanId, ShellError};
 use nu_system::ForegroundGuard;
 
 /// Provides a utility interface for a plugin interface to manage the process the plugin is running
@@ -46,7 +46,7 @@ impl PluginProcess {
     /// another process group to be part of the foreground.
     pub(crate) fn enter_foreground(
         &self,
-        span: Span,
+        span: FutureSpanId,
         pipeline_state: &Arc<(AtomicU32, AtomicU32)>,
     ) -> Result<Option<u32>, ShellError> {
         let pid = self.pid;

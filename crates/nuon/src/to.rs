@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 
 use nu_engine::get_columns;
 use nu_parser::escape_quote_string;
-use nu_protocol::{Range, ShellError, Span, Value};
+use nu_protocol::{FutureSpanId, Range, ShellError, Value};
 
 use std::ops::Bound;
 
@@ -40,12 +40,16 @@ pub enum ToStyle {
 /// convert an actual Nushell [`Value`] to a raw string representation of the NUON data
 ///
 /// > **Note**
-/// > a [`Span`] can be passed to [`to_nuon`] if there is context available to the caller, e.g. when
+/// > a [`FutureSpanId`] can be passed to [`to_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as [`to nuon`](https://www.nushell.sh/commands/docs/to_nuon.html).
 ///
 /// also see [`super::from_nuon`] for the inverse operation
-pub fn to_nuon(input: &Value, style: ToStyle, span: Option<Span>) -> Result<String, ShellError> {
-    let span = span.unwrap_or(Span::unknown());
+pub fn to_nuon(
+    input: &Value,
+    style: ToStyle,
+    span: Option<FutureSpanId>,
+) -> Result<String, ShellError> {
+    let span = span.unwrap_or(FutureSpanId::unknown());
 
     let indentation = match style {
         ToStyle::Raw => None,
@@ -60,7 +64,7 @@ pub fn to_nuon(input: &Value, style: ToStyle, span: Option<Span>) -> Result<Stri
 
 fn value_to_string(
     v: &Value,
-    span: Span,
+    span: FutureSpanId,
     depth: usize,
     indent: Option<&str>,
 ) -> Result<String, ShellError> {
@@ -248,7 +252,7 @@ fn get_true_separators(indent: Option<&str>) -> (String, String) {
 
 fn value_to_string_without_quotes(
     v: &Value,
-    span: Span,
+    span: FutureSpanId,
     depth: usize,
     indent: Option<&str>,
 ) -> Result<String, ShellError> {

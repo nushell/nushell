@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{PluginIdentity, PluginSignature, ShellError, Span};
+use crate::{FutureSpanId, PluginIdentity, PluginSignature, ShellError};
 
 // This has a big impact on performance
 const BUFFER_SIZE: usize = 65536;
@@ -41,7 +41,7 @@ impl PluginRegistryFile {
     /// Read the plugin registry file from a reader, e.g. [`File`](std::fs::File).
     pub fn read_from(
         reader: impl Read,
-        error_span: Option<Span>,
+        error_span: Option<FutureSpanId>,
     ) -> Result<PluginRegistryFile, ShellError> {
         // Format is brotli compressed messagepack
         let brotli_reader = brotli::Decompressor::new(reader, BUFFER_SIZE);
@@ -63,7 +63,7 @@ impl PluginRegistryFile {
     pub fn write_to(
         &mut self,
         writer: impl Write,
-        error_span: Option<Span>,
+        error_span: Option<FutureSpanId>,
     ) -> Result<(), ShellError> {
         // Update the Nushell version before writing
         self.nushell_version = env!("CARGO_PKG_VERSION").to_owned();

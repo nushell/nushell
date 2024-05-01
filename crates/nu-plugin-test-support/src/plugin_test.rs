@@ -10,8 +10,8 @@ use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
-    ShellError, FutureSpanId, Value,
+    report_error_new, CustomValue, Example, FutureSpanId, IntoSpanned as _, LabeledError,
+    PipelineData, ShellError, Value,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};

@@ -94,7 +94,7 @@ impl Command for BitsInto {
                 description: "convert a boolean value into a string, padded to 8 places with 0s",
                 example: "true | into bits",
                 result: Some(Value::string("00000001",
-                    FutureSpanId::test_data(),
+                                           FutureSpanId::test_data(),
                 )),
             },
             Example {

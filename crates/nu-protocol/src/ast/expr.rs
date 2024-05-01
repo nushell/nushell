@@ -5,7 +5,10 @@ use super::{
     Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
     Range, Table, ValueWithUnit,
 };
-use crate::{ast::ImportPattern, engine::EngineState, BlockId, OutDest, Signature, FutureSpanId, Spanned, VarId};
+use crate::{
+    ast::ImportPattern, engine::EngineState, BlockId, FutureSpanId, OutDest, Signature, Spanned,
+    VarId,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
@@ -17,7 +20,7 @@ pub enum Expr {
     Var(VarId),
     VarDecl(VarId),
     Call(Box<Call>),
-    ExternalCall(Box<Expression>, Box<Spanned<[ExternalArgument]>>), // head, args
+    ExternalCall(Box<Expression>, Box<Spanned<Vec<ExternalArgument>>>), // head, args
     Operator(Operator),
     RowCondition(BlockId),
     UnaryNot(Box<Expression>),

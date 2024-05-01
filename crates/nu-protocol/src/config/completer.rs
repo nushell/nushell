@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};

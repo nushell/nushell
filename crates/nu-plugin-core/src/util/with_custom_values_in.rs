@@ -33,7 +33,7 @@ where
 #[test]
 fn find_custom_values() {
     use nu_plugin_protocol::test_util::test_plugin_custom_value;
-    use nu_protocol::{engine::Closure, record, LazyRecord, FutureSpanId};
+    use nu_protocol::{engine::Closure, record, FutureSpanId, LazyRecord};
 
     #[derive(Debug, Clone)]
     struct Lazy;

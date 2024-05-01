@@ -27,7 +27,7 @@ struct Args {
     du: bool,
     directory: bool,
     use_mime_type: bool,
-    call_span: Span,
+    call_span: FutureSpanId,
 }
 
 impl Command for Ls {

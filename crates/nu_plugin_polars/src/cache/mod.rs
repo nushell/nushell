@@ -10,7 +10,7 @@ use std::{
 use chrono::{DateTime, FixedOffset, Local};
 pub use list::ListDF;
 use nu_plugin::{EngineInterface, PluginCommand};
-use nu_protocol::{LabeledError, ShellError, FutureSpanId};
+use nu_protocol::{FutureSpanId, LabeledError, ShellError};
 use uuid::Uuid;
 
 use crate::{plugin_debug, values::PolarsPluginObject, PolarsPlugin};

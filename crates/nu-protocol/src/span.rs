@@ -240,22 +240,22 @@ pub trait ErrSpan {
     /// preferred when working with `std::io::Error`:
     ///
     /// ```no_run
-    /// use nu_protocol::{ErrSpan, ShellError, Span};
+    /// use nu_protocol::{ErrSpan, ShellError, FutureSpanId};
     /// use std::io::Read;
     ///
-    /// fn read_from(mut reader: impl Read, span: Span) -> Result<Vec<u8>, ShellError> {
+    /// fn read_from(mut reader: impl Read, span: FutureSpanId) -> Result<Vec<u8>, ShellError> {
     ///     let mut vec = vec![];
     ///     reader.read_to_end(&mut vec).err_span(span)?;
     ///     Ok(vec)
     /// }
     /// ```
-    fn err_span(self, span: Span) -> Self::Result;
+    fn err_span(self, span: FutureSpanId) -> Self::Result;
 }
 
 impl<T, E> ErrSpan for Result<T, E> {
     type Result = Result<T, Spanned<E>>;
 
-    fn err_span(self, span: Span) -> Self::Result {
+    fn err_span(self, span: FutureSpanId) -> Self::Result {
         self.map_err(|err| err.into_spanned(span))
     }
 }

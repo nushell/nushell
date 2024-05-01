@@ -199,7 +199,7 @@ impl Expression {
                     return true;
                 }
                 for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in
-                    &args.item
+                    args.item.iter()
                 {
                     if expr.has_in_variable(working_set) {
                         return true;
@@ -384,7 +384,7 @@ impl Expression {
             Expr::ExternalCall(head, args) => {
                 head.replace_span(working_set, replaced, new_span_id);
                 for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in
-                    args.item.as_mut()
+                    args.item.iter_mut()
                 {
                     expr.replace_span(working_set, replaced, new_span_id);
                 }
@@ -466,7 +466,9 @@ impl Expression {
                 }
             }
 
-            Expr::ValueWithUnit(value) => value.expr.replace_span(working_set, replaced, new_span_id),
+            Expr::ValueWithUnit(value) => {
+                value.expr.replace_span(working_set, replaced, new_span_id)
+            }
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
         }

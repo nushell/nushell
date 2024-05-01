@@ -302,10 +302,10 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[ActualSpa
         working_set,
         Expr::ExternalCall(
             head,
-            Spanned {
+            Box::new(Spanned {
                 item: args,
                 span: args_span.id(),
-            },
+            }),
         ),
         span_concat(spans),
         Type::Any,
@@ -729,12 +729,9 @@ pub fn parse_multispan_value(
                 expr: parse_multispan_value(working_set, spans, spans_idx, arg),
             };
 
-            Expression::new(
-                working_set,
-                Expr::Keyword(Box::new(keyword)),
-                arg_span,
-                keyword.expr.ty.clone(),
-            )
+            let ty = keyword.expr.ty.clone();
+
+            Expression::new(working_set, Expr::Keyword(Box::new(keyword)), arg_span, ty)
         }
         _ => {
             // All other cases are single-span values
@@ -1151,7 +1148,7 @@ pub fn parse_call(
             {
                 trace!("parsing: alias of external call");
 
-                let mut final_args = args.clone().into_vec();
+                let mut final_args = args.clone();
                 let mut final_args_spans = vec![args.span];
                 for arg_span in &spans[1..] {
                     let arg = parse_external_arg(working_set, *arg_span);
@@ -1167,10 +1164,11 @@ pub fn parse_call(
 
                 return Expression::new(
                     working_set,
-                    Expr::ExternalCall(head, final_args.into()),
+                    Expr::ExternalCall(head, final_args),
                     span_concat(spans),
                     ty.clone(),
-                ).with_completion(*custom_completion);
+                )
+                .with_completion(*custom_completion);
             } else {
                 trace!("parsing: alias of internal call");
                 parse_internal_call(
@@ -1540,12 +1538,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: ActualSpan) -> Expre
         operator,
     };
 
-    Expression::new(
-        working_set,
-        Expr::Range(Box::new(range)),
-        span,
-        Type::Range,
-    )
+    Expression::new(working_set, Expr::Range(Box::new(range)), span, Type::Range)
 }
 
 pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: ActualSpan) -> Expression {
@@ -2304,19 +2297,13 @@ pub fn parse_unit_value<'res>(
 
         trace!("-- found {} {:?}", num, unit);
         let value = ValueWithUnit {
-            expr: Expression::new_unknown(
-                Expr::Int(num),
-                Type::Number,
-            ),
+            expr: Expression::new_unknown(Expr::Int(num), Type::Number),
             unit: Spanned {
                 item: unit,
                 span: unit_span.id(),
             },
         };
-        let expr = Expression::new_unknown(
-            Expr::ValueWithUnit(Box::new(value)),
-            ty,
-        );
+        let expr = Expression::new_unknown(Expr::ValueWithUnit(Box::new(value)), ty);
 
         Some(Ok(expr))
     } else {
@@ -2778,8 +2765,12 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[ActualSp
                     for item in list {
                         match item {
                             ListItem::Item(expr) => {
-                                let contents = working_set.get_span_contents(expr.get_actual_span(&working_set));
-                                output.push((trim_quotes(contents).to_vec(), expr.get_span(&working_set)));
+                                let contents = working_set
+                                    .get_span_contents(expr.get_actual_span(&working_set));
+                                output.push((
+                                    trim_quotes(contents).to_vec(),
+                                    expr.get_span(&working_set),
+                                ));
                             }
                             ListItem::Spread(_, spread) => {
                                 working_set.error(ParseError::WrongImportPattern(
@@ -2926,12 +2917,7 @@ pub fn parse_var_with_opt_type(
         );
 
         (
-            Expression::new(
-                working_set,
-                Expr::VarDecl(id),
-                spans[*spans_idx],
-                Type::Any,
-            ),
+            Expression::new(working_set, Expr::VarDecl(id), spans[*spans_idx], Type::Any),
             None,
         )
     }
@@ -3825,7 +3811,8 @@ pub fn parse_list_expression(
                         Type::List(elem_ty) => *elem_ty.clone(),
                         _ => Type::Any,
                     };
-                    let span = Span::new(curr_span.start, spread_arg.get_span(&working_set).end);
+                    let span =
+                        FutureSpanId::new(curr_span.start, spread_arg.get_span(&working_set).end);
                     (ListItem::Spread(span, spread_arg), elem_ty)
                 } else {
                     let arg = parse_multispan_value(
@@ -3868,7 +3855,7 @@ pub fn parse_list_expression(
 fn parse_table_row(
     working_set: &mut StateWorkingSet,
     span: ActualSpan,
-) -> Result<(Vec<Expression>, Span), Span> {
+) -> Result<(Vec<Expression>, FutureSpanId), FutureSpanId> {
     let list_expr = parse_list_expression(working_set, span, &SyntaxShape::Any);
     let list_expr_span = list_expr.get_span(&working_set);
     let Expression {
@@ -3950,7 +3937,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: ActualSpan) -
                         }
                         _ => match parse_table_row(working_set, it.span) {
                             Ok((list, span)) => {
-                                let span = working_set.get_span(span.id());
+                                let span = working_set.get_span(span.id).span();
                                 match list.len().cmp(&head.len()) {
                                     Ordering::Less => {
                                         let err = ParseError::MissingColumns(head.len(), span);
@@ -3958,11 +3945,12 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: ActualSpan) -
                                     }
                                     Ordering::Greater => {
                                         let span = {
-                                            let start = list[head.len()].get_span(&working_set).start;
+                                            let start =
+                                                list[head.len()].get_span(&working_set).start;
                                             let end = span.end;
-                                            Span::new(start, end)
+                                            FutureSpanId::new(start, end)
                                         };
-                                        let err = ParseError::ExtraColumns(head.len(), span);
+                                        let err = ParseError::ExtraColumns(head.len(), span.span());
                                         working_set.error(err);
                                     }
                                     Ordering::Equal => {}
@@ -3973,7 +3961,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: ActualSpan) -
                                 let err = ParseError::LabeledError(
                                     String::from("Cannot spread in a table row"),
                                     String::from("invalid spread here"),
-                                    span,
+                                    span.span(),
                                 );
                                 working_set.error(err);
                                 None
@@ -3989,7 +3977,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: ActualSpan) -
             let err = ParseError::LabeledError(
                 String::from("Cannot spread in a table row"),
                 String::from("invalid spread here"),
-                span,
+                span.span(),
             );
             working_set.error(err);
             (Vec::new(), Vec::new())
@@ -4009,12 +3997,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: ActualSpan) -
         rows: rows.into_iter().map(Into::into).collect(),
     };
 
-    Expression::new(
-        working_set,
-        Expr::Table(table),
-        span,
-        ty,
-    )
+    Expression::new(working_set, Expr::Table(table), span, ty)
 }
 
 fn table_type(
@@ -5536,7 +5519,7 @@ pub(crate) fn redirecting_builtin_error(
         LiteRedirection::Separate { out, err } => ParseError::RedirectingBuiltinCommand(
             name,
             out.connector().min(err.connector()),
-            Some(out.connector().max(err.connector())),
+            Some(out.connector().max(err.connector()).id()),
         ),
     }
 }

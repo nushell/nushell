@@ -2,7 +2,9 @@ use std::{cmp::Ordering, sync::Arc};
 
 use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
-use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Spanned, Value};
+use nu_protocol::{
+    ast::Operator, CustomValue, FutureSpanId, IntoSpanned, ShellError, Spanned, Value,
+};
 use serde::Serialize;
 
 use crate::{PluginInterface, PluginSource};
@@ -28,7 +30,7 @@ impl PluginCustomValueWithSource {
     }
 
     /// Create a [`Value`] containing this custom value.
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self), span)
     }
 
@@ -45,7 +47,11 @@ impl PluginCustomValueWithSource {
     }
 
     /// Helper to get the plugin to implement an op
-    fn get_plugin(&self, span: Option<Span>, for_op: &str) -> Result<PluginInterface, ShellError> {
+    fn get_plugin(
+        &self,
+        span: Option<FutureSpanId>,
+        for_op: &str,
+    ) -> Result<PluginInterface, ShellError> {
         let wrap_err = |err: ShellError| ShellError::GenericError {
             error: format!(
                 "Unable to spawn plugin `{}` to {for_op}",
@@ -96,7 +102,11 @@ impl PluginCustomValueWithSource {
     }
 
     /// Check that `self` came from the given `source`, and return an `error` if not.
-    pub fn verify_source(&self, span: Span, source: &PluginSource) -> Result<(), ShellError> {
+    pub fn verify_source(
+        &self,
+        span: FutureSpanId,
+        source: &PluginSource,
+    ) -> Result<(), ShellError> {
         if self.source.is_compatible(source) {
             Ok(())
         } else {
@@ -155,7 +165,7 @@ impl Serialize for PluginCustomValueWithSource {
 }
 
 impl CustomValue for PluginCustomValueWithSource {
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         self.clone().into_value(span)
     }
 
@@ -163,16 +173,16 @@ impl CustomValue for PluginCustomValueWithSource {
         self.name().to_owned()
     }
 
-    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, span: FutureSpanId) -> Result<Value, ShellError> {
         self.get_plugin(Some(span), "get base value")?
             .custom_value_to_base_value(self.clone().into_spanned(span))
     }
 
     fn follow_path_int(
         &self,
-        self_span: Span,
+        self_span: FutureSpanId,
         index: usize,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         self.get_plugin(Some(self_span), "follow cell path")?
             .custom_value_follow_path_int(
@@ -183,9 +193,9 @@ impl CustomValue for PluginCustomValueWithSource {
 
     fn follow_path_string(
         &self,
-        self_span: Span,
+        self_span: FutureSpanId,
         column_name: String,
-        path_span: Span,
+        path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         self.get_plugin(Some(self_span), "follow cell path")?
             .custom_value_follow_path_string(
@@ -214,9 +224,9 @@ impl CustomValue for PluginCustomValueWithSource {
 
     fn operation(
         &self,
-        lhs_span: Span,
+        lhs_span: FutureSpanId,
         operator: Operator,
-        op_span: Span,
+        op_span: FutureSpanId,
         right: &Value,
     ) -> Result<Value, ShellError> {
         self.get_plugin(Some(lhs_span), "invoke operator")?

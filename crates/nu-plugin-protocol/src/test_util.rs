@@ -1,5 +1,5 @@
 use crate::PluginCustomValue;
-use nu_protocol::{CustomValue, ShellError, FutureSpanId, Value};
+use nu_protocol::{CustomValue, FutureSpanId, ShellError, Value};
 use serde::{Deserialize, Serialize};
 
 /// A custom value that can be used for testing.

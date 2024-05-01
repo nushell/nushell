@@ -787,7 +787,10 @@ pub fn parse_extern(
     Pipeline::from_vec(&working_set, vec![pipe_expr])
 }
 
-fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [ActualSpan]) -> Option<&'a ActualSpan> {
+fn check_alias_name<'a>(
+    working_set: &mut StateWorkingSet,
+    spans: &'a [ActualSpan],
+) -> Option<&'a ActualSpan> {
     let command_len = if !spans.is_empty() {
         if working_set.get_span_contents(spans[0]) == b"export" {
             2
@@ -802,8 +805,9 @@ fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [ActualSpa
         None
     } else if spans.len() < command_len + 3 {
         if working_set.get_span_contents(spans[command_len]) == b"=" {
-            let name =
-                String::from_utf8_lossy(working_set.get_span_contents(span_concat(&spans[..command_len])));
+            let name = String::from_utf8_lossy(
+                working_set.get_span_contents(span_concat(&spans[..command_len])),
+            );
             working_set.error(ParseError::AssignmentMismatch(
                 format!("{name} missing name"),
                 "missing name".into(),
@@ -814,8 +818,9 @@ fn check_alias_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [ActualSpa
             None
         }
     } else if working_set.get_span_contents(spans[command_len + 1]) != b"=" {
-        let name =
-            String::from_utf8_lossy(working_set.get_span_contents(span_concat(&spans[..command_len])));
+        let name = String::from_utf8_lossy(
+            working_set.get_span_contents(span_concat(&spans[..command_len])),
+        );
         working_set.error(ParseError::AssignmentMismatch(
             format!("{name} missing sign"),
             "missing equal sign".into(),
@@ -1029,7 +1034,8 @@ pub fn parse_alias(
                         expr: Expr::Keyword(kw),
                         ..
                     })) => {
-                        let aliased = working_set.get_span_contents(kw.expr.get_actual_span(&working_set));
+                        let aliased =
+                            working_set.get_span_contents(kw.expr.get_actual_span(&working_set));
                         (
                             format!("Alias for `{}`", String::from_utf8_lossy(aliased)),
                             String::new(),
@@ -1897,7 +1903,7 @@ fn parse_module_file(
     }
 
     // Add the file to the stack of files being processed.
-    if let Err(e) = working_set.files.push(path.path_buf(), path_span.id()) {
+    if let Err(e) = working_set.files.push(path.path_buf(), path_span) {
         working_set.error(e);
         return None;
     }
@@ -3407,7 +3413,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
                     if let Some(contents) = path.read(working_set) {
                         // Add the file to the stack of files being processed.
-                        if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1].id()) {
+                        if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
                             working_set.error(e);
                             return garbage_pipeline(working_set, spans);
                         }
@@ -3623,7 +3629,10 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(PLUGIN_DIRS_VAR))
             else {
-                return Err(ParseError::RegisteredFileNotFound(filename, expr.get_actual_span(&working_set)));
+                return Err(ParseError::RegisteredFileNotFound(
+                    filename,
+                    expr.get_actual_span(&working_set),
+                ));
             };
 
             if path.exists() && path.is_file() {
@@ -3832,7 +3841,10 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
             ParseError::LabeledError(
                 "Plugin registry file can't be opened".into(),
                 err.to_string(),
-                plugin_config.as_ref().map(|p| p.span.span()).unwrap_or(call.head.span()),
+                plugin_config
+                    .as_ref()
+                    .map(|p| p.span.span())
+                    .unwrap_or(call.head.span()),
             )
         })?;
 
@@ -3861,12 +3873,14 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
 
     let call_span = call.span(&working_set);
 
-    Pipeline::from_vec(&working_set, vec![Expression::new(
+    let expr = Expression::new(
         working_set,
         Expr::Call(call),
         call_span.span(),
         Type::Nothing,
-    )])
+    );
+
+    Pipeline::from_vec(&working_set, vec![expr])
 }
 
 pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {

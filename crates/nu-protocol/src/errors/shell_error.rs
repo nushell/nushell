@@ -767,7 +767,7 @@ pub enum ShellError {
     PluginRegistryDataInvalid {
         plugin_name: String,
         #[label("plugin `{plugin_name}` loaded here")]
-        span: Option<Span>,
+        span: Option<FutureSpanId>,
         #[help("the format in the plugin registry file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`")]
         add_command: String,
     },

@@ -309,7 +309,7 @@ fn nested_suggestions(
 }
 
 // Extracts the recursive value (e.g: $var.a.b.c)
-fn recursive_value(val: &Value, sublevels: &[Vec<u8>]) -> Result<Value, Span> {
+fn recursive_value(val: &Value, sublevels: &[Vec<u8>]) -> Result<Value, FutureSpanId> {
     // Go to next sublevel
     if let Some((sublevel, next_sublevels)) = sublevels.split_first() {
         let span = val.span();

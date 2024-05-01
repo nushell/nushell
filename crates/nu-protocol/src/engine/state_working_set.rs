@@ -1198,7 +1198,7 @@ impl FileStack {
     /// Adds a file to the stack.
     ///
     /// If the same file is already present in the stack, returns `ParseError::CircularImport`.
-    pub fn push(&mut self, path: PathBuf, span: Span) -> Result<(), ParseError> {
+    pub fn push(&mut self, path: PathBuf, span: ActualSpan) -> Result<(), ParseError> {
         // Check for circular import.
         if let Some(i) = self.0.iter().rposition(|p| p == &path) {
             let filenames: Vec<String> = self.0[i..]

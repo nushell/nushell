@@ -14,7 +14,9 @@ pub use to::ToStyle;
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
-    use nu_protocol::{ast::RangeInclusion, engine::Closure, record, IntRange, Range, Span, Value};
+    use nu_protocol::{
+        ast::RangeInclusion, engine::Closure, record, FutureSpanId, IntRange, Range, Value,
+    };
 
     use crate::{from_nuon, to_nuon, ToStyle};
 
@@ -146,7 +148,7 @@ mod tests {
                     Value::test_int(2),
                     Value::test_int(42),
                     RangeInclusion::Inclusive,
-                    Span::unknown(),
+                    FutureSpanId::unknown(),
                 )
                 .unwrap(),
             ))),

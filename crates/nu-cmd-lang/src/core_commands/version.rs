@@ -57,13 +57,13 @@ impl Command for Version {
     }
 }
 
-fn push_non_empty(record: &mut Record, name: &str, value: &str, span: Span) {
+fn push_non_empty(record: &mut Record, name: &str, value: &str, span: FutureSpanId) {
     if !value.is_empty() {
         record.push(name, Value::string(value, span))
     }
 }
 
-pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, ShellError> {
+pub fn version(engine_state: &EngineState, span: FutureSpanId) -> Result<PipelineData, ShellError> {
     // Pre-allocate the arrays in the worst case (17 items):
     // - version
     // - major
@@ -132,7 +132,7 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
 }
 
 /// Add version numbers as integers to the given record
-fn push_version_numbers(record: &mut Record, head: Span) {
+fn push_version_numbers(record: &mut Record, head: FutureSpanId) {
     static VERSION_NUMBERS: OnceLock<(u8, u8, u8)> = OnceLock::new();
 
     let &(major, minor, patch) = VERSION_NUMBERS.get_or_init(|| {

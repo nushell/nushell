@@ -10,7 +10,8 @@ use nu_plugin_protocol::{
     RawStreamInfo, StreamData, StreamMessage,
 };
 use nu_protocol::{
-    DataSource, ListStream, PipelineData, PipelineMetadata, RawStream, ShellError, Span, Value,
+    DataSource, FutureSpanId, ListStream, PipelineData, PipelineMetadata, RawStream, ShellError,
+    Value,
 };
 use std::{path::Path, sync::Arc};
 
@@ -208,7 +209,7 @@ fn read_pipeline_data_external_stream() -> Result<(), ShellError> {
     test.add(StreamMessage::End(13));
     test.add(StreamMessage::End(14));
 
-    let test_span = Span::new(10, 13);
+    let test_span = FutureSpanId::new(10, 13);
     let header = PipelineDataHeader::ExternalStream(ExternalStreamInfo {
         span: test_span,
         stdout: Some(RawStreamInfo {
@@ -458,7 +459,7 @@ fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
     let stderr_bufs = vec![b"error messages".to_vec(), b"go here".to_vec()];
     let exit_code = Value::test_int(7);
 
-    let span = Span::new(400, 500);
+    let span = FutureSpanId::new(400, 500);
 
     // Set up pipeline data for an external stream
     let pipe = PipelineData::ExternalStream {

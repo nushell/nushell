@@ -6,7 +6,7 @@ use self::reedline::*;
 use self::table::*;
 
 use crate::engine::Closure;
-use crate::{record, ShellError, FutureSpanId, Value};
+use crate::{record, FutureSpanId, ShellError, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

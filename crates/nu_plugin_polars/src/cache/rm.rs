@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, FutureSpanId, LabeledError, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 use uuid::Uuid;
 
@@ -58,7 +58,7 @@ fn remove_cache_entry(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     key: &str,
-    span: Span,
+    span: FutureSpanId,
 ) -> Result<Value, ShellError> {
     let key = as_uuid(key, span)?;
     let msg = plugin
@@ -69,7 +69,7 @@ fn remove_cache_entry(
     Ok(Value::string(msg, span))
 }
 
-fn as_uuid(s: &str, span: Span) -> Result<Uuid, ShellError> {
+fn as_uuid(s: &str, span: FutureSpanId) -> Result<Uuid, ShellError> {
     Uuid::parse_str(s).map_err(|e| ShellError::GenericError {
         error: format!("Failed to convert key string to UUID: {e}"),
         msg: "".into(),
@@ -83,7 +83,7 @@ fn as_uuid(s: &str, span: Span) -> Result<Uuid, ShellError> {
 mod test {
     use nu_command::{First, Get};
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::Span;
+    use nu_protocol::FutureSpanId;
 
     use super::*;
 
@@ -94,7 +94,7 @@ mod test {
             .add_decl(Box::new(First))?
             .add_decl(Box::new(Get))?
             .eval("let df = ([[a b];[1 2] [3 4]] | polars into-df); polars store-ls | get key | first | polars store-rm $in")?;
-        let value = pipeline_data.into_value(Span::test_data());
+        let value = pipeline_data.into_value(FutureSpanId::test_data());
         let msg = value
             .as_list()?
             .first()

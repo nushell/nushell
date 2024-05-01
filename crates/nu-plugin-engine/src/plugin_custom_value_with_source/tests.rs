@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use nu_plugin_protocol::test_util::{test_plugin_custom_value, TestCustomValue};
-use nu_protocol::{engine::Closure, record, CustomValue, IntoSpanned, ShellError, Span, Value};
+use nu_protocol::{
+    engine::Closure, record, CustomValue, FutureSpanId, IntoSpanned, ShellError, Value,
+};
 
 use crate::{
     test_util::test_plugin_custom_value_with_source, PluginCustomValueWithSource, PluginSource,
@@ -154,7 +156,7 @@ fn add_source_in_nested_closure() -> Result<(), ShellError> {
 
 #[test]
 fn verify_source_error_message() -> Result<(), ShellError> {
-    let span = Span::new(5, 7);
+    let span = FutureSpanId::new(5, 7);
     let ok_val = test_plugin_custom_value_with_source();
     let native_val = TestCustomValue(32);
     let foreign_val =

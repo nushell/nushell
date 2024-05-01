@@ -409,7 +409,10 @@ pub fn flatten_expression(
 
                         if let Some(first) = flattened.first() {
                             if first.0.start > last_end {
-                                output.push((FutureSpanId::new(last_end, first.0.start), FlatShape::List));
+                                output.push((
+                                    FutureSpanId::new(last_end, first.0.start),
+                                    FlatShape::List,
+                                ));
                             }
                         }
 

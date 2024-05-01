@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast::Operator, CustomValue, FutureSpanId, ShellError, Value};
 use nu_utils::SharedCow;
 
 use serde::{Deserialize, Serialize};
@@ -46,7 +46,7 @@ fn is_false(b: &bool) -> bool {
 
 #[typetag::serde]
 impl CustomValue for PluginCustomValue {
-    fn clone_value(&self, span: Span) -> Value {
+    fn clone_value(&self, span: FutureSpanId) -> Value {
         self.clone().into_value(span)
     }
 
@@ -54,24 +54,24 @@ impl CustomValue for PluginCustomValue {
         self.name().to_owned()
     }
 
-    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
+    fn to_base_value(&self, _span: FutureSpanId) -> Result<Value, ShellError> {
         panic!("to_base_value() not available on plugin custom value without source");
     }
 
     fn follow_path_int(
         &self,
-        _self_span: Span,
+        _self_span: FutureSpanId,
         _index: usize,
-        _path_span: Span,
+        _path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         panic!("follow_path_int() not available on plugin custom value without source");
     }
 
     fn follow_path_string(
         &self,
-        _self_span: Span,
+        _self_span: FutureSpanId,
         _column_name: String,
-        _path_span: Span,
+        _path_span: FutureSpanId,
     ) -> Result<Value, ShellError> {
         panic!("follow_path_string() not available on plugin custom value without source");
     }
@@ -82,9 +82,9 @@ impl CustomValue for PluginCustomValue {
 
     fn operation(
         &self,
-        _lhs_span: Span,
+        _lhs_span: FutureSpanId,
         _operator: Operator,
-        _op_span: Span,
+        _op_span: FutureSpanId,
         _right: &Value,
     ) -> Result<Value, ShellError> {
         panic!("operation() not available on plugin custom value without source");
@@ -110,7 +110,7 @@ impl PluginCustomValue {
     }
 
     /// Create a [`Value`] containing this custom value.
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         Value::custom(Box::new(self), span)
     }
 
@@ -138,7 +138,7 @@ impl PluginCustomValue {
     /// plugin side.
     pub fn serialize_from_custom_value(
         custom_value: &dyn CustomValue,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<PluginCustomValue, ShellError> {
         let name = custom_value.type_name();
         let notify_on_drop = custom_value.notify_plugin_on_drop();
@@ -154,7 +154,7 @@ impl PluginCustomValue {
     /// on the plugin side.
     pub fn deserialize_to_custom_value(
         &self,
-        span: Span,
+        span: FutureSpanId,
     ) -> Result<Box<dyn CustomValue>, ShellError> {
         bincode::deserialize::<Box<dyn CustomValue>>(self.data()).map_err(|err| {
             ShellError::CustomValueFailedToDecode {

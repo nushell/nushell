@@ -10,8 +10,8 @@ use nu_plugin_protocol::{
     StreamData,
 };
 use nu_protocol::{
-    engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginSignature, ShellError, FutureSpanId, Spanned, Value,
+    engine::Closure, Config, CustomValue, FutureSpanId, IntoInterruptiblePipelineData,
+    LabeledError, PipelineData, PluginSignature, ShellError, Spanned, Value,
 };
 use std::{
     collections::HashMap,
@@ -1000,7 +1000,7 @@ fn interface_get_span_contents() -> Result<(), ShellError> {
         EngineCallResponse::value(Value::test_binary(b"test string"))
     });
 
-    let contents = interface.get_span_contents(FutureSpanId::test_data())?;
+    let contents = interface.get_span_id_contents(FutureSpanId::test_data())?;
 
     assert_eq!(b"test string", &contents[..]);
 

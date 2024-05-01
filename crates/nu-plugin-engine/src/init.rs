@@ -15,8 +15,8 @@ use nu_plugin_core::{
     ServerCommunicationIo,
 };
 use nu_protocol::{
-    engine::StateWorkingSet, report_error_new, PluginIdentity, PluginRegistryFile,
-    PluginRegistryItem, PluginRegistryItemData, RegisteredPlugin, ShellError, Span,
+    engine::StateWorkingSet, report_error_new, FutureSpanId, PluginIdentity, PluginRegistryFile,
+    PluginRegistryItem, PluginRegistryItemData, RegisteredPlugin, ShellError,
 };
 
 use crate::{
@@ -217,7 +217,7 @@ pub fn get_plugin_encoding(
 pub fn load_plugin_file(
     working_set: &mut StateWorkingSet,
     plugin_registry_file: &PluginRegistryFile,
-    span: Option<Span>,
+    span: Option<FutureSpanId>,
 ) {
     for plugin in &plugin_registry_file.plugins {
         // Any errors encountered should just be logged.
@@ -231,7 +231,7 @@ pub fn load_plugin_file(
 pub fn load_plugin_registry_item(
     working_set: &mut StateWorkingSet,
     plugin: &PluginRegistryItem,
-    span: Option<Span>,
+    span: Option<FutureSpanId>,
 ) -> Result<Arc<PersistentPlugin>, ShellError> {
     let identity =
         PluginIdentity::new(plugin.filename.clone(), plugin.shell.clone()).map_err(|_| {

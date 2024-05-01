@@ -110,7 +110,7 @@ impl PolarsPluginObject {
         }
     }
 
-    pub fn into_value(self, span: Span) -> Value {
+    pub fn into_value(self, span: FutureSpanId) -> Value {
         match self {
             PolarsPluginObject::NuDataFrame(df) => df.into_value(span),
             PolarsPluginObject::NuLazyFrame(lf) => lf.into_value(span),

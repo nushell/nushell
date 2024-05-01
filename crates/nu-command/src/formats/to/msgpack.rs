@@ -86,9 +86,9 @@ MessagePack: https://msgpack.org/
 
 #[derive(Debug)]
 pub(crate) enum WriteError {
-    MaxDepth(Span),
-    Rmp(mp::ValueWriteError<io::Error>, Span),
-    Io(io::Error, Span),
+    MaxDepth(FutureSpanId),
+    Rmp(mp::ValueWriteError<io::Error>, FutureSpanId),
+    Io(io::Error, FutureSpanId),
     Shell(Box<ShellError>),
 }
 
@@ -253,7 +253,7 @@ pub(crate) fn write_value(
     Ok(())
 }
 
-fn convert<T, U>(value: T, span: Span) -> Result<U, ShellError>
+fn convert<T, U>(value: T, span: FutureSpanId) -> Result<U, ShellError>
 where
     U: TryFrom<T>,
     <U as TryFrom<T>>::Error: std::fmt::Display,

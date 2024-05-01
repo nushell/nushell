@@ -1,7 +1,7 @@
 use crate::test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue};
 
 use super::PluginCustomValue;
-use nu_protocol::{engine::Closure, record, CustomValue, ShellError, FutureSpanId, Value};
+use nu_protocol::{engine::Closure, record, CustomValue, FutureSpanId, ShellError, Value};
 
 fn check_record_custom_values(
     val: &Value,

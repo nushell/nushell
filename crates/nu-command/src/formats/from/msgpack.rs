@@ -137,10 +137,10 @@ MessagePack: https://msgpack.org/
 
 #[derive(Debug)]
 pub(crate) enum ReadError {
-    MaxDepth(Span),
-    Io(io::Error, Span),
-    TypeMismatch(rmp::Marker, Span),
-    Utf8(FromUtf8Error, Span),
+    MaxDepth(FutureSpanId),
+    Io(io::Error, FutureSpanId),
+    TypeMismatch(rmp::Marker, FutureSpanId),
+    Utf8(FromUtf8Error, FutureSpanId),
     Shell(Box<ShellError>),
 }
 
@@ -220,7 +220,7 @@ impl From<ReadError> for ShellError {
 }
 
 pub(crate) struct Opts {
-    pub span: Span,
+    pub span: FutureSpanId,
     pub objects: bool,
     pub ctrlc: Option<Arc<AtomicBool>>,
 }
@@ -266,7 +266,11 @@ pub(crate) fn read_msgpack(
     }
 }
 
-fn read_value(input: &mut impl io::Read, span: Span, depth: usize) -> Result<Value, ReadError> {
+fn read_value(
+    input: &mut impl io::Read,
+    span: FutureSpanId,
+    depth: usize,
+) -> Result<Value, ReadError> {
     // Prevent stack overflow
     if depth >= MAX_DEPTH {
         return Err(ReadError::MaxDepth(span));
@@ -382,13 +386,13 @@ fn read_value(input: &mut impl io::Read, span: Span, depth: usize) -> Result<Val
     }
 }
 
-fn read_str(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, ReadError> {
+fn read_str(input: &mut impl io::Read, len: usize, span: FutureSpanId) -> Result<Value, ReadError> {
     let mut buf = vec![0; len];
     input.read_exact(&mut buf).err_span(span)?;
     Ok(Value::string(String::from_utf8(buf).err_span(span)?, span))
 }
 
-fn read_bin(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, ReadError> {
+fn read_bin(input: &mut impl io::Read, len: usize, span: FutureSpanId) -> Result<Value, ReadError> {
     let mut buf = vec![0; len];
     input.read_exact(&mut buf).err_span(span)?;
     Ok(Value::binary(buf, span))
@@ -397,7 +401,7 @@ fn read_bin(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
 fn read_array(
     input: &mut impl io::Read,
     len: usize,
-    span: Span,
+    span: FutureSpanId,
     depth: usize,
 ) -> Result<Value, ReadError> {
     let vec = (0..len)
@@ -409,7 +413,7 @@ fn read_array(
 fn read_map(
     input: &mut impl io::Read,
     len: usize,
-    span: Span,
+    span: FutureSpanId,
     depth: usize,
 ) -> Result<Value, ReadError> {
     let rec = (0..len)
@@ -430,7 +434,7 @@ fn read_map(
     Ok(Value::record(rec, span))
 }
 
-fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, ReadError> {
+fn read_ext(input: &mut impl io::Read, len: usize, span: FutureSpanId) -> Result<Value, ReadError> {
     let ty = input.read_i8().err_span(span)?;
     match (ty, len) {
         // "timestamp 32" - u32 seconds only
@@ -462,7 +466,7 @@ fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
     }
 }
 
-fn make_date(secs: i64, nanos: u32, span: Span) -> Result<Value, ReadError> {
+fn make_date(secs: i64, nanos: u32, span: FutureSpanId) -> Result<Value, ReadError> {
     match Utc.timestamp_opt(secs, nanos) {
         chrono::offset::LocalResult::Single(dt) => Ok(Value::date(dt.into(), span)),
         _ => Err(ShellError::GenericError {
@@ -476,7 +480,7 @@ fn make_date(secs: i64, nanos: u32, span: Span) -> Result<Value, ReadError> {
     }
 }
 
-fn from_int<T>(num: Result<T, std::io::Error>, span: Span) -> Result<Value, ReadError>
+fn from_int<T>(num: Result<T, std::io::Error>, span: FutureSpanId) -> Result<Value, ReadError>
 where
     T: Into<i64>,
 {
@@ -538,7 +542,7 @@ impl io::Read for ReadRawStream {
 /// Return an error if this is not the end of file.
 ///
 /// This can help detect if parsing succeeded incorrectly, perhaps due to corruption.
-fn assert_eof(input: &mut impl io::Read, span: Span) -> Result<(), ShellError> {
+fn assert_eof(input: &mut impl io::Read, span: FutureSpanId) -> Result<(), ShellError> {
     let mut buf = [0u8];
     match input.read_exact(&mut buf) {
         // End of file

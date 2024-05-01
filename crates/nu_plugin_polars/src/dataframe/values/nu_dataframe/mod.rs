@@ -7,7 +7,7 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, FutureSpanId, Value};
+use nu_protocol::{did_you_mean, FutureSpanId, PipelineData, Record, ShellError, Value};
 use polars::{
     chunked_array::ops::SortMultipleOptions,
     prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series},

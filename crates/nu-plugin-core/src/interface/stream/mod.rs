@@ -1,5 +1,5 @@
 use nu_plugin_protocol::{StreamData, StreamId, StreamMessage};
-use nu_protocol::{ShellError, FutureSpanId, Value};
+use nu_protocol::{FutureSpanId, ShellError, Value};
 use std::{
     collections::{btree_map, BTreeMap},
     iter::FusedIterator,

@@ -3,7 +3,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr},
     engine::{EngineState, Stack, StateWorkingSet, PWD_ENV},
-    Config, ShellError, FutureSpanId, Value, VarId,
+    Config, FutureSpanId, ShellError, Value, VarId,
 };
 use std::{
     collections::HashMap,

@@ -18,7 +18,7 @@ use std::{
 /// Object safe trait for abstracting operations required of the plugin context.
 pub trait PluginExecutionContext: Send + Sync {
     /// A span pointing to the command being executed
-    fn span(&self) -> Span;
+    fn span(&self) -> FutureSpanId;
     /// The interrupt signal, if present
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>>;
     /// The pipeline externals state, for tracking the foreground process group, if present
@@ -37,7 +37,7 @@ pub trait PluginExecutionContext: Send + Sync {
     fn add_env_var(&mut self, name: String, value: Value) -> Result<(), ShellError>;
     /// Get help for the current command
     fn get_help(&self) -> Result<Spanned<String>, ShellError>;
-    /// Get the contents of a [`Span`]
+    /// Get the contents of a [`FutureSpanId`]
     fn get_span_contents(&self, span: FutureSpanId) -> Result<Spanned<Vec<u8>>, ShellError>;
     /// Evaluate a closure passed to the plugin
     fn eval_closure(
@@ -77,7 +77,7 @@ impl<'a> PluginExecutionCommandContext<'a> {
 }
 
 impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
-    fn span(&self) -> Span {
+    fn span(&self) -> FutureSpanId {
         self.call.head
     }
 
@@ -234,8 +234,8 @@ pub(crate) struct PluginExecutionBogusContext;
 
 #[cfg(test)]
 impl PluginExecutionContext for PluginExecutionBogusContext {
-    fn span(&self) -> Span {
-        Span::test_data()
+    fn span(&self) -> FutureSpanId {
+        FutureSpanId::test_data()
     }
 
     fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {

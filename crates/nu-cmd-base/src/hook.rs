@@ -6,7 +6,7 @@ use nu_protocol::{
     cli_error::{report_error, report_error_new},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    PipelineData, PositionalArg, ShellError, FutureSpanId, Type, Value, VarId,
+    FutureSpanId, PipelineData, PositionalArg, ShellError, Type, Value, VarId,
 };
 use std::sync::Arc;
 

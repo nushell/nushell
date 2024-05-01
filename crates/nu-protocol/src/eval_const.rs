@@ -13,7 +13,10 @@ use std::{
 };
 
 /// Create a Value for `$nu`.
-pub fn create_nu_constant(engine_state: &EngineState, span: FutureSpanId) -> Result<Value, ShellError> {
+pub fn create_nu_constant(
+    engine_state: &EngineState,
+    span: FutureSpanId,
+) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
         let cwd = engine_state.current_work_dir();
 

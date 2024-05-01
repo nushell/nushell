@@ -8,7 +8,7 @@ pub use operations::Axis;
 
 use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 use indexmap::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, FutureSpanId, Value};
+use nu_protocol::{did_you_mean, FutureSpanId, PipelineData, Record, ShellError, Value};
 use polars::{
     chunked_array::ops::SortMultipleOptions,
     prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series},

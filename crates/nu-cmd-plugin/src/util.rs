@@ -9,7 +9,7 @@ use nu_protocol::{engine::StateWorkingSet, PluginRegistryFile};
 pub(crate) fn modify_plugin_file(
     engine_state: &EngineState,
     stack: &mut Stack,
-    span: Span,
+    span: FutureSpanId,
     custom_path: Option<Spanned<String>>,
     operate: impl FnOnce(&mut PluginRegistryFile) -> Result<(), ShellError>,
 ) -> Result<(), ShellError> {

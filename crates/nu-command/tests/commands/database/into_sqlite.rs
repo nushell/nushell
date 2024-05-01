@@ -330,7 +330,8 @@ fn into_sqlite_big_insert() {
                 )
                 .unwrap();
 
-            let nuon = nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(FutureSpanId::unknown())).unwrap()
+            let nuon = nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(FutureSpanId::unknown()))
+                .unwrap()
                 + &line_ending();
 
             nuon_file.write_all(nuon.as_bytes()).unwrap();

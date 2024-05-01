@@ -4,7 +4,7 @@ use nu_engine::{env::get_config, ClosureEvalOnce};
 use nu_protocol::{
     cli_error::CliError,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    Span, Value,
+    FutureSpanId, Value,
 };
 use std::{
     collections::HashMap,
@@ -17,7 +17,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub enum ComputableStyle {
     Static(Style),
-    Closure(Closure, Span),
+    Closure(Closure, FutureSpanId),
 }
 
 // An alias for the mapping used internally by StyleComputer.
