@@ -392,10 +392,11 @@
 
         <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/'/>
 
+        <!-- for Value, see https://learn.microsoft.com/en-ca/windows/win32/msi/formatted -->
         <SetProperty
             Id="ReplacePathsInWindowsTerminalProfile"
             Sequence="execute"
-            Value="&quot;[#exe0]&quot; -c &quot;open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#exe0]` | update profiles.icon `[#icon0]` | collect &#123; save -f `[#WindowsTerminalProfileFile]` &#125;&quot;"
+            Value="&quot;[#exe0]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `[#exe0]` | update profiles.icon `[#icon0]`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
             After='CostFinalize'/>
         <CustomAction
             Id="ReplacePathsInWindowsTerminalProfile"
