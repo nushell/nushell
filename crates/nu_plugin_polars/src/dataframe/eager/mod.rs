@@ -3,7 +3,6 @@ mod columns;
 mod dummies;
 mod first;
 mod last;
-mod melt;
 mod open;
 mod query_df;
 mod sample;
@@ -31,7 +30,6 @@ pub use columns::ColumnsDF;
 pub use dummies::Dummies;
 pub use first::FirstDF;
 pub use last::LastDF;
-pub use melt::MeltDF;
 use nu_plugin::PluginCommand;
 pub use query_df::QueryDf;
 pub use sample::SampleDF;
@@ -56,7 +54,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(ColumnsDF),
         Box::new(Dummies),
         Box::new(OpenDataFrame),
-        Box::new(MeltDF),
         Box::new(Summary),
         Box::new(FirstDF),
         Box::new(LastDF),

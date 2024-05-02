@@ -16,6 +16,7 @@ pub mod groupby;
 mod join;
 mod macro_commands;
 mod median;
+mod melt;
 mod quantile;
 mod rename;
 mod select;
@@ -60,6 +61,7 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyFlatten),
         Box::new(LazyJoin),
         Box::new(median::LazyMedian),
+        Box::new(melt::MeltDF),
         Box::new(LazyReverse),
         Box::new(LazySelect),
         Box::new(LazySortBy),
