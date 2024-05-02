@@ -27,7 +27,7 @@ jobs:
     # if: github.repository == 'nushell/nightly'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.3
+        uses: actions/checkout@v4.1.4
         if: github.repository == 'nushell/nightly'
         with:
           ref: main
@@ -39,7 +39,7 @@ jobs:
         uses: hustcer/setup-nu@v3.10
         if: github.repository == 'nushell/nightly'
         with:
-          version: 0.91.0
+          version: 0.93.0
 
       # Synchronize the main branch of nightly repo with the main branch of Nushell official repo
       - name: Prepare for Nightly Release
@@ -123,7 +123,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.3
+    - uses: actions/checkout@v4.1.4
       with:
         ref: main
         fetch-depth: 0
@@ -141,7 +141,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.10
       with:
-        version: 0.91.0
+        version: 0.93.0
 
     - name: Release Nu Binary
       id: nu
@@ -235,7 +235,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.3
+    - uses: actions/checkout@v4.1.4
       with:
         ref: main
         fetch-depth: 0
@@ -253,7 +253,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.10
       with:
-        version: 0.91.0
+        version: 0.93.0
 
     - name: Release Nu Binary
       id: nu
@@ -310,14 +310,14 @@ jobs:
       - name: Waiting for Release
         run: sleep 1800
 
-      - uses: actions/checkout@v4.1.3
+      - uses: actions/checkout@v4.1.4
         with:
           ref: main
 
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3.10
         with:
-          version: 0.91.0
+          version: 0.93.0
 
       # Keep the last a few releases
       - name: Delete Older Releases
