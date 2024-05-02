@@ -439,6 +439,19 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::file_not_found))]
     FileNotFound(String, #[label("File not found: {0}")] Span),
 
+    #[error("Plugin not found")]
+    #[diagnostic(
+        code(nu::parser::plugin_not_found),
+        help("plugins need to be added to the plugin registry file before your script is run (see `plugin add`)"),
+    )]
+    PluginNotFound {
+        name: String,
+        #[label("Plugin not found: {name}")]
+        name_span: Span,
+        #[label("in this registry file")]
+        plugin_config_span: Option<Span>,
+    },
+
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
@@ -544,6 +557,7 @@ impl ParseError {
             ParseError::SourcedFileNotFound(_, s) => *s,
             ParseError::RegisteredFileNotFound(_, s) => *s,
             ParseError::FileNotFound(_, s) => *s,
+            ParseError::PluginNotFound { name_span, .. } => *name_span,
             ParseError::LabeledError(_, _, s) => *s,
             ParseError::ShellAndAnd(s) => *s,
             ParseError::ShellOrOr(s) => *s,

@@ -5,6 +5,7 @@ use crate::{
     },
     debugger::DebugContext,
     Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
+    ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -37,7 +38,13 @@ pub trait Eval {
             Expr::FullCellPath(cell_path) => {
                 let value = Self::eval::<D>(state, mut_state, &cell_path.head)?;
 
-                value.follow_cell_path(&cell_path.tail, false)
+                // Cell paths are usually case-sensitive, but we give $env
+                // special treatment.
+                if cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID) {
+                    value.follow_cell_path(&cell_path.tail, true)
+                } else {
+                    value.follow_cell_path(&cell_path.tail, false)
+                }
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
             Expr::List(list) => {
@@ -100,9 +107,9 @@ pub trait Eval {
 
                 Ok(Value::record(record, expr.span))
             }
-            Expr::Table(headers, vals) => {
+            Expr::Table(table) => {
                 let mut output_headers = vec![];
-                for expr in headers {
+                for expr in table.columns.as_ref() {
                     let header = Self::eval::<D>(state, mut_state, expr)?.coerce_into_string()?;
                     if let Some(idx) = output_headers
                         .iter()
@@ -111,7 +118,7 @@ pub trait Eval {
                         return Err(ShellError::ColumnDefinedTwice {
                             col_name: header,
                             second_use: expr.span,
-                            first_use: headers[idx].span,
+                            first_use: table.columns[idx].span,
                         });
                     } else {
                         output_headers.push(header);
@@ -119,8 +126,8 @@ pub trait Eval {
                 }
 
                 let mut output_rows = vec![];
-                for val in vals {
-                    let record = output_headers.iter().zip(val).map(|(col, expr)| {
+                for val in table.rows.as_ref() {
+                    let record = output_headers.iter().zip(val.as_ref()).map(|(col, expr)| {
                         Self::eval::<D>(state, mut_state, expr).map(|val| (col.clone(), val))
                     }).collect::<Result<_,_>>()?;
 
@@ -131,15 +138,15 @@ pub trait Eval {
                 }
                 Ok(Value::list(output_rows, expr.span))
             }
-            Expr::Keyword(_, _, expr) => Self::eval::<D>(state, mut_state, expr),
+            Expr::Keyword(kw) => Self::eval::<D>(state, mut_state, &kw.expr),
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
-            Expr::ValueWithUnit(e, unit) => match Self::eval::<D>(state, mut_state, e)? {
-                Value::Int { val, .. } => unit.item.build_value(val, unit.span),
+            Expr::ValueWithUnit(value) => match Self::eval::<D>(state, mut_state, &value.expr)? {
+                Value::Int { val, .. } => value.unit.item.build_value(val, value.unit.span),
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),
-                    span: e.span,
+                    span: value.expr.span,
                     help: None,
                 }),
             },
@@ -150,27 +157,27 @@ pub trait Eval {
             Expr::Subexpression(block_id) => {
                 Self::eval_subexpression::<D>(state, mut_state, *block_id, expr.span)
             }
-            Expr::Range(from, next, to, operator) => {
-                let from = if let Some(f) = from {
+            Expr::Range(range) => {
+                let from = if let Some(f) = &range.from {
                     Self::eval::<D>(state, mut_state, f)?
                 } else {
                     Value::nothing(expr.span)
                 };
 
-                let next = if let Some(s) = next {
+                let next = if let Some(s) = &range.next {
                     Self::eval::<D>(state, mut_state, s)?
                 } else {
                     Value::nothing(expr.span)
                 };
 
-                let to = if let Some(t) = to {
+                let to = if let Some(t) = &range.to {
                     Self::eval::<D>(state, mut_state, t)?
                 } else {
                     Value::nothing(expr.span)
                 };
 
                 Ok(Value::range(
-                    Range::new(from, next, to, operator.inclusion, expr.span)?,
+                    Range::new(from, next, to, range.operator.inclusion, expr.span)?,
                     expr.span,
                 ))
             }
@@ -267,7 +274,6 @@ pub trait Eval {
                     ),
                 }
             }
-            Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
@@ -292,6 +298,7 @@ pub trait Eval {
                 Ok(Value::glob(pattern, *quoted, expr.span))
             }
             Expr::MatchBlock(_) // match blocks are handled by `match`
+            | Expr::Block(_) // blocks are handled directly by core commands
             | Expr::VarDecl(_)
             | Expr::ImportPattern(_)
             | Expr::Signature(_)

@@ -1,8 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    engine::{Closure, StateWorkingSet},
-    PipelineMetadata,
-};
+use nu_protocol::{engine::StateWorkingSet, PipelineMetadata};
 
 #[derive(Clone)]
 pub struct Describe;
@@ -49,6 +46,19 @@ impl Command for Describe {
             detailed: call.has_flag(engine_state, stack, "detailed")?,
             collect_lazyrecords: call.has_flag(engine_state, stack, "collect-lazyrecords")?,
         };
+        if options.collect_lazyrecords {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated flag".into(),
+                    msg: "the `--collect-lazyrecords` flag is deprecated, since lazy records will be removed in 0.94.0"
+                        .into(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                },
+            );
+        }
         run(Some(engine_state), call, input, options)
     }
 
@@ -336,16 +346,12 @@ fn describe_value(
             ),
             head,
         ),
-        Value::Block { val, .. }
-        | Value::Closure {
-            val: Closure { block_id: val, .. },
-            ..
-        } => {
-            let block = engine_state.map(|engine_state| engine_state.get_block(val));
+        Value::Closure { val, .. } => {
+            let block = engine_state.map(|engine_state| engine_state.get_block(val.block_id));
 
             if let Some(block) = block {
                 let mut record = Record::new();
-                record.push("type", Value::string(value.get_type().to_string(), head));
+                record.push("type", Value::string("closure", head));
                 record.push(
                     "signature",
                     Value::record(

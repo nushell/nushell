@@ -217,7 +217,7 @@ pub(crate) fn setup_config(
     );
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
-        read_plugin_file(engine_state, stack, plugin_file, NUSHELL_FOLDER);
+        read_plugin_file(engine_state, plugin_file, NUSHELL_FOLDER);
 
         read_config_file(engine_state, stack, env_file, true);
         read_config_file(engine_state, stack, config_file, false);

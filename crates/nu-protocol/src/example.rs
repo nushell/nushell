@@ -13,7 +13,7 @@ pub struct Example<'a> {
 // and `description` fields, because these information is fetched from plugin, a third party
 // binary, nushell have no way to construct it directly.
 #[cfg(feature = "plugin")]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PluginExample {
     pub example: String,
     pub description: String,

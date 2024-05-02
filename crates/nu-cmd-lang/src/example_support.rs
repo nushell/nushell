@@ -288,9 +288,6 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
                 }
                 write!(f, "]")
             }
-            Value::Block { val, .. } => {
-                write!(f, "Block({:?})", val)
-            }
             Value::Closure { val, .. } => {
                 write!(f, "Closure({:?})", val)
             }

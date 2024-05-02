@@ -147,7 +147,7 @@ impl Command for Open {
 
                     let file_contents = PipelineData::ExternalStream {
                         stdout: Some(RawStream::new(
-                            Box::new(BufferedReader { input: buf_reader }),
+                            Box::new(BufferedReader::new(buf_reader)),
                             ctrlc.clone(),
                             call_span,
                             None,

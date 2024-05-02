@@ -12,6 +12,7 @@ use nu_protocol::{
     Config, FromValue, IntoPipelineData, OutDest, PipelineData, ShellError, Span, Spanned, Type,
     Value, VarId, ENV_VARIABLE_ID,
 };
+use nu_utils::IgnoreCaseExt;
 use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
 
 pub fn eval_call<D: DebugContext>(
@@ -771,40 +772,48 @@ impl Eval for EvalRuntime {
                         if is_env || engine_state.get_var(*var_id).mutable {
                             let mut lhs =
                                 eval_expression::<D>(engine_state, stack, &cell_path.head)?;
-
-                            lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                             if is_env {
+                                // Reject attempts to assign to the entire $env
                                 if cell_path.tail.is_empty() {
                                     return Err(ShellError::CannotReplaceEnv {
                                         span: cell_path.head.span,
                                     });
                                 }
 
-                                // The special $env treatment: for something like $env.config.history.max_size = 2000,
-                                // get $env.config (or whichever one it is) AFTER the above mutation, and set it
-                                // as the "config" environment variable.
-                                let vardata =
-                                    lhs.follow_cell_path(&[cell_path.tail[0].clone()], false)?;
-                                match &cell_path.tail[0] {
-                                    PathMember::String { val, span, .. } => {
-                                        if val == "FILE_PWD"
-                                            || val == "CURRENT_FILE"
-                                            || val == "PWD"
-                                        {
-                                            return Err(ShellError::AutomaticEnvVarSetManually {
-                                                envvar_name: val.to_string(),
-                                                span: *span,
-                                            });
-                                        } else {
-                                            stack.add_env_var(val.to_string(), vardata);
-                                        }
-                                    }
-                                    // In case someone really wants an integer env-var
-                                    PathMember::Int { val, .. } => {
-                                        stack.add_env_var(val.to_string(), vardata);
-                                    }
+                                // Updating environment variables should be case-preserving,
+                                // so we need to figure out the original key before we do anything.
+                                let (key, span) = match &cell_path.tail[0] {
+                                    PathMember::String { val, span, .. } => (val.to_string(), span),
+                                    PathMember::Int { val, span, .. } => (val.to_string(), span),
+                                };
+                                let original_key = if let Value::Record { val: record, .. } = &lhs {
+                                    record
+                                        .iter()
+                                        .rev()
+                                        .map(|(k, _)| k)
+                                        .find(|x| x.eq_ignore_case(&key))
+                                        .cloned()
+                                        .unwrap_or(key)
+                                } else {
+                                    key
+                                };
+
+                                // Retrieve the updated environment value.
+                                lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
+                                let value =
+                                    lhs.follow_cell_path(&[cell_path.tail[0].clone()], true)?;
+
+                                // Reject attempts to set automatic environment variables.
+                                if is_automatic_env_var(&original_key) {
+                                    return Err(ShellError::AutomaticEnvVarSetManually {
+                                        envvar_name: original_key,
+                                        span: *span,
+                                    });
                                 }
+
+                                stack.add_env_var(original_key, value);
                             } else {
+                                lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                 stack.add_var(*var_id, lhs);
                             }
                             Ok(Value::nothing(cell_path.head.span))
@@ -855,4 +864,20 @@ impl Eval for EvalRuntime {
     fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
         Ok(Value::nothing(expr.span))
     }
+}
+
+/// Returns whether a string, when used as the name of an environment variable,
+/// is considered an automatic environment variable.
+///
+/// An automatic environment variable cannot be assigned to by user code.
+/// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
+fn is_automatic_env_var(var: &str) -> bool {
+    let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
+    names.iter().any(|&name| {
+        if cfg!(windows) {
+            name.eq_ignore_case(var)
+        } else {
+            name.eq(var)
+        }
+    })
 }

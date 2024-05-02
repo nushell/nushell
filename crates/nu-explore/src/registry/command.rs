@@ -1,26 +1,27 @@
 use crate::{
-    commands::{HelpManual, SimpleCommand, ViewCommand},
+    commands::{SimpleCommand, ViewCommand},
     views::View,
 };
+use anyhow::Result;
 
 #[derive(Clone)]
 pub enum Command {
     Reactive(Box<dyn SCommand>),
     View {
         cmd: Box<dyn VCommand>,
-        is_light: bool,
+        stackable: bool,
     },
 }
 
 impl Command {
-    pub fn view<C>(command: C, is_light: bool) -> Self
+    pub fn view<C>(command: C, stackable: bool) -> Self
     where
         C: ViewCommand + Clone + 'static,
         C::View: View,
     {
         let cmd = Box::new(ViewCmd(command)) as Box<dyn VCommand>;
 
-        Self::View { cmd, is_light }
+        Self::View { cmd, stackable }
     }
 
     pub fn reactive<C>(command: C) -> Self
@@ -41,7 +42,7 @@ impl Command {
         }
     }
 
-    pub fn parse(&mut self, args: &str) -> std::io::Result<()> {
+    pub fn parse(&mut self, args: &str) -> Result<()> {
         match self {
             Command::Reactive(cmd) => cmd.parse(args),
             Command::View { cmd, .. } => cmd.parse(args),
@@ -68,11 +69,7 @@ where
         self.0.usage()
     }
 
-    fn help(&self) -> Option<HelpManual> {
-        self.0.help()
-    }
-
-    fn parse(&mut self, args: &str) -> std::io::Result<()> {
+    fn parse(&mut self, args: &str) -> Result<()> {
         self.0.parse(args)
     }
 
@@ -81,7 +78,7 @@ where
         engine_state: &nu_protocol::engine::EngineState,
         stack: &mut nu_protocol::engine::Stack,
         value: Option<nu_protocol::Value>,
-    ) -> std::io::Result<Self::View> {
+    ) -> Result<Self::View> {
         let view = self.0.spawn(engine_state, stack, value)?;
         Ok(Box::new(view) as Box<dyn View>)
     }

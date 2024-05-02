@@ -151,6 +151,7 @@ pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_path_eq;
     use std::path::MAIN_SEPARATOR;
 
     fn check_expanded(s: &str) {
@@ -243,5 +244,24 @@ mod tests {
         let actual_home = super::user_home_dir(user);
 
         assert_eq!(expected_home, actual_home, "wrong home");
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn expand_tilde_preserve_trailing_slash() {
+        let path = PathBuf::from("~/foo/");
+        let home = PathBuf::from("/home");
+
+        let actual = expand_tilde_with_home(path, Some(home));
+        assert_path_eq!(actual, "/home/foo/");
+    }
+    #[test]
+    #[cfg(windows)]
+    fn expand_tilde_preserve_trailing_slash() {
+        let path = PathBuf::from("~\\foo\\");
+        let home = PathBuf::from("C:\\home");
+
+        let actual = expand_tilde_with_home(path, Some(home));
+        assert_path_eq!(actual, "C:\\home\\foo\\");
     }
 }

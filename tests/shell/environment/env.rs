@@ -194,3 +194,15 @@ fn env_var_not_var() {
         ");
     assert!(actual.err.contains("use $env.PWD instead of $PWD"));
 }
+
+#[test]
+fn env_var_case_insensitive() {
+    let actual = nu!("
+        $env.foo = 111
+        print $env.Foo
+        $env.FOO = 222
+        print $env.foo
+    ");
+    assert!(actual.out.contains("111"));
+    assert!(actual.out.contains("222"));
+}

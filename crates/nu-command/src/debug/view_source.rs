@@ -173,8 +173,8 @@ impl Command for ViewSource {
                 }
             }
             value => {
-                if let Ok(block_id) = value.coerce_block() {
-                    let block = engine_state.get_block(block_id);
+                if let Ok(closure) = value.as_closure() {
+                    let block = engine_state.get_block(closure.block_id);
 
                     if let Some(span) = block.span {
                         let contents = engine_state.get_span_contents(span);

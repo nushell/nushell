@@ -1,6 +1,6 @@
-use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
-use nu_protocol::{ast::Block, engine::Closure, PipelineIterator};
-use std::{collections::HashSet, sync::Arc};
+use nu_engine::{command_prelude::*, ClosureEval};
+use nu_protocol::{engine::Closure, PipelineIterator};
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct UpdateCells;
@@ -12,7 +12,7 @@ impl Command for UpdateCells {
 
     fn signature(&self) -> Signature {
         Signature::build("update cells")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -87,24 +87,9 @@ impl Command for UpdateCells {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // the block to run on each cell
-        let engine_state = engine_state.clone();
-        let block: Closure = call.req(&engine_state, stack, 0)?;
-        let mut stack = stack.captures_to_stack(block.captures);
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
-
-        let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
-        let block: Arc<Block> = engine_state.get_block(block.block_id).clone();
-        let eval_block_fn = get_eval_block(&engine_state);
-
-        let span = call.head;
-
-        stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-        // the columns to update
-        let columns: Option<Value> = call.get_flag(&engine_state, &mut stack, "columns")?;
+        let head = call.head;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
+        let columns: Option<Value> = call.get_flag(engine_state, stack, "columns")?;
         let columns: Option<HashSet<String>> = match columns {
             Some(val) => Some(
                 val.into_list()?
@@ -115,27 +100,23 @@ impl Command for UpdateCells {
             None => None,
         };
 
+        let metadata = input.metadata();
+
         Ok(UpdateCellIterator {
-            input: input.into_iter(),
-            engine_state,
-            stack,
-            block,
+            iter: input.into_iter(),
+            closure: ClosureEval::new(engine_state, stack, closure),
             columns,
-            span,
-            eval_block_fn,
+            span: head,
         }
-        .into_pipeline_data(ctrlc)
+        .into_pipeline_data(engine_state.ctrlc.clone())
         .set_metadata(metadata))
     }
 }
 
 struct UpdateCellIterator {
-    input: PipelineIterator,
+    iter: PipelineIterator,
+    closure: ClosureEval,
     columns: Option<HashSet<String>>,
-    engine_state: EngineState,
-    stack: Stack,
-    block: Arc<Block>,
-    eval_block_fn: EvalBlockFn,
     span: Span,
 }
 
@@ -143,70 +124,36 @@ impl Iterator for UpdateCellIterator {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.input.next() {
-            Some(val) => {
-                if let Some(ref cols) = self.columns {
-                    if !val.columns().any(|c| cols.contains(c)) {
-                        return Some(val);
+        let mut value = self.iter.next()?;
+
+        let value = if let Value::Record { val, .. } = &mut value {
+            let val = val.to_mut();
+            if let Some(columns) = &self.columns {
+                for (col, val) in val.iter_mut() {
+                    if columns.contains(col) {
+                        *val = eval_value(&mut self.closure, self.span, std::mem::take(val));
                     }
                 }
-
-                let span = val.span();
-                match val {
-                    Value::Record { val, .. } => Some(Value::record(
-                        val.into_owned()
-                            .into_iter()
-                            .map(|(col, val)| match &self.columns {
-                                Some(cols) if !cols.contains(&col) => (col, val),
-                                _ => (
-                                    col,
-                                    process_cell(
-                                        val,
-                                        &self.engine_state,
-                                        &mut self.stack,
-                                        &self.block,
-                                        span,
-                                        self.eval_block_fn,
-                                    ),
-                                ),
-                            })
-                            .collect(),
-                        span,
-                    )),
-                    val => Some(process_cell(
-                        val,
-                        &self.engine_state,
-                        &mut self.stack,
-                        &self.block,
-                        self.span,
-                        self.eval_block_fn,
-                    )),
+            } else {
+                for (_, val) in val.iter_mut() {
+                    *val = eval_value(&mut self.closure, self.span, std::mem::take(val))
                 }
             }
-            None => None,
-        }
+
+            value
+        } else {
+            eval_value(&mut self.closure, self.span, value)
+        };
+
+        Some(value)
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn process_cell(
-    val: Value,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block: &Block,
-    span: Span,
-    eval_block_fn: EvalBlockFn,
-) -> Value {
-    if let Some(var) = block.signature.get_positional(0) {
-        if let Some(var_id) = &var.var_id {
-            stack.add_var(*var_id, val.clone());
-        }
-    }
-
-    match eval_block_fn(engine_state, stack, block, val.into_pipeline_data()) {
-        Ok(pd) => pd.into_value(span),
-        Err(e) => Value::error(e, span),
-    }
+fn eval_value(closure: &mut ClosureEval, span: Span, value: Value) -> Value {
+    closure
+        .run_with_value(value)
+        .map(|data| data.into_value(span))
+        .unwrap_or_else(|err| Value::error(err, span))
 }
 
 #[cfg(test)]
