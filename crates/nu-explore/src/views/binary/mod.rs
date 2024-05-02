@@ -21,7 +21,6 @@ use crate::{
 
 use self::binary_widget::{
     BinarySettings, BinaryStyle, BinaryStyleColors, BinaryWidget, BinaryWidgetState, Indent,
-    SymbolColor,
 };
 
 use super::{cursor::XYCursor, Layout, View, ViewConfig};
@@ -206,21 +205,7 @@ fn settings_from_config(config: &ConfigMap) -> Settings {
             0,
         ),
         style: BinaryStyle::new(
-            BinaryStyleColors::new(
-                colors.get("color_index").cloned(),
-                SymbolColor::new(
-                    colors.get("color_segment").cloned(),
-                    colors.get("color_segment_zero").cloned(),
-                    colors.get("color_segment_unknown").cloned(),
-                ),
-                SymbolColor::new(
-                    colors.get("color_ascii").cloned(),
-                    colors.get("color_ascii_zero").cloned(),
-                    colors.get("color_ascii_unknown").cloned(),
-                ),
-                colors.get("color_split_left").cloned(),
-                colors.get("color_split_right").cloned(),
-            ),
+            BinaryStyleColors::new(colors.get("color_index").cloned()),
             Indent::new(
                 config_get_usize(config, "padding_index_left", 2) as u16,
                 config_get_usize(config, "padding_index_right", 2) as u16,

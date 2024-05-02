@@ -12,8 +12,6 @@ use crate::{
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 
-use super::Layout;
-
 type OptStyle = Option<NuStyle>;
 
 #[derive(Debug, Clone)]
@@ -115,59 +113,22 @@ impl Indent {
 
 #[derive(Debug, Default, Clone)]
 pub struct BinaryStyleColors {
-    pub split_left: OptStyle,
-    pub split_right: OptStyle,
     pub index: OptStyle,
-    pub data: SymbolColor,
-    pub ascii: SymbolColor,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct SymbolColor {
-    pub default: OptStyle,
-    pub zero: OptStyle,
-    pub unknown: OptStyle,
-}
-
-impl SymbolColor {
-    pub fn new(default: OptStyle, zero: OptStyle, unknown: OptStyle) -> Self {
-        Self {
-            default,
-            zero,
-            unknown,
-        }
-    }
 }
 
 impl BinaryStyleColors {
-    pub fn new(
-        index: OptStyle,
-        data: SymbolColor,
-        ascii: SymbolColor,
-        split_left: OptStyle,
-        split_right: OptStyle,
-    ) -> Self {
-        Self {
-            split_left,
-            split_right,
-            index,
-            data,
-            ascii,
-        }
+    pub fn new(index: OptStyle) -> Self {
+        Self { index }
     }
 }
 
 #[derive(Debug, Default)]
-pub struct BinaryWidgetState {
-    pub layout_index: Layout,
-    pub layout_data: Layout,
-    pub layout_ascii: Layout,
-}
+pub struct BinaryWidgetState {}
 
 impl StatefulWidget for BinaryWidget<'_> {
     type State = BinaryWidgetState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
         let min_width = get_widget_width(&self);
 
         if (area.width as usize) < min_width {
@@ -178,12 +139,12 @@ impl StatefulWidget for BinaryWidget<'_> {
             return;
         }
 
-        render_hexdump(area, buf, state, self);
+        render_hexdump(area, buf, self);
     }
 }
 
 // todo: indent color
-fn render_hexdump(area: Rect, buf: &mut Buffer, _state: &mut BinaryWidgetState, w: BinaryWidget) {
+fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
     const MIN_INDEX_SIZE: usize = 8;
 
     let show_index = !w.opts.disable_index;
