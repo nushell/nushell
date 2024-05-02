@@ -45,7 +45,7 @@ impl PluginCommand for AsDate {
             Example {
                 description: "Converts string to date",
                 example: r#"["2021-12-30" "2021-12-31"] | polars into-df | polars as-date "%Y-%m-%d""#,
-                result: None, // help is needed on how to provide results 
+                result: None, // help is needed on how to provide results
             },
             Example {
                 description: "Converts string to date",

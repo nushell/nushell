@@ -63,12 +63,19 @@ impl PluginCommand for Shift {
             },
             Example {
                 description: "Shifts the values by a given period, fill absent values with 0",
-                example: "[1 2 2 3 3] | polars into-lazy | polars shift 2 --fill 0 | polars collect",
+                example:
+                    "[1 2 2 3 3] | polars into-lazy | polars shift 2 --fill 0 | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
                             "0".to_string(),
-                            vec![Value::test_int(0), Value::test_int(0), Value::test_int(1), Value::test_int(2), Value::test_int(2)],
+                            vec![
+                                Value::test_int(0),
+                                Value::test_int(0),
+                                Value::test_int(1),
+                                Value::test_int(2),
+                                Value::test_int(2),
+                            ],
                         )],
                         None,
                     )

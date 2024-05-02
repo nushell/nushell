@@ -67,48 +67,50 @@ impl PluginCommand for Cumulative {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Cumulative sum for a series",
-            example: "[1 2 3 4 5] | polars into-df | polars cumulative sum",
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![Column::new(
-                        "0_cumulative_sum".to_string(),
-                        vec![
-                            Value::test_int(1),
-                            Value::test_int(3),
-                            Value::test_int(6),
-                            Value::test_int(10),
-                            Value::test_int(15),
-                        ],
-                    )],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        },
-        Example {
-            description: "Cumulative sum for a series in reverse order",
-            example: "[1 2 3 4 5] | polars into-df | polars cumulative sum --reverse",
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![Column::new(
-                        "0_cumulative_sum".to_string(),
-                        vec![
-                            Value::test_int(15),
-                            Value::test_int(14),
-                            Value::test_int(12),
-                            Value::test_int(9),
-                            Value::test_int(5),
-                        ],
-                    )],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Cumulative sum for a series",
+                example: "[1 2 3 4 5] | polars into-df | polars cumulative sum",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "0_cumulative_sum".to_string(),
+                            vec![
+                                Value::test_int(1),
+                                Value::test_int(3),
+                                Value::test_int(6),
+                                Value::test_int(10),
+                                Value::test_int(15),
+                            ],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Cumulative sum for a series in reverse order",
+                example: "[1 2 3 4 5] | polars into-df | polars cumulative sum --reverse",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "0_cumulative_sum".to_string(),
+                            vec![
+                                Value::test_int(15),
+                                Value::test_int(14),
+                                Value::test_int(12),
+                                Value::test_int(9),
+                                Value::test_int(5),
+                            ],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
