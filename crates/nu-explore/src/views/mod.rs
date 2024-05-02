@@ -1,7 +1,6 @@
 mod binary;
 mod coloredtextw;
 mod cursor;
-mod information;
 mod interactive;
 mod preview;
 mod record;
@@ -22,7 +21,6 @@ use nu_protocol::{
 use ratatui::layout::Rect;
 
 pub use binary::BinaryView;
-pub use information::InformationView;
 pub use interactive::InteractiveView;
 pub use preview::Preview;
 pub use record::{Orientation, RecordView};
