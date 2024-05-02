@@ -87,10 +87,7 @@ impl CommunicationMode {
                     .map_err(|err| ShellError::IOError {
                         msg: format!("failed to open socket for plugin: {err}"),
                     })?;
-                Ok(PreparedServerCommunication::LocalSocket {
-                    name: name.clone(),
-                    listener,
-                })
+                Ok(PreparedServerCommunication::LocalSocket { listener })
             }
         }
     }
@@ -134,8 +131,6 @@ pub enum PreparedServerCommunication {
     /// Contains the listener to accept connections on. On Unix, the socket is unlinked on `Drop`.
     #[cfg(feature = "local-socket")]
     LocalSocket {
-        #[cfg_attr(windows, allow(dead_code))] // not used on Windows
-        name: std::ffi::OsString,
         listener: interprocess::local_socket::Listener,
     },
 }
