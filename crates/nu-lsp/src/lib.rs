@@ -1,10 +1,10 @@
-use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
+use lsp_server::{Connection, IoThreads, Message, RequestId, Response, ResponseError};
 use lsp_types::{
-    request::{Completion, GotoDefinition, HoverRequest, Request},
+    request::{Completion, GotoDefinition, HoverRequest, Request, WorkspaceConfiguration},
     CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
-    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
-    MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit,
-    Url,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams,
+    InitializeParams, Location, MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities,
+    TextDocumentSyncKind, TextEdit, Url,
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
@@ -24,6 +24,7 @@ use std::{
     time::Duration,
 };
 
+mod configuration;
 mod diagnostics;
 mod notification;
 
@@ -73,11 +74,33 @@ impl LanguageServer {
         })
         .expect("Must be serializable");
 
-        let _initialization_params = self
-            .connection
-            .initialize_while(server_capabilities, || !ctrlc.load(Ordering::SeqCst))
-            .into_diagnostic()?;
+        let initialize_params: InitializeParams = serde_json::from_value(
+            self.connection
+                .initialize_while(server_capabilities, || !ctrlc.load(Ordering::SeqCst))
+                .into_diagnostic()?,
+        )
+        .into_diagnostic()?;
 
+        if initialize_params
+            .capabilities
+            .workspace
+            .as_ref()
+            .and_then(|workspace| workspace.configuration)
+            .unwrap_or(false)
+        {
+            self.connection
+                .sender
+                .send(lsp_server::Message::Request(lsp_server::Request {
+                    id: RequestId::from(configuration::CONFIG_REQUEST_ID.to_string()),
+                    method: WorkspaceConfiguration::METHOD.to_string(),
+                    params: serde_json::json!({
+                        "items": [{ "section": "nu" }]
+                    }),
+                }))
+                .into_diagnostic()?;
+        }
+
+        let mut engine_state = engine_state;
         while !ctrlc.load(Ordering::SeqCst) {
             let msg = match self
                 .connection
@@ -128,7 +151,14 @@ impl LanguageServer {
                         .send(Message::Response(resp))
                         .into_diagnostic()?;
                 }
-                Message::Response(_) => {}
+                Message::Response(response) => {
+                    if response.id == RequestId::from(configuration::CONFIG_REQUEST_ID.to_string())
+                    {
+                        if let Some(config) = response.result {
+                            Self::configure_engine(&mut engine_state, config)
+                        }
+                    }
+                }
                 Message::Notification(notification) => {
                     if let Some(updated_file) = self.handle_lsp_notification(notification) {
                         let mut engine_state = engine_state.clone();
@@ -622,7 +652,9 @@ mod tests {
     use nu_test_support::fs::{fixtures, root};
     use std::sync::mpsc::Receiver;
 
-    pub fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
+    pub fn initialize_language_server(
+        config: Option<serde_json::Value>,
+    ) -> (Connection, Receiver<Result<()>>) {
         use std::sync::mpsc;
         let (client_connection, server_connection) = Connection::memory();
         let lsp_server = LanguageServer::initialize_connection(server_connection, None).unwrap();
@@ -630,7 +662,14 @@ mod tests {
         let (send, recv) = mpsc::channel();
         std::thread::spawn(move || {
             let engine_state = nu_cmd_lang::create_default_context();
-            let engine_state = nu_command::add_shell_command_context(engine_state);
+            let mut engine_state = nu_command::add_shell_command_context(engine_state);
+
+            let cwd = std::env::current_dir().expect("Could not get current working directory.");
+            engine_state.add_env_var(
+                "PWD".into(),
+                nu_protocol::Value::test_string(cwd.to_string_lossy()),
+            );
+
             send.send(lsp_server.serve_requests(engine_state, Arc::new(AtomicBool::new(false))))
         });
 
@@ -640,6 +679,13 @@ mod tests {
                 id: 1.into(),
                 method: Initialize::METHOD.to_string(),
                 params: serde_json::to_value(InitializeParams {
+                    capabilities: lsp_types::ClientCapabilities {
+                        workspace: Some(lsp_types::WorkspaceClientCapabilities {
+                            configuration: Some(true),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 })
                 .unwrap(),
@@ -658,12 +704,34 @@ mod tests {
             .recv_timeout(std::time::Duration::from_secs(2))
             .unwrap();
 
+        let configuration_response = client_connection
+            .receiver
+            .recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap();
+        let Message::Request(request) = configuration_response else {
+            panic!()
+        };
+
+        assert_eq!(request.method, WorkspaceConfiguration::METHOD);
+
+        client_connection
+            .sender
+            .send_timeout(
+                Message::Response(lsp_server::Response {
+                    id: request.id,
+                    result: config,
+                    error: None,
+                }),
+                std::time::Duration::from_secs(2),
+            )
+            .unwrap();
+
         (client_connection, recv)
     }
 
     #[test]
     fn shutdown_on_request() {
-        let (client_connection, recv) = initialize_language_server();
+        let (client_connection, recv) = initialize_language_server(None);
 
         client_connection
             .sender
@@ -689,7 +757,7 @@ mod tests {
 
     #[test]
     fn goto_definition_for_none_existing_file() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut none_existent_path = root();
         none_existent_path.push("none-existent.nu");
@@ -838,7 +906,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -869,7 +937,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -900,7 +968,7 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command_parameter() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -954,7 +1022,7 @@ mod tests {
 
     #[test]
     fn hover_on_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -981,7 +1049,7 @@ mod tests {
 
     #[test]
     fn hover_on_custom_command() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1011,7 +1079,7 @@ mod tests {
 
     #[test]
     fn hover_on_str_join() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1039,7 +1107,12 @@ mod tests {
         );
     }
 
-    fn complete(client_connection: &Connection, uri: Url, line: u32, character: u32) -> Message {
+    pub(crate) fn complete(
+        client_connection: &Connection,
+        uri: Url,
+        line: u32,
+        character: u32,
+    ) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -1066,7 +1139,7 @@ mod tests {
 
     #[test]
     fn complete_on_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1103,7 +1176,7 @@ mod tests {
 
     #[test]
     fn complete_command_with_space() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1141,7 +1214,7 @@ mod tests {
 
     #[test]
     fn complete_command_with_utf_line() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -1179,7 +1252,7 @@ mod tests {
 
     #[test]
     fn complete_keyword() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
