@@ -162,7 +162,9 @@ impl PreparedServerCommunication {
             }
             #[cfg(feature = "local-socket")]
             PreparedServerCommunication::LocalSocket { listener, .. } => {
-                use interprocess::local_socket::traits::{Listener, ListenerNonblockingMode};
+                use interprocess::local_socket::traits::{
+                    Listener, ListenerNonblockingMode, Stream,
+                };
                 use std::time::{Duration, Instant};
 
                 const RETRY_PERIOD: Duration = Duration::from_millis(1);
@@ -180,7 +182,9 @@ impl PreparedServerCommunication {
                     while let Ok(None) = child.try_wait() {
                         match listener.accept() {
                             Ok(stream) => {
-                                // Success!
+                                // Success! Ensure the stream is in nonblocking mode though, for
+                                // good measure. Had an issue without this on macOS.
+                                stream.set_nonblocking(false)?;
                                 result = Some(stream);
                                 break;
                             }
