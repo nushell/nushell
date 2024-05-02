@@ -12,8 +12,6 @@ use crate::{
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 
-type OptStyle = Option<NuStyle>;
-
 #[derive(Debug, Clone)]
 pub struct BinaryWidget<'a> {
     data: &'a [u8],
@@ -71,7 +69,7 @@ impl BinarySettings {
 
 #[derive(Debug, Default, Clone)]
 pub struct BinaryStyle {
-    color_index: OptStyle,
+    color_index: Option<NuStyle>,
     indent_index: Indent,
     indent_data: Indent,
     indent_ascii: Indent,
@@ -81,7 +79,7 @@ pub struct BinaryStyle {
 
 impl BinaryStyle {
     pub fn new(
-        color_index: OptStyle,
+        color_index: Option<NuStyle>,
         indent_index: Indent,
         indent_data: Indent,
         indent_ascii: Indent,
@@ -291,7 +289,7 @@ fn render_ascii_line(buf: &mut Buffer, x: u16, y: u16, line: &[u8], w: &BinaryWi
     size
 }
 
-fn render_ascii_char(buf: &mut Buffer, x: u16, y: u16, n: char, style: OptStyle) -> u16 {
+fn render_ascii_char(buf: &mut Buffer, x: u16, y: u16, n: char, style: Option<NuStyle>) -> u16 {
     let text = n.to_string();
 
     let mut p = Paragraph::new(text);
@@ -307,7 +305,14 @@ fn render_ascii_char(buf: &mut Buffer, x: u16, y: u16, n: char, style: OptStyle)
     1
 }
 
-fn render_hex_u8(buf: &mut Buffer, x: u16, y: u16, n: u8, big: bool, style: OptStyle) -> u16 {
+fn render_hex_u8(
+    buf: &mut Buffer,
+    x: u16,
+    y: u16,
+    n: u8,
+    big: bool,
+    style: Option<NuStyle>,
+) -> u16 {
     render_hex_usize(buf, x, y, n as usize, 2, big, style)
 }
 
@@ -318,7 +323,7 @@ fn render_hex_usize(
     n: usize,
     width: u16,
     big: bool,
-    style: OptStyle,
+    style: Option<NuStyle>,
 ) -> u16 {
     let text = usize_to_hex(n, width as usize, big);
     let mut p = Paragraph::new(text);
@@ -334,7 +339,7 @@ fn render_hex_usize(
     width
 }
 
-fn get_ascii_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
+fn get_ascii_char(_w: &BinaryWidget, n: u8) -> (char, Option<NuStyle>) {
     let (style, c) = categorize_byte(&n);
     let c = c.unwrap_or(n as char);
     let style = if style.is_plain() { None } else { Some(style) };
@@ -342,7 +347,7 @@ fn get_ascii_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
     (c, style)
 }
 
-fn get_segment_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
+fn get_segment_char(_w: &BinaryWidget, n: u8) -> (char, Option<NuStyle>) {
     let (style, c) = categorize_byte(&n);
     let c = c.unwrap_or(n as char);
     let style = if style.is_plain() { None } else { Some(style) };
@@ -350,7 +355,7 @@ fn get_segment_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
     (c, style)
 }
 
-fn get_index_style(w: &BinaryWidget) -> OptStyle {
+fn get_index_style(w: &BinaryWidget) -> Option<NuStyle> {
     w.style.color_index
 }
 
