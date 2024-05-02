@@ -19,9 +19,7 @@ use crate::{
     util::create_map,
 };
 
-use self::binary_widget::{
-    BinarySettings, BinaryStyle, BinaryStyleColors, BinaryWidget, BinaryWidgetState, Indent,
-};
+use self::binary_widget::{BinarySettings, BinaryStyle, BinaryStyleColors, BinaryWidget, Indent};
 
 use super::{cursor::XYCursor, Layout, View, ViewConfig};
 
@@ -60,9 +58,8 @@ impl BinaryView {
 
 impl View for BinaryView {
     fn draw(&mut self, f: &mut Frame, area: Rect, _cfg: ViewConfig<'_>, _layout: &mut Layout) {
-        let mut state = BinaryWidgetState::default();
         let widget = create_binary_widget(self);
-        f.render_stateful_widget(widget, area, &mut state);
+        f.render_widget(widget, area);
     }
 
     fn handle_input(

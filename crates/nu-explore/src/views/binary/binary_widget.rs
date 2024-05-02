@@ -4,7 +4,7 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     text::Span,
-    widgets::{Paragraph, StatefulWidget, Widget},
+    widgets::{Paragraph, Widget},
 };
 
 use crate::{
@@ -122,13 +122,8 @@ impl BinaryStyleColors {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct BinaryWidgetState {}
-
-impl StatefulWidget for BinaryWidget<'_> {
-    type State = BinaryWidgetState;
-
-    fn render(self, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
+impl Widget for BinaryWidget<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
         let min_width = get_widget_width(&self);
 
         if (area.width as usize) < min_width {
