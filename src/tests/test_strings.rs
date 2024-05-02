@@ -74,16 +74,20 @@ fn case_insensitive_sort_columns() -> TestResult {
 
 #[test]
 fn raw_string() -> TestResult {
-    run_test(r#"r@'abcde""fghi"''''jkl'@"#, r#"abcde""fghi"''''jkl"#)?;
-    run_test(r#"r@@'abcde""fghi"''''@jkl'@@"#, r#"abcde""fghi"''''@jkl"#)?;
+    run_test(r#"r#'abcde""fghi"''''jkl'#"#, r#"abcde""fghi"''''jkl"#)?;
+    run_test(r#"r##'abcde""fghi"''''#jkl'##"#, r#"abcde""fghi"''''#jkl"#)?;
     run_test(
-        r#"r@@@'abcde""fghi"'''@@'@jkl'@@@"#,
-        r#"abcde""fghi"'''@@'@jkl"#,
+        r#"r###'abcde""fghi"'''##'#jkl'###"#,
+        r#"abcde""fghi"'''##'#jkl"#,
     )?;
-    run_test("r@''@", "")
+    run_test("r#''#", "")?;
+    run_test(
+        r#"r#'a string with sharp inside # and ends with #'#"#,
+        "a string with sharp inside # and ends with #",
+    )
 }
 
 #[test]
 fn incomplete_raw_string() -> TestResult {
-    fail_test("r@abc", "expected '")
+    fail_test("r#abc", "expected '")
 }
