@@ -69,6 +69,7 @@ let dark_theme = {
     shape_table: blue_bold
     shape_variable: purple
     shape_vardecl: purple
+    shape_raw_string: light_purple
 }
 
 let light_theme = {
@@ -134,6 +135,7 @@ let light_theme = {
     shape_table: blue_bold
     shape_variable: purple
     shape_vardecl: purple
+    shape_raw_string: light_purple
 }
 
 # External completer example
