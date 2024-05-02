@@ -66,7 +66,7 @@ impl PluginRegistryFile {
         error_span: Option<Span>,
     ) -> Result<(), ShellError> {
         // Update the Nushell version before writing
-        self.nushell_version = env!("CARGO_PKG_VERSION").to_owned();
+        env!("CARGO_PKG_VERSION").clone_into(&mut self.nushell_version);
 
         // Format is brotli compressed messagepack
         let mut brotli_writer =

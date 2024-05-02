@@ -47,10 +47,7 @@ fn test_rounded() {
          ╰───┴───┴───┴───╯"
     );
 
-    assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::rounded()),
-        ""
-    );
+    assert_eq!(create_table_with_size(vec![], true, theme::rounded()), "");
 }
 
 #[test]
@@ -98,10 +95,7 @@ fn test_basic() {
          +---+---+---+---+"
     );
 
-    assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::basic()),
-        ""
-    );
+    assert_eq!(create_table_with_size(vec![], true, theme::basic()), "");
 }
 
 #[test]
@@ -146,7 +140,7 @@ fn test_reinforced() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::reinforced()),
+        create_table_with_size(vec![], true, theme::reinforced()),
         ""
     );
 }
@@ -196,10 +190,7 @@ fn test_compact() {
         )
     );
 
-    assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::compact()),
-        ""
-    );
+    assert_eq!(create_table_with_size(vec![], true, theme::compact()), "");
 }
 
 #[test]
@@ -248,7 +239,7 @@ fn test_compact_double() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::compact_double()),
+        create_table_with_size(vec![], true, theme::compact_double()),
         ""
     );
 }
@@ -296,10 +287,7 @@ fn test_heavy() {
          ┗━━━┻━━━┻━━━┻━━━┛"
     );
 
-    assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::heavy()),
-        ""
-    );
+    assert_eq!(create_table_with_size(vec![], true, theme::heavy()), "");
 }
 
 #[test]
@@ -334,10 +322,7 @@ fn test_light() {
         concat!(" 0   1   2   3 \n", " 0   1   2   3 ")
     );
 
-    assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::light()),
-        ""
-    );
+    assert_eq!(create_table_with_size(vec![], true, theme::light()), "");
 }
 
 #[test]
@@ -367,10 +352,7 @@ fn test_none() {
         concat!(" 0   1   2   3 \n", " 0   1   2   3 ")
     );
 
-    assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::none()),
-        ""
-    );
+    assert_eq!(create_table_with_size(vec![], true, theme::none()), "");
 }
 
 #[test]
@@ -418,10 +400,7 @@ fn test_thin() {
          └───┴───┴───┴───┘"
     );
 
-    assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::thin()),
-        ""
-    );
+    assert_eq!(create_table_with_size(vec![], true, theme::thin()), "");
 }
 
 #[test]
@@ -469,10 +448,7 @@ fn test_with_love() {
         )
     );
 
-    assert_eq!(
-        create_table_with_size(vec![row(4); 0], true, theme::with_love()),
-        ""
-    );
+    assert_eq!(create_table_with_size(vec![], true, theme::with_love()), "");
 }
 
 fn create_table(data: Vec<Vec<CellInfo<String>>>, with_header: bool, theme: theme) -> String {
