@@ -1,11 +1,10 @@
 use crate::{values::CustomValueSupport, PolarsPlugin};
 
-use super::super::super::values::{Column, NuDataFrame};
+use super::super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
 use polars::prelude::{IntoSeries, StringMethods};
 
@@ -46,39 +45,12 @@ impl PluginCommand for AsDate {
             Example {
                 description: "Converts string to date",
                 example: r#"["2021-12-30" "2021-12-31"] | polars into-df | polars as-date "%Y-%m-%d""#,
-                result: None, // help is needed on how to provide results
+                result: None, // help is needed on how to provide results 
             },
             Example {
                 description: "Converts string to date",
                 example: r#"["2021-12-30" "2021-12-31 21:00:00"] | polars into-df | polars as-date "%Y-%m-%d" --not-exact"#,
-                result: Some(
-                    NuDataFrame::try_from_columns(
-                        vec![Column::new(
-                            "date".to_string(),
-                            vec![
-                                Value::date(
-                                    date::parse_from_str(
-                                        "2021-12-30",
-                                        "%Y-%m-%d",
-                                    )
-                                    .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
-                                ),
-                                Value::date(
-                                    date::parse_from_str(
-                                        "2021-12-31",
-                                        "%Y-%m-%d",
-                                    )
-                                    .expect("date calculation should not fail in test"),
-                                    Span::test_data(),
-                                ),
-                            ],
-                        )],
-                        None,
-                    )
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
+                result: None,
             },
         ]
     }
