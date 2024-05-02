@@ -51,7 +51,7 @@ fn test_du_flag_max_depth() {
 #[case("a][c")]
 fn du_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("du_test_16", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile(src_name)]);
+        sandbox.with_files(&[EmptyFile(src_name)]);
 
         let src = dirs.test().join(src_name);
 

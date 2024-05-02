@@ -5,7 +5,7 @@ use nu_test_support::playground::Playground;
 #[test]
 fn checks_if_existing_file_exists() {
     Playground::setup("path_exists_1", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("spam.txt")]);
+        sandbox.with_files(&[EmptyFile("spam.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(),

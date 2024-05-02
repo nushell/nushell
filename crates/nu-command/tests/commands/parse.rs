@@ -8,7 +8,7 @@ mod simple {
     #[test]
     fn extracts_fields_from_the_given_the_pattern() {
         Playground::setup("parse_test_1", |dirs, sandbox| {
-            sandbox.with_files(vec![Stub::FileWithContentToBeTrimmed(
+            sandbox.with_files(&[Stub::FileWithContentToBeTrimmed(
                 "key_value_separated_arepa_ingredients.txt",
                 r#"
                     VAR1=Cheese
@@ -117,7 +117,7 @@ mod regex {
     #[test]
     fn extracts_fields_with_all_named_groups() {
         Playground::setup("parse_test_regex_1", |dirs, sandbox| {
-            sandbox.with_files(nushell_git_log_oneline());
+            sandbox.with_files(&nushell_git_log_oneline());
 
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
@@ -136,7 +136,7 @@ mod regex {
     #[test]
     fn extracts_fields_with_all_unnamed_groups() {
         Playground::setup("parse_test_regex_2", |dirs, sandbox| {
-            sandbox.with_files(nushell_git_log_oneline());
+            sandbox.with_files(&nushell_git_log_oneline());
 
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
@@ -155,7 +155,7 @@ mod regex {
     #[test]
     fn extracts_fields_with_named_and_unnamed_groups() {
         Playground::setup("parse_test_regex_3", |dirs, sandbox| {
-            sandbox.with_files(nushell_git_log_oneline());
+            sandbox.with_files(&nushell_git_log_oneline());
 
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
@@ -174,7 +174,7 @@ mod regex {
     #[test]
     fn errors_with_invalid_regex() {
         Playground::setup("parse_test_regex_1", |dirs, sandbox| {
-            sandbox.with_files(nushell_git_log_oneline());
+            sandbox.with_files(&nushell_git_log_oneline());
 
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
@@ -216,7 +216,7 @@ mod regex {
     fn parse_handles_external_stream_chunking() {
         Playground::setup("parse_test_streaming_1", |dirs, sandbox| {
             let data: String = "abcdefghijklmnopqrstuvwxyz".repeat(1000);
-            sandbox.with_files(vec![Stub::FileWithContent("data.txt", &data)]);
+            sandbox.with_files(&[Stub::FileWithContent("data.txt", &data)]);
 
             let actual = nu!(
                 cwd: dirs.test(),

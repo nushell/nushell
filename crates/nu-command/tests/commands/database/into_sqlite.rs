@@ -304,7 +304,7 @@ fn into_sqlite_big_insert() {
 
         let nuon_path = dirs.test().join(NUON_FILE_NAME);
 
-        playground.with_files(vec![Stub::EmptyFile(&nuon_path.to_string_lossy())]);
+        playground.with_files(&[Stub::EmptyFile(&nuon_path.to_string_lossy())]);
 
         let mut expected_rows = Vec::new();
         let mut nuon_file = std::fs::OpenOptions::new()

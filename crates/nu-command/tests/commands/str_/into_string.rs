@@ -50,7 +50,7 @@ fn from_string() {
 #[test]
 fn from_filename() {
     Playground::setup("from_filename", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "sample.toml",
             r#"
                 [dependency]
@@ -70,7 +70,7 @@ fn from_filename() {
 #[test]
 fn from_filesize() {
     Playground::setup("from_filesize", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "sample.toml",
             r#"
                 [dependency]

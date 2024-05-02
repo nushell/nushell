@@ -17,7 +17,7 @@ fn simple_get_list() {
 #[test]
 fn fetches_a_row() {
     Playground::setup("get_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                 nu_party_venue = "zion"
@@ -33,7 +33,7 @@ fn fetches_a_row() {
 #[test]
 fn fetches_by_index() {
     Playground::setup("get_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                 [package]
@@ -53,7 +53,7 @@ fn fetches_by_index() {
 #[test]
 fn fetches_by_column_path() {
     Playground::setup("get_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                 [package]
@@ -70,7 +70,7 @@ fn fetches_by_column_path() {
 #[test]
 fn column_paths_are_either_double_quoted_or_regular_unquoted_words_separated_by_dot() {
     Playground::setup("get_test_4", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                 [package]
@@ -88,7 +88,7 @@ fn column_paths_are_either_double_quoted_or_regular_unquoted_words_separated_by_
 #[test]
 fn fetches_more_than_one_column_path() {
     Playground::setup("get_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                 [[fortune_tellers]]
@@ -121,7 +121,7 @@ fn fetches_more_than_one_column_path() {
 #[test]
 fn errors_fetching_by_column_not_present() {
     Playground::setup("get_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                 [tacos]
@@ -141,7 +141,7 @@ fn errors_fetching_by_column_not_present() {
 #[test]
 fn errors_fetching_by_column_using_a_number() {
     Playground::setup("get_test_7", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                 [spanish_lesson]
@@ -158,7 +158,7 @@ fn errors_fetching_by_column_using_a_number() {
 #[test]
 fn errors_fetching_by_index_out_of_bounds() {
     Playground::setup("get_test_8", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                 [spanish_lesson]

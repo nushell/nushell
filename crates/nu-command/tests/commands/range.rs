@@ -5,7 +5,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn selects_a_row() {
     Playground::setup("range_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("tests.txt")]);
+        sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("tests.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -24,7 +24,7 @@ fn selects_a_row() {
 #[test]
 fn selects_some_rows() {
     Playground::setup("range_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("notes.txt"),
             EmptyFile("tests.txt"),
             EmptyFile("persons.txt"),
@@ -47,7 +47,7 @@ fn selects_some_rows() {
 #[test]
 fn negative_indices() {
     Playground::setup("range_test_negative_indices", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("notes.txt"),
             EmptyFile("tests.txt"),
             EmptyFile("persons.txt"),
