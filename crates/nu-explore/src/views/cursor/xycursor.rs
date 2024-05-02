@@ -33,22 +33,12 @@ impl XYCursor {
     }
 
     #[allow(dead_code)]
-    pub fn row_offset(&self) -> usize {
-        self.y.offset()
-    }
-
-    #[allow(dead_code)]
     pub fn column_limit(&self) -> usize {
         self.x.end()
     }
 
     pub fn row_limit(&self) -> usize {
         self.y.end()
-    }
-
-    #[allow(dead_code)]
-    pub fn column_offset(&self) -> usize {
-        self.x.offset()
     }
 
     pub fn row_starts_at(&self) -> usize {
@@ -80,11 +70,6 @@ impl XYCursor {
         self.y.next(1)
     }
 
-    #[allow(dead_code)]
-    pub fn next_row_by(&mut self, i: usize) -> bool {
-        self.y.next(i)
-    }
-
     pub fn next_row_page(&mut self) -> bool {
         self.y.next_window()
     }
@@ -99,11 +84,6 @@ impl XYCursor {
 
     pub fn prev_row(&mut self) -> bool {
         self.y.prev(1)
-    }
-
-    #[allow(dead_code)]
-    pub fn prev_row_by(&mut self, i: usize) -> bool {
-        self.y.prev(i)
     }
 
     pub fn prev_row_page(&mut self) -> bool {
