@@ -26,17 +26,8 @@ use super::{cursor::XYCursor, Layout, View, ViewConfig};
 #[derive(Debug, Clone)]
 pub struct BinaryView {
     data: Vec<u8>,
-    mode: Option<CursorMode>,
     cursor: XYCursor,
     settings: Settings,
-}
-
-#[allow(dead_code)] // todo:
-#[derive(Debug, Clone, Copy)]
-enum CursorMode {
-    Index,
-    Data,
-    Ascii,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -49,7 +40,6 @@ impl BinaryView {
     pub fn new(data: Vec<u8>) -> Self {
         Self {
             data,
-            mode: None,
             cursor: XYCursor::default(),
             settings: Settings::default(),
         }
@@ -73,7 +63,7 @@ impl View for BinaryView {
         let result = handle_event_view_mode(self, &key);
 
         if matches!(&result, Some(Transition::Ok)) {
-            let report = create_report(self.mode, self.cursor);
+            let report = create_report(self.cursor);
             info.status = Some(report);
         }
 
@@ -236,22 +226,17 @@ fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-fn create_report(mode: Option<CursorMode>, cursor: XYCursor) -> Report {
+fn create_report(cursor: XYCursor) -> Report {
     let covered_percent = report_row_position(cursor);
     let cursor = report_cursor_position(cursor);
-    let mode = report_mode_name(mode);
+    let mode = report_mode_name();
     let msg = String::new();
 
     Report::new(msg, Severity::Info, mode, cursor, covered_percent)
 }
 
-fn report_mode_name(cursor: Option<CursorMode>) -> String {
-    match cursor {
-        Some(CursorMode::Index) => String::from("ADDR"),
-        Some(CursorMode::Data) => String::from("DUMP"),
-        Some(CursorMode::Ascii) => String::from("TEXT"),
-        None => String::from("VIEW"),
-    }
+fn report_mode_name() -> String {
+    String::from("VIEW")
 }
 
 fn report_row_position(cursor: XYCursor) -> String {
