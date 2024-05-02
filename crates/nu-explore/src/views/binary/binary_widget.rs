@@ -71,7 +71,7 @@ impl BinarySettings {
 
 #[derive(Debug, Default, Clone)]
 pub struct BinaryStyle {
-    colors: BinaryStyleColors,
+    color_index: OptStyle,
     indent_index: Indent,
     indent_data: Indent,
     indent_ascii: Indent,
@@ -81,7 +81,7 @@ pub struct BinaryStyle {
 
 impl BinaryStyle {
     pub fn new(
-        colors: BinaryStyleColors,
+        color_index: OptStyle,
         indent_index: Indent,
         indent_data: Indent,
         indent_ascii: Indent,
@@ -89,7 +89,7 @@ impl BinaryStyle {
         show_split: bool,
     ) -> Self {
         Self {
-            colors,
+            color_index,
             indent_index,
             indent_data,
             indent_ascii,
@@ -108,17 +108,6 @@ pub struct Indent {
 impl Indent {
     pub fn new(left: u16, right: u16) -> Self {
         Self { left, right }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct BinaryStyleColors {
-    pub index: OptStyle,
-}
-
-impl BinaryStyleColors {
-    pub fn new(index: OptStyle) -> Self {
-        Self { index }
     }
 }
 
@@ -362,7 +351,7 @@ fn get_segment_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
 }
 
 fn get_index_style(w: &BinaryWidget) -> OptStyle {
-    w.style.colors.index
+    w.style.color_index
 }
 
 fn render_space(buf: &mut Buffer, x: u16, y: u16, height: u16, padding: u16) -> u16 {
