@@ -184,7 +184,8 @@ pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf,
     let cwd = engine_state.cwd(Some(stack))?;
     // `EngineState::cwd()` always returns absolute path.
     // We're using `canonicalize_with` instead of `fs::canonicalize()` because
-    // we still need to simplify Windows paths.
+    // we still need to simplify Windows paths. "." is safe because `cwd` should
+    // be an absolute path already.
     canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
         dir: cwd.to_string_lossy().to_string(),
         span: Span::unknown(),
@@ -199,7 +200,8 @@ pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, Shell
     let cwd = working_set.permanent_state.cwd(None)?;
     // `EngineState::cwd()` always returns absolute path.
     // We're using `canonicalize_with` instead of `fs::canonicalize()` because
-    // we still need to simplify Windows paths.
+    // we still need to simplify Windows paths. "." is safe because `cwd` should
+    // be an absolute path already.
     canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
         dir: cwd.to_string_lossy().to_string(),
         span: Span::unknown(),
