@@ -1703,8 +1703,6 @@ impl Value {
     ///
     /// If the closure returns `Err`, the traversal will stop.
     ///
-    /// If collecting lazy records to check them as well is desirable, make sure to do it in your
-    /// closure. The traversal continues on whatever modifications you make during the closure.
     /// Captures of closure values are currently visited, as they are values owned by the closure.
     pub fn recurse_mut<E>(
         &mut self,
@@ -2004,7 +2002,7 @@ impl Value {
     /// as it will point into unknown source when used in errors.
     ///
     /// Returns a `Vec` containing one of each value case (`Value::Int`, `Value::String`, etc.)
-    /// except for `Value::LazyRecord` and `Value::CustomValue`.
+    /// except for `Value::CustomValue`.
     pub fn test_values() -> Vec<Value> {
         vec![
             Value::test_bool(false),

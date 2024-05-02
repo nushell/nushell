@@ -2,8 +2,6 @@ use nu_protocol::{CustomValue, IntoSpanned, ShellError, Spanned, Value};
 
 /// Do something with all [`CustomValue`]s recursively within a `Value`. This is not limited to
 /// plugin custom values.
-///
-/// `LazyRecord`s will be collected to plain values for completeness.
 pub fn with_custom_values_in<E>(
     value: &mut Value,
     mut f: impl FnMut(Spanned<&mut Box<dyn CustomValue>>) -> Result<(), E>,
