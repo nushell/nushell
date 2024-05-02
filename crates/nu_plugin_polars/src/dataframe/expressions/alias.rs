@@ -67,7 +67,7 @@ impl PluginCommand for ExprAlias {
         let alias: String = call.req(0)?;
 
         let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
-        let expr: NuExpression = expr.to_polars().alias(alias.as_str()).into();
+        let expr: NuExpression = expr.into_polars().alias(alias.as_str()).into();
 
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
