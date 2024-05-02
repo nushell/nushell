@@ -4,7 +4,11 @@ use nu_protocol::{
     Value,
 };
 
-use crate::{dataframe::values::Column, values::CustomValueSupport, PolarsPlugin};
+use crate::{
+    dataframe::values::Column,
+    values::{CustomValueSupport, NuLazyFrame},
+    PolarsPlugin,
+};
 
 use super::super::values::NuDataFrame;
 
@@ -36,7 +40,7 @@ impl PluginCommand for SliceDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Create new dataframe from a slice of the rows",
-            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars slice 0 1",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars slice 0 1 | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -69,12 +73,12 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let offset: i64 = call.req(0)?;
-    let size: usize = call.req(1)?;
+    let size: i64 = call.req(1)?;
 
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
-    let res = df.as_ref().slice(offset, size);
-    let res = NuDataFrame::new(res);
+    let res = df.to_polars().slice(offset, size as u32);
+    let res = NuLazyFrame::new(res);
 
     res.to_pipeline_data(plugin, engine, call.head)
 }

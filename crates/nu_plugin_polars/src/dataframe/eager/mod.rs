@@ -8,7 +8,6 @@ mod query_df;
 mod sample;
 mod schema;
 mod shape;
-mod slice;
 mod sql_context;
 mod sql_expr;
 mod summary;
@@ -35,7 +34,6 @@ pub use query_df::QueryDf;
 pub use sample::SampleDF;
 pub use schema::SchemaCmd;
 pub use shape::ShapeDF;
-pub use slice::SliceDF;
 pub use sql_context::SQLContext;
 pub use summary::Summary;
 pub use take::TakeDF;
@@ -59,7 +57,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(LastDF),
         Box::new(SampleDF),
         Box::new(ShapeDF),
-        Box::new(SliceDF),
         Box::new(SchemaCmd),
         Box::new(TakeDF),
         Box::new(ToNu),

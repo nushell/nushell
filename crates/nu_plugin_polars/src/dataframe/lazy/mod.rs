@@ -20,6 +20,7 @@ mod melt;
 mod quantile;
 mod rename;
 mod select;
+mod slice;
 mod sort_by_expr;
 mod to_lazy;
 
@@ -67,6 +68,7 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazySortBy),
         Box::new(LazyQuantile),
         Box::new(rename::RenameDF),
+        Box::new(slice::SliceDF),
         Box::new(ToLazyFrame),
         Box::new(ToLazyGroupBy),
     ]
