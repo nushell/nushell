@@ -74,12 +74,13 @@ impl PluginCommand for SampleDF {
                     NuDataFrame::try_from_columns(
                         vec![
                             Column::new("a".to_string(), vec![Value::test_int(5)]),
-                            Column::new("b".to_string(), vec![Value::test_int(6)]), ],
-                            None,
-                        )
-                        .expect("should not fail")
-                        .into_value(Span::test_data()),
+                            Column::new("b".to_string(), vec![Value::test_int(6)]),
+                        ],
+                        None,
                     )
+                    .expect("should not fail")
+                    .into_value(Span::test_data()),
+                )
             },
 
         ]
