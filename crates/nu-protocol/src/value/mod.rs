@@ -798,7 +798,7 @@ impl Value {
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
-            Value::Custom { val, .. } => Type::Custom(val.type_name()),
+            Value::Custom { val, .. } => Type::Custom(val.type_name().into()),
         }
     }
 

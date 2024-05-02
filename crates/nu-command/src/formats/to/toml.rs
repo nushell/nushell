@@ -12,7 +12,7 @@ impl Command for ToToml {
 
     fn signature(&self) -> Signature {
         Signature::build("to toml")
-            .input_output_types(vec![(Type::Record(vec![]), Type::String)])
+            .input_output_types(vec![(Type::record(), Type::String)])
             .category(Category::Formats)
     }
 

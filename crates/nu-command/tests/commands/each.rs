@@ -73,3 +73,9 @@ fn each_element_break_command() {
 
     assert_eq!(actual.out, "[1, 2, 5, 4]");
 }
+
+#[test]
+fn errors_in_nested_each_show() {
+    let actual = nu!("[[1,2]] | each {|x| $x | each {|y| error make {msg: \"oh noes\"} } }");
+    assert!(actual.err.contains("oh noes"))
+}

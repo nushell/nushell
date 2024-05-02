@@ -35,12 +35,12 @@ with 'transpose' first."#
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+                (Type::table(), Type::List(Box::new(Type::Any))),
                 (Type::Any, Type::Any),
             ])
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run.",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
@@ -49,53 +49,47 @@ with 'transpose' first."#
     }
 
     fn examples(&self) -> Vec<Example> {
-        let stream_test_1 = vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)];
-
-        let stream_test_2 = vec![
-            Value::nothing(Span::test_data()),
-            Value::test_string("found 2!"),
-            Value::nothing(Span::test_data()),
-        ];
-
         vec![
             Example {
                 example: "[1 2 3] | each {|e| 2 * $e }",
                 description: "Multiplies elements in the list",
-                result: Some(Value::list(stream_test_1, Span::test_data())),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(4),
+                    Value::test_int(6),
+                ])),
             },
             Example {
                 example: "{major:2, minor:1, patch:4} | values | each {|| into string }",
                 description: "Produce a list of values in the record, converted to string",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_string("2"),
-                        Value::test_string("1"),
-                        Value::test_string("4"),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("2"),
+                    Value::test_string("1"),
+                    Value::test_string("4"),
+                ])),
             },
             Example {
                 example: r#"[1 2 3 2] | each {|e| if $e == 2 { "two" } }"#,
                 description: "Produce a list that has \"two\" for each 2 in the input",
-                result: Some(Value::list(
-                    vec![Value::test_string("two"), Value::test_string("two")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_string("two"),
+                    Value::test_string("two"),
+                ])),
             },
             Example {
                 example: r#"[1 2 3] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::list(
-                    vec![Value::test_string("found 2 at 1!")],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
             },
             Example {
                 example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
                 description: "Iterate over each element, keeping null results",
-                result: Some(Value::list(stream_test_2, Span::test_data())),
+                result: Some(Value::test_list(vec![
+                    Value::nothing(Span::test_data()),
+                    Value::test_string("found 2!"),
+                    Value::nothing(Span::test_data()),
+                ])),
             },
         ]
     }
@@ -124,6 +118,17 @@ with 'transpose' first."#
                         let span = value.span();
                         let is_error = value.is_error();
                         match closure.run_with_value(value) {
+                            Ok(PipelineData::ListStream(s, ..)) => {
+                                let mut vals = vec![];
+                                for v in s {
+                                    if let Value::Error { .. } = v {
+                                        return Some(v);
+                                    } else {
+                                        vals.push(v)
+                                    }
+                                }
+                                Some(Value::list(vals, span))
+                            }
                             Ok(data) => Some(data.into_value(head)),
                             Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
                             Err(ShellError::Break { .. }) => None,

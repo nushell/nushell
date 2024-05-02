@@ -24,7 +24,7 @@ use std::{
 type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
 
 #[cfg(feature = "plugin")]
-use crate::{PluginCacheFile, PluginCacheItem, RegisteredPlugin};
+use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
 pub static PWD_ENV: &str = "PWD";
 
@@ -267,10 +267,10 @@ impl EngineState {
         }
 
         #[cfg(feature = "plugin")]
-        if !delta.plugin_cache_items.is_empty() {
+        if !delta.plugin_registry_items.is_empty() {
             // Update the plugin file with the new signatures.
             if self.plugin_path.is_some() {
-                self.update_plugin_file(std::mem::take(&mut delta.plugin_cache_items))?;
+                self.update_plugin_file(std::mem::take(&mut delta.plugin_registry_items))?;
             }
         }
 
@@ -482,7 +482,7 @@ impl EngineState {
     #[cfg(feature = "plugin")]
     pub fn update_plugin_file(
         &self,
-        updated_items: Vec<PluginCacheItem>,
+        updated_items: Vec<PluginRegistryItem>,
     ) -> Result<(), ShellError> {
         // Updating the signatures plugin file with the added signatures
         use std::fs::File;
@@ -500,10 +500,10 @@ impl EngineState {
 
         // Read the current contents of the plugin file if it exists
         let mut contents = match File::open(plugin_path.as_path()) {
-            Ok(mut plugin_file) => PluginCacheFile::read_from(&mut plugin_file, None),
+            Ok(mut plugin_file) => PluginRegistryFile::read_from(&mut plugin_file, None),
             Err(err) => {
                 if err.kind() == std::io::ErrorKind::NotFound {
-                    Ok(PluginCacheFile::default())
+                    Ok(PluginRegistryFile::default())
                 } else {
                     Err(ShellError::GenericError {
                         error: "Failed to open plugin file".into(),

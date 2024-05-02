@@ -1,15 +1,15 @@
-use super::{HelpExample, HelpManual, ViewCommand};
+use super::ViewCommand;
 use crate::{
     nu_common::{collect_pipeline, has_simple_value, run_command_with_value},
     pager::Frame,
     views::{Layout, Orientation, Preview, RecordView, View, ViewConfig},
 };
+use anyhow::Result;
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
 use ratatui::layout::Rect;
-use std::io::{self, Result};
 
 #[derive(Debug, Default, Clone)]
 pub struct NuCmd {
@@ -37,30 +37,6 @@ impl ViewCommand for NuCmd {
         ""
     }
 
-    fn help(&self) -> Option<HelpManual> {
-        let examples = vec![
-            HelpExample::new(
-                "where type == 'file'",
-                "Filter data to show only rows whose type is 'file'",
-            ),
-            HelpExample::new(
-                "get scope.examples",
-                "Navigate to a deeper value inside the data",
-            ),
-            HelpExample::new("open Cargo.toml", "Open a Cargo.toml file"),
-        ];
-
-        Some(HelpManual {
-            name: "nu",
-            description:
-                "Run a Nushell command. The data currently being explored is piped into it.",
-            examples,
-            arguments: vec![],
-            input: vec![],
-            config_options: vec![],
-        })
-    }
-
     fn parse(&mut self, args: &str) -> Result<()> {
         args.trim().clone_into(&mut self.command);
 
@@ -75,12 +51,11 @@ impl ViewCommand for NuCmd {
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
 
-        let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let pipeline = run_command_with_value(&self.command, &value, engine_state, stack)?;
 
         let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 
-        let (columns, values) = collect_pipeline(pipeline);
+        let (columns, values) = collect_pipeline(pipeline)?;
 
         if let Some(value) = has_simple_value(&values) {
             let text = value.to_abbreviated_string(&engine_state.config);

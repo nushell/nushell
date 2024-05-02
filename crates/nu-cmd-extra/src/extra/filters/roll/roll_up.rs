@@ -16,7 +16,7 @@ impl Command for RollUp {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             // TODO: It also operates on List
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .named("by", SyntaxShape::Int, "Number of rows to roll", Some('b'))
             .category(Category::Filters)
     }

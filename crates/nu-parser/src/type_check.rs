@@ -90,8 +90,8 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Duration, None),
                 (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
@@ -146,8 +146,8 @@ pub fn math_result_type(
                 (Type::Duration, Type::Duration) => (Type::Duration, None),
                 (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
@@ -197,8 +197,8 @@ pub fn math_result_type(
                 (Type::Duration, Type::Float) => (Type::Duration, None),
                 (Type::Float, Type::Duration) => (Type::Duration, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
@@ -246,8 +246,8 @@ pub fn math_result_type(
                 (Type::Number, Type::Float) => (Type::Number, None),
                 (Type::Float, Type::Number) => (Type::Number, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
@@ -296,8 +296,8 @@ pub fn math_result_type(
                 (Type::Duration, Type::Int) => (Type::Duration, None),
                 (Type::Duration, Type::Float) => (Type::Duration, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Any, _) => (Type::Any, None),
                 (_, Type::Any) => (Type::Any, None),
@@ -380,10 +380,8 @@ pub fn math_result_type(
                 match (&lhs.ty, &rhs.ty) {
                     (Type::Bool, Type::Bool) => (Type::Bool, None),
 
-                    (Type::Custom(a), Type::Custom(b)) if a == b => {
-                        (Type::Custom(a.to_string()), None)
-                    }
-                    (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                    (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                    (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                     (Type::Any, _) => (Type::Any, None),
                     (_, Type::Any) => (Type::Any, None),
@@ -434,8 +432,8 @@ pub fn math_result_type(
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Nothing, _) => (Type::Nothing, None),
                 (_, Type::Nothing) => (Type::Nothing, None),
@@ -484,8 +482,8 @@ pub fn math_result_type(
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Nothing, _) => (Type::Nothing, None),
                 (_, Type::Nothing) => (Type::Nothing, None),
@@ -534,8 +532,8 @@ pub fn math_result_type(
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -584,8 +582,8 @@ pub fn math_result_type(
                 (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -620,14 +618,14 @@ pub fn math_result_type(
                 }
             },
             Operator::Comparison(Comparison::Equal) => match (&lhs.ty, &rhs.ty) {
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 _ => (Type::Bool, None),
             },
             Operator::Comparison(Comparison::NotEqual) => match (&lhs.ty, &rhs.ty) {
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 _ => (Type::Bool, None),
             },
@@ -636,8 +634,8 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::String, _) => {
                     *op = Expression::garbage(op.span);
@@ -671,8 +669,8 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::String, _) => {
                     *op = Expression::garbage(op.span);
@@ -706,8 +704,8 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::String, _) => {
                     *op = Expression::garbage(op.span);
@@ -741,8 +739,8 @@ pub fn math_result_type(
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::String, _) => {
                     *op = Expression::garbage(op.span);
@@ -777,8 +775,8 @@ pub fn math_result_type(
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::String, Type::Record(_)) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),
@@ -815,8 +813,8 @@ pub fn math_result_type(
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::String, Type::Record(_)) => (Type::Bool, None),
 
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
+                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
+                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
 
                 (Type::Any, _) => (Type::Bool, None),
                 (_, Type::Any) => (Type::Bool, None),

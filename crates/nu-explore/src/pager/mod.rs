@@ -15,6 +15,7 @@ use crate::{
     util::map_into_value,
     views::{util::nu_style_to_tui, ViewConfig},
 };
+use anyhow::Result;
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
@@ -34,7 +35,7 @@ use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 use std::{
     cmp::min,
     collections::HashMap,
-    io::{self, Result, Stdout},
+    io::{self, Stdout},
     result,
     sync::atomic::Ordering,
 };
@@ -143,6 +144,7 @@ impl<'a> Pager<'a> {
 
 #[derive(Debug, Clone)]
 pub enum Transition {
+    // TODO: should we add a noop transition instead of doing Option<Transition> everywhere?
     Ok,
     Exit,
     Cmd(String),
@@ -155,8 +157,9 @@ pub struct PagerConfig<'a> {
     pub lscolors: &'a LsColors,
     pub config: ConfigMap,
     pub style: StyleConfig,
+    // If true, when quitting output the value of the cell the cursor was on
     pub peek_value: bool,
-    pub reverse: bool,
+    pub tail: bool,
 }
 
 impl<'a> PagerConfig<'a> {
@@ -172,7 +175,7 @@ impl<'a> PagerConfig<'a> {
             config,
             lscolors,
             peek_value: false,
-            reverse: false,
+            tail: false,
             style: StyleConfig::default(),
         }
     }
@@ -247,7 +250,7 @@ fn render_ui(
         {
             let info = info.clone();
             term.draw(|f| {
-                draw_frame(f, &mut view_stack.view, pager, &mut layout, info);
+                draw_frame(f, &mut view_stack.curr_view, pager, &mut layout, info);
             })?;
         }
 
@@ -259,7 +262,7 @@ fn render_ui(
             info,
             &mut pager.search_buf,
             &mut pager.cmd_buf,
-            view_stack.view.as_mut().map(|p| &mut p.view),
+            view_stack.curr_view.as_mut().map(|p| &mut p.view),
         );
 
         if let Some(transition) = transition {
@@ -302,7 +305,7 @@ fn render_ui(
             match out {
                 Ok(result) => {
                     if result.exit {
-                        break Ok(peak_value_from_view(&mut view_stack.view, pager));
+                        break Ok(peek_value_from_view(&mut view_stack.curr_view, pager));
                     }
 
                     if result.view_change && !result.cmd_name.is_empty() {
@@ -336,21 +339,21 @@ fn react_to_event_result(
 ) -> (Option<Option<Value>>, String) {
     match status {
         Transition::Exit => (
-            Some(peak_value_from_view(&mut view_stack.view, pager)),
+            Some(peek_value_from_view(&mut view_stack.curr_view, pager)),
             String::default(),
         ),
         Transition::Ok => {
             let exit = view_stack.stack.is_empty();
             if exit {
                 return (
-                    Some(peak_value_from_view(&mut view_stack.view, pager)),
+                    Some(peek_value_from_view(&mut view_stack.curr_view, pager)),
                     String::default(),
                 );
             }
 
             // try to pop the view stack
             if let Some(v) = view_stack.stack.pop() {
-                view_stack.view = Some(v);
+                view_stack.curr_view = Some(v);
             }
 
             (None, String::default())
@@ -359,7 +362,7 @@ fn react_to_event_result(
             let out = pager_run_command(engine_state, stack, pager, view_stack, commands, cmd);
             match out {
                 Ok(result) if result.exit => (
-                    Some(peak_value_from_view(&mut view_stack.view, pager)),
+                    Some(peek_value_from_view(&mut view_stack.curr_view, pager)),
                     String::default(),
                 ),
                 Ok(result) => (None, result.cmd_name),
@@ -372,9 +375,13 @@ fn react_to_event_result(
     }
 }
 
-fn peak_value_from_view(view: &mut Option<Page>, pager: &mut Pager<'_>) -> Option<Value> {
-    let view = view.as_mut().map(|p| &mut p.view);
-    try_to_peek_value(pager, view)
+fn peek_value_from_view(view: &mut Option<Page>, pager: &mut Pager<'_>) -> Option<Value> {
+    if pager.config.peek_value {
+        let view = view.as_mut().map(|p| &mut p.view);
+        view.and_then(|v| v.exit())
+    } else {
+        None
+    }
 }
 
 fn draw_frame(
@@ -453,7 +460,7 @@ fn run_command(
     match command {
         Command::Reactive(mut command) => {
             // what we do we just replace the view.
-            let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
+            let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
             let transition = command.react(engine_state, stack, pager, value)?;
             match transition {
                 Transition::Ok => {
@@ -470,18 +477,18 @@ fn run_command(
                 Transition::Cmd { .. } => todo!("not used so far"),
             }
         }
-        Command::View { mut cmd, is_light } => {
+        Command::View { mut cmd, stackable } => {
             // what we do we just replace the view.
-            let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
+            let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
             let mut new_view = cmd.spawn(engine_state, stack, value)?;
-            if let Some(view) = view_stack.view.take() {
-                if !view.is_light {
+            if let Some(view) = view_stack.curr_view.take() {
+                if !view.stackable {
                     view_stack.stack.push(view);
                 }
             }
 
             update_view_setup(&mut new_view, &pager.config);
-            view_stack.view = Some(Page::raw(new_view, is_light));
+            view_stack.curr_view = Some(Page::raw(new_view, stackable));
 
             Ok(CmdResult::new(false, true, cmd.name().to_owned()))
         }
@@ -489,7 +496,7 @@ fn run_command(
 }
 
 fn update_view_stack_setup(view_stack: &mut ViewStack, cfg: &PagerConfig<'_>) {
-    if let Some(page) = view_stack.view.as_mut() {
+    if let Some(page) = view_stack.curr_view.as_mut() {
         update_view_setup(&mut page.view, cfg);
     }
 
@@ -518,17 +525,6 @@ fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
         if next_pos < area.width {
             f.set_cursor(next_pos, area.height - 1);
         }
-    }
-}
-
-fn try_to_peek_value<V>(pager: &mut Pager, view: Option<&mut V>) -> Option<Value>
-where
-    V: View,
-{
-    if pager.config.peek_value {
-        view.and_then(|v| v.exit())
-    } else {
-        None
     }
 }
 
@@ -1092,30 +1088,35 @@ impl Position {
 
 pub struct Page {
     pub view: Box<dyn View>,
-    pub is_light: bool,
+    /// Controls what happens when this view is the current view and a new view is created.
+    /// If true, view will be pushed to the stack, otherwise, it will be deleted.
+    pub stackable: bool,
 }
 
 impl Page {
-    pub fn raw(view: Box<dyn View>, is_light: bool) -> Self {
-        Self { view, is_light }
+    pub fn raw(view: Box<dyn View>, stackable: bool) -> Self {
+        Self { view, stackable }
     }
 
-    pub fn new<V>(view: V, is_light: bool) -> Self
+    pub fn new<V>(view: V, stackable: bool) -> Self
     where
         V: View + 'static,
     {
-        Self::raw(Box::new(view), is_light)
+        Self::raw(Box::new(view), stackable)
     }
 }
 
 struct ViewStack {
-    view: Option<Page>,
+    curr_view: Option<Page>,
     stack: Vec<Page>,
 }
 
 impl ViewStack {
     fn new(view: Option<Page>, stack: Vec<Page>) -> Self {
-        Self { view, stack }
+        Self {
+            curr_view: view,
+            stack,
+        }
     }
 }
 

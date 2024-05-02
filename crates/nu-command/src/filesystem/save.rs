@@ -133,7 +133,7 @@ impl Command for Save {
                                     .spawn(move || stderr.drain()),
                             })
                             .transpose()
-                            .map_err(|e| e.into_spanned(span))?;
+                            .err_span(span)?;
 
                         let res = stream_to_file(stdout, file, span, progress);
                         if let Some(h) = handler {

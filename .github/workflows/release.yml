@@ -73,7 +73,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.2
+    - uses: actions/checkout@v4.1.4
 
     - name: Update Rust Toolchain Target
       run: |
@@ -87,7 +87,7 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.9
+      uses: hustcer/setup-nu@v3.10
       with:
         version: 0.91.0
 
@@ -163,7 +163,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.2
+    - uses: actions/checkout@v4.1.4
 
     - name: Update Rust Toolchain Target
       run: |
@@ -177,7 +177,7 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.9
+      uses: hustcer/setup-nu@v3.10
       with:
         version: 0.91.0
 

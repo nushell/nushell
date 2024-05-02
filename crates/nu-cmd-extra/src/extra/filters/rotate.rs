@@ -11,8 +11,8 @@ impl Command for Rotate {
     fn signature(&self) -> Signature {
         Signature::build("rotate")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Table(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::table()),
+                (Type::table(), Type::table()),
             ])
             .switch("ccw", "rotate counter clockwise", None)
             .rest(

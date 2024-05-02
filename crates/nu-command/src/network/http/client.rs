@@ -123,9 +123,7 @@ pub fn response_to_buffer(
 
     PipelineData::ExternalStream {
         stdout: Some(RawStream::new(
-            Box::new(BufferedReader {
-                input: buffered_input,
-            }),
+            Box::new(BufferedReader::new(buffered_input)),
             engine_state.ctrlc.clone(),
             span,
             buffer_size,

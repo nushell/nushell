@@ -11,7 +11,7 @@ impl Command for Take {
     fn signature(&self) -> Signature {
         Signature::build("take")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
