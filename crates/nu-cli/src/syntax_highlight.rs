@@ -87,7 +87,7 @@ impl Highlighter for NuHighlighter {
                 .to_string();
 
             let mut add_colored_token = |shape: &FlatShape, text: String| {
-                output.push((get_shape_color(shape.to_string(), &self.config), text));
+                output.push((get_shape_color(&shape.to_string(), &self.config), text));
             };
 
             match shape.1 {
@@ -127,7 +127,7 @@ impl Highlighter for NuHighlighter {
                         let start = part.start - span.start;
                         let end = part.end - span.start;
                         let text = next_token[start..end].to_string();
-                        let mut style = get_shape_color(shape.to_string(), &self.config);
+                        let mut style = get_shape_color(&shape.to_string(), &self.config);
                         if highlight {
                             style = get_matching_brackets_style(style, &self.config);
                         }
