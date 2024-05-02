@@ -1577,7 +1577,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     let bytes = working_set.get_span_contents(span);
 
     let prefix_sharp_cnt = if bytes.starts_with(b"r#") {
-        // actually `at_cnt` is always `index - 1`
+        // actually `sharp_cnt` is always `index - 1`
         // but create a variable here to make it clearer.
         let mut sharp_cnt = 1;
         let mut index = 2;
@@ -1593,7 +1593,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     let expect_postfix_sharp_cnt = prefix_sharp_cnt;
     // check the length of whole raw string.
     // the whole raw string should contains at least
-    // 1(r) + prefix_sharp_cnt + 1(') + 1(') + postfix_at characters
+    // 1(r) + prefix_sharp_cnt + 1(') + 1(') + postfix_sharp characters
     if bytes.len() < prefix_sharp_cnt + expect_postfix_sharp_cnt + 3 {
         working_set.error(ParseError::Unclosed('\''.into(), span));
         return garbage(span);
