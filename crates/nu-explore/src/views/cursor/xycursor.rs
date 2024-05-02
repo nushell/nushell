@@ -32,11 +32,6 @@ impl XYCursor {
         self.x.index()
     }
 
-    #[allow(dead_code)]
-    pub fn column_limit(&self) -> usize {
-        self.x.end()
-    }
-
     pub fn row_limit(&self) -> usize {
         self.y.end()
     }
@@ -55,11 +50,6 @@ impl XYCursor {
 
     pub fn column_window(&self) -> usize {
         self.x.offset()
-    }
-
-    #[allow(dead_code)]
-    pub fn row_window_size(&self) -> usize {
-        self.y.window()
     }
 
     pub fn column_window_size(&self) -> usize {
