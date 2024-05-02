@@ -942,7 +942,11 @@ fn render_path_name(
 
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
-    let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session && has_metadata;
+    //TODO: Deprecated show_clickable_links_in_ls in favor of shell_integration_osc8
+    let show_clickable_links = config.show_clickable_links_in_ls
+        && !in_ssh_session
+        && has_metadata
+        && config.shell_integration_osc8;
 
     let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
 
