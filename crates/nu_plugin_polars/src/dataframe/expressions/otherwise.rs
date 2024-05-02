@@ -101,9 +101,9 @@ impl PluginCommand for ExprOtherwise {
 
         let value = input.into_value(call.head);
         let complete: NuExpression = match NuWhen::try_from_value(plugin, &value)?.when_type {
-            NuWhenType::Then(then) => then.otherwise(otherwise_predicate.to_polars()).into(),
+            NuWhenType::Then(then) => then.otherwise(otherwise_predicate.into_polars()).into(),
             NuWhenType::ChainedThen(chained_when) => chained_when
-                .otherwise(otherwise_predicate.to_polars())
+                .otherwise(otherwise_predicate.into_polars())
                 .into(),
         };
         complete

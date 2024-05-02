@@ -2893,7 +2893,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::int(
                         (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -2905,7 +2905,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::int(
                         (*lhs as f64 / *rhs)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -2917,7 +2917,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::int(
                         (*lhs / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -2928,9 +2928,7 @@ impl Value {
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
                     Ok(Value::int(
-                        (lhs / rhs)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
-                            .floor() as i64,
+                        (lhs / rhs).clamp(i64::MIN as f64, i64::MAX as f64).floor() as i64,
                         span,
                     ))
                 } else {
@@ -2941,7 +2939,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::int(
                         (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -2953,7 +2951,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::filesize(
                         ((*lhs as f64) / (*rhs as f64))
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -2965,7 +2963,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::filesize(
                         (*lhs as f64 / *rhs)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -2977,7 +2975,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::int(
                         (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -2989,7 +2987,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::duration(
                         (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -3001,7 +2999,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::duration(
                         (*lhs as f64 / *rhs)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))

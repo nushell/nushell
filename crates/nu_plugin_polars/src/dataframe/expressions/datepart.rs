@@ -127,7 +127,7 @@ impl PluginCommand for ExprDatePart {
         let part: Spanned<String> = call.req(0)?;
 
         let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
-        let expr_dt = expr.to_polars().dt();
+        let expr_dt = expr.into_polars().dt();
         let expr: NuExpression  = match part.item.as_str() {
             "year" => expr_dt.year(),
             "quarter" => expr_dt.quarter(),

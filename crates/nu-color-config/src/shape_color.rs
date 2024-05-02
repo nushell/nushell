@@ -32,6 +32,7 @@ pub fn default_shape_color(shape: String) -> Style {
         "shape_or" => Style::new().fg(Color::Purple).bold(),
         "shape_pipe" => Style::new().fg(Color::Purple).bold(),
         "shape_range" => Style::new().fg(Color::Yellow).bold(),
+        "shape_raw_string" => Style::new().fg(Color::LightMagenta).bold(),
         "shape_record" => Style::new().fg(Color::Cyan).bold(),
         "shape_redirection" => Style::new().fg(Color::Purple).bold(),
         "shape_signature" => Style::new().fg(Color::Green).bold(),

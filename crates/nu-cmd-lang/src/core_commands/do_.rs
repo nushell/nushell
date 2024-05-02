@@ -128,7 +128,7 @@ impl Command for Do {
                 let stderr_msg = match stderr {
                     None => "".to_string(),
                     Some(stderr_stream) => {
-                        stderr_ctrlc = stderr_stream.ctrlc.clone();
+                        stderr_ctrlc.clone_from(&stderr_stream.ctrlc);
                         stderr_stream.into_string().map(|s| s.item)?
                     }
                 };

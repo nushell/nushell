@@ -62,7 +62,7 @@ impl PluginCommand for ExprArgWhere {
     ) -> Result<PipelineData, LabeledError> {
         let value: Value = call.req(0)?;
         let expr = NuExpression::try_from_value(plugin, &value)?;
-        let expr: NuExpression = arg_where(expr.to_polars()).into();
+        let expr: NuExpression = arg_where(expr.into_polars()).into();
         expr.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
     }
