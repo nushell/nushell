@@ -38,7 +38,7 @@ impl PluginCommand for ToLazyFrame {
             result: None,
         },
         Example {
-            description: "Takes a table, creates a lazyframe, assignes column 'b' type str, displays the schema",
+            description: "Takes a table, creates a lazyframe, assigns column 'b' type str, displays the schema",
             example: "[[a b];[1 2] [3 4]] | polars into-lazy --schema {b: str} | polars schema",
             result: None
         },
