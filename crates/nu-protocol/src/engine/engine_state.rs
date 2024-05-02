@@ -922,11 +922,12 @@ impl EngineState {
             .unwrap_or_default()
     }
 
-    /// Returns the current working directory, which is guaranteed to be an absolute path
-    /// but might contain symlink components.
+    /// Returns the current working directory, which is guaranteed to be an
+    /// absolute path without trailing slashes, but might contain symlink
+    /// components.
     ///
-    /// If `stack` is supplied, also considers modifications to the working directory on the stack
-    /// that have yet to be merged into the engine state.
+    /// If `stack` is supplied, also considers modifications to the working
+    /// directory on the stack that have yet to be merged into the engine state.
     pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
         // Helper function to create a simple generic error.
         // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
