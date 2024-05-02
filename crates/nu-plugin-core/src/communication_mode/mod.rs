@@ -5,9 +5,6 @@ use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use nu_protocol::ShellError;
 
 #[cfg(feature = "local-socket")]
-use interprocess::local_socket::LocalSocketListener;
-
-#[cfg(feature = "local-socket")]
 mod local_socket;
 
 #[cfg(feature = "local-socket")]
@@ -83,11 +80,13 @@ impl CommunicationMode {
             // For sockets: we need to create the server so that the child won't fail to connect.
             #[cfg(feature = "local-socket")]
             CommunicationMode::LocalSocket(name) => {
-                let listener = LocalSocketListener::bind(name.as_os_str()).map_err(|err| {
-                    ShellError::IOError {
+                use interprocess::local_socket::ListenerOptions;
+
+                let listener = interpret_local_socket_name(name)
+                    .and_then(|name| ListenerOptions::new().name(name).create_sync())
+                    .map_err(|err| ShellError::IOError {
                         msg: format!("failed to open socket for plugin: {err}"),
-                    }
-                })?;
+                    })?;
                 Ok(PreparedServerCommunication::LocalSocket {
                     name: name.clone(),
                     listener,
@@ -107,11 +106,13 @@ impl CommunicationMode {
                 // Connect to the specified socket.
                 let get_socket = || {
                     use interprocess::local_socket as ls;
-                    ls::LocalSocketStream::connect(name.as_os_str())
+                    use ls::traits::Stream;
+
+                    interpret_local_socket_name(name)
+                        .and_then(|name| ls::Stream::connect(name))
                         .map_err(|err| ShellError::IOError {
                             msg: format!("failed to connect to socket: {err}"),
                         })
-                        .map(LocalSocketStream::from)
                 };
                 // Reverse order from the server: read in, write out
                 let read_in = get_socket()?;
@@ -135,7 +136,7 @@ pub enum PreparedServerCommunication {
     LocalSocket {
         #[cfg_attr(windows, allow(dead_code))] // not used on Windows
         name: std::ffi::OsString,
-        listener: LocalSocketListener,
+        listener: interprocess::local_socket::Listener,
     },
 }
 
@@ -161,6 +162,7 @@ impl PreparedServerCommunication {
             }
             #[cfg(feature = "local-socket")]
             PreparedServerCommunication::LocalSocket { listener, .. } => {
+                use interprocess::local_socket::traits::{Listener, ListenerNonblockingMode};
                 use std::time::{Duration, Instant};
 
                 const RETRY_PERIOD: Duration = Duration::from_millis(1);
@@ -170,14 +172,15 @@ impl PreparedServerCommunication {
 
                 // Use a loop to try to get two clients from the listener: one for read (the plugin
                 // output) and one for write (the plugin input)
-                listener.set_nonblocking(true)?;
+                //
+                // Be non-blocking on Accept only, so we can timeout.
+                listener.set_nonblocking(ListenerNonblockingMode::Accept)?;
                 let mut get_socket = || {
                     let mut result = None;
                     while let Ok(None) = child.try_wait() {
                         match listener.accept() {
                             Ok(stream) => {
-                                // Success! But make sure the stream is in blocking mode.
-                                stream.set_nonblocking(false)?;
+                                // Success!
                                 result = Some(stream);
                                 break;
                             }
@@ -198,7 +201,7 @@ impl PreparedServerCommunication {
                         }
                     }
                     if let Some(stream) = result {
-                        Ok(LocalSocketStream(stream))
+                        Ok(stream)
                     } else {
                         // The process may have exited
                         Err(ShellError::PluginFailedToLoad {
@@ -215,26 +218,13 @@ impl PreparedServerCommunication {
     }
 }
 
-impl Drop for PreparedServerCommunication {
-    fn drop(&mut self) {
-        match self {
-            #[cfg(all(unix, feature = "local-socket"))]
-            PreparedServerCommunication::LocalSocket { name: path, .. } => {
-                // Just try to remove the socket file, it's ok if this fails
-                let _ = std::fs::remove_file(path);
-            }
-            _ => (),
-        }
-    }
-}
-
 /// The required streams for communication from the engine side, i.e. the server in socket terms.
 pub enum ServerCommunicationIo {
     Stdio(ChildStdin, ChildStdout),
     #[cfg(feature = "local-socket")]
     LocalSocket {
-        read_out: LocalSocketStream,
-        write_in: LocalSocketStream,
+        read_out: interprocess::local_socket::Stream,
+        write_in: interprocess::local_socket::Stream,
     },
 }
 
@@ -243,7 +233,7 @@ pub enum ClientCommunicationIo {
     Stdio(Stdin, Stdout),
     #[cfg(feature = "local-socket")]
     LocalSocket {
-        read_in: LocalSocketStream,
-        write_out: LocalSocketStream,
+        read_in: interprocess::local_socket::Stream,
+        write_out: interprocess::local_socket::Stream,
     },
 }
