@@ -1,10 +1,10 @@
+#[allow(deprecated)]
+use nu_engine::{command_prelude::*, current_dir};
+use nu_protocol::{engine::StateWorkingSet, PluginRegistryFile};
 use std::{
     fs::{self, File},
     path::PathBuf,
 };
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
-use nu_protocol::{engine::StateWorkingSet, PluginRegistryFile};
 
 pub(crate) fn modify_plugin_file(
     engine_state: &EngineState,

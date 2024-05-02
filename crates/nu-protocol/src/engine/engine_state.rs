@@ -942,7 +942,7 @@ impl EngineState {
 
         // Helper function to check if a path has trailing slashes.
         fn has_trailing_slash(path: &Path) -> bool {
-            nu_path::components(&path).last()
+            nu_path::components(path).last()
                 == Some(std::path::Component::Normal(std::ffi::OsStr::new("")))
         }
 
