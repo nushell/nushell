@@ -5,16 +5,20 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-prot
 edition = "2021"
 license = "MIT"
 name = "nu-plugin-protocol"
-version = "0.92.3"
+version = "0.93.1"
 
 [lib]
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.92.3", features = ["plugin"] }
-nu-utils = { path = "../nu-utils", version = "0.92.3" }
+nu-protocol = { path = "../nu-protocol", version = "0.93.1", features = ["plugin"] }
+nu-utils = { path = "../nu-utils", version = "0.93.1" }
 
 bincode = "1.3"
 serde = { workspace = true, features = ["derive"] }
 semver = "1.0"
 typetag = "0.2"
+
+[features]
+default = ["local-socket"]
+local-socket = []
