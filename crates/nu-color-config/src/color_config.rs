@@ -13,7 +13,7 @@ pub fn lookup_ansi_color_style(s: &str) -> Style {
             .and_then(|c| c.map(|c| c.normal()))
             .unwrap_or_default()
     } else if s.starts_with('{') {
-        color_string_to_nustyle(s.to_string())
+        color_string_to_nustyle(s)
     } else {
         lookup_style(s)
     }
@@ -74,7 +74,7 @@ fn get_style_from_value(record: &Record) -> Option<NuStyle> {
     }
 }
 
-fn color_string_to_nustyle(color_string: String) -> Style {
+fn color_string_to_nustyle(color_string: &str) -> Style {
     // eprintln!("color_string: {}", &color_string);
     if color_string.is_empty() {
         return Style::default();
@@ -97,13 +97,13 @@ mod tests {
     #[test]
     fn test_color_string_to_nustyle_empty_string() {
         let color_string = String::new();
-        let style = color_string_to_nustyle(color_string);
+        let style = color_string_to_nustyle(&color_string);
         assert_eq!(style, Style::default());
     }
 
     #[test]
     fn test_color_string_to_nustyle_valid_string() {
-        let color_string = r#"{"fg": "black", "bg": "white", "attr": "b"}"#.to_string();
+        let color_string = r#"{"fg": "black", "bg": "white", "attr": "b"}"#;
         let style = color_string_to_nustyle(color_string);
         assert_eq!(style.foreground, Some(Color::Black));
         assert_eq!(style.background, Some(Color::White));
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn test_color_string_to_nustyle_invalid_string() {
-        let color_string = "invalid string".to_string();
+        let color_string = "invalid string";
         let style = color_string_to_nustyle(color_string);
         assert_eq!(style, Style::default());
     }
