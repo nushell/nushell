@@ -319,7 +319,7 @@ fn convert_to_value(
             msg: "signatures not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::String(s) => Ok(Value::string(s, span)),
+        Expr::String(s) | Expr::RawString(s) => Ok(Value::string(s, span)),
         Expr::StringInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),
