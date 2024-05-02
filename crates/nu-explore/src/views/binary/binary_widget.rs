@@ -154,7 +154,7 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
 
         if show_index {
             x += render_space(buf, x, y, 1, w.style.indent_index.left);
-            x += render_hex_usize(buf, x, y, address, index_width, false, get_index_style(&w));
+            x += render_hex_usize(buf, x, y, address, index_width, get_index_style(&w));
             x += render_space(buf, x, y, 1, w.style.indent_index.right);
         }
 
@@ -194,7 +194,7 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
 
             if show_index {
                 x += render_space(buf, x, y, 1, w.style.indent_index.left);
-                x += render_hex_usize(buf, x, y, address, index_width, false, get_index_style(&w));
+                x += render_hex_usize(buf, x, y, address, index_width, get_index_style(&w));
                 x += render_space(buf, x, y, 1, w.style.indent_index.right);
             }
 
@@ -256,7 +256,7 @@ fn render_segment(buf: &mut Buffer, x: u16, y: u16, line: &[u8], w: &BinaryWidge
         }
 
         let (_, style) = get_segment_char(w, n);
-        size += render_hex_u8(buf, x + size, y, n, false, style);
+        size += render_hex_u8(buf, x + size, y, n, style);
         count -= 1;
     }
 
@@ -305,15 +305,8 @@ fn render_ascii_char(buf: &mut Buffer, x: u16, y: u16, n: char, style: Option<Nu
     1
 }
 
-fn render_hex_u8(
-    buf: &mut Buffer,
-    x: u16,
-    y: u16,
-    n: u8,
-    big: bool,
-    style: Option<NuStyle>,
-) -> u16 {
-    render_hex_usize(buf, x, y, n as usize, 2, big, style)
+fn render_hex_u8(buf: &mut Buffer, x: u16, y: u16, n: u8, style: Option<NuStyle>) -> u16 {
+    render_hex_usize(buf, x, y, n as usize, 2, style)
 }
 
 fn render_hex_usize(
@@ -322,10 +315,9 @@ fn render_hex_usize(
     y: u16,
     n: usize,
     width: u16,
-    big: bool,
     style: Option<NuStyle>,
 ) -> u16 {
-    let text = usize_to_hex(n, width as usize, big);
+    let text = usize_to_hex(n, width as usize);
     let mut p = Paragraph::new(text);
     if let Some(style) = style {
         let style = nu_style_to_tui(style);
@@ -393,7 +385,7 @@ fn get_max_index_size(w: &BinaryWidget) -> usize {
     let line_size = w.opts.count_segments * (w.opts.segment_size * 2);
     let count_lines = w.data.len() / line_size;
     let max_index = w.opts.index_offset + count_lines * line_size;
-    usize_to_hex(max_index, 0, false).len()
+    usize_to_hex(max_index, 0).len()
 }
 
 fn get_widget_width(w: &BinaryWidget) -> usize {
@@ -403,7 +395,7 @@ fn get_widget_width(w: &BinaryWidget) -> usize {
     let count_lines = w.data.len() / line_size;
 
     let max_index = w.opts.index_offset + count_lines * line_size;
-    let index_size = usize_to_hex(max_index, 0, false).len();
+    let index_size = usize_to_hex(max_index, 0).len();
     let index_size = index_size.max(MIN_INDEX_SIZE);
 
     let data_split_size = w.opts.count_segments.saturating_sub(1) * w.style.indent_segment;
@@ -429,17 +421,11 @@ fn get_widget_width(w: &BinaryWidget) -> usize {
     min_width
 }
 
-fn usize_to_hex(n: usize, width: usize, big: bool) -> String {
+fn usize_to_hex(n: usize, width: usize) -> String {
     if width == 0 {
-        match big {
-            true => format!("{:X}", n),
-            false => format!("{:x}", n),
-        }
+        format!("{:x}", n)
     } else {
-        match big {
-            true => format!("{:0>width$X}", n, width = width),
-            false => format!("{:0>width$x}", n, width = width),
-        }
+        format!("{:0>width$x}", n, width = width)
     }
 }
 
@@ -449,9 +435,8 @@ mod tests {
 
     #[test]
     fn test_to_hex() {
-        assert_eq!(usize_to_hex(1, 2, false), "01");
-        assert_eq!(usize_to_hex(16, 2, false), "10");
-        assert_eq!(usize_to_hex(29, 2, false), "1d");
-        assert_eq!(usize_to_hex(29, 2, true), "1D");
+        assert_eq!(usize_to_hex(1, 2), "01");
+        assert_eq!(usize_to_hex(16, 2), "10");
+        assert_eq!(usize_to_hex(29, 2), "1d");
     }
 }
