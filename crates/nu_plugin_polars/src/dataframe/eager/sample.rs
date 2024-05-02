@@ -1,14 +1,14 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
-    Type,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 use polars::prelude::NamedFrom;
 use polars::series::Series;
 
 use crate::{values::CustomValueSupport, PolarsPlugin};
 
-use super::super::values::NuDataFrame;
+use super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct SampleDF;
@@ -70,7 +70,16 @@ impl PluginCommand for SampleDF {
                 description: "Shows sample row using using predefined seed 1",
                 example:
                     "[[a b]; [1 2] [3 4] [5 6]] | polars into-df | polars sample --seed 1 --n-rows 1",
-                result: None, // help needed! the result are [[a b];[5 6]], I don't know how to put it here
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("a".to_string(), vec![Value::test_int(5)]),
+                            Column::new("b".to_string(), vec![Value::test_int(6)]), ],
+                            None,
+                        )
+                        .expect("should not fail")
+                        .into_value(Span::test_data()),
+                    )
             },
 
         ]
