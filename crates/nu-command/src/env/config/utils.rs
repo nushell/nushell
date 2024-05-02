@@ -1,10 +1,10 @@
 use crate::ExternalCommand;
 use nu_protocol::{OutDest, Span, Spanned};
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::Path};
 
 pub(crate) fn gen_command(
     span: Span,
-    config_path: PathBuf,
+    config_path: &Path,
     item: String,
     config_args: Vec<String>,
     env_vars_str: HashMap<String, String>,
