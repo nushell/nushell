@@ -80,7 +80,7 @@ fn color_string_to_nustyle(color_string: &str) -> Style {
         return Style::default();
     }
 
-    let nu_style = match nu_json::from_str::<NuStyle>(&color_string) {
+    let nu_style = match nu_json::from_str::<NuStyle>(color_string) {
         Ok(s) => s,
         Err(_) => return Style::default(),
     };
