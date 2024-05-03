@@ -977,6 +977,20 @@ impl EngineState {
         }
     }
 
+    /// Like `EngineState::cwd()`, but returns a String instead of a PathBuf for convenience.
+    pub fn cwd_as_string(&self, stack: Option<&Stack>) -> Result<String, ShellError> {
+        let cwd = self.cwd(stack)?;
+        cwd.into_os_string()
+            .into_string()
+            .map_err(|err| ShellError::NonUtf8Custom {
+                msg: format!(
+                    "The current working directory is not a valid utf-8 string: {:?}",
+                    err
+                ),
+                span: Span::unknown(),
+            })
+    }
+
     // TODO: see if we can completely get rid of this
     pub fn get_file_contents(&self) -> &[CachedFile] {
         &self.files
