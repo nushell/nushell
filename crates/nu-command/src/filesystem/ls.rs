@@ -431,7 +431,7 @@ fn ls_for_one_pattern(
                 Err(err) => Some(Value::error(err, call_span)),
             }
         }
-        _ => Some(Value::nothing(call_span)),
+        Err(err) => Some(Value::error(err, call_span)),
     })))
 }
 
