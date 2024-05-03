@@ -106,3 +106,14 @@ fn command(
     let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&AsDate)
+    }
+}

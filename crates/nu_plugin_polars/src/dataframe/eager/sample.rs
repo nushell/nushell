@@ -150,3 +150,14 @@ fn command(
     let df = NuDataFrame::new(false, df?);
     df.to_pipeline_data(plugin, engine, call.head)
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&SampleDF)
+    }
+}
