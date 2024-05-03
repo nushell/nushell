@@ -1,8 +1,7 @@
 use crate::util::eval_source;
 use log::{info, trace};
 use miette::{IntoDiagnostic, Result};
-#[allow(deprecated)]
-use nu_engine::{convert_env_values, current_dir, eval_block};
+use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -30,8 +29,7 @@ pub fn evaluate_file(
         std::process::exit(1);
     }
 
-    #[allow(deprecated)]
-    let cwd = current_dir(engine_state, stack)?;
+    let cwd = engine_state.cwd_as_string(Some(stack))?;
 
     let file_path = canonicalize_with(&path, cwd).unwrap_or_else(|e| {
         let working_set = StateWorkingSet::new(engine_state);

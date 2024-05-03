@@ -21,8 +21,8 @@ fn load_bench_commands() -> EngineState {
 }
 
 fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
-    #[allow(deprecated)]
-    let cwd = engine_state.current_work_dir();
+    // We're running a benchmark. Using `unwrap()` is fine.
+    let cwd = engine_state.cwd_as_string(None).unwrap();
 
     if path.exists() {
         match nu_path::canonicalize_with(path, cwd) {
