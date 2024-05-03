@@ -104,13 +104,6 @@ fn update_uses_enumerate_index() {
 }
 
 #[test]
-fn update_support_lazy_record() {
-    let actual =
-        nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | update h 10 | get h"#);
-    assert_eq!(actual.out, "10");
-}
-
-#[test]
 fn list_replacement_closure() {
     let actual = nu!("[1, 2] | update 1 {|i| $i + 1 } | to nuon");
     assert_eq!(actual.out, "[1, 3]");

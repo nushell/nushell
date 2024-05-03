@@ -64,35 +64,16 @@
 //! [Plugin Example](https://github.com/nushell/nushell/tree/main/crates/nu_plugin_example)
 //! that demonstrates the full range of plugin capabilities.
 mod plugin;
-mod protocol;
-mod sequence;
-mod serializers;
 
-pub use plugin::{
-    serve_plugin, EngineInterface, Plugin, PluginCommand, PluginEncoder, PluginRead, PluginWrite,
-    SimplePluginCommand,
-};
-pub use protocol::EvaluatedCall;
-pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer};
+#[cfg(test)]
+mod test_util;
 
-// Used by other nu crates.
-#[doc(hidden)]
-pub use plugin::{
-    add_plugin_to_working_set, create_plugin_signature, get_signature, load_plugin_file,
-    load_plugin_registry_item, serve_plugin_io, EngineInterfaceManager, GetPlugin, Interface,
-    InterfaceManager, PersistentPlugin, PluginDeclaration, PluginExecutionCommandContext,
-    PluginExecutionContext, PluginInterface, PluginInterfaceManager, PluginSource,
-    ServePluginError,
-};
-#[doc(hidden)]
-pub use protocol::{PluginCustomValue, PluginInput, PluginOutput};
-#[doc(hidden)]
-pub use serializers::EncodingType;
-#[doc(hidden)]
-pub mod util;
+pub use plugin::{serve_plugin, EngineInterface, Plugin, PluginCommand, SimplePluginCommand};
 
-// Used by external benchmarks.
+// Re-exports. Consider semver implications carefully.
+pub use nu_plugin_core::{JsonSerializer, MsgPackSerializer, PluginEncoder};
+pub use nu_plugin_protocol::EvaluatedCall;
+
+// Required by other internal crates.
 #[doc(hidden)]
-pub use plugin::Encoder;
-#[doc(hidden)]
-pub use protocol::PluginCallResponse;
+pub use plugin::{create_plugin_signature, serve_plugin_io};

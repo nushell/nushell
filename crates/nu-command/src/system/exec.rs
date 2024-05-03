@@ -1,4 +1,5 @@
 use super::run_external::create_external_command;
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_protocol::OutDest;
 
@@ -62,6 +63,7 @@ fn exec(
     external_command.out = OutDest::Inherit;
     external_command.err = OutDest::Inherit;
 
+    #[allow(deprecated)]
     let cwd = current_dir(engine_state, stack)?;
     let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy())?;
     command.current_dir(cwd);

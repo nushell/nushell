@@ -1949,6 +1949,7 @@ pub fn parse_module_file_or_dir(
         return None;
     }
 
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     let module_path =
@@ -3341,6 +3342,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 }
 
 pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    trace!("parsing source");
     let spans = &lite_command.parts;
     let name = working_set.get_span_contents(spans[0]);
 
@@ -3358,6 +3360,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         let scoped = name == b"source-env";
 
         if let Some(decl_id) = working_set.find_decl(name) {
+            #[allow(deprecated)]
             let cwd = working_set.get_cwd();
 
             // Is this the right call to be using here?
@@ -3555,7 +3558,7 @@ pub fn parse_where(working_set: &mut StateWorkingSet, lite_command: &LiteCommand
 /// `register` is deprecated and will be removed in 0.94. Use `plugin add` and `plugin use` instead.
 #[cfg(feature = "plugin")]
 pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
-    use nu_plugin::{get_signature, PluginDeclaration};
+    use nu_plugin_engine::PluginDeclaration;
     use nu_protocol::{
         engine::Stack, ErrSpan, ParseWarning, PluginIdentity, PluginRegistryItem, PluginSignature,
         RegisteredPlugin,
@@ -3563,6 +3566,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
     let spans = &lite_command.parts;
 
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     // Checking that the function is used with the correct name
@@ -3714,7 +3718,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
         // Create the plugin identity. This validates that the plugin name starts with `nu_plugin_`
         let identity = PluginIdentity::new(path, shell).err_span(path_span)?;
 
-        let plugin = nu_plugin::add_plugin_to_working_set(working_set, &identity)
+        let plugin = nu_plugin_engine::add_plugin_to_working_set(working_set, &identity)
             .map_err(|err| err.wrap(working_set, call.head))?;
 
         let signatures = signature.map_or_else(
@@ -3731,14 +3735,18 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                     )
                 })?;
 
-                let signatures = get_signature(plugin.clone(), get_envs).map_err(|err| {
-                    log::warn!("Error getting signatures: {err:?}");
-                    ParseError::LabeledError(
-                        "Error getting signatures".into(),
-                        err.to_string(),
-                        spans[0],
-                    )
-                });
+                let signatures = plugin
+                    .clone()
+                    .get(get_envs)
+                    .and_then(|p| p.get_signature())
+                    .map_err(|err| {
+                        log::warn!("Error getting signatures: {err:?}");
+                        ParseError::LabeledError(
+                            "Error getting signatures".into(),
+                            err.to_string(),
+                            spans[0],
+                        )
+                    });
 
                 if let Ok(ref signatures) = signatures {
                     // Add the loaded plugin to the delta
@@ -3780,6 +3788,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     use nu_protocol::{FromValue, PluginRegistryFile};
 
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     if let Err(err) = (|| {
@@ -3863,7 +3872,7 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
             })?;
 
         // Now add the signatures to the working set
-        nu_plugin::load_plugin_registry_item(working_set, plugin_item, Some(call.head))
+        nu_plugin_engine::load_plugin_registry_item(working_set, plugin_item, Some(call.head))
             .map_err(|err| err.wrap(working_set, call.head))?;
 
         Ok(())

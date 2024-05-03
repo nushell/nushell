@@ -118,6 +118,17 @@ with 'transpose' first."#
                         let span = value.span();
                         let is_error = value.is_error();
                         match closure.run_with_value(value) {
+                            Ok(PipelineData::ListStream(s, ..)) => {
+                                let mut vals = vec![];
+                                for v in s {
+                                    if let Value::Error { .. } = v {
+                                        return Some(v);
+                                    } else {
+                                        vals.push(v)
+                                    }
+                                }
+                                Some(Value::list(vals, span))
+                            }
                             Ok(data) => Some(data.into_value(head)),
                             Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
                             Err(ShellError::Break { .. }) => None,

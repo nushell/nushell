@@ -73,7 +73,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.3
+    - uses: actions/checkout@v4.1.4
 
     - name: Update Rust Toolchain Target
       run: |
@@ -89,7 +89,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.10
       with:
-        version: 0.91.0
+        version: 0.93.0
 
     - name: Release Nu Binary
       id: nu
@@ -163,7 +163,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.3
+    - uses: actions/checkout@v4.1.4
 
     - name: Update Rust Toolchain Target
       run: |
@@ -179,7 +179,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.10
       with:
-        version: 0.91.0
+        version: 0.93.0
 
     - name: Release Nu Binary
       id: nu

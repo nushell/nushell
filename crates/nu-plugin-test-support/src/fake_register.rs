@@ -1,6 +1,7 @@
 use std::{ops::Deref, sync::Arc};
 
-use nu_plugin::{create_plugin_signature, Plugin, PluginDeclaration};
+use nu_plugin::{create_plugin_signature, Plugin};
+use nu_plugin_engine::PluginDeclaration;
 use nu_protocol::{engine::StateWorkingSet, RegisteredPlugin, ShellError};
 
 use crate::{fake_persistent_plugin::FakePersistentPlugin, spawn_fake_plugin::spawn_fake_plugin};

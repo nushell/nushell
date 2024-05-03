@@ -1,4 +1,5 @@
 use super::util::get_rest_for_glob_pattern;
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::NuGlob;
@@ -77,6 +78,7 @@ impl Command for UMv {
             uu_mv::OverwriteMode::Force
         };
 
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         if paths.is_empty() {

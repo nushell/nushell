@@ -36,6 +36,7 @@ pub enum Expr {
     Directory(String, bool),
     GlobPattern(String, bool),
     String(String),
+    RawString(String),
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),
     ImportPattern(Box<ImportPattern>),
@@ -80,6 +81,7 @@ impl Expr {
             | Expr::ValueWithUnit(_)
             | Expr::DateTime(_)
             | Expr::String(_)
+            | Expr::RawString(_)
             | Expr::CellPath(_)
             | Expr::StringInterpolation(_)
             | Expr::Nothing => {

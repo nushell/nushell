@@ -112,7 +112,7 @@ fn command_lazy(
 
     let lazy: NuLazyFrame = match fill {
         Some(ref fill) => {
-            let expr = NuExpression::try_from_value(plugin, fill)?.to_polars();
+            let expr = NuExpression::try_from_value(plugin, fill)?.into_polars();
             lazy.shift_and_fill(lit(shift), expr).into()
         }
         None => lazy.shift(shift).into(),

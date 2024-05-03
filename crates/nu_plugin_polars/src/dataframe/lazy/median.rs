@@ -94,7 +94,7 @@ impl PluginCommand for LazyMedian {
             PolarsPluginObject::NuDataFrame(df) => command(plugin, engine, call, df.lazy()),
             PolarsPluginObject::NuLazyFrame(lazy) => command(plugin, engine, call, lazy),
             PolarsPluginObject::NuExpression(expr) => {
-                let expr: NuExpression = expr.to_polars().median().into();
+                let expr: NuExpression = expr.into_polars().median().into();
                 expr.to_pipeline_data(plugin, engine, call.head)
             }
             _ => Err(cant_convert_err(

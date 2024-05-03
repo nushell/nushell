@@ -279,6 +279,7 @@ impl Expression {
             }
             Expr::Signature(_) => false,
             Expr::String(_) => false,
+            Expr::RawString(_) => false,
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
@@ -436,6 +437,7 @@ impl Expression {
             }
             Expr::Signature(_) => {}
             Expr::String(_) => {}
+            Expr::RawString(_) => {}
             Expr::StringInterpolation(items) => {
                 for i in items {
                     i.replace_span(working_set, replaced, new_span)
