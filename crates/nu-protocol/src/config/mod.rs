@@ -655,7 +655,7 @@ impl Value {
                     }
                     "shell_integration" => {
                         if let Value::Record { val, .. } = value {
-                            val.to_mut().retain_mut(|key2, value| {
+                            val.retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                 "osc2" => {
