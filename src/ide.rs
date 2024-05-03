@@ -1,11 +1,7 @@
 use miette::IntoDiagnostic;
 use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    eval_const::create_nu_constant,
-    report_error, DeclId, FutureSpanId, ShellError, Value, VarId, NU_VARIABLE_ID,
-};
+use nu_protocol::{engine::{EngineState, Stack, StateWorkingSet}, eval_const::create_nu_constant, report_error, DeclId, FutureSpanId, ShellError, Value, VarId, NU_VARIABLE_ID, ActualSpan};
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
 use std::{path::PathBuf, sync::Arc};
@@ -22,7 +18,7 @@ fn find_id(
     file_path: &str,
     file: &[u8],
     location: &Value,
-) -> Option<(Id, usize, FutureSpanId)> {
+) -> Option<(Id, usize, ActualSpan)> {
     let file_id = working_set.add_file(file_path.to_string(), file);
     let offset = working_set.get_span_for_file(file_id).start;
     let block = parse(working_set, Some(file_path), file, false);
@@ -642,7 +638,7 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
         let mut json_val: JsonValue = json!([]);
         for (span, shape) in flat {
             let content =
-                String::from_utf8_lossy(working_set.get_span_id_contents(span)).to_string();
+                String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
 
             let json = json!(
                 {

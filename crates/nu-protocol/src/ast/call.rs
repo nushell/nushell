@@ -21,16 +21,18 @@ impl Argument {
         match self {
             Argument::Positional(e) => e.get_span(state),
             Argument::Named((named, short, expr)) => {
-                let start = named.span.start;
-                let end = if let Some(expr) = expr {
-                    expr.get_span(state).end
-                } else if let Some(short) = short {
-                    short.span.end
-                } else {
-                    named.span.end
-                };
-
-                FutureSpanId::new(start, end)
+                // TODO SPAN: Fix this
+                // let start = named.span.start;
+                // let end = if let Some(expr) = expr {
+                //     expr.get_span(state).end
+                // } else if let Some(short) = short {
+                //     short.span.end
+                // } else {
+                //     named.span.end
+                // };
+                //
+                // FutureSpanId::new(start, end)
+                named.span
             }
             Argument::Unknown(e) => e.get_span(state),
             Argument::Spread(e) => e.get_span(state),

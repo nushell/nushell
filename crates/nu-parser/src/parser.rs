@@ -3812,8 +3812,10 @@ pub fn parse_list_expression(
                         _ => Type::Any,
                     };
                     let span =
-                        FutureSpanId::new(curr_span.start, spread_arg.get_span(&working_set).end);
-                    (ListItem::Spread(span, spread_arg), elem_ty)
+                        ActualSpan::new(curr_span.start, spread_arg.get_span(&working_set).end);
+                    let span_id = working_set.add_span(span);
+                    let span_id = FutureSpanId { start: span.start, end: span.end, id: span_id };
+                    (ListItem::Spread(span_id, spread_arg), elem_ty)
                 } else {
                     let arg = parse_multispan_value(
                         working_set,
@@ -3948,9 +3950,9 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: ActualSpan) -
                                             let start =
                                                 list[head.len()].get_span(&working_set).start;
                                             let end = span.end;
-                                            FutureSpanId::new(start, end)
+                                            ActualSpan::new(start, end)
                                         };
-                                        let err = ParseError::ExtraColumns(head.len(), span.span());
+                                        let err = ParseError::ExtraColumns(head.len(), span);
                                         working_set.error(err);
                                     }
                                     Ordering::Equal => {}
@@ -4160,6 +4162,8 @@ pub fn parse_match_block_expression(
 
         // First parse the pattern
         let mut pattern = parse_pattern(working_set, output[position].span);
+        // TODO SPAN: working around borrow checker...
+        let mut pattern_span_replacement = None;
 
         position += 1;
 
@@ -4231,10 +4235,13 @@ pub fn parse_match_block_expression(
                 .span
                 .end;
 
+            let match_pattern_span = ActualSpan::new(start, end);
+            pattern_span_replacement = Some(match_pattern_span);
+
             pattern = MatchPattern {
                 pattern: Pattern::Or(or_pattern),
                 guard: None,
-                span: FutureSpanId::new(start, end),
+                span: FutureSpanId::unknown(),
             }
         // A match guard
         } else if connector == b"if" {
@@ -4283,6 +4290,7 @@ pub fn parse_match_block_expression(
             position += if found { start + 1 } else { start };
             connector = working_set.get_span_contents(output[position].span);
         }
+
         // Then the `=>` arrow
         if connector != b"=>" {
             working_set.error(ParseError::Mismatch(
@@ -4314,6 +4322,11 @@ pub fn parse_match_block_expression(
         );
         position += 1;
         working_set.exit_scope();
+
+        if let Some(span) = pattern_span_replacement {
+            let span_id = working_set.add_span(span);
+            pattern.span = FutureSpanId { start: span.start, end: span.end, id: span_id };
+        }
 
         output_matches.push((pattern, result));
     }
@@ -5370,8 +5383,13 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: ActualSpan) -> Expr
                     field_types = None;
                 }
             }
+
+            let spread_span = ActualSpan::new(curr_span.start, curr_span.start + 3);
+            let spread_span_id = working_set.add_span(spread_span);
+            let spread_span_id = FutureSpanId { start: spread_span.start, end: spread_span.end, id: spread_span_id };
+
             output.push(RecordItem::Spread(
-                FutureSpanId::new(curr_span.start, curr_span.start + 3),
+                spread_span_id,
                 inner,
             ));
         } else {

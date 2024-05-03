@@ -1017,27 +1017,41 @@ impl EngineState {
 }
 
 impl<'a> GetSpan for &'a EngineState {
-    /// Get existing span
     fn get_span(&self, span_id: SpanId) -> FutureSpanId {
-        let sp = *self
-            .spans
-            .get(span_id.0)
-            .expect("internal error: missing span");
+        get_span(&self, span_id)
+    }
 
-        FutureSpanId::new(sp.start, sp.end)
+    fn get_actual_span(&self, span_id: SpanId) -> ActualSpan {
+        get_actual_span(&self, span_id)
     }
 }
 
 impl GetSpan for EngineState {
-    /// Get existing span
     fn get_span(&self, span_id: SpanId) -> FutureSpanId {
-        let sp = *self
-            .spans
-            .get(span_id.0)
-            .expect("internal error: missing span");
-
-        FutureSpanId::new(sp.start, sp.end)
+        get_span(&self, span_id)
     }
+
+    fn get_actual_span(&self, span_id: SpanId) -> ActualSpan {
+        get_actual_span(&self, span_id)
+    }
+}
+
+fn get_span(engine_state: &EngineState, span_id: SpanId) -> FutureSpanId {
+    let sp = *engine_state
+        .spans
+        .get(span_id.0)
+        .expect("internal error: missing span");
+
+    FutureSpanId { start: sp.start, end: sp.end, id: span_id }
+}
+
+fn get_actual_span(engine_state: &EngineState, span_id: SpanId) -> ActualSpan {
+    let sp = *engine_state
+        .spans
+        .get(span_id.0)
+        .expect("internal error: missing span");
+
+    ActualSpan::new(sp.start, sp.end)
 }
 
 impl Default for EngineState {

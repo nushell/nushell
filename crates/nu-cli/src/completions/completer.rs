@@ -5,11 +5,7 @@ use crate::completions::{
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_pipeline_element, parse, FlatShape};
-use nu_protocol::{
-    debugger::WithoutDebug,
-    engine::{Closure, EngineState, Stack, StateWorkingSet},
-    FutureSpanId, PipelineData, Value,
-};
+use nu_protocol::{ActualSpan, debugger::WithoutDebug, engine::{Closure, EngineState, Stack, StateWorkingSet}, FutureSpanId, PipelineData, Value};
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::{str, sync::Arc};
 
@@ -143,7 +139,7 @@ impl NuCompleter {
                         .filter(|content| content.as_str() == "sudo" || content.as_str() == "doas")
                         .is_some();
                     // Read the current spam to string
-                    let current_span = working_set.get_span_contents(flat.0.span()).to_vec();
+                    let current_span = working_set.get_span_contents(flat.0).to_vec();
                     let current_span_str = String::from_utf8_lossy(&current_span);
 
                     let is_last_span = pos >= flat.0.start && pos < flat.0.end;
@@ -172,7 +168,7 @@ impl NuCompleter {
                         let new_span = FutureSpanId::new(flat.0.start, flat.0.end - 1);
 
                         // Parses the prefix. Completion should look up to the cursor position, not after.
-                        let mut prefix = working_set.get_span_contents(flat.0.span()).to_vec();
+                        let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                         let index = pos - flat.0.start;
                         prefix.drain(index..);
 
@@ -250,7 +246,7 @@ impl NuCompleter {
                             if let Some(previous_expr) = flattened.get(flat_idx - 1) {
                                 // Read the content for the previous expression
                                 let prev_expr_str = working_set
-                                    .get_span_contents(previous_expr.0.span())
+                                    .get_span_contents(previous_expr.0)
                                     .to_vec();
 
                                 // Completion for .nu files
@@ -415,7 +411,7 @@ impl ReedlineCompleter for NuCompleter {
 fn most_left_variable(
     idx: usize,
     working_set: &StateWorkingSet<'_>,
-    flattened: Vec<(FutureSpanId, FlatShape)>,
+    flattened: Vec<(ActualSpan, FlatShape)>,
 ) -> Option<(Vec<u8>, Vec<Vec<u8>>)> {
     // Reverse items to read the list backwards and truncate
     // because the only items that matters are the ones before the current index
@@ -427,7 +423,7 @@ fn most_left_variable(
     let mut variables_found: Vec<Vec<u8>> = vec![];
     let mut found_var = false;
     for item in rev.clone() {
-        let result = working_set.get_span_contents(item.0.span()).to_vec();
+        let result = working_set.get_span_contents(item.0).to_vec();
 
         match item.1 {
             FlatShape::Variable(_) => {

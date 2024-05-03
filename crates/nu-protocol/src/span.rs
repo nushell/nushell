@@ -7,6 +7,9 @@ use std::ops::Deref;
 pub trait GetSpan {
     // TODO SPAN: This needs to return ActualSpan
     fn get_span(&self, span_id: SpanId) -> FutureSpanId;
+
+    /// Get a span for a span ID
+    fn get_actual_span(&self, span_id: SpanId) -> ActualSpan;
 }
 
 /// A spanned area of interest, generic over what kind of thing is of interest
@@ -81,7 +84,7 @@ impl<T> IntoSpanned for T {
 /// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
 /// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
 /// a given point of interest.
-#[non_exhaustive]
+// TODO SPAN: #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FutureSpanId {
     pub start: usize,
@@ -96,18 +99,18 @@ impl From<FutureSpanId> for SourceSpan {
 }
 
 impl FutureSpanId {
-    pub fn new(start: usize, end: usize) -> FutureSpanId {
-        debug_assert!(
-            end >= start,
-            "Can't create a Span whose end < start, start={start}, end={end}"
-        );
-
-        FutureSpanId {
-            start,
-            end,
-            id: UNKNOWN_SPAN_ID,
-        }
-    }
+    // pub fn new(start: usize, end: usize) -> FutureSpanId {
+    //     debug_assert!(
+    //         end >= start,
+    //         "Can't create a Span whose end < start, start={start}, end={end}"
+    //     );
+    //
+    //     FutureSpanId {
+    //         start,
+    //         end,
+    //         id: UNKNOWN_SPAN_ID,
+    //     }
+    // }
 
     pub const fn unknown() -> FutureSpanId {
         FutureSpanId {
@@ -140,6 +143,7 @@ impl FutureSpanId {
 }
 
 /// Used when you have a slice of spans of at least size 1
+// TODO SPAN: Remove
 pub fn span(spans: &[FutureSpanId]) -> FutureSpanId {
     let length = spans.len();
 
@@ -154,7 +158,7 @@ pub fn span(spans: &[FutureSpanId]) -> FutureSpanId {
             .map(|s| s.end)
             .max()
             .expect("Must be an end. Length > 0");
-        FutureSpanId::new(spans[0].start, end)
+        FutureSpanId { start: spans[0].start, end, id: spans[0].id }
     }
 }
 
@@ -206,7 +210,7 @@ impl ActualSpan {
 
     // TODO SPAN: This should be removed
     pub fn id(&self) -> FutureSpanId {
-        FutureSpanId::new(self.start, self.end)
+        FutureSpanId { start: self.start, end: self.end, id: UNKNOWN_SPAN_ID }
     }
 }
 

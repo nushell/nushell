@@ -3,7 +3,7 @@ use std::fmt;
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 
-use crate::FutureSpanId;
+use crate::{ActualSpan, FutureSpanId};
 
 use super::ShellError;
 
@@ -72,7 +72,7 @@ impl LabeledError {
     pub fn with_label(mut self, text: impl Into<String>, span: FutureSpanId) -> Self {
         self.labels.push(ErrorLabel {
             text: text.into(),
-            span,
+            span: span.span(),
         });
         self
     }
@@ -158,7 +158,7 @@ impl LabeledError {
                 .flatten()
                 .map(|label| ErrorLabel {
                     text: label.label().unwrap_or("").into(),
-                    span: FutureSpanId::new(label.offset(), label.offset() + label.len()),
+                    span: ActualSpan::new(label.offset(), label.offset() + label.len()),
                 })
                 .collect(),
             code: diag.code().map(|s| s.to_string()),
@@ -180,7 +180,7 @@ pub struct ErrorLabel {
     /// Text to show together with the span
     pub text: String,
     /// Span pointing at where the text references in the source
-    pub span: FutureSpanId,
+    pub span: ActualSpan,
 }
 
 impl fmt::Display for LabeledError {

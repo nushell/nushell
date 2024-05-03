@@ -1,12 +1,8 @@
-use nu_protocol::{
-    ast::{
-        Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
-        MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
-        RecordItem,
-    },
-    engine::StateWorkingSet,
-    DeclId, FutureSpanId, GetSpan, VarId,
-};
+use nu_protocol::{ast::{
+    Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
+    MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
+    RecordItem,
+}, engine::StateWorkingSet, DeclId, GetSpan, VarId, ActualSpan};
 use std::fmt::{Display, Formatter, Result};
 
 #[derive(Debug, Eq, PartialEq, Ord, Clone, PartialOrd)]
@@ -93,7 +89,7 @@ impl Display for FlatShape {
 pub fn flatten_block(
     working_set: &StateWorkingSet,
     block: &Block,
-) -> Vec<(FutureSpanId, FlatShape)> {
+) -> Vec<(ActualSpan, FlatShape)> {
     let mut output = vec![];
 
     for pipeline in &block.pipelines {
@@ -105,10 +101,10 @@ pub fn flatten_block(
 pub fn flatten_expression(
     working_set: &StateWorkingSet,
     expr: &Expression,
-) -> Vec<(FutureSpanId, FlatShape)> {
+) -> Vec<(ActualSpan, FlatShape)> {
     if let Some(custom_completion) = &expr.custom_completion {
         return vec![(
-            expr.get_span(&working_set),
+            expr.get_actual_span(&working_set),
             FlatShape::Custom(*custom_completion),
         )];
     }
@@ -123,9 +119,9 @@ pub fn flatten_expression(
         }
         Expr::UnaryNot(inner_expr) => {
             let mut output = vec![(
-                FutureSpanId::new(
-                    expr.get_span(&working_set).start,
-                    expr.get_span(&working_set).start + 3,
+                ActualSpan::new(
+                    expr.get_actual_span(&working_set).start,
+                    expr.get_actual_span(&working_set).start + 3,
                 ),
                 FlatShape::Operator,
             )];
@@ -133,7 +129,7 @@ pub fn flatten_expression(
             output
         }
         Expr::Closure(block_id) => {
-            let outer_span = expr.get_span(&working_set);
+            let outer_span = expr.get_actual_span(&working_set);
 
             let mut output = vec![];
 
@@ -143,7 +139,7 @@ pub fn flatten_expression(
             if let Some(first) = flattened.first() {
                 if first.0.start > outer_span.start {
                     output.push((
-                        FutureSpanId::new(outer_span.start, first.0.start),
+                        ActualSpan::new(outer_span.start, first.0.start),
                         FlatShape::Closure,
                     ));
                 }
@@ -152,7 +148,7 @@ pub fn flatten_expression(
             let last = if let Some(last) = flattened.last() {
                 if last.0.end < outer_span.end {
                     Some((
-                        FutureSpanId::new(last.0.end, outer_span.end),
+                        ActualSpan::new(last.0.end, outer_span.end),
                         FlatShape::Closure,
                     ))
                 } else {
@@ -170,7 +166,7 @@ pub fn flatten_expression(
             output
         }
         Expr::Block(block_id) | Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
-            let outer_span = expr.get_span(&working_set);
+            let outer_span = expr.get_actual_span(&working_set);
 
             let mut output = vec![];
 
@@ -179,7 +175,7 @@ pub fn flatten_expression(
             if let Some(first) = flattened.first() {
                 if first.0.start > outer_span.start {
                     output.push((
-                        FutureSpanId::new(outer_span.start, first.0.start),
+                        ActualSpan::new(outer_span.start, first.0.start),
                         FlatShape::Block,
                     ));
                 }
@@ -188,7 +184,7 @@ pub fn flatten_expression(
             let last = if let Some(last) = flattened.last() {
                 if last.0.end < outer_span.end {
                     Some((
-                        FutureSpanId::new(last.0.end, outer_span.end),
+                        ActualSpan::new(last.0.end, outer_span.end),
                         FlatShape::Block,
                     ))
                 } else {
@@ -208,9 +204,10 @@ pub fn flatten_expression(
         Expr::Call(call) => {
             let mut output = vec![];
 
-            if call.head.end != 0 {
+            let call_head = working_set.get_actual_span(call.head.id);
+            if call_head.end != 0 {
                 // Make sure we don't push synthetic calls
-                output.push((call.head, FlatShape::InternalCall(call.decl_id)));
+                output.push((call_head, FlatShape::InternalCall(call.decl_id)));
             }
 
             let mut args = vec![];
@@ -221,9 +218,10 @@ pub fn flatten_expression(
                         args.extend(flattened);
                     }
                     Argument::Named(named) => {
-                        if named.0.span.end != 0 {
+                        let named_span = working_set.get_actual_span(named.0.span.id);
+                        if named_span.end != 0 {
                             // Ignore synthetic flags
-                            args.push((named.0.span, FlatShape::Flag));
+                            args.push((named_span, FlatShape::Flag));
                         }
                         if let Some(expr) = &named.2 {
                             args.extend(flatten_expression(working_set, expr));
@@ -231,9 +229,9 @@ pub fn flatten_expression(
                     }
                     Argument::Spread(expr) => {
                         args.push((
-                            FutureSpanId::new(
-                                expr.get_span(&working_set).start - 3,
-                                expr.get_span(&working_set).start,
+                            ActualSpan::new(
+                                expr.get_actual_span(&working_set).start - 3,
+                                expr.get_actual_span(&working_set).start,
                             ),
                             FlatShape::Operator,
                         ));
@@ -256,7 +254,7 @@ pub fn flatten_expression(
                     span_id,
                     ..
                 } => {
-                    output.push((working_set.get_span(span_id), FlatShape::External));
+                    output.push((working_set.get_actual_span(span_id), FlatShape::External));
                 }
                 _ => {
                     output.extend(flatten_expression(working_set, head));
@@ -272,7 +270,7 @@ pub fn flatten_expression(
                             span_id,
                             ..
                         } => {
-                            output.push((working_set.get_span(*span_id), FlatShape::ExternalArg));
+                            output.push((working_set.get_actual_span(*span_id), FlatShape::ExternalArg));
                         }
                         _ => {
                             output.extend(flatten_expression(working_set, expr));
@@ -280,9 +278,9 @@ pub fn flatten_expression(
                     },
                     ExternalArgument::Spread(expr) => {
                         output.push((
-                            FutureSpanId::new(
-                                expr.get_span(&working_set).start - 3,
-                                expr.get_span(&working_set).start,
+                            ActualSpan::new(
+                                expr.get_actual_span(&working_set).start - 3,
+                                expr.get_actual_span(&working_set).start,
                             ),
                             FlatShape::Operator,
                         ));
@@ -294,28 +292,28 @@ pub fn flatten_expression(
             output
         }
         Expr::Garbage => {
-            vec![(expr.get_span(&working_set), FlatShape::Garbage)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Garbage)]
         }
         Expr::Nothing => {
-            vec![(expr.get_span(&working_set), FlatShape::Nothing)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Nothing)]
         }
         Expr::DateTime(_) => {
-            vec![(expr.get_span(&working_set), FlatShape::DateTime)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::DateTime)]
         }
         Expr::Binary(_) => {
-            vec![(expr.get_span(&working_set), FlatShape::Binary)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Binary)]
         }
         Expr::Int(_) => {
-            vec![(expr.get_span(&working_set), FlatShape::Int)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Int)]
         }
         Expr::Float(_) => {
-            vec![(expr.get_span(&working_set), FlatShape::Float)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Float)]
         }
         Expr::MatchBlock(matches) => {
             let mut output = vec![];
 
             for match_ in matches {
-                output.extend(flatten_pattern(&match_.0));
+                output.extend(flatten_pattern(working_set, &match_.0));
                 output.extend(flatten_expression(working_set, &match_.1));
             }
 
@@ -323,7 +321,8 @@ pub fn flatten_expression(
         }
         Expr::ValueWithUnit(value) => {
             let mut output = flatten_expression(working_set, &value.expr);
-            output.push((value.unit.span, FlatShape::String));
+            let value_unit_span = working_set.get_actual_span(value.unit.span.id);
+            output.push((value_unit_span, FlatShape::String));
 
             output
         }
@@ -331,8 +330,8 @@ pub fn flatten_expression(
             let mut output = vec![];
             for path_element in &cell_path.members {
                 match path_element {
-                    PathMember::String { span, .. } => output.push((*span, FlatShape::String)),
-                    PathMember::Int { span, .. } => output.push((*span, FlatShape::Int)),
+                    PathMember::String { span, .. } => output.push((working_set.get_actual_span(span.id), FlatShape::String)),
+                    PathMember::Int { span, .. } => output.push((working_set.get_actual_span(span.id), FlatShape::Int)),
                 }
             }
             output
@@ -342,24 +341,25 @@ pub fn flatten_expression(
             output.extend(flatten_expression(working_set, &cell_path.head));
             for path_element in &cell_path.tail {
                 match path_element {
-                    PathMember::String { span, .. } => output.push((*span, FlatShape::String)),
-                    PathMember::Int { span, .. } => output.push((*span, FlatShape::Int)),
+                    PathMember::String { span, .. } => output.push((working_set.get_actual_span(span.id), FlatShape::String)),
+                    PathMember::Int { span, .. } => output.push((working_set.get_actual_span(span.id), FlatShape::Int)),
                 }
             }
             output
         }
         Expr::ImportPattern(import_pattern) => {
-            let mut output = vec![(import_pattern.head.span, FlatShape::String)];
+            let head_span = working_set.get_actual_span(import_pattern.head.span.id);
+            let mut output = vec![(head_span, FlatShape::String)];
 
             for member in &import_pattern.members {
                 match member {
-                    ImportPatternMember::Glob { span } => output.push((*span, FlatShape::String)),
+                    ImportPatternMember::Glob { span } => output.push((working_set.get_actual_span(span.id), FlatShape::String)),
                     ImportPatternMember::Name { span, .. } => {
-                        output.push((*span, FlatShape::String))
+                        output.push((working_set.get_actual_span(span.id), FlatShape::String))
                     }
                     ImportPatternMember::List { names } => {
                         for (_, span) in names {
-                            output.push((*span, FlatShape::String));
+                            output.push((working_set.get_actual_span(span.id), FlatShape::String));
                         }
                     }
                 }
@@ -368,7 +368,7 @@ pub fn flatten_expression(
             output
         }
         Expr::Overlay(_) => {
-            vec![(expr.get_span(&working_set), FlatShape::String)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::String)]
         }
         Expr::Range(range) => {
             let mut output = vec![];
@@ -376,29 +376,31 @@ pub fn flatten_expression(
                 output.extend(flatten_expression(working_set, f));
             }
             if let Some(s) = &range.next {
-                output.extend(vec![(range.operator.next_op_span, FlatShape::Operator)]);
+                let next_op_span = working_set.get_actual_span(range.operator.next_op_span.id);
+                output.extend(vec![(next_op_span, FlatShape::Operator)]);
                 output.extend(flatten_expression(working_set, s));
             }
-            output.extend(vec![(range.operator.span, FlatShape::Operator)]);
+            let op_span = working_set.get_actual_span(range.operator.span.id);
+            output.extend(vec![(op_span, FlatShape::Operator)]);
             if let Some(t) = &range.to {
                 output.extend(flatten_expression(working_set, t));
             }
             output
         }
         Expr::Bool(_) => {
-            vec![(expr.get_span(&working_set), FlatShape::Bool)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Bool)]
         }
         Expr::Filepath(_, _) => {
-            vec![(expr.get_span(&working_set), FlatShape::Filepath)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Filepath)]
         }
         Expr::Directory(_, _) => {
-            vec![(expr.get_span(&working_set), FlatShape::Directory)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Directory)]
         }
         Expr::GlobPattern(_, _) => {
-            vec![(expr.get_span(&working_set), FlatShape::GlobPattern)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::GlobPattern)]
         }
         Expr::List(list) => {
-            let outer_span = expr.get_span(&working_set);
+            let outer_span = expr.get_actual_span(&working_set);
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
@@ -410,7 +412,7 @@ pub fn flatten_expression(
                         if let Some(first) = flattened.first() {
                             if first.0.start > last_end {
                                 output.push((
-                                    FutureSpanId::new(last_end, first.0.start),
+                                    ActualSpan::new(last_end, first.0.start),
                                     FlatShape::List,
                                 ));
                             }
@@ -423,9 +425,9 @@ pub fn flatten_expression(
                         output.extend(flattened);
                     }
                     ListItem::Spread(_, expr) => {
-                        let expr_span = expr.get_span(&working_set);
+                        let expr_span = expr.get_actual_span(&working_set);
                         let mut output = vec![(
-                            FutureSpanId::new(expr_span.start, expr_span.start + 3),
+                            ActualSpan::new(expr_span.start, expr_span.start + 3),
                             FlatShape::Operator,
                         )];
                         output.extend(flatten_expression(working_set, expr));
@@ -434,7 +436,7 @@ pub fn flatten_expression(
             }
 
             if last_end < outer_span.end {
-                output.push((FutureSpanId::new(last_end, outer_span.end), FlatShape::List));
+                output.push((ActualSpan::new(last_end, outer_span.end), FlatShape::List));
             }
             output
         }
@@ -445,22 +447,22 @@ pub fn flatten_expression(
             }
 
             if let Some(first) = output.first() {
-                if first.0.start != expr.get_span(&working_set).start {
+                if first.0.start != expr.get_actual_span(&working_set).start {
                     // If we aren't a bare word interpolation, also highlight the outer quotes
                     output.insert(
                         0,
                         (
-                            FutureSpanId::new(
-                                expr.get_span(&working_set).start,
-                                expr.get_span(&working_set).start + 2,
+                            ActualSpan::new(
+                                expr.get_actual_span(&working_set).start,
+                                expr.get_actual_span(&working_set).start + 2,
                             ),
                             FlatShape::StringInterpolation,
                         ),
                     );
                     output.push((
-                        FutureSpanId::new(
-                            expr.get_span(&working_set).end - 1,
-                            expr.get_span(&working_set).end,
+                        ActualSpan::new(
+                            expr.get_actual_span(&working_set).end - 1,
+                            expr.get_actual_span(&working_set).end,
                         ),
                         FlatShape::StringInterpolation,
                     ));
@@ -469,7 +471,7 @@ pub fn flatten_expression(
             output
         }
         Expr::Record(list) => {
-            let outer_span = expr.get_span(&working_set);
+            let outer_span = expr.get_actual_span(&working_set);
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
@@ -482,7 +484,7 @@ pub fn flatten_expression(
                         if let Some(first) = flattened_lhs.first() {
                             if first.0.start > last_end {
                                 output.push((
-                                    FutureSpanId::new(last_end, first.0.start),
+                                    ActualSpan::new(last_end, first.0.start),
                                     FlatShape::Record,
                                 ));
                             }
@@ -495,7 +497,7 @@ pub fn flatten_expression(
                         if let Some(first) = flattened_rhs.first() {
                             if first.0.start > last_end {
                                 output.push((
-                                    FutureSpanId::new(last_end, first.0.start),
+                                    ActualSpan::new(last_end, first.0.start),
                                     FlatShape::Record,
                                 ));
                             }
@@ -509,18 +511,18 @@ pub fn flatten_expression(
                     RecordItem::Spread(op_span, record) => {
                         if op_span.start > last_end {
                             output.push((
-                                FutureSpanId::new(last_end, op_span.start),
+                                ActualSpan::new(last_end, op_span.start),
                                 FlatShape::Record,
                             ));
                         }
-                        output.push((*op_span, FlatShape::Operator));
+                        output.push((working_set.get_actual_span(op_span.id), FlatShape::Operator));
                         last_end = op_span.end;
 
                         let flattened_inner = flatten_expression(working_set, record);
                         if let Some(first) = flattened_inner.first() {
                             if first.0.start > last_end {
                                 output.push((
-                                    FutureSpanId::new(last_end, first.0.start),
+                                    ActualSpan::new(last_end, first.0.start),
                                     FlatShape::Record,
                                 ));
                             }
@@ -534,7 +536,7 @@ pub fn flatten_expression(
             }
             if last_end < outer_span.end {
                 output.push((
-                    FutureSpanId::new(last_end, outer_span.end),
+                    ActualSpan::new(last_end, outer_span.end),
                     FlatShape::Record,
                 ));
             }
@@ -542,21 +544,22 @@ pub fn flatten_expression(
             output
         }
         Expr::Keyword(kw) => {
-            let mut output = vec![(kw.span, FlatShape::Keyword)];
+            let kw_span = working_set.get_actual_span(kw.span.id);
+            let mut output = vec![(kw_span, FlatShape::Keyword)];
             output.extend(flatten_expression(working_set, &kw.expr));
             output
         }
         Expr::Operator(_) => {
-            vec![(expr.get_span(&working_set), FlatShape::Operator)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Operator)]
         }
         Expr::Signature(_) => {
-            vec![(expr.get_span(&working_set), FlatShape::Signature)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Signature)]
         }
         Expr::String(_) => {
-            vec![(expr.get_span(&working_set), FlatShape::String)]
+            vec![(expr.get_actual_span(&working_set), FlatShape::String)]
         }
         Expr::Table(table) => {
-            let outer_span = expr.get_span(&working_set);
+            let outer_span = expr.get_actual_span(&working_set);
             let mut last_end = outer_span.start;
 
             let mut output = vec![];
@@ -564,7 +567,7 @@ pub fn flatten_expression(
                 let flattened = flatten_expression(working_set, e);
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
-                        output.push((FutureSpanId::new(last_end, first.0.start), FlatShape::Table));
+                        output.push((ActualSpan::new(last_end, first.0.start), FlatShape::Table));
                     }
                 }
 
@@ -580,7 +583,7 @@ pub fn flatten_expression(
                     if let Some(first) = flattened.first() {
                         if first.0.start > last_end {
                             output.push((
-                                FutureSpanId::new(last_end, first.0.start),
+                                ActualSpan::new(last_end, first.0.start),
                                 FlatShape::Table,
                             ));
                         }
@@ -596,7 +599,7 @@ pub fn flatten_expression(
 
             if last_end < outer_span.end {
                 output.push((
-                    FutureSpanId::new(last_end, outer_span.end),
+                    ActualSpan::new(last_end, outer_span.end),
                     FlatShape::Table,
                 ));
             }
@@ -604,10 +607,10 @@ pub fn flatten_expression(
             output
         }
         Expr::Var(var_id) => {
-            vec![(expr.get_span(&working_set), FlatShape::Variable(*var_id))]
+            vec![(expr.get_actual_span(&working_set), FlatShape::Variable(*var_id))]
         }
         Expr::VarDecl(var_id) => {
-            vec![(expr.get_span(&working_set), FlatShape::VarDecl(*var_id))]
+            vec![(expr.get_actual_span(&working_set), FlatShape::VarDecl(*var_id))]
         }
     }
 }
@@ -615,8 +618,9 @@ pub fn flatten_expression(
 pub fn flatten_pipeline_element(
     working_set: &StateWorkingSet,
     pipeline_element: &PipelineElement,
-) -> Vec<(FutureSpanId, FlatShape)> {
-    let mut output = if let Some(span) = pipeline_element.pipe {
+) -> Vec<(ActualSpan, FlatShape)> {
+    let mut output = if let Some(span_id) = pipeline_element.pipe {
+        let span = working_set.get_actual_span(span_id.id);
         let mut output = vec![(span, FlatShape::Pipe)];
         output.extend(flatten_expression(working_set, &pipeline_element.expr));
         output
@@ -627,7 +631,8 @@ pub fn flatten_pipeline_element(
     if let Some(redirection) = pipeline_element.redirection.as_ref() {
         match redirection {
             PipelineRedirection::Single { target, .. } => {
-                output.push((target.span(), FlatShape::Redirection));
+                let target_span = working_set.get_actual_span(target.span().id);
+                output.push((target_span, FlatShape::Redirection));
                 if let Some(expr) = target.expr() {
                     output.extend(flatten_expression(working_set, expr));
                 }
@@ -639,11 +644,14 @@ pub fn flatten_pipeline_element(
                     (err, out)
                 };
 
-                output.push((out.span(), FlatShape::Redirection));
+                let out_span = working_set.get_actual_span(out.span().id);
+                output.push((out_span, FlatShape::Redirection));
                 if let Some(expr) = out.expr() {
                     output.extend(flatten_expression(working_set, expr));
                 }
-                output.push((err.span(), FlatShape::Redirection));
+
+                let err_span = working_set.get_actual_span(err.span().id);
+                output.push((err_span, FlatShape::Redirection));
                 if let Some(expr) = err.expr() {
                     output.extend(flatten_expression(working_set, expr));
                 }
@@ -657,7 +665,7 @@ pub fn flatten_pipeline_element(
 pub fn flatten_pipeline(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
-) -> Vec<(FutureSpanId, FlatShape)> {
+) -> Vec<(ActualSpan, FlatShape)> {
     let mut output = vec![];
     for expr in &pipeline.elements {
         output.extend(flatten_pipeline_element(working_set, expr))
@@ -665,68 +673,70 @@ pub fn flatten_pipeline(
     output
 }
 
-pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(FutureSpanId, FlatShape)> {
+pub fn flatten_pattern(working_set: &StateWorkingSet, match_pattern: &MatchPattern) -> Vec<(ActualSpan, FlatShape)> {
     let mut output = vec![];
+    let match_pattern_span = working_set.get_actual_span(match_pattern.span.id);
+
     match &match_pattern.pattern {
         Pattern::Garbage => {
-            output.push((match_pattern.span, FlatShape::Garbage));
+            output.push((match_pattern_span, FlatShape::Garbage));
         }
         Pattern::IgnoreValue => {
-            output.push((match_pattern.span, FlatShape::Nothing));
+            output.push((match_pattern_span, FlatShape::Nothing));
         }
         Pattern::IgnoreRest => {
-            output.push((match_pattern.span, FlatShape::Nothing));
+            output.push((match_pattern_span, FlatShape::Nothing));
         }
         Pattern::List(items) => {
             if let Some(first) = items.first() {
                 if let Some(last) = items.last() {
                     output.push((
-                        FutureSpanId::new(match_pattern.span.start, first.span.start),
+                        ActualSpan::new(match_pattern_span.start, first.span.start),
                         FlatShape::MatchPattern,
                     ));
                     for item in items {
-                        output.extend(flatten_pattern(item));
+                        output.extend(flatten_pattern(working_set, item));
                     }
                     output.push((
-                        FutureSpanId::new(last.span.end, match_pattern.span.end),
+                        ActualSpan::new(last.span.end, match_pattern_span.end),
                         FlatShape::MatchPattern,
                     ))
                 }
             } else {
-                output.push((match_pattern.span, FlatShape::MatchPattern));
+                output.push((match_pattern_span, FlatShape::MatchPattern));
             }
         }
         Pattern::Record(items) => {
             if let Some(first) = items.first() {
                 if let Some(last) = items.last() {
                     output.push((
-                        FutureSpanId::new(match_pattern.span.start, first.1.span.start),
+                        ActualSpan::new(match_pattern_span.start, first.1.span.start),
                         FlatShape::MatchPattern,
                     ));
                     for item in items {
-                        output.extend(flatten_pattern(&item.1));
+                        output.extend(flatten_pattern(working_set, &item.1));
                     }
                     output.push((
-                        FutureSpanId::new(last.1.span.end, match_pattern.span.end),
+                        ActualSpan::new(last.1.span.end, match_pattern_span.end),
                         FlatShape::MatchPattern,
                     ))
                 }
             } else {
-                output.push((match_pattern.span, FlatShape::MatchPattern));
+                output.push((match_pattern_span, FlatShape::MatchPattern));
             }
         }
         Pattern::Value(_) => {
-            output.push((match_pattern.span, FlatShape::MatchPattern));
+            output.push((match_pattern_span, FlatShape::MatchPattern));
         }
         Pattern::Variable(var_id) => {
-            output.push((match_pattern.span, FlatShape::VarDecl(*var_id)));
+            output.push((match_pattern_span, FlatShape::VarDecl(*var_id)));
         }
         Pattern::Rest(var_id) => {
-            output.push((match_pattern.span, FlatShape::VarDecl(*var_id)));
+            output.push((match_pattern_span, FlatShape::VarDecl(*var_id)));
         }
         Pattern::Or(patterns) => {
             for pattern in patterns {
-                output.extend(flatten_pattern(pattern));
+                output.extend(flatten_pattern(working_set, pattern));
             }
         }
     }

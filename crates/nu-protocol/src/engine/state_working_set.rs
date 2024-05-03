@@ -1058,17 +1058,29 @@ impl<'a> GetSpan for StateWorkingSet<'a> {
     fn get_span(&self, span_id: SpanId) -> FutureSpanId {
         get_span(self, span_id)
     }
+
+    fn get_actual_span(&self, span_id: SpanId) -> ActualSpan {
+        get_actual_span(self, span_id)
+    }
 }
 
 impl<'a> GetSpan for &'a StateWorkingSet<'a> {
     fn get_span(&self, span_id: SpanId) -> FutureSpanId {
         get_span(self, span_id)
     }
+
+    fn get_actual_span(&self, span_id: SpanId) -> ActualSpan {
+        get_actual_span(self, span_id)
+    }
 }
 
 impl<'a, 'b> GetSpan for &'b mut StateWorkingSet<'a> {
     fn get_span(&self, span_id: SpanId) -> FutureSpanId {
         get_span(self, span_id)
+    }
+
+    fn get_actual_span(&self, span_id: SpanId) -> ActualSpan {
+        get_actual_span(self, span_id)
     }
 }
 
@@ -1083,7 +1095,22 @@ fn get_span(working_set: &StateWorkingSet, span_id: SpanId) -> FutureSpanId {
             .get(span_id.0 - num_permanent_spans)
             .expect("internal error: missing span");
 
-        FutureSpanId::new(sp.start, sp.end)
+        FutureSpanId { start: sp.start, end: sp.end, id: span_id }
+    }
+}
+
+fn get_actual_span(working_set: &StateWorkingSet, span_id: SpanId) -> ActualSpan {
+    let num_permanent_spans = working_set.permanent_state.num_spans();
+    if span_id.0 < num_permanent_spans {
+        working_set.permanent_state.get_actual_span(span_id)
+    } else {
+        let sp = *working_set
+            .delta
+            .spans
+            .get(span_id.0 - num_permanent_spans)
+            .expect("internal error: missing span");
+
+        ActualSpan::new(sp.start, sp.end)
     }
 }
 

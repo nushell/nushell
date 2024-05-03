@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::UNKNOWN_SPAN_ID;
 use nu_protocol::LabeledError;
 
 #[derive(Clone)]
@@ -67,32 +68,33 @@ impl Command for ErrorMake {
                     FutureSpanId::unknown(),
                 )),
             },
-            Example {
-                description: "Create a more complex custom error",
-                example: r#"error make {
-        msg: "my custom error message"
-        label: {
-            text: "my custom label text"  # not mandatory unless $.label exists
-            # optional
-            span: {
-                # if $.label.span exists, both start and end must be present
-                start: 123
-                end: 456
-            }
-        }
-        help: "A help string, suggesting a fix to the user"  # optional
-    }"#,
-                result: Some(Value::error(
-                    ShellError::GenericError {
-                        error: "my custom error message".into(),
-                        msg: "my custom label text".into(),
-                        span: Some(FutureSpanId::new(123, 456)),
-                        help: Some("A help string, suggesting a fix to the user".into()),
-                        inner: vec![],
-                    },
-                    FutureSpanId::unknown(),
-                )),
-            },
+    // TODO SPAN: We shouldn't encourage manual span creation;
+    //         Example {
+    //             description: "Create a more complex custom error",
+    //             example: r#"error make {
+    //     msg: "my custom error message"
+    //     label: {
+    //         text: "my custom label text"  # not mandatory unless $.label exists
+    //         # optional
+    //         span: {
+    //             # if $.label.span exists, both start and end must be present
+    //             start: 123
+    //             end: 456
+    //         }
+    //     }
+    //     help: "A help string, suggesting a fix to the user"  # optional
+    // }"#,
+    //             result: Some(Value::error(
+    //                 ShellError::GenericError {
+    //                     error: "my custom error message".into(),
+    //                     msg: "my custom label text".into(),
+    //                     span: Some(FutureSpanId::new(123, 456)),
+    //                     help: Some("A help string, suggesting a fix to the user".into()),
+    //                     inner: vec![],
+    //                 },
+    //                 FutureSpanId::unknown(),
+    //             )),
+    //         },
             Example {
                 description:
                     "Create a custom error for a custom command that shows the span of the argument",
@@ -234,6 +236,8 @@ fn make_other_error(value: &Value, throw_span: Option<FutureSpanId>) -> ShellErr
         }
     };
 
+    // TODO SPAN: Remove manual span creation
+
     let span_start = match get_span_sides(span, span_span, "start") {
         Ok(val) => val,
         Err(err) => return err,
@@ -256,7 +260,7 @@ fn make_other_error(value: &Value, throw_span: Option<FutureSpanId>) -> ShellErr
     // correct return: everything present
     let mut error = LabeledError::new(msg).with_label(
         text,
-        FutureSpanId::new(span_start as usize, span_end as usize),
+        FutureSpanId { start: span_start as usize, end: span_end as usize, id: UNKNOWN_SPAN_ID },
     );
     error.help = help;
     error.into()

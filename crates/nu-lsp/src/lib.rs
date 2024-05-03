@@ -9,10 +9,7 @@ use lsp_types::{
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, FutureSpanId, Value, VarId,
-};
+use nu_protocol::{engine::{EngineState, Stack, StateWorkingSet}, DeclId, FutureSpanId, Value, VarId, ActualSpan};
 use ropey::Rope;
 use std::{
     collections::BTreeMap,
@@ -208,7 +205,7 @@ impl LanguageServer {
         path: &Path,
         file: &Rope,
         location: usize,
-    ) -> Option<(Id, usize, FutureSpanId)> {
+    ) -> Option<(Id, usize, ActualSpan)> {
         let file_path = path.to_string_lossy();
 
         // TODO: think about passing down the rope into the working_set
