@@ -51,10 +51,3 @@ pub trait ViewCommand {
         value: Option<Value>,
     ) -> Result<Self::View>;
 }
-
-#[derive(Debug, Default, Clone)]
-pub struct Shortcode {
-    pub code: &'static str,
-    pub context: &'static str,
-    pub description: &'static str,
-}
