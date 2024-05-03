@@ -19,6 +19,10 @@ impl Command for SysTemp {
         "View the temperatures of system components."
     }
 
+    fn extra_usage(&self) -> &str {
+        "Some system components do not support temperature readings, so this command may return an empty list if no components support temperature."
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
