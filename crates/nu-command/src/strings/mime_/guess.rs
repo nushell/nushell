@@ -102,62 +102,58 @@ impl Command for MimeGuess {
     ) -> Result<PipelineData, ShellError> {
         let use_extension: bool = call.has_flag(engine_state, stack, "extension")?;
 
-        let guess_function = if use_extension {
-            // I don't know how to satisfy the compiler here without a closure, but I cannot return the function directly because of a mismatched types error.
-            #[allow(clippy::redundant_closure)]
-            |input| mime_guess::from_ext(input)
+        let guess_function: fn(&str) -> mime_guess::MimeGuess = if use_extension {
+            mime_guess::from_ext
         } else {
-            mime_guess::from_path
+            // HACK I don't know how to satisfy the compiler here without a closure, but I cannot return the function directly.
+            // If I do, I get an error that the types are different or that a value does not live long enough when the function is called.
+            |input| mime_guess::from_path(input)
         };
 
-        let result = match input {
+        match input {
             PipelineData::Value(Value::String { val, internal_span }, ..) => {
                 let mime_type = guess_function(&val)
                     .first()
                     .map(|mime| mime.to_string())
                     .unwrap_or_else(|| "unknown".to_string());
 
-                Ok(Value::string(mime_type, internal_span))
+                Ok(Value::string(mime_type, internal_span).into_pipeline_data())
             }
-            PipelineData::Value(
-                Value::List {
-                    vals,
-                    internal_span,
-                },
-                ..,
-            ) => {
-                let string_list = vals
-                    .iter()
-                    .map(|val| val.as_str())
-                    .collect::<Result<Vec<_>, _>>()?;
+            PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream(..) => {
+                let mime_records_iter = input.into_iter().map(move |value| {
+                    let span = value.span();
 
-                let mime_records = string_list
-                    .into_iter()
-                    .map(|s| {
-                        let name = Value::string(s.to_string(), internal_span);
-                        let mime_type = Value::string(
-                            guess_function(s)
-                                .first()
-                                .map(|mime| mime.to_string())
-                                .unwrap_or_else(|| "unknown".to_string()),
-                            internal_span,
-                        );
+                    match value.as_str() {
+                        Ok(s) => {
+                            let name = Value::string(s, span);
+                            let mime_type = Value::string(
+                                guess_function(s)
+                                    .first()
+                                    .map(|mime| mime.to_string())
+                                    .unwrap_or_else(|| "unknown".to_string()),
+                                span,
+                            );
 
-                        Value::record(record!("name" => name, "type" => mime_type), internal_span)
-                    })
-                    .collect::<Vec<_>>();
+                            Value::record(record!("name" => name, "type" => mime_type), span)
+                        }
+                        Err(err) => Value::error(
+                            ShellError::TypeMismatch {
+                                err_message: format!("Value was not a string: {err}"),
+                                span,
+                            },
+                            span,
+                        ),
+                    }
+                });
 
-                Ok(Value::list(mime_records, internal_span))
-            }
-            PipelineData::ListStream(stream, ..) => {
-                todo!()
+                let ctrlc = engine_state.ctrlc.clone();
+
+                Ok(mime_records_iter.into_pipeline_data(ctrlc))
             }
             _ => Err(ShellError::TypeMismatch {
                 err_message: "Only string input is supported".to_string(),
                 span: input.span().unwrap_or(NO_SPAN),
             }),
-        };
-
-        result.map(|res| res.into_pipeline_data())
+        }
     }
 }
