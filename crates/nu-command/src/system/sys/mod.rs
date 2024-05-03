@@ -1,78 +1,25 @@
+mod cpu;
+mod disks;
+mod host;
+mod mem;
+mod net;
+mod sys_;
+mod temp;
+
+pub use cpu::SysCpu;
+pub use disks::SysDisks;
+pub use host::SysHost;
+pub use mem::SysMem;
+pub use net::SysNet;
+pub use sys_::Sys;
+pub use temp::SysTemp;
+
 use chrono::{DateTime, Local};
-use nu_engine::command_prelude::*;
+use nu_protocol::{record, Record, Span, Value};
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,
 };
-
-#[derive(Clone)]
-pub struct Sys;
-
-impl Command for Sys {
-    fn name(&self) -> &str {
-        "sys"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("sys")
-            .filter()
-            .category(Category::System)
-            .input_output_types(vec![(Type::Nothing, Type::record())])
-    }
-
-    fn usage(&self) -> &str {
-        "View information about the system."
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        Ok(all_columns(call.head).into_pipeline_data())
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Show info about the system",
-                example: "sys",
-                result: None,
-            },
-            Example {
-                description: "Show the os system name with get",
-                example: "(sys).host | get name",
-                result: None,
-            },
-            Example {
-                description: "Show the os system name",
-                example: "(sys).host.name",
-                result: None,
-            },
-        ]
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SysResult {
-    pub span: Span,
-}
-
-fn all_columns(span: Span) -> Value {
-    Value::record(
-        record! {
-            "host" => host(span),
-            "cpu" => cpu(span),
-            "disks" => disks(span),
-            "mem" => mem(span),
-            "temp" => temp(span),
-            "net" => net(span),
-        },
-        span,
-    )
-}
 
 pub fn trim_cstyle_null(s: String) -> String {
     s.trim_matches(char::from(0)).to_string()
