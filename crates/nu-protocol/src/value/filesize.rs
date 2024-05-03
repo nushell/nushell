@@ -72,24 +72,29 @@ fn get_filesize_format(
 ) -> Option<byte_unit::Unit> {
     // filesize_metric always overrides the unit of filesize_format.
     let metric = filesize_metric.unwrap_or(!format_value.ends_with("ib"));
-    macro_rules! either {
-        ($metric:ident, $binary:ident) => {
-            Some(if metric {
-                byte_unit::Unit::$metric
-            } else {
-                byte_unit::Unit::$binary
-            })
-        };
-    }
-    match format_value {
-        "b" => Some(byte_unit::Unit::B),
-        "kb" | "kib" => either!(KB, KiB),
-        "mb" | "mib" => either!(MB, MiB),
-        "gb" | "gib" => either!(GB, GiB),
-        "tb" | "tib" => either!(TB, TiB),
-        "pb" | "pib" => either!(TB, TiB),
-        "eb" | "eib" => either!(EB, EiB),
-        _ => None,
+
+    if metric {
+        match format_value {
+            "b" => Some(byte_unit::Unit::B),
+            "kb" | "kib" => Some(byte_unit::Unit::KB),
+            "mb" | "mib" => Some(byte_unit::Unit::MB),
+            "gb" | "gib" => Some(byte_unit::Unit::GB),
+            "tb" | "tib" => Some(byte_unit::Unit::TB),
+            "pb" | "pib" => Some(byte_unit::Unit::TB),
+            "eb" | "eib" => Some(byte_unit::Unit::EB),
+            _ => None,
+        }
+    } else {
+        match format_value {
+            "b" => Some(byte_unit::Unit::B),
+            "kb" | "kib" => Some(byte_unit::Unit::KiB),
+            "mb" | "mib" => Some(byte_unit::Unit::MiB),
+            "gb" | "gib" => Some(byte_unit::Unit::GiB),
+            "tb" | "tib" => Some(byte_unit::Unit::TiB),
+            "pb" | "pib" => Some(byte_unit::Unit::TiB),
+            "eb" | "eib" => Some(byte_unit::Unit::EiB),
+            _ => None,
+        }
     }
 }
 
