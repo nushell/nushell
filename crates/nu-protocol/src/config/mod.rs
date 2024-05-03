@@ -74,7 +74,14 @@ pub struct Config {
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
     pub rm_always_trash: bool,
-    pub shell_integration: bool,
+    // Shell integration OSC meaning is described in the default_config.nu
+    pub shell_integration_osc2: bool,
+    pub shell_integration_osc7: bool,
+    pub shell_integration_osc8: bool,
+    pub shell_integration_osc9_9: bool,
+    pub shell_integration_osc133: bool,
+    pub shell_integration_osc633: bool,
+    pub shell_integration_reset_application_mode: bool,
     pub buffer_editor: Value,
     pub table_index_mode: TableIndexMode,
     pub case_sensitive_completions: bool,
@@ -154,7 +161,15 @@ impl Default for Config {
             use_ansi_coloring: true,
             bracketed_paste: true,
             edit_mode: EditBindings::default(),
-            shell_integration: false,
+            // shell_integration: false,
+            shell_integration_osc2: false,
+            shell_integration_osc7: false,
+            shell_integration_osc8: false,
+            shell_integration_osc9_9: false,
+            shell_integration_osc133: false,
+            shell_integration_osc633: false,
+            shell_integration_reset_application_mode: false,
+
             render_right_prompt_on_last_line: false,
 
             hooks: Hooks::new(),
@@ -639,7 +654,54 @@ impl Value {
                             &mut errors);
                     }
                     "shell_integration" => {
-                        process_bool_config(value, &mut errors, &mut config.shell_integration);
+                        if let Value::Record { val, .. } = value {
+                            val.to_mut().retain_mut(|key2, value| {
+                                let span = value.span();
+                                match key2 {
+                                "osc2" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc2);
+                                }
+                                "osc7" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc7);
+                                }
+                                "osc8" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc8);
+                                }
+                                "osc9_9" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc9_9);
+                                }
+                                "osc133" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc133);
+                                }
+                                "osc633" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc633);
+                                }
+                                "reset_application_mode" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_reset_application_mode);
+                                }
+                                _ => {
+                                    report_invalid_key(&[key, key2], span, &mut errors);
+                                    return false;
+                                }
+                            };
+                            true
+                        })
+                        } else {
+                            report_invalid_value("boolean value is deprecated, should be a record. see default_conifg.nu.", span, &mut errors);
+                            // Reconstruct
+                            *value = Value::record(
+                                record! {
+                                    "osc2" => Value::bool(config.shell_integration_osc2, span),
+                                    "ocs7" => Value::bool(config.shell_integration_osc7, span),
+                                    "osc8" => Value::bool(config.shell_integration_osc8, span),
+                                    "osc9_9" => Value::bool(config.shell_integration_osc9_9, span),
+                                    "osc133" => Value::bool(config.shell_integration_osc133, span),
+                                    "osc633" => Value::bool(config.shell_integration_osc633, span),
+                                    "reset_application_mode" => Value::bool(config.shell_integration_reset_application_mode, span),
+                                },
+                                span,
+                            );
+                        }
                     }
                     "buffer_editor" => match value {
                         Value::Nothing { .. } | Value::String { .. } => {

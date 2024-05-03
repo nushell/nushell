@@ -72,7 +72,7 @@ impl NuLazyFrame {
         F: Fn(LazyFrame, Expr) -> LazyFrame,
     {
         let df = self.to_polars();
-        let expr = expr.to_polars();
+        let expr = expr.into_polars();
         let new_frame = f(df, expr);
         Self::new(self.from_eager, new_frame)
     }

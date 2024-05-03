@@ -272,10 +272,6 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
                 .collect::<Vec<_>>()
                 .join(" ")
         ),
-        Value::LazyRecord { val, .. } => match val.collect() {
-            Ok(val) => debug_string_without_formatting(&val),
-            Err(error) => format!("{error:?}"),
-        },
         //TODO: It would be good to drill deeper into closures.
         Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
         Value::Nothing { .. } => String::new(),

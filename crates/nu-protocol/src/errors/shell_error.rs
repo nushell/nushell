@@ -1178,16 +1178,6 @@ pub enum ShellError {
         span: Option<Span>,
     },
 
-    /// An attempt to access a record column failed.
-    #[error("Access failure: {message}")]
-    #[diagnostic(code(nu::shell::lazy_record_access_failed))]
-    LazyRecordAccessFailed {
-        message: String,
-        column_name: String,
-        #[label("Could not access '{column_name}' on this record")]
-        span: Span,
-    },
-
     /// Operation interrupted by user
     #[error("Operation interrupted by user")]
     InterruptedByUser {
