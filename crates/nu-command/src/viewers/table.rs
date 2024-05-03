@@ -394,10 +394,6 @@ fn handle_table_command(
             input.data = PipelineData::Empty;
             handle_record(input, cfg, val.into_owned())
         }
-        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
-            input.data = val.collect()?.into_pipeline_data();
-            handle_table_command(input, cfg)
-        }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.

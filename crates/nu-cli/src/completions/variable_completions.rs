@@ -267,24 +267,6 @@ fn nested_suggestions(
 
             output
         }
-        Value::LazyRecord { val, .. } => {
-            // Add all the columns as completion
-            for column_name in val.column_names() {
-                output.push(SemanticSuggestion {
-                    suggestion: Suggestion {
-                        value: column_name.to_string(),
-                        description: None,
-                        style: None,
-                        extra: None,
-                        span: current_span,
-                        append_whitespace: false,
-                    },
-                    kind: Some(kind.clone()),
-                });
-            }
-
-            output
-        }
         Value::List { vals, .. } => {
             for column_name in get_columns(vals.as_slice()) {
                 output.push(SemanticSuggestion {
@@ -320,17 +302,6 @@ fn recursive_value(val: &Value, sublevels: &[Vec<u8>]) -> Result<Value, Span> {
                     // Current sublevel value not found
                     Err(span)
                 }
-            }
-            Value::LazyRecord { val, .. } => {
-                for col in val.column_names() {
-                    if col.as_bytes() == *sublevel {
-                        let val = val.get_column_value(col).map_err(|_| span)?;
-                        return recursive_value(&val, next_sublevels);
-                    }
-                }
-
-                // Current sublevel value not found
-                Err(span)
             }
             Value::List { vals, .. } => {
                 for col in get_columns(vals.as_slice()) {
