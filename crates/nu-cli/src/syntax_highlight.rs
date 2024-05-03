@@ -4,7 +4,7 @@ use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
-    ast::{Argument, Block, Expr, Expression, PipelineRedirection, RecordItem},
+    ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
     Config, Span,
 };
@@ -298,20 +298,6 @@ fn find_matching_block_end_in_expr(
     global_span_offset: usize,
     global_cursor_offset: usize,
 ) -> Option<usize> {
-    macro_rules! find_in_expr_or_continue {
-        ($inner_expr:ident) => {
-            if let Some(pos) = find_matching_block_end_in_expr(
-                line,
-                working_set,
-                $inner_expr,
-                global_span_offset,
-                global_cursor_offset,
-            ) {
-                return Some(pos);
-            }
-        };
-    }
-
     if expression.span.contains(global_cursor_offset) && expression.span.start >= global_span_offset
     {
         let expr_first = expression.span.start;
@@ -359,15 +345,19 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     // cursor is inside table
-                    for inner_expr in table.columns.as_ref() {
-                        find_in_expr_or_continue!(inner_expr);
-                    }
-                    for row in table.rows.as_ref() {
-                        for inner_expr in row.as_ref() {
-                            find_in_expr_or_continue!(inner_expr);
-                        }
-                    }
-                    None
+                    table
+                        .columns
+                        .iter()
+                        .chain(table.rows.iter().flat_map(AsRef::as_ref))
+                        .find_map(|expr| {
+                            find_matching_block_end_in_expr(
+                                line,
+                                working_set,
+                                expr,
+                                global_span_offset,
+                                global_cursor_offset,
+                            )
+                        })
                 }
             }
 
@@ -380,36 +370,45 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     // cursor is inside record
-                    for expr in exprs {
-                        match expr {
-                            RecordItem::Pair(k, v) => {
-                                find_in_expr_or_continue!(k);
-                                find_in_expr_or_continue!(v);
-                            }
-                            RecordItem::Spread(_, record) => {
-                                find_in_expr_or_continue!(record);
-                            }
-                        }
-                    }
-                    None
+                    exprs.iter().find_map(|expr| match expr {
+                        RecordItem::Pair(k, v) => find_matching_block_end_in_expr(
+                            line,
+                            working_set,
+                            k,
+                            global_span_offset,
+                            global_cursor_offset,
+                        )
+                        .or_else(|| {
+                            find_matching_block_end_in_expr(
+                                line,
+                                working_set,
+                                v,
+                                global_span_offset,
+                                global_cursor_offset,
+                            )
+                        }),
+                        RecordItem::Spread(_, record) => find_matching_block_end_in_expr(
+                            line,
+                            working_set,
+                            record,
+                            global_span_offset,
+                            global_cursor_offset,
+                        ),
+                    })
                 }
             }
 
-            Expr::Call(call) => {
-                for arg in &call.arguments {
-                    let opt_expr = match arg {
-                        Argument::Named((_, _, opt_expr)) => opt_expr.as_ref(),
-                        Argument::Positional(inner_expr) => Some(inner_expr),
-                        Argument::Unknown(inner_expr) => Some(inner_expr),
-                        Argument::Spread(inner_expr) => Some(inner_expr),
-                    };
-
-                    if let Some(inner_expr) = opt_expr {
-                        find_in_expr_or_continue!(inner_expr);
-                    }
-                }
-                None
-            }
+            Expr::Call(call) => call.arguments.iter().find_map(|arg| {
+                arg.expr().and_then(|expr| {
+                    find_matching_block_end_in_expr(
+                        line,
+                        working_set,
+                        expr,
+                        global_span_offset,
+                        global_cursor_offset,
+                    )
+                })
+            }),
 
             Expr::FullCellPath(b) => find_matching_block_end_in_expr(
                 line,
@@ -419,12 +418,15 @@ fn find_matching_block_end_in_expr(
                 global_cursor_offset,
             ),
 
-            Expr::BinaryOp(lhs, op, rhs) => {
-                find_in_expr_or_continue!(lhs);
-                find_in_expr_or_continue!(op);
-                find_in_expr_or_continue!(rhs);
-                None
-            }
+            Expr::BinaryOp(lhs, op, rhs) => [lhs, op, rhs].into_iter().find_map(|expr| {
+                find_matching_block_end_in_expr(
+                    line,
+                    working_set,
+                    expr,
+                    global_span_offset,
+                    global_cursor_offset,
+                )
+            }),
 
             Expr::Block(block_id)
             | Expr::Closure(block_id)
@@ -449,12 +451,15 @@ fn find_matching_block_end_in_expr(
                 }
             }
 
-            Expr::StringInterpolation(inner_expr) => {
-                for inner_expr in inner_expr {
-                    find_in_expr_or_continue!(inner_expr);
-                }
-                None
-            }
+            Expr::StringInterpolation(exprs) => exprs.iter().find_map(|expr| {
+                find_matching_block_end_in_expr(
+                    line,
+                    working_set,
+                    expr,
+                    global_span_offset,
+                    global_cursor_offset,
+                )
+            }),
 
             Expr::List(list) => {
                 if expr_last == global_cursor_offset {
@@ -464,12 +469,15 @@ fn find_matching_block_end_in_expr(
                     // cursor is at list start
                     Some(expr_last)
                 } else {
-                    // cursor is inside list
-                    for item in list {
-                        let expr = item.expr();
-                        find_in_expr_or_continue!(expr);
-                    }
-                    None
+                    list.iter().find_map(|item| {
+                        find_matching_block_end_in_expr(
+                            line,
+                            working_set,
+                            item.expr(),
+                            global_span_offset,
+                            global_cursor_offset,
+                        )
+                    })
                 }
             }
         };
