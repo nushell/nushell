@@ -46,7 +46,7 @@ impl Command for StrJoin {
         let span = call.head;
 
         let metadata = input.metadata();
-        let mut iter = input.into_iter_strict(span)?;
+        let mut iter = input.into_iter();
         let mut first = true;
 
         let output = ByteStream::from_fn(span, None, ByteStreamType::String, move |buffer| {
