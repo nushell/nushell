@@ -71,7 +71,7 @@ If <main type> is "*" all known extensions are returned."#,
         let extensions = mime_guess::get_mime_extensions_str(&mime_str.item)
             .unwrap_or_default()
             .iter()
-            .map(|ext| Value::string(ext.to_string(), NO_SPAN))
+            .map(|ext| Value::string(ext.to_string(), mime_str.span))
             .collect::<Vec<_>>();
 
         Ok(Value::list(extensions, mime_str.span).into_pipeline_data())

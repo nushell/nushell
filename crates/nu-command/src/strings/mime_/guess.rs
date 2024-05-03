@@ -138,7 +138,7 @@ impl Command for MimeGuess {
                         }
                         Err(err) => Value::error(
                             ShellError::TypeMismatch {
-                                err_message: format!("Value was not a string: {err}"),
+                                err_message: err.to_string(),
                                 span,
                             },
                             span,
