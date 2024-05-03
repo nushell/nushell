@@ -25,11 +25,23 @@ impl Command for Sys {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError {
+                error: "Deprecated command".into(),
+                msg: "the `sys` command is deprecated, please use the new subcommands (`sys host`, `sys mem`, etc.)."
+                    .into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            },
+        );
+
         let head = call.head;
         let record = record! {
             "host" => super::host(head),
