@@ -150,6 +150,7 @@ impl Command for MimeGuess {
 
                 Ok(mime_records_iter.into_pipeline_data(ctrlc))
             }
+            PipelineData::Empty => Ok(PipelineData::empty()),
             _ => Err(ShellError::TypeMismatch {
                 err_message: "Only string input is supported".to_string(),
                 span: input.span().unwrap_or(NO_SPAN),
