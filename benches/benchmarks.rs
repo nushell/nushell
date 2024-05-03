@@ -1,5 +1,7 @@
 use nu_cli::{eval_source, evaluate_commands};
-use nu_plugin::{Encoder, EncodingType, PluginCallResponse, PluginOutput};
+use nu_plugin_core::{Encoder, EncodingType};
+use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
+
 use nu_protocol::{
     engine::{EngineState, Stack},
     eval_const::create_nu_constant,
