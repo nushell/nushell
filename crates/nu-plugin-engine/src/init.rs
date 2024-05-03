@@ -24,7 +24,10 @@ use crate::{
     PluginSource,
 };
 
-pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
+/// This should be larger than the largest commonly sent message to avoid excessive fragmentation.
+///
+/// The buffers coming from external streams are typically each 8192 bytes, so double that.
+pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 
 /// Spawn the command for a plugin, in the given `mode`. After spawning, it can be passed to
 /// [`make_plugin_interface()`] to get a [`PluginInterface`].

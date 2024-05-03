@@ -129,6 +129,7 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Operator => add_colored_token(&shape.1, next_token),
                 FlatShape::Signature => add_colored_token(&shape.1, next_token),
                 FlatShape::String => add_colored_token(&shape.1, next_token),
+                FlatShape::RawString => add_colored_token(&shape.1, next_token),
                 FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
                 FlatShape::DateTime => add_colored_token(&shape.1, next_token),
                 FlatShape::List => {
@@ -354,6 +355,7 @@ fn find_matching_block_end_in_expr(
             Expr::Directory(_, _) => None,
             Expr::GlobPattern(_, _) => None,
             Expr::String(_) => None,
+            Expr::RawString(_) => None,
             Expr::CellPath(_) => None,
             Expr::ImportPattern(_) => None,
             Expr::Overlay(_) => None,

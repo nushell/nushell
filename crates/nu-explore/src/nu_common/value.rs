@@ -112,10 +112,6 @@ pub fn collect_input(value: Value) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
 
             Ok((vec![String::from("")], lines))
         }
-        Value::LazyRecord { val, .. } => {
-            let materialized = val.collect()?;
-            collect_input(materialized)
-        }
         Value::Nothing { .. } => Ok((vec![], vec![])),
         Value::Custom { val, .. } => {
             let materialized = val.to_base_value(span)?;

@@ -91,3 +91,18 @@ fn let_glob_type() {
     let actual = nu!("let x: glob = 'aa'; $x | describe");
     assert_eq!(actual.out, "glob");
 }
+
+#[test]
+fn let_raw_string() {
+    let actual = nu!(r#"let x = r#'abcde""fghi"''''jkl'#; $x"#);
+    assert_eq!(actual.out, r#"abcde""fghi"''''jkl"#);
+
+    let actual = nu!(r#"let x = r##'abcde""fghi"''''#jkl'##; $x"#);
+    assert_eq!(actual.out, r#"abcde""fghi"''''#jkl"#);
+
+    let actual = nu!(r#"let x = r###'abcde""fghi"'''##'#jkl'###; $x"#);
+    assert_eq!(actual.out, r#"abcde""fghi"'''##'#jkl"#);
+
+    let actual = nu!(r#"let x = r#'abc'#; $x"#);
+    assert_eq!(actual.out, "abc");
+}
