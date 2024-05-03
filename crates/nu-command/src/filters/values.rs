@@ -157,23 +157,10 @@ fn values(
                     }
                 }
                 Value::Record { val, .. } => Ok(val
-                    .into_owned()
-                    .into_values()
+                    .values()
+                    .cloned()
+                    .collect::<Vec<_>>()
                     .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
-                Value::LazyRecord { val, .. } => {
-                    let record = match val.collect()? {
-                        Value::Record { val, .. } => val,
-                        _ => Err(ShellError::NushellFailedSpanned {
-                            msg: "`LazyRecord::collect()` promises `Value::Record`".into(),
-                            label: "Violating lazy record found here".into(),
-                            span,
-                        })?,
-                    };
-                    Ok(record
-                        .into_owned()
-                        .into_values()
-                        .into_pipeline_data_with_metadata(head, ctrlc, metadata))
-                }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {

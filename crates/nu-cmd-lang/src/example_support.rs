@@ -306,10 +306,6 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::Custom { val, .. } => {
                 write!(f, "CustomValue({:?})", val)
             }
-            Value::LazyRecord { val, .. } => {
-                let rec = val.collect().map_err(|_| std::fmt::Error)?;
-                write!(f, "LazyRecord({:?})", DebuggableValue(&rec))
-            }
         }
     }
 }

@@ -534,15 +534,6 @@ fn value_should_be_printed(
         Value::Record { val, .. } => {
             record_matches_term(val, columns_to_search, filter_config, term, span)
         }
-        Value::LazyRecord { val, .. } => match val.collect() {
-            Ok(val) => match val {
-                Value::Record { val, .. } => {
-                    record_matches_term(&val, columns_to_search, filter_config, term, span)
-                }
-                _ => false,
-            },
-            Err(_) => false,
-        },
         Value::Binary { .. } => false,
     });
     if invert {

@@ -93,13 +93,6 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                         .map(move |x| Value::string(x, span))
                         .collect()
                 }
-                Value::LazyRecord { val, .. } => {
-                    // Unfortunate casualty to LazyRecord's column_names not generating 'static strs
-                    val.column_names()
-                        .into_iter()
-                        .map(|s| Value::string(s, span))
-                        .collect()
-                }
                 Value::Record { val, .. } => val
                     .into_owned()
                     .into_iter()
