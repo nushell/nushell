@@ -86,27 +86,6 @@ impl Highlighter for NuHighlighter {
                 [(shape.0.start - global_span_offset)..(shape.0.end - global_span_offset)]
                 .to_string();
 
-            macro_rules! add_colored_token_with_bracket_highlight {
-                ($shape:expr, $span:expr, $text:expr) => {{
-                    let spans = split_span_by_highlight_positions(
-                        line,
-                        $span,
-                        &matching_brackets_pos,
-                        global_span_offset,
-                    );
-                    spans.iter().for_each(|(part, highlight)| {
-                        let start = part.start - $span.start;
-                        let end = part.end - $span.start;
-                        let text = (&next_token[start..end]).to_string();
-                        let mut style = get_shape_color($shape.to_string(), &self.config);
-                        if *highlight {
-                            style = get_matching_brackets_style(style, &self.config);
-                        }
-                        output.push((style, text));
-                    });
-                }};
-            }
-
             let mut add_colored_token = |shape: &FlatShape, text: String| {
                 output.push((get_shape_color(shape.to_string(), &self.config), text));
             };
@@ -131,21 +110,29 @@ impl Highlighter for NuHighlighter {
                 FlatShape::RawString => add_colored_token(&shape.1, next_token),
                 FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
                 FlatShape::DateTime => add_colored_token(&shape.1, next_token),
-                FlatShape::List => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
-                }
-                FlatShape::Table => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
-                }
-                FlatShape::Record => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
-                }
-
-                FlatShape::Block => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
-                }
-                FlatShape::Closure => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
+                FlatShape::List
+                | FlatShape::Table
+                | FlatShape::Record
+                | FlatShape::Block
+                | FlatShape::Closure => {
+                    let span = shape.0;
+                    let shape = &shape.1;
+                    let spans = split_span_by_highlight_positions(
+                        line,
+                        span,
+                        &matching_brackets_pos,
+                        global_span_offset,
+                    );
+                    for (part, highlight) in spans {
+                        let start = part.start - span.start;
+                        let end = part.end - span.start;
+                        let text = next_token[start..end].to_string();
+                        let mut style = get_shape_color(shape.to_string(), &self.config);
+                        if highlight {
+                            style = get_matching_brackets_style(style, &self.config);
+                        }
+                        output.push((style, text));
+                    }
                 }
 
                 FlatShape::Filepath => add_colored_token(&shape.1, next_token),
