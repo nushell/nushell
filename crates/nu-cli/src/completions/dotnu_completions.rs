@@ -84,6 +84,7 @@ impl Completer for DotNuCompletion {
             partial = base_dir_partial;
         } else {
             // Fetch the current folder
+            #[allow(deprecated)]
             let current_folder = self.engine_state.current_work_dir();
             is_current_folder = true;
 

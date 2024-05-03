@@ -37,6 +37,7 @@ impl Highlighter for NuHighlighter {
 
                         let str_word = String::from_utf8_lossy(str_contents).to_string();
                         let paths = env::path_str(&self.engine_state, &self.stack, *span).ok();
+                        #[allow(deprecated)]
                         let res = if let Ok(cwd) =
                             env::current_dir_str(&self.engine_state, &self.stack)
                         {

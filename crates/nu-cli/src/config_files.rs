@@ -177,6 +177,7 @@ pub fn add_plugin_file(
     use std::path::Path;
 
     let working_set = StateWorkingSet::new(engine_state);
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     if let Some(plugin_file) = plugin_file {
@@ -235,6 +236,7 @@ pub fn eval_config_contents(
             engine_state.file = prev_file;
 
             // Merge the environment in case env vars changed in the config
+            #[allow(deprecated)]
             match nu_engine::env::current_dir(engine_state, stack) {
                 Ok(cwd) => {
                     if let Err(e) = engine_state.merge_env(stack, cwd) {
@@ -272,6 +274,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
 
     let start_time = std::time::Instant::now();
 
+    #[allow(deprecated)]
     let cwd = engine_state.current_work_dir();
 
     let Some(config_dir) = nu_path::config_dir().and_then(|mut dir| {

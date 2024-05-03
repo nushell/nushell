@@ -249,6 +249,7 @@ pub fn nu_repl() {
 
     for (i, line) in source_lines.iter().enumerate() {
         let mut stack = Stack::with_parent(top_stack.clone());
+        #[allow(deprecated)]
         let cwd = nu_engine::env::current_dir(&engine_state, &stack)
             .unwrap_or_else(|err| outcome_err(&engine_state, &err));
 

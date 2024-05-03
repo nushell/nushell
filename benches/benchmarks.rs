@@ -21,6 +21,7 @@ fn load_bench_commands() -> EngineState {
 }
 
 fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
+    #[allow(deprecated)]
     let cwd = engine_state.current_work_dir();
 
     if path.exists() {

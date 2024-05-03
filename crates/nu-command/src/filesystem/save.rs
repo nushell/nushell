@@ -1,4 +1,5 @@
 use crate::progress_bar;
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
@@ -85,6 +86,7 @@ impl Command for Save {
         };
 
         let span = call.head;
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
 
         let path_arg = call.req::<Spanned<PathBuf>>(engine_state, stack, 0)?;

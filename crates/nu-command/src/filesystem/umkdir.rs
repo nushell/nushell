@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 
 use uu_mkdir::mkdir;
@@ -58,6 +59,7 @@ impl Command for UMkdir {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let mut directories = get_rest_for_glob_pattern(engine_state, stack, call, 0)?
             .into_iter()
