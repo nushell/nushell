@@ -110,8 +110,8 @@ impl Command for Explore {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Explore the system information record",
-                example: r#"sys | explore"#,
+                description: "Explore the system host information record",
+                example: r#"sys host | explore"#,
                 result: None,
             },
             Example {

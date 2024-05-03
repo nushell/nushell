@@ -125,11 +125,6 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: None,
             },
             Example {
-                description: "Extract the cpu list from the sys information record",
-                example: "sys | get cpu",
-                result: None,
-            },
-            Example {
                 description: "Getting Path/PATH in a case insensitive way",
                 example: "$env | get paTH",
                 result: None,
