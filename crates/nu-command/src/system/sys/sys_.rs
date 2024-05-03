@@ -20,7 +20,7 @@ impl Command for Sys {
     }
 
     fn extra_usage(&self) -> &str {
-        "Note that this command may take a noticable amount of time to run. To reduce the time taken, you can use the various `sys` sub commands to get the subset of information you are interested in."
+        "Note that this command may take a noticeable amount of time to run. To reduce the time taken, you can use the various `sys` sub commands to get the subset of information you are interested in."
     }
 
     fn run(
