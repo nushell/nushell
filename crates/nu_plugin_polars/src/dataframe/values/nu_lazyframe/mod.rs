@@ -64,7 +64,7 @@ impl NuLazyFrame {
                 help: None,
                 inner: vec![],
             })
-            .map(|df| NuDataFrame::new(!self.from_eager, df))
+            .map(|df| NuDataFrame::new(true, df))
     }
 
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self
@@ -72,7 +72,7 @@ impl NuLazyFrame {
         F: Fn(LazyFrame, Expr) -> LazyFrame,
     {
         let df = self.to_polars();
-        let expr = expr.to_polars();
+        let expr = expr.into_polars();
         let new_frame = f(df, expr);
         Self::new(self.from_eager, new_frame)
     }

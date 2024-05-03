@@ -1,7 +1,7 @@
 {
   "profiles": [
     {
-      "guid": "{aab79973-318f-43b6-a9bc-b4096493753f}",
+      "guid": "{47302f9c-1ac4-566c-aa3e-8cf29889d6ab}",
       "name": "Nushell",
       "commandline": "nu.exe",
       "icon": "nu.ico",

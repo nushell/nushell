@@ -113,17 +113,6 @@ fn upsert_past_end_of_list_stream() {
 }
 
 #[test]
-fn upsert_support_lazy_record() {
-    let actual =
-        nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | upsert h 10 | get h"#);
-    assert_eq!(actual.out, "10");
-
-    let actual =
-        nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | upsert aa 10 | get aa"#);
-    assert_eq!(actual.out, "10");
-}
-
-#[test]
 fn deep_cell_path_creates_all_nested_records() {
     let actual = nu!("{a: {}} | upsert a.b.c 0 | get a.b.c");
     assert_eq!(actual.out, "0");

@@ -11,8 +11,8 @@ impl Command for Columns {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
-                (Type::Record(vec![]), Type::List(Box::new(Type::String))),
+                (Type::table(), Type::List(Box::new(Type::String))),
+                (Type::record(), Type::List(Box::new(Type::String))),
             ])
             .category(Category::Filters)
     }
@@ -105,19 +105,8 @@ fn getcol(
                         .into_pipeline_data(ctrlc)
                         .set_metadata(metadata))
                 }
-                Value::LazyRecord { val, .. } => {
-                    Ok({
-                        // Unfortunate casualty to LazyRecord's column_names not generating 'static strs
-                        let cols: Vec<_> =
-                            val.column_names().iter().map(|s| s.to_string()).collect();
-
-                        cols.into_iter()
-                            .map(move |x| Value::string(x, head))
-                            .into_pipeline_data(ctrlc)
-                            .set_metadata(metadata)
-                    })
-                }
                 Value::Record { val, .. } => Ok(val
+                    .into_owned()
                     .into_iter()
                     .map(move |(x, _)| Value::string(x, head))
                     .into_pipeline_data(ctrlc)

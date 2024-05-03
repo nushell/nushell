@@ -1,8 +1,5 @@
 use crate::{
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 
@@ -89,8 +86,8 @@ impl PluginCommand for IsNotNull {
                 command(plugin, engine, call, lazy.collect(call.head)?)
             }
             PolarsPluginObject::NuExpression(expr) => {
-                let expr: NuExpression = expr.to_polars().is_not_null().into();
-                to_pipeline_data(plugin, engine, call.head, expr)
+                let expr: NuExpression = expr.into_polars().is_not_null().into();
+                expr.to_pipeline_data(plugin, engine, call.head)
             }
             _ => Err(cant_convert_err(
                 &value,
@@ -115,7 +112,7 @@ fn command(
     res.rename("is_not_null");
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

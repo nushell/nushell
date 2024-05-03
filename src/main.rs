@@ -43,6 +43,8 @@ use std::{
 
 fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
+    #[cfg(feature = "plugin")]
+    let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
     let engine_state = nu_command::add_shell_command_context(engine_state);
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
     #[cfg(feature = "dataframe")]
@@ -132,14 +134,18 @@ fn main() -> Result<()> {
     default_nu_lib_dirs_path.push("scripts");
     engine_state.add_env_var(
         "NU_LIB_DIRS".to_string(),
-        Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
+        Value::test_list(vec![Value::test_string(
+            default_nu_lib_dirs_path.to_string_lossy(),
+        )]),
     );
 
     let mut default_nu_plugin_dirs_path = nushell_config_path;
     default_nu_plugin_dirs_path.push("plugins");
     engine_state.add_env_var(
         "NU_PLUGIN_DIRS".to_string(),
-        Value::test_string(default_nu_plugin_dirs_path.to_string_lossy()),
+        Value::test_list(vec![Value::test_string(
+            default_nu_plugin_dirs_path.to_string_lossy(),
+        )]),
     );
     // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
 
@@ -279,19 +285,6 @@ fn main() -> Result<()> {
         load_standard_library(&mut engine_state)?;
     }
 
-    start_time = std::time::Instant::now();
-    if parsed_nu_cli_args.lsp {
-        perf(
-            "lsp starting",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc);
-    }
-
     // IDE commands
     if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
         ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
@@ -360,7 +353,7 @@ fn main() -> Result<()> {
         PipelineData::ExternalStream {
             stdout: Some(RawStream::new(
                 Box::new(BufferedReader::new(buf_reader)),
-                Some(ctrlc),
+                Some(ctrlc.clone()),
                 redirect_stdin.span,
                 None,
             )),
@@ -396,7 +389,72 @@ fn main() -> Result<()> {
         use_color,
     );
 
-    if let Some(commands) = parsed_nu_cli_args.commands.clone() {
+    #[cfg(feature = "plugin")]
+    if let Some(plugins) = &parsed_nu_cli_args.plugins {
+        use nu_plugin_engine::{GetPlugin, PluginDeclaration};
+        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity};
+
+        // Load any plugins specified with --plugins
+        start_time = std::time::Instant::now();
+
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        for plugin_filename in plugins {
+            // Make sure the plugin filenames are canonicalized
+            let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
+                .err_span(plugin_filename.span)
+                .map_err(ShellError::from)?;
+
+            let identity = PluginIdentity::new(&filename, None)
+                .err_span(plugin_filename.span)
+                .map_err(ShellError::from)?;
+
+            // Create the plugin and add it to the working set
+            let plugin = nu_plugin_engine::add_plugin_to_working_set(&mut working_set, &identity)?;
+
+            // Spawn the plugin to get its signatures, and then add the commands to the working set
+            for signature in plugin.clone().get_plugin(None)?.get_signature()? {
+                let decl = PluginDeclaration::new(plugin.clone(), signature);
+                working_set.add_decl(Box::new(decl));
+            }
+        }
+        engine_state.merge_delta(working_set.render())?;
+
+        perf(
+            "load plugins specified in --plugins",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        )
+    }
+
+    start_time = std::time::Instant::now();
+    if parsed_nu_cli_args.lsp {
+        perf(
+            "lsp starting",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+
+        if parsed_nu_cli_args.no_config_file.is_none() {
+            let mut stack = nu_protocol::engine::Stack::new();
+            config_files::setup_config(
+                &mut engine_state,
+                &mut stack,
+                #[cfg(feature = "plugin")]
+                parsed_nu_cli_args.plugin_file,
+                parsed_nu_cli_args.config_file,
+                parsed_nu_cli_args.env_file,
+                false,
+            );
+        }
+
+        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc)
+    } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
             parsed_nu_cli_args,

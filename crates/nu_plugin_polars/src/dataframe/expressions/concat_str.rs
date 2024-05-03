@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::{to_pipeline_data, CustomValueSupport},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -92,7 +92,8 @@ impl PluginCommand for ExprConcatStr {
         let expressions = NuExpression::extract_exprs(plugin, value)?;
         let expr: NuExpression = concat_str(expressions, &separator, false).into();
 
-        to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+        expr.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

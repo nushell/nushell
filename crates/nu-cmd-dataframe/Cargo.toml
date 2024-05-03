@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-cmd-dataframe"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-dataframe"
-version = "0.92.3"
+version = "0.93.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,9 +13,9 @@ version = "0.92.3"
 bench = false
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.92.3" }
-nu-parser = { path = "../nu-parser", version = "0.92.3" }
-nu-protocol = { path = "../nu-protocol", version = "0.92.3" }
+nu-engine = { path = "../nu-engine", version = "0.93.1" }
+nu-parser = { path = "../nu-parser", version = "0.93.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.93.1" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
@@ -26,11 +26,11 @@ num = { version = "0.4", optional = true }
 serde = { workspace = true, features = ["derive"] }
 # keep sqlparser at 0.39.0 until we can update polars
 sqlparser = { version = "0.45", optional = true }
-polars-io = { version = "0.38", features = ["avro"], optional = true }
-polars-arrow = { version = "0.38", optional = true }
-polars-ops = { version = "0.38", optional = true }
-polars-plan = { version = "0.38", features = ["regex"], optional = true }
-polars-utils = { version = "0.38", optional = true }
+polars-io = { version = "0.39", features = ["avro"], optional = true }
+polars-arrow = { version = "0.39", optional = true }
+polars-ops = { version = "0.39", optional = true }
+polars-plan = { version = "0.39", features = ["regex"], optional = true }
+polars-utils = { version = "0.39", optional = true }
 
 [dependencies.polars]
 features = [
@@ -65,11 +65,11 @@ features = [
 ]
 default-features = false
 optional = true
-version = "0.38"
+version = "0.39"
 
 [features]
 dataframe = ["num", "polars", "polars-io", "polars-arrow", "polars-ops", "polars-plan", "polars-utils", "sqlparser"]
 default = []
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.92.3" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.93.1" }

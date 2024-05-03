@@ -139,19 +139,20 @@ pub fn highlight_search_in_table(
     let search_string = search_string.to_folded_case();
     let mut matches = vec![];
 
-    for record in table {
-        let span = record.span();
-        let (mut record, record_span) = if let Value::Record { val, .. } = record {
-            (val, span)
-        } else {
+    for mut value in table {
+        let Value::Record {
+            val: ref mut record,
+            ..
+        } = value
+        else {
             return Err(ShellError::NushellFailedSpanned {
                 msg: "Expected record".to_string(),
-                label: format!("got {}", record.get_type()),
-                span: record.span(),
+                label: format!("got {}", value.get_type()),
+                span: value.span(),
             });
         };
 
-        let has_match = record.iter_mut().try_fold(
+        let has_match = record.to_mut().iter_mut().try_fold(
             false,
             |acc: bool, (col, val)| -> Result<bool, ShellError> {
                 if !searched_cols.contains(&col.as_str()) {
@@ -180,7 +181,7 @@ pub fn highlight_search_in_table(
         )?;
 
         if has_match {
-            matches.push(Value::record(*record, record_span));
+            matches.push(value);
         }
     }
 

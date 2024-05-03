@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 
 use crate::{
-    values::{to_pipeline_data, Axis, Column, CustomValueSupport, NuDataFrame},
+    values::{Axis, Column, CustomValueSupport, NuDataFrame},
     PolarsPlugin,
 };
 
@@ -126,10 +126,10 @@ fn command(
     };
 
     let df_other = NuDataFrame::try_from_value_coerce(plugin, &other, call.head)?;
-    let df = NuDataFrame::try_from_pipeline(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let df = df.append_df(&df_other, axis, call.head)?;
 
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

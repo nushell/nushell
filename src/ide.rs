@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Debug)]
 enum Id {
@@ -67,7 +67,7 @@ fn read_in_file<'a>(
             std::process::exit(1);
         });
 
-    engine_state.start_in_file(Some(file_path));
+    engine_state.file = Some(PathBuf::from(file_path));
 
     let working_set = StateWorkingSet::new(engine_state);
 
@@ -563,6 +563,16 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                 "{}",
                 json!({
                     "hover": "string",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
+            ),
+            FlatShape::RawString => println!(
+                "{}",
+                json!({
+                    "hover": "raw-string",
                     "span": {
                         "start": span.start - offset,
                         "end": span.end - offset

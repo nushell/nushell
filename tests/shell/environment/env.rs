@@ -121,7 +121,7 @@ fn load_env_pwd_env_var_fails() {
 #[test]
 fn passes_with_env_env_var_to_external_process() {
     let actual = nu!("
-        with-env [FOO foo] {nu --testbin echo_env FOO}
+        with-env { FOO: foo } {nu --testbin echo_env FOO}
         ");
     assert_eq!(actual.out, "foo");
 }
@@ -193,4 +193,16 @@ fn env_var_not_var() {
         echo $PWD
         ");
     assert!(actual.err.contains("use $env.PWD instead of $PWD"));
+}
+
+#[test]
+fn env_var_case_insensitive() {
+    let actual = nu!("
+        $env.foo = 111
+        print $env.Foo
+        $env.FOO = 222
+        print $env.foo
+    ");
+    assert!(actual.out.contains("111"));
+    assert!(actual.out.contains("222"));
 }

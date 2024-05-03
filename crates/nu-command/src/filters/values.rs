@@ -12,8 +12,8 @@ impl Command for Values {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::List(Box::new(Type::Any))),
-                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+                (Type::record(), Type::List(Box::new(Type::Any))),
+                (Type::table(), Type::List(Box::new(Type::Any))),
             ])
             .category(Category::Filters)
     }
@@ -157,21 +157,10 @@ fn values(
                     }
                 }
                 Value::Record { val, .. } => Ok(val
-                    .into_values()
+                    .values()
+                    .cloned()
+                    .collect::<Vec<_>>()
                     .into_pipeline_data_with_metadata(metadata, ctrlc)),
-                Value::LazyRecord { val, .. } => {
-                    let record = match val.collect()? {
-                        Value::Record { val, .. } => val,
-                        _ => Err(ShellError::NushellFailedSpanned {
-                            msg: "`LazyRecord::collect()` promises `Value::Record`".into(),
-                            label: "Violating lazy record found here".into(),
-                            span,
-                        })?,
-                    };
-                    Ok(record
-                        .into_values()
-                        .into_pipeline_data_with_metadata(metadata, ctrlc))
-                }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {

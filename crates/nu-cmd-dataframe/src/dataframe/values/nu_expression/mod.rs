@@ -313,11 +313,15 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::SortBy {
             expr,
             by,
-            descending,
+            sort_options,
         } => {
             let by: Result<Vec<Value>, ShellError> =
                 by.iter().map(|b| expr_to_value(b, span)).collect();
-            let descending: Vec<Value> = descending.iter().map(|r| Value::bool(*r, span)).collect();
+            let descending: Vec<Value> = sort_options
+                .descending
+                .iter()
+                .map(|r| Value::bool(*r, span))
+                .collect();
 
             Ok(Value::record(
                 record! {

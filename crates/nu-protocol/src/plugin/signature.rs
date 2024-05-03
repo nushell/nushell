@@ -2,7 +2,7 @@ use crate::{PluginExample, Signature};
 use serde::{Deserialize, Serialize};
 
 /// A simple wrapper for Signature that includes examples.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PluginSignature {
     pub sig: Signature,
     pub examples: Vec<PluginExample>,

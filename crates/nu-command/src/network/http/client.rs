@@ -123,9 +123,7 @@ pub fn response_to_buffer(
 
     PipelineData::ExternalStream {
         stdout: Some(RawStream::new(
-            Box::new(BufferedReader {
-                input: buffered_input,
-            }),
+            Box::new(BufferedReader::new(buffered_input)),
             engine_state.ctrlc.clone(),
             span,
             buffer_size,
@@ -222,7 +220,7 @@ pub fn send_request(
         Value::Record { val, .. } if body_type == BodyType::Form => {
             let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
-            for (col, val) in *val {
+            for (col, val) in val.into_owned() {
                 data.push((col, val.coerce_into_string()?))
             }
 

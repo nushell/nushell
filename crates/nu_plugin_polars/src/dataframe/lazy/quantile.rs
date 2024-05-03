@@ -1,8 +1,7 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuLazyFrame},
     values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, NuExpression, PolarsPluginObject,
-        PolarsPluginType,
+        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
     },
     PolarsPlugin,
 };
@@ -107,10 +106,10 @@ impl PluginCommand for LazyQuantile {
             PolarsPluginObject::NuLazyFrame(lazy) => command(plugin, engine, call, lazy, quantile),
             PolarsPluginObject::NuExpression(expr) => {
                 let expr: NuExpression = expr
-                    .to_polars()
+                    .into_polars()
                     .quantile(lit(quantile), QuantileInterpolOptions::default())
                     .into();
-                to_pipeline_data(plugin, engine, call.head, expr)
+                expr.to_pipeline_data(plugin, engine, call.head)
             }
             _ => Err(cant_convert_err(
                 &value,
@@ -145,7 +144,7 @@ fn command(
             })?,
     );
 
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

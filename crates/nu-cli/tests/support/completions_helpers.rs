@@ -8,9 +8,7 @@ use nu_protocol::{
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
-use std::path::PathBuf;
-
-const SEP: char = std::path::MAIN_SEPARATOR;
+use std::path::{PathBuf, MAIN_SEPARATOR};
 
 fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
@@ -20,12 +18,11 @@ fn create_default_context() -> EngineState {
 pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("completions");
-    let mut dir_str = dir
+    let dir_str = dir
         .clone()
         .into_os_string()
         .into_string()
         .unwrap_or_default();
-    dir_str.push(SEP);
 
     // Create a new engine with default context
     let mut engine_state = create_default_context();
@@ -77,12 +74,11 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
 pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("quoted_completions");
-    let mut dir_str = dir
+    let dir_str = dir
         .clone()
         .into_os_string()
         .into_string()
         .unwrap_or_default();
-    dir_str.push(SEP);
 
     // Create a new engine with default context
     let mut engine_state = create_default_context();
@@ -113,12 +109,11 @@ pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
 pub fn new_partial_engine() -> (PathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("partial_completions");
-    let mut dir_str = dir
+    let dir_str = dir
         .clone()
         .into_os_string()
         .into_string()
         .unwrap_or_default();
-    dir_str.push(SEP);
 
     // Create a new engine with default context
     let mut engine_state = create_default_context();
@@ -165,7 +160,7 @@ pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
 // append the separator to the converted path
 pub fn folder(path: PathBuf) -> String {
     let mut converted_path = file(path);
-    converted_path.push(SEP);
+    converted_path.push(MAIN_SEPARATOR);
 
     converted_path
 }

@@ -1,6 +1,6 @@
 use crate::{
-    dataframe::values::{str_to_dtype, to_pipeline_data, NuExpression, NuLazyFrame},
-    values::{cant_convert_err, PolarsPluginObject, PolarsPluginType},
+    dataframe::values::{str_to_dtype, NuExpression, NuLazyFrame},
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 
@@ -104,8 +104,8 @@ impl PluginCommand for CastDF {
             PolarsPluginObject::NuExpression(expr) => {
                 let dtype: String = call.req(0)?;
                 let dtype = str_to_dtype(&dtype, call.head)?;
-                let expr: NuExpression = expr.to_polars().cast(dtype).into();
-                to_pipeline_data(plugin, engine, call.head, expr)
+                let expr: NuExpression = expr.into_polars().cast(dtype).into();
+                expr.to_pipeline_data(plugin, engine, call.head)
             }
             _ => Err(cant_convert_err(
                 &value,
@@ -145,7 +145,7 @@ fn command_lazy(
     let column = col(&column_nm).cast(dtype);
     let lazy = lazy.to_polars().with_columns(&[column]);
     let lazy = NuLazyFrame::new(false, lazy);
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_eager(
@@ -186,7 +186,7 @@ fn command_eager(
         })?;
 
     let df = NuDataFrame::new(false, df);
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

@@ -1,6 +1,7 @@
 use nu_cli::{eval_source, evaluate_commands};
 use nu_parser::parse;
-use nu_plugin::{Encoder, EncodingType, PluginCallResponse, PluginOutput};
+use nu_plugin_core::{Encoder, EncodingType};
+use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
     engine::{EngineState, Stack},
     eval_const::create_nu_constant,
@@ -20,6 +21,7 @@ fn load_bench_commands() -> EngineState {
 }
 
 fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
+    #[allow(deprecated)]
     let cwd = engine_state.current_work_dir();
 
     if path.exists() {

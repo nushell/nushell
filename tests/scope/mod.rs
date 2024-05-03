@@ -134,10 +134,10 @@ fn correct_scope_modules_fields() {
 
         let inp = &[
             "use spam.nu",
-            "scope modules | where name == spam | get 0.env_block | is-empty",
+            "scope modules | where name == spam | get 0.has_env_block",
         ];
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-        assert_eq!(actual.out, "false");
+        assert_eq!(actual.out, "true");
 
         let inp = &[
             "use spam.nu",

@@ -12,7 +12,7 @@ impl Command for ToToml {
 
     fn signature(&self) -> Signature {
         Signature::build("to toml")
-            .input_output_types(vec![(Type::Record(vec![]), Type::String)])
+            .input_output_types(vec![(Type::record(), Type::String)])
             .category(Category::Formats)
     }
 
@@ -62,16 +62,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
             }
             toml::Value::Table(m)
         }
-        Value::LazyRecord { val, .. } => {
-            let collected = val.collect()?;
-            helper(engine_state, &collected)?
-        }
         Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
-        Value::Block { .. } => {
-            let code = engine_state.get_span_contents(span);
-            let code = String::from_utf8_lossy(code).to_string();
-            toml::Value::String(code)
-        }
         Value::Closure { .. } => {
             let code = engine_state.get_span_contents(span);
             let code = String::from_utf8_lossy(code).to_string();

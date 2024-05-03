@@ -3,11 +3,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
-use crate::{
-    dataframe::values::Column,
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{dataframe::values::Column, values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
@@ -79,7 +75,7 @@ fn command(
     let cols_col = Column::new("columns".to_string(), vec![cols]);
 
     let df = NuDataFrame::try_from_columns(vec![rows_col, cols_col], None)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

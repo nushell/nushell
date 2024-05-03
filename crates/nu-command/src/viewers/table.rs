@@ -392,11 +392,7 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::Empty;
-            handle_record(input, cfg, *val)
-        }
-        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
-            input.data = val.collect()?.into_pipeline_data();
-            handle_table_command(input, cfg)
+            handle_record(input, cfg, val.into_owned())
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
@@ -557,7 +553,7 @@ fn handle_row_stream(
                 stream.map(move |mut x| match &mut x {
                     Value::Record { val: record, .. } => {
                         // Only the name column gets special colors, for now
-                        if let Some(value) = record.get_mut("name") {
+                        if let Some(value) = record.to_mut().get_mut("name") {
                             let span = value.span();
                             if let Value::String { val, .. } = value {
                                 if let Some(val) = render_path_name(val, &config, &ls_colors, span)
@@ -583,7 +579,7 @@ fn handle_row_stream(
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
                     Value::Record { val: record, .. } => {
-                        for (rec_col, rec_val) in record.iter_mut() {
+                        for (rec_col, rec_val) in record.to_mut().iter_mut() {
                             // Every column in the HTML theme table except 'name' is colored
                             if rec_col != "name" {
                                 continue;
@@ -942,7 +938,11 @@ fn render_path_name(
 
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
-    let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session && has_metadata;
+    //TODO: Deprecated show_clickable_links_in_ls in favor of shell_integration_osc8
+    let show_clickable_links = config.show_clickable_links_in_ls
+        && !in_ssh_session
+        && has_metadata
+        && config.shell_integration_osc8;
 
     let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
 

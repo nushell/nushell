@@ -117,7 +117,7 @@ impl Command for Do {
                                     None,
                                 )
                             })
-                            .map_err(|e| e.into_spanned(call.head))
+                            .err_span(call.head)
                     })
                     .transpose()?;
 
@@ -127,7 +127,7 @@ impl Command for Do {
                 let stderr_msg = match stderr {
                     None => "".to_string(),
                     Some(stderr_stream) => {
-                        stderr_ctrlc = stderr_stream.ctrlc.clone();
+                        stderr_ctrlc.clone_from(&stderr_stream.ctrlc);
                         stderr_stream.into_string().map(|s| s.item)?
                     }
                 };
@@ -152,7 +152,7 @@ impl Command for Do {
                 let exit_code: Vec<Value> = match exit_code {
                     None => vec![],
                     Some(exit_code_stream) => {
-                        exit_code_ctrlc = exit_code_stream.ctrlc.clone();
+                        exit_code_ctrlc.clone_from(&exit_code_stream.ctrlc);
                         exit_code_stream.into_iter().collect()
                     }
                 };

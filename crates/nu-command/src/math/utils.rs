@@ -80,15 +80,15 @@ pub fn calculate(
             ),
             _ => mf(vals, span, name),
         },
-        PipelineData::Value(Value::Record { val: record, .. }, ..) => {
-            let mut record = record;
+        PipelineData::Value(Value::Record { val, .. }, ..) => {
+            let mut record = val.into_owned();
             record
                 .iter_mut()
                 .try_for_each(|(_, val)| -> Result<(), ShellError> {
                     *val = mf(slice::from_ref(val), span, name)?;
                     Ok(())
                 })?;
-            Ok(Value::record(*record, span))
+            Ok(Value::record(record, span))
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val

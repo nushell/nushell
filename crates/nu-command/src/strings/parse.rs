@@ -19,15 +19,15 @@ impl Command for Parse {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pattern", "match", "regex"]
+        vec!["pattern", "match", "regex", "str extract"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("parse")
             .required("pattern", SyntaxShape::String, "The pattern to match.")
             .input_output_types(vec![
-                (Type::String, Type::Table(vec![])),
-                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+                (Type::String, Type::table()),
+                (Type::List(Box::new(Type::Any)), Type::table()),
             ])
             .switch("regex", "use full regex syntax for patterns", Some('r'))
             .allow_variants_without_examples(true)

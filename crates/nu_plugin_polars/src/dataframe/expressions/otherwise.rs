@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen, NuWhenType},
-    values::{to_pipeline_data, CustomValueSupport},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -101,12 +101,14 @@ impl PluginCommand for ExprOtherwise {
 
         let value = input.into_value(call.head);
         let complete: NuExpression = match NuWhen::try_from_value(plugin, &value)?.when_type {
-            NuWhenType::Then(then) => then.otherwise(otherwise_predicate.to_polars()).into(),
+            NuWhenType::Then(then) => then.otherwise(otherwise_predicate.into_polars()).into(),
             NuWhenType::ChainedThen(chained_when) => chained_when
-                .otherwise(otherwise_predicate.to_polars())
+                .otherwise(otherwise_predicate.into_polars())
                 .into(),
         };
-        to_pipeline_data(plugin, engine, call.head, complete).map_err(LabeledError::from)
+        complete
+            .to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

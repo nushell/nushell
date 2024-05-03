@@ -19,6 +19,10 @@ pub trait RegisteredPlugin: Send + Sync {
     /// Stop the plugin.
     fn stop(&self) -> Result<(), ShellError>;
 
+    /// Stop the plugin and reset any state so that we don't make any assumptions about the plugin
+    /// next time it launches. This is used on `register`.
+    fn reset(&self) -> Result<(), ShellError>;
+
     /// Cast the pointer to an [`Any`] so that its concrete type can be retrieved.
     ///
     /// This is necessary in order to allow `nu_plugin` to handle the implementation details of

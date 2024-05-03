@@ -1,5 +1,6 @@
 use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo, FileInfo};
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_glob::Pattern;
 use nu_protocol::NuGlob;
@@ -33,7 +34,7 @@ impl Command for Du {
 
     fn signature(&self) -> Signature {
         Signature::build("du")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
             .rest(
                 "path",
@@ -98,6 +99,7 @@ impl Command for Du {
         let all = call.has_flag(engine_state, stack, "all")?;
         let deref = call.has_flag(engine_state, stack, "deref")?;
         let exclude = call.get_flag(engine_state, stack, "exclude")?;
+        #[allow(deprecated)]
         let current_dir = current_dir(engine_state, stack)?;
 
         let paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;

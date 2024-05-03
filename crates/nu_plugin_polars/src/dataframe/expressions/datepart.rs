@@ -2,7 +2,7 @@ use super::super::values::NuExpression;
 
 use crate::{
     dataframe::values::{Column, NuDataFrame},
-    values::{to_pipeline_data, CustomValueSupport},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 use chrono::{DateTime, FixedOffset};
@@ -127,7 +127,7 @@ impl PluginCommand for ExprDatePart {
         let part: Spanned<String> = call.req(0)?;
 
         let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
-        let expr_dt = expr.to_polars().dt();
+        let expr_dt = expr.into_polars().dt();
         let expr: NuExpression  = match part.item.as_str() {
             "year" => expr_dt.year(),
             "quarter" => expr_dt.quarter(),
@@ -149,7 +149,8 @@ impl PluginCommand for ExprDatePart {
                 }))
             }
         }.into();
-        to_pipeline_data(plugin, engine, call.head, expr).map_err(LabeledError::from)
+        expr.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

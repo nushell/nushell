@@ -15,7 +15,7 @@ impl Command for IntoValue {
 
     fn signature(&self) -> Signature {
         Signature::build("into value")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .named(
                 "columns",
                 SyntaxShape::Table(vec![]),
@@ -108,7 +108,8 @@ impl Iterator for UpdateCellIterator {
                 let span = val.span();
                 match val {
                     Value::Record { val, .. } => Some(Value::record(
-                        val.into_iter()
+                        val.into_owned()
+                            .into_iter()
                             .map(|(col, val)| match &self.columns {
                                 Some(cols) if !cols.contains(&col) => (col, val),
                                 _ => (

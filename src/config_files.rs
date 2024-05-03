@@ -31,6 +31,7 @@ pub(crate) fn read_config_file(
     // Load config startup file
     if let Some(file) = config_file {
         let working_set = StateWorkingSet::new(engine_state);
+        #[allow(deprecated)]
         let cwd = working_set.get_cwd();
 
         if let Ok(path) = canonicalize_with(&file.item, cwd) {
@@ -143,6 +144,7 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
 
     info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     // Merge the environment in case env vars changed in the config
+    #[allow(deprecated)]
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
@@ -184,6 +186,7 @@ fn eval_default_config(
     );
 
     // Merge the environment in case env vars changed in the config
+    #[allow(deprecated)]
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
@@ -214,7 +217,7 @@ pub(crate) fn setup_config(
     );
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
-        read_plugin_file(engine_state, stack, plugin_file, NUSHELL_FOLDER);
+        read_plugin_file(engine_state, plugin_file, NUSHELL_FOLDER);
 
         read_config_file(engine_state, stack, env_file, true);
         read_config_file(engine_state, stack, config_file, false);

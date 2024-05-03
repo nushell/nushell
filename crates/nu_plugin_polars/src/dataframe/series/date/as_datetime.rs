@@ -1,7 +1,4 @@
-use crate::{
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -183,16 +180,17 @@ fn command(
 
     res.rename("datetime");
     let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::test::test_polars_plugin_command;
+    use crate::test::test_polars_plugin_command_with_decls;
+    use nu_command::IntoDatetime;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&AsDateTime)
+        test_polars_plugin_command_with_decls(&AsDateTime, vec![Box::new(IntoDatetime)])
     }
 }

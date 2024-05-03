@@ -1,6 +1,6 @@
 use crate::{
     ast::{CellPath, PathMember},
-    engine::{Block, Closure},
+    engine::Closure,
     NuGlob, Range, Record, ShellError, Spanned, Value,
 };
 use chrono::{DateTime, FixedOffset};
@@ -538,7 +538,7 @@ impl FromValue for Vec<Value> {
 impl FromValue for Record {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Record { val, .. } => Ok(*val),
+            Value::Record { val, .. } => Ok(val.into_owned()),
             v => Err(ShellError::CantConvert {
                 to_type: "Record".into(),
                 from_type: v.get_type().to_string(),
@@ -553,26 +553,8 @@ impl FromValue for Closure {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Closure { val, .. } => Ok(val),
-            Value::Block { val, .. } => Ok(Closure {
-                block_id: val,
-                captures: Vec::new(),
-            }),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-}
-
-impl FromValue for Block {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v {
-            Value::Block { val, .. } => Ok(Block { block_id: val }),
-            v => Err(ShellError::CantConvert {
-                to_type: "Block".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,

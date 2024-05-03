@@ -126,10 +126,6 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
                 .with_label(err.to_string(), query.span)
                 .with_help("cannot parse this query as a valid CSS selector"));
         }
-    } else {
-        return Err(
-            LabeledError::new("Missing query argument").with_label("add --query here", call.head)
-        );
     }
 
     let selector = Selector {

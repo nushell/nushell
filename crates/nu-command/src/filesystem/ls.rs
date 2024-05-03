@@ -1,6 +1,7 @@
 use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
@@ -45,7 +46,7 @@ impl Command for Ls {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
             .rest("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")
@@ -91,6 +92,7 @@ impl Command for Ls {
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
 
         let args = Args {

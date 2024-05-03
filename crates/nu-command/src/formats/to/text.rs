@@ -125,15 +125,11 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             .collect::<Vec<_>>()
             .join(separator),
         Value::Record { val, .. } => val
+            .into_owned()
             .into_iter()
             .map(|(x, y)| format!("{}: {}", x, local_into_string(y, ", ", config)))
             .collect::<Vec<_>>()
             .join(separator),
-        Value::LazyRecord { val, .. } => match val.collect() {
-            Ok(val) => local_into_string(val, separator, config),
-            Err(error) => format!("{error:?}"),
-        },
-        Value::Block { val, .. } => format!("<Block {val}>"),
         Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),

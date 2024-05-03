@@ -1,8 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    engine::{Closure, StateWorkingSet},
-    PipelineMetadata,
-};
+use nu_protocol::{engine::StateWorkingSet, PipelineMetadata};
 
 #[derive(Clone)]
 pub struct Describe;
@@ -29,7 +26,6 @@ impl Command for Describe {
                 "show detailed information about the value",
                 Some('d'),
             )
-            .switch("collect-lazyrecords", "collect lazy records", Some('l'))
             .category(Category::Core)
     }
 
@@ -47,7 +43,6 @@ impl Command for Describe {
         let options = Options {
             no_collect: call.has_flag(engine_state, stack, "no-collect")?,
             detailed: call.has_flag(engine_state, stack, "detailed")?,
-            collect_lazyrecords: call.has_flag(engine_state, stack, "collect-lazyrecords")?,
         };
         run(Some(engine_state), call, input, options)
     }
@@ -61,7 +56,6 @@ impl Command for Describe {
         let options = Options {
             no_collect: call.has_flag_const(working_set, "no-collect")?,
             detailed: call.has_flag_const(working_set, "detailed")?,
-            collect_lazyrecords: call.has_flag_const(working_set, "collect-lazyrecords")?,
         };
         run(None, call, input, options)
     }
@@ -79,13 +73,11 @@ impl Command for Describe {
                     "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| print $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
                 result: Some(Value::test_record(record!(
                     "type" => Value::test_string("record"),
-                    "lazy" => Value::test_bool(false),
                     "columns" => Value::test_record(record!(
                         "shell" => Value::test_string("string"),
                         "uwu" => Value::test_string("bool"),
                         "features" => Value::test_record(record!(
                             "type" => Value::test_string("record"),
-                            "lazy" => Value::test_bool(false),
                             "columns" => Value::test_record(record!(
                                 "bugs" => Value::test_string("bool"),
                                 "multiplatform" => Value::test_string("bool"),
@@ -158,7 +150,6 @@ impl Command for Describe {
 struct Options {
     no_collect: bool,
     detailed: bool,
-    collect_lazyrecords: bool,
 }
 
 fn run(
@@ -233,7 +224,7 @@ fn run(
                            if options.no_collect {
                             Value::string("any", head)
                            } else {
-                            describe_value(input.into_value(head), head, engine_state, options)?
+                            describe_value(input.into_value(head), head, engine_state, )
                            }
                         },
                         "metadata" => metadata_to_value(metadata, head),
@@ -254,7 +245,7 @@ fn run(
             if !options.detailed {
                 Value::string(value.get_type().to_string(), head)
             } else {
-                describe_value(value, head, engine_state, options)?
+                describe_value(value, head, engine_state)
             }
         }
     };
@@ -267,7 +258,7 @@ fn compact_primitive_description(mut value: Value) -> Value {
         if val.len() != 1 {
             return value;
         }
-        if let Some(type_name) = val.get_mut("type") {
+        if let Some(type_name) = val.to_mut().get_mut("type") {
             return std::mem::take(type_name);
         }
     }
@@ -278,9 +269,8 @@ fn describe_value(
     value: Value,
     head: nu_protocol::Span,
     engine_state: Option<&EngineState>,
-    options: Options,
-) -> Result<Value, ShellError> {
-    Ok(match value {
+) -> Value {
+    match value {
         Value::Custom { val, .. } => Value::record(
             record!(
                 "type" => Value::string("custom", head),
@@ -303,21 +293,20 @@ fn describe_value(
             ),
             head,
         ),
-        Value::Record { mut val, .. } => {
+        Value::Record { val, .. } => {
+            let mut val = val.into_owned();
             for (_k, v) in val.iter_mut() {
                 *v = compact_primitive_description(describe_value(
                     std::mem::take(v),
                     head,
                     engine_state,
-                    options,
-                )?);
+                ));
             }
 
             Value::record(
                 record!(
                     "type" => Value::string("record", head),
-                    "lazy" => Value::bool(false, head),
-                    "columns" => Value::record(*val, head),
+                    "columns" => Value::record(val, head),
                 ),
                 head,
             )
@@ -327,24 +316,18 @@ fn describe_value(
                 "type" => Value::string("list", head),
                 "length" => Value::int(vals.len() as i64, head),
                 "values" => Value::list(vals.into_iter().map(|v|
-                    Ok(compact_primitive_description(
-                        describe_value(v, head, engine_state, options)?
-                    ))
+                    compact_primitive_description(describe_value(v, head, engine_state))
                 )
-                .collect::<Result<Vec<Value>, ShellError>>()?, head),
+                .collect(), head),
             ),
             head,
         ),
-        Value::Block { val, .. }
-        | Value::Closure {
-            val: Closure { block_id: val, .. },
-            ..
-        } => {
-            let block = engine_state.map(|engine_state| engine_state.get_block(val));
+        Value::Closure { val, .. } => {
+            let block = engine_state.map(|engine_state| engine_state.get_block(val.block_id));
 
             if let Some(block) = block {
                 let mut record = Record::new();
-                record.push("type", Value::string(value.get_type().to_string(), head));
+                record.push("type", Value::string("closure", head));
                 record.push(
                     "signature",
                     Value::record(
@@ -387,40 +370,7 @@ fn describe_value(
             ),
             head,
         ),
-        Value::LazyRecord { val, .. } => {
-            let mut record = Record::new();
-
-            record.push("type", Value::string("record", head));
-            record.push("lazy", Value::bool(true, head));
-
-            if options.collect_lazyrecords {
-                let collected = val.collect()?;
-                if let Value::Record { mut val, .. } =
-                    describe_value(collected, head, engine_state, options)?
-                {
-                    record.push("length", Value::int(val.len() as i64, head));
-                    for (_k, v) in val.iter_mut() {
-                        *v = compact_primitive_description(describe_value(
-                            std::mem::take(v),
-                            head,
-                            engine_state,
-                            options,
-                        )?);
-                    }
-
-                    record.push("columns", Value::record(*val, head));
-                } else {
-                    let cols = val.column_names();
-                    record.push("length", Value::int(cols.len() as i64, head));
-                }
-            } else {
-                let cols = val.column_names();
-                record.push("length", Value::int(cols.len() as i64, head));
-            }
-
-            Value::record(record, head)
-        }
-    })
+    }
 }
 
 fn metadata_to_value(metadata: Option<Box<PipelineMetadata>>, head: nu_protocol::Span) -> Value {

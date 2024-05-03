@@ -381,11 +381,6 @@ pub(crate) fn render_examples(
                             plugin.custom_value_to_base_value(engine, val.into_spanned(span))?;
                         Ok::<_, ShellError>(())
                     }
-                    // Collect LazyRecord before proceeding
-                    Value::LazyRecord { ref val, .. } => {
-                        *value = val.collect()?;
-                        Ok(())
-                    }
                     _ => Ok(()),
                 }
             })?;
