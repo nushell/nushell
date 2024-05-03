@@ -30,6 +30,10 @@ impl Command for SysDisks {
     }
 
     fn examples(&self) -> Vec<Example> {
-        todo!()
+        vec![Example {
+            description: "Show info about the system disks",
+            example: "sys disks",
+            result: None,
+        }]
     }
 }

@@ -30,6 +30,10 @@ impl Command for SysTemp {
     }
 
     fn examples(&self) -> Vec<Example> {
-        todo!()
+        vec![Example {
+            description: "Show the system temperatures",
+            example: "sys temp",
+            result: None,
+        }]
     }
 }

@@ -30,6 +30,10 @@ impl Command for SysMem {
     }
 
     fn examples(&self) -> Vec<Example> {
-        todo!()
+        vec![Example {
+            description: "Show info about the system memory",
+            example: "sys mem",
+            result: None,
+        }]
     }
 }

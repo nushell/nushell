@@ -30,6 +30,10 @@ impl Command for SysNet {
     }
 
     fn examples(&self) -> Vec<Example> {
-        todo!()
+        vec![Example {
+            description: "Show info about the system network",
+            example: "sys net",
+            result: None,
+        }]
     }
 }

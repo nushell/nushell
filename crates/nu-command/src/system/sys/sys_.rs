@@ -19,6 +19,10 @@ impl Command for Sys {
         "View information about the system."
     }
 
+    fn extra_usage(&self) -> &str {
+        "Note that this command may take a noticable amount of time to run. To reduce the time taken, you can use the various `sys` sub commands to get the subset of information you are interested in."
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -39,22 +43,10 @@ impl Command for Sys {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Show info about the system",
-                example: "sys",
-                result: None,
-            },
-            Example {
-                description: "Show the os system name with get",
-                example: "(sys).host | get name",
-                result: None,
-            },
-            Example {
-                description: "Show the os system name",
-                example: "(sys).host.name",
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Show info about the system",
+            example: "sys",
+            result: None,
+        }]
     }
 }

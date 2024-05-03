@@ -30,6 +30,10 @@ impl Command for SysHost {
     }
 
     fn examples(&self) -> Vec<Example> {
-        todo!()
+        vec![Example {
+            description: "Show info about the system host",
+            example: "sys host",
+            result: None,
+        }]
     }
 }

@@ -30,6 +30,10 @@ impl Command for SysCpu {
     }
 
     fn examples(&self) -> Vec<Example> {
-        todo!()
+        vec![Example {
+            description: "Show info about the system CPUs",
+            example: "sys cpu",
+            result: None,
+        }]
     }
 }
