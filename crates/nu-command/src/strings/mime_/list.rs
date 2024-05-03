@@ -30,11 +30,11 @@ If <main type> is "*" all known extensions are returned."#,
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: r#"mime list "video/mp4""#,
-                description: r#"Get known extensions for the "video/mp4" mime type"#,
+                example: r#"mime list "video/x-matroska""#,
+                description: r#"Get known extensions for the "video/x-matroska" mime type"#,
                 result: Some(Value::list(
-                    mime_guess::get_mime_extensions_str("video/mp4")
-                        .expect("failed getting video/mp4 extensions")
+                    mime_guess::get_mime_extensions_str("video/x-matroska")
+                        .expect("failed getting video/x-matroska extensions")
                         .iter()
                         .map(|s| Value::string(s.to_string(), NO_SPAN))
                         .collect(),

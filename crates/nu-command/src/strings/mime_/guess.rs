@@ -41,17 +41,17 @@ impl Command for MimeGuess {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: r#""video.mp4" | mime guess"#,
+                example: r#""video.mkv" | mime guess"#,
                 description: "Guess the MIME type from the path and return a string.",
-                result: Some(Value::string(r#""video/mp4""#, NO_SPAN)),
+                result: Some(Value::string(r#""video/x-matroska""#, NO_SPAN)),
             },
             Example {
-                example: r#"["video.mp4" "audio.mp3"] | mime guess"#,
+                example: r#"["video.mkv" "audio.mp3"] | mime guess"#,
                 description: "Guess the MIME types from the paths and return a table.",
                 result: Some(Value::list(
                     vec![
                         Value::record(
-                            record!("name" => Value::string("video.mp4".to_string(), NO_SPAN), "type" => Value::string("video/mp4", NO_SPAN)),
+                            record!("name" => Value::string("video.mkv".to_string(), NO_SPAN), "type" => Value::string("video/x-matroska", NO_SPAN)),
                             NO_SPAN,
                         ),
                         Value::record(
@@ -63,12 +63,12 @@ impl Command for MimeGuess {
                 )),
             },
             Example {
-                example: r#"["mp4" "mp3"] | mime guess -e"#,
+                example: r#"["mkv" "mp3"] | mime guess -e"#,
                 description: "Guess the MIME types from the extensions and return a table.",
                 result: Some(Value::list(
                     vec![
                         Value::record(
-                            record!("name" => Value::string("mp4".to_string(), NO_SPAN), "type" => Value::string("video/mp4", NO_SPAN)),
+                            record!("name" => Value::string("mkv".to_string(), NO_SPAN), "type" => Value::string("video/x-matroska", NO_SPAN)),
                             NO_SPAN,
                         ),
                         Value::record(
