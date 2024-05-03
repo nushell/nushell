@@ -23,10 +23,37 @@ pub(crate) const TRANSIENT_PROMPT_INDICATOR_VI_NORMAL: &str =
     "TRANSIENT_PROMPT_INDICATOR_VI_NORMAL";
 pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
     "TRANSIENT_PROMPT_MULTILINE_INDICATOR";
+
+// Store all these Ansi Escape Markers here so they can be reused easily
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
 pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
 pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
+pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\";
+#[allow(dead_code)]
+pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;";
+#[allow(dead_code)]
+pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
+
+// OSC633 is the same as OSC133 but specifically for VSCode
+pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A\x1b\\";
+pub(crate) const VSCODE_POST_PROMPT_MARKER: &str = "\x1b]633;B\x1b\\";
+#[allow(dead_code)]
+pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\";
+#[allow(dead_code)]
+//"\x1b]633;D;{}\x1b\\"
+pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;";
+#[allow(dead_code)]
+pub(crate) const VSCODE_POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
+#[allow(dead_code)]
+pub(crate) const VSCODE_COMMANDLINE_MARKER: &str = "\x1b]633;E\x1b\\";
+#[allow(dead_code)]
+// "\x1b]633;P;Cwd={}\x1b\\"
+pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
+#[allow(dead_code)]
+pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
+
+pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 fn get_prompt_string(
     prompt: &str,
@@ -85,16 +112,46 @@ pub(crate) fn update_prompt(
 
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = if config.shell_integration {
-        if let Some(prompt_string) = left_prompt_string {
+    let left_prompt_string_133 = if config.shell_integration_osc133 {
+        if let Some(prompt_string) = left_prompt_string.clone() {
             Some(format!(
                 "{PRE_PROMPT_MARKER}{prompt_string}{POST_PROMPT_MARKER}"
             ))
         } else {
-            left_prompt_string
+            left_prompt_string.clone()
         }
     } else {
-        left_prompt_string
+        left_prompt_string.clone()
+    };
+
+    let left_prompt_string_633 = if config.shell_integration_osc633 {
+        if let Some(prompt_string) = left_prompt_string.clone() {
+            if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode"))
+            {
+                // If the user enabled osc633 and we're in vscode, use the vscode markers
+                Some(format!(
+                    "{VSCODE_PRE_PROMPT_MARKER}{prompt_string}{VSCODE_POST_PROMPT_MARKER}"
+                ))
+            } else {
+                // otherwise, use the regular osc133 markers
+                Some(format!(
+                    "{PRE_PROMPT_MARKER}{prompt_string}{POST_PROMPT_MARKER}"
+                ))
+            }
+        } else {
+            left_prompt_string.clone()
+        }
+    } else {
+        left_prompt_string.clone()
+    };
+
+    let left_prompt_string = match (left_prompt_string_133, left_prompt_string_633) {
+        (None, None) => left_prompt_string,
+        (None, Some(l633)) => Some(l633),
+        (Some(l133), None) => Some(l133),
+        // If both are set, it means we're in vscode, so use the vscode markers
+        // and even if we're not actually in vscode atm, the regular 133 markers are used
+        (Some(_l133), Some(l633)) => Some(l633),
     };
 
     let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack);

@@ -86,7 +86,7 @@ impl PluginCommand for IsNotNull {
                 command(plugin, engine, call, lazy.collect(call.head)?)
             }
             PolarsPluginObject::NuExpression(expr) => {
-                let expr: NuExpression = expr.to_polars().is_not_null().into();
+                let expr: NuExpression = expr.into_polars().is_not_null().into();
                 expr.to_pipeline_data(plugin, engine, call.head)
             }
             _ => Err(cant_convert_err(

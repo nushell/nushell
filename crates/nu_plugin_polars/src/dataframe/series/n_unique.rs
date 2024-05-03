@@ -78,7 +78,7 @@ impl PluginCommand for NUnique {
                 command(plugin, engine, call, lazy.collect(call.head)?)
             }
             PolarsPluginObject::NuExpression(expr) => {
-                let expr: NuExpression = expr.to_polars().n_unique().into();
+                let expr: NuExpression = expr.into_polars().n_unique().into();
                 expr.to_pipeline_data(plugin, engine, call.head)
             }
             _ => Err(cant_convert_err(

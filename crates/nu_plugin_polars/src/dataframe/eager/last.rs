@@ -78,7 +78,7 @@ impl PluginCommand for LastDF {
             command(plugin, engine, call, df).map_err(|e| e.into())
         } else {
             let expr = NuExpression::try_from_value(plugin, &value)?;
-            let expr: NuExpression = expr.to_polars().last().into();
+            let expr: NuExpression = expr.into_polars().last().into();
 
             expr.to_pipeline_data(plugin, engine, call.head)
                 .map_err(LabeledError::from)
