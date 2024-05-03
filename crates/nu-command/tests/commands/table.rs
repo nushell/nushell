@@ -2562,12 +2562,12 @@ fn create_theme_output(theme: &str) -> Vec<String> {
 }
 
 fn theme_cmd(theme: &str, footer: bool, then: &str) -> String {
-    let mut with_foorter = String::new();
+    let mut with_footer = String::new();
     if footer {
-        with_foorter = "$env.config.footer_mode = \"always\"".to_string();
+        with_footer = "$env.config.footer_mode = \"always\"".to_string();
     }
 
-    format!("$env.config.table.mode = {theme}; $env.config.table.header_on_separator = true; {with_foorter}; {then}")
+    format!("$env.config.table.mode = {theme}; $env.config.table.header_on_separator = true; {with_footer}; {then}")
 }
 
 #[test]
