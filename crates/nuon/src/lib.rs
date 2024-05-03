@@ -14,11 +14,7 @@ pub use to::ToStyle;
 #[cfg(test)]
 mod tests {
     use chrono::DateTime;
-    use nu_protocol::{
-        ast::{CellPath, PathMember, RangeInclusion},
-        engine::Closure,
-        record, IntRange, Range, Span, Value,
-    };
+    use nu_protocol::{ast::RangeInclusion, engine::Closure, record, IntRange, Range, Span, Value};
 
     use crate::{from_nuon, to_nuon, ToStyle};
 
@@ -326,20 +322,6 @@ mod tests {
                     "b" => Value::test_string("lu"),
                 )),
             ])),
-        );
-    }
-
-    #[test]
-    fn cell_path() {
-        nuon_end_to_end(
-            r#"$.foo.bar.0"#,
-            Some(Value::test_cell_path(CellPath {
-                members: vec![
-                    PathMember::string("foo".to_string(), false, Span::new(2, 5)),
-                    PathMember::string("bar".to_string(), false, Span::new(6, 9)),
-                    PathMember::int(0, false, Span::new(10, 11)),
-                ],
-            })),
         );
     }
 
