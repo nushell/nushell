@@ -1028,50 +1028,44 @@ fn run_shell_integration_osc2(
     stack: &mut Stack,
     use_color: bool,
 ) {
-    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-        match cwd.coerce_into_string() {
-            Ok(path) => {
-                let start_time = Instant::now();
+    #[allow(deprecated)]
+    if let Ok(path) = current_dir_str(engine_state, stack) {
+        let start_time = Instant::now();
 
-                // Try to abbreviate string for windows title
-                let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-                    path.replace(&p.as_path().display().to_string(), "~")
+        // Try to abbreviate string for windows title
+        let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+            path.replace(&p.as_path().display().to_string(), "~")
+        } else {
+            path
+        };
+
+        let title = match command_name {
+            Some(binary_name) => {
+                let split_binary_name = binary_name.split_whitespace().next();
+                if let Some(binary_name) = split_binary_name {
+                    format!("{maybe_abbrev_path}> {binary_name}")
                 } else {
-                    path
-                };
-
-                let title = match command_name {
-                    Some(binary_name) => {
-                        let split_binary_name = binary_name.split_whitespace().next();
-                        if let Some(binary_name) = split_binary_name {
-                            format!("{maybe_abbrev_path}> {binary_name}")
-                        } else {
-                            maybe_abbrev_path.to_string()
-                        }
-                    }
-                    None => maybe_abbrev_path.to_string(),
-                };
-
-                // Set window title too
-                // https://tldp.org/HOWTO/Xterm-Title-3.html
-                // ESC]0;stringBEL -- Set icon name and window title to string
-                // ESC]1;stringBEL -- Set icon name to string
-                // ESC]2;stringBEL -- Set window title to string
-                run_ansi_sequence(&format!("\x1b]2;{title}\x07"));
-
-                perf(
-                    "set title with command osc2",
-                    start_time,
-                    file!(),
-                    line!(),
-                    column!(),
-                    use_color,
-                );
+                    maybe_abbrev_path.to_string()
+                }
             }
-            Err(e) => {
-                warn!("Could not coerce working directory to string {e}");
-            }
-        }
+            None => maybe_abbrev_path.to_string(),
+        };
+
+        // Set window title too
+        // https://tldp.org/HOWTO/Xterm-Title-3.html
+        // ESC]0;stringBEL -- Set icon name and window title to string
+        // ESC]1;stringBEL -- Set icon name to string
+        // ESC]2;stringBEL -- Set window title to string
+        run_ansi_sequence(&format!("\x1b]2;{title}\x07"));
+
+        perf(
+            "set title with command osc2",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
     }
 }
 
@@ -1081,98 +1075,78 @@ fn run_shell_integration_osc7(
     stack: &mut Stack,
     use_color: bool,
 ) {
-    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-        match cwd.coerce_into_string() {
-            Ok(path) => {
-                let start_time = Instant::now();
+    #[allow(deprecated)]
+    if let Ok(path) = current_dir_str(engine_state, stack) {
+        let start_time = Instant::now();
 
-                // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
-                run_ansi_sequence(&format!(
-                    "\x1b]7;file://{}{}{}\x1b\\",
-                    percent_encoding::utf8_percent_encode(
-                        hostname.unwrap_or("localhost"),
-                        percent_encoding::CONTROLS
-                    ),
-                    if path.starts_with('/') { "" } else { "/" },
-                    percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
-                ));
+        // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
+        run_ansi_sequence(&format!(
+            "\x1b]7;file://{}{}{}\x1b\\",
+            percent_encoding::utf8_percent_encode(
+                hostname.unwrap_or("localhost"),
+                percent_encoding::CONTROLS
+            ),
+            if path.starts_with('/') { "" } else { "/" },
+            percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
+        ));
 
-                perf(
-                    "communicate path to terminal with osc7",
-                    start_time,
-                    file!(),
-                    line!(),
-                    column!(),
-                    use_color,
-                );
-            }
-            Err(e) => {
-                warn!("Could not coerce working directory to string {e}");
-            }
-        }
+        perf(
+            "communicate path to terminal with osc7",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
     }
 }
 
 fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack, use_color: bool) {
-    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-        match cwd.coerce_into_string() {
-            Ok(path) => {
-                let start_time = Instant::now();
+    #[allow(deprecated)]
+    if let Ok(path) = current_dir_str(engine_state, stack) {
+        let start_time = Instant::now();
 
-                // Otherwise, communicate the path as OSC 9;9 from ConEmu (often used for spawning new tabs in the same dir)
-                run_ansi_sequence(&format!(
-                    "\x1b]9;9;{}{}\x1b\\",
-                    if path.starts_with('/') { "" } else { "/" },
-                    percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
-                ));
+        // Otherwise, communicate the path as OSC 9;9 from ConEmu (often used for spawning new tabs in the same dir)
+        run_ansi_sequence(&format!(
+            "\x1b]9;9;{}{}\x1b\\",
+            if path.starts_with('/') { "" } else { "/" },
+            percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
+        ));
 
-                perf(
-                    "communicate path to terminal with osc9;9",
-                    start_time,
-                    file!(),
-                    line!(),
-                    column!(),
-                    use_color,
-                );
-            }
-            Err(e) => {
-                warn!("Could not coerce working directory to string {e}");
-            }
-        }
+        perf(
+            "communicate path to terminal with osc9;9",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
     }
 }
 
 fn run_shell_integration_osc633(engine_state: &EngineState, stack: &mut Stack, use_color: bool) {
-    if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-        match cwd.coerce_into_string() {
-            Ok(path) => {
-                // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
-                // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
-                if stack.get_env_var(engine_state, "TERM_PROGRAM")
-                    == Some(Value::test_string("vscode"))
-                {
-                    let start_time = Instant::now();
+    #[allow(deprecated)]
+    if let Ok(path) = current_dir_str(engine_state, stack) {
+        // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
+        // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
+        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+            let start_time = Instant::now();
 
-                    // If we're in vscode, run their specific ansi escape sequence.
-                    // This is helpful for ctrl+g to change directories in the terminal.
-                    run_ansi_sequence(&format!(
-                        "{}{}{}",
-                        VSCODE_CWD_PROPERTY_MARKER_PREFIX, path, VSCODE_CWD_PROPERTY_MARKER_SUFFIX
-                    ));
+            // If we're in vscode, run their specific ansi escape sequence.
+            // This is helpful for ctrl+g to change directories in the terminal.
+            run_ansi_sequence(&format!(
+                "{}{}{}",
+                VSCODE_CWD_PROPERTY_MARKER_PREFIX, path, VSCODE_CWD_PROPERTY_MARKER_SUFFIX
+            ));
 
-                    perf(
-                        "communicate path to terminal with osc633;P",
-                        start_time,
-                        file!(),
-                        line!(),
-                        column!(),
-                        use_color,
-                    );
-                }
-            }
-            Err(e) => {
-                warn!("Could not coerce working directory to string {e}");
-            }
+            perf(
+                "communicate path to terminal with osc633;P",
+                start_time,
+                file!(),
+                line!(),
+                column!(),
+                use_color,
+            );
         }
     }
 }
