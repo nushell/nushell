@@ -687,7 +687,7 @@ impl Value {
                             true
                         })
                         } else {
-                            report_invalid_value("boolean value is deprecated, should be a record. see default_conifg.nu.", span, &mut errors);
+                            report_invalid_value("boolean value is deprecated, should be a record. see default_config.nu.", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 record! {
