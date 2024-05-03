@@ -43,6 +43,7 @@ impl Completer for DirectoryCompletion {
         let AdjustView { prefix, span, .. } = adjust_if_intermediate(&prefix, working_set, span);
 
         // Filter only the folders
+        #[allow(deprecated)]
         let output: Vec<_> = directory_completion(
             span,
             &prefix,

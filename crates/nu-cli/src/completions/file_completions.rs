@@ -47,6 +47,7 @@ impl Completer for FileCompletion {
             readjusted,
         } = adjust_if_intermediate(&prefix, working_set, span);
 
+        #[allow(deprecated)]
         let output: Vec<_> = complete_item(
             readjusted,
             span,

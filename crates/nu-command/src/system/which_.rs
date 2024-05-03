@@ -229,6 +229,7 @@ fn which(
 
     let mut output = vec![];
 
+    #[allow(deprecated)]
     let cwd = env::current_dir_str(engine_state, stack)?;
     let paths = env::path_str(engine_state, stack, call.head)?;
 

@@ -1,10 +1,10 @@
+#[allow(deprecated)]
+use nu_engine::{command_prelude::*, current_dir};
+use nu_protocol::{engine::StateWorkingSet, PluginRegistryFile};
 use std::{
     fs::{self, File},
     path::PathBuf,
 };
-
-use nu_engine::{command_prelude::*, current_dir};
-use nu_protocol::{engine::StateWorkingSet, PluginRegistryFile};
 
 pub(crate) fn modify_plugin_file(
     engine_state: &EngineState,
@@ -13,6 +13,7 @@ pub(crate) fn modify_plugin_file(
     custom_path: Option<Spanned<String>>,
     operate: impl FnOnce(&mut PluginRegistryFile) -> Result<(), ShellError>,
 ) -> Result<(), ShellError> {
+    #[allow(deprecated)]
     let cwd = current_dir(engine_state, stack)?;
 
     let plugin_registry_file_path = if let Some(ref custom_path) = custom_path {
@@ -58,6 +59,7 @@ pub(crate) fn canonicalize_possible_filename_arg(
     arg: &str,
 ) -> PathBuf {
     // This results in the best possible chance of a match with the plugin item
+    #[allow(deprecated)]
     if let Ok(cwd) = nu_engine::current_dir(engine_state, stack) {
         let path = nu_path::expand_path_with(arg, &cwd, true);
         // Try to canonicalize

@@ -207,7 +207,15 @@ fn filesystem_change_directory_to_symlink_relative() {
                 $env.PWD
             "
         );
+        assert_eq!(PathBuf::from(actual.out), dirs.test().join("foo_link"));
 
+        let actual = nu!(
+            cwd: dirs.test().join("boo"),
+            "
+                cd -P ../foo_link
+                $env.PWD
+            "
+        );
         assert_eq!(PathBuf::from(actual.out), dirs.test().join("foo"));
     })
 }
