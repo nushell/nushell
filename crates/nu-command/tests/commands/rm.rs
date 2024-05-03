@@ -341,19 +341,6 @@ fn removes_files_with_case_sensitive_glob_matches_by_default() {
 }
 
 #[test]
-fn remove_ignores_ansi() {
-    Playground::setup("rm_test_ansi", |_dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("test.txt")]);
-
-        let actual = nu!(
-            cwd: sandbox.cwd(),
-            "ls | find test | get name | rm $in.0; ls | is-empty",
-        );
-        assert_eq!(actual.out, "true");
-    });
-}
-
-#[test]
 fn removes_symlink() {
     let symlink_target = "symlink_target";
     let symlink = "symlink";

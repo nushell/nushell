@@ -174,9 +174,7 @@ impl Command for UCp {
             });
         }
         let target = paths.pop().expect("Should not be reached?");
-        let target_path = PathBuf::from(&nu_utils::strip_ansi_string_unlikely(
-            target.item.to_string(),
-        ));
+        let target_path = PathBuf::from(target.item.to_string());
         let cwd = current_dir(engine_state, stack)?;
         let target_path = nu_path::expand_path_with(target_path, &cwd, target.item.is_expand());
         if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
@@ -193,8 +191,7 @@ impl Command for UCp {
 
         let mut sources: Vec<(Vec<PathBuf>, bool)> = Vec::new();
 
-        for mut p in paths {
-            p.item = p.item.strip_ansi_string_unlikely();
+        for p in paths {
             let exp_files: Vec<Result<PathBuf, ShellError>> =
                 nu_engine::glob_from(&p, &cwd, call.head, None)
                     .map(|f| f.1)?

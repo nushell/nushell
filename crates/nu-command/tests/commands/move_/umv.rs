@@ -378,21 +378,6 @@ fn does_not_error_when_some_file_is_moving_into_itself() {
 }
 
 #[test]
-fn mv_ignores_ansi() {
-    Playground::setup("umv_test_ansi", |_dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("test.txt")]);
-        let actual = nu!(
-             cwd: sandbox.cwd(),
-            r#"
-                 ls | find test | mv $in.0.name success.txt; ls | $in.0.name
-            "#
-        );
-
-        assert_eq!(actual.out, "success.txt");
-    })
-}
-
-#[test]
 fn mv_directory_with_same_name() {
     Playground::setup("umv_test_directory_with_same_name", |_dirs, sandbox| {
         sandbox.mkdir("testdir");

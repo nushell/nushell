@@ -38,10 +38,6 @@ impl Command for Start {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let path = call.req::<Spanned<String>>(engine_state, stack, 0)?;
-        let path = Spanned {
-            item: nu_utils::strip_ansi_string_unlikely(path.item),
-            span: path.span,
-        };
         let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
         // only check if file exists in current current directory
         let file_path = Path::new(path_no_whitespace);
