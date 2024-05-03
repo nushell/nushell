@@ -1949,6 +1949,7 @@ pub fn parse_module_file_or_dir(
         return None;
     }
 
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     let module_path =
@@ -3341,6 +3342,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 }
 
 pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    trace!("parsing source");
     let spans = &lite_command.parts;
     let name = working_set.get_span_contents(spans[0]);
 
@@ -3358,6 +3360,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         let scoped = name == b"source-env";
 
         if let Some(decl_id) = working_set.find_decl(name) {
+            #[allow(deprecated)]
             let cwd = working_set.get_cwd();
 
             // Is this the right call to be using here?
@@ -3563,6 +3566,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
     let spans = &lite_command.parts;
 
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     // Checking that the function is used with the correct name
@@ -3784,6 +3788,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     use nu_protocol::{FromValue, PluginRegistryFile};
 
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     if let Err(err) = (|| {

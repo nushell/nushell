@@ -125,6 +125,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
     }
 
     fn get_current_dir(&self) -> Result<Spanned<String>, ShellError> {
+        #[allow(deprecated)]
         let cwd = nu_engine::env::current_dir_str(&self.engine_state, &self.stack)?;
         // The span is not really used, so just give it call.head
         Ok(cwd.into_spanned(self.call.head))

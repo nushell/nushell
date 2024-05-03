@@ -344,9 +344,6 @@ impl PluginTest {
                 // All equal, and same length
                 Ok(true)
             }
-            // Must collect lazy records to compare.
-            (Value::LazyRecord { val: a_val, .. }, _) => self.value_eq(&a_val.collect()?, b),
-            (_, Value::LazyRecord { val: b_val, .. }) => self.value_eq(a, &b_val.collect()?),
             // Fall back to regular eq.
             _ => Ok(a == b),
         }

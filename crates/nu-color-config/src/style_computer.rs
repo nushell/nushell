@@ -106,10 +106,9 @@ impl<'a> StyleComputer<'a> {
             Value::Binary { .. } => TextStyle::with_style(Left, s),
             Value::CellPath { .. } => TextStyle::with_style(Left, s),
             Value::Record { .. } | Value::List { .. } => TextStyle::with_style(Left, s),
-            Value::Closure { .. }
-            | Value::Custom { .. }
-            | Value::Error { .. }
-            | Value::LazyRecord { .. } => TextStyle::basic_left(),
+            Value::Closure { .. } | Value::Custom { .. } | Value::Error { .. } => {
+                TextStyle::basic_left()
+            }
         }
     }
 

@@ -246,9 +246,6 @@ pub(crate) fn write_value(
         Value::Custom { val, .. } => {
             write_value(out, &val.to_base_value(span)?, depth)?;
         }
-        Value::LazyRecord { val, .. } => {
-            write_value(out, &val.collect()?, depth)?;
-        }
     }
     Ok(())
 }

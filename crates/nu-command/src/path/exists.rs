@@ -1,4 +1,5 @@
 use super::PathSubcommandArguments;
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, current_dir_const};
 use nu_path::expand_path_with;
 use nu_protocol::engine::StateWorkingSet;
@@ -53,6 +54,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        #[allow(deprecated)]
         let args = Arguments {
             pwd: current_dir(engine_state, stack)?,
             not_follow_symlink: call.has_flag(engine_state, stack, "no-symlink")?,
@@ -74,6 +76,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        #[allow(deprecated)]
         let args = Arguments {
             pwd: current_dir_const(working_set)?,
             not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,

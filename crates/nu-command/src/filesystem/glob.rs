@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use std::sync::{atomic::AtomicBool, Arc};
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
@@ -178,6 +179,7 @@ impl Command for Glob {
             }
         };
 
+        #[allow(deprecated)]
         let path = current_dir(engine_state, stack)?;
         let path = match nu_path::canonicalize_with(prefix, path) {
             Ok(path) => path,
