@@ -610,9 +610,3 @@ pub fn flatten_expression(
     flatten_expression_inner(working_set, expr, &mut output);
     output
 }
-
-pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
-    let mut output = Vec::new();
-    flatten_pattern_inner(match_pattern, &mut output);
-    output
-}
