@@ -943,7 +943,7 @@ impl EngineState {
 
         // Helper function to check if a path is a root path.
         fn is_root(path: &Path) -> bool {
-            path.parent() == None
+            path.parent().is_none()
         }
 
         // Helper function to check if a path has trailing slashes.
