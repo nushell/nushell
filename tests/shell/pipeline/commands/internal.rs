@@ -29,7 +29,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
 #[test]
 fn treats_dot_dot_as_path_not_range() {
     Playground::setup("dot_dot_dir", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "nu_times.csv",
             "
                 name,rusty_luck,origin
@@ -83,7 +83,7 @@ fn for_loop() {
 #[test]
 fn subexpression_handles_dot() {
     Playground::setup("subexpression_handles_dot", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "nu_times.csv",
             "
                 name,rusty_luck,origin

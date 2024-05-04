@@ -49,46 +49,52 @@ pub enum FlatShape {
     VarDecl(VarId),
 }
 
+impl FlatShape {
+    pub fn as_str(&self) -> &str {
+        match self {
+            FlatShape::And => "shape_and",
+            FlatShape::Binary => "shape_binary",
+            FlatShape::Block => "shape_block",
+            FlatShape::Bool => "shape_bool",
+            FlatShape::Closure => "shape_closure",
+            FlatShape::Custom(_) => "shape_custom",
+            FlatShape::DateTime => "shape_datetime",
+            FlatShape::Directory => "shape_directory",
+            FlatShape::External => "shape_external",
+            FlatShape::ExternalArg => "shape_externalarg",
+            FlatShape::ExternalResolved => "shape_external_resolved",
+            FlatShape::Filepath => "shape_filepath",
+            FlatShape::Flag => "shape_flag",
+            FlatShape::Float => "shape_float",
+            FlatShape::Garbage => "shape_garbage",
+            FlatShape::GlobPattern => "shape_globpattern",
+            FlatShape::Int => "shape_int",
+            FlatShape::InternalCall(_) => "shape_internalcall",
+            FlatShape::Keyword => "shape_keyword",
+            FlatShape::List => "shape_list",
+            FlatShape::Literal => "shape_literal",
+            FlatShape::MatchPattern => "shape_match_pattern",
+            FlatShape::Nothing => "shape_nothing",
+            FlatShape::Operator => "shape_operator",
+            FlatShape::Or => "shape_or",
+            FlatShape::Pipe => "shape_pipe",
+            FlatShape::Range => "shape_range",
+            FlatShape::RawString => "shape_raw_string",
+            FlatShape::Record => "shape_record",
+            FlatShape::Redirection => "shape_redirection",
+            FlatShape::Signature => "shape_signature",
+            FlatShape::String => "shape_string",
+            FlatShape::StringInterpolation => "shape_string_interpolation",
+            FlatShape::Table => "shape_table",
+            FlatShape::Variable(_) => "shape_variable",
+            FlatShape::VarDecl(_) => "shape_vardecl",
+        }
+    }
+}
+
 impl Display for FlatShape {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        match self {
-            FlatShape::And => write!(f, "shape_and"),
-            FlatShape::Binary => write!(f, "shape_binary"),
-            FlatShape::Block => write!(f, "shape_block"),
-            FlatShape::Bool => write!(f, "shape_bool"),
-            FlatShape::Closure => write!(f, "shape_closure"),
-            FlatShape::Custom(_) => write!(f, "shape_custom"),
-            FlatShape::DateTime => write!(f, "shape_datetime"),
-            FlatShape::Directory => write!(f, "shape_directory"),
-            FlatShape::External => write!(f, "shape_external"),
-            FlatShape::ExternalArg => write!(f, "shape_externalarg"),
-            FlatShape::ExternalResolved => write!(f, "shape_external_resolved"),
-            FlatShape::Filepath => write!(f, "shape_filepath"),
-            FlatShape::Flag => write!(f, "shape_flag"),
-            FlatShape::Float => write!(f, "shape_float"),
-            FlatShape::Garbage => write!(f, "shape_garbage"),
-            FlatShape::GlobPattern => write!(f, "shape_globpattern"),
-            FlatShape::Int => write!(f, "shape_int"),
-            FlatShape::InternalCall(_) => write!(f, "shape_internalcall"),
-            FlatShape::Keyword => write!(f, "shape_keyword"),
-            FlatShape::List => write!(f, "shape_list"),
-            FlatShape::Literal => write!(f, "shape_literal"),
-            FlatShape::MatchPattern => write!(f, "shape_match_pattern"),
-            FlatShape::Nothing => write!(f, "shape_nothing"),
-            FlatShape::Operator => write!(f, "shape_operator"),
-            FlatShape::Or => write!(f, "shape_or"),
-            FlatShape::Pipe => write!(f, "shape_pipe"),
-            FlatShape::Range => write!(f, "shape_range"),
-            FlatShape::RawString => write!(f, "shape_raw_string"),
-            FlatShape::Record => write!(f, "shape_record"),
-            FlatShape::Redirection => write!(f, "shape_redirection"),
-            FlatShape::Signature => write!(f, "shape_signature"),
-            FlatShape::String => write!(f, "shape_string"),
-            FlatShape::StringInterpolation => write!(f, "shape_string_interpolation"),
-            FlatShape::Table => write!(f, "shape_table"),
-            FlatShape::Variable(_) => write!(f, "shape_variable"),
-            FlatShape::VarDecl(_) => write!(f, "shape_vardecl"),
-        }
+        f.write_str(self.as_str())
     }
 }
 

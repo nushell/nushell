@@ -21,7 +21,7 @@ fn better_empty_redirection() {
 #[test]
 fn explicit_glob() {
     Playground::setup("external with explicit glob", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
             EmptyFile("D&D_volume_2.txt"),
             EmptyFile("foo.sh"),
@@ -42,7 +42,7 @@ fn explicit_glob() {
 #[test]
 fn bare_word_expand_path_glob() {
     Playground::setup("bare word should do the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
             EmptyFile("D&D_volume_2.txt"),
             EmptyFile("foo.sh"),
@@ -64,7 +64,7 @@ fn bare_word_expand_path_glob() {
 #[test]
 fn backtick_expand_path_glob() {
     Playground::setup("backtick should do the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
             EmptyFile("D&D_volume_2.txt"),
             EmptyFile("foo.sh"),
@@ -86,7 +86,7 @@ fn backtick_expand_path_glob() {
 #[test]
 fn single_quote_does_not_expand_path_glob() {
     Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
             EmptyFile("D&D_volume_2.txt"),
             EmptyFile("foo.sh"),
@@ -107,7 +107,7 @@ fn single_quote_does_not_expand_path_glob() {
 #[test]
 fn double_quote_does_not_expand_path_glob() {
     Playground::setup("double quote do not run the expansion", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("D&D_volume_1.txt"),
             EmptyFile("D&D_volume_2.txt"),
             EmptyFile("foo.sh"),
@@ -251,7 +251,7 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
 fn can_run_batch_files() {
     use nu_test_support::fs::Stub::FileWithContent;
     Playground::setup("run a Windows batch file", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "foo.cmd",
             r#"
                 @echo off
@@ -271,7 +271,7 @@ fn can_run_batch_files_without_cmd_extension() {
     Playground::setup(
         "run a Windows batch file without specifying the extension",
         |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContent(
+            sandbox.with_files(&[FileWithContent(
                 "foo.cmd",
                 r#"
                 @echo off
@@ -292,7 +292,7 @@ fn can_run_batch_files_without_bat_extension() {
     Playground::setup(
         "run a Windows batch file without specifying the extension",
         |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContent(
+            sandbox.with_files(&[FileWithContent(
                 "foo.bat",
                 r#"
                 @echo off

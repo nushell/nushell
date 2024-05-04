@@ -8,7 +8,7 @@ use std::path::Path;
 fn moves_a_file() {
     Playground::setup("umv_test_1", |dirs, sandbox| {
         sandbox
-            .with_files(vec![EmptyFile("andres.txt")])
+            .with_files(&[EmptyFile("andres.txt")])
             .mkdir("expected");
 
         let original = dirs.test().join("andres.txt");
@@ -27,7 +27,7 @@ fn moves_a_file() {
 #[test]
 fn overwrites_if_moving_to_existing_file_and_force_provided() {
     Playground::setup("umv_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jttxt")]);
+        sandbox.with_files(&[EmptyFile("andres.txt"), EmptyFile("jttxt")]);
 
         let original = dirs.test().join("andres.txt");
         let expected = dirs.test().join("jttxt");
@@ -63,9 +63,7 @@ fn moves_a_directory() {
 #[test]
 fn moves_the_file_inside_directory_if_path_to_move_is_existing_directory() {
     Playground::setup("umv_test_4", |dirs, sandbox| {
-        sandbox
-            .with_files(vec![EmptyFile("jttxt")])
-            .mkdir("expected");
+        sandbox.with_files(&[EmptyFile("jttxt")]).mkdir("expected");
 
         let original_dir = dirs.test().join("jttxt");
         let expected = dirs.test().join("expected/jttxt");
@@ -85,7 +83,7 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
     Playground::setup("umv_test_5", |dirs, sandbox| {
         sandbox
             .within("contributors")
-            .with_files(vec![EmptyFile("jttxt")])
+            .with_files(&[EmptyFile("jttxt")])
             .mkdir("expected");
 
         let original_dir = dirs.test().join("contributors");
@@ -107,7 +105,7 @@ fn moves_using_path_with_wildcard() {
     Playground::setup("umv_test_7", |dirs, sandbox| {
         sandbox
             .within("originals")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("andres.ini"),
                 EmptyFile("caco3_plastics.csv"),
                 EmptyFile("cargo_sample.toml"),
@@ -138,7 +136,7 @@ fn moves_using_a_glob() {
     Playground::setup("umv_test_8", |dirs, sandbox| {
         sandbox
             .within("meals")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("arepa.txt"),
                 EmptyFile("empanada.txt"),
                 EmptyFile("taquiza.txt"),
@@ -166,11 +164,11 @@ fn moves_a_directory_with_files() {
         sandbox
             .mkdir("vehicles/car")
             .mkdir("vehicles/bicycle")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("vehicles/car/car1.txt"),
                 EmptyFile("vehicles/car/car2.txt"),
             ])
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("vehicles/bicycle/bicycle1.txt"),
                 EmptyFile("vehicles/bicycle/bicycle2.txt"),
             ]);
@@ -213,7 +211,7 @@ fn errors_if_source_doesnt_exist() {
 #[ignore = "GNU/uutils overwrites rather than error out"]
 fn error_if_moving_to_existing_file_without_force() {
     Playground::setup("umv_test_10_0", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jttxt")]);
+        sandbox.with_files(&[EmptyFile("andres.txt"), EmptyFile("jttxt")]);
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -226,7 +224,7 @@ fn error_if_moving_to_existing_file_without_force() {
 #[test]
 fn errors_if_destination_doesnt_exist() {
     Playground::setup("umv_test_10_1", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("empty.txt")]);
+        sandbox.with_files(&[EmptyFile("empty.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -241,7 +239,7 @@ fn errors_if_destination_doesnt_exist() {
 #[ignore = "GNU/uutils doesnt expand, rather cannot stat 'file?.txt'"]
 fn errors_if_multiple_sources_but_destination_not_a_directory() {
     Playground::setup("umv_test_10_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("file1.txt"),
             EmptyFile("file2.txt"),
             EmptyFile("file3.txt"),
@@ -261,9 +259,7 @@ fn errors_if_multiple_sources_but_destination_not_a_directory() {
 #[test]
 fn errors_if_renaming_directory_to_an_existing_file() {
     Playground::setup("umv_test_10_3", |dirs, sandbox| {
-        sandbox
-            .mkdir("mydir")
-            .with_files(vec![EmptyFile("empty.txt")]);
+        sandbox.mkdir("mydir").with_files(&[EmptyFile("empty.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -293,7 +289,7 @@ fn does_not_error_on_relative_parent_path() {
     Playground::setup("umv_test_11", |dirs, sandbox| {
         sandbox
             .mkdir("first")
-            .with_files(vec![EmptyFile("first/william_hartnell.txt")]);
+            .with_files(&[EmptyFile("first/william_hartnell.txt")]);
 
         let original = dirs.test().join("first/william_hartnell.txt");
         let expected = dirs.test().join("william_hartnell.txt");
@@ -311,7 +307,7 @@ fn does_not_error_on_relative_parent_path() {
 #[test]
 fn move_files_using_glob_two_parents_up_using_multiple_dots() {
     Playground::setup("umv_test_12", |dirs, sandbox| {
-        sandbox.within("foo").within("bar").with_files(vec![
+        sandbox.within("foo").within("bar").with_files(&[
             EmptyFile("jtjson"),
             EmptyFile("andres.xml"),
             EmptyFile("yehuda.yaml"),
@@ -345,7 +341,7 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots() {
 #[test]
 fn move_file_from_two_parents_up_using_multiple_dots_to_current_dir() {
     Playground::setup("cp_test_10", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("hello_there")]);
+        sandbox.with_files(&[EmptyFile("hello_there")]);
         sandbox.within("foo").mkdir("bar");
 
         nu!(
@@ -380,7 +376,7 @@ fn does_not_error_when_some_file_is_moving_into_itself() {
 #[test]
 fn mv_ignores_ansi() {
     Playground::setup("umv_test_ansi", |_dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("test.txt")]);
+        sandbox.with_files(&[EmptyFile("test.txt")]);
         let actual = nu!(
              cwd: sandbox.cwd(),
             r#"
@@ -420,7 +416,7 @@ fn mv_change_case_of_directory() {
     Playground::setup("mv_change_case_of_directory", |dirs, sandbox| {
         sandbox
             .mkdir("somedir")
-            .with_files(vec![EmptyFile("somedir/somefile.txt")]);
+            .with_files(&[EmptyFile("somedir/somefile.txt")]);
 
         let original_dir = String::from("somedir");
         let new_dir = String::from("SomeDir");
@@ -459,7 +455,7 @@ fn mv_change_case_of_directory() {
 // but fail on both macOS and Windows.
 fn mv_change_case_of_file() {
     Playground::setup("mv_change_case_of_file", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("somefile.txt")]);
+        sandbox.with_files(&[EmptyFile("somefile.txt")]);
 
         let original_file_name = String::from("somefile.txt");
         let new_file_name = String::from("SomeFile.txt");
@@ -489,7 +485,7 @@ fn mv_change_case_of_file() {
 #[ignore = "Update not supported..remove later"]
 fn mv_with_update_flag() {
     Playground::setup("umv_with_update_flag", |_dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("valid.txt"),
             FileWithContent("newer_valid.txt", "body"),
         ]);
@@ -502,12 +498,12 @@ fn mv_with_update_flag() {
 
         // create a file after assert to make sure that newest_valid.txt is newest
         std::thread::sleep(std::time::Duration::from_secs(1));
-        sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
+        sandbox.with_files(&[FileWithContent("newest_valid.txt", "newest_body")]);
         let actual = nu!(cwd: sandbox.cwd(), "mv -uf newest_valid.txt valid.txt; open valid.txt");
         assert_eq!(actual.out, "newest_body");
 
         // when destination doesn't exist
-        sandbox.with_files(vec![FileWithContent("newest_valid.txt", "newest_body")]);
+        sandbox.with_files(&[FileWithContent("newest_valid.txt", "newest_body")]);
         let actual = nu!(cwd: sandbox.cwd(), "mv -uf newest_valid.txt des_missing.txt; open des_missing.txt");
         assert_eq!(actual.out, "newest_body");
     });
@@ -518,8 +514,8 @@ fn test_mv_no_clobber() {
     Playground::setup("umv_test_13", |dirs, sandbox| {
         let file_a = "test_mv_no_clobber_file_a";
         let file_b = "test_mv_no_clobber_file_b";
-        sandbox.with_files(vec![EmptyFile(file_a)]);
-        sandbox.with_files(vec![EmptyFile(file_b)]);
+        sandbox.with_files(&[EmptyFile(file_a)]);
+        sandbox.with_files(&[EmptyFile(file_b)]);
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -566,7 +562,7 @@ fn mv_with_no_target() {
 #[case("a][c")]
 fn mv_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("umv_test_16", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             src_name,
             "What is the sound of one hand clapping?",
         )]);
@@ -592,7 +588,7 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 #[case("a][c")]
 fn mv_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &str) {
     Playground::setup("umv_test_18", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             src_name,
             "What is the sound of one hand clapping?",
         )]);
@@ -626,7 +622,7 @@ fn mv_with_cd() {
     Playground::setup("umv_test_17", |_dirs, sandbox| {
         sandbox
             .mkdir("tmp_dir")
-            .with_files(vec![FileWithContent("tmp_dir/file.txt", "body")]);
+            .with_files(&[FileWithContent("tmp_dir/file.txt", "body")]);
 
         let actual = nu!(
             cwd: sandbox.cwd(),
@@ -642,7 +638,7 @@ fn test_cp_inside_glob_metachars_dir() {
         let sub_dir = "test[]";
         sandbox
             .within(sub_dir)
-            .with_files(vec![FileWithContent("test_file.txt", "hello")]);
+            .with_files(&[FileWithContent("test_file.txt", "hello")]);
 
         let actual = nu!(
             cwd: dirs.test().join(sub_dir),
@@ -661,7 +657,7 @@ fn test_cp_inside_glob_metachars_dir() {
 #[test]
 fn mv_with_tilde() {
     Playground::setup("mv_tilde", |dirs, sandbox| {
-        sandbox.within("~tilde").with_files(vec![
+        sandbox.within("~tilde").with_files(&[
             EmptyFile("f1.txt"),
             EmptyFile("f2.txt"),
             EmptyFile("f3.txt"),

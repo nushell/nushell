@@ -151,7 +151,7 @@ fn filesystem_change_to_a_directory_containing_spaces() {
 #[test]
 fn filesystem_not_a_directory() {
     Playground::setup("cd_test_10", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("ferris_did_it.txt")]);
+        sandbox.with_files(&[EmptyFile("ferris_did_it.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(),

@@ -38,7 +38,7 @@ fn capture_error_with_too_much_stderr_not_hang_nushell() {
         for _ in 0..bytes {
             large_file_body.push('a');
         }
-        sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
+        sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
         let actual =
             nu!(cwd: dirs.test(), "sh -c 'cat a_large_file.txt 1>&2' | complete | get stderr");
@@ -58,7 +58,7 @@ fn capture_error_with_too_much_stdout_not_hang_nushell() {
         for _ in 0..bytes {
             large_file_body.push('a');
         }
-        sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
+        sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
         let actual = nu!(cwd: dirs.test(), "sh -c 'cat a_large_file.txt' | complete | get stdout");
 
@@ -81,7 +81,7 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
         "#;
             let expect_body = "=".repeat(40960);
 
-            sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+            sandbox.with_files(&[FileWithContent("test.sh", script_body)]);
 
             // check for stdout
             let actual = nu!(cwd: dirs.test(), "sh test.sh | complete | get stdout | str trim");

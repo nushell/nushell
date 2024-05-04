@@ -38,7 +38,7 @@ fn help_aliases() {
 #[test]
 fn help_alias_usage_1() {
     Playground::setup("help_alias_usage_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # line1
@@ -70,7 +70,7 @@ fn help_alias_usage_2() {
 #[test]
 fn help_alias_usage_3() {
     Playground::setup("help_alias_usage_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # line1
@@ -92,7 +92,7 @@ fn help_alias_usage_3() {
 #[test]
 fn help_alias_name() {
     Playground::setup("help_alias_name", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # line1
@@ -113,7 +113,7 @@ fn help_alias_name() {
 #[test]
 fn help_alias_name_f() {
     Playground::setup("help_alias_name_f", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # line1
@@ -132,7 +132,7 @@ fn help_alias_name_f() {
 #[test]
 fn help_export_alias_name_single_word() {
     Playground::setup("help_export_alias_name_single_word", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # line1
@@ -153,7 +153,7 @@ fn help_export_alias_name_single_word() {
 #[test]
 fn help_export_alias_name_multi_word() {
     Playground::setup("help_export_alias_name_multi_word", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # line1
@@ -174,7 +174,7 @@ fn help_export_alias_name_multi_word() {
 #[test]
 fn help_module_usage_1() {
     Playground::setup("help_module_usage", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # line1
@@ -199,7 +199,7 @@ fn help_module_usage_1() {
 #[test]
 fn help_module_name() {
     Playground::setup("help_module_name", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # line1
@@ -222,7 +222,7 @@ fn help_module_name() {
 #[test]
 fn help_module_sorted_decls() {
     Playground::setup("help_module_sorted_decls", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 module SPAM {
@@ -242,7 +242,7 @@ fn help_module_sorted_decls() {
 #[test]
 fn help_module_sorted_aliases() {
     Playground::setup("help_module_sorted_aliases", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 module SPAM {
@@ -262,7 +262,7 @@ fn help_module_sorted_aliases() {
 #[test]
 fn help_usage_extra_usage_command() {
     Playground::setup("help_usage_extra_usage_command", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # module_line1
@@ -299,7 +299,7 @@ fn help_usage_extra_usage_command() {
 #[test]
 fn help_usage_extra_usage_alias() {
     Playground::setup("help_usage_extra_usage_alias", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
                 # module_line1
