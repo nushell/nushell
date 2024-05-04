@@ -27,6 +27,16 @@ fn filesystem_change_from_current_directory_using_relative_path() {
 }
 
 #[test]
+fn filesystem_change_from_current_directory_using_relative_path_with_trailing_slash() {
+    Playground::setup("cd_test_1_slash", |dirs, _| {
+        // Intentionally not using correct path sep because this should work on Windows
+        let actual = nu!( cwd: dirs.root(), "cd cd_test_1_slash/; $env.PWD");
+
+        assert_eq!(PathBuf::from(actual.out), *dirs.test());
+    })
+}
+
+#[test]
 fn filesystem_change_from_current_directory_using_absolute_path() {
     Playground::setup("cd_test_2", |dirs, _| {
         let actual = nu!(
@@ -36,6 +46,23 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
                 $env.PWD
             "#,
             dirs.formats().display()
+        );
+
+        assert_eq!(PathBuf::from(actual.out), dirs.formats());
+    })
+}
+
+#[test]
+fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash() {
+    Playground::setup("cd_test_2", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                cd '{}{}'
+                $env.PWD
+            "#,
+            dirs.formats().display(),
+            std::path::MAIN_SEPARATOR_STR,
         );
 
         assert_eq!(PathBuf::from(actual.out), dirs.formats());
