@@ -286,7 +286,7 @@ mod stdin_evaluation {
     fn does_not_panic_with_no_newline_in_stream() {
         let actual = nu!(pipeline(
             r#"
-                nu --testbin nonu "wheres the nuline?" | length
+                nu --testbin nonu "where's the nuline?" | length
             "#
         ));
 
