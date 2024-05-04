@@ -1,7 +1,7 @@
 use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
-use nu_parser::parse;
+use nu_parser::{escape_for_script_arg, parse};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -11,6 +11,7 @@ use nu_protocol::{
 /// Run a command (or commands) given to us by the user
 pub fn evaluate_commands(
     commands: &Spanned<String>,
+    args_to_commands: Vec<String>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
     input: PipelineData,
@@ -34,7 +35,19 @@ pub fn evaluate_commands(
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        let output = parse(&mut working_set, None, commands.item.as_bytes(), false);
+        let mut commands = commands.item.clone();
+        if !args_to_commands.is_empty() {
+            let args_to_commands: Vec<String> = args_to_commands
+                .into_iter()
+                .map(|a| escape_for_script_arg(&a))
+                .collect();
+            commands = format!(
+                "def --wrapped main [...args] {{ {} }}; main {}",
+                commands,
+                args_to_commands.join(" "),
+            )
+        }
+        let output = parse(&mut working_set, None, commands.as_bytes(), false);
         if let Some(warning) = working_set.parse_warnings.first() {
             report_error(&working_set, warning);
         }
