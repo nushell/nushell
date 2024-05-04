@@ -131,14 +131,12 @@ pub fn host(span: Span) -> Value {
     if let Some(version) = System::os_version() {
         record.push("os_version", Value::string(trim_cstyle_null(version), span));
     }
-
     if let Some(long_version) = System::long_os_version() {
         record.push(
             "long_os_version",
             Value::string(trim_cstyle_null(long_version), span),
         );
     }
-
     if let Some(version) = System::kernel_version() {
         record.push(
             "kernel_version",
@@ -160,28 +158,28 @@ pub fn host(span: Span) -> Value {
     let datetime = DateTime::<Local>::from(d);
     // Convert to local time and then rfc3339
     let timestamp_str = datetime.with_timezone(datetime.offset()).to_rfc3339();
-
     record.push("boot_time", Value::string(timestamp_str, span));
 
-    let users = Users::new_with_refreshed_list();
+    let users = Users::new_with_refreshed_list()
+        .iter()
+        .map(|user| {
+            let groups = user
+                .groups()
+                .iter()
+                .map(|group| Value::string(trim_cstyle_null(group.name()), span))
+                .collect();
 
-    let mut users_list = vec![];
-    for user in users.list() {
-        let mut groups = vec![];
-        for group in user.groups() {
-            groups.push(Value::string(trim_cstyle_null(group.name()), span));
-        }
+            let record = record! {
+                "name" => Value::string(trim_cstyle_null(user.name()), span),
+                "groups" => Value::list(groups, span),
+            };
 
-        let record = record! {
-            "name" => Value::string(trim_cstyle_null(user.name()), span),
-            "groups" => Value::list(groups, span),
-        };
-
-        users_list.push(Value::record(record, span));
-    }
+            Value::record(record, span)
+        })
+        .collect::<Vec<_>>();
 
     if !users.is_empty() {
-        record.push("sessions", Value::list(users_list, span));
+        record.push("sessions", Value::list(users, span));
     }
 
     Value::record(record, span)
