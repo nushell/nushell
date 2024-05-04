@@ -23,6 +23,7 @@ mod select;
 mod slice;
 mod sort_by_expr;
 mod to_lazy;
+mod with_column;
 
 use nu_plugin::PluginCommand;
 
@@ -71,5 +72,6 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(slice::SliceDF),
         Box::new(ToLazyFrame),
         Box::new(ToLazyGroupBy),
+        Box::new(with_column::WithColumn),
     ]
 }

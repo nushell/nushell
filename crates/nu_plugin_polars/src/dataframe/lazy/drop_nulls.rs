@@ -45,8 +45,7 @@ impl PluginCommand for DropNulls {
             Example {
                 description: "drop null values in dataframe",
                 example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | polars into-df);
-    let res = ($df.b / $df.b);
-    let a = ($df | polars with-column $res --name res);
+    let a = ($df | polars with-column [((polars col b) / (polars col b) | polars as res)]);
     $a | polars drop-nulls"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
