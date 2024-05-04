@@ -96,7 +96,7 @@ impl Display for FlatShape {
 The `_inner` functions below (e.g., `flatten_block_inner`) take an existing `output` `Vec`
 and append more data to it. This is to reduce the number of intermediate `Vec`s.
 The non-`inner` functions (e.g., `flatten_block`) are part of the crate's public API
-and return a new `Vec` instead of modifiying an existing one.
+and return a new `Vec` instead of modifying an existing one.
 */
 
 fn flatten_block_inner(
