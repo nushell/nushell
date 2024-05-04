@@ -923,8 +923,8 @@ impl EngineState {
     }
 
     /// Returns the current working directory, which is guaranteed to be an
-    /// absolute path without trailing slashes, but might contain symlink
-    /// components.
+    /// absolute path without trailing slashes (unless it's the root path), but
+    /// might contain symlink components.
     ///
     /// If `stack` is supplied, also considers modifications to the working
     /// directory on the stack that have yet to be merged into the engine state.
@@ -939,6 +939,11 @@ impl EngineState {
                 help: None,
                 inner: vec![],
             })
+        }
+
+        // Helper function to check if a path is a root path.
+        fn is_root(path: &Path) -> bool {
+            path.parent() == None
         }
 
         // Helper function to check if a path has trailing slashes.
@@ -958,7 +963,9 @@ impl EngineState {
             if let Value::String { val, .. } = pwd {
                 let path = PathBuf::from(val);
 
-                if has_trailing_slash(&path) {
+                // Technically, a root path counts as "having trailing slashes", but
+                // for the purpose of PWD, a root path is acceptable.
+                if !is_root(&path) && has_trailing_slash(&path) {
                     error("$env.PWD contains trailing slashes")
                 } else if !path.is_absolute() {
                     error("$env.PWD is not an absolute path")
@@ -1233,6 +1240,18 @@ mod test_cwd {
         let engine_state = engine_state_with_pwd(dir.path().join(""));
 
         engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_root() {
+        #[cfg(windows)]
+        let root = Path::new(r"C:\");
+        #[cfg(not(windows))]
+        let root = Path::new("/");
+
+        let engine_state = engine_state_with_pwd(root);
+        let cwd = engine_state.cwd(None).unwrap();
+        assert_path_eq!(cwd, root);
     }
 
     #[test]
