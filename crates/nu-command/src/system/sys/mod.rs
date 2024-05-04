@@ -176,11 +176,9 @@ pub fn host(span: Span) -> Value {
 
             Value::record(record, span)
         })
-        .collect::<Vec<_>>();
+        .collect();
 
-    if !users.is_empty() {
-        record.push("sessions", Value::list(users, span));
-    }
+    record.push("sessions", Value::list(users, span));
 
     Value::record(record, span)
 }
