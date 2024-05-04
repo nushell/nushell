@@ -116,6 +116,30 @@ impl PluginCommand for AsDateTime {
                     .into_value(Span::test_data()),
                 ),
             },
+            Example {
+                description: "Converts string to datetime using the `--not-exact` flag even with excessive symbols",
+                example: r#"["2021-12-30 00:00:00 GMT+4"] | polars into-df | polars as-datetime "%Y-%m-%d %H:%M:%S" --not-exact"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "datetime".to_string(),
+                            vec![
+                                Value::date(
+                                    DateTime::parse_from_str(
+                                        "2021-12-30 00:00:00 +0000",
+                                        "%Y-%m-%d %H:%M:%S %z",
+                                    )
+                                    .expect("date calculation should not fail in test"),
+                                    Span::test_data(),
+                                ),
+                            ],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
