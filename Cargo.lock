@@ -2013,9 +2013,9 @@ dependencies = [
 
 [[package]]
 name = "interprocess"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d5f0e3c218e7a86a6712fd3adc84672304f9e839402b866685b9117a077c37f"
+checksum = "7c7fb8583fab9503654385e2bafda123376445a77027a1b106dd7e44cf51122f"
 dependencies = [
  "libc",
  "recvmsg",
