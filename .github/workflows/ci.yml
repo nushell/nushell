@@ -80,6 +80,9 @@ jobs:
             flags: ""
           - feature: dataframe
             flags: "--features=dataframe"
+          - feature: default
+            flags: ""
+            minimal-versions: true
         exclude:
           - platform: windows-latest
             feature: dataframe
@@ -96,8 +99,16 @@ jobs:
         with:
           rustflags: ""
 
+      - name: Downgrade to minimal versions
+        if: ${{ matrix.minimal-versions }}
+        run: cargo update -Zdirect-minimal-versions
+
       - name: Tests
         run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.default-flags }} ${{ matrix.flags }}
+
+      - name: Revert Cargo.lock
+        if: ${{ matrix.minimal-versions }}
+        run: git checkout -- Cargo.lock
 
       - name: Check for clean repo
         shell: bash
