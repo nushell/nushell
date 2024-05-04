@@ -109,23 +109,14 @@ pub fn mem(span: Span) -> Value {
     let mut sys = System::new();
     sys.refresh_memory();
 
-    let total_mem = sys.total_memory();
-    let free_mem = sys.free_memory();
-    let used_mem = sys.used_memory();
-    let avail_mem = sys.available_memory();
-
-    let total_swap = sys.total_swap();
-    let free_swap = sys.free_swap();
-    let used_swap = sys.used_swap();
-
     let record = record! {
-        "total" => Value::filesize(total_mem as i64, span),
-        "free" => Value::filesize(free_mem as i64, span),
-        "used" => Value::filesize(used_mem as i64, span),
-        "available" => Value::filesize(avail_mem as i64, span),
-        "swap total" => Value::filesize(total_swap as i64, span),
-        "swap free" => Value::filesize(free_swap as i64, span),
-        "swap used" => Value::filesize(used_swap as i64, span),
+        "total" => Value::filesize(sys.total_memory() as i64, span),
+        "free" => Value::filesize(sys.free_memory() as i64, span),
+        "used" => Value::filesize(sys.used_memory() as i64, span),
+        "available" => Value::filesize(sys.available_memory() as i64, span),
+        "swap total" => Value::filesize(sys.total_swap() as i64, span),
+        "swap free" => Value::filesize(sys.free_swap() as i64, span),
+        "swap used" => Value::filesize(sys.used_swap() as i64, span),
     };
 
     Value::record(record, span)
