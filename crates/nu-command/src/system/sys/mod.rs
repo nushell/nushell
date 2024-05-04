@@ -21,8 +21,8 @@ use sysinfo::{
     Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,
 };
 
-pub fn trim_cstyle_null(s: String) -> String {
-    s.trim_matches(char::from(0)).to_string()
+pub fn trim_cstyle_null(s: impl AsRef<str>) -> String {
+    s.as_ref().trim_matches('\0').into()
 }
 
 pub fn disks(span: Span) -> Value {
@@ -30,8 +30,8 @@ pub fn disks(span: Span) -> Value {
 
     let mut output = vec![];
     for disk in disks.list() {
-        let device = trim_cstyle_null(disk.name().to_string_lossy().to_string());
-        let typ = trim_cstyle_null(disk.file_system().to_string_lossy().to_string());
+        let device = trim_cstyle_null(disk.name().to_string_lossy());
+        let typ = trim_cstyle_null(disk.file_system().to_string_lossy());
 
         let record = record! {
             "device" => Value::string(device, span),
@@ -40,7 +40,7 @@ pub fn disks(span: Span) -> Value {
             "total" => Value::filesize(disk.total_space() as i64, span),
             "free" => Value::filesize(disk.available_space() as i64, span),
             "removable" => Value::bool(disk.is_removable(), span),
-            "kind" => Value::string(format!("{:?}", disk.kind()), span),
+            "kind" => Value::string(disk.kind().to_string(), span),
         };
 
         output.push(Value::record(record, span));
@@ -54,7 +54,7 @@ pub fn net(span: Span) -> Value {
     let mut output = vec![];
     for (iface, data) in networks.list() {
         let record = record! {
-            "name" => Value::string(trim_cstyle_null(iface.to_string()), span),
+            "name" => Value::string(trim_cstyle_null(iface), span),
             "sent" => Value::filesize(data.total_transmitted() as i64, span),
             "recv" => Value::filesize(data.total_received() as i64, span),
         };
@@ -80,18 +80,18 @@ pub fn cpu(span: Span) -> Value {
         let rounded_usage = (cpu.cpu_usage() * 10.0).round() / 10.0;
 
         let load_avg = System::load_average();
-        let load_avg = trim_cstyle_null(format!(
+        let load_avg = format!(
             "{:.2}, {:.2}, {:.2}",
             load_avg.one, load_avg.five, load_avg.fifteen
-        ));
+        );
 
         let record = record! {
-            "name" => Value::string(trim_cstyle_null(cpu.name().to_string()), span),
-            "brand" => Value::string(trim_cstyle_null(cpu.brand().to_string()), span),
+            "name" => Value::string(trim_cstyle_null(cpu.name()), span),
+            "brand" => Value::string(trim_cstyle_null(cpu.brand()), span),
             "freq" => Value::int(cpu.frequency() as i64, span),
             "cpu_usage" => Value::float(rounded_usage as f64, span),
             "load_average" => Value::string(load_avg, span),
-            "vendor_id" => Value::string(trim_cstyle_null(cpu.vendor_id().to_string()), span),
+            "vendor_id" => Value::string(trim_cstyle_null(cpu.vendor_id()), span),
         };
 
         output.push(Value::record(record, span));
@@ -173,14 +173,11 @@ pub fn host(span: Span) -> Value {
     for user in users.list() {
         let mut groups = vec![];
         for group in user.groups() {
-            groups.push(Value::string(
-                trim_cstyle_null(group.name().to_string()),
-                span,
-            ));
+            groups.push(Value::string(trim_cstyle_null(group.name()), span));
         }
 
         let record = record! {
-            "name" => Value::string(trim_cstyle_null(user.name().to_string()), span),
+            "name" => Value::string(trim_cstyle_null(user.name()), span),
             "groups" => Value::list(groups, span),
         };
 
