@@ -186,22 +186,22 @@ pub fn host(span: Span) -> Value {
 }
 
 pub fn temp(span: Span) -> Value {
-    let components = Components::new_with_refreshed_list();
+    let components = Components::new_with_refreshed_list()
+        .iter()
+        .map(|component| {
+            let mut record = record! {
+                "unit" => Value::string(component.label(), span),
+                "temp" => Value::float(component.temperature().into(), span),
+                "high" => Value::float(component.max().into(), span),
+            };
 
-    let mut output = vec![];
+            if let Some(critical) = component.critical() {
+                record.push("critical", Value::float(critical.into(), span));
+            }
 
-    for component in components.list() {
-        let mut record = record! {
-            "unit" => Value::string(component.label(), span),
-            "temp" => Value::float(component.temperature() as f64, span),
-            "high" => Value::float(component.max() as f64, span),
-        };
+            Value::record(record, span)
+        })
+        .collect();
 
-        if let Some(critical) = component.critical() {
-            record.push("critical", Value::float(critical as f64, span));
-        }
-        output.push(Value::record(record, span));
-    }
-
-    Value::list(output, span)
+    Value::list(components, span)
 }
