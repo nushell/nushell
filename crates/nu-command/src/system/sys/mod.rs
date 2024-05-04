@@ -26,26 +26,27 @@ pub fn trim_cstyle_null(s: impl AsRef<str>) -> String {
 }
 
 pub fn disks(span: Span) -> Value {
-    let disks = Disks::new_with_refreshed_list();
+    let disks = Disks::new_with_refreshed_list()
+        .iter()
+        .map(|disk| {
+            let device = trim_cstyle_null(disk.name().to_string_lossy());
+            let typ = trim_cstyle_null(disk.file_system().to_string_lossy());
 
-    let mut output = vec![];
-    for disk in disks.list() {
-        let device = trim_cstyle_null(disk.name().to_string_lossy());
-        let typ = trim_cstyle_null(disk.file_system().to_string_lossy());
+            let record = record! {
+                "device" => Value::string(device, span),
+                "type" => Value::string(typ, span),
+                "mount" => Value::string(disk.mount_point().to_string_lossy(), span),
+                "total" => Value::filesize(disk.total_space() as i64, span),
+                "free" => Value::filesize(disk.available_space() as i64, span),
+                "removable" => Value::bool(disk.is_removable(), span),
+                "kind" => Value::string(disk.kind().to_string(), span),
+            };
 
-        let record = record! {
-            "device" => Value::string(device, span),
-            "type" => Value::string(typ, span),
-            "mount" => Value::string(disk.mount_point().to_string_lossy(), span),
-            "total" => Value::filesize(disk.total_space() as i64, span),
-            "free" => Value::filesize(disk.available_space() as i64, span),
-            "removable" => Value::bool(disk.is_removable(), span),
-            "kind" => Value::string(disk.kind().to_string(), span),
-        };
+            Value::record(record, span)
+        })
+        .collect();
 
-        output.push(Value::record(record, span));
-    }
-    Value::list(output, span)
+    Value::list(disks, span)
 }
 
 pub fn net(span: Span) -> Value {
