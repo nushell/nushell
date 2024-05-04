@@ -5,7 +5,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn parse_script_success() {
     Playground::setup("nu_check_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "script.nu",
             r#"
                 greet "world"
@@ -30,7 +30,7 @@ fn parse_script_success() {
 #[test]
 fn parse_script_with_wrong_type() {
     Playground::setup("nu_check_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "script.nu",
             r#"
                 greet "world"
@@ -54,7 +54,7 @@ fn parse_script_with_wrong_type() {
 #[test]
 fn parse_script_failure() {
     Playground::setup("nu_check_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "script.nu",
             r#"
                 greet "world"
@@ -79,7 +79,7 @@ fn parse_script_failure() {
 #[test]
 fn parse_module_success() {
     Playground::setup("nu_check_test_4", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "foo.nu",
             r#"
                 # foo.nu
@@ -108,7 +108,7 @@ fn parse_module_success() {
 #[test]
 fn parse_module_with_wrong_type() {
     Playground::setup("nu_check_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "foo.nu",
             r#"
                 # foo.nu
@@ -136,7 +136,7 @@ fn parse_module_with_wrong_type() {
 #[test]
 fn parse_module_failure() {
     Playground::setup("nu_check_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "foo.nu",
             r#"
                 # foo.nu
@@ -179,7 +179,7 @@ fn file_not_exist() {
 #[test]
 fn parse_module_success_2() {
     Playground::setup("nu_check_test_10", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "foo.nu",
             r#"
                 # foo.nu
@@ -202,7 +202,7 @@ fn parse_module_success_2() {
 #[test]
 fn parse_script_success_with_raw_stream() {
     Playground::setup("nu_check_test_11", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "script.nu",
             r#"
                 greet "world"
@@ -227,7 +227,7 @@ fn parse_script_success_with_raw_stream() {
 #[test]
 fn parse_module_success_with_raw_stream() {
     Playground::setup("nu_check_test_12", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "foo.nu",
             r#"
                 # foo.nu
@@ -285,7 +285,7 @@ fn parse_string_as_script() {
 #[test]
 fn parse_module_success_with_internal_stream() {
     Playground::setup("nu_check_test_15", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "foo.nu",
             r#"
                 # foo.nu
@@ -314,7 +314,7 @@ fn parse_module_success_with_internal_stream() {
 #[test]
 fn parse_script_success_with_complex_internal_stream() {
     Playground::setup("nu_check_test_16", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "grep.nu",
             r#"
                 #grep for nu
@@ -363,7 +363,7 @@ fn parse_script_success_with_complex_internal_stream() {
 #[test]
 fn parse_script_failure_with_complex_internal_stream() {
     Playground::setup("nu_check_test_17", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "grep.nu",
             r#"
                 #grep for nu
@@ -412,7 +412,7 @@ fn parse_script_failure_with_complex_internal_stream() {
 #[test]
 fn parse_script_success_with_complex_external_stream() {
     Playground::setup("nu_check_test_18", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "grep.nu",
             r#"
                 #grep for nu
@@ -461,7 +461,7 @@ fn parse_script_success_with_complex_external_stream() {
 #[test]
 fn parse_module_success_with_complex_external_stream() {
     Playground::setup("nu_check_test_19", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "grep.nu",
             r#"
                 #grep for nu
@@ -510,7 +510,7 @@ fn parse_module_success_with_complex_external_stream() {
 #[test]
 fn parse_with_flag_success_for_complex_external_stream() {
     Playground::setup("nu_check_test_20", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "grep.nu",
             r#"
                 #grep for nu
@@ -559,7 +559,7 @@ fn parse_with_flag_success_for_complex_external_stream() {
 #[test]
 fn parse_with_flag_failure_for_complex_external_stream() {
     Playground::setup("nu_check_test_21", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "grep.nu",
             r#"
                 #grep for nu
@@ -608,7 +608,7 @@ fn parse_with_flag_failure_for_complex_external_stream() {
 #[test]
 fn parse_with_flag_failure_for_complex_list_stream() {
     Playground::setup("nu_check_test_22", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "grep.nu",
             r#"
                 #grep for nu
@@ -659,7 +659,7 @@ fn parse_script_with_nested_scripts_success() {
     Playground::setup("nu_check_test_24", |dirs, sandbox| {
         sandbox
             .mkdir("lol")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 r#"
                     source-env ../foo.nu
@@ -667,13 +667,13 @@ fn parse_script_with_nested_scripts_success() {
                     overlay use ../lol/lol_shell.nu
                 "#,
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol_shell.nu",
                 r#"
                     export def ls [] { "lol" }
                 "#,
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
                     $env.FOO = 'foo'
@@ -696,13 +696,13 @@ fn nu_check_respects_file_pwd() {
     Playground::setup("nu_check_test_25", |dirs, sandbox| {
         sandbox
             .mkdir("lol")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 r#"
                     $env.RETURN = (nu-check ../foo.nu)
                 "#,
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
                     echo 'foo'
@@ -725,14 +725,14 @@ fn nu_check_module_dir() {
     Playground::setup("nu_check_test_26", |dirs, sandbox| {
         sandbox
             .mkdir("lol")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/mod.nu",
                 r#"
                     export module foo.nu
                     export def main [] { 'lol' }
                 "#,
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/foo.nu",
                 r#"
                     export def main [] { 'lol foo' }

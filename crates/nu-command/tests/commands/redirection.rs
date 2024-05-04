@@ -127,7 +127,7 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
         for _ in 0..bytes {
             large_file_body.push('a');
         }
-        sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
+        sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
         nu!(
             cwd: dirs.test(), pipeline(
@@ -220,7 +220,7 @@ fn redirection_with_pipeline_works() {
             let script_body = r"echo message";
             let expect_body = "message";
 
-            sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+            sandbox.with_files(&[FileWithContent("test.sh", script_body)]);
 
             let actual = nu!(
                 cwd: dirs.test(),

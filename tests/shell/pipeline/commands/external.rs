@@ -168,7 +168,7 @@ fn err_pipe_with_failed_external_works() {
 #[test]
 fn dont_run_glob_if_pass_variable_to_external() {
     Playground::setup("dont_run_glob", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("jt_likes_cake.txt"),
             EmptyFile("andres_likes_arepas.txt"),
         ]);
@@ -182,7 +182,7 @@ fn dont_run_glob_if_pass_variable_to_external() {
 #[test]
 fn run_glob_if_pass_variable_to_external() {
     Playground::setup("run_glob_on_external", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("jt_likes_cake.txt"),
             EmptyFile("andres_likes_arepas.txt"),
         ]);
@@ -202,7 +202,7 @@ mod it_evaluation {
     #[test]
     fn takes_rows_of_nu_value_strings() {
         Playground::setup("it_argument_test_1", |dirs, sandbox| {
-            sandbox.with_files(vec![
+            sandbox.with_files(&[
                 EmptyFile("jt_likes_cake.txt"),
                 EmptyFile("andres_likes_arepas.txt"),
             ]);
@@ -225,7 +225,7 @@ mod it_evaluation {
     #[test]
     fn takes_rows_of_nu_value_lines() {
         Playground::setup("it_argument_test_2", |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
                 "nu_candies.txt",
                 "
                     AndrásWithKitKatzz
@@ -258,7 +258,7 @@ mod it_evaluation {
     #[test]
     fn supports_fetching_given_a_column_path_to_it() {
         Playground::setup("it_argument_test_3", |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContent(
+            sandbox.with_files(&[FileWithContent(
                 "sample.toml",
                 r#"
                     nu_party_venue = "zion"
@@ -349,7 +349,7 @@ mod external_words {
     #[case("$ sign.toml", r#""$ sign.toml""#)]
     fn external_arg_with_special_characters(#[case] path: &str, #[case] nu_path_argument: &str) {
         Playground::setup("external_arg_with_quotes", |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContent(
+            sandbox.with_files(&[FileWithContent(
                 path,
                 r#"
                     nu_party_venue = "zion"
@@ -479,7 +479,7 @@ mod external_command_arguments {
         Playground::setup(
             "expands_table_of_primitives_to_positional_arguments",
             |dirs, sandbox| {
-                sandbox.with_files(vec![
+                sandbox.with_files(&[
                     EmptyFile("jt_likes_cake.txt"),
                     EmptyFile("andres_likes_arepas.txt"),
                     EmptyFile("ferris_not_here.txt"),
@@ -505,7 +505,7 @@ mod external_command_arguments {
         Playground::setup(
             "expands_table_of_primitives_to_positional_arguments",
             |dirs, sandbox| {
-                sandbox.with_files(vec![
+                sandbox.with_files(&[
                     EmptyFile("jt_likes_cake.txt"),
                     EmptyFile("andres_likes_arepas.txt"),
                     EmptyFile("ferris_not_here.txt"),
@@ -531,7 +531,7 @@ mod external_command_arguments {
             |dirs, sandbox| {
                 sandbox.mkdir("cd");
 
-                sandbox.with_files(vec![EmptyFile("cd/jt_likes_cake.txt")]);
+                sandbox.with_files(&[EmptyFile("cd/jt_likes_cake.txt")]);
 
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(

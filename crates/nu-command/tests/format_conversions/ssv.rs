@@ -5,7 +5,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn from_ssv_text_to_table() {
     Playground::setup("filter_from_ssv_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "oc_get_svc.txt",
             r#"
                 NAME              LABELS                                    SELECTOR                  IP              PORT(S)
@@ -32,7 +32,7 @@ fn from_ssv_text_to_table() {
 #[test]
 fn from_ssv_text_to_table_with_separator_specified() {
     Playground::setup("filter_from_ssv_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "oc_get_svc.txt",
             r#"
                 NAME              LABELS                                    SELECTOR                  IP              PORT(S)
@@ -59,7 +59,7 @@ fn from_ssv_text_to_table_with_separator_specified() {
 #[test]
 fn from_ssv_text_treating_first_line_as_data_with_flag() {
     Playground::setup("filter_from_ssv_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "oc_get_svc.txt",
             r#"
                 docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP

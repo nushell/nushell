@@ -6,7 +6,7 @@ use std::io::Write;
 #[test]
 fn writes_out_csv() {
     Playground::setup("save_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![]);
+        sandbox.with_files(&[]);
 
         let expected_file = dirs.test().join("cargo_sample.csv");
 
@@ -24,7 +24,7 @@ fn writes_out_csv() {
 #[test]
 fn writes_out_list() {
     Playground::setup("save_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![]);
+        sandbox.with_files(&[]);
 
         let expected_file = dirs.test().join("list_sample.txt");
 
@@ -42,7 +42,7 @@ fn writes_out_list() {
 #[test]
 fn save_append_will_create_file_if_not_exists() {
     Playground::setup("save_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![]);
+        sandbox.with_files(&[]);
 
         let expected_file = dirs.test().join("new-file.txt");
 
@@ -60,7 +60,7 @@ fn save_append_will_create_file_if_not_exists() {
 #[test]
 fn save_append_will_not_overwrite_content() {
     Playground::setup("save_test_4", |dirs, sandbox| {
-        sandbox.with_files(vec![]);
+        sandbox.with_files(&[]);
 
         let expected_file = dirs.test().join("new-file.txt");
 
@@ -86,7 +86,7 @@ fn save_append_will_not_overwrite_content() {
 #[test]
 fn save_stderr_and_stdout_to_afame_file() {
     Playground::setup("save_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![]);
+        sandbox.with_files(&[]);
 
         let actual = nu!(
             cwd: dirs.root(),
@@ -105,7 +105,7 @@ fn save_stderr_and_stdout_to_afame_file() {
 #[test]
 fn save_stderr_and_stdout_to_diff_file() {
     Playground::setup("save_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![]);
+        sandbox.with_files(&[]);
 
         let expected_file = dirs.test().join("log.txt");
         let expected_stderr_file = dirs.test().join("err.txt");
@@ -132,7 +132,7 @@ fn save_stderr_and_stdout_to_diff_file() {
 #[test]
 fn save_string_and_stream_as_raw() {
     Playground::setup("save_test_7", |dirs, sandbox| {
-        sandbox.with_files(vec![]);
+        sandbox.with_files(&[]);
         let expected_file = dirs.test().join("temp.html");
         nu!(
             cwd: dirs.root(),
@@ -151,7 +151,7 @@ fn save_string_and_stream_as_raw() {
 #[test]
 fn save_not_override_file_by_default() {
     Playground::setup("save_test_8", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::EmptyFile("log.txt")]);
+        sandbox.with_files(&[Stub::EmptyFile("log.txt")]);
 
         let actual = nu!(
             cwd: dirs.root(),
@@ -164,7 +164,7 @@ fn save_not_override_file_by_default() {
 #[test]
 fn save_override_works() {
     Playground::setup("save_test_9", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::EmptyFile("log.txt")]);
+        sandbox.with_files(&[Stub::EmptyFile("log.txt")]);
 
         let expected_file = dirs.test().join("log.txt");
         nu!(
@@ -179,7 +179,7 @@ fn save_override_works() {
 #[test]
 fn save_failure_not_overrides() {
     Playground::setup("save_test_10", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::FileWithContent("result.toml", "Old content")]);
+        sandbox.with_files(&[Stub::FileWithContent("result.toml", "Old content")]);
 
         let expected_file = dirs.test().join("result.toml");
         nu!(
@@ -195,7 +195,7 @@ fn save_failure_not_overrides() {
 #[test]
 fn save_append_works_on_stderr() {
     Playground::setup("save_test_11", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             Stub::FileWithContent("log.txt", "Old"),
             Stub::FileWithContent("err.txt", "Old Err"),
         ]);
@@ -222,7 +222,7 @@ fn save_append_works_on_stderr() {
 #[test]
 fn save_not_overrides_err_by_default() {
     Playground::setup("save_test_12", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::FileWithContent("err.txt", "Old Err")]);
+        sandbox.with_files(&[Stub::FileWithContent("err.txt", "Old Err")]);
 
         let actual = nu!(
             cwd: dirs.root(),
@@ -239,7 +239,7 @@ fn save_not_overrides_err_by_default() {
 #[test]
 fn save_override_works_stderr() {
     Playground::setup("save_test_13", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             Stub::FileWithContent("log.txt", "Old"),
             Stub::FileWithContent("err.txt", "Old Err"),
         ]);
@@ -266,7 +266,7 @@ fn save_override_works_stderr() {
 #[test]
 fn save_list_stream() {
     Playground::setup("save_test_13", |dirs, sandbox| {
-        sandbox.with_files(vec![]);
+        sandbox.with_files(&[]);
 
         let expected_file = dirs.test().join("list_sample.txt");
 
@@ -283,7 +283,7 @@ fn save_list_stream() {
 #[test]
 fn writes_out_range() {
     Playground::setup("save_test_14", |dirs, sandbox| {
-        sandbox.with_files(vec![]);
+        sandbox.with_files(&[]);
 
         let expected_file = dirs.test().join("list_sample.json");
 
@@ -302,7 +302,7 @@ fn writes_out_range() {
 #[test]
 fn save_file_correct_relative_path() {
     Playground::setup("save_test_15", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::FileWithContent(
+        sandbox.with_files(&[Stub::FileWithContent(
             "test.nu",
             r#"
                 export def main [] {

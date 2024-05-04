@@ -17,7 +17,7 @@ export def expect [
 #[test]
 fn zips_two_tables() {
     Playground::setup("zip_test_1", |dirs, nu| {
-        nu.with_files(vec![FileWithContent(
+        nu.with_files(&[FileWithContent(
             "zip_test.nu",
             &format!("{ZIP_POWERED_TEST_ASSERTION_SCRIPT}\n"),
         )]);

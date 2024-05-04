@@ -5,7 +5,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn adds_a_row_to_the_beginning() {
     Playground::setup("prepend_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 Andrés N. Robalino

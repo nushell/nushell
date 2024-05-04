@@ -57,7 +57,7 @@ impl Command for ConfigEnv {
 
         let env_vars_str = env_to_strings(engine_state, stack)?;
         let nu_config = match engine_state.get_config_path("env-path") {
-            Some(path) => path.clone(),
+            Some(path) => path,
             None => {
                 return Err(ShellError::GenericError {
                     error: "Could not find $nu.env-path".into(),

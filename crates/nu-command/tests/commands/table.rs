@@ -505,7 +505,7 @@ fn external_with_too_much_stdout_should_not_hang_nu() {
         for _ in 0..bytes {
             large_file_body.push('a');
         }
-        sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
+        sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -536,7 +536,7 @@ fn table_index_0() {
 #[test]
 fn test_expand_big_0() {
     Playground::setup("test_expand_big_0", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
             [package]
@@ -1820,7 +1820,7 @@ fn table_expande_with_no_header_internally_1() {
 #[test]
 fn test_collapse_big_0() {
     Playground::setup("test_expand_big_0", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
             [package]

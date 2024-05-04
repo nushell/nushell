@@ -100,6 +100,9 @@ impl Command for Cd {
             }
         };
 
+        // Strip the trailing slash from the new path. This is required for PWD.
+        let path = nu_path::strip_trailing_slash(&path);
+
         // Set OLDPWD.
         // We're using `Stack::get_env_var()` instead of `EngineState::cwd()` to avoid a conversion roundtrip.
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
