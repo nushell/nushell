@@ -346,9 +346,9 @@ checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "base64"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9475866fec1451be56a3c2400fd081ff546538961565ccb5b7142cbd22bc7a51"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bincode"
@@ -2919,7 +2919,7 @@ name = "nu-command"
 version = "0.93.1"
 dependencies = [
  "alphanumeric-sort",
- "base64 0.22.0",
+ "base64 0.22.1",
  "bracoxide",
  "brotli 5.0.0",
  "byteorder",
