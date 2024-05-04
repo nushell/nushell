@@ -75,31 +75,34 @@ pub fn cpu(span: Span) -> Value {
     std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL * 2);
     sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
 
-    let mut output = vec![];
-    for cpu in sys.cpus() {
-        // sysinfo CPU usage numbers are not very precise unless you wait a long time between refreshes.
-        // Round to 1DP (chosen somewhat arbitrarily) so people aren't misled by high-precision floats.
-        let rounded_usage = (cpu.cpu_usage() * 10.0).round() / 10.0;
+    let cpus = sys
+        .cpus()
+        .iter()
+        .map(|cpu| {
+            // sysinfo CPU usage numbers are not very precise unless you wait a long time between refreshes.
+            // Round to 1DP (chosen somewhat arbitrarily) so people aren't misled by high-precision floats.
+            let rounded_usage = (cpu.cpu_usage() * 10.0).round() / 10.0;
 
-        let load_avg = System::load_average();
-        let load_avg = format!(
-            "{:.2}, {:.2}, {:.2}",
-            load_avg.one, load_avg.five, load_avg.fifteen
-        );
+            let load_avg = System::load_average();
+            let load_avg = format!(
+                "{:.2}, {:.2}, {:.2}",
+                load_avg.one, load_avg.five, load_avg.fifteen
+            );
 
-        let record = record! {
-            "name" => Value::string(trim_cstyle_null(cpu.name()), span),
-            "brand" => Value::string(trim_cstyle_null(cpu.brand()), span),
-            "freq" => Value::int(cpu.frequency() as i64, span),
-            "cpu_usage" => Value::float(rounded_usage as f64, span),
-            "load_average" => Value::string(load_avg, span),
-            "vendor_id" => Value::string(trim_cstyle_null(cpu.vendor_id()), span),
-        };
+            let record = record! {
+                "name" => Value::string(trim_cstyle_null(cpu.name()), span),
+                "brand" => Value::string(trim_cstyle_null(cpu.brand()), span),
+                "freq" => Value::int(cpu.frequency() as i64, span),
+                "cpu_usage" => Value::float(rounded_usage.into(), span),
+                "load_average" => Value::string(load_avg, span),
+                "vendor_id" => Value::string(trim_cstyle_null(cpu.vendor_id()), span),
+            };
 
-        output.push(Value::record(record, span));
-    }
+            Value::record(record, span)
+        })
+        .collect();
 
-    Value::list(output, span)
+    Value::list(cpus, span)
 }
 
 pub fn mem(span: Span) -> Value {
