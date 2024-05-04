@@ -9,7 +9,6 @@ ignore-hidden = false
 [default]
 extend-ignore-re = [
     "Plasticos Rival",
-    "wheres the nuline",
     "│ in_custom_valu │",
     "│ ine │",
     ":es\\|ful\\(",
@@ -18,14 +17,11 @@ extend-ignore-re = [
     "--find ba\\b",
     "0x\\[ba be\\]",
     "\\)BaR'",
-    "@IIF'8bF",
 ]
 
 [type.rust.extend-words]
-fo = "fo"
 nd = "nd"
 numer = "numer"
-pn = "pn"
 
 [default.extend-identifiers]
 ratatui = "ratatui"
