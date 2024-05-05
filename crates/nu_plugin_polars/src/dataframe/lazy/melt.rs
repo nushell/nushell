@@ -70,7 +70,7 @@ impl PluginCommand for MeltDF {
         vec![Example {
             description: "melt dataframe",
             example:
-                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-lazy | polars melt -c [b c] -v [a d] | polars collect",
+                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars melt -c [b c] -v [a d] | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(

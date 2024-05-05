@@ -42,7 +42,7 @@ impl PluginCommand for WithColumn {
         vec![Example {
             description: "Adds a series to the dataframe",
             example: r#"[[a b]; [1 2] [3 4]]
-    | polars into-lazy
+    | polars into-df
     | polars with-column [
         ((polars col a) * 2 | polars as "c")
         ((polars col a) * 3 | polars as "d")

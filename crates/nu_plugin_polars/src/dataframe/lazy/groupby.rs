@@ -79,7 +79,7 @@ impl PluginCommand for ToLazyGroupBy {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | polars into-lazy
+    | polars into-df
     | polars group-by a
     | polars agg [
         (polars col b | polars min | polars as "b_min")

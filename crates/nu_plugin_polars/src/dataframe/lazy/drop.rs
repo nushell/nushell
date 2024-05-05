@@ -37,7 +37,7 @@ impl PluginCommand for DropDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop column a",
-            example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars drop a | polars collect",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars drop a | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new(

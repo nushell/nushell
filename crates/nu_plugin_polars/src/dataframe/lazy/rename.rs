@@ -49,7 +49,7 @@ impl PluginCommand for RenameDF {
         vec![
             Example {
                 description: "Renames a series",
-                example: "[5 6 7 8] | polars into-lazy | polars rename '0' new_name | polars collect",
+                example: "[5 6 7 8] | polars into-df | polars rename '0' new_name | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -69,7 +69,7 @@ impl PluginCommand for RenameDF {
             },
             Example {
                 description: "Renames a dataframe column",
-                example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars rename a a_new | polars collect",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars rename a a_new | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -91,7 +91,7 @@ impl PluginCommand for RenameDF {
             Example {
                 description: "Renames two dataframe columns",
                 example:
-                    "[[a b]; [1 2] [3 4]] | polars into-lazy | polars rename [a b] [a_new b_new] | polars collect",
+                    "[[a b]; [1 2] [3 4]] | polars into-df | polars rename [a b] [a_new b_new] | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

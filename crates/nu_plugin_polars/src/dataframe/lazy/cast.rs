@@ -54,8 +54,7 @@ impl PluginCommand for CastDF {
         vec![
             Example {
                 description: "Cast a column in a dataframe to a different dtype",
-                example:
-                    "[[a b]; [1 2] [3 4]] | polars into-lazy | polars cast u8 a | polars schema",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars cast u8 a | polars schema",
                 result: Some(Value::record(
                     record! {
                         "a" => Value::string("u8", Span::test_data()),
@@ -67,7 +66,7 @@ impl PluginCommand for CastDF {
             Example {
                 description: "Cast a column in a lazy dataframe to a different dtype",
                 example:
-                    "[[a b]; [1 2] [3 4]] |  polars into-lazy | polars cast u8 a | polars schema",
+                    "[[a b]; [1 2] [3 4]] |  polars into-df | polars cast u8 a | polars schema",
                 result: Some(Value::record(
                     record! {
                         "a" => Value::string("u8", Span::test_data()),
@@ -78,7 +77,7 @@ impl PluginCommand for CastDF {
             },
             Example {
                 description: "Cast a column in a expression to a different dtype",
-                example: r#"[[a b]; [1 2] [1 4]] | polars into-lazy | polars group-by a | polars agg [ (polars col b | polars cast u8 | polars min | polars as "b_min") ] | polars schema"#,
+                example: r#"[[a b]; [1 2] [1 4]] | polars into-df | polars group-by a | polars agg [ (polars col b | polars cast u8 | polars min | polars as "b_min") ] | polars schema"#,
                 result: None,
             },
         ]

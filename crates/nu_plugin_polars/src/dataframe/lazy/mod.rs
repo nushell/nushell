@@ -22,7 +22,6 @@ mod rename;
 mod select;
 mod slice;
 mod sort_by_expr;
-mod to_lazy;
 mod with_column;
 
 use nu_plugin::PluginCommand;
@@ -39,7 +38,6 @@ pub(crate) use crate::dataframe::lazy::macro_commands::*;
 use crate::dataframe::lazy::quantile::LazyQuantile;
 pub(crate) use crate::dataframe::lazy::select::LazySelect;
 use crate::dataframe::lazy::sort_by_expr::LazySortBy;
-pub use crate::dataframe::lazy::to_lazy::ToLazyFrame;
 use crate::PolarsPlugin;
 pub use explode::LazyExplode;
 pub use flatten::LazyFlatten;
@@ -70,7 +68,6 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyQuantile),
         Box::new(rename::RenameDF),
         Box::new(slice::SliceDF),
-        Box::new(ToLazyFrame),
         Box::new(ToLazyGroupBy),
         Box::new(with_column::WithColumn),
     ]

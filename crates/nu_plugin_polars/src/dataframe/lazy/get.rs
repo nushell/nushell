@@ -40,7 +40,7 @@ impl PluginCommand for GetDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns the selected column",
-            example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars get a | polars collect",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars get a | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new(
