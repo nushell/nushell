@@ -29,14 +29,6 @@ impl Command for External {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .switch("redirect-stdout", "redirect stdout to the pipeline", None)
-            .switch("redirect-stderr", "redirect stderr to the pipeline", None)
-            .switch(
-                "redirect-combine",
-                "redirect both stdout and stderr combined to the pipeline (collected in stdout)",
-                None,
-            )
-            .switch("trim-end-newline", "trimming end newlines", None)
             .required("command", SyntaxShape::String, "External command to run.")
             .rest("args", SyntaxShape::Any, "Arguments for external command.")
             .category(Category::System)
@@ -49,76 +41,7 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let redirect_stdout = call.has_flag(engine_state, stack, "redirect-stdout")?;
-        let redirect_stderr = call.has_flag(engine_state, stack, "redirect-stderr")?;
-        let redirect_combine = call.has_flag(engine_state, stack, "redirect-combine")?;
-        let trim_end_newline = call.has_flag(engine_state, stack, "trim-end-newline")?;
-
-        if redirect_combine && (redirect_stdout || redirect_stderr) {
-            return Err(ShellError::ExternalCommand {
-                label: "Cannot use --redirect-combine with --redirect-stdout or --redirect-stderr"
-                    .into(),
-                help: "use either --redirect-combine or redirect a single output stream".into(),
-                span: call.head,
-            });
-        }
-
-        if trim_end_newline {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--trim-end-newline` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some(
-                        "trailing new lines are now removed by default when collecting into a value"
-                            .into(),
-                    ),
-                    inner: vec![],
-                },
-            );
-        }
-
-        if redirect_combine {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--redirect-combine` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some("use the `o+e>|` pipe redirection instead".into()),
-                    inner: vec![],
-                },
-            );
-        } else if redirect_stdout {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--redirect-stdout` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some(
-                        "`run-external` will now always redirect stdout if there is a pipe `|` afterwards"
-                            .into(),
-                    ),
-                    inner: vec![],
-                },
-            );
-        } else if redirect_stderr {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError {
-                    error: "Deprecated flag".into(),
-                    msg: "`--redirect-stderr` is deprecated".into(),
-                    span: Some(call.arguments_span()),
-                    help: Some("use the `e>|` stderr pipe redirection instead".into()),
-                    inner: vec![],
-                },
-            );
-        }
-
         let command = create_external_command(engine_state, stack, call)?;
-
         command.run_with_input(engine_state, stack, input, false)
     }
 
@@ -239,8 +162,6 @@ impl ExternalCommand {
         reconfirm_command_name: bool,
     ) -> Result<PipelineData, ShellError> {
         let head = self.name.span;
-
-        let ctrlc = engine_state.ctrlc.clone();
 
         #[allow(unused_mut)]
         let (cmd, mut reader) = self.create_process(&input, false, head)?;
@@ -495,7 +416,7 @@ impl ExternalCommand {
 
                                 Ok(())
                             })
-                            .map_err(|e| e.into_spanned(head))?;
+                            .err_span(head)?;
                     }
                 }
 
@@ -508,7 +429,7 @@ impl ExternalCommand {
                     (
                         Some(RawStream::new(
                             Box::new(ByteLines::new(combined)),
-                            ctrlc.clone(),
+                            engine_state.ctrlc.clone(),
                             head,
                             None,
                         )),
@@ -516,11 +437,21 @@ impl ExternalCommand {
                     )
                 } else {
                     let stdout = child.as_mut().stdout.take().map(|out| {
-                        RawStream::new(Box::new(ByteLines::new(out)), ctrlc.clone(), head, None)
+                        RawStream::new(
+                            Box::new(ByteLines::new(out)),
+                            engine_state.ctrlc.clone(),
+                            head,
+                            None,
+                        )
                     });
 
                     let stderr = child.as_mut().stderr.take().map(|err| {
-                        RawStream::new(Box::new(ByteLines::new(err)), ctrlc.clone(), head, None)
+                        RawStream::new(
+                            Box::new(ByteLines::new(err)),
+                            engine_state.ctrlc.clone(),
+                            head,
+                            None,
+                        )
                     });
 
                     if matches!(self.err, OutDest::Pipe) {
@@ -580,17 +511,18 @@ impl ExternalCommand {
                             Ok(())
                         }
                     })
-                    .map_err(|e| e.into_spanned(head))?;
+                    .err_span(head)?;
 
-                let exit_code_receiver = ValueReceiver::new(exit_code_rx);
+                let exit_code = Some(ListStream::new(
+                    ValueReceiver::new(exit_code_rx),
+                    head,
+                    None,
+                ));
 
                 Ok(PipelineData::ExternalStream {
                     stdout,
                     stderr,
-                    exit_code: Some(ListStream::from_stream(
-                        Box::new(exit_code_receiver),
-                        ctrlc.clone(),
-                    )),
+                    exit_code,
                     span: head,
                     metadata: None,
                     trim_end_newline: true,

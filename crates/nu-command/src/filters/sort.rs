@@ -17,7 +17,7 @@ impl Command for Sort {
         .input_output_types(vec![(
             Type::List(Box::new(Type::Any)),
             Type::List(Box::new(Type::Any)),
-        ), (Type::Record(vec![]), Type::Record(vec![])),])
+        ), (Type::record(), Type::record()),])
     .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",
@@ -134,10 +134,11 @@ impl Command for Sort {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;
-        let metadata = &input.metadata();
+        let metadata = input.metadata();
 
         let span = input.span().unwrap_or(call.head);
         match input {
@@ -163,18 +164,18 @@ impl Command for Sort {
             pipe_data => {
                 let mut vec: Vec<_> = pipe_data.into_iter().collect();
 
-                sort(&mut vec, call.head, insensitive, natural)?;
+                sort(&mut vec, head, insensitive, natural)?;
 
                 if reverse {
                     vec.reverse()
                 }
 
                 let iter = vec.into_iter();
-                match metadata {
-                    Some(m) => Ok(iter
-                        .into_pipeline_data_with_metadata(m.clone(), engine_state.ctrlc.clone())),
-                    None => Ok(iter.into_pipeline_data(engine_state.ctrlc.clone())),
-                }
+                Ok(iter.into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.ctrlc.clone(),
+                    metadata,
+                ))
             }
         }
     }

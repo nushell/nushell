@@ -12,7 +12,7 @@ impl Command for Which {
 
     fn signature(&self) -> Signature {
         Signature::build("which")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
             .required("application", SyntaxShape::String, "Application.")
             .rest("rest", SyntaxShape::String, "Additional applications.")
@@ -214,6 +214,7 @@ fn which(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
+    let head = call.head;
     let which_args = WhichArgs {
         applications: call.rest(engine_state, stack, 0)?,
         all: call.has_flag(engine_state, stack, "all")?,
@@ -223,14 +224,15 @@ fn which(
     if which_args.applications.is_empty() {
         return Err(ShellError::MissingParameter {
             param_name: "application".into(),
-            span: call.head,
+            span: head,
         });
     }
 
     let mut output = vec![];
 
+    #[allow(deprecated)]
     let cwd = env::current_dir_str(engine_state, stack)?;
-    let paths = env::path_str(engine_state, stack, call.head)?;
+    let paths = env::path_str(engine_state, stack, head)?;
 
     for app in which_args.applications {
         let values = which_single(
@@ -243,7 +245,7 @@ fn which(
         output.extend(values);
     }
 
-    Ok(output.into_iter().into_pipeline_data(ctrlc))
+    Ok(output.into_iter().into_pipeline_data(head, ctrlc))
 }
 
 #[cfg(test)]

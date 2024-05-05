@@ -20,8 +20,8 @@ impl Command for Transpose {
     fn signature(&self) -> Signature {
         Signature::build("transpose")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Any),
-                (Type::Record(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::Any),
+                (Type::record(), Type::table()),
             ])
             .switch(
                 "header-row",
@@ -284,7 +284,7 @@ pub fn transpose(
             metadata,
         ))
     } else {
-        Ok(result_data.into_pipeline_data_with_metadata(metadata, ctrlc))
+        Ok(result_data.into_pipeline_data_with_metadata(name, ctrlc, metadata))
     }
 }
 

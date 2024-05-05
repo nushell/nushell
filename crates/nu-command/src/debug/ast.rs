@@ -16,7 +16,7 @@ impl Command for Ast {
 
     fn signature(&self) -> Signature {
         Signature::build("ast")
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::String, Type::record())])
             .required(
                 "pipeline",
                 SyntaxShape::String,

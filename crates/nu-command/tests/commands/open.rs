@@ -8,7 +8,7 @@ use rstest::rstest;
 #[test]
 fn parses_file_with_uppercase_extension() {
     Playground::setup("open_test_uppercase_extension", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "nu.zion.JSON",
             r#"{
                 "glossary": {
@@ -38,7 +38,7 @@ fn parses_file_with_uppercase_extension() {
 #[test]
 fn parses_file_with_multiple_extensions() {
     Playground::setup("open_test_multiple_extensions", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             FileWithContent("file.tar.gz", "this is a tar.gz file"),
             FileWithContent("file.tar.xz", "this is a tar.xz file"),
         ]);
@@ -77,7 +77,7 @@ fn parses_file_with_multiple_extensions() {
 #[test]
 fn parses_dotfile() {
     Playground::setup("open_test_dotfile", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             ".gitignore",
             r#"
               /target/
@@ -101,7 +101,7 @@ fn parses_dotfile() {
 #[test]
 fn parses_csv() {
     Playground::setup("open_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "nu.zion.csv",
             r#"
                     author,lang,source
@@ -318,7 +318,7 @@ fn test_open_block_command() {
 #[test]
 fn open_ignore_ansi() {
     Playground::setup("open_test_ansi", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("nu.zion.txt")]);
+        sandbox.with_files(&[EmptyFile("nu.zion.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -345,7 +345,7 @@ fn open_no_parameter() {
 #[case("a][c")]
 fn open_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("open_test_with_glob_metachars", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(src_name, "hello")]);
+        sandbox.with_files(&[FileWithContent(src_name, "hello")]);
 
         let src = dirs.test().join(src_name);
 
@@ -384,7 +384,7 @@ fn open_files_inside_glob_metachars_dir() {
         let sub_dir = "test[]";
         sandbox
             .within(sub_dir)
-            .with_files(vec![FileWithContent("test_file.txt", "hello")]);
+            .with_files(&[FileWithContent("test_file.txt", "hello")]);
 
         let actual = nu!(
             cwd: dirs.test().join(sub_dir),

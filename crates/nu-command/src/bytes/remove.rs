@@ -26,8 +26,8 @@ impl Command for BytesRemove {
         Signature::build("bytes remove")
             .input_output_types(vec![
                 (Type::Binary, Type::Binary),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .required("pattern", SyntaxShape::Binary, "The pattern to find.")
             .rest(

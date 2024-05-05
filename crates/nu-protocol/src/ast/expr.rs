@@ -2,13 +2,10 @@ use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    Call, CellPath, Expression, ExternalArgument, FullCellPath, MatchPattern, Operator,
-    RangeOperator,
+    Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
+    Range, Table, ValueWithUnit,
 };
-use crate::{
-    ast::ImportPattern, ast::Unit, engine::EngineState, BlockId, OutDest, Signature, Span, Spanned,
-    VarId,
-};
+use crate::{ast::ImportPattern, engine::EngineState, BlockId, OutDest, Signature, Span, VarId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
@@ -16,16 +13,11 @@ pub enum Expr {
     Int(i64),
     Float(f64),
     Binary(Vec<u8>),
-    Range(
-        Option<Box<Expression>>, // from
-        Option<Box<Expression>>, // next value after "from"
-        Option<Box<Expression>>, // to
-        RangeOperator,
-    ),
+    Range(Box<Range>),
     Var(VarId),
     VarDecl(VarId),
     Call(Box<Call>),
-    ExternalCall(Box<Expression>, Vec<ExternalArgument>), // head, args
+    ExternalCall(Box<Expression>, Box<[ExternalArgument]>), // head, args
     Operator(Operator),
     RowCondition(BlockId),
     UnaryNot(Box<Expression>),
@@ -35,15 +27,16 @@ pub enum Expr {
     Closure(BlockId),
     MatchBlock(Vec<(MatchPattern, Expression)>),
     List(Vec<ListItem>),
-    Table(Vec<Expression>, Vec<Vec<Expression>>),
+    Table(Table),
     Record(Vec<RecordItem>),
-    Keyword(Vec<u8>, Span, Box<Expression>),
-    ValueWithUnit(Box<Expression>, Spanned<Unit>),
+    Keyword(Box<Keyword>),
+    ValueWithUnit(Box<ValueWithUnit>),
     DateTime(chrono::DateTime<FixedOffset>),
     Filepath(String, bool),
     Directory(String, bool),
     GlobPattern(String, bool),
     String(String),
+    RawString(String),
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),
     ImportPattern(Box<ImportPattern>),
@@ -53,6 +46,11 @@ pub enum Expr {
     Nothing,
     Garbage,
 }
+
+// This is to document/enforce the size of `Expr` in bytes.
+// We should try to avoid increasing the size of `Expr`,
+// and PRs that do so will have to change the number below so that it's noted in review.
+const _: () = assert!(std::mem::size_of::<Expr>() <= 40);
 
 impl Expr {
     pub fn pipe_redirection(
@@ -72,17 +70,18 @@ impl Expr {
             | Expr::Int(_)
             | Expr::Float(_)
             | Expr::Binary(_)
-            | Expr::Range(_, _, _, _)
+            | Expr::Range(_)
             | Expr::Var(_)
             | Expr::UnaryNot(_)
             | Expr::BinaryOp(_, _, _)
             | Expr::Closure(_) // piping into a closure value, not into a closure call
             | Expr::List(_)
-            | Expr::Table(_, _)
+            | Expr::Table(_)
             | Expr::Record(_)
-            | Expr::ValueWithUnit(_, _)
+            | Expr::ValueWithUnit(_)
             | Expr::DateTime(_)
             | Expr::String(_)
+            | Expr::RawString(_)
             | Expr::CellPath(_)
             | Expr::StringInterpolation(_)
             | Expr::Nothing => {
@@ -112,7 +111,7 @@ impl Expr {
                 // No override necessary, pipes will always be created in eval
                 (None, None)
             }
-            Expr::Keyword(_, _, _) => {
+            Expr::Keyword(_) => {
                 // Not sure about this; let's return no redirection override for now.
                 (None, None)
             }

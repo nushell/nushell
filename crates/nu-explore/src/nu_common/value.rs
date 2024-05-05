@@ -1,13 +1,14 @@
 use super::NuSpan;
+use anyhow::Result;
 use nu_engine::get_columns;
 use nu_protocol::{record, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
 use std::collections::HashMap;
 
-pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
+pub fn collect_pipeline(input: PipelineData) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
     match input {
-        PipelineData::Empty => (vec![], vec![]),
+        PipelineData::Empty => Ok((vec![], vec![])),
         PipelineData::Value(value, ..) => collect_input(value),
-        PipelineData::ListStream(stream, ..) => collect_list_stream(stream),
+        PipelineData::ListStream(stream, ..) => Ok(collect_list_stream(stream)),
         PipelineData::ExternalStream {
             stdout,
             stderr,
@@ -15,13 +16,15 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
             metadata,
             span,
             ..
-        } => collect_external_stream(stdout, stderr, exit_code, metadata, span),
+        } => Ok(collect_external_stream(
+            stdout, stderr, exit_code, metadata, span,
+        )),
     }
 }
 
-fn collect_list_stream(mut stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>) {
+fn collect_list_stream(stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>) {
     let mut records = vec![];
-    for item in stream.by_ref() {
+    for item in stream {
         records.push(item);
     }
 
@@ -67,7 +70,7 @@ fn collect_external_stream(
         data.push(value);
     }
     if let Some(exit_code) = exit_code {
-        let list = exit_code.collect::<Vec<_>>();
+        let list = exit_code.into_iter().collect::<Vec<_>>();
         let val = Value::list(list, span);
 
         columns.push(String::from("exit_code"));
@@ -83,12 +86,12 @@ fn collect_external_stream(
 }
 
 /// Try to build column names and a table grid.
-pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
+pub fn collect_input(value: Value) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
     let span = value.span();
     match value {
         Value::Record { val: record, .. } => {
             let (key, val) = record.into_owned().into_iter().unzip();
-            (key, vec![val])
+            Ok((key, vec![val]))
         }
         Value::List { vals, .. } => {
             let mut columns = get_columns(&vals);
@@ -98,7 +101,7 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
                 columns = vec![String::from("")];
             }
 
-            (columns, data)
+            Ok((columns, data))
         }
         Value::String { val, .. } => {
             let lines = val
@@ -107,17 +110,14 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
                 .map(|val| vec![val])
                 .collect();
 
-            (vec![String::from("")], lines)
+            Ok((vec![String::from("")], lines))
         }
-        Value::LazyRecord { val, .. } => match val.collect() {
-            Ok(value) => collect_input(value),
-            Err(_) => (
-                vec![String::from("")],
-                vec![vec![Value::lazy_record(val, span)]],
-            ),
-        },
-        Value::Nothing { .. } => (vec![], vec![]),
-        value => (vec![String::from("")], vec![vec![value]]),
+        Value::Nothing { .. } => Ok((vec![], vec![])),
+        Value::Custom { val, .. } => {
+            let materialized = val.to_base_value(span)?;
+            collect_input(materialized)
+        }
+        value => Ok((vec![String::from("")], vec![vec![value]])),
     }
 }
 

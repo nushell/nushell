@@ -5,6 +5,7 @@ use notify_debouncer_full::{
         EventKind, RecursiveMode, Watcher,
     },
 };
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, ClosureEval};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
@@ -38,7 +39,7 @@ impl Command for Watch {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
-        .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+        .input_output_types(vec![(Type::Nothing, Type::table())])
             .required("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
             .required("closure",
             SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
@@ -73,6 +74,7 @@ impl Command for Watch {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 

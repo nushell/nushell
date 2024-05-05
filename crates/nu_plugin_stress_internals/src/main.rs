@@ -1,9 +1,12 @@
 use std::{
     error::Error,
+    ffi::OsStr,
     io::{BufRead, BufReader, Write},
 };
 
-use interprocess::local_socket::LocalSocketStream;
+use interprocess::local_socket::{
+    self, traits::Stream, GenericFilePath, GenericNamespaced, ToFsName, ToNsName,
+};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -11,6 +14,7 @@ use serde_json::{json, Value};
 struct Options {
     refuse_local_socket: bool,
     advertise_local_socket: bool,
+    exit_before_hello: bool,
     exit_early: bool,
     wrong_version: bool,
     local_socket_path: Option<String>,
@@ -28,13 +32,11 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     let mut opts = Options {
         refuse_local_socket: has_env("STRESS_REFUSE_LOCAL_SOCKET"),
         advertise_local_socket: has_env("STRESS_ADVERTISE_LOCAL_SOCKET"),
+        exit_before_hello: has_env("STRESS_EXIT_BEFORE_HELLO"),
         exit_early: has_env("STRESS_EXIT_EARLY"),
         wrong_version: has_env("STRESS_WRONG_VERSION"),
         local_socket_path: None,
     };
-
-    #[allow(unused_mut)]
-    let mut should_flush = true;
 
     let (mut input, mut output): (Box<dyn BufRead>, Box<dyn Write>) =
         match args.get(1).map(|s| s.as_str()) {
@@ -47,14 +49,13 @@ pub fn main() -> Result<(), Box<dyn Error>> {
                 if opts.refuse_local_socket {
                     std::process::exit(1)
                 } else {
-                    let in_socket = LocalSocketStream::connect(args[2].as_str())?;
-                    let out_socket = LocalSocketStream::connect(args[2].as_str())?;
-
-                    #[cfg(windows)]
-                    {
-                        // Flushing on a socket on Windows is weird and waits for the other side
-                        should_flush = false;
-                    }
+                    let name = if cfg!(windows) {
+                        OsStr::new(&args[2]).to_ns_name::<GenericNamespaced>()?
+                    } else {
+                        OsStr::new(&args[2]).to_fs_name::<GenericFilePath>()?
+                    };
+                    let in_socket = local_socket::Stream::connect(name.clone())?;
+                    let out_socket = local_socket::Stream::connect(name)?;
 
                     (Box::new(BufReader::new(in_socket)), Box::new(out_socket))
                 }
@@ -71,14 +72,22 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
     // Send encoding format
     output.write_all(b"\x04json")?;
-    if should_flush {
-        output.flush()?;
+    output.flush()?;
+
+    // Test exiting without `Hello`
+    if opts.exit_before_hello {
+        std::process::exit(1)
     }
+
+    // Read `Hello` message
+    let mut de = serde_json::Deserializer::from_reader(&mut input);
+    let hello: Value = Value::deserialize(&mut de)?;
+
+    assert!(hello.get("Hello").is_some());
 
     // Send `Hello` message
     write(
         &mut output,
-        should_flush,
         &json!({
             "Hello": {
                 "protocol": "nu-plugin",
@@ -96,12 +105,6 @@ pub fn main() -> Result<(), Box<dyn Error>> {
         }),
     )?;
 
-    // Read `Hello` message
-    let mut de = serde_json::Deserializer::from_reader(&mut input);
-    let hello: Value = Value::deserialize(&mut de)?;
-
-    assert!(hello.get("Hello").is_some());
-
     if opts.exit_early {
         // Exit without handling anything other than Hello
         std::process::exit(0);
@@ -110,7 +113,7 @@ pub fn main() -> Result<(), Box<dyn Error>> {
     // Parse incoming messages
     loop {
         match Value::deserialize(&mut de) {
-            Ok(message) => handle_message(&mut output, should_flush, &opts, &message)?,
+            Ok(message) => handle_message(&mut output, &opts, &message)?,
             Err(err) => {
                 if err.is_eof() {
                     break;
@@ -128,7 +131,6 @@ pub fn main() -> Result<(), Box<dyn Error>> {
 
 fn handle_message(
     output: &mut impl Write,
-    should_flush: bool,
     opts: &Options,
     message: &Value,
 ) -> Result<(), Box<dyn Error>> {
@@ -137,7 +139,6 @@ fn handle_message(
         if plugin_call.as_str() == Some("Signature") {
             write(
                 output,
-                should_flush,
                 &json!({
                     "CallResponse": [
                         id,
@@ -158,7 +159,6 @@ fn handle_message(
                 });
                 write(
                     output,
-                    should_flush,
                     &json!({
                         "CallResponse": [
                             id,
@@ -205,11 +205,9 @@ fn signatures() -> Vec<Value> {
     })]
 }
 
-fn write(output: &mut impl Write, should_flush: bool, value: &Value) -> Result<(), Box<dyn Error>> {
+fn write(output: &mut impl Write, value: &Value) -> Result<(), Box<dyn Error>> {
     serde_json::to_writer(&mut *output, value)?;
     output.write_all(b"\n")?;
-    if should_flush {
-        output.flush()?;
-    }
+    output.flush()?;
     Ok(())
 }

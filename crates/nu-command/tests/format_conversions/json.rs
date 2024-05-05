@@ -20,7 +20,7 @@ fn table_to_json_text_and_from_json_text_back_into_table() {
 #[test]
 fn from_json_text_to_table() {
     Playground::setup("filter_from_json_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
                 {
@@ -46,7 +46,7 @@ fn from_json_text_to_table() {
 #[test]
 fn from_json_text_to_table_strict() {
     Playground::setup("filter_from_json_test_1_strict", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
                 {
@@ -72,7 +72,7 @@ fn from_json_text_to_table_strict() {
 #[test]
 fn from_json_text_recognizing_objects_independently_to_table() {
     Playground::setup("filter_from_json_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
                 {"name":   "Yehuda", "rusty_luck": 1}
@@ -99,7 +99,7 @@ fn from_json_text_recognizing_objects_independently_to_table() {
 #[test]
 fn from_json_text_recognizing_objects_independently_to_table_strict() {
     Playground::setup("filter_from_json_test_2_strict", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
                 {"name":   "Yehuda", "rusty_luck": 1}
@@ -126,7 +126,7 @@ fn from_json_text_recognizing_objects_independently_to_table_strict() {
 #[test]
 fn table_to_json_text() {
     Playground::setup("filter_to_json_test", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "sample.txt",
             r#"
                 JonAndrehudaTZ,3
@@ -155,7 +155,7 @@ fn table_to_json_text() {
 #[test]
 fn table_to_json_text_strict() {
     Playground::setup("filter_to_json_test_strict", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "sample.txt",
             r#"
                 JonAndrehudaTZ,3

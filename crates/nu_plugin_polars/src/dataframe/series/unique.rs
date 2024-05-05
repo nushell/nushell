@@ -67,6 +67,59 @@ impl PluginCommand for Unique {
                 ),
             },
             Example {
+                description: "Returns unique values in a subset of lazyframe columns",
+                example: "[[a b c]; [1 2 1] [2 2 2] [3 2 1]] | polars into-lazy | polars unique --subset [b c] | polars collect",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2)]
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(2)]
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2)]
+                            )
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Returns unique values in a subset of lazyframe columns",
+                example: r#"[[a b c]; [1 2 1] [2 2 2] [3 2 1]]
+    | polars into-lazy
+    | polars unique --subset [b c] --last
+    | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(2), Value::test_int(3)]
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(2)]
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(2), Value::test_int(1)]
+                            )
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
                 description: "Creates a is unique expression from a column",
                 example: "col a | unique",
                 result: None,

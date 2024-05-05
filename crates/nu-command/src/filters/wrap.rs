@@ -15,9 +15,9 @@ impl Command for Wrap {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("wrap")
             .input_output_types(vec![
-                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
-                (Type::Range, Type::Table(vec![])),
-                (Type::Any, Type::Record(vec![])),
+                (Type::List(Box::new(Type::Any)), Type::table()),
+                (Type::Range, Type::table()),
+                (Type::Any, Type::record()),
             ])
             .required("name", SyntaxShape::String, "The name of the column.")
             .allow_variants_without_examples(true)
@@ -42,9 +42,9 @@ impl Command for Wrap {
             | PipelineData::ListStream { .. } => Ok(input
                 .into_iter()
                 .map(move |x| Value::record(record! { name.clone() => x }, span))
-                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone())),
+                .into_pipeline_data_with_metadata(span, engine_state.ctrlc.clone(), metadata)),
             PipelineData::ExternalStream { .. } => Ok(Value::record(
-                record! { name => input.into_value(call.head) },
+                record! { name => input.into_value(span) },
                 span,
             )
             .into_pipeline_data_with_metadata(metadata)),

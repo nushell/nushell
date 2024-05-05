@@ -60,10 +60,11 @@ pub fn empty(
                 }
             },
             PipelineData::ListStream(s, ..) => {
+                let empty = s.into_iter().next().is_none();
                 if negate {
-                    Ok(Value::bool(s.count() != 0, head).into_pipeline_data())
+                    Ok(Value::bool(!empty, head).into_pipeline_data())
                 } else {
-                    Ok(Value::bool(s.count() == 0, head).into_pipeline_data())
+                    Ok(Value::bool(empty, head).into_pipeline_data())
                 }
             }
             PipelineData::Value(value, ..) => {

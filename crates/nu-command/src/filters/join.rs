@@ -46,7 +46,7 @@ impl Command for Join {
             .switch("left", "Left-outer join", Some('l'))
             .switch("right", "Right-outer join", Some('r'))
             .switch("outer", "Outer join", Some('o'))
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .category(Category::Filters)
     }
 

@@ -39,6 +39,7 @@ mod format;
 mod generate;
 mod get;
 mod glob;
+mod griddle;
 mod group_by;
 mod hash_;
 mod headers;

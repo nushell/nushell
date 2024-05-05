@@ -5,7 +5,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn lists_regular_files() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
@@ -26,7 +26,7 @@ fn lists_regular_files() {
 #[test]
 fn lists_regular_files_using_asterisk_wildcard() {
     Playground::setup("ls_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("los.txt"),
             EmptyFile("tres.txt"),
             EmptyFile("amigos.txt"),
@@ -56,11 +56,11 @@ fn lists_regular_files_in_special_folder() {
             .mkdir("abcd")
             .mkdir("abcd/*")
             .mkdir("abcd/?")
-            .with_files(vec![EmptyFile("[abcd]/test.txt")])
-            .with_files(vec![EmptyFile("abcd]/test.txt")])
-            .with_files(vec![EmptyFile("abcd/*/test.txt")])
-            .with_files(vec![EmptyFile("abcd/?/test.txt")])
-            .with_files(vec![EmptyFile("abcd/?/test2.txt")]);
+            .with_files(&[EmptyFile("[abcd]/test.txt")])
+            .with_files(&[EmptyFile("abcd]/test.txt")])
+            .with_files(&[EmptyFile("abcd/*/test.txt")])
+            .with_files(&[EmptyFile("abcd/?/test.txt")])
+            .with_files(&[EmptyFile("abcd/?/test2.txt")]);
 
         let actual = nu!(
             cwd: dirs.test().join("abcd]"), format!(r#"ls | length"#));
@@ -119,7 +119,7 @@ fn lists_regular_files_in_special_folder() {
 #[case("'[bbcd].txt'", 1)]
 fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expected: usize) {
     Playground::setup("ls_test_3", |dirs, sandbox| {
-        sandbox.mkdir("abcd").mkdir("bbcd").with_files(vec![
+        sandbox.mkdir("abcd").mkdir("bbcd").with_files(&[
             EmptyFile("abcd/xy.txt"),
             EmptyFile("bbcd/yy.txt"),
             EmptyFile("[abcd].txt"),
@@ -141,7 +141,7 @@ fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expect
 #[test]
 fn lists_regular_files_using_question_mark_wildcard() {
     Playground::setup("ls_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.10.txt"),
             EmptyFile("jt.10.txt"),
             EmptyFile("andres.10.txt"),
@@ -164,11 +164,11 @@ fn lists_regular_files_using_question_mark_wildcard() {
 fn lists_all_files_in_directories_from_stream() {
     Playground::setup("ls_test_4", |dirs, sandbox| {
         sandbox
-            .with_files(vec![EmptyFile("root1.txt"), EmptyFile("root2.txt")])
+            .with_files(&[EmptyFile("root1.txt"), EmptyFile("root2.txt")])
             .within("dir_a")
-            .with_files(vec![EmptyFile("yehuda.10.txt"), EmptyFile("jt10.txt")])
+            .with_files(&[EmptyFile("yehuda.10.txt"), EmptyFile("jt10.txt")])
             .within("dir_b")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("andres.10.txt"),
                 EmptyFile("chicken_not_to_be_picked_up.100.txt"),
             ]);
@@ -206,7 +206,7 @@ fn does_not_fail_if_glob_matches_empty_directory() {
 #[test]
 fn fails_when_glob_doesnt_match() {
     Playground::setup("ls_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("root1.txt"), EmptyFile("root2.txt")]);
+        sandbox.with_files(&[EmptyFile("root1.txt"), EmptyFile("root2.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -220,7 +220,7 @@ fn fails_when_glob_doesnt_match() {
 #[test]
 fn list_files_from_two_parents_up_using_multiple_dots() {
     Playground::setup("ls_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yahuda.yaml"),
             EmptyFile("jtjson"),
             EmptyFile("andres.xml"),
@@ -249,7 +249,7 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
 #[test]
 fn lists_hidden_file_when_explicitly_specified() {
     Playground::setup("ls_test_7", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("los.txt"),
             EmptyFile("tres.txt"),
             EmptyFile("amigos.txt"),
@@ -273,19 +273,19 @@ fn lists_hidden_file_when_explicitly_specified() {
 fn lists_all_hidden_files_when_glob_contains_dot() {
     Playground::setup("ls_test_8", |dirs, sandbox| {
         sandbox
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("root1.txt"),
                 EmptyFile("root2.txt"),
                 EmptyFile(".dotfile1"),
             ])
             .within("dir_a")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("yehuda.10.txt"),
                 EmptyFile("jt10.txt"),
                 EmptyFile(".dotfile2"),
             ])
             .within("dir_b")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("andres.10.txt"),
                 EmptyFile("chicken_not_to_be_picked_up.100.txt"),
                 EmptyFile(".dotfile3"),
@@ -310,19 +310,19 @@ fn lists_all_hidden_files_when_glob_contains_dot() {
 fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
     Playground::setup("ls_test_8", |dirs, sandbox| {
         sandbox
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("root1.txt"),
                 EmptyFile("root2.txt"),
                 EmptyFile(".dotfile1"),
             ])
             .within("dir_a")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("yehuda.10.txt"),
                 EmptyFile("jt10.txt"),
                 EmptyFile(".dotfile2"),
             ])
             .within(".dir_b")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("andres.10.txt"),
                 EmptyFile("chicken_not_to_be_picked_up.100.txt"),
                 EmptyFile(".dotfile3"),
@@ -346,7 +346,7 @@ fn lists_all_hidden_files_when_glob_does_not_contain_dot() {
 #[cfg(unix)]
 fn glob_with_hidden_directory() {
     Playground::setup("ls_test_8", |dirs, sandbox| {
-        sandbox.within(".dir_b").with_files(vec![
+        sandbox.within(".dir_b").with_files(&[
             EmptyFile("andres.10.txt"),
             EmptyFile("chicken_not_to_be_picked_up.100.txt"),
             EmptyFile(".dotfile3"),
@@ -382,7 +382,7 @@ fn fails_with_ls_to_dir_without_permission() {
     Playground::setup("ls_test_1", |dirs, sandbox| {
         sandbox
             .within("dir_a")
-            .with_files(vec![EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
+            .with_files(&[EmptyFile("yehuda.11.txt"), EmptyFile("jt10.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -410,7 +410,7 @@ fn fails_with_ls_to_dir_without_permission() {
 #[test]
 fn lists_files_including_starting_with_dot() {
     Playground::setup("ls_test_9", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
@@ -433,7 +433,7 @@ fn lists_files_including_starting_with_dot() {
 #[test]
 fn list_all_columns() {
     Playground::setup("ls_test_all_columns", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("Leonardo.yaml"),
             EmptyFile("Raphael.json"),
             EmptyFile("Donatello.xml"),
@@ -492,7 +492,7 @@ fn lists_with_directory_flag() {
     Playground::setup("ls_test_flag_directory_1", |dirs, sandbox| {
         sandbox
             .within("dir_files")
-            .with_files(vec![EmptyFile("nushell.json")])
+            .with_files(&[EmptyFile("nushell.json")])
             .within("dir_empty");
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -520,7 +520,7 @@ fn lists_with_directory_flag_without_argument() {
     Playground::setup("ls_test_flag_directory_2", |dirs, sandbox| {
         sandbox
             .within("dir_files")
-            .with_files(vec![EmptyFile("nushell.json")])
+            .with_files(&[EmptyFile("nushell.json")])
             .within("dir_empty");
         // Test if there are some files in the current directory
         let actual = nu!(
@@ -637,7 +637,7 @@ fn list_directory_contains_invalid_utf8() {
 #[test]
 fn list_ignores_ansi() {
     Playground::setup("ls_test_ansi", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("los.txt"),
             EmptyFile("tres.txt"),
             EmptyFile("amigos.txt"),
@@ -668,7 +668,7 @@ fn list_unknown_flag() {
 fn list_flag_false() {
     // Check that ls flags respect explicit values
     Playground::setup("ls_test_false_flag", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile(".hidden"),
             EmptyFile("normal"),
             EmptyFile("another_normal"),
@@ -711,7 +711,7 @@ fn list_flag_false() {
 #[test]
 fn list_empty_string() {
     Playground::setup("ls_empty_string", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("yehuda.txt")]);
+        sandbox.with_files(&[EmptyFile("yehuda.txt")]);
 
         let actual = nu!(cwd: dirs.test(), "ls ''");
         assert!(actual.err.contains("does not exist"));
@@ -723,7 +723,7 @@ fn list_with_tilde() {
     Playground::setup("ls_tilde", |dirs, sandbox| {
         sandbox
             .within("~tilde")
-            .with_files(vec![EmptyFile("f1.txt"), EmptyFile("f2.txt")]);
+            .with_files(&[EmptyFile("f1.txt"), EmptyFile("f2.txt")]);
 
         let actual = nu!(cwd: dirs.test(), "ls '~tilde'");
         assert!(actual.out.contains("f1.txt"));
@@ -743,7 +743,7 @@ fn list_with_tilde() {
 #[test]
 fn list_with_multiple_path() {
     Playground::setup("ls_multiple_path", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("f1.txt"),
             EmptyFile("f2.txt"),
             EmptyFile("f3.txt"),

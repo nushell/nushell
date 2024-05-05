@@ -160,7 +160,7 @@ pub(crate) fn explode_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let expr: NuExpression = expr.to_polars().explode().into();
+    let expr: NuExpression = expr.into_polars().explode().into();
     expr.to_pipeline_data(plugin, engine, call.head)
 }
 

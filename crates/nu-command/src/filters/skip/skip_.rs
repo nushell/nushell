@@ -11,7 +11,7 @@ impl Command for Skip {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
@@ -101,7 +101,7 @@ impl Command for Skip {
             _ => Ok(input
                 .into_iter_strict(call.head)?
                 .skip(n)
-                .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                .into_pipeline_data_with_metadata(input_span, ctrlc, metadata)),
         }
     }
 }

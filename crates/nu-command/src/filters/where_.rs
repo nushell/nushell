@@ -26,7 +26,7 @@ not supported."#
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
                 (Type::Range, Type::Any),
             ])
             .required(
@@ -61,7 +61,7 @@ not supported."#
                 Ok(data) => data.into_value(head).is_true().then_some(value),
                 Err(err) => Some(Value::error(err, head)),
             })
-            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

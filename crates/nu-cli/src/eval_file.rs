@@ -1,17 +1,16 @@
 use crate::util::eval_source;
 use log::{info, trace};
 use miette::{IntoDiagnostic, Result};
+#[allow(deprecated)]
 use nu_engine::{convert_env_values, current_dir, eval_block};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    ast::Call,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error, Config, PipelineData, ShellError, Span, Value,
 };
-use nu_utils::stdout_write_all_and_flush;
-use std::sync::Arc;
+use std::{io::Write, sync::Arc};
 
 /// Entry point for evaluating a file.
 ///
@@ -31,6 +30,7 @@ pub fn evaluate_file(
         std::process::exit(1);
     }
 
+    #[allow(deprecated)]
     let cwd = current_dir(engine_state, stack)?;
 
     let file_path = canonicalize_with(&path, cwd).unwrap_or_else(|e| {
@@ -210,29 +210,8 @@ pub(crate) fn print_table_or_error(
         std::process::exit(1);
     }
 
-    if let Some(decl_id) = engine_state.find_decl("table".as_bytes(), &[]) {
-        let command = engine_state.get_decl(decl_id);
-        if command.get_block_id().is_some() {
-            print_or_exit(pipeline_data, engine_state, config, no_newline);
-        } else {
-            // The final call on table command, it's ok to set redirect_output to false.
-            let call = Call::new(Span::new(0, 0));
-            let table = command.run(engine_state, stack, &call, pipeline_data);
-
-            match table {
-                Ok(table) => {
-                    print_or_exit(table, engine_state, config, no_newline);
-                }
-                Err(error) => {
-                    let working_set = StateWorkingSet::new(engine_state);
-                    report_error(&working_set, &error);
-                    std::process::exit(1);
-                }
-            }
-        }
-    } else {
-        print_or_exit(pipeline_data, engine_state, config, no_newline);
-    }
+    // We don't need to do anything special to print a table because print() handles it
+    print_or_exit(pipeline_data, engine_state, stack, no_newline);
 
     // Make sure everything has finished
     if let Some(exit_code) = exit_code {
@@ -250,23 +229,19 @@ pub(crate) fn print_table_or_error(
 
 fn print_or_exit(
     pipeline_data: PipelineData,
-    engine_state: &mut EngineState,
-    config: &Config,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     no_newline: bool,
 ) {
-    for item in pipeline_data {
-        if let Value::Error { error, .. } = item {
-            let working_set = StateWorkingSet::new(engine_state);
+    let result = pipeline_data.print(engine_state, stack, no_newline, false);
 
-            report_error(&working_set, &*error);
+    let _ = std::io::stdout().flush();
+    let _ = std::io::stderr().flush();
 
-            std::process::exit(1);
-        }
-
-        let mut out = item.to_expanded_string("\n", config);
-        if !no_newline {
-            out.push('\n');
-        }
-        let _ = stdout_write_all_and_flush(out).map_err(|err| eprintln!("{err}"));
+    if let Err(error) = result {
+        let working_set = StateWorkingSet::new(engine_state);
+        report_error(&working_set, &error);
+        let _ = std::io::stderr().flush();
+        std::process::exit(1);
     }
 }

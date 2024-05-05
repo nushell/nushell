@@ -15,13 +15,13 @@ impl Command for HelpEscapes {
     fn signature(&self) -> Signature {
         Signature::build("help escapes")
             .category(Category::Core)
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
@@ -40,9 +40,7 @@ impl Command for HelpEscapes {
             ));
         }
 
-        Ok(recs
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(Value::list(recs, call.head).into_pipeline_data())
     }
 }
 

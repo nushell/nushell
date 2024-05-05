@@ -12,7 +12,7 @@ impl Command for UpdateCells {
 
     fn signature(&self) -> Signature {
         Signature::build("update cells")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
@@ -108,7 +108,7 @@ impl Command for UpdateCells {
             columns,
             span: head,
         }
-        .into_pipeline_data(engine_state.ctrlc.clone())
+        .into_pipeline_data(head, engine_state.ctrlc.clone())
         .set_metadata(metadata))
     }
 }

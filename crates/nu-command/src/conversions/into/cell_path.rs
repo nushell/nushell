@@ -15,10 +15,9 @@ impl Command for IntoCellPath {
                 (Type::Int, Type::CellPath),
                 (Type::List(Box::new(Type::Any)), Type::CellPath),
                 (
-                    Type::List(Box::new(Type::Record(vec![
-                        ("value".into(), Type::Any),
-                        ("optional".into(), Type::Bool),
-                    ]))),
+                    Type::List(Box::new(Type::Record(
+                        [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
+                    ))),
                     Type::CellPath,
                 ),
             ])
@@ -99,7 +98,7 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
     match input {
         PipelineData::Value(value, _) => Ok(value_to_cell_path(&value, head)?.into_pipeline_data()),
         PipelineData::ListStream(stream, ..) => {
-            let list: Vec<_> = stream.collect();
+            let list: Vec<_> = stream.into_iter().collect();
             Ok(list_to_cell_path(&list, head)?.into_pipeline_data())
         }
         PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {

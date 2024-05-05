@@ -10,7 +10,7 @@ impl Command for FromUrl {
 
     fn signature(&self) -> Signature {
         Signature::build("from url")
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::String, Type::record())])
             .category(Category::Formats)
     }
 

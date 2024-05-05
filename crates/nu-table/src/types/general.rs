@@ -99,7 +99,7 @@ fn table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
         .filter(|header| header != INDEX_COLUMN_NAME)
         .collect();
 
-    let table = to_table_with_header(input, headers, with_index, row_offset, opts)?;
+    let table = to_table_with_header(input, &headers, with_index, row_offset, opts)?;
     let table = table.map(|table| TableOutput::new(table, true, with_index));
 
     Ok(table)
@@ -107,7 +107,7 @@ fn table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
 
 fn to_table_with_header(
     input: &[Value],
-    headers: Vec<String>,
+    headers: &[String],
     with_index: bool,
     row_offset: usize,
     opts: &TableOpts<'_>,

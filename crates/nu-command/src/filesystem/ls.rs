@@ -2,6 +2,7 @@ use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::glob_from;
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
@@ -48,7 +49,7 @@ impl Command for Ls {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
             .rest("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")
@@ -94,6 +95,7 @@ impl Command for Ls {
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
 
         let args = Args {
@@ -116,10 +118,11 @@ impl Command for Ls {
         match input_pattern_arg {
             None => Ok(ls_for_one_pattern(None, args, ctrl_c.clone(), cwd)?
                 .into_pipeline_data_with_metadata(
+                    call_span,
+                    ctrl_c,
                     PipelineMetadata {
                         data_source: DataSource::Ls,
                     },
-                    ctrl_c,
                 )),
             Some(pattern) => {
                 let mut result_iters = vec![];
@@ -138,10 +141,11 @@ impl Command for Ls {
                     .into_iter()
                     .flatten()
                     .into_pipeline_data_with_metadata(
+                        call_span,
+                        ctrl_c,
                         PipelineMetadata {
                             data_source: DataSource::Ls,
                         },
-                        ctrl_c,
                     ))
             }
         }
@@ -405,7 +409,7 @@ fn ls_for_one_pattern(
                 Err(err) => Some(Value::error(err, call_span)),
             }
         }
-        _ => Some(Value::nothing(call_span)),
+        Err(err) => Some(Value::error(err, call_span)),
     })))
 }
 

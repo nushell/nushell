@@ -168,8 +168,8 @@ fn cmd_expr(
     expr: NuExpression,
     fill: Value,
 ) -> Result<PipelineData, ShellError> {
-    let fill = NuExpression::try_from_value(plugin, &fill)?.to_polars();
-    let expr: NuExpression = expr.to_polars().fill_nan(fill).into();
+    let fill = NuExpression::try_from_value(plugin, &fill)?.into_polars();
+    let expr: NuExpression = expr.into_polars().fill_nan(fill).into();
     expr.to_pipeline_data(plugin, engine, call.head)
 }
 

@@ -4,7 +4,9 @@ use nu_ansi_term::Style;
 use nu_cmd_lang::create_default_context;
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_plugin::{Plugin, PluginCommand, PluginCustomValue, PluginSource};
+use nu_plugin::{Plugin, PluginCommand};
+use nu_plugin_engine::{PluginCustomValueWithSource, PluginSource, WithSource};
+use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -89,7 +91,7 @@ impl PluginTest {
     /// let result = PluginTest::new("my_plugin", MyPlugin.into())?
     ///     .eval_with(
     ///         "my-command",
-    ///         vec![Value::test_int(42)].into_pipeline_data(None)
+    ///         vec![Value::test_int(42)].into_pipeline_data(Span::test_data(), None)
     ///     )?
     ///     .into_value(Span::test_data());
     /// assert_eq!(Value::test_string("42"), result);
@@ -135,13 +137,14 @@ impl PluginTest {
         // Serialize custom values in the input
         let source = self.source.clone();
         let input = input.map(
-            move |mut value| match PluginCustomValue::serialize_custom_values_in(&mut value) {
-                Ok(()) => {
+            move |mut value| {
+                let result = PluginCustomValue::serialize_custom_values_in(&mut value)
                     // Make sure to mark them with the source so they pass correctly, too.
-                    let _ = PluginCustomValue::add_source_in(&mut value, &source);
-                    value
+                    .and_then(|_| PluginCustomValueWithSource::add_source_in(&mut value, &source));
+                match result {
+                    Ok(()) => value,
+                    Err(err) => Value::error(err, value.span()),
                 }
-                Err(err) => Value::error(err, value.span()),
             },
             None,
         )?;
@@ -151,7 +154,9 @@ impl PluginTest {
         eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)?.map(
             |mut value| {
                 // Make sure to deserialize custom values
-                match PluginCustomValue::deserialize_custom_values_in(&mut value) {
+                let result = PluginCustomValueWithSource::remove_source_in(&mut value)
+                    .and_then(|_| PluginCustomValue::deserialize_custom_values_in(&mut value));
+                match result {
                     Ok(()) => value,
                     Err(err) => Value::error(err, value.span()),
                 }
@@ -284,12 +289,12 @@ impl PluginTest {
         match (a, b) {
             (Value::Custom { val, .. }, _) => {
                 // We have to serialize both custom values before handing them to the plugin
-                let mut serialized =
-                    PluginCustomValue::serialize_from_custom_value(val.as_ref(), a.span())?;
-                serialized.set_source(Some(self.source.clone()));
+                let serialized =
+                    PluginCustomValue::serialize_from_custom_value(val.as_ref(), a.span())?
+                        .with_source(self.source.clone());
                 let mut b_serialized = b.clone();
                 PluginCustomValue::serialize_custom_values_in(&mut b_serialized)?;
-                PluginCustomValue::add_source_in(&mut b_serialized, &self.source)?;
+                PluginCustomValueWithSource::add_source_in(&mut b_serialized, &self.source)?;
                 // Now get the plugin reference and execute the comparison
                 let persistent = self.source.persistent(None)?.get_plugin(None)?;
                 let ordering = persistent.custom_value_partial_cmp(serialized, b_serialized)?;
@@ -339,9 +344,6 @@ impl PluginTest {
                 // All equal, and same length
                 Ok(true)
             }
-            // Must collect lazy records to compare.
-            (Value::LazyRecord { val: a_val, .. }, _) => self.value_eq(&a_val.collect()?, b),
-            (_, Value::LazyRecord { val: b_val, .. }) => self.value_eq(a, &b_val.collect()?),
             // Fall back to regular eq.
             _ => Ok(a == b),
         }
@@ -354,8 +356,8 @@ impl PluginTest {
         val: &dyn CustomValue,
         span: Span,
     ) -> Result<Value, ShellError> {
-        let mut serialized = PluginCustomValue::serialize_from_custom_value(val, span)?;
-        serialized.set_source(Some(self.source.clone()));
+        let serialized = PluginCustomValue::serialize_from_custom_value(val, span)?
+            .with_source(self.source.clone());
         let persistent = self.source.persistent(None)?.get_plugin(None)?;
         persistent.custom_value_to_base_value(serialized.into_spanned(span))
     }

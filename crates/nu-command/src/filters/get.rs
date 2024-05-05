@@ -27,8 +27,8 @@ If multiple cell paths are given, this will produce a list of values."#
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
-                (Type::Table(vec![]), Type::Any),
-                (Type::Record(vec![]), Type::Any),
+                (Type::table(), Type::Any),
+                (Type::record(), Type::Any),
             ])
             .required(
                 "cell_path",
@@ -89,7 +89,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 output.push(val?);
             }
 
-            Ok(output.into_iter().into_pipeline_data(ctrlc))
+            Ok(output.into_iter().into_pipeline_data(span, ctrlc))
         }
         .map(|x| x.set_metadata(metadata))
     }

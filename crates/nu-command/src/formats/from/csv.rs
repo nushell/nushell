@@ -11,7 +11,7 @@ impl Command for FromCsv {
 
     fn signature(&self) -> Signature {
         Signature::build("from csv")
-            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::String, Type::table())])
             .named(
                 "separator",
                 SyntaxShape::String,

@@ -750,17 +750,19 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// The cached plugin data (in `$nu.plugin-path`) for a plugin is invalid.
+    /// The registered plugin data for a plugin is invalid.
     ///
     /// ## Resolution
     ///
-    /// `register` the plugin again to update the data, or remove it.
-    #[error("The cached plugin data for `{plugin_name}` is invalid")]
-    #[diagnostic(code(nu::shell::plugin_cache_data_invalid))]
-    PluginCacheDataInvalid {
+    /// `plugin add` the plugin again to update the data, or remove it with `plugin rm`.
+    #[error("The registered plugin data for `{plugin_name}` is invalid")]
+    #[diagnostic(code(nu::shell::plugin_registry_data_invalid))]
+    PluginRegistryDataInvalid {
         plugin_name: String,
-        #[help("try registering the plugin again with `{}`")]
-        register_command: String,
+        #[label("plugin `{plugin_name}` loaded here")]
+        span: Option<Span>,
+        #[help("the format in the plugin registry file is not compatible with this version of Nushell.\n\nTry adding the plugin again with `{}`")]
+        add_command: String,
     },
 
     /// A plugin failed to load.
@@ -1174,16 +1176,6 @@ pub enum ShellError {
         recursion_limit: u64,
         #[label("This called itself too many times")]
         span: Option<Span>,
-    },
-
-    /// An attempt to access a record column failed.
-    #[error("Access failure: {message}")]
-    #[diagnostic(code(nu::shell::lazy_record_access_failed))]
-    LazyRecordAccessFailed {
-        message: String,
-        column_name: String,
-        #[label("Could not access '{column_name}' on this record")]
-        span: Span,
     },
 
     /// Operation interrupted by user

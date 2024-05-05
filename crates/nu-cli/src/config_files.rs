@@ -6,7 +6,7 @@ use nu_protocol::{
     report_error, HistoryFileFormat, PipelineData,
 };
 #[cfg(feature = "plugin")]
-use nu_protocol::{ParseError, PluginCacheFile, Spanned};
+use nu_protocol::{ParseError, PluginRegistryFile, Spanned};
 #[cfg(feature = "plugin")]
 use nu_utils::utils::perf;
 use std::path::PathBuf;
@@ -51,7 +51,7 @@ pub fn read_plugin_file(
     }
 
     let mut start_time = std::time::Instant::now();
-    // Reading signatures from plugin cache file
+    // Reading signatures from plugin registry file
     // The plugin.msgpackz file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state, plugin_file.clone(), storage_path);
     perf(
@@ -89,7 +89,7 @@ pub fn read_plugin_file(
                         engine_state,
                         &ShellError::GenericError {
                             error: format!(
-                                "Error while opening plugin cache file: {}",
+                                "Error while opening plugin registry file: {}",
                                 plugin_path.display()
                             ),
                             msg: "plugin path defined here".into(),
@@ -113,15 +113,15 @@ pub fn read_plugin_file(
         }
 
         // Read the contents of the plugin file
-        let contents = match PluginCacheFile::read_from(&mut file, span) {
+        let contents = match PluginRegistryFile::read_from(&mut file, span) {
             Ok(contents) => contents,
             Err(err) => {
-                log::warn!("Failed to read plugin cache file: {err:?}");
+                log::warn!("Failed to read plugin registry file: {err:?}");
                 report_error_new(
                     engine_state,
                     &ShellError::GenericError {
                         error: format!(
-                            "Error while reading plugin cache file: {}",
+                            "Error while reading plugin registry file: {}",
                             plugin_path.display()
                         ),
                         msg: "plugin path defined here".into(),
@@ -150,7 +150,7 @@ pub fn read_plugin_file(
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        nu_plugin::load_plugin_file(&mut working_set, &contents, span);
+        nu_plugin_engine::load_plugin_file(&mut working_set, &contents, span);
 
         if let Err(err) = engine_state.merge_delta(working_set.render()) {
             report_error_new(engine_state, &err);
@@ -177,6 +177,7 @@ pub fn add_plugin_file(
     use std::path::Path;
 
     let working_set = StateWorkingSet::new(engine_state);
+    #[allow(deprecated)]
     let cwd = working_set.get_cwd();
 
     if let Some(plugin_file) = plugin_file {
@@ -235,6 +236,7 @@ pub fn eval_config_contents(
             engine_state.file = prev_file;
 
             // Merge the environment in case env vars changed in the config
+            #[allow(deprecated)]
             match nu_engine::env::current_dir(engine_state, stack) {
                 Ok(cwd) => {
                     if let Err(e) = engine_state.merge_env(stack, cwd) {
@@ -265,13 +267,14 @@ pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> O
 #[cfg(feature = "plugin")]
 pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -> bool {
     use nu_protocol::{
-        report_error_new, PluginCacheItem, PluginCacheItemData, PluginExample, PluginIdentity,
-        PluginSignature, ShellError,
+        report_error_new, PluginExample, PluginIdentity, PluginRegistryItem,
+        PluginRegistryItemData, PluginSignature, ShellError,
     };
     use std::collections::BTreeMap;
 
     let start_time = std::time::Instant::now();
 
+    #[allow(deprecated)]
     let cwd = engine_state.current_work_dir();
 
     let Some(config_dir) = nu_path::config_dir().and_then(|mut dir| {
@@ -318,7 +321,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
     }
 
     // Now that the plugin commands are loaded, we just have to generate the file
-    let mut contents = PluginCacheFile::new();
+    let mut contents = PluginRegistryFile::new();
 
     let mut groups = BTreeMap::<PluginIdentity, Vec<PluginSignature>>::new();
 
@@ -339,11 +342,11 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
     }
 
     for (identity, commands) in groups {
-        contents.upsert_plugin(PluginCacheItem {
+        contents.upsert_plugin(PluginRegistryItem {
             name: identity.name().to_owned(),
             filename: identity.filename().to_owned(),
             shell: identity.shell().map(|p| p.to_owned()),
-            data: PluginCacheItemData::Valid { commands },
+            data: PluginRegistryItemData::Valid { commands },
         });
     }
 

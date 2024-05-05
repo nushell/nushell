@@ -2,7 +2,7 @@ use crate::{
     ast::Block,
     engine::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
-        StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
+        StateDelta, Variable, VirtualPath, Visibility,
     },
     BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
     Type, Value, VarId, VirtualPathId,
@@ -15,7 +15,7 @@ use std::{
 };
 
 #[cfg(feature = "plugin")]
-use crate::{PluginCacheItem, PluginIdentity, RegisteredPlugin};
+use crate::{PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
 /// additional declarations and scope changes that are not yet part of the global scope.
@@ -182,8 +182,8 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn update_plugin_cache(&mut self, item: PluginCacheItem) {
-        self.delta.plugin_cache_items.push(item);
+    pub fn update_plugin_registry(&mut self, item: PluginRegistryItem) {
+        self.delta.plugin_registry_items.push(item);
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
@@ -601,13 +601,16 @@ impl<'a> StateWorkingSet<'a> {
         next_id
     }
 
+    /// Returns the current working directory as a String, which is guaranteed to be canonicalized.
+    /// Returns an empty string if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+    ///
+    /// It does NOT consider modifications to the working directory made on a stack.
+    #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
     pub fn get_cwd(&self) -> String {
-        let pwd = self
-            .permanent_state
-            .get_env_var(PWD_ENV)
-            .expect("internal error: can't find PWD");
-        pwd.coerce_string()
-            .expect("internal error: PWD not a string")
+        self.permanent_state
+            .cwd(None)
+            .map(|path| path.to_string_lossy().to_string())
+            .unwrap_or_default()
     }
 
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
@@ -620,16 +623,6 @@ impl<'a> StateWorkingSet<'a> {
     /// does not capture environment updates during runtime.
     pub fn get_config(&self) -> &Config {
         &self.permanent_state.config
-    }
-
-    pub fn list_env(&self) -> Vec<String> {
-        let mut env_vars = vec![];
-
-        for env_var in self.permanent_state.env_vars.iter() {
-            env_vars.push(env_var.0.clone());
-        }
-
-        env_vars
     }
 
     pub fn set_variable_type(&mut self, var_id: VarId, ty: Type) {

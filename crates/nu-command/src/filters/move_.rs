@@ -21,8 +21,8 @@ impl Command for Move {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("move")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
             ])
             .rest("columns", SyntaxShape::String, "The columns to move.")
             .named(
@@ -109,6 +109,7 @@ impl Command for Move {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let after: Option<Value> = call.get_flag(engine_state, stack, "after")?;
         let before: Option<Value> = call.get_flag(engine_state, stack, "before")?;
@@ -126,7 +127,7 @@ impl Command for Move {
                 return Err(ShellError::GenericError {
                     error: "Cannot move columns".into(),
                     msg: "Use either --after, or --before, not both".into(),
-                    span: Some(call.head),
+                    span: Some(head),
                     help: None,
                     inner: vec![],
                 })
@@ -135,7 +136,7 @@ impl Command for Move {
                 return Err(ShellError::GenericError {
                     error: "Cannot move columns".into(),
                     msg: "Missing --after or --before flag".into(),
-                    span: Some(call.head),
+                    span: Some(head),
                     help: None,
                     inner: vec![],
                 })
@@ -144,36 +145,29 @@ impl Command for Move {
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
-        let call = call.clone();
 
         match input {
             PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. } => {
                 let res = input.into_iter().map(move |x| match x.as_record() {
                     Ok(record) => {
-                        match move_record_columns(record, &columns, &before_or_after, call.head) {
+                        match move_record_columns(record, &columns, &before_or_after, head) {
                             Ok(val) => val,
-                            Err(error) => Value::error(error, call.head),
+                            Err(error) => Value::error(error, head),
                         }
                     }
-                    Err(error) => Value::error(error, call.head),
+                    Err(error) => Value::error(error, head),
                 });
 
-                if let Some(md) = metadata {
-                    Ok(res.into_pipeline_data_with_metadata(md, ctrlc))
-                } else {
-                    Ok(res.into_pipeline_data(ctrlc))
-                }
+                Ok(res.into_pipeline_data_with_metadata(head, ctrlc, metadata))
             }
             PipelineData::Value(Value::Record { val, .. }, ..) => {
-                Ok(
-                    move_record_columns(&val, &columns, &before_or_after, call.head)?
-                        .into_pipeline_data(),
-                )
+                Ok(move_record_columns(&val, &columns, &before_or_after, head)?
+                    .into_pipeline_data())
             }
             _ => Err(ShellError::PipelineMismatch {
                 exp_input_type: "record or table".to_string(),
-                dst_span: call.head,
-                src_span: Span::new(call.head.start, call.head.start),
+                dst_span: head,
+                src_span: Span::new(head.start, head.start),
             }),
         }
     }

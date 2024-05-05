@@ -1,4 +1,5 @@
 use super::util::{get_rest_for_glob_pattern, try_interaction};
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
@@ -130,6 +131,7 @@ fn rm(
 
     let mut unique_argument_check = None;
 
+    #[allow(deprecated)]
     let currentdir_path = current_dir(engine_state, stack)?;
 
     let home: Option<String> = nu_path::home_dir().map(|path| {
@@ -463,7 +465,7 @@ fn rm(
             }
         })
         .filter(|x| !matches!(x.get_type(), Type::Nothing))
-        .into_pipeline_data(ctrlc)
+        .into_pipeline_data(span, ctrlc)
         .print_not_formatted(engine_state, false, true)?;
 
     Ok(PipelineData::empty())

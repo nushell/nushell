@@ -12,8 +12,8 @@ impl Command for Insert {
     fn signature(&self) -> Signature {
         Signature::build("insert")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
@@ -159,7 +159,7 @@ fn insert(
             }
             Ok(value.into_pipeline_data_with_metadata(metadata))
         }
-        PipelineData::ListStream(mut stream, metadata) => {
+        PipelineData::ListStream(stream, metadata) => {
             if let Some((
                 &PathMember::Int {
                     val,
@@ -169,6 +169,7 @@ fn insert(
                 path,
             )) = cell_path.members.split_first()
             {
+                let mut stream = stream.into_iter();
                 let mut pre_elems = vec![];
 
                 for idx in 0..val {
@@ -221,40 +222,39 @@ fn insert(
                 Ok(pre_elems
                     .into_iter()
                     .chain(stream)
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             } else if let Value::Closure { val, .. } = replacement {
                 let mut closure = ClosureEval::new(engine_state, stack, val);
-                Ok(stream
-                    .map(move |mut value| {
-                        let err = insert_value_by_closure(
-                            &mut value,
-                            &mut closure,
-                            head,
-                            &cell_path.members,
-                            false,
-                        );
+                let stream = stream.map(move |mut value| {
+                    let err = insert_value_by_closure(
+                        &mut value,
+                        &mut closure,
+                        head,
+                        &cell_path.members,
+                        false,
+                    );
 
-                        if let Err(e) = err {
-                            Value::error(e, head)
-                        } else {
-                            value
-                        }
-                    })
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    if let Err(e) = err {
+                        Value::error(e, head)
+                    } else {
+                        value
+                    }
+                });
+                Ok(PipelineData::ListStream(stream, metadata))
             } else {
-                Ok(stream
-                    .map(move |mut value| {
-                        if let Err(e) = value.insert_data_at_cell_path(
-                            &cell_path.members,
-                            replacement.clone(),
-                            head,
-                        ) {
-                            Value::error(e, head)
-                        } else {
-                            value
-                        }
-                    })
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                let stream = stream.map(move |mut value| {
+                    if let Err(e) = value.insert_data_at_cell_path(
+                        &cell_path.members,
+                        replacement.clone(),
+                        head,
+                    ) {
+                        Value::error(e, head)
+                    } else {
+                        value
+                    }
+                });
+
+                Ok(PipelineData::ListStream(stream, metadata))
             }
         }
         PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {

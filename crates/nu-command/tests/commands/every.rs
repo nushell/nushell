@@ -5,7 +5,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn gets_all_rows_by_every_zero() {
     Playground::setup("every_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("amigos.txt"),
             EmptyFile("arepas.clu"),
             EmptyFile("los.txt"),
@@ -32,7 +32,7 @@ fn gets_all_rows_by_every_zero() {
 #[test]
 fn gets_no_rows_by_every_skip_zero() {
     Playground::setup("every_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("amigos.txt"),
             EmptyFile("arepas.clu"),
             EmptyFile("los.txt"),
@@ -56,7 +56,7 @@ fn gets_no_rows_by_every_skip_zero() {
 #[test]
 fn gets_all_rows_by_every_one() {
     Playground::setup("every_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("amigos.txt"),
             EmptyFile("arepas.clu"),
             EmptyFile("los.txt"),
@@ -83,7 +83,7 @@ fn gets_all_rows_by_every_one() {
 #[test]
 fn gets_no_rows_by_every_skip_one() {
     Playground::setup("every_test_4", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("amigos.txt"),
             EmptyFile("arepas.clu"),
             EmptyFile("los.txt"),
@@ -107,7 +107,7 @@ fn gets_no_rows_by_every_skip_one() {
 #[test]
 fn gets_first_row_by_every_too_much() {
     Playground::setup("every_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("amigos.txt"),
             EmptyFile("arepas.clu"),
             EmptyFile("los.txt"),
@@ -132,7 +132,7 @@ fn gets_first_row_by_every_too_much() {
 #[test]
 fn gets_all_rows_except_first_by_every_skip_too_much() {
     Playground::setup("every_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("amigos.txt"),
             EmptyFile("arepas.clu"),
             EmptyFile("los.txt"),
@@ -156,7 +156,7 @@ fn gets_all_rows_except_first_by_every_skip_too_much() {
 #[test]
 fn gets_every_third_row() {
     Playground::setup("every_test_7", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("amigos.txt"),
             EmptyFile("arepas.clu"),
             EmptyFile("los.txt"),
@@ -181,7 +181,7 @@ fn gets_every_third_row() {
 #[test]
 fn skips_every_third_row() {
     Playground::setup("every_test_8", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("amigos.txt"),
             EmptyFile("arepas.clu"),
             EmptyFile("los.txt"),

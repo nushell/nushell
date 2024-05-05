@@ -15,7 +15,7 @@ impl Command for IntoValue {
 
     fn signature(&self) -> Signature {
         Signature::build("into value")
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .named(
                 "columns",
                 SyntaxShape::Table(vec![]),
@@ -81,7 +81,7 @@ impl Command for IntoValue {
             display_as_filesizes,
             span,
         }
-        .into_pipeline_data(ctrlc)
+        .into_pipeline_data(span, ctrlc)
         .set_metadata(metadata))
     }
 }
