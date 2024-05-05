@@ -139,7 +139,7 @@ impl Record {
     where
         F: FnMut(&str, &Value) -> bool,
     {
-        self.inner.retain(|(k, v)| keep(k, v))
+        self.retain_mut(|k, v| keep(k, v));
     }
 
     /// Remove elements in-place that do not satisfy `keep` while allowing mutation of the value.
@@ -183,10 +183,7 @@ impl Record {
     where
         F: FnMut(&str, &mut Value) -> bool,
     {
-        self.inner = std::mem::take(&mut self.inner)
-            .into_iter()
-            .filter_map(|(col, mut val)| keep(&col, &mut val).then_some((col, val)))
-            .collect();
+        self.inner.retain(|(k, v)| keep(k, v));
     }
 
     /// Truncate record to the first `len` elements.
