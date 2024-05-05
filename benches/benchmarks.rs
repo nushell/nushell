@@ -108,6 +108,7 @@ fn bench_command(
         b.iter(move || {
             let mut stack = stack.clone();
             let mut engine = engine.clone();
+            #[allow(clippy::unit_arg)]
             black_box(
                 evaluate_commands(
                     &commands,
