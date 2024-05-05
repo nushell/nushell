@@ -226,7 +226,7 @@ pub fn lex_item(
                 );
             }
         } else if c == b'r' && input.get(*curr_offset + 1) == Some(b'#').as_ref() {
-            // already checked `r#` patten, so it's a raw string.
+            // already checked `r#` pattern, so it's a raw string.
             let lex_result = lex_raw_string(input, curr_offset, span_offset);
             let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
             if let Err(e) = lex_result {
