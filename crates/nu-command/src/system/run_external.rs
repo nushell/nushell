@@ -163,89 +163,99 @@ impl ExternalCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = self.name.span;
 
-        #[allow(unused_mut)]
-        let (cmd, mut reader, input) = self.create_process(input, false, head)?;
-
-        #[cfg(all(not(unix), not(windows)))] // are there any systems like this?
-        let child = ForegroundChild::spawn(cmd);
-
         #[cfg(windows)]
-        let child = match ForegroundChild::spawn(cmd) {
-            Ok(child) => Ok(child),
-            Err(err) => {
-                // Running external commands on Windows has 2 points of complication:
-                // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
-                // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
+        let (child, reader, input) = {
+            let (cmd, mut reader, _) = self.create_process(PipelineData::Empty, false, head)?;
+            let child = match ForegroundChild::spawn(cmd) {
+                Ok(child) => Ok(child),
+                Err(err) => {
+                    // Running external commands on Windows has 2 points of complication:
+                    // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
+                    // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
 
-                // To support these situations, we have a fallback path that gets run if a command
-                // fails to be run as a normal executable:
-                // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
-                // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
+                    // To support these situations, we have a fallback path that gets run if a command
+                    // fails to be run as a normal executable:
+                    // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
+                    // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
 
-                // set the default value, maybe we'll override it later
-                let mut child = Err(err);
+                    // set the default value, maybe we'll override it later
+                    let mut child = Err(err);
 
-                // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
-                // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
-                const CMD_INTERNAL_COMMANDS: [&str; 9] = [
-                    "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
-                ];
-                let command_name = &self.name.item;
-                let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
-                    .iter()
-                    .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
+                    // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
+                    // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
+                    const CMD_INTERNAL_COMMANDS: [&str; 9] = [
+                        "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
+                    ];
+                    let command_name = &self.name.item;
+                    let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
+                        .iter()
+                        .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
 
-                if looks_like_cmd_internal {
-                    let (cmd, new_reader) = self.create_process(&input, true, head)?;
-                    reader = new_reader;
-                    child = ForegroundChild::spawn(cmd);
-                } else {
-                    #[cfg(feature = "which-support")]
-                    {
-                        // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
-                        // TODO: clean this up with an if-let chain once those are stable
-                        if let Ok(path) =
-                            nu_engine::env::path_str(engine_state, stack, self.name.span)
+                    if looks_like_cmd_internal {
+                        let (cmd, new_reader, _) =
+                            self.create_process(PipelineData::Empty, true, head)?;
+                        reader = new_reader;
+                        child = ForegroundChild::spawn(cmd);
+                    } else {
+                        #[cfg(feature = "which-support")]
                         {
-                            if let Some(cwd) = self.env_vars.get("PWD") {
-                                // append cwd to PATH so `which-rs` looks in the cwd too.
-                                // this approximates what cmd.exe does.
-                                let path_with_cwd = format!("{};{}", cwd, path);
-                                if let Ok(which_path) =
-                                    which::which_in(&self.name.item, Some(path_with_cwd), cwd)
-                                {
-                                    if let Some(file_name) = which_path.file_name() {
-                                        if !file_name.to_string_lossy().eq_ignore_case(command_name)
-                                        {
-                                            // which-rs found an executable file with a slightly different name
-                                            // than the one the user tried. Let's try running it
-                                            let mut new_command = self.clone();
-                                            new_command.name = Spanned {
-                                                item: file_name.to_string_lossy().to_string(),
-                                                span: self.name.span,
-                                            };
-                                            let (cmd, new_reader) =
-                                                new_command.create_process(&input, true, head)?;
-                                            reader = new_reader;
-                                            child = ForegroundChild::spawn(cmd);
+                            // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
+                            // TODO: clean this up with an if-let chain once those are stable
+                            if let Ok(path) =
+                                nu_engine::env::path_str(engine_state, stack, self.name.span)
+                            {
+                                if let Some(cwd) = self.env_vars.get("PWD") {
+                                    // append cwd to PATH so `which-rs` looks in the cwd too.
+                                    // this approximates what cmd.exe does.
+                                    let path_with_cwd = format!("{};{}", cwd, path);
+                                    if let Ok(which_path) =
+                                        which::which_in(&self.name.item, Some(path_with_cwd), cwd)
+                                    {
+                                        if let Some(file_name) = which_path.file_name() {
+                                            if !file_name
+                                                .to_string_lossy()
+                                                .eq_ignore_case(command_name)
+                                            {
+                                                // which-rs found an executable file with a slightly different name
+                                                // than the one the user tried. Let's try running it
+                                                let mut new_command = self.clone();
+                                                new_command.name = Spanned {
+                                                    item: file_name.to_string_lossy().to_string(),
+                                                    span: self.name.span,
+                                                };
+                                                let (cmd, new_reader, _) = new_command
+                                                    .create_process(
+                                                        PipelineData::Empty,
+                                                        true,
+                                                        head,
+                                                    )?;
+                                                reader = new_reader;
+                                                child = ForegroundChild::spawn(cmd);
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                child
-            }
+                    child
+                }
+            };
+
+            (child, reader, input)
         };
 
         #[cfg(unix)]
-        let child = ForegroundChild::spawn(
-            cmd,
-            engine_state.is_interactive,
-            &engine_state.pipeline_externals_state,
-        );
+        let (child, reader, input) = {
+            let (cmd, reader, input) = self.create_process(input, false, head)?;
+            let child = ForegroundChild::spawn(
+                cmd,
+                engine_state.is_interactive,
+                &engine_state.pipeline_externals_state,
+            );
+            (child, reader, input)
+        };
 
         match child {
             Err(err) => {
@@ -381,6 +391,7 @@ impl ExternalCommand {
                             .name("external stdin worker".to_string())
                             .spawn(move || {
                                 let input = match input {
+                                    input @ PipelineData::ByteStream(..) => input,
                                     input @ PipelineData::Value(Value::Binary { .. }, ..) => input,
                                     input => {
                                         let stack = &mut stack.start_capture();
