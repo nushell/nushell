@@ -915,6 +915,9 @@ fn do_auto_cd(
         path.to_string_lossy().to_string()
     };
 
+    // Strip the trailing slash from the new path. This is required for PWD.
+    let path = nu_path::strip_trailing_slash(&path);
+
     if let PermissionResult::PermissionDenied(reason) = have_permission(path.clone()) {
         report_error_new(
             engine_state,
