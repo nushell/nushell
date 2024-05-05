@@ -90,8 +90,14 @@ fn raw_string() -> TestResult {
 #[test]
 fn raw_string_inside_parentheses() -> TestResult {
     let (left, right) = ('(', ')');
-    run_test(&format!(r#"{left}r#'abcde""fghi"''''jkl'#{right}"#), r#"abcde""fghi"''''jkl"#)?;
-    run_test(&format!(r#"{left}r##'abcde""fghi"''''#jkl'##{right}"#), r#"abcde""fghi"''''#jkl"#)?;
+    run_test(
+        &format!(r#"{left}r#'abcde""fghi"''''jkl'#{right}"#),
+        r#"abcde""fghi"''''jkl"#,
+    )?;
+    run_test(
+        &format!(r#"{left}r##'abcde""fghi"''''#jkl'##{right}"#),
+        r#"abcde""fghi"''''#jkl"#,
+    )?;
     run_test(
         &format!(r#"{left}r###'abcde""fghi"'''##'#jkl'###{right}"#),
         r#"abcde""fghi"'''##'#jkl"#,
@@ -106,8 +112,14 @@ fn raw_string_inside_parentheses() -> TestResult {
 #[test]
 fn raw_string_inside_list() -> TestResult {
     let (left, right) = ('[', ']');
-    run_test(&format!(r#"{left}r#'abcde""fghi"''''jkl'#{right} | get 0"#), r#"abcde""fghi"''''jkl"#)?;
-    run_test(&format!(r#"{left}r##'abcde""fghi"''''#jkl'##{right} | get 0"#), r#"abcde""fghi"''''#jkl"#)?;
+    run_test(
+        &format!(r#"{left}r#'abcde""fghi"''''jkl'#{right} | get 0"#),
+        r#"abcde""fghi"''''jkl"#,
+    )?;
+    run_test(
+        &format!(r#"{left}r##'abcde""fghi"''''#jkl'##{right} | get 0"#),
+        r#"abcde""fghi"''''#jkl"#,
+    )?;
     run_test(
         &format!(r#"{left}r###'abcde""fghi"'''##'#jkl'###{right} | get 0"#),
         r#"abcde""fghi"'''##'#jkl"#,
@@ -122,8 +134,14 @@ fn raw_string_inside_list() -> TestResult {
 #[test]
 fn raw_string_inside_closure() -> TestResult {
     let (left, right) = ('{', '}');
-    run_test(&format!(r#"do {left}r#'abcde""fghi"''''jkl'#{right}"#), r#"abcde""fghi"''''jkl"#)?;
-    run_test(&format!(r#"do {left}r##'abcde""fghi"''''#jkl'##{right}"#), r#"abcde""fghi"''''#jkl"#)?;
+    run_test(
+        &format!(r#"do {left}r#'abcde""fghi"''''jkl'#{right}"#),
+        r#"abcde""fghi"''''jkl"#,
+    )?;
+    run_test(
+        &format!(r#"do {left}r##'abcde""fghi"''''#jkl'##{right}"#),
+        r#"abcde""fghi"''''#jkl"#,
+    )?;
     run_test(
         &format!(r#"do {left}r###'abcde""fghi"'''##'#jkl'###{right}"#),
         r#"abcde""fghi"'''##'#jkl"#,
