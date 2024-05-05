@@ -238,10 +238,7 @@ fn format(
                 }
             }
 
-            Ok(PipelineData::ListStream(
-                ListStream::from_stream(list.into_iter(), None),
-                None,
-            ))
+            Ok(ListStream::new(list.into_iter(), head_span, engine_state.ctrlc.clone()).into())
         }
         // Unwrapping this ShellError is a bit unfortunate.
         // Ideally, its Span would be preserved.

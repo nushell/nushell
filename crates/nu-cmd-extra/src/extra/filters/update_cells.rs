@@ -108,7 +108,7 @@ impl Command for UpdateCells {
             columns,
             span: head,
         }
-        .into_pipeline_data(engine_state.ctrlc.clone())
+        .into_pipeline_data(head, engine_state.ctrlc.clone())
         .set_metadata(metadata))
     }
 }

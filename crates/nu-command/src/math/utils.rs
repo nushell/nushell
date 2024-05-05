@@ -69,7 +69,7 @@ pub fn calculate(
     let span = values.span().unwrap_or(name);
     match values {
         PipelineData::ListStream(s, ..) => {
-            helper_for_tables(&s.collect::<Vec<Value>>(), span, name, mf)
+            helper_for_tables(&s.into_iter().collect::<Vec<Value>>(), span, name, mf)
         }
         PipelineData::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper_for_tables(

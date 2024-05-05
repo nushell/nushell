@@ -5,7 +5,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn to_row() {
     Playground::setup("split_row_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             FileWithContentToBeTrimmed(
                 "sample.txt",
                 r#"

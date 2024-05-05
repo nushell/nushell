@@ -68,7 +68,7 @@ impl Plugin for LowercasePlugin {
 fn test_lowercase_using_eval_with() -> Result<(), ShellError> {
     let result = PluginTest::new("lowercase", LowercasePlugin.into())?.eval_with(
         "lowercase",
-        vec![Value::test_string("HeLlO wOrLd")].into_pipeline_data(None),
+        vec![Value::test_string("HeLlO wOrLd")].into_pipeline_data(Span::test_data(), None),
     )?;
 
     assert_eq!(

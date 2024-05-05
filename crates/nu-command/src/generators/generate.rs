@@ -183,7 +183,7 @@ used as the next argument to the closure, otherwise generation stops.
 
         Ok(iter
             .flatten()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
     }
 }
 

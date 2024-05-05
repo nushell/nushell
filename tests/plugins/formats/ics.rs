@@ -6,7 +6,7 @@ use pretty_assertions::assert_eq;
 #[test]
 fn infers_types() {
     Playground::setup("filter_from_ics_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "calendar.ics",
             r#"
                 BEGIN:VCALENDAR
@@ -58,7 +58,7 @@ fn infers_types() {
 #[test]
 fn from_ics_text_to_table() {
     Playground::setup("filter_from_ics_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "calendar.txt",
             r#"
                 BEGIN:VCALENDAR
@@ -102,7 +102,7 @@ fn from_ics_text_to_table() {
 #[test]
 fn from_ics_text_with_linebreak_to_table() {
     Playground::setup("filter_from_ics_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "calendar.txt",
             r#"BEGIN:VCALENDAR
 BEGIN:VEVENT

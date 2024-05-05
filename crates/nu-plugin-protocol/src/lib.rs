@@ -116,6 +116,7 @@ impl PipelineDataHeader {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct ListStreamInfo {
     pub id: StreamId,
+    pub span: Span,
 }
 
 /// Additional information about external streams

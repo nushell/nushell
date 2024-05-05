@@ -90,7 +90,8 @@ fn drop_cols(
     // is displayed farther to the right.
     let metadata = input.metadata();
     match input {
-        PipelineData::ListStream(mut stream, ..) => {
+        PipelineData::ListStream(stream, ..) => {
+            let mut stream = stream.into_iter();
             if let Some(mut first) = stream.next() {
                 let drop_cols = drop_cols_set(&mut first, head, columns)?;
 
@@ -101,7 +102,7 @@ fn drop_cols(
                             Err(e) => Value::error(e, head),
                         }
                     }))
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             } else {
                 Ok(PipelineData::Empty)
             }

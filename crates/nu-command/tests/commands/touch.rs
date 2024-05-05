@@ -39,7 +39,7 @@ fn creates_two_files() {
 #[test]
 fn change_modified_time_of_file_to_today() {
     Playground::setup("change_time_test_9", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
         // Set file.txt's times to the past before the test to make sure `touch` actually changes the mtime to today
@@ -69,7 +69,7 @@ fn change_modified_time_of_file_to_today() {
 #[test]
 fn change_access_time_of_file_to_today() {
     Playground::setup("change_time_test_18", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
         // Set file.txt's times to the past before the test to make sure `touch` actually changes the atime to today
@@ -99,7 +99,7 @@ fn change_access_time_of_file_to_today() {
 #[test]
 fn change_modified_and_access_time_of_file_to_today() {
     Playground::setup("change_time_test_27", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
         let path = dirs.test().join("file.txt");
 
         filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
@@ -143,7 +143,7 @@ fn change_file_times_if_exists_with_no_create() {
     Playground::setup(
         "change_file_times_if_exists_with_no_create",
         |dirs, sandbox| {
-            sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+            sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
             let path = dirs.test().join("file.txt");
 
             filetime::set_file_times(&path, TIME_ONE, TIME_ONE).unwrap();
@@ -208,7 +208,7 @@ fn creates_file_four_dots_quotation_marks() {
 #[test]
 fn change_file_times_to_reference_file() {
     Playground::setup("change_dir_times_to_reference_dir", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             Stub::EmptyFile("reference_file"),
             Stub::EmptyFile("target_file"),
         ]);
@@ -253,7 +253,7 @@ fn change_file_times_to_reference_file() {
 #[test]
 fn change_file_mtime_to_reference() {
     Playground::setup("change_file_mtime_to_reference", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             Stub::EmptyFile("reference_file"),
             Stub::EmptyFile("target_file"),
         ]);

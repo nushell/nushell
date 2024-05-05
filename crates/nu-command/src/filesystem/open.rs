@@ -209,7 +209,10 @@ impl Command for Open {
         } else if output.len() == 1 {
             Ok(output.remove(0))
         } else {
-            Ok(output.into_iter().flatten().into_pipeline_data(ctrlc))
+            Ok(output
+                .into_iter()
+                .flatten()
+                .into_pipeline_data(call_span, ctrlc))
         }
     }
 

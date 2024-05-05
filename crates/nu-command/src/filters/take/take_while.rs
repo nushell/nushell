@@ -84,7 +84,7 @@ impl Command for TakeWhile {
                     .map(|data| data.into_value(head).is_true())
                     .unwrap_or(false)
             })
-            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
     }
 }
 

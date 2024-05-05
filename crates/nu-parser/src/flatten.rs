@@ -49,86 +49,146 @@ pub enum FlatShape {
     VarDecl(VarId),
 }
 
-impl Display for FlatShape {
-    fn fmt(&self, f: &mut Formatter) -> Result {
+impl FlatShape {
+    pub fn as_str(&self) -> &str {
         match self {
-            FlatShape::And => write!(f, "shape_and"),
-            FlatShape::Binary => write!(f, "shape_binary"),
-            FlatShape::Block => write!(f, "shape_block"),
-            FlatShape::Bool => write!(f, "shape_bool"),
-            FlatShape::Closure => write!(f, "shape_closure"),
-            FlatShape::Custom(_) => write!(f, "shape_custom"),
-            FlatShape::DateTime => write!(f, "shape_datetime"),
-            FlatShape::Directory => write!(f, "shape_directory"),
-            FlatShape::External => write!(f, "shape_external"),
-            FlatShape::ExternalArg => write!(f, "shape_externalarg"),
-            FlatShape::ExternalResolved => write!(f, "shape_external_resolved"),
-            FlatShape::Filepath => write!(f, "shape_filepath"),
-            FlatShape::Flag => write!(f, "shape_flag"),
-            FlatShape::Float => write!(f, "shape_float"),
-            FlatShape::Garbage => write!(f, "shape_garbage"),
-            FlatShape::GlobPattern => write!(f, "shape_globpattern"),
-            FlatShape::Int => write!(f, "shape_int"),
-            FlatShape::InternalCall(_) => write!(f, "shape_internalcall"),
-            FlatShape::Keyword => write!(f, "shape_keyword"),
-            FlatShape::List => write!(f, "shape_list"),
-            FlatShape::Literal => write!(f, "shape_literal"),
-            FlatShape::MatchPattern => write!(f, "shape_match_pattern"),
-            FlatShape::Nothing => write!(f, "shape_nothing"),
-            FlatShape::Operator => write!(f, "shape_operator"),
-            FlatShape::Or => write!(f, "shape_or"),
-            FlatShape::Pipe => write!(f, "shape_pipe"),
-            FlatShape::Range => write!(f, "shape_range"),
-            FlatShape::RawString => write!(f, "shape_raw_string"),
-            FlatShape::Record => write!(f, "shape_record"),
-            FlatShape::Redirection => write!(f, "shape_redirection"),
-            FlatShape::Signature => write!(f, "shape_signature"),
-            FlatShape::String => write!(f, "shape_string"),
-            FlatShape::StringInterpolation => write!(f, "shape_string_interpolation"),
-            FlatShape::Table => write!(f, "shape_table"),
-            FlatShape::Variable(_) => write!(f, "shape_variable"),
-            FlatShape::VarDecl(_) => write!(f, "shape_vardecl"),
+            FlatShape::And => "shape_and",
+            FlatShape::Binary => "shape_binary",
+            FlatShape::Block => "shape_block",
+            FlatShape::Bool => "shape_bool",
+            FlatShape::Closure => "shape_closure",
+            FlatShape::Custom(_) => "shape_custom",
+            FlatShape::DateTime => "shape_datetime",
+            FlatShape::Directory => "shape_directory",
+            FlatShape::External => "shape_external",
+            FlatShape::ExternalArg => "shape_externalarg",
+            FlatShape::ExternalResolved => "shape_external_resolved",
+            FlatShape::Filepath => "shape_filepath",
+            FlatShape::Flag => "shape_flag",
+            FlatShape::Float => "shape_float",
+            FlatShape::Garbage => "shape_garbage",
+            FlatShape::GlobPattern => "shape_globpattern",
+            FlatShape::Int => "shape_int",
+            FlatShape::InternalCall(_) => "shape_internalcall",
+            FlatShape::Keyword => "shape_keyword",
+            FlatShape::List => "shape_list",
+            FlatShape::Literal => "shape_literal",
+            FlatShape::MatchPattern => "shape_match_pattern",
+            FlatShape::Nothing => "shape_nothing",
+            FlatShape::Operator => "shape_operator",
+            FlatShape::Or => "shape_or",
+            FlatShape::Pipe => "shape_pipe",
+            FlatShape::Range => "shape_range",
+            FlatShape::RawString => "shape_raw_string",
+            FlatShape::Record => "shape_record",
+            FlatShape::Redirection => "shape_redirection",
+            FlatShape::Signature => "shape_signature",
+            FlatShape::String => "shape_string",
+            FlatShape::StringInterpolation => "shape_string_interpolation",
+            FlatShape::Table => "shape_table",
+            FlatShape::Variable(_) => "shape_variable",
+            FlatShape::VarDecl(_) => "shape_vardecl",
         }
     }
 }
 
-pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
-    let mut output = vec![];
-
-    for pipeline in &block.pipelines {
-        output.extend(flatten_pipeline(working_set, pipeline));
+impl Display for FlatShape {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        f.write_str(self.as_str())
     }
-    output
 }
 
-pub fn flatten_expression(
+/*
+The `_into` functions below (e.g., `flatten_block_into`) take an existing `output` `Vec`
+and append more data to it. This is to reduce the number of intermediate `Vec`s.
+The non-`into` functions (e.g., `flatten_block`) are part of the crate's public API
+and return a new `Vec` instead of modifying an existing one.
+*/
+
+fn flatten_block_into(
+    working_set: &StateWorkingSet,
+    block: &Block,
+    output: &mut Vec<(Span, FlatShape)>,
+) {
+    for pipeline in &block.pipelines {
+        flatten_pipeline_into(working_set, pipeline, output);
+    }
+}
+
+fn flatten_pipeline_into(
+    working_set: &StateWorkingSet,
+    pipeline: &Pipeline,
+    output: &mut Vec<(Span, FlatShape)>,
+) {
+    for expr in &pipeline.elements {
+        flatten_pipeline_element_into(working_set, expr, output)
+    }
+}
+
+fn flatten_pipeline_element_into(
+    working_set: &StateWorkingSet,
+    pipeline_element: &PipelineElement,
+    output: &mut Vec<(Span, FlatShape)>,
+) {
+    if let Some(span) = pipeline_element.pipe {
+        output.push((span, FlatShape::Pipe));
+    }
+
+    flatten_expression_into(working_set, &pipeline_element.expr, output);
+
+    if let Some(redirection) = pipeline_element.redirection.as_ref() {
+        match redirection {
+            PipelineRedirection::Single { target, .. } => {
+                output.push((target.span(), FlatShape::Redirection));
+                if let Some(expr) = target.expr() {
+                    flatten_expression_into(working_set, expr, output);
+                }
+            }
+            PipelineRedirection::Separate { out, err } => {
+                let (out, err) = if out.span() <= err.span() {
+                    (out, err)
+                } else {
+                    (err, out)
+                };
+
+                output.push((out.span(), FlatShape::Redirection));
+                if let Some(expr) = out.expr() {
+                    flatten_expression_into(working_set, expr, output);
+                }
+                output.push((err.span(), FlatShape::Redirection));
+                if let Some(expr) = err.expr() {
+                    flatten_expression_into(working_set, expr, output);
+                }
+            }
+        }
+    }
+}
+
+fn flatten_expression_into(
     working_set: &StateWorkingSet,
     expr: &Expression,
-) -> Vec<(Span, FlatShape)> {
+    output: &mut Vec<(Span, FlatShape)>,
+) {
     if let Some(custom_completion) = &expr.custom_completion {
-        return vec![(expr.span, FlatShape::Custom(*custom_completion))];
+        output.push((expr.span, FlatShape::Custom(*custom_completion)));
+        return;
     }
 
     match &expr.expr {
         Expr::BinaryOp(lhs, op, rhs) => {
-            let mut output = vec![];
-            output.extend(flatten_expression(working_set, lhs));
-            output.extend(flatten_expression(working_set, op));
-            output.extend(flatten_expression(working_set, rhs));
-            output
+            flatten_expression_into(working_set, lhs, output);
+            flatten_expression_into(working_set, op, output);
+            flatten_expression_into(working_set, rhs, output);
         }
-        Expr::UnaryNot(inner_expr) => {
-            let mut output = vec![(
+        Expr::UnaryNot(expr) => {
+            output.push((
                 Span::new(expr.span.start, expr.span.start + 3),
                 FlatShape::Operator,
-            )];
-            output.extend(flatten_expression(working_set, inner_expr));
-            output
+            ));
+            flatten_expression_into(working_set, expr, output);
         }
         Expr::Closure(block_id) => {
             let outer_span = expr.span;
-
-            let mut output = vec![];
 
             let block = working_set.get_block(*block_id);
             let flattened = flatten_block(working_set, block);
@@ -154,15 +214,11 @@ pub fn flatten_expression(
 
             output.extend(flattened);
             if let Some(last) = last {
-                output.push(last)
+                output.push(last);
             }
-
-            output
         }
         Expr::Block(block_id) | Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let outer_span = expr.span;
-
-            let mut output = vec![];
 
             let flattened = flatten_block(working_set, working_set.get_block(*block_id));
 
@@ -184,150 +240,99 @@ pub fn flatten_expression(
 
             output.extend(flattened);
             if let Some(last) = last {
-                output.push(last)
+                output.push(last);
             }
-
-            output
         }
         Expr::Call(call) => {
-            let mut output = vec![];
-
             if call.head.end != 0 {
                 // Make sure we don't push synthetic calls
                 output.push((call.head, FlatShape::InternalCall(call.decl_id)));
             }
 
-            let mut args = vec![];
+            let arg_start = output.len();
             for arg in &call.arguments {
                 match arg {
                     Argument::Positional(positional) | Argument::Unknown(positional) => {
-                        let flattened = flatten_expression(working_set, positional);
-                        args.extend(flattened);
+                        flatten_expression_into(working_set, positional, output)
                     }
                     Argument::Named(named) => {
                         if named.0.span.end != 0 {
                             // Ignore synthetic flags
-                            args.push((named.0.span, FlatShape::Flag));
+                            output.push((named.0.span, FlatShape::Flag));
                         }
                         if let Some(expr) = &named.2 {
-                            args.extend(flatten_expression(working_set, expr));
+                            flatten_expression_into(working_set, expr, output);
                         }
                     }
                     Argument::Spread(expr) => {
-                        args.push((
+                        output.push((
                             Span::new(expr.span.start - 3, expr.span.start),
                             FlatShape::Operator,
                         ));
-                        args.extend(flatten_expression(working_set, expr));
+                        flatten_expression_into(working_set, expr, output);
                     }
                 }
             }
             // sort these since flags and positional args can be intermixed
-            args.sort();
-
-            output.extend(args);
-            output
+            output[arg_start..].sort();
         }
         Expr::ExternalCall(head, args) => {
-            let mut output = vec![];
-
-            match **head {
-                Expression {
-                    expr: Expr::String(..),
-                    span,
-                    ..
-                } => {
-                    output.push((span, FlatShape::External));
-                }
-                _ => {
-                    output.extend(flatten_expression(working_set, head));
-                }
+            if let Expr::String(..) = &head.expr {
+                output.push((head.span, FlatShape::External));
+            } else {
+                flatten_expression_into(working_set, head, output);
             }
 
             for arg in args.as_ref() {
-                //output.push((*arg, FlatShape::ExternalArg));
                 match arg {
-                    ExternalArgument::Regular(expr) => match expr {
-                        Expression {
-                            expr: Expr::String(..),
-                            span,
-                            ..
-                        } => {
-                            output.push((*span, FlatShape::ExternalArg));
+                    ExternalArgument::Regular(expr) => {
+                        if let Expr::String(..) = &expr.expr {
+                            output.push((expr.span, FlatShape::ExternalArg));
+                        } else {
+                            flatten_expression_into(working_set, expr, output);
                         }
-                        _ => {
-                            output.extend(flatten_expression(working_set, expr));
-                        }
-                    },
+                    }
                     ExternalArgument::Spread(expr) => {
                         output.push((
                             Span::new(expr.span.start - 3, expr.span.start),
                             FlatShape::Operator,
                         ));
-                        output.extend(flatten_expression(working_set, expr));
+                        flatten_expression_into(working_set, expr, output);
                     }
                 }
             }
-
-            output
         }
-        Expr::Garbage => {
-            vec![(expr.span, FlatShape::Garbage)]
-        }
-        Expr::Nothing => {
-            vec![(expr.span, FlatShape::Nothing)]
-        }
-        Expr::DateTime(_) => {
-            vec![(expr.span, FlatShape::DateTime)]
-        }
-        Expr::Binary(_) => {
-            vec![(expr.span, FlatShape::Binary)]
-        }
-        Expr::Int(_) => {
-            vec![(expr.span, FlatShape::Int)]
-        }
-        Expr::Float(_) => {
-            vec![(expr.span, FlatShape::Float)]
-        }
+        Expr::Garbage => output.push((expr.span, FlatShape::Garbage)),
+        Expr::Nothing => output.push((expr.span, FlatShape::Nothing)),
+        Expr::DateTime(_) => output.push((expr.span, FlatShape::DateTime)),
+        Expr::Binary(_) => output.push((expr.span, FlatShape::Binary)),
+        Expr::Int(_) => output.push((expr.span, FlatShape::Int)),
+        Expr::Float(_) => output.push((expr.span, FlatShape::Float)),
         Expr::MatchBlock(matches) => {
-            let mut output = vec![];
-
-            for match_ in matches {
-                output.extend(flatten_pattern(&match_.0));
-                output.extend(flatten_expression(working_set, &match_.1));
+            for (pattern, expr) in matches {
+                flatten_pattern_into(pattern, output);
+                flatten_expression_into(working_set, expr, output);
             }
-
-            output
         }
         Expr::ValueWithUnit(value) => {
-            let mut output = flatten_expression(working_set, &value.expr);
+            flatten_expression_into(working_set, &value.expr, output);
             output.push((value.unit.span, FlatShape::String));
-
-            output
         }
         Expr::CellPath(cell_path) => {
-            let mut output = vec![];
-            for path_element in &cell_path.members {
-                match path_element {
-                    PathMember::String { span, .. } => output.push((*span, FlatShape::String)),
-                    PathMember::Int { span, .. } => output.push((*span, FlatShape::Int)),
-                }
-            }
-            output
+            output.extend(cell_path.members.iter().map(|member| match *member {
+                PathMember::String { span, .. } => (span, FlatShape::String),
+                PathMember::Int { span, .. } => (span, FlatShape::Int),
+            }));
         }
         Expr::FullCellPath(cell_path) => {
-            let mut output = vec![];
-            output.extend(flatten_expression(working_set, &cell_path.head));
-            for path_element in &cell_path.tail {
-                match path_element {
-                    PathMember::String { span, .. } => output.push((*span, FlatShape::String)),
-                    PathMember::Int { span, .. } => output.push((*span, FlatShape::Int)),
-                }
-            }
-            output
+            flatten_expression_into(working_set, &cell_path.head, output);
+            output.extend(cell_path.tail.iter().map(|member| match *member {
+                PathMember::String { span, .. } => (span, FlatShape::String),
+                PathMember::Int { span, .. } => (span, FlatShape::Int),
+            }));
         }
         Expr::ImportPattern(import_pattern) => {
-            let mut output = vec![(import_pattern.head.span, FlatShape::String)];
+            output.push((import_pattern.head.span, FlatShape::String));
 
             for member in &import_pattern.members {
                 match member {
@@ -336,50 +341,33 @@ pub fn flatten_expression(
                         output.push((*span, FlatShape::String))
                     }
                     ImportPatternMember::List { names } => {
-                        for (_, span) in names {
-                            output.push((*span, FlatShape::String));
-                        }
+                        output.extend(names.iter().map(|&(_, span)| (span, FlatShape::String)))
                     }
                 }
             }
-
-            output
         }
-        Expr::Overlay(_) => {
-            vec![(expr.span, FlatShape::String)]
-        }
+        Expr::Overlay(_) => output.push((expr.span, FlatShape::String)),
         Expr::Range(range) => {
-            let mut output = vec![];
             if let Some(f) = &range.from {
-                output.extend(flatten_expression(working_set, f));
+                flatten_expression_into(working_set, f, output);
             }
             if let Some(s) = &range.next {
-                output.extend(vec![(range.operator.next_op_span, FlatShape::Operator)]);
-                output.extend(flatten_expression(working_set, s));
+                output.push((range.operator.next_op_span, FlatShape::Operator));
+                flatten_expression_into(working_set, s, output);
             }
-            output.extend(vec![(range.operator.span, FlatShape::Operator)]);
+            output.push((range.operator.span, FlatShape::Operator));
             if let Some(t) = &range.to {
-                output.extend(flatten_expression(working_set, t));
+                flatten_expression_into(working_set, t, output);
             }
-            output
         }
-        Expr::Bool(_) => {
-            vec![(expr.span, FlatShape::Bool)]
-        }
-        Expr::Filepath(_, _) => {
-            vec![(expr.span, FlatShape::Filepath)]
-        }
-        Expr::Directory(_, _) => {
-            vec![(expr.span, FlatShape::Directory)]
-        }
-        Expr::GlobPattern(_, _) => {
-            vec![(expr.span, FlatShape::GlobPattern)]
-        }
+        Expr::Bool(_) => output.push((expr.span, FlatShape::Bool)),
+        Expr::Filepath(_, _) => output.push((expr.span, FlatShape::Filepath)),
+        Expr::Directory(_, _) => output.push((expr.span, FlatShape::Directory)),
+        Expr::GlobPattern(_, _) => output.push((expr.span, FlatShape::GlobPattern)),
         Expr::List(list) => {
             let outer_span = expr.span;
             let mut last_end = outer_span.start;
 
-            let mut output = vec![];
             for item in list {
                 match item {
                     ListItem::Item(expr) => {
@@ -398,11 +386,11 @@ pub fn flatten_expression(
                         output.extend(flattened);
                     }
                     ListItem::Spread(_, expr) => {
-                        let mut output = vec![(
+                        output.push((
                             Span::new(expr.span.start, expr.span.start + 3),
                             FlatShape::Operator,
-                        )];
-                        output.extend(flatten_expression(working_set, expr));
+                        ));
+                        flatten_expression_into(working_set, expr, output);
                     }
                 }
             }
@@ -410,37 +398,32 @@ pub fn flatten_expression(
             if last_end < outer_span.end {
                 output.push((Span::new(last_end, outer_span.end), FlatShape::List));
             }
-            output
         }
         Expr::StringInterpolation(exprs) => {
-            let mut output = vec![];
+            let mut flattened = vec![];
             for expr in exprs {
-                output.extend(flatten_expression(working_set, expr));
+                flatten_expression_into(working_set, expr, &mut flattened);
             }
 
-            if let Some(first) = output.first() {
+            if let Some(first) = flattened.first() {
                 if first.0.start != expr.span.start {
                     // If we aren't a bare word interpolation, also highlight the outer quotes
-                    output.insert(
-                        0,
-                        (
-                            Span::new(expr.span.start, expr.span.start + 2),
-                            FlatShape::StringInterpolation,
-                        ),
-                    );
                     output.push((
+                        Span::new(expr.span.start, expr.span.start + 2),
+                        FlatShape::StringInterpolation,
+                    ));
+                    flattened.push((
                         Span::new(expr.span.end - 1, expr.span.end),
                         FlatShape::StringInterpolation,
                     ));
                 }
             }
-            output
+            output.extend(flattened);
         }
         Expr::Record(list) => {
             let outer_span = expr.span;
             let mut last_end = outer_span.start;
 
-            let mut output = vec![];
             for l in list {
                 match l {
                     RecordItem::Pair(key, val) => {
@@ -477,50 +460,38 @@ pub fn flatten_expression(
                         output.push((*op_span, FlatShape::Operator));
                         last_end = op_span.end;
 
-                        let flattened_inner = flatten_expression(working_set, record);
-                        if let Some(first) = flattened_inner.first() {
+                        let flattened = flatten_expression(working_set, record);
+                        if let Some(first) = flattened.first() {
                             if first.0.start > last_end {
                                 output
                                     .push((Span::new(last_end, first.0.start), FlatShape::Record));
                             }
                         }
-                        if let Some(last) = flattened_inner.last() {
+                        if let Some(last) = flattened.last() {
                             last_end = last.0.end;
                         }
-                        output.extend(flattened_inner);
+                        output.extend(flattened);
                     }
                 }
             }
             if last_end < outer_span.end {
                 output.push((Span::new(last_end, outer_span.end), FlatShape::Record));
             }
-
-            output
         }
         Expr::Keyword(kw) => {
-            let mut output = vec![(kw.span, FlatShape::Keyword)];
-            output.extend(flatten_expression(working_set, &kw.expr));
-            output
+            output.push((kw.span, FlatShape::Keyword));
+            flatten_expression_into(working_set, &kw.expr, output);
         }
-        Expr::Operator(_) => {
-            vec![(expr.span, FlatShape::Operator)]
-        }
-        Expr::Signature(_) => {
-            vec![(expr.span, FlatShape::Signature)]
-        }
-        Expr::String(_) => {
-            vec![(expr.span, FlatShape::String)]
-        }
-        Expr::RawString(_) => {
-            vec![(expr.span, FlatShape::RawString)]
-        }
+        Expr::Operator(_) => output.push((expr.span, FlatShape::Operator)),
+        Expr::Signature(_) => output.push((expr.span, FlatShape::Signature)),
+        Expr::String(_) => output.push((expr.span, FlatShape::String)),
+        Expr::RawString(_) => output.push((expr.span, FlatShape::RawString)),
         Expr::Table(table) => {
             let outer_span = expr.span;
             let mut last_end = outer_span.start;
 
-            let mut output = vec![];
-            for e in table.columns.as_ref() {
-                let flattened = flatten_expression(working_set, e);
+            for col in table.columns.as_ref() {
+                let flattened = flatten_expression(working_set, col);
                 if let Some(first) = flattened.first() {
                     if first.0.start > last_end {
                         output.push((Span::new(last_end, first.0.start), FlatShape::Table));
@@ -553,83 +524,17 @@ pub fn flatten_expression(
             if last_end < outer_span.end {
                 output.push((Span::new(last_end, outer_span.end), FlatShape::Table));
             }
-
-            output
         }
-        Expr::Var(var_id) => {
-            vec![(expr.span, FlatShape::Variable(*var_id))]
-        }
-        Expr::VarDecl(var_id) => {
-            vec![(expr.span, FlatShape::VarDecl(*var_id))]
-        }
+        Expr::Var(var_id) => output.push((expr.span, FlatShape::Variable(*var_id))),
+        Expr::VarDecl(var_id) => output.push((expr.span, FlatShape::VarDecl(*var_id))),
     }
 }
 
-pub fn flatten_pipeline_element(
-    working_set: &StateWorkingSet,
-    pipeline_element: &PipelineElement,
-) -> Vec<(Span, FlatShape)> {
-    let mut output = if let Some(span) = pipeline_element.pipe {
-        let mut output = vec![(span, FlatShape::Pipe)];
-        output.extend(flatten_expression(working_set, &pipeline_element.expr));
-        output
-    } else {
-        flatten_expression(working_set, &pipeline_element.expr)
-    };
-
-    if let Some(redirection) = pipeline_element.redirection.as_ref() {
-        match redirection {
-            PipelineRedirection::Single { target, .. } => {
-                output.push((target.span(), FlatShape::Redirection));
-                if let Some(expr) = target.expr() {
-                    output.extend(flatten_expression(working_set, expr));
-                }
-            }
-            PipelineRedirection::Separate { out, err } => {
-                let (out, err) = if out.span() <= err.span() {
-                    (out, err)
-                } else {
-                    (err, out)
-                };
-
-                output.push((out.span(), FlatShape::Redirection));
-                if let Some(expr) = out.expr() {
-                    output.extend(flatten_expression(working_set, expr));
-                }
-                output.push((err.span(), FlatShape::Redirection));
-                if let Some(expr) = err.expr() {
-                    output.extend(flatten_expression(working_set, expr));
-                }
-            }
-        }
-    }
-
-    output
-}
-
-pub fn flatten_pipeline(
-    working_set: &StateWorkingSet,
-    pipeline: &Pipeline,
-) -> Vec<(Span, FlatShape)> {
-    let mut output = vec![];
-    for expr in &pipeline.elements {
-        output.extend(flatten_pipeline_element(working_set, expr))
-    }
-    output
-}
-
-pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
-    let mut output = vec![];
+fn flatten_pattern_into(match_pattern: &MatchPattern, output: &mut Vec<(Span, FlatShape)>) {
     match &match_pattern.pattern {
-        Pattern::Garbage => {
-            output.push((match_pattern.span, FlatShape::Garbage));
-        }
-        Pattern::IgnoreValue => {
-            output.push((match_pattern.span, FlatShape::Nothing));
-        }
-        Pattern::IgnoreRest => {
-            output.push((match_pattern.span, FlatShape::Nothing));
-        }
+        Pattern::Garbage => output.push((match_pattern.span, FlatShape::Garbage)),
+        Pattern::IgnoreValue => output.push((match_pattern.span, FlatShape::Nothing)),
+        Pattern::IgnoreRest => output.push((match_pattern.span, FlatShape::Nothing)),
         Pattern::List(items) => {
             if let Some(first) = items.first() {
                 if let Some(last) = items.last() {
@@ -638,7 +543,7 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
                         FlatShape::MatchPattern,
                     ));
                     for item in items {
-                        output.extend(flatten_pattern(item));
+                        flatten_pattern_into(item, output);
                     }
                     output.push((
                         Span::new(last.span.end, match_pattern.span.end),
@@ -656,8 +561,8 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
                         Span::new(match_pattern.span.start, first.1.span.start),
                         FlatShape::MatchPattern,
                     ));
-                    for item in items {
-                        output.extend(flatten_pattern(&item.1));
+                    for (_, pattern) in items {
+                        flatten_pattern_into(pattern, output);
                     }
                     output.push((
                         Span::new(last.1.span.end, match_pattern.span.end),
@@ -668,20 +573,46 @@ pub fn flatten_pattern(match_pattern: &MatchPattern) -> Vec<(Span, FlatShape)> {
                 output.push((match_pattern.span, FlatShape::MatchPattern));
             }
         }
-        Pattern::Value(_) => {
-            output.push((match_pattern.span, FlatShape::MatchPattern));
-        }
-        Pattern::Variable(var_id) => {
-            output.push((match_pattern.span, FlatShape::VarDecl(*var_id)));
-        }
-        Pattern::Rest(var_id) => {
-            output.push((match_pattern.span, FlatShape::VarDecl(*var_id)));
-        }
+        Pattern::Value(_) => output.push((match_pattern.span, FlatShape::MatchPattern)),
+        Pattern::Variable(var_id) => output.push((match_pattern.span, FlatShape::VarDecl(*var_id))),
+        Pattern::Rest(var_id) => output.push((match_pattern.span, FlatShape::VarDecl(*var_id))),
         Pattern::Or(patterns) => {
             for pattern in patterns {
-                output.extend(flatten_pattern(pattern));
+                flatten_pattern_into(pattern, output);
             }
         }
     }
+}
+
+pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
+    let mut output = Vec::new();
+    flatten_block_into(working_set, block, &mut output);
+    output
+}
+
+pub fn flatten_pipeline(
+    working_set: &StateWorkingSet,
+    pipeline: &Pipeline,
+) -> Vec<(Span, FlatShape)> {
+    let mut output = Vec::new();
+    flatten_pipeline_into(working_set, pipeline, &mut output);
+    output
+}
+
+pub fn flatten_pipeline_element(
+    working_set: &StateWorkingSet,
+    pipeline_element: &PipelineElement,
+) -> Vec<(Span, FlatShape)> {
+    let mut output = Vec::new();
+    flatten_pipeline_element_into(working_set, pipeline_element, &mut output);
+    output
+}
+
+pub fn flatten_expression(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+) -> Vec<(Span, FlatShape)> {
+    let mut output = Vec::new();
+    flatten_expression_into(working_set, expr, &mut output);
     output
 }

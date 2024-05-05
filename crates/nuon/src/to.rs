@@ -39,7 +39,9 @@ pub enum ToStyle {
 
 /// convert an actual Nushell [`Value`] to a raw string representation of the NUON data
 ///
-/// > **Note**
+// WARNING: please leave the following two trailing spaces, they matter for the documentation
+// formatting
+/// > **Note**  
 /// > a [`Span`] can be passed to [`to_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as [`to nuon`](https://www.nushell.sh/commands/docs/to_nuon.html).
 ///

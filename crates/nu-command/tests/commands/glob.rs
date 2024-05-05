@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 #[test]
 fn empty_glob_pattern_triggers_error() {
     Playground::setup("glob_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
@@ -25,7 +25,7 @@ fn empty_glob_pattern_triggers_error() {
 #[test]
 fn nonempty_glob_lists_matching_paths() {
     Playground::setup("glob_sanity_star", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
@@ -43,13 +43,13 @@ fn nonempty_glob_lists_matching_paths() {
 #[test]
 fn glob_subdirs() {
     Playground::setup("glob_subdirs", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
         sandbox.mkdir("children");
-        sandbox.within("children").with_files(vec![
+        sandbox.within("children").with_files(&[
             EmptyFile("timothy.txt"),
             EmptyFile("tiffany.txt"),
             EmptyFile("trish.txt"),
@@ -70,13 +70,13 @@ fn glob_subdirs() {
 #[test]
 fn glob_subdirs_ignore_dirs() {
     Playground::setup("glob_subdirs_ignore_directories", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
         sandbox.mkdir("children");
-        sandbox.within("children").with_files(vec![
+        sandbox.within("children").with_files(&[
             EmptyFile("timothy.txt"),
             EmptyFile("tiffany.txt"),
             EmptyFile("trish.txt"),
@@ -97,13 +97,13 @@ fn glob_subdirs_ignore_dirs() {
 #[test]
 fn glob_ignore_files() {
     Playground::setup("glob_ignore_files", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
         ]);
         sandbox.mkdir("children");
-        sandbox.within("children").with_files(vec![
+        sandbox.within("children").with_files(&[
             EmptyFile("timothy.txt"),
             EmptyFile("tiffany.txt"),
             EmptyFile("trish.txt"),

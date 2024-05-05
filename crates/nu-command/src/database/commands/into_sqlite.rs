@@ -203,8 +203,8 @@ fn action(
     ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<Value, ShellError> {
     match input {
-        PipelineData::ListStream(list_stream, _) => {
-            insert_in_transaction(list_stream.stream, span, table, ctrl_c)
+        PipelineData::ListStream(stream, _) => {
+            insert_in_transaction(stream.into_iter(), span, table, ctrl_c)
         }
         PipelineData::Value(
             Value::List {
@@ -269,7 +269,8 @@ fn insert_in_transaction(
         let insert_statement = format!(
             "INSERT INTO [{}] ({}) VALUES ({})",
             table_name,
-            Itertools::intersperse(val.columns().map(String::as_str), ", ").collect::<String>(),
+            Itertools::intersperse(val.columns().map(|c| format!("`{}`", c)), ", ".to_string())
+                .collect::<String>(),
             Itertools::intersperse(itertools::repeat_n("?", val.len()), ", ").collect::<String>(),
         );
 
@@ -390,8 +391,12 @@ fn get_columns_with_sqlite_types(
     let mut columns: Vec<(String, &'static str)> = vec![];
 
     for (c, v) in record {
-        if !columns.iter().any(|(name, _)| name == c) {
-            columns.push((c.clone(), nu_value_to_sqlite_type(v)?));
+        if !columns
+            .iter()
+            .map(|name| (format!("`{}`", name.0), name.1))
+            .any(|(name, _)| name == *c)
+        {
+            columns.push((format!("`{}`", c), nu_value_to_sqlite_type(v)?));
         }
     }
 

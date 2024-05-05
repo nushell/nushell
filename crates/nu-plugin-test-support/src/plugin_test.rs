@@ -91,7 +91,7 @@ impl PluginTest {
     /// let result = PluginTest::new("my_plugin", MyPlugin.into())?
     ///     .eval_with(
     ///         "my-command",
-    ///         vec![Value::test_int(42)].into_pipeline_data(None)
+    ///         vec![Value::test_int(42)].into_pipeline_data(Span::test_data(), None)
     ///     )?
     ///     .into_value(Span::test_data());
     /// assert_eq!(Value::test_string("42"), result);
