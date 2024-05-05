@@ -143,7 +143,7 @@ fn first_helper(
                     } else {
                         Ok(iter
                             .take(rows)
-                            .into_pipeline_data_with_metadata(metadata, ctrlc))
+                            .into_pipeline_data_with_metadata(span, ctrlc, metadata))
                     }
                 }
                 // Propagate errors by explicitly matching them before the final case.
@@ -156,17 +156,18 @@ fn first_helper(
                 }),
             }
         }
-        PipelineData::ListStream(mut ls, metadata) => {
+        PipelineData::ListStream(stream, metadata) => {
             if return_single_element {
-                if let Some(v) = ls.next() {
+                if let Some(v) = stream.into_iter().next() {
                     Ok(v.into_pipeline_data())
                 } else {
                     Err(ShellError::AccessEmptyContent { span: head })
                 }
             } else {
-                Ok(ls
-                    .take(rows)
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                Ok(PipelineData::ListStream(
+                    stream.modify(|iter| iter.take(rows)),
+                    metadata,
+                ))
             }
         }
         PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {

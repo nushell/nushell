@@ -81,7 +81,7 @@ impl Command for IntoValue {
             display_as_filesizes,
             span,
         }
-        .into_pipeline_data(ctrlc)
+        .into_pipeline_data(span, ctrlc)
         .set_metadata(metadata))
     }
 }

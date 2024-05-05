@@ -72,17 +72,12 @@ pub fn help_commands(
             &highlight_style,
         )?;
 
-        return Ok(found_cmds_vec
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()));
+        return Ok(Value::list(found_cmds_vec, head).into_pipeline_data());
     }
 
     if rest.is_empty() {
         let found_cmds_vec = build_help_commands(engine_state, head);
-
-        Ok(found_cmds_vec
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(Value::list(found_cmds_vec, head).into_pipeline_data())
     } else {
         let mut name = String::new();
 

@@ -199,7 +199,7 @@ impl Command for Glob {
             }
         };
 
-        Ok(if !not_patterns.is_empty() {
+        let result = if !not_patterns.is_empty() {
             let np: Vec<&str> = not_patterns.iter().map(|s| s as &str).collect();
             let glob_results = glob
                 .walk_with_behavior(
@@ -218,10 +218,7 @@ impl Command for Glob {
                     inner: vec![],
                 })?
                 .flatten();
-            let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;
-            result
-                .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone())
+            glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)
         } else {
             let glob_results = glob
                 .walk_with_behavior(
@@ -232,11 +229,12 @@ impl Command for Glob {
                     },
                 )
                 .flatten();
-            let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;
-            result
-                .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone())
-        })
+            glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)
+        }?;
+
+        Ok(result
+            .into_iter()
+            .into_pipeline_data(span, engine_state.ctrlc.clone()))
     }
 }
 

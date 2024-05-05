@@ -115,10 +115,11 @@ impl Command for Ls {
         match input_pattern_arg {
             None => Ok(ls_for_one_pattern(None, args, ctrl_c.clone(), cwd)?
                 .into_pipeline_data_with_metadata(
+                    call_span,
+                    ctrl_c,
                     PipelineMetadata {
                         data_source: DataSource::Ls,
                     },
-                    ctrl_c,
                 )),
             Some(pattern) => {
                 let mut result_iters = vec![];
@@ -137,10 +138,11 @@ impl Command for Ls {
                     .into_iter()
                     .flatten()
                     .into_pipeline_data_with_metadata(
+                        call_span,
+                        ctrl_c,
                         PipelineMetadata {
                             data_source: DataSource::Ls,
                         },
-                        ctrl_c,
                     ))
             }
         }

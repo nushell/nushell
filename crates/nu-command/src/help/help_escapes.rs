@@ -21,7 +21,7 @@ impl Command for HelpEscapes {
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
@@ -40,9 +40,7 @@ impl Command for HelpEscapes {
             ));
         }
 
-        Ok(recs
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(Value::list(recs, call.head).into_pipeline_data())
     }
 }
 

@@ -60,8 +60,8 @@ impl PluginCommand for Generate {
         call: &EvaluatedCall,
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
+        let head = call.head;
         let engine = engine.clone();
-        let call = call.clone();
         let initial: Value = call.req(0)?;
         let closure = call.req(1)?;
 
@@ -83,9 +83,9 @@ impl PluginCommand for Generate {
                         })
                         .transpose()
                 })
-                .map(|result| result.unwrap_or_else(|err| Value::error(err, call.head)))
+                .map(|result| result.unwrap_or_else(|err| Value::error(err, head)))
         })
-        .into_pipeline_data(None))
+        .into_pipeline_data(head, None))
     }
 }
 

@@ -1,6 +1,6 @@
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{format_duration, format_filesize_from_conf, Config, ListStream, RawStream};
+use nu_protocol::{format_duration, format_filesize_from_conf, Config, RawStream, ValueIterator};
 
 #[derive(Clone)]
 pub struct ToText;
@@ -41,7 +41,7 @@ impl Command for ToText {
             Ok(PipelineData::ExternalStream {
                 stdout: Some(RawStream::new(
                     Box::new(ListStreamIterator {
-                        stream,
+                        stream: stream.into_inner(),
                         separator: line_ending.into(),
                         config: config.clone(),
                     }),
@@ -86,7 +86,7 @@ impl Command for ToText {
 }
 
 struct ListStreamIterator {
-    stream: ListStream,
+    stream: ValueIterator,
     separator: String,
     config: Config,
 }

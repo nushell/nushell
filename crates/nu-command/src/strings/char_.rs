@@ -230,7 +230,7 @@ impl Command for Char {
 
         // handle -l flag
         if list {
-            return generate_character_list(ctrlc, call.head);
+            return Ok(generate_character_list(ctrlc, call.head));
         }
 
         // handle -i flag
@@ -265,7 +265,7 @@ impl Command for Char {
 
         // handle -l flag
         if list {
-            return generate_character_list(ctrlc, call_span);
+            return Ok(generate_character_list(ctrlc, call_span));
         }
 
         // handle -i flag
@@ -286,11 +286,8 @@ impl Command for Char {
     }
 }
 
-fn generate_character_list(
-    ctrlc: Option<Arc<AtomicBool>>,
-    call_span: Span,
-) -> Result<PipelineData, ShellError> {
-    Ok(CHAR_MAP
+fn generate_character_list(ctrlc: Option<Arc<AtomicBool>>, call_span: Span) -> PipelineData {
+    CHAR_MAP
         .iter()
         .map(move |(name, s)| {
             let unicode = Value::string(
@@ -308,7 +305,7 @@ fn generate_character_list(
 
             Value::record(record, call_span)
         })
-        .into_pipeline_data(ctrlc))
+        .into_pipeline_data(call_span, ctrlc)
 }
 
 fn handle_integer_flag(

@@ -52,7 +52,10 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
     // Create a stream...
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo { id: 0 }),
+        PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         None,
     )?;
 
@@ -105,7 +108,10 @@ fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError
     test.set_read_error(test_io_error());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream(ListStreamInfo { id: 0 }),
+        PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         None,
     )?;
 
@@ -331,7 +337,10 @@ fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data(
 
     manager.consume(PluginOutput::CallResponse(
         0,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo { id: 0 })),
+        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        })),
     ))?;
 
     for i in 0..2 {
@@ -372,7 +381,10 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
     // Check list streams, external streams
     manager.consume(PluginOutput::CallResponse(
         0,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo { id: 0 })),
+        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        })),
     ))?;
     manager.consume(PluginOutput::CallResponse(
         1,
@@ -388,7 +400,10 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
                 is_binary: false,
                 known_size: None,
             }),
-            exit_code: Some(ListStreamInfo { id: 3 }),
+            exit_code: Some(ListStreamInfo {
+                id: 3,
+                span: Span::test_data(),
+            }),
             trim_end_newline: false,
         })),
     ))?;
@@ -448,7 +463,10 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
                 span: Span::test_data(),
             },
             positional: vec![],
-            input: PipelineDataHeader::ListStream(ListStreamInfo { id: 2 }),
+            input: PipelineDataHeader::ListStream(ListStreamInfo {
+                id: 2,
+                span: Span::test_data(),
+            }),
             redirect_stdout: false,
             redirect_stderr: false,
         },
@@ -681,7 +699,7 @@ fn manager_prepare_pipeline_data_adds_source_to_list_streams() -> Result<(), She
         [Value::test_custom_value(Box::new(
             test_plugin_custom_value(),
         ))]
-        .into_pipeline_data(None),
+        .into_pipeline_data(Span::test_data(), None),
     )?;
 
     let value = data
@@ -855,7 +873,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
                 positional: vec![],
                 named: vec![],
             },
-            input: values.clone().into_pipeline_data(None),
+            input: values.clone().into_pipeline_data(Span::test_data(), None),
         }),
         None,
     )?;
@@ -1131,7 +1149,10 @@ fn interface_prepare_pipeline_data_accepts_normal_streams() -> Result<(), ShellE
     let interface = TestCase::new().plugin("test").get_interface();
     let values = normal_values(&interface);
     let state = CurrentCallState::default();
-    let data = interface.prepare_pipeline_data(values.clone().into_pipeline_data(None), &state)?;
+    let data = interface.prepare_pipeline_data(
+        values.clone().into_pipeline_data(Span::test_data(), None),
+        &state,
+    )?;
 
     let mut count = 0;
     for (expected_value, actual_value) in values.iter().zip(data) {
@@ -1191,7 +1212,10 @@ fn interface_prepare_pipeline_data_rejects_bad_custom_value_in_a_stream() -> Res
     let interface = TestCase::new().plugin("test").get_interface();
     let values = bad_custom_values();
     let state = CurrentCallState::default();
-    let data = interface.prepare_pipeline_data(values.clone().into_pipeline_data(None), &state)?;
+    let data = interface.prepare_pipeline_data(
+        values.clone().into_pipeline_data(Span::test_data(), None),
+        &state,
+    )?;
 
     let mut count = 0;
     for value in data {

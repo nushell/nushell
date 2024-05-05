@@ -144,7 +144,7 @@ fn values(
                 Value::List { vals, .. } => match get_values(&vals, head, span) {
                     Ok(cols) => Ok(cols
                         .into_iter()
-                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                        .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                     Err(err) => Err(err),
                 },
                 Value::Custom { val, .. } => {
@@ -152,7 +152,7 @@ fn values(
                     match get_values(&[input_as_base_value], head, span) {
                         Ok(cols) => Ok(cols
                             .into_iter()
-                            .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                            .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                         Err(err) => Err(err),
                     }
                 }
@@ -160,7 +160,7 @@ fn values(
                     .values()
                     .cloned()
                     .collect::<Vec<_>>()
-                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                    .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {
@@ -176,7 +176,7 @@ fn values(
             match get_values(&vals, head, head) {
                 Ok(cols) => Ok(cols
                     .into_iter()
-                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                    .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                 Err(err) => Err(err),
             }
         }
