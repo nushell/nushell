@@ -227,7 +227,7 @@ nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.93.1" 
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.93.1" }
 assert_cmd = "2.0"
 dirs-next = { workspace = true }
-divan = "0.1.14"
+tango-bench = "0.5"
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
 serial_test = "3.1"
