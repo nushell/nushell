@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{NuExpression, NuLazyFrame},
-    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 
@@ -47,7 +47,7 @@ impl PluginCommand for Shift {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Shifts the values by a given period",
-            example: "[1 2 2 3 3] | polars into-df | polars shift 2 | polars drop-nulls",
+            example: "[1 2 2 3 3] | polars into-df | polars shift 2 | polars drop-nulls | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new(
@@ -70,33 +70,9 @@ impl PluginCommand for Shift {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head);
-
-        match PolarsPluginObject::try_from_value(plugin, &value)? {
-            PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
-            PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
-            _ => Err(cant_convert_err(
-                &value,
-                &[
-                    PolarsPluginType::NuDataFrame,
-                    PolarsPluginType::NuLazyGroupBy,
-                ],
-            )),
-        }
-        .map_err(LabeledError::from)
+        let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
+        command_lazy(plugin, engine, call, lazy).map_err(LabeledError::from)
     }
-}
-
-fn command_eager(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    call: &EvaluatedCall,
-    df: NuDataFrame,
-) -> Result<PipelineData, ShellError> {
-    let period: i64 = call.req(0)?;
-    let series = df.as_series(call.head)?.shift(period);
-
-    let df = NuDataFrame::try_from_series_vec(vec![series], call.head)?;
-    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_lazy(
