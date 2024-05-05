@@ -23,7 +23,7 @@
 ## Creating a new crate
 
 - Generally new crates should be part of `crates/` in the nushell monorepo, unless:
-    - both Nushell and a crate that gets publisehd outside the monorepo (like `reedline`) depend on a commmon interface, so it needs to be released before the nushell workspace AND an existing outside crate -> new independent crate in the `nushell` organization
+    - both Nushell and a crate that gets published outside the monorepo (like `reedline`) depend on a common interface, so it needs to be released before the nushell workspace AND an existing outside crate -> new independent crate in the `nushell` organization
     - it is a fork of a full existing crate that does not require deep integration into the nushell monorepo, maintaining the fork in the `nushell` organization has the benefit of maintaining the commit history and being more accessible to other interested users (e.g. `nu-ansi-term`)
 - If you redistribute code that is part of another project, make sure proper attribution is given and license compatibility is given (we are MIT, if your crate use something compatible but different we may need to dual license the new crate)
 - Ensure that no circles in the crate graph are created.
