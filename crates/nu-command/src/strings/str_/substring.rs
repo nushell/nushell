@@ -149,7 +149,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     ),
                     Ordering::Less => Value::string(
                         {
-                            if end == isize::max_value() {
+                            if end == isize::MAX {
                                 if args.graphemes {
                                     s.graphemes(true)
                                         .skip(start as usize)
@@ -245,7 +245,7 @@ mod tests {
             expectation("andre", (0, -1)),
             // str substring [ -4 , _ ]
             // str substring   -4 ,
-            expectation("dres", (-4, isize::max_value())),
+            expectation("dres", (-4, isize::MAX)),
             expectation("", (0, -110)),
             expectation("", (6, 0)),
             expectation("", (6, -1)),

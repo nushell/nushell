@@ -1,6 +1,7 @@
 use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
@@ -91,6 +92,7 @@ impl Command for Ls {
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
 
         let args = Args {
@@ -113,10 +115,11 @@ impl Command for Ls {
         match input_pattern_arg {
             None => Ok(ls_for_one_pattern(None, args, ctrl_c.clone(), cwd)?
                 .into_pipeline_data_with_metadata(
+                    call_span,
+                    ctrl_c,
                     PipelineMetadata {
                         data_source: DataSource::Ls,
                     },
-                    ctrl_c,
                 )),
             Some(pattern) => {
                 let mut result_iters = vec![];
@@ -135,10 +138,11 @@ impl Command for Ls {
                     .into_iter()
                     .flatten()
                     .into_pipeline_data_with_metadata(
+                        call_span,
+                        ctrl_c,
                         PipelineMetadata {
                             data_source: DataSource::Ls,
                         },
-                        ctrl_c,
                     ))
             }
         }
@@ -429,7 +433,7 @@ fn ls_for_one_pattern(
                 Err(err) => Some(Value::error(err, call_span)),
             }
         }
-        _ => Some(Value::nothing(call_span)),
+        Err(err) => Some(Value::error(err, call_span)),
     })))
 }
 

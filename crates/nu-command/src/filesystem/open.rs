@@ -1,4 +1,5 @@
 use super::util::get_rest_for_glob_pattern;
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, get_eval_block};
 use nu_protocol::{BufferedReader, DataSource, NuGlob, PipelineMetadata, RawStream};
 use std::{io::BufReader, path::Path};
@@ -51,6 +52,7 @@ impl Command for Open {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         let eval_block = get_eval_block(engine_state);
@@ -207,7 +209,10 @@ impl Command for Open {
         } else if output.len() == 1 {
             Ok(output.remove(0))
         } else {
-            Ok(output.into_iter().flatten().into_pipeline_data(ctrlc))
+            Ok(output
+                .into_iter()
+                .flatten()
+                .into_pipeline_data(call_span, ctrlc))
         }
     }
 

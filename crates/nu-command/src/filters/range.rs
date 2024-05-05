@@ -64,6 +64,7 @@ impl Command for Range {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let metadata = input.metadata();
         let rows: Spanned<NumRange> = call.req(engine_state, stack, 0)?;
 
@@ -102,20 +103,20 @@ impl Command for Range {
                     };
 
                     if from > to {
-                        Ok(PipelineData::Value(Value::nothing(call.head), None))
+                        Ok(PipelineData::Value(Value::nothing(head), None))
                     } else {
                         let iter = v.into_iter().skip(from).take(to - from + 1);
-                        Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+                        Ok(iter.into_pipeline_data(head, engine_state.ctrlc.clone()))
                     }
                 } else {
                     let from = start as usize;
                     let to = end as usize;
 
                     if from > to {
-                        Ok(PipelineData::Value(Value::nothing(call.head), None))
+                        Ok(PipelineData::Value(Value::nothing(head), None))
                     } else {
                         let iter = input.into_iter().skip(from).take(to - from + 1);
-                        Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+                        Ok(iter.into_pipeline_data(head, engine_state.ctrlc.clone()))
                     }
                 }
                 .map(|x| x.set_metadata(metadata))

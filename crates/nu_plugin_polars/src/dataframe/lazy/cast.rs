@@ -103,7 +103,7 @@ impl PluginCommand for CastDF {
             PolarsPluginObject::NuExpression(expr) => {
                 let dtype: String = call.req(0)?;
                 let dtype = str_to_dtype(&dtype, call.head)?;
-                let expr: NuExpression = expr.to_polars().cast(dtype).into();
+                let expr: NuExpression = expr.into_polars().cast(dtype).into();
                 expr.to_pipeline_data(plugin, engine, call.head)
             }
             _ => Err(cant_convert_err(

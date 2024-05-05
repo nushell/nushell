@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -23,6 +23,16 @@ pub fn make_local_socket_name(unique_id: &str) -> OsString {
     base.into()
 }
 
+/// Interpret a local socket name for use with `interprocess`.
+#[cfg(unix)]
+pub fn interpret_local_socket_name(
+    name: &OsStr,
+) -> Result<interprocess::local_socket::Name, std::io::Error> {
+    use interprocess::local_socket::{GenericFilePath, ToFsName};
+
+    name.to_fs_name::<GenericFilePath>()
+}
+
 /// Generate a name to be used for a local socket specific to this `nu` process, described by the
 /// given `unique_id`, which should be unique to the purpose of the socket.
 ///
@@ -31,6 +41,16 @@ pub fn make_local_socket_name(unique_id: &str) -> OsString {
 #[cfg(windows)]
 pub fn make_local_socket_name(unique_id: &str) -> OsString {
     format!("nu.{}.{}", std::process::id(), unique_id).into()
+}
+
+/// Interpret a local socket name for use with `interprocess`.
+#[cfg(windows)]
+pub fn interpret_local_socket_name(
+    name: &OsStr,
+) -> Result<interprocess::local_socket::Name, std::io::Error> {
+    use interprocess::local_socket::{GenericNamespaced, ToNsName};
+
+    name.to_ns_name::<GenericNamespaced>()
 }
 
 /// Determine if the error is just due to the listener not being ready yet in asynchronous mode
@@ -47,38 +67,4 @@ pub fn is_would_block_err(err: &std::io::Error) -> bool {
             // Windows returns this error when trying to accept a pipe in non-blocking mode
             e as i64 == windows::Win32::Foundation::ERROR_PIPE_LISTENING.0 as i64
         })
-}
-
-/// Wraps the `interprocess` local socket stream for greater compatibility
-#[derive(Debug)]
-pub struct LocalSocketStream(pub interprocess::local_socket::LocalSocketStream);
-
-impl From<interprocess::local_socket::LocalSocketStream> for LocalSocketStream {
-    fn from(value: interprocess::local_socket::LocalSocketStream) -> Self {
-        LocalSocketStream(value)
-    }
-}
-
-impl std::io::Read for LocalSocketStream {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        self.0.read(buf)
-    }
-}
-
-impl std::io::Write for LocalSocketStream {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.write(buf)
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        // We don't actually flush the underlying socket on Windows. The flush operation on a
-        // Windows named pipe actually synchronizes with read on the other side, and won't finish
-        // until the other side is empty. This isn't how most of our other I/O methods work, so we
-        // just won't do it. The BufWriter above this will have still made a write call with the
-        // contents of the buffer, which should be good enough.
-        if cfg!(not(windows)) {
-            self.0.flush()?;
-        }
-        Ok(())
-    }
 }

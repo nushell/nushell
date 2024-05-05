@@ -150,7 +150,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         head,
                     ),
                     Ordering::Less => Value::binary(
-                        if end == isize::max_value() {
+                        if end == isize::MAX {
                             val.iter()
                                 .skip(start as usize)
                                 .copied()

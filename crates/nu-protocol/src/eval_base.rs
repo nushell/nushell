@@ -4,8 +4,7 @@ use crate::{
         ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
-    Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
-    ENV_VARIABLE_ID,
+    Config, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -139,7 +138,7 @@ pub trait Eval {
                 Ok(Value::list(output_rows, expr.span))
             }
             Expr::Keyword(kw) => Self::eval::<D>(state, mut_state, &kw.expr),
-            Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
+            Expr::String(s) | Expr::RawString(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
             Expr::ValueWithUnit(value) => match Self::eval::<D>(state, mut_state, &value.expr)? {
                 Value::Int { val, .. } => value.unit.item.build_value(val, value.unit.span),
@@ -278,18 +277,13 @@ pub trait Eval {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
             Expr::StringInterpolation(exprs) => {
-                let mut parts = vec![];
-                for expr in exprs {
-                    parts.push(Self::eval::<D>(state, mut_state, expr)?);
-                }
-
                 let config = Self::get_config(state, mut_state);
+                let str = exprs
+                    .iter()
+                    .map(|expr| Self::eval::<D>(state, mut_state, expr).map(|v| v.to_expanded_string(", ", &config)))
+                    .collect::<Result<String, _>>()?;
 
-                parts
-                    .into_iter()
-                    .into_pipeline_data(None)
-                    .collect_string("", &config)
-                    .map(|x| Value::string(x, expr.span))
+                Ok(Value::string(str, expr.span))
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
             Expr::GlobPattern(pattern, quoted) => {

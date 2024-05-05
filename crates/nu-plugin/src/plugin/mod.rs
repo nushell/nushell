@@ -28,8 +28,11 @@ mod interface;
 pub use command::{create_plugin_signature, PluginCommand, SimplePluginCommand};
 pub use interface::{EngineInterface, EngineInterfaceManager};
 
+/// This should be larger than the largest commonly sent message to avoid excessive fragmentation.
+///
+/// The buffers coming from external streams are typically each 8192 bytes, so double that.
 #[allow(dead_code)]
-pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
+pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 
 /// The API for a Nushell plugin
 ///

@@ -113,17 +113,17 @@ impl PluginCommand for ExprWhen {
 
         let value = input.into_value(call.head);
         let when_then: NuWhen = match value {
-            Value::Nothing { .. } => when(when_predicate.to_polars())
-                .then(then_predicate.to_polars())
+            Value::Nothing { .. } => when(when_predicate.into_polars())
+                .then(then_predicate.into_polars())
                 .into(),
             v => match NuWhen::try_from_value(plugin, &v)?.when_type {
                 NuWhenType::Then(when_then) => when_then
-                    .when(when_predicate.to_polars())
-                    .then(then_predicate.to_polars())
+                    .when(when_predicate.into_polars())
+                    .then(then_predicate.into_polars())
                     .into(),
                 NuWhenType::ChainedThen(when_then_then) => when_then_then
-                    .when(when_predicate.to_polars())
-                    .then(then_predicate.to_polars())
+                    .when(when_predicate.into_polars())
+                    .then(then_predicate.into_polars())
                     .into(),
             },
         };

@@ -129,7 +129,7 @@ fn passes_with_env_env_var_to_external_process() {
 #[test]
 fn has_file_pwd() {
     Playground::setup("has_file_pwd", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent("spam.nu", "$env.FILE_PWD")]);
+        sandbox.with_files(&[FileWithContent("spam.nu", "$env.FILE_PWD")]);
 
         let actual = nu!(cwd: dirs.test(), "nu spam.nu");
 
@@ -140,7 +140,7 @@ fn has_file_pwd() {
 #[test]
 fn has_file_loc() {
     Playground::setup("has_file_pwd", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent("spam.nu", "$env.CURRENT_FILE")]);
+        sandbox.with_files(&[FileWithContent("spam.nu", "$env.CURRENT_FILE")]);
 
         let actual = nu!(cwd: dirs.test(), "nu spam.nu");
 
@@ -154,7 +154,7 @@ fn has_file_loc() {
 #[serial]
 fn passes_env_from_local_cfg_to_external_process() {
     Playground::setup("autoenv_dir", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             ".nu-env",
             r#"[env]
             FOO = "foo"

@@ -50,7 +50,7 @@ macro_rules! expr_command {
             ) -> Result<PipelineData, LabeledError> {
                 let expr = NuExpression::try_from_pipeline(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
-                let expr: NuExpression = expr.to_polars().$func().into();
+                let expr: NuExpression = expr.into_polars().$func().into();
                 expr.to_pipeline_data(plugin, engine, call.head)
                     .map_err(LabeledError::from)
             }
@@ -180,7 +180,7 @@ macro_rules! lazy_expr_command {
                 } else {
                     let expr =
                         NuExpression::try_from_value(plugin, &value).map_err(LabeledError::from)?;
-                    let expr: NuExpression = expr.to_polars().$func().into();
+                    let expr: NuExpression = expr.into_polars().$func().into();
                     expr.to_pipeline_data(plugin, engine, call.head)
                         .map_err(LabeledError::from)
                 }
@@ -259,7 +259,7 @@ macro_rules! lazy_expr_command {
                         .map_err(LabeledError::from)
                 } else {
                     let expr = NuExpression::try_from_value(plugin, &value)?;
-                    let expr: NuExpression = expr.to_polars().$func($ddof).into();
+                    let expr: NuExpression = expr.into_polars().$func($ddof).into();
                     expr.to_pipeline_data(plugin, engine, call.head)
                         .map_err(LabeledError::from)
                 }

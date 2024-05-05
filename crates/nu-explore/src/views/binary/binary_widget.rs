@@ -4,17 +4,13 @@ use ratatui::{
     buffer::Buffer,
     layout::Rect,
     text::Span,
-    widgets::{Paragraph, StatefulWidget, Widget},
+    widgets::{Paragraph, Widget},
 };
 
 use crate::{
     nu_common::NuStyle,
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
-
-use super::Layout;
-
-type OptStyle = Option<NuStyle>;
 
 #[derive(Debug, Clone)]
 pub struct BinaryWidget<'a> {
@@ -73,7 +69,7 @@ impl BinarySettings {
 
 #[derive(Debug, Default, Clone)]
 pub struct BinaryStyle {
-    colors: BinaryStyleColors,
+    color_index: Option<NuStyle>,
     indent_index: Indent,
     indent_data: Indent,
     indent_ascii: Indent,
@@ -83,7 +79,7 @@ pub struct BinaryStyle {
 
 impl BinaryStyle {
     pub fn new(
-        colors: BinaryStyleColors,
+        color_index: Option<NuStyle>,
         indent_index: Indent,
         indent_data: Indent,
         indent_ascii: Indent,
@@ -91,7 +87,7 @@ impl BinaryStyle {
         show_split: bool,
     ) -> Self {
         Self {
-            colors,
+            color_index,
             indent_index,
             indent_data,
             indent_ascii,
@@ -113,61 +109,8 @@ impl Indent {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct BinaryStyleColors {
-    pub split_left: OptStyle,
-    pub split_right: OptStyle,
-    pub index: OptStyle,
-    pub data: SymbolColor,
-    pub ascii: SymbolColor,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct SymbolColor {
-    pub default: OptStyle,
-    pub zero: OptStyle,
-    pub unknown: OptStyle,
-}
-
-impl SymbolColor {
-    pub fn new(default: OptStyle, zero: OptStyle, unknown: OptStyle) -> Self {
-        Self {
-            default,
-            zero,
-            unknown,
-        }
-    }
-}
-
-impl BinaryStyleColors {
-    pub fn new(
-        index: OptStyle,
-        data: SymbolColor,
-        ascii: SymbolColor,
-        split_left: OptStyle,
-        split_right: OptStyle,
-    ) -> Self {
-        Self {
-            split_left,
-            split_right,
-            index,
-            data,
-            ascii,
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct BinaryWidgetState {
-    pub layout_index: Layout,
-    pub layout_data: Layout,
-    pub layout_ascii: Layout,
-}
-
-impl StatefulWidget for BinaryWidget<'_> {
-    type State = BinaryWidgetState;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+impl Widget for BinaryWidget<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
         let min_width = get_widget_width(&self);
 
         if (area.width as usize) < min_width {
@@ -178,12 +121,12 @@ impl StatefulWidget for BinaryWidget<'_> {
             return;
         }
 
-        render_hexdump(area, buf, state, self);
+        render_hexdump(area, buf, self);
     }
 }
 
 // todo: indent color
-fn render_hexdump(area: Rect, buf: &mut Buffer, _state: &mut BinaryWidgetState, w: BinaryWidget) {
+fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
     const MIN_INDEX_SIZE: usize = 8;
 
     let show_index = !w.opts.disable_index;
@@ -211,7 +154,7 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, _state: &mut BinaryWidgetState, 
 
         if show_index {
             x += render_space(buf, x, y, 1, w.style.indent_index.left);
-            x += render_hex_usize(buf, x, y, address, index_width, false, get_index_style(&w));
+            x += render_hex_usize(buf, x, y, address, index_width, get_index_style(&w));
             x += render_space(buf, x, y, 1, w.style.indent_index.right);
         }
 
@@ -251,7 +194,7 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, _state: &mut BinaryWidgetState, 
 
             if show_index {
                 x += render_space(buf, x, y, 1, w.style.indent_index.left);
-                x += render_hex_usize(buf, x, y, address, index_width, false, get_index_style(&w));
+                x += render_hex_usize(buf, x, y, address, index_width, get_index_style(&w));
                 x += render_space(buf, x, y, 1, w.style.indent_index.right);
             }
 
@@ -313,7 +256,7 @@ fn render_segment(buf: &mut Buffer, x: u16, y: u16, line: &[u8], w: &BinaryWidge
         }
 
         let (_, style) = get_segment_char(w, n);
-        size += render_hex_u8(buf, x + size, y, n, false, style);
+        size += render_hex_u8(buf, x + size, y, n, style);
         count -= 1;
     }
 
@@ -346,7 +289,7 @@ fn render_ascii_line(buf: &mut Buffer, x: u16, y: u16, line: &[u8], w: &BinaryWi
     size
 }
 
-fn render_ascii_char(buf: &mut Buffer, x: u16, y: u16, n: char, style: OptStyle) -> u16 {
+fn render_ascii_char(buf: &mut Buffer, x: u16, y: u16, n: char, style: Option<NuStyle>) -> u16 {
     let text = n.to_string();
 
     let mut p = Paragraph::new(text);
@@ -362,8 +305,8 @@ fn render_ascii_char(buf: &mut Buffer, x: u16, y: u16, n: char, style: OptStyle)
     1
 }
 
-fn render_hex_u8(buf: &mut Buffer, x: u16, y: u16, n: u8, big: bool, style: OptStyle) -> u16 {
-    render_hex_usize(buf, x, y, n as usize, 2, big, style)
+fn render_hex_u8(buf: &mut Buffer, x: u16, y: u16, n: u8, style: Option<NuStyle>) -> u16 {
+    render_hex_usize(buf, x, y, n as usize, 2, style)
 }
 
 fn render_hex_usize(
@@ -372,10 +315,9 @@ fn render_hex_usize(
     y: u16,
     n: usize,
     width: u16,
-    big: bool,
-    style: OptStyle,
+    style: Option<NuStyle>,
 ) -> u16 {
-    let text = usize_to_hex(n, width as usize, big);
+    let text = usize_to_hex(n, width as usize);
     let mut p = Paragraph::new(text);
     if let Some(style) = style {
         let style = nu_style_to_tui(style);
@@ -389,7 +331,7 @@ fn render_hex_usize(
     width
 }
 
-fn get_ascii_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
+fn get_ascii_char(_w: &BinaryWidget, n: u8) -> (char, Option<NuStyle>) {
     let (style, c) = categorize_byte(&n);
     let c = c.unwrap_or(n as char);
     let style = if style.is_plain() { None } else { Some(style) };
@@ -397,7 +339,7 @@ fn get_ascii_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
     (c, style)
 }
 
-fn get_segment_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
+fn get_segment_char(_w: &BinaryWidget, n: u8) -> (char, Option<NuStyle>) {
     let (style, c) = categorize_byte(&n);
     let c = c.unwrap_or(n as char);
     let style = if style.is_plain() { None } else { Some(style) };
@@ -405,8 +347,8 @@ fn get_segment_char(_w: &BinaryWidget, n: u8) -> (char, OptStyle) {
     (c, style)
 }
 
-fn get_index_style(w: &BinaryWidget) -> OptStyle {
-    w.style.colors.index
+fn get_index_style(w: &BinaryWidget) -> Option<NuStyle> {
+    w.style.color_index
 }
 
 fn render_space(buf: &mut Buffer, x: u16, y: u16, height: u16, padding: u16) -> u16 {
@@ -443,7 +385,7 @@ fn get_max_index_size(w: &BinaryWidget) -> usize {
     let line_size = w.opts.count_segments * (w.opts.segment_size * 2);
     let count_lines = w.data.len() / line_size;
     let max_index = w.opts.index_offset + count_lines * line_size;
-    usize_to_hex(max_index, 0, false).len()
+    usize_to_hex(max_index, 0).len()
 }
 
 fn get_widget_width(w: &BinaryWidget) -> usize {
@@ -453,7 +395,7 @@ fn get_widget_width(w: &BinaryWidget) -> usize {
     let count_lines = w.data.len() / line_size;
 
     let max_index = w.opts.index_offset + count_lines * line_size;
-    let index_size = usize_to_hex(max_index, 0, false).len();
+    let index_size = usize_to_hex(max_index, 0).len();
     let index_size = index_size.max(MIN_INDEX_SIZE);
 
     let data_split_size = w.opts.count_segments.saturating_sub(1) * w.style.indent_segment;
@@ -479,17 +421,11 @@ fn get_widget_width(w: &BinaryWidget) -> usize {
     min_width
 }
 
-fn usize_to_hex(n: usize, width: usize, big: bool) -> String {
+fn usize_to_hex(n: usize, width: usize) -> String {
     if width == 0 {
-        match big {
-            true => format!("{:X}", n),
-            false => format!("{:x}", n),
-        }
+        format!("{:x}", n)
     } else {
-        match big {
-            true => format!("{:0>width$X}", n, width = width),
-            false => format!("{:0>width$x}", n, width = width),
-        }
+        format!("{:0>width$x}", n, width = width)
     }
 }
 
@@ -499,9 +435,8 @@ mod tests {
 
     #[test]
     fn test_to_hex() {
-        assert_eq!(usize_to_hex(1, 2, false), "01");
-        assert_eq!(usize_to_hex(16, 2, false), "10");
-        assert_eq!(usize_to_hex(29, 2, false), "1d");
-        assert_eq!(usize_to_hex(29, 2, true), "1D");
+        assert_eq!(usize_to_hex(1, 2), "01");
+        assert_eq!(usize_to_hex(16, 2), "10");
+        assert_eq!(usize_to_hex(29, 2), "1d");
     }
 }

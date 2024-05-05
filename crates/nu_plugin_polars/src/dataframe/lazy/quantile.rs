@@ -106,7 +106,7 @@ impl PluginCommand for LazyQuantile {
             PolarsPluginObject::NuLazyFrame(lazy) => command(plugin, engine, call, lazy, quantile),
             PolarsPluginObject::NuExpression(expr) => {
                 let expr: NuExpression = expr
-                    .to_polars()
+                    .into_polars()
                     .quantile(lit(quantile), QuantileInterpolOptions::default())
                     .into();
                 expr.to_pipeline_data(plugin, engine, call.head)

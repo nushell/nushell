@@ -7,7 +7,9 @@ use std::sync::Arc;
 
 /// convert a raw string representation of NUON data to an actual Nushell [`Value`]
 ///
-/// > **Note**
+// WARNING: please leave the following two trailing spaces, they matter for the documentation
+// formatting
+/// > **Note**  
 /// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as
 /// [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
@@ -148,12 +150,7 @@ fn convert_to_value(
             msg: "calls not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::CellPath(..) => Err(ShellError::OutsideSpannedLabeledError {
-            src: original_text.to_string(),
-            error: "Error when loading".into(),
-            msg: "subexpressions and cellpaths not supported in nuon".into(),
-            span: expr.span,
-        }),
+        Expr::CellPath(val) => Ok(Value::cell_path(val, span)),
         Expr::DateTime(dt) => Ok(Value::date(dt, span)),
         Expr::ExternalCall(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
@@ -319,7 +316,7 @@ fn convert_to_value(
             msg: "signatures not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::String(s) => Ok(Value::string(s, span)),
+        Expr::String(s) | Expr::RawString(s) => Ok(Value::string(s, span)),
         Expr::StringInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),

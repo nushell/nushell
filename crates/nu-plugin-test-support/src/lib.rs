@@ -79,7 +79,7 @@
 //!
 //! // #[test]
 //! fn test_lowercase() -> Result<(), ShellError> {
-//!     let input = vec![Value::test_string("FooBar")].into_pipeline_data(None);
+//!     let input = vec![Value::test_string("FooBar")].into_pipeline_data(Span::test_data(), None);
 //!     let output = PluginTest::new("lowercase", LowercasePlugin.into())?
 //!         .eval_with("lowercase", input)?
 //!         .into_value(Span::test_data());

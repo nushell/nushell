@@ -64,6 +64,7 @@ use it in your pipeline."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let use_stderr = call.has_flag(engine_state, stack, "stderr")?;
 
         let Spanned {
@@ -125,7 +126,7 @@ use it in your pipeline."#
                 if use_stderr {
                     let stderr = stderr
                         .map(|stderr| {
-                            let iter = tee(stderr.stream, with_stream).err_span(call.head)?;
+                            let iter = tee(stderr.stream, with_stream).err_span(head)?;
                             Ok::<_, ShellError>(RawStream::new(
                                 Box::new(iter.map(flatten_result)),
                                 stderr.ctrlc,
@@ -145,7 +146,7 @@ use it in your pipeline."#
                 } else {
                     let stdout = stdout
                         .map(|stdout| {
-                            let iter = tee(stdout.stream, with_stream).err_span(call.head)?;
+                            let iter = tee(stdout.stream, with_stream).err_span(head)?;
                             Ok::<_, ShellError>(RawStream::new(
                                 Box::new(iter.map(flatten_result)),
                                 stdout.ctrlc,
@@ -168,15 +169,16 @@ use it in your pipeline."#
             _ if use_stderr => Err(ShellError::UnsupportedInput {
                 msg: "--stderr can only be used on external streams".into(),
                 input: "the input to `tee` is not an external stream".into(),
-                msg_span: call.head,
-                input_span: input.span().unwrap_or(call.head),
+                msg_span: head,
+                input_span: input.span().unwrap_or(head),
             }),
             // Handle others with the plain iterator
             _ => {
                 let teed = tee(input.into_iter(), move |rx| {
                     let input_from_channel = rx.into_pipeline_data_with_metadata(
-                        metadata_clone,
+                        head,
                         closure_engine_state.ctrlc.clone(),
+                        metadata_clone,
                     );
                     let result = eval_block_with_early_return(
                         &closure_engine_state,
@@ -187,9 +189,13 @@ use it in your pipeline."#
                     // Make sure to drain any iterator produced to avoid unexpected behavior
                     result.and_then(|data| data.drain())
                 })
-                .err_span(call.head)?
+                .err_span(head)?
                 .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
-                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone());
+                .into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.ctrlc.clone(),
+                    metadata,
+                );
 
                 Ok(teed)
             }

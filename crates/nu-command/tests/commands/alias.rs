@@ -92,7 +92,7 @@ fn alias_wont_recurse() {
 #[test]
 fn alias_wont_recurse2() {
     Playground::setup("alias_wont_recurse2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
                 def eggs [] { spam 'eggs' }

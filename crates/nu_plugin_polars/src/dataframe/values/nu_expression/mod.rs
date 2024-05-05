@@ -71,7 +71,7 @@ impl NuExpression {
         }
     }
 
-    pub fn to_polars(self) -> Expr {
+    pub fn into_polars(self) -> Expr {
         self.expr.expect("Expression cannot be none to convert")
     }
 
@@ -121,7 +121,7 @@ impl ExtractedExpr {
         match value {
             Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
             Value::Custom { .. } => NuExpression::try_from_value(plugin, &value)
-                .map(NuExpression::to_polars)
+                .map(NuExpression::into_polars)
                 .map(ExtractedExpr::Single),
             Value::List { vals, .. } => vals
                 .into_iter()

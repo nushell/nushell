@@ -29,7 +29,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
 #[test]
 fn treats_dot_dot_as_path_not_range() {
     Playground::setup("dot_dot_dir", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "nu_times.csv",
             "
                 name,rusty_luck,origin
@@ -83,7 +83,7 @@ fn for_loop() {
 #[test]
 fn subexpression_handles_dot() {
     Playground::setup("subexpression_handles_dot", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "nu_times.csv",
             "
                 name,rusty_luck,origin
@@ -1065,63 +1065,58 @@ mod tilde_expansion {
 mod variable_scoping {
     use nu_test_support::nu;
 
-    macro_rules! test_variable_scope {
-        ($func:literal == $res:literal $(,)*) => {
-            let actual = nu!($func);
-
-            assert_eq!(actual.out, $res);
-        };
+    fn test_variable_scope(code: &str, expected: &str) {
+        let actual = nu!(code);
+        assert_eq!(actual.out, expected);
     }
-    macro_rules! test_variable_scope_list {
-        ($func:literal == $res:expr $(,)*) => {
-            let actual = nu!($func);
 
-            let result: Vec<&str> = actual.out.matches("ZZZ").collect();
-            assert_eq!(result, $res);
-        };
+    fn test_variable_scope_list(code: &str, expected: &[&str]) {
+        let actual = nu!(code);
+        let result: Vec<&str> = actual.out.matches("ZZZ").collect();
+        assert_eq!(result, expected);
     }
 
     #[test]
     fn access_variables_in_scopes() {
-        test_variable_scope!(
+        test_variable_scope(
             " def test [input] { echo [0 1 2] | do { do { echo $input } } }
-                test ZZZ "
-                == "ZZZ"
+                test ZZZ ",
+            "ZZZ",
         );
-        test_variable_scope!(
+        test_variable_scope(
             r#" def test [input] { echo [0 1 2] | do { do { if $input == "ZZZ" { echo $input } else { echo $input } } } }
-                test ZZZ "#
-                == "ZZZ"
+                test ZZZ "#,
+            "ZZZ",
         );
-        test_variable_scope!(
+        test_variable_scope(
             r#" def test [input] { echo [0 1 2] | do { do { if $input == "ZZZ" { echo $input } else { echo $input } } } }
-                test ZZZ "#
-                == "ZZZ"
+                test ZZZ "#,
+            "ZZZ",
         );
-        test_variable_scope!(
+        test_variable_scope(
             " def test [input] { echo [0 1 2] | do { echo $input } }
-                test ZZZ "
-                == "ZZZ"
+                test ZZZ ",
+            "ZZZ",
         );
-        test_variable_scope!(
+        test_variable_scope(
             " def test [input] { echo [0 1 2] | do { if $input == $input { echo $input } else { echo $input } } }
-                test ZZZ "
-                == "ZZZ"
+                test ZZZ ",
+                "ZZZ"
         );
-        test_variable_scope_list!(
+        test_variable_scope_list(
             " def test [input] { echo [0 1 2] | each { |_| echo $input } }
-                test ZZZ "
-                == ["ZZZ", "ZZZ", "ZZZ"]
+                test ZZZ ",
+            &["ZZZ", "ZZZ", "ZZZ"],
         );
-        test_variable_scope_list!(
+        test_variable_scope_list(
             " def test [input] { echo [0 1 2] | each { |it| if $it > 0 {echo $input} else {echo $input}} }
-                test ZZZ "
-                == ["ZZZ", "ZZZ", "ZZZ"]
+                test ZZZ ",
+            &["ZZZ", "ZZZ", "ZZZ"],
         );
-        test_variable_scope_list!(
+        test_variable_scope_list(
             " def test [input] { echo [0 1 2] | each { |_| if $input == $input {echo $input} else {echo $input}} }
-                test ZZZ "
-                == ["ZZZ", "ZZZ", "ZZZ"]
+                test ZZZ ",
+            &["ZZZ", "ZZZ", "ZZZ"],
         );
     }
 }

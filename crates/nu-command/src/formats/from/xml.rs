@@ -197,15 +197,15 @@ fn from_document_to_value(d: &roxmltree::Document, info: &ParsingInfo) -> Value 
     element_to_value(&d.root_element(), info)
 }
 
-fn from_xml_string_to_value(s: String, info: &ParsingInfo) -> Result<Value, roxmltree::Error> {
-    let parsed = roxmltree::Document::parse(&s)?;
+fn from_xml_string_to_value(s: &str, info: &ParsingInfo) -> Result<Value, roxmltree::Error> {
+    let parsed = roxmltree::Document::parse(s)?;
     Ok(from_document_to_value(&parsed, info))
 }
 
 fn from_xml(input: PipelineData, info: &ParsingInfo) -> Result<PipelineData, ShellError> {
     let (concat_string, span, metadata) = input.collect_string_strict(info.span)?;
 
-    match from_xml_string_to_value(concat_string, info) {
+    match from_xml_string_to_value(&concat_string, info) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         Err(err) => Err(process_xml_parse_error(err, span)),
     }
@@ -370,7 +370,7 @@ mod tests {
             keep_comments: false,
             keep_processing_instructions: false,
         };
-        from_xml_string_to_value(xml.to_string(), &info)
+        from_xml_string_to_value(xml, &info)
     }
 
     #[test]

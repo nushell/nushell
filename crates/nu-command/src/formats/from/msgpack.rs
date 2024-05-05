@@ -109,10 +109,9 @@ MessagePack: https://msgpack.org/
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = input.span().unwrap_or(call.head);
         let objects = call.has_flag(engine_state, stack, "objects")?;
         let opts = Opts {
-            span,
+            span: call.head,
             objects,
             ctrlc: engine_state.ctrlc.clone(),
         };
@@ -126,10 +125,10 @@ MessagePack: https://msgpack.org/
                 stdout: Some(raw_stream),
                 ..
             } => read_msgpack(ReadRawStream::new(raw_stream), opts),
-            _ => Err(ShellError::PipelineMismatch {
+            input => Err(ShellError::PipelineMismatch {
                 exp_input_type: "binary".into(),
                 dst_span: call.head,
-                src_span: span,
+                src_span: input.span().unwrap_or(call.head),
             }),
         }
     }
@@ -257,7 +256,7 @@ pub(crate) fn read_msgpack(
                 None
             }
         })
-        .into_pipeline_data(ctrlc))
+        .into_pipeline_data(span, ctrlc))
     } else {
         // Read a single value and then make sure it's EOF
         let result = read_value(&mut input, span, 0)?;

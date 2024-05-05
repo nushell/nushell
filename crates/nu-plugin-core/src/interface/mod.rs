@@ -183,7 +183,7 @@ pub trait InterfaceManager {
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                PipelineData::ListStream(ListStream::from_stream(reader, ctrlc.cloned()), None)
+                ListStream::new(reader, info.span, ctrlc.cloned()).into()
             }
             PipelineDataHeader::ExternalStream(info) => {
                 let handle = self.stream_manager().get_handle();
@@ -203,7 +203,7 @@ pub trait InterfaceManager {
                         .map(|list_info| {
                             handle
                                 .read_stream(list_info.id, self.get_interface())
-                                .map(|reader| ListStream::from_stream(reader, ctrlc.cloned()))
+                                .map(|reader| ListStream::new(reader, info.span, ctrlc.cloned()))
                         })
                         .transpose()?,
                     span: info.span,
@@ -278,7 +278,10 @@ pub trait Interface: Clone + Send {
             PipelineData::ListStream(stream, _) => {
                 let (id, writer) = new_stream(LIST_STREAM_HIGH_PRESSURE)?;
                 Ok((
-                    PipelineDataHeader::ListStream(ListStreamInfo { id }),
+                    PipelineDataHeader::ListStream(ListStreamInfo {
+                        id,
+                        span: stream.span(),
+                    }),
                     PipelineDataWriter::ListStream(writer, stream),
                 ))
             }
@@ -316,7 +319,7 @@ pub trait Interface: Clone + Send {
                         .map(|(stream, (id, _))| RawStreamInfo::new(*id, stream)),
                     exit_code: exit_code_stream
                         .as_ref()
-                        .map(|&(id, _)| ListStreamInfo { id }),
+                        .map(|&(id, _)| ListStreamInfo { id, span }),
                     trim_end_newline,
                 });
                 // Collect the writers

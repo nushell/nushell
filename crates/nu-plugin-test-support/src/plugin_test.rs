@@ -91,7 +91,7 @@ impl PluginTest {
     /// let result = PluginTest::new("my_plugin", MyPlugin.into())?
     ///     .eval_with(
     ///         "my-command",
-    ///         vec![Value::test_int(42)].into_pipeline_data(None)
+    ///         vec![Value::test_int(42)].into_pipeline_data(Span::test_data(), None)
     ///     )?
     ///     .into_value(Span::test_data());
     /// assert_eq!(Value::test_string("42"), result);
@@ -344,9 +344,6 @@ impl PluginTest {
                 // All equal, and same length
                 Ok(true)
             }
-            // Must collect lazy records to compare.
-            (Value::LazyRecord { val: a_val, .. }, _) => self.value_eq(&a_val.collect()?, b),
-            (_, Value::LazyRecord { val: b_val, .. }) => self.value_eq(a, &b_val.collect()?),
             // Fall back to regular eq.
             _ => Ok(a == b),
         }

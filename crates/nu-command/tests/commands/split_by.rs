@@ -36,7 +36,7 @@ fn errors_if_no_input() {
 #[test]
 fn errors_if_non_record_input() {
     Playground::setup("split_by_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("los.txt"),
             EmptyFile("tres.txt"),
             EmptyFile("amigos.txt"),

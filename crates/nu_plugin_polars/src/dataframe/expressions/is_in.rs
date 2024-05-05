@@ -153,7 +153,7 @@ fn command_expr(
         });
     }
 
-    let expr: NuExpression = expr.to_polars().is_in(lit(list)).into();
+    let expr: NuExpression = expr.into_polars().is_in(lit(list)).into();
     expr.to_pipeline_data(plugin, engine, call.head)
 }
 

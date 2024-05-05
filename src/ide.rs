@@ -569,6 +569,16 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                     }
                 })
             ),
+            FlatShape::RawString => println!(
+                "{}",
+                json!({
+                    "hover": "raw-string",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset
+                    }
+                })
+            ),
             FlatShape::StringInterpolation => println!(
                 "{}",
                 json!({
