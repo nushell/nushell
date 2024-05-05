@@ -772,7 +772,7 @@ fn list_inside_glob_metachars_dir() {
         let sub_dir = "test[]";
         sandbox
             .within(sub_dir)
-            .with_files(vec![EmptyFile("test_file.txt")]);
+            .with_files(&[EmptyFile("test_file.txt")]);
 
         let actual = nu!(
             cwd: dirs.test().join(sub_dir),
@@ -790,7 +790,7 @@ fn list_inside_tilde_glob_metachars_dir() {
             let sub_dir = "~test[]";
             sandbox
                 .within(sub_dir)
-                .with_files(vec![EmptyFile("test_file.txt")]);
+                .with_files(&[EmptyFile("test_file.txt")]);
 
             // need getname.0 | path basename because the output path
             // might be too long to output as a single line.
