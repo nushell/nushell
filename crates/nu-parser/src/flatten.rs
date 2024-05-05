@@ -93,33 +93,33 @@ impl Display for FlatShape {
 }
 
 /*
-The `_inner` functions below (e.g., `flatten_block_inner`) take an existing `output` `Vec`
+The `_into` functions below (e.g., `flatten_block_into`) take an existing `output` `Vec`
 and append more data to it. This is to reduce the number of intermediate `Vec`s.
-The non-`inner` functions (e.g., `flatten_block`) are part of the crate's public API
+The non-`into` functions (e.g., `flatten_block`) are part of the crate's public API
 and return a new `Vec` instead of modifying an existing one.
 */
 
-fn flatten_block_inner(
+fn flatten_block_into(
     working_set: &StateWorkingSet,
     block: &Block,
     output: &mut Vec<(Span, FlatShape)>,
 ) {
     for pipeline in &block.pipelines {
-        flatten_pipeline_inner(working_set, pipeline, output);
+        flatten_pipeline_into(working_set, pipeline, output);
     }
 }
 
-fn flatten_pipeline_inner(
+fn flatten_pipeline_into(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
     output: &mut Vec<(Span, FlatShape)>,
 ) {
     for expr in &pipeline.elements {
-        flatten_pipeline_element_inner(working_set, expr, output)
+        flatten_pipeline_element_into(working_set, expr, output)
     }
 }
 
-fn flatten_pipeline_element_inner(
+fn flatten_pipeline_element_into(
     working_set: &StateWorkingSet,
     pipeline_element: &PipelineElement,
     output: &mut Vec<(Span, FlatShape)>,
@@ -128,14 +128,14 @@ fn flatten_pipeline_element_inner(
         output.push((span, FlatShape::Pipe));
     }
 
-    flatten_expression_inner(working_set, &pipeline_element.expr, output);
+    flatten_expression_into(working_set, &pipeline_element.expr, output);
 
     if let Some(redirection) = pipeline_element.redirection.as_ref() {
         match redirection {
             PipelineRedirection::Single { target, .. } => {
                 output.push((target.span(), FlatShape::Redirection));
                 if let Some(expr) = target.expr() {
-                    flatten_expression_inner(working_set, expr, output);
+                    flatten_expression_into(working_set, expr, output);
                 }
             }
             PipelineRedirection::Separate { out, err } => {
@@ -147,18 +147,18 @@ fn flatten_pipeline_element_inner(
 
                 output.push((out.span(), FlatShape::Redirection));
                 if let Some(expr) = out.expr() {
-                    flatten_expression_inner(working_set, expr, output);
+                    flatten_expression_into(working_set, expr, output);
                 }
                 output.push((err.span(), FlatShape::Redirection));
                 if let Some(expr) = err.expr() {
-                    flatten_expression_inner(working_set, expr, output);
+                    flatten_expression_into(working_set, expr, output);
                 }
             }
         }
     }
 }
 
-fn flatten_expression_inner(
+fn flatten_expression_into(
     working_set: &StateWorkingSet,
     expr: &Expression,
     output: &mut Vec<(Span, FlatShape)>,
@@ -170,16 +170,16 @@ fn flatten_expression_inner(
 
     match &expr.expr {
         Expr::BinaryOp(lhs, op, rhs) => {
-            flatten_expression_inner(working_set, lhs, output);
-            flatten_expression_inner(working_set, op, output);
-            flatten_expression_inner(working_set, rhs, output);
+            flatten_expression_into(working_set, lhs, output);
+            flatten_expression_into(working_set, op, output);
+            flatten_expression_into(working_set, rhs, output);
         }
         Expr::UnaryNot(expr) => {
             output.push((
                 Span::new(expr.span.start, expr.span.start + 3),
                 FlatShape::Operator,
             ));
-            flatten_expression_inner(working_set, expr, output);
+            flatten_expression_into(working_set, expr, output);
         }
         Expr::Closure(block_id) => {
             let outer_span = expr.span;
@@ -247,7 +247,7 @@ fn flatten_expression_inner(
             for arg in &call.arguments {
                 match arg {
                     Argument::Positional(positional) | Argument::Unknown(positional) => {
-                        flatten_expression_inner(working_set, positional, output)
+                        flatten_expression_into(working_set, positional, output)
                     }
                     Argument::Named(named) => {
                         if named.0.span.end != 0 {
@@ -255,7 +255,7 @@ fn flatten_expression_inner(
                             output.push((named.0.span, FlatShape::Flag));
                         }
                         if let Some(expr) = &named.2 {
-                            flatten_expression_inner(working_set, expr, output);
+                            flatten_expression_into(working_set, expr, output);
                         }
                     }
                     Argument::Spread(expr) => {
@@ -263,7 +263,7 @@ fn flatten_expression_inner(
                             Span::new(expr.span.start - 3, expr.span.start),
                             FlatShape::Operator,
                         ));
-                        flatten_expression_inner(working_set, expr, output);
+                        flatten_expression_into(working_set, expr, output);
                     }
                 }
             }
@@ -274,7 +274,7 @@ fn flatten_expression_inner(
             if let Expr::String(..) = &head.expr {
                 output.push((head.span, FlatShape::External));
             } else {
-                flatten_expression_inner(working_set, head, output);
+                flatten_expression_into(working_set, head, output);
             }
 
             for arg in args.as_ref() {
@@ -283,7 +283,7 @@ fn flatten_expression_inner(
                         if let Expr::String(..) = &expr.expr {
                             output.push((expr.span, FlatShape::ExternalArg));
                         } else {
-                            flatten_expression_inner(working_set, expr, output);
+                            flatten_expression_into(working_set, expr, output);
                         }
                     }
                     ExternalArgument::Spread(expr) => {
@@ -291,7 +291,7 @@ fn flatten_expression_inner(
                             Span::new(expr.span.start - 3, expr.span.start),
                             FlatShape::Operator,
                         ));
-                        flatten_expression_inner(working_set, expr, output);
+                        flatten_expression_into(working_set, expr, output);
                     }
                 }
             }
@@ -304,12 +304,12 @@ fn flatten_expression_inner(
         Expr::Float(_) => output.push((expr.span, FlatShape::Float)),
         Expr::MatchBlock(matches) => {
             for (pattern, expr) in matches {
-                flatten_pattern_inner(pattern, output);
-                flatten_expression_inner(working_set, expr, output);
+                flatten_pattern_into(pattern, output);
+                flatten_expression_into(working_set, expr, output);
             }
         }
         Expr::ValueWithUnit(value) => {
-            flatten_expression_inner(working_set, &value.expr, output);
+            flatten_expression_into(working_set, &value.expr, output);
             output.push((value.unit.span, FlatShape::String));
         }
         Expr::CellPath(cell_path) => {
@@ -319,7 +319,7 @@ fn flatten_expression_inner(
             }));
         }
         Expr::FullCellPath(cell_path) => {
-            flatten_expression_inner(working_set, &cell_path.head, output);
+            flatten_expression_into(working_set, &cell_path.head, output);
             output.extend(cell_path.tail.iter().map(|member| match *member {
                 PathMember::String { span, .. } => (span, FlatShape::String),
                 PathMember::Int { span, .. } => (span, FlatShape::Int),
@@ -343,15 +343,15 @@ fn flatten_expression_inner(
         Expr::Overlay(_) => output.push((expr.span, FlatShape::String)),
         Expr::Range(range) => {
             if let Some(f) = &range.from {
-                flatten_expression_inner(working_set, f, output);
+                flatten_expression_into(working_set, f, output);
             }
             if let Some(s) = &range.next {
                 output.push((range.operator.next_op_span, FlatShape::Operator));
-                flatten_expression_inner(working_set, s, output);
+                flatten_expression_into(working_set, s, output);
             }
             output.push((range.operator.span, FlatShape::Operator));
             if let Some(t) = &range.to {
-                flatten_expression_inner(working_set, t, output);
+                flatten_expression_into(working_set, t, output);
             }
         }
         Expr::Bool(_) => output.push((expr.span, FlatShape::Bool)),
@@ -384,7 +384,7 @@ fn flatten_expression_inner(
                             Span::new(expr.span.start, expr.span.start + 3),
                             FlatShape::Operator,
                         ));
-                        flatten_expression_inner(working_set, expr, output);
+                        flatten_expression_into(working_set, expr, output);
                     }
                 }
             }
@@ -396,7 +396,7 @@ fn flatten_expression_inner(
         Expr::StringInterpolation(exprs) => {
             let mut flattened = vec![];
             for expr in exprs {
-                flatten_expression_inner(working_set, expr, &mut flattened);
+                flatten_expression_into(working_set, expr, &mut flattened);
             }
 
             if let Some(first) = flattened.first() {
@@ -454,17 +454,17 @@ fn flatten_expression_inner(
                         output.push((*op_span, FlatShape::Operator));
                         last_end = op_span.end;
 
-                        let flattened_inner = flatten_expression(working_set, record);
-                        if let Some(first) = flattened_inner.first() {
+                        let flattened = flatten_expression(working_set, record);
+                        if let Some(first) = flattened.first() {
                             if first.0.start > last_end {
                                 output
                                     .push((Span::new(last_end, first.0.start), FlatShape::Record));
                             }
                         }
-                        if let Some(last) = flattened_inner.last() {
+                        if let Some(last) = flattened.last() {
                             last_end = last.0.end;
                         }
-                        output.extend(flattened_inner);
+                        output.extend(flattened);
                     }
                 }
             }
@@ -474,7 +474,7 @@ fn flatten_expression_inner(
         }
         Expr::Keyword(kw) => {
             output.push((kw.span, FlatShape::Keyword));
-            flatten_expression_inner(working_set, &kw.expr, output);
+            flatten_expression_into(working_set, &kw.expr, output);
         }
         Expr::Operator(_) => output.push((expr.span, FlatShape::Operator)),
         Expr::Signature(_) => output.push((expr.span, FlatShape::Signature)),
@@ -524,7 +524,7 @@ fn flatten_expression_inner(
     }
 }
 
-fn flatten_pattern_inner(match_pattern: &MatchPattern, output: &mut Vec<(Span, FlatShape)>) {
+fn flatten_pattern_into(match_pattern: &MatchPattern, output: &mut Vec<(Span, FlatShape)>) {
     match &match_pattern.pattern {
         Pattern::Garbage => output.push((match_pattern.span, FlatShape::Garbage)),
         Pattern::IgnoreValue => output.push((match_pattern.span, FlatShape::Nothing)),
@@ -537,7 +537,7 @@ fn flatten_pattern_inner(match_pattern: &MatchPattern, output: &mut Vec<(Span, F
                         FlatShape::MatchPattern,
                     ));
                     for item in items {
-                        flatten_pattern_inner(item, output);
+                        flatten_pattern_into(item, output);
                     }
                     output.push((
                         Span::new(last.span.end, match_pattern.span.end),
@@ -556,7 +556,7 @@ fn flatten_pattern_inner(match_pattern: &MatchPattern, output: &mut Vec<(Span, F
                         FlatShape::MatchPattern,
                     ));
                     for (_, pattern) in items {
-                        flatten_pattern_inner(pattern, output);
+                        flatten_pattern_into(pattern, output);
                     }
                     output.push((
                         Span::new(last.1.span.end, match_pattern.span.end),
@@ -572,7 +572,7 @@ fn flatten_pattern_inner(match_pattern: &MatchPattern, output: &mut Vec<(Span, F
         Pattern::Rest(var_id) => output.push((match_pattern.span, FlatShape::VarDecl(*var_id))),
         Pattern::Or(patterns) => {
             for pattern in patterns {
-                flatten_pattern_inner(pattern, output);
+                flatten_pattern_into(pattern, output);
             }
         }
     }
@@ -580,7 +580,7 @@ fn flatten_pattern_inner(match_pattern: &MatchPattern, output: &mut Vec<(Span, F
 
 pub fn flatten_block(working_set: &StateWorkingSet, block: &Block) -> Vec<(Span, FlatShape)> {
     let mut output = Vec::new();
-    flatten_block_inner(working_set, block, &mut output);
+    flatten_block_into(working_set, block, &mut output);
     output
 }
 
@@ -589,7 +589,7 @@ pub fn flatten_pipeline(
     pipeline: &Pipeline,
 ) -> Vec<(Span, FlatShape)> {
     let mut output = Vec::new();
-    flatten_pipeline_inner(working_set, pipeline, &mut output);
+    flatten_pipeline_into(working_set, pipeline, &mut output);
     output
 }
 
@@ -598,7 +598,7 @@ pub fn flatten_pipeline_element(
     pipeline_element: &PipelineElement,
 ) -> Vec<(Span, FlatShape)> {
     let mut output = Vec::new();
-    flatten_pipeline_element_inner(working_set, pipeline_element, &mut output);
+    flatten_pipeline_element_into(working_set, pipeline_element, &mut output);
     output
 }
 
@@ -607,6 +607,6 @@ pub fn flatten_expression(
     expr: &Expression,
 ) -> Vec<(Span, FlatShape)> {
     let mut output = Vec::new();
-    flatten_expression_inner(working_set, expr, &mut output);
+    flatten_expression_into(working_set, expr, &mut output);
     output
 }
