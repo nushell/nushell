@@ -1,7 +1,6 @@
 mod append;
 mod columns;
 mod dummies;
-mod first;
 mod last;
 mod open;
 mod query_df;
@@ -26,7 +25,6 @@ pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
 pub use columns::ColumnsDF;
 pub use dummies::Dummies;
-pub use first::FirstDF;
 pub use last::LastDF;
 use nu_plugin::PluginCommand;
 pub use query_df::QueryDf;
@@ -51,7 +49,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(Dummies),
         Box::new(OpenDataFrame),
         Box::new(Summary),
-        Box::new(FirstDF),
         Box::new(LastDF),
         Box::new(SampleDF),
         Box::new(ShapeDF),

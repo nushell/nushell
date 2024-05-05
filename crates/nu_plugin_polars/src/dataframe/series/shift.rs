@@ -47,7 +47,8 @@ impl PluginCommand for Shift {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Shifts the values by a given period",
-            example: "[1 2 2 3 3] | polars into-df | polars shift 2 | polars drop-nulls | polars collect",
+            example:
+                "[1 2 2 3 3] | polars into-df | polars shift 2 | polars drop-nulls | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new(

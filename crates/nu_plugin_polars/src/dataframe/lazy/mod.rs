@@ -10,6 +10,7 @@ mod fill_nan;
 mod fill_null;
 mod filter;
 mod filter_with;
+mod first;
 mod flatten;
 mod get;
 pub mod groupby;
@@ -49,6 +50,7 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(drop_duplicates::DropDuplicates),
         Box::new(drop_nulls::DropNulls),
         Box::new(filter_with::FilterWith),
+        Box::new(first::FirstDF),
         Box::new(get::GetDF),
         Box::new(LazyAggregate),
         Box::new(LazyCache),
