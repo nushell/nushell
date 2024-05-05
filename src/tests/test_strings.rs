@@ -88,6 +88,54 @@ fn raw_string() -> TestResult {
 }
 
 #[test]
+fn raw_string_inside_parentheses() -> TestResult {
+    let (left, right) = ('(', ')');
+    run_test(&format!(r#"{left}r#'abcde""fghi"''''jkl'#{right}"#), r#"abcde""fghi"''''jkl"#)?;
+    run_test(&format!(r#"{left}r##'abcde""fghi"''''#jkl'##{right}"#), r#"abcde""fghi"''''#jkl"#)?;
+    run_test(
+        &format!(r#"{left}r###'abcde""fghi"'''##'#jkl'###{right}"#),
+        r#"abcde""fghi"'''##'#jkl"#,
+    )?;
+    run_test(&format!("{left}r#''#{right}"), "")?;
+    run_test(
+        &format!(r#"{left}r#'a string with sharp inside # and ends with #'#{right}"#),
+        "a string with sharp inside # and ends with #",
+    )
+}
+
+#[test]
+fn raw_string_inside_list() -> TestResult {
+    let (left, right) = ('[', ']');
+    run_test(&format!(r#"{left}r#'abcde""fghi"''''jkl'#{right} | get 0"#), r#"abcde""fghi"''''jkl"#)?;
+    run_test(&format!(r#"{left}r##'abcde""fghi"''''#jkl'##{right} | get 0"#), r#"abcde""fghi"''''#jkl"#)?;
+    run_test(
+        &format!(r#"{left}r###'abcde""fghi"'''##'#jkl'###{right} | get 0"#),
+        r#"abcde""fghi"'''##'#jkl"#,
+    )?;
+    run_test(&format!("{left}r#''#{right} | get 0"), "")?;
+    run_test(
+        &format!(r#"{left}r#'a string with sharp inside # and ends with #'#{right} | get 0"#),
+        "a string with sharp inside # and ends with #",
+    )
+}
+
+#[test]
+fn raw_string_inside_closure() -> TestResult {
+    let (left, right) = ('{', '}');
+    run_test(&format!(r#"do {left}r#'abcde""fghi"''''jkl'#{right}"#), r#"abcde""fghi"''''jkl"#)?;
+    run_test(&format!(r#"do {left}r##'abcde""fghi"''''#jkl'##{right}"#), r#"abcde""fghi"''''#jkl"#)?;
+    run_test(
+        &format!(r#"do {left}r###'abcde""fghi"'''##'#jkl'###{right}"#),
+        r#"abcde""fghi"'''##'#jkl"#,
+    )?;
+    run_test(&format!("do {left}r#''#{right}"), "")?;
+    run_test(
+        &format!(r#"do {left}r#'a string with sharp inside # and ends with #'#{right}"#),
+        "a string with sharp inside # and ends with #",
+    )
+}
+
+#[test]
 fn incomplete_raw_string() -> TestResult {
     fail_test("r#abc", "expected '")
 }
