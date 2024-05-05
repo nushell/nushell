@@ -902,6 +902,9 @@ fn do_auto_cd(
     engine_state: &mut EngineState,
     span: Span,
 ) {
+    // Strip the trailing slash from the new path. This is required for PWD.
+    let path = nu_path::strip_trailing_slash(&path);
+
     let path = {
         if !path.exists() {
             report_error_new(
