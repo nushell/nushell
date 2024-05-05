@@ -1,7 +1,5 @@
 use nu_engine::command_prelude::*;
 
-const NO_SPAN: Span = Span::unknown();
-
 #[derive(Clone)]
 pub struct MimeList;
 
@@ -12,7 +10,7 @@ impl Command for MimeList {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .input_output_type(Type::String, Type::List(Box::new(Type::String)))
             .required(
                 "mime_str",
                 SyntaxShape::String,
@@ -32,13 +30,12 @@ If <main type> is "*" all known extensions are returned."#,
             Example {
                 example: r#"mime list "video/x-matroska""#,
                 description: r#"Get known extensions for the "video/x-matroska" mime type"#,
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     mime_guess::get_mime_extensions_str("video/x-matroska")
                         .expect("failed getting video/x-matroska extensions")
                         .iter()
-                        .map(|s| Value::string(s.to_string(), NO_SPAN))
+                        .map(|s| Value::test_string(*s))
                         .collect(),
-                    NO_SPAN,
                 )),
             },
             Example {
@@ -54,7 +51,7 @@ If <main type> is "*" all known extensions are returned."#,
             Example {
                 example: r#"mime list "nonexistent""#,
                 description: r#"Unrecognized MIME types return an empty list"#,
-                result: Some(Value::list(Vec::new(), NO_SPAN)),
+                result: Some(Value::test_list(Vec::new())),
             },
         ]
     }
@@ -71,7 +68,7 @@ If <main type> is "*" all known extensions are returned."#,
         let extensions = mime_guess::get_mime_extensions_str(&mime_str.item)
             .unwrap_or_default()
             .iter()
-            .map(|ext| Value::string(ext.to_string(), mime_str.span))
+            .map(|ext| Value::string(*ext, mime_str.span))
             .collect::<Vec<_>>();
 
         Ok(Value::list(extensions, mime_str.span).into_pipeline_data())

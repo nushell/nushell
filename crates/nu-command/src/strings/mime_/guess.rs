@@ -1,7 +1,5 @@
 use nu_engine::command_prelude::*;
 
-const NO_SPAN: Span = Span::unknown();
-
 #[derive(Clone)]
 pub struct MimeGuess;
 
@@ -43,52 +41,38 @@ impl Command for MimeGuess {
             Example {
                 example: r#""video.mkv" | mime guess"#,
                 description: "Guess the MIME type from the path and return a string.",
-                result: Some(Value::string(r#""video/x-matroska""#, NO_SPAN)),
+                result: Some(Value::test_string("video/x-matroska")),
             },
             Example {
                 example: r#"["video.mkv" "audio.mp3"] | mime guess"#,
                 description: "Guess the MIME types from the paths and return a table.",
-                result: Some(Value::list(
-                    vec![
-                        Value::record(
-                            record!("name" => Value::string("video.mkv".to_string(), NO_SPAN), "type" => Value::string("video/x-matroska", NO_SPAN)),
-                            NO_SPAN,
-                        ),
-                        Value::record(
-                            record!("name" => Value::string("audio.mp3".to_string(), NO_SPAN), "type" => Value::string("audio/mpeg", NO_SPAN)),
-                            NO_SPAN,
-                        ),
-                    ],
-                    NO_SPAN,
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(
+                        record!("name" => Value::test_string("video.mkv"), "type" => Value::test_string("video/x-matroska")),
+                    ),
+                    Value::test_record(
+                        record!("name" => Value::test_string("audio.mp3"), "type" => Value::test_string("audio/mpeg")),
+                    ),
+                ])),
             },
             Example {
                 example: r#"["mkv" "mp3"] | mime guess -e"#,
                 description: "Guess the MIME types from the extensions and return a table.",
-                result: Some(Value::list(
-                    vec![
-                        Value::record(
-                            record!("name" => Value::string("mkv".to_string(), NO_SPAN), "type" => Value::string("video/x-matroska", NO_SPAN)),
-                            NO_SPAN,
-                        ),
-                        Value::record(
-                            record!("name" => Value::string("mp3".to_string(), NO_SPAN), "type" => Value::string("audio/mpeg", NO_SPAN)),
-                            NO_SPAN,
-                        ),
-                    ],
-                    NO_SPAN,
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(
+                        record!("name" => Value::test_string("mkv"), "type" => Value::test_string("video/x-matroska")),
+                    ),
+                    Value::test_record(
+                        record!("name" => Value::test_string("mp3"), "type" => Value::test_string("audio/mpeg")),
+                    ),
+                ])),
             },
             Example {
-                example: r#"let input = glob -d 1 * | wrap filename; $input | merge ($input | get filename | mime guess | select type)"#,
+                example: r#"let input = glob * | wrap filename; $input | merge ($input | get filename | mime guess | select type)"#,
                 description: "Add a MIME type column to a table.",
-                result: Some(Value::list(
-                    vec![Value::record(
-                        record!("filename" => Value::string("...".to_string(), NO_SPAN), "type" => Value::string("...", NO_SPAN)),
-                        NO_SPAN,
-                    )],
-                    NO_SPAN,
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(
+                    record!("filename" => Value::test_string("..."), "type" => Value::test_string("...")),
+                )])),
             },
         ]
     }
@@ -105,8 +89,8 @@ impl Command for MimeGuess {
         let guess_function: fn(&str) -> mime_guess::MimeGuess = if use_extension {
             mime_guess::from_ext
         } else {
-            // HACK I don't know how to satisfy the compiler here without a closure, but I cannot return the function directly.
-            // If I do, I get an error that the types are different or that a value does not live long enough when the function is called.
+            // HACK Not sure how to satisfy the compiler here without a closure, but we cannot return the function directly.
+            // If we do, we get an error that the types are different or that a value does not live long enough when the function is called.
             |input| mime_guess::from_path(input)
         };
 
@@ -136,13 +120,7 @@ impl Command for MimeGuess {
 
                             Value::record(record!("name" => name, "type" => mime_type), span)
                         }
-                        Err(err) => Value::error(
-                            ShellError::TypeMismatch {
-                                err_message: err.to_string(),
-                                span,
-                            },
-                            span,
-                        ),
+                        Err(err) => Value::error(err, span),
                     }
                 });
 
@@ -152,8 +130,8 @@ impl Command for MimeGuess {
             }
             PipelineData::Empty => Ok(PipelineData::empty()),
             _ => Err(ShellError::TypeMismatch {
-                err_message: "Only string input is supported".to_string(),
-                span: input.span().unwrap_or(NO_SPAN),
+                err_message: "Only string input is supported.".to_string(),
+                span: input.span().unwrap_or(Span::unknown()),
             }),
         }
     }
