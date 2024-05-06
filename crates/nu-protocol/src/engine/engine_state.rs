@@ -930,13 +930,12 @@ impl EngineState {
     /// directory on the stack that have yet to be merged into the engine state.
     pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
         // Helper function to create a simple generic error.
-        // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
         fn error(msg: &str) -> Result<PathBuf, ShellError> {
             Err(ShellError::GenericError {
                 error: msg.into(),
                 msg: "".into(),
                 span: None,
-                help: None,
+                help: Some("Use `cd` to reset $env.PWD into a good state".into()),
                 inner: vec![],
             })
         }
