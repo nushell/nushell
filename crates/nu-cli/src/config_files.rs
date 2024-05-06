@@ -3,7 +3,7 @@ use crate::util::eval_source;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, HistoryFileFormat, PipelineData,
+    report_error, report_error_new, HistoryFileFormat, PipelineData,
 };
 #[cfg(feature = "plugin")]
 use nu_protocol::{ParseError, PluginRegistryFile, Spanned};
@@ -25,9 +25,8 @@ pub fn read_plugin_file(
     plugin_file: Option<Spanned<String>>,
     storage_path: &str,
 ) {
+    use nu_protocol::ShellError;
     use std::path::Path;
-
-    use nu_protocol::{report_error_new, ShellError};
 
     let span = plugin_file.as_ref().map(|s| s.span);
 
@@ -240,13 +239,11 @@ pub fn eval_config_contents(
             match nu_engine::env::current_dir(engine_state, stack) {
                 Ok(cwd) => {
                     if let Err(e) = engine_state.merge_env(stack, cwd) {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        report_error(&working_set, &e);
+                        report_error_new(engine_state, &e);
                     }
                 }
                 Err(e) => {
-                    let working_set = StateWorkingSet::new(engine_state);
-                    report_error(&working_set, &e);
+                    report_error_new(engine_state, &e);
                 }
             }
         }
@@ -267,8 +264,8 @@ pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> O
 #[cfg(feature = "plugin")]
 pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -> bool {
     use nu_protocol::{
-        report_error_new, PluginExample, PluginIdentity, PluginRegistryItem,
-        PluginRegistryItemData, PluginSignature, ShellError,
+        PluginExample, PluginIdentity, PluginRegistryItem, PluginRegistryItemData, PluginSignature,
+        ShellError,
     };
     use std::collections::BTreeMap;
 

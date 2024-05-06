@@ -3,7 +3,7 @@ use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, DeclId, ShellError, Span, Value, VarId,
+    report_error_new, DeclId, ShellError, Span, Value, VarId,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -55,9 +55,8 @@ fn read_in_file<'a>(
     let file = std::fs::read(file_path)
         .into_diagnostic()
         .unwrap_or_else(|e| {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(
-                &working_set,
+            report_error_new(
+                engine_state,
                 &ShellError::FileNotFoundCustom {
                     msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
                     span: Span::unknown(),

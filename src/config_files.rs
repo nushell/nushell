@@ -5,7 +5,7 @@ use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Config, ParseError, PipelineData, Spanned,
+    report_error, report_error_new, Config, ParseError, PipelineData, Spanned,
 };
 use nu_utils::{get_default_config, get_default_env};
 use std::{
@@ -148,13 +148,11 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
+                report_error_new(engine_state, &e);
             }
         }
         Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
+            report_error_new(engine_state, &e);
         }
     }
 }
@@ -190,13 +188,11 @@ fn eval_default_config(
     match nu_engine::env::current_dir(engine_state, stack) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
+                report_error_new(engine_state, &e);
             }
         }
         Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
+            report_error_new(engine_state, &e);
         }
     }
 }
