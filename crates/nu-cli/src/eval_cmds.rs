@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use log::info;
 use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
@@ -7,8 +5,9 @@ use nu_parser::parse;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Config, PipelineData, ShellError, Spanned, Value,
+    report_error, PipelineData, ShellError, Spanned, Value,
 };
+use std::{io::Write, sync::Arc};
 
 /// Run a command (or commands) given to us by the user
 pub fn evaluate_commands(
@@ -50,11 +49,12 @@ pub fn evaluate_commands(
 
     // Run the block
     let data = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
-    let mut config = engine_state.get_config().clone();
+
     if let Some(t_mode) = table_mode {
-        config.table_mode = t_mode.coerce_str()?.parse().unwrap_or_default();
+        Arc::make_mut(&mut engine_state.config).table_mode =
+            t_mode.coerce_str()?.parse().unwrap_or_default();
     }
-    let exit_code = print_table_or_error(engine_state, stack, data, &mut config, no_newline);
+    let exit_code = print_table_or_error(engine_state, stack, data, no_newline);
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 
@@ -68,16 +68,12 @@ pub(crate) fn print_table_or_error(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     mut pipeline_data: PipelineData,
-    config: &mut Config,
     no_newline: bool,
 ) -> Option<i64> {
     let exit_code = match &mut pipeline_data {
         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
         _ => None,
     };
-
-    // Change the engine_state config to use the passed in configuration
-    engine_state.set_config(config.clone());
 
     if let PipelineData::Value(Value::Error { error, .. }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);
