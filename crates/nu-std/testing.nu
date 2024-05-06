@@ -1,7 +1,7 @@
 use std log
 
 def "nu-complete threads" [] {
-    seq 1 (sys|get cpu|length)
+    seq 1 (sys cpu | length)
 }
 
 # Here we store the map of annotations internal names and the annotation actually used during test creation

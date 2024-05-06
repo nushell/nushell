@@ -739,8 +739,8 @@ Each stage in the pipeline works together to load, parse, and display informatio
     List the files in the current directory, sorted by size
     > ('ls | sort-by size' | nu-highlight)
 
-    Get information about the current system
-    > ('sys | get host' | nu-highlight)
+    Get the current system host name
+    > ('sys host | get hostname' | nu-highlight)
 
     Get the processes on your system actively using CPU
     > ('ps | where cpu > 0' | nu-highlight)
