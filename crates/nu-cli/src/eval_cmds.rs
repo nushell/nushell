@@ -48,9 +48,9 @@ pub fn evaluate_commands(
     engine_state.merge_delta(delta)?;
 
     // Run the block
-    let data = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
+    let pipeline = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
 
-    if let PipelineData::Value(Value::Error { error, .. }, ..) = data {
+    if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
         return Err(*error);
     }
 
@@ -59,8 +59,7 @@ pub fn evaluate_commands(
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 
-    // We don't need to do anything special to print a table because print() handles it
-    let exit_code = data.print(engine_state, stack, no_newline, false)?;
+    let exit_code = pipeline.print(engine_state, stack, no_newline, false)?;
     if exit_code != 0 {
         std::process::exit(exit_code as i32);
     }

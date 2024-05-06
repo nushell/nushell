@@ -100,7 +100,7 @@ pub fn evaluate_file(
     // Check if the file contains a main command.
     if engine_state.find_decl(b"main", &[]).is_some() {
         // Evaluate the file, but don't run main yet.
-        let pipeline_data =
+        let pipeline =
             match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
                 Ok(data) => data,
                 Err(ShellError::Return { .. }) => {
@@ -110,9 +110,8 @@ pub fn evaluate_file(
                 Err(err) => return Err(err),
             };
 
-        // Print the pipeline output of the file.
-        // The pipeline output of a file is the pipeline output of its last command.
-        let exit_code = pipeline_data.print(engine_state, stack, true, false)?;
+        // Print the pipeline output of the last command of the file.
+        let exit_code = pipeline.print(engine_state, stack, true, false)?;
         if exit_code != 0 {
             std::process::exit(exit_code as i32);
         }
