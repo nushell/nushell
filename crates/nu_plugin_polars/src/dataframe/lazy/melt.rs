@@ -144,19 +144,14 @@ fn command(
     let id_col: Vec<Value> = call.get_flag("columns")?.expect("required value");
     let val_col: Vec<Value> = call.get_flag("values")?.expect("required value");
 
-    let value_name: Option<SmartString<LazyCompact>> = call
-        .get_flag("value-name")?
-        .map(|v: Spanned<String>| SmartString::from(v.item));
-    let variable_name: Option<SmartString<LazyCompact>> = call
-        .get_flag("variable-name")?
-        .map(|v: Spanned<String>| SmartString::from(v.item));
+    let value_name = call.get_flag("value-name")?.map(|v: String| v.into());
+    let variable_name = call.get_flag("variable-name")?.map(|v: String| v.into());
     let streamable = call.has_flag("streamable")?;
 
     let (id_vars, _id_col_span) = convert_columns_string(id_col, call.head)?;
-    let id_vars: Vec<SmartString<LazyCompact>> = id_vars.iter().map(SmartString::from).collect();
+    let id_vars = id_vars.into_iter().map(Into::into).collect();
     let (value_vars, _val_col_span) = convert_columns_string(val_col, call.head)?;
-    let value_vars: Vec<SmartString<LazyCompact>> =
-        value_vars.iter().map(SmartString::from).collect();
+    let value_vars = value_vars.into_iter().map(Into::into).collect();
 
     let df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let polars_df = df.to_polars();
