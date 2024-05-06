@@ -4,11 +4,13 @@ use nu_protocol::{
     Value,
 };
 
-use crate::values::CustomValueSupport;
+use polars_lazy::dsl::col;
+
+use crate::values::{CustomValueSupport, NuDataFrame};
 use crate::PolarsPlugin;
 
 use super::super::values::utils::convert_columns_string;
-use super::super::values::{Column, NuDataFrame};
+use super::super::values::{Column, NuLazyFrame};
 
 #[derive(Clone)]
 pub struct DropNulls;
@@ -43,8 +45,7 @@ impl PluginCommand for DropNulls {
             Example {
                 description: "drop null values in dataframe",
                 example: r#"let df = ([[a b]; [1 2] [3 0] [1 2]] | polars into-df);
-    let res = ($df.b / $df.b);
-    let a = ($df | polars with-column $res --name res);
+    let a = ($df | polars with-column [((polars col b) / (polars col b) | polars as res)]);
     $a | polars drop-nulls"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -109,31 +110,20 @@ fn command(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
-
+    let df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let columns: Option<Vec<Value>> = call.opt(0)?;
 
-    let (subset, col_span) = match columns {
+    let (subset, _col_span) = match columns {
         Some(cols) => {
             let (agg_string, col_span) = convert_columns_string(cols, call.head)?;
-            (Some(agg_string), col_span)
+            let agg_expr = agg_string.iter().map(|s| col(s)).collect();
+            (Some(agg_expr), col_span)
         }
         None => (None, call.head),
     };
 
-    let subset_slice = subset.as_ref().map(|cols| &cols[..]);
-
-    let polars_df = df
-        .as_ref()
-        .drop_nulls(subset_slice)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error dropping nulls".into(),
-            msg: e.to_string(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
-        })?;
-    let df = NuDataFrame::new(df.from_lazy, polars_df);
+    let polars_df = df.to_polars().drop_nulls(subset);
+    let df = NuLazyFrame::new(polars_df);
     df.to_pipeline_data(plugin, engine, call.head)
 }
 

@@ -472,7 +472,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
     }
 
     DataFrame::new(df_series)
-        .map(|df| NuDataFrame::new(false, df))
+        .map(NuDataFrame::new)
         .map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
             msg: e.to_string(),

@@ -126,7 +126,7 @@ fn command(
             span: None,
             inner: vec![],
         })?;
-    let lazy = NuLazyFrame::new(lazy.from_eager, polars_lazy);
+    let lazy = NuLazyFrame::new(polars_lazy);
     lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
