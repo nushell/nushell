@@ -102,22 +102,26 @@ fn action(
         not_ends_with,
         ..
     }: &Arguments,
-    head: Span) -> Value {
+    head: Span,
+) -> Value {
     match input {
         Value::String { val, .. } => Value::bool(
-            if *case_insensitive {
-                if *not_ends_with {
-                    !val.to_folded_case()
-                        .ends_with(substring.to_folded_case().as_str())
-                } else {
-                    val.to_folded_case()
-                        .ends_with(substring.to_folded_case().as_str())
+            match case_insensitive {
+                true => {
+                    if *not_ends_with {
+                        !val.to_folded_case()
+                            .ends_with(substring.to_folded_case().as_str())
+                    } else {
+                        val.to_folded_case()
+                            .ends_with(substring.to_folded_case().as_str())
+                    }
                 }
-            } else {
-                if *not_ends_with {
-                    !val.ends_with(substring)
-                } else {
-                    val.ends_with(substring)
+                false => {
+                    if *not_ends_with {
+                        !val.ends_with(substring)
+                    } else {
+                        val.ends_with(substring)
+                    }
                 }
             },
             head,

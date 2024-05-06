@@ -110,19 +110,22 @@ fn action(
 ) -> Value {
     match input {
         Value::String { val, .. } => Value::bool(
-            if *case_insensitive {
-                if *not_starts_with {
-                    !val.to_folded_case()
-                        .starts_with(substring.to_folded_case().as_str())
-                } else {
-                    val.to_folded_case()
-                        .starts_with(substring.to_folded_case().as_str())
+            match case_insensitive {
+                true => {
+                    if *not_starts_with {
+                        !val.to_folded_case()
+                            .starts_with(substring.to_folded_case().as_str())
+                    } else {
+                        val.to_folded_case()
+                            .starts_with(substring.to_folded_case().as_str())
+                    }
                 }
-            } else {
-                if *not_starts_with {
-                    !val.starts_with(substring)
-                } else {
-                    val.starts_with(substring)
+                false => {
+                    if *not_starts_with {
+                        !val.starts_with(substring)
+                    } else {
+                        val.starts_with(substring)
+                    }
                 }
             },
             head,

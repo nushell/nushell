@@ -423,7 +423,7 @@ fn str_ends_with() {
 #[test]
 fn str_not_ends_with_returns_false() {
     let actual = nu!(r#"
-        echo "nushell" | str ends-with --not "nu"
+        echo "nushell" | str ends-with --not "ell"
         "#);
 
     assert_eq!(actual.out, "false");
