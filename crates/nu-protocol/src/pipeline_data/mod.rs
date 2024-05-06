@@ -421,7 +421,7 @@ impl PipelineData {
                         )
                         .into_iter(),
                     ),
-                    Value::Range { val, .. } => PipelineIteratorInner::ListStream(
+                    Value::Range { ref val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(val.into_range_iter(value.span(), None), val_span, None)
                             .into_iter(),
                     ),
@@ -801,7 +801,7 @@ impl PipelineData {
                 let span = v.span();
                 match v {
                     Value::Range { val, .. } => {
-                        match val {
+                        match *val {
                             Range::IntRange(range) => {
                                 if range.is_unbounded() {
                                     return Err(ShellError::GenericError {
