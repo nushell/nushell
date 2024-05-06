@@ -44,14 +44,14 @@ fn redirect_out() {
     Playground::setup("redirect_out_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "echo 'hello' out> a; open a"
+            "nu -c 'print hello' out> a; open a"
         );
 
         assert!(output.out.contains("hello"));
 
         let output = nu!(
             cwd: dirs.test(),
-            "echo 'hello' out>> a; open a"
+            "nu -c 'print hello' out>> a; open a"
         );
         assert!(output.out.contains("hellohello"));
     })
@@ -64,8 +64,8 @@ fn two_lines_redirection() {
                 cwd: dirs.test(),
                 r#"
 def foobar [] {
-    'hello' out> output1.txt
-    'world' out> output2.txt
+    nu -c 'print hello' out> output1.txt
+    nu -c 'print world' out> output2.txt
 }
 foobar"#);
         let file_out1 = dirs.test().join("output1.txt");
@@ -244,31 +244,31 @@ fn redirect_support_variable() {
     Playground::setup("redirect_out_support_variable", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "let x = 'tmp_file'; echo 'hello' out> $x; open tmp_file"
+            "let x = 'tmp_file'; nu -c 'print hello' out> $x; open tmp_file"
         );
 
         assert!(output.out.contains("hello"));
 
         nu!(
             cwd: dirs.test(),
-            "let x = 'tmp_file'; echo 'hello there' out+err> $x; open tmp_file"
+            "let x = 'tmp_file'; nu -c 'print hello' out+err> $x; open tmp_file"
         );
         // check for stdout redirection file.
         let expected_out_file = dirs.test().join("tmp_file");
         let actual = file_contents(expected_out_file);
-        assert!(actual.contains("hello there"));
+        assert!(actual.contains("hello"));
 
         // append mode support variable too.
         let output = nu!(
             cwd: dirs.test(),
-            "let x = 'tmp_file'; echo 'hello' out>> $x; open tmp_file"
+            "let x = 'tmp_file'; nu -c 'print hello' out>> $x; open tmp_file"
         );
         let v: Vec<_> = output.out.match_indices("hello").collect();
         assert_eq!(v.len(), 2);
 
         let output = nu!(
             cwd: dirs.test(),
-            "let x = 'tmp_file'; echo 'hello' out+err>> $x; open tmp_file"
+            "let x = 'tmp_file'; nu -c 'print hello' out+err>> $x; open tmp_file"
         );
         // check for stdout redirection file.
         let v: Vec<_> = output.out.match_indices("hello").collect();
