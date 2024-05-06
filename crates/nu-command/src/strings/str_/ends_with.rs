@@ -7,6 +7,7 @@ struct Arguments {
     substring: String,
     cell_paths: Option<Vec<CellPath>>,
     case_insensitive: bool,
+    not_ends_with: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -39,6 +40,7 @@ impl Command for SubCommand {
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
+            .switch("not", "does not end with", Some('n'))
             .category(Category::Strings)
     }
 
@@ -63,6 +65,7 @@ impl Command for SubCommand {
             substring: call.req::<String>(engine_state, stack, 0)?,
             cell_paths,
             case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
+            not_ends_with: call.has_flag(engine_state, stack, "not")?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -91,17 +94,34 @@ impl Command for SubCommand {
     }
 }
 
-fn action(input: &Value, args: &Arguments, head: Span) -> Value {
+fn action(
+    input: &Value,
+    Arguments {
+        substring,
+        case_insensitive,
+        not_ends_with,
+        ..
+    }: &Arguments,
+    head: Span) -> Value {
     match input {
-        Value::String { val: s, .. } => {
-            let ends_with = if args.case_insensitive {
-                s.to_folded_case()
-                    .ends_with(&args.substring.to_folded_case())
+        Value::String { val, .. } => Value::bool(
+            if *case_insensitive {
+                if *not_ends_with {
+                    !val.to_folded_case()
+                        .ends_with(substring.to_folded_case().as_str())
+                } else {
+                    val.to_folded_case()
+                        .ends_with(substring.to_folded_case().as_str())
+                }
             } else {
-                s.ends_with(&args.substring)
-            };
-            Value::bool(ends_with, head)
-        }
+                if *not_ends_with {
+                    !val.ends_with(substring)
+                } else {
+                    val.ends_with(substring)
+                }
+            },
+            head,
+        ),
         Value::Error { .. } => input.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {

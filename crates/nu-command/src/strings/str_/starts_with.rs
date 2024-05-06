@@ -7,6 +7,7 @@ struct Arguments {
     substring: String,
     cell_paths: Option<Vec<CellPath>>,
     case_insensitive: bool,
+    not_starts_with: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -40,6 +41,7 @@ impl Command for SubCommand {
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
+            .switch("not", "does not start with", Some('n'))
             .category(Category::Strings)
     }
 
@@ -65,6 +67,7 @@ impl Command for SubCommand {
             substring: substring.item,
             cell_paths,
             case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
+            not_starts_with: call.has_flag(engine_state, stack, "not")?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -100,19 +103,30 @@ fn action(
     Arguments {
         substring,
         case_insensitive,
+        not_starts_with,
         ..
     }: &Arguments,
     head: Span,
 ) -> Value {
     match input {
-        Value::String { val: s, .. } => {
-            let starts_with = if *case_insensitive {
-                s.to_folded_case().starts_with(&substring.to_folded_case())
+        Value::String { val, .. } => Value::bool(
+            if *case_insensitive {
+                if *not_starts_with {
+                    !val.to_folded_case()
+                        .starts_with(substring.to_folded_case().as_str())
+                } else {
+                    val.to_folded_case()
+                        .starts_with(substring.to_folded_case().as_str())
+                }
             } else {
-                s.starts_with(substring)
-            };
-            Value::bool(starts_with, head)
-        }
+                if *not_starts_with {
+                    !val.starts_with(substring)
+                } else {
+                    val.starts_with(substring)
+                }
+            },
+            head,
+        ),
         Value::Error { .. } => input.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {
