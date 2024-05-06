@@ -97,7 +97,7 @@ use it in your pipeline."#
                     input,
                 );
                 // Make sure to drain any iterator produced to avoid unexpected behavior
-                result.and_then(|data| data.drain())
+                result.and_then(|data| data.drain().map(|_| ()))
             }
         };
 
@@ -264,7 +264,7 @@ use it in your pipeline."#
                         if let Some(thread) = stderr_thread {
                             thread.join().unwrap_or_else(|_| Err(panic_error()))?;
                         }
-                        child.wait()?.check_ok(span)?;
+                        child.wait()?;
                         Ok(PipelineData::Empty)
                     }
                 }

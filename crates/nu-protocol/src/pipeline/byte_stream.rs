@@ -1,6 +1,6 @@
 use crate::{
     io::{convert_file, copy_with_interrupt},
-    process::{ChildPipe, ChildProcess},
+    process::{ChildPipe, ChildProcess, ExitStatus},
     ErrSpan, OutDest, PipelineData, ShellError, Span, Value,
 };
 use std::{
@@ -218,29 +218,29 @@ impl ByteStream {
         Ok(value)
     }
 
-    pub fn drain(self) -> Result<(), ShellError> {
+    pub fn drain(self) -> Result<Option<ExitStatus>, ShellError> {
         match self.stream {
             ByteStreamSource::Read(mut read) => {
                 copy_with_interrupt(&mut read, &mut io::sink(), self.span, self.ctrlc.as_deref())?;
+                Ok(None)
             }
-            ByteStreamSource::File(_) => {}
-            ByteStreamSource::Child(child) => {
-                child.wait()?.check_ok(self.span)?;
-            }
+            ByteStreamSource::File(_) => Ok(None),
+            ByteStreamSource::Child(child) => Ok(Some(child.wait()?)),
         }
-        Ok(())
     }
 
-    fn print_to(self, mut dest: impl Write) -> Result<(), ShellError> {
+    fn print_to(self, mut dest: impl Write) -> Result<Option<ExitStatus>, ShellError> {
         let span = self.span;
         let ctrlc = self.ctrlc.as_deref();
 
         match self.stream {
             ByteStreamSource::Read(mut read) => {
                 copy_with_interrupt(&mut read, &mut dest, span, ctrlc)?;
+                Ok(None)
             }
             ByteStreamSource::File(mut file) => {
                 copy_with_interrupt(&mut file, &mut dest, span, ctrlc)?;
+                Ok(None)
             }
             ByteStreamSource::Child(mut child) => {
                 match (child.stdout.take(), child.stderr.take()) {
@@ -293,13 +293,12 @@ impl ByteStream {
                     }
                     (None, None) => {}
                 }
-                child.wait()?.check_ok(span)?;
+                Ok(Some(child.wait()?))
             }
         }
-        Ok(())
     }
 
-    pub fn print(self, to_stderr: bool) -> Result<(), ShellError> {
+    pub fn print(self, to_stderr: bool) -> Result<Option<ExitStatus>, ShellError> {
         if to_stderr {
             self.print_to(io::stderr())
         } else {
@@ -323,21 +322,31 @@ impl ByteStream {
         Ok(())
     }
 
-    pub fn write_to_out_dests(self, stdout: &OutDest, stderr: &OutDest) -> Result<(), ShellError> {
+    pub fn write_to_out_dests(
+        self,
+        stdout: &OutDest,
+        stderr: &OutDest,
+    ) -> Result<Option<ExitStatus>, ShellError> {
         let span = self.span;
         let ctrlc = self.ctrlc.as_deref();
 
         match self.stream {
-            ByteStreamSource::Read(read) => write_to_out_dest(read, stdout, true, span, ctrlc)?,
-            ByteStreamSource::File(mut file) => match stdout {
-                OutDest::Pipe | OutDest::Capture | OutDest::Null => {}
-                OutDest::Inherit => {
-                    copy_with_interrupt(&mut file, &mut io::stdout(), span, ctrlc)?;
+            ByteStreamSource::Read(read) => {
+                write_to_out_dest(read, stdout, true, span, ctrlc)?;
+                Ok(None)
+            }
+            ByteStreamSource::File(mut file) => {
+                match stdout {
+                    OutDest::Pipe | OutDest::Capture | OutDest::Null => {}
+                    OutDest::Inherit => {
+                        copy_with_interrupt(&mut file, &mut io::stdout(), span, ctrlc)?;
+                    }
+                    OutDest::File(f) => {
+                        copy_with_interrupt(&mut file, &mut f.as_ref(), span, ctrlc)?;
+                    }
                 }
-                OutDest::File(f) => {
-                    copy_with_interrupt(&mut file, &mut f.as_ref(), span, ctrlc)?;
-                }
-            },
+                Ok(None)
+            }
             ByteStreamSource::Child(mut child) => {
                 match (child.stdout.take(), child.stderr.take()) {
                     (Some(out), Some(err)) => {
@@ -383,10 +392,9 @@ impl ByteStream {
                     }
                     (None, None) => {}
                 }
-                child.wait()?.check_ok(span)?;
+                Ok(Some(child.wait()?))
             }
         }
-        Ok(())
     }
 }
 

@@ -1,11 +1,13 @@
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
-    ByteStream, Config, ListStream, OutDest, PipelineMetadata, Range, ShellError, Span, Value,
+    process::{ChildPipe, ChildProcess, ExitStatus},
+    ByteStream, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range, ShellError, Span,
+    Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
-    io::Write,
+    io::{Cursor, Read, Write},
     sync::{atomic::AtomicBool, Arc},
 };
 
@@ -51,6 +53,16 @@ pub enum PipelineData {
 impl PipelineData {
     pub fn empty() -> PipelineData {
         PipelineData::Empty
+    }
+
+    /// create a `PipelineData::ExternalStream` with proper exit_code
+    ///
+    /// It's useful to break running without raising error at user level.
+    pub fn new_external_stream_with_only_exit_code(exit_code: i32) -> PipelineData {
+        let span = Span::unknown();
+        let mut child = ChildProcess::from_raw(None, None, None, span);
+        child.set_exit_code(exit_code);
+        PipelineData::ByteStream(ByteStream::child(child, span), None)
     }
 
     pub fn metadata(&self) -> Option<PipelineMetadata> {
@@ -142,12 +154,15 @@ impl PipelineData {
         Ok(PipelineData::Empty)
     }
 
-    pub fn drain(self) -> Result<(), ShellError> {
+    pub fn drain(self) -> Result<Option<ExitStatus>, ShellError> {
         match self {
-            PipelineData::Empty => Ok(()),
+            PipelineData::Empty => Ok(None),
             PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
-            PipelineData::Value(..) => Ok(()),
-            PipelineData::ListStream(stream, ..) => stream.drain(),
+            PipelineData::Value(..) => Ok(None),
+            PipelineData::ListStream(stream, ..) => {
+                stream.drain()?;
+                Ok(None)
+            }
             PipelineData::ByteStream(stream, ..) => stream.drain(),
         }
     }
@@ -405,6 +420,63 @@ impl PipelineData {
                     Ok(Value::nothing(span).into_pipeline_data())
                 }
             }
+        }
+    }
+
+    /// Try to catch the external stream exit status and detect if it failed.
+    ///
+    /// This is useful for external commands with semicolon, we can detect errors early to avoid
+    /// commands after the semicolon running.
+    ///
+    /// Returns `self` and a flag that indicates if the external stream run failed. If `self` is
+    /// not [`PipelineData::ExternalStream`], the flag will be `false`.
+    ///
+    /// Currently this will consume an external stream to completion.
+    pub fn check_external_failed(self) -> Result<(Self, bool), ShellError> {
+        if let PipelineData::ByteStream(stream, metdata) = self {
+            let span = stream.span();
+            match stream.into_child() {
+                Ok(mut child) => {
+                    // Only need ExternalStream without redirecting output.
+                    // It indicates we have no more commands to execute currently.
+                    if child.stdout.is_none() {
+                        // Note:
+                        // In run-external's implementation detail, the result sender thread
+                        // send out stderr message first, then stdout message, then exit_code.
+                        //
+                        // In this clause, we already make sure that `stdout` is None
+                        // But not the case of `stderr`, so if `stderr` is not None
+                        // We need to consume stderr message before reading external commands' exit code.
+                        //
+                        // Or we'll never have a chance to read exit_code if stderr producer produce too much stderr message.
+                        // So we consume stderr stream and rebuild it.
+                        let stderr = child
+                            .stderr
+                            .take()
+                            .map(|mut stderr| {
+                                let mut buf = Vec::new();
+                                stderr.read_to_end(&mut buf).err_span(span)?;
+                                Ok::<_, ShellError>(buf)
+                            })
+                            .transpose()?;
+
+                        let code = child.wait()?.code();
+                        let mut child = ChildProcess::from_raw(None, None, None, span);
+                        if let Some(stderr) = stderr {
+                            child.stderr = Some(ChildPipe::Tee(Box::new(Cursor::new(stderr))));
+                        }
+                        child.set_exit_code(code);
+                        let stream = ByteStream::child(child, span);
+                        Ok((PipelineData::ByteStream(stream, metdata), code != 0))
+                    } else {
+                        let stream = ByteStream::child(child, span);
+                        Ok((PipelineData::ByteStream(stream, metdata), false))
+                    }
+                }
+                Err(stream) => Ok((PipelineData::ByteStream(stream, metdata), false)),
+            }
+        } else {
+            Ok((self, false))
         }
     }
 

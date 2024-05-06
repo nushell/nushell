@@ -639,33 +639,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// An external command exited with a non-zero exit status.
-    ///
-    /// ## Resolution
-    ///
-    /// Check the external command's error message.
-    #[error("External command had a non-zero exit code")]
-    #[diagnostic(code(nu::shell::non_zero_exit_code))]
-    NonZeroExitCode {
-        exit_code: i32,
-        #[label("exited with code {exit_code}")]
-        span: Span,
-    },
-
-    /// An external command exited due to a signal.
-    ///
-    /// ## Resolution
-    ///
-    /// Check why the signal was sent or triggered.
-    #[error("External command was terminated by a signal")]
-    #[diagnostic(code(nu::shell::external_command_signaled))]
-    ExternalCommandSignaled {
-        signal_name: String,
-        signal: i32,
-        #[label("terminated due to {signal_name} {signal}")]
-        span: Span,
-    },
-
     /// An external command core dumped.
     ///
     /// ## Resolution
@@ -1417,9 +1390,7 @@ impl ShellError {
 
     pub fn exit_code(&self) -> i32 {
         match *self {
-            ShellError::NonZeroExitCode { exit_code, .. } => exit_code,
-            ShellError::ExternalCommandSignaled { signal, .. }
-            | ShellError::ExternalCommandCoreDumped { signal, .. } => -signal,
+            ShellError::ExternalCommandCoreDumped { signal, .. } => -signal,
             _ => 1,
         }
     }

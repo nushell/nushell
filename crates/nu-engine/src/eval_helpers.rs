@@ -21,8 +21,12 @@ pub type EvalBlockWithEarlyReturnFn =
 pub type EvalExpressionFn = fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>;
 
 /// Type of eval_expression_with_input() function
-pub type EvalExpressionWithInputFn =
-    fn(&EngineState, &mut Stack, &Expression, PipelineData) -> Result<PipelineData, ShellError>;
+pub type EvalExpressionWithInputFn = fn(
+    &EngineState,
+    &mut Stack,
+    &Expression,
+    PipelineData,
+) -> Result<(PipelineData, bool), ShellError>;
 
 /// Type of eval_subexpression() function
 pub type EvalSubexpressionFn =

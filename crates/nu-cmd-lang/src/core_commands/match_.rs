@@ -69,7 +69,7 @@ impl Command for Match {
                         let block = engine_state.get_block(block_id);
                         eval_block(engine_state, stack, block, input)
                     } else {
-                        eval_expression_with_input(engine_state, stack, expr, input)
+                        eval_expression_with_input(engine_state, stack, expr, input).map(|x| x.0)
                     };
                 }
             } else {

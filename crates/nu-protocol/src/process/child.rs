@@ -134,19 +134,21 @@ impl ChildProcess {
             .spawn(move || exit_status_sender.send(child.wait().map(Into::into)))
             .err_span(span)?;
 
-        Ok(Self::from_raw(stdout, stderr, exit_status, span))
+        Ok(Self::from_raw(stdout, stderr, Some(exit_status), span))
     }
 
     pub fn from_raw(
         stdout: Option<PipeReader>,
         stderr: Option<PipeReader>,
-        exit_status: Receiver<io::Result<ExitStatus>>,
+        exit_status: Option<Receiver<io::Result<ExitStatus>>>,
         span: Span,
     ) -> Self {
         Self {
             stdout: stdout.map(Into::into),
             stderr: stderr.map(Into::into),
-            exit_status: ExitStatusFuture::Running(exit_status),
+            exit_status: exit_status
+                .map(ExitStatusFuture::Running)
+                .unwrap_or(ExitStatusFuture::Finished(Ok(ExitStatus::Exited(0)))),
             span,
             trim_end_newline: false,
         }
@@ -220,7 +222,8 @@ impl ChildProcess {
             Vec::new()
         };
 
-        self.exit_status.wait(self.span)?.check_ok(self.span)?;
+        // TODO: check exit_status
+        self.exit_status.wait(self.span)?;
 
         Ok(bytes)
     }

@@ -93,7 +93,7 @@ fn save_stderr_and_stdout_to_afame_file() {
             r#"
             $env.FOO = "bar";
             $env.BAZ = "ZZZ";
-            nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ' | save -r save_test_5/new-file.txt --stderr save_test_5/new-file.txt
+            do -c {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_5/new-file.txt --stderr save_test_5/new-file.txt
             "#,
         );
         assert!(actual
@@ -115,7 +115,7 @@ fn save_stderr_and_stdout_to_diff_file() {
             r#"
             $env.FOO = "bar";
             $env.BAZ = "ZZZ";
-            nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ' | save -r save_test_6/log.txt --stderr save_test_6/err.txt
+            do -c {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_6/log.txt --stderr save_test_6/err.txt
             "#,
         );
 

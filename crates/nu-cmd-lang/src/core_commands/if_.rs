@@ -111,10 +111,10 @@ impl Command for If {
                     let block = engine_state.get_block(block_id);
                     eval_block(engine_state, stack, block, input)
                 } else {
-                    eval_expression_with_input(engine_state, stack, else_expr, input)
+                    eval_expression_with_input(engine_state, stack, else_expr, input).map(|x| x.0)
                 }
             } else {
-                eval_expression_with_input(engine_state, stack, else_case, input)
+                eval_expression_with_input(engine_state, stack, else_case, input).map(|x| x.0)
             }
         } else {
             Ok(PipelineData::empty())

@@ -53,7 +53,7 @@ impl Command for TimeIt {
                 eval_block(engine_state, stack, block, input)?
             } else {
                 let eval_expression_with_input = get_eval_expression_with_input(engine_state);
-                eval_expression_with_input(engine_state, stack, command_to_run, input)?
+                eval_expression_with_input(engine_state, stack, command_to_run, input)?.0
             }
         } else {
             PipelineData::empty()

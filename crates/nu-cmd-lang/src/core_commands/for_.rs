@@ -122,7 +122,14 @@ impl Command for For {
                             return Err(err);
                         }
                         Ok(data) => {
-                            data.drain()?;
+                            if let Some(status) = data.drain()? {
+                                let code = status.code();
+                                if code != 0 {
+                                    return Ok(
+                                        PipelineData::new_external_stream_with_only_exit_code(code),
+                                    );
+                                }
+                            }
                         }
                     }
                 }
@@ -155,7 +162,14 @@ impl Command for For {
                             return Err(err);
                         }
                         Ok(data) => {
-                            data.drain()?;
+                            if let Some(status) = data.drain()? {
+                                let code = status.code();
+                                if code != 0 {
+                                    return Ok(
+                                        PipelineData::new_external_stream_with_only_exit_code(code),
+                                    );
+                                }
+                            }
                         }
                     }
                 }
