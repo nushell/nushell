@@ -37,7 +37,6 @@ polars-utils = { version = "0.39"}
 polars-lazy = { version = "0.39"}
 typetag = "0.2"
 uuid = { version = "1.7", features = ["v4", "serde"] }
-smartstring = "1.0.1"
 
 [dependencies.polars]
 features = [

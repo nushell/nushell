@@ -82,7 +82,6 @@ impl PluginCommand for LazyFetch {
             })?
             .into();
 
-        // mark this as not from lazy so it doesn't get converted back to a lazy frame
         eager
             .to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)

@@ -3424,7 +3424,6 @@ dependencies = [
  "polars-plan",
  "polars-utils",
  "serde",
- "smartstring",
  "sqlparser 0.45.0",
  "tempfile",
  "typetag",

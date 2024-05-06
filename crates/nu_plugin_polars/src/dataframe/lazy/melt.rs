@@ -1,10 +1,9 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 use polars::frame::explode::MeltArgs;
-use smartstring::{LazyCompact, SmartString};
 
 use crate::{
     dataframe::values::utils::convert_columns_string,
