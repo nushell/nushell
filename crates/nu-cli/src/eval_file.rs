@@ -23,9 +23,7 @@ pub fn evaluate_file(
     input: PipelineData,
 ) -> Result<(), ShellError> {
     // Convert environment variables from Strings to Values and store them in the engine state.
-    if let Some(e) = convert_env_values(engine_state, stack) {
-        return Err(e);
-    }
+    convert_env_values(engine_state, stack)?;
 
     #[allow(deprecated)]
     let cwd = current_dir(engine_state, stack)?;

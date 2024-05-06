@@ -86,7 +86,7 @@ pub fn evaluate_repl(
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, &unique_stack) {
+    if let Err(e) = convert_env_values(engine_state, &unique_stack) {
         report_error_new(engine_state, &e);
     }
     perf(

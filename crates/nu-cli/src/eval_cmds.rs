@@ -18,9 +18,7 @@ pub fn evaluate_commands(
     no_newline: bool,
 ) -> Result<(), ShellError> {
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, stack) {
-        return Err(e);
-    }
+    convert_env_values(engine_state, stack)?;
 
     // Parse the source code
     let (block, delta) = {
