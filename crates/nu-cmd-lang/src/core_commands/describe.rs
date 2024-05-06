@@ -228,7 +228,7 @@ fn run(
                 let subtype = if options.no_collect {
                     Value::string("any", head)
                 } else {
-                    describe_value(&input.into_value(head), head, engine_state)
+                    describe_value(input.into_value(head), head, engine_state)
                 };
                 Value::record(
                     record! {
@@ -252,7 +252,7 @@ fn run(
             if !options.detailed {
                 Value::string(value.get_type().to_string(), head)
             } else {
-                describe_value(&value, head, engine_state)
+                describe_value(value, head, engine_state)
             }
         }
     };
@@ -274,7 +274,7 @@ impl Description {
     }
 }
 
-fn describe_value(value: &Value, head: Span, engine_state: Option<&EngineState>) -> Value {
+fn describe_value(value: Value, head: Span, engine_state: Option<&EngineState>) -> Value {
     let record = match describe_value_inner(value, head, engine_state) {
         Description::String(ty) => record! { "type" => Value::string(ty, head) },
         Description::Record(record) => record,
@@ -283,7 +283,7 @@ fn describe_value(value: &Value, head: Span, engine_state: Option<&EngineState>)
 }
 
 fn describe_value_inner(
-    value: &Value,
+    value: Value,
     head: Span,
     engine_state: Option<&EngineState>,
 ) -> Description {
@@ -299,31 +299,27 @@ fn describe_value_inner(
         | Value::Glob { .. }
         | Value::Nothing { .. } => Description::String(value.get_type().to_string()),
         Value::Record { val, .. } => {
-            let columns = val
-                .iter()
-                .map(|(col, val)| {
-                    (
-                        col.clone(),
-                        describe_value_inner(val, head, engine_state).into_value(head),
-                    )
-                })
-                .collect();
+            let mut columns = val.into_owned();
+            for (_, val) in &mut columns {
+                *val =
+                    describe_value_inner(std::mem::take(val), head, engine_state).into_value(head);
+            }
 
             Description::Record(record! {
                 "type" => Value::string("record", head),
                 "columns" => Value::record(columns, head),
             })
         }
-        Value::List { vals, .. } => {
-            let values = vals
-                .iter()
-                .map(|val| describe_value_inner(val, head, engine_state).into_value(head))
-                .collect::<Vec<_>>();
+        Value::List { mut vals, .. } => {
+            for val in &mut vals {
+                *val =
+                    describe_value_inner(std::mem::take(val), head, engine_state).into_value(head);
+            }
 
             Description::Record(record! {
                 "type" => Value::string("list", head),
-                "length" => Value::int(values.len() as i64, head),
-                "values" => Value::list(values, head),
+                "length" => Value::int(vals.len() as i64, head),
+                "values" => Value::list(vals, head),
             })
         }
         Value::Closure { val, .. } => {
