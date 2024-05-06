@@ -1913,11 +1913,6 @@ fn parse_module_file(
     let file_id = working_set.add_file(path.path().to_string_lossy().to_string(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
 
-    // Check if we've parsed the module before.
-    if let Some(module_id) = working_set.find_module_by_span(new_span) {
-        return Some(module_id);
-    }
-
     // Add the file to the stack of files being processed.
     if let Err(e) = working_set.files.push(path.path_buf(), path_span) {
         working_set.error(e);
