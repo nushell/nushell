@@ -85,13 +85,13 @@ fn lists_regular_files_in_special_folder() {
         assert_eq!(actual.out, "2");
         let actual = nu!(
             cwd: dirs.test().join("abcd/*"), format!(r#"ls ../* | length"#));
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual.out, "2");
         let actual = nu!(
             cwd: dirs.test().join("abcd/?"), format!(r#"ls -D ../* | length"#));
         assert_eq!(actual.out, "2");
         let actual = nu!(
             cwd: dirs.test().join("abcd/?"), format!(r#"ls ../* | length"#));
-        assert_eq!(actual.out, "3");
+        assert_eq!(actual.out, "2");
     })
 }
 
@@ -237,6 +237,12 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
         );
 
         assert_eq!(actual.out, "5");
+
+        let actual = nu!(
+            cwd: dirs.test().join("foo/bar"),
+            r#"ls ... | sort-by name | get name.0 | str replace -a '\' '/'"#
+        );
+        assert_eq!(actual.out, "../../andres.xml");
     })
 }
 
@@ -758,4 +764,47 @@ fn list_with_multiple_path() {
         let actual = nu!(cwd: dirs.test(), "ls ...[] | length");
         assert_eq!(actual.out, "0");
     })
+}
+
+#[test]
+fn list_inside_glob_metachars_dir() {
+    Playground::setup("list_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(&[EmptyFile("test_file.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "ls test_file.txt | get name.0 | path basename",
+        );
+        assert!(actual.out.contains("test_file.txt"));
+    });
+}
+
+#[test]
+fn list_inside_tilde_glob_metachars_dir() {
+    Playground::setup(
+        "list_files_inside_tilde_glob_metachars_dir",
+        |dirs, sandbox| {
+            let sub_dir = "~test[]";
+            sandbox
+                .within(sub_dir)
+                .with_files(&[EmptyFile("test_file.txt")]);
+
+            // need getname.0 | path basename because the output path
+            // might be too long to output as a single line.
+            let actual = nu!(
+                cwd: dirs.test().join(sub_dir),
+                "ls test_file.txt | get name.0 | path basename",
+            );
+            assert!(actual.out.contains("test_file.txt"));
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                "ls '~test[]' | get name.0 | path basename"
+            );
+            assert!(actual.out.contains("test_file.txt"));
+        },
+    );
 }
