@@ -168,7 +168,7 @@ impl ExternalCommand {
             // We may need to run `create_process` again, so we have to clone the underlying
             // file or pipe in `input` here first.
             let (input_consumed, stdin) = match &input {
-                PipelineData::ByteStream(stream, metadata) => match stream.source() {
+                PipelineData::ByteStream(stream, ..) => match stream.source() {
                     nu_protocol::ByteStreamSource::Read(_) => (false, Stdio::piped()),
                     nu_protocol::ByteStreamSource::File(file) => {
                         (true, file.try_clone().err_span(head)?.into())
