@@ -135,6 +135,7 @@ impl ByteStream {
 
     pub fn into_stdio(mut self) -> Result<Stdio, Self> {
         match self.stream {
+            ByteStreamSource::Read(..) => Err(self),
             ByteStreamSource::File(file) => Ok(file.into()),
             ByteStreamSource::Child(child) => {
                 if let ChildProcess {
@@ -152,7 +153,6 @@ impl ByteStream {
                     Err(self)
                 }
             }
-            _ => Err(self),
         }
     }
 

@@ -165,9 +165,35 @@ impl ExternalCommand {
 
         #[cfg(windows)]
         let (child, reader, input) = {
-            let (cmd, mut reader, _) = self.create_process(PipelineData::Empty, false, head)?;
+            // We may need to run `create_process` again, so we have to clone the underlying
+            // file or pipe in `input` here first.
+            let (input_consumed, stdin) = match &input {
+                PipelineData::ByteStream(stream, metadata) => match stream.source() {
+                    nu_protocol::ByteStreamSource::Read(_) => (false, Stdio::piped()),
+                    nu_protocol::ByteStreamSource::File(file) => {
+                        (true, file.try_clone().err_span(head)?.into())
+                    }
+                    nu_protocol::ByteStreamSource::Child(child) => {
+                        if let Some(nu_protocol::process::ChildPipe::Pipe(pipe)) = &child.stdout {
+                            (true, pipe.try_clone().err_span(head)?.into())
+                        } else {
+                            (false, Stdio::piped())
+                        }
+                    }
+                },
+                PipelineData::Empty => (true, Stdio::inherit()),
+                _ => (false, Stdio::piped()),
+            };
+
+            let mut input = input;
+            let (cmd, mut reader) = self.create_process(stdin, false, head)?;
             let child = match ForegroundChild::spawn(cmd) {
-                Ok(child) => Ok(child),
+                Ok(child) => {
+                    if input_consumed {
+                        input = PipelineData::Empty;
+                    }
+                    Ok(child)
+                }
                 Err(err) => {
                     // Running external commands on Windows has 2 points of complication:
                     // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
@@ -191,9 +217,23 @@ impl ExternalCommand {
                         .iter()
                         .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
 
+                    let (data, stdin) = {
+                        match input {
+                            PipelineData::ByteStream(stream, metadata) => match stream.into_stdio()
+                            {
+                                Ok(pipe) => (PipelineData::Empty, pipe),
+                                Err(stream) => {
+                                    (PipelineData::ByteStream(stream, metadata), Stdio::piped())
+                                }
+                            },
+                            PipelineData::Empty => (PipelineData::Empty, Stdio::inherit()),
+                            input => (input, Stdio::piped()),
+                        }
+                    };
+                    input = data;
+
                     if looks_like_cmd_internal {
-                        let (cmd, new_reader, _) =
-                            self.create_process(PipelineData::Empty, true, head)?;
+                        let (cmd, new_reader) = self.create_process(stdin, true, head)?;
                         reader = new_reader;
                         child = ForegroundChild::spawn(cmd);
                     } else {
@@ -223,12 +263,8 @@ impl ExternalCommand {
                                                     item: file_name.to_string_lossy().to_string(),
                                                     span: self.name.span,
                                                 };
-                                                let (cmd, new_reader, _) = new_command
-                                                    .create_process(
-                                                        PipelineData::Empty,
-                                                        true,
-                                                        head,
-                                                    )?;
+                                                let (cmd, new_reader) = new_command
+                                                    .create_process(stdin, true, head)?;
                                                 reader = new_reader;
                                                 child = ForegroundChild::spawn(cmd);
                                             }
@@ -248,7 +284,17 @@ impl ExternalCommand {
 
         #[cfg(unix)]
         let (child, reader, input) = {
-            let (cmd, reader, input) = self.create_process(input, false, head)?;
+            let (input, stdin) = {
+                match input {
+                    PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
+                        Ok(pipe) => (PipelineData::Empty, pipe),
+                        Err(stream) => (PipelineData::ByteStream(stream, metadata), Stdio::piped()),
+                    },
+                    PipelineData::Empty => (PipelineData::Empty, Stdio::inherit()),
+                    input => (input, Stdio::piped()),
+                }
+            };
+            let (cmd, reader) = self.create_process(stdin, false, head)?;
             let child = ForegroundChild::spawn(
                 cmd,
                 engine_state.is_interactive,
@@ -440,10 +486,10 @@ impl ExternalCommand {
 
     pub fn create_process(
         &self,
-        input: PipelineData,
+        stdin: Stdio,
         use_cmd: bool,
         span: Span,
-    ) -> Result<(CommandSys, Option<PipeReader>, PipelineData), ShellError> {
+    ) -> Result<(CommandSys, Option<PipeReader>), ShellError> {
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
             let mut process = if use_cmd {
                 self.spawn_cmd_command(d)
@@ -485,20 +531,9 @@ impl ExternalCommand {
             None
         };
 
-        let (input, stdin) = {
-            match input {
-                PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
-                    Ok(pipe) => (PipelineData::Empty, pipe),
-                    Err(stream) => (PipelineData::ByteStream(stream, metadata), Stdio::piped()),
-                },
-                PipelineData::Empty => (PipelineData::Empty, Stdio::inherit()),
-                input => (input, Stdio::piped()),
-            }
-        };
-
         process.stdin(stdin);
 
-        Ok((process, reader, input))
+        Ok((process, reader))
     }
 
     fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
