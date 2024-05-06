@@ -43,8 +43,11 @@ impl Command for Sys {
         );
 
         let head = call.head;
+
+        let mut host = super::host(head);
+        host.push("sessions", super::users(head));
         let record = record! {
-            "host" => super::host(head),
+            "host" => Value::record(host, head),
             "cpu" => super::cpu(head),
             "disks" => super::disks(head),
             "mem" => super::mem(head),

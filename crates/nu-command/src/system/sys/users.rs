@@ -1,22 +1,21 @@
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct SysHost;
+pub struct SysUsers;
 
-impl Command for SysHost {
+impl Command for SysUsers {
     fn name(&self) -> &str {
-        "sys host"
+        "sys users"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("sys host")
-            .filter()
+        Signature::build("sys users")
             .category(Category::System)
             .input_output_types(vec![(Type::Nothing, Type::record())])
     }
 
     fn usage(&self) -> &str {
-        "View information about the system host."
+        "View information about the users on the system."
     }
 
     fn run(
@@ -26,14 +25,13 @@ impl Command for SysHost {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let host = super::host(call.head);
-        Ok(Value::record(host, call.head).into_pipeline_data())
+        Ok(super::users(call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Show info about the system host",
-            example: "sys host",
+            description: "Show info about the system users",
+            example: "sys users",
             result: None,
         }]
     }
