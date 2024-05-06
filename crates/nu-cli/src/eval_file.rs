@@ -7,9 +7,9 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Config, PipelineData, ShellError, Span, Value,
+    report_error, PipelineData, ShellError, Span, Value,
 };
-use std::{io::Write, sync::Arc};
+use std::sync::Arc;
 
 /// Entry point for evaluating a file.
 ///
@@ -137,61 +137,4 @@ pub fn evaluate_file(
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 
     Ok(())
-}
-
-pub(crate) fn print_table_or_error(
-    engine_state: &mut EngineState,
-    stack: &mut Stack,
-    mut pipeline_data: PipelineData,
-    config: &mut Config,
-    no_newline: bool,
-) -> Option<i64> {
-    let exit_code = match &mut pipeline_data {
-        PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
-        _ => None,
-    };
-
-    // Change the engine_state config to use the passed in configuration
-    engine_state.set_config(config.clone());
-
-    if let PipelineData::Value(Value::Error { error, .. }, ..) = &pipeline_data {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, &**error);
-        std::process::exit(1);
-    }
-
-    // We don't need to do anything special to print a table because print() handles it
-    print_or_exit(pipeline_data, engine_state, stack, no_newline);
-
-    // Make sure everything has finished
-    if let Some(exit_code) = exit_code {
-        let mut exit_code: Vec<_> = exit_code.into_iter().collect();
-        exit_code
-            .pop()
-            .and_then(|last_exit_code| match last_exit_code {
-                Value::Int { val: code, .. } => Some(code),
-                _ => None,
-            })
-    } else {
-        None
-    }
-}
-
-fn print_or_exit(
-    pipeline_data: PipelineData,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    no_newline: bool,
-) {
-    let result = pipeline_data.print(engine_state, stack, no_newline, false);
-
-    let _ = std::io::stdout().flush();
-    let _ = std::io::stderr().flush();
-
-    if let Err(error) = result {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, &error);
-        let _ = std::io::stderr().flush();
-        std::process::exit(1);
-    }
 }
