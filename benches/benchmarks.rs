@@ -4,8 +4,7 @@ use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    eval_const::create_nu_constant,
-    PipelineData, Span, Spanned, Value, NU_VARIABLE_ID,
+    PipelineData, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
@@ -52,9 +51,7 @@ fn setup_engine() -> EngineState {
         Value::string(home_path.to_string_lossy(), Span::test_data()),
     );
 
-    let nu_const = create_nu_constant(&engine_state, Span::unknown())
-        .expect("Failed to create nushell constant.");
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    engine_state.generate_nu_constant();
 
     engine_state
 }
