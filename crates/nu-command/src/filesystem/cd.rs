@@ -52,13 +52,13 @@ impl Command for Cd {
             }
         };
 
-        let (path, span) = match path_val {
+        let path = match path_val {
             Some(v) => {
                 if v.item == "-" {
                     if let Some(oldpwd) = stack.get_env_var(engine_state, "OLDPWD") {
-                        (oldpwd.to_path()?, v.span)
+                        oldpwd.to_path()?
                     } else {
-                        (cwd, v.span)
+                        cwd
                     }
                 } else {
                     // Trim whitespace from the end of path.
@@ -66,7 +66,7 @@ impl Command for Cd {
                         &v.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
                     // If `--physical` is specified, canonicalize the path; otherwise expand the path.
-                    let path = if physical {
+                    if physical {
                         if let Ok(path) = nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                             if !path.is_dir() {
                                 return Err(ShellError::NotADirectory { span: v.span });
@@ -90,18 +90,11 @@ impl Command for Cd {
                             return Err(ShellError::NotADirectory { span: v.span });
                         };
                         path
-                    };
-                    (path, v.span)
+                    }
                 }
             }
-            None => {
-                let path = nu_path::expand_tilde("~");
-                (path, call.head)
-            }
+            None => nu_path::expand_tilde("~"),
         };
-
-        // Strip the trailing slash from the new path. This is required for PWD.
-        let path = nu_path::strip_trailing_slash(&path);
 
         // Set OLDPWD.
         // We're using `Stack::get_env_var()` instead of `EngineState::cwd()` to avoid a conversion roundtrip.
@@ -113,7 +106,7 @@ impl Command for Cd {
             //FIXME: this only changes the current scope, but instead this environment variable
             //should probably be a block that loads the information from the state in the overlay
             PermissionResult::PermissionOk => {
-                stack.add_env_var("PWD".into(), Value::string(path.to_string_lossy(), span));
+                stack.set_cwd(path)?;
                 Ok(PipelineData::empty())
             }
             PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError {

@@ -929,7 +929,10 @@ fn do_auto_cd(
 
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
-    stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
+    if let Err(err) = stack.set_cwd(&path) {
+        report_error_new(engine_state, &err);
+        return;
+    };
     let cwd = Value::string(cwd, span);
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
