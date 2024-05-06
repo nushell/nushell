@@ -10,7 +10,7 @@ use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, ShellError, Spanned,
+    report_error_new, PipelineData, Spanned,
 };
 use nu_utils::utils::perf;
 
@@ -21,7 +21,7 @@ pub(crate) fn run_commands(
     commands: &Spanned<String>,
     input: PipelineData,
     entire_start_time: std::time::Instant,
-) -> Result<(), ShellError> {
+) {
     trace!("run_commands");
     let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
@@ -109,14 +109,17 @@ pub(crate) fn run_commands(
     engine_state.generate_nu_constant();
 
     let start_time = std::time::Instant::now();
-    evaluate_commands(
+    if let Err(err) = evaluate_commands(
         commands,
         engine_state,
         &mut stack,
         input,
         parsed_nu_cli_args.table_mode,
         parsed_nu_cli_args.no_newline.is_some(),
-    )?;
+    ) {
+        report_error_new(engine_state, &err);
+        std::process::exit(1);
+    }
     perf(
         "evaluate_commands",
         start_time,
@@ -125,8 +128,6 @@ pub(crate) fn run_commands(
         column!(),
         use_color,
     );
-
-    Ok(())
 }
 
 pub(crate) fn run_file(
@@ -136,7 +137,7 @@ pub(crate) fn run_file(
     script_name: String,
     args_to_script: Vec<String>,
     input: PipelineData,
-) -> Result<(), ShellError> {
+) {
     trace!("run_file");
     let mut stack = Stack::new();
 
@@ -202,13 +203,16 @@ pub(crate) fn run_file(
     engine_state.generate_nu_constant();
 
     let start_time = std::time::Instant::now();
-    evaluate_file(
+    if let Err(err) = evaluate_file(
         script_name,
         &args_to_script,
         engine_state,
         &mut stack,
         input,
-    )?;
+    ) {
+        report_error_new(engine_state, &err);
+        std::process::exit(1);
+    }
     perf(
         "evaluate_file",
         start_time,
@@ -236,8 +240,6 @@ pub(crate) fn run_file(
         column!(),
         use_color,
     );
-
-    Ok(())
 }
 
 pub(crate) fn run_repl(

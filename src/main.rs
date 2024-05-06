@@ -461,7 +461,7 @@ fn main() -> Result<()> {
             &commands,
             input,
             entire_start_time,
-        )?;
+        );
         Ok(())
     } else if !script_name.is_empty() {
         run_file(
@@ -471,7 +471,7 @@ fn main() -> Result<()> {
             script_name,
             args_to_script,
             input,
-        )?;
+        );
         Ok(())
     } else {
         run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
