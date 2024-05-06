@@ -8,19 +8,22 @@ use log::trace;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
-use nu_protocol::PipelineData;
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    PipelineData, ShellError, Spanned,
+};
 use nu_utils::utils::perf;
 
 pub(crate) fn run_commands(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     use_color: bool,
-    commands: &nu_protocol::Spanned<String>,
+    commands: &Spanned<String>,
     input: PipelineData,
     entire_start_time: std::time::Instant,
-) -> Result<(), miette::ErrReport> {
+) -> Result<(), ShellError> {
     trace!("run_commands");
-    let mut stack = nu_protocol::engine::Stack::new();
+    let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
@@ -106,14 +109,14 @@ pub(crate) fn run_commands(
     engine_state.generate_nu_constant();
 
     let start_time = std::time::Instant::now();
-    let ret_val = evaluate_commands(
+    evaluate_commands(
         commands,
         engine_state,
         &mut stack,
         input,
         parsed_nu_cli_args.table_mode,
         parsed_nu_cli_args.no_newline.is_some(),
-    );
+    )?;
     perf(
         "evaluate_commands",
         start_time,
@@ -123,23 +126,19 @@ pub(crate) fn run_commands(
         use_color,
     );
 
-    match ret_val {
-        Ok(Some(exit_code)) => std::process::exit(exit_code as i32),
-        Ok(None) => Ok(()),
-        Err(e) => Err(e),
-    }
+    Ok(())
 }
 
 pub(crate) fn run_file(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     use_color: bool,
     script_name: String,
     args_to_script: Vec<String>,
     input: PipelineData,
-) -> Result<(), miette::ErrReport> {
+) -> Result<(), ShellError> {
     trace!("run_file");
-    let mut stack = nu_protocol::engine::Stack::new();
+    let mut stack = Stack::new();
 
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
@@ -203,13 +202,13 @@ pub(crate) fn run_file(
     engine_state.generate_nu_constant();
 
     let start_time = std::time::Instant::now();
-    let ret_val = evaluate_file(
+    evaluate_file(
         script_name,
         &args_to_script,
         engine_state,
         &mut stack,
         input,
-    );
+    )?;
     perf(
         "evaluate_file",
         start_time,
@@ -238,16 +237,16 @@ pub(crate) fn run_file(
         use_color,
     );
 
-    ret_val
+    Ok(())
 }
 
 pub(crate) fn run_repl(
-    engine_state: &mut nu_protocol::engine::EngineState,
+    engine_state: &mut EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     entire_start_time: std::time::Instant,
 ) -> Result<(), miette::ErrReport> {
     trace!("run_repl");
-    let mut stack = nu_protocol::engine::Stack::new();
+    let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
     if parsed_nu_cli_args.no_config_file.is_none() {

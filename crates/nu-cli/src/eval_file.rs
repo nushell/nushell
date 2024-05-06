@@ -1,6 +1,5 @@
 use crate::util::eval_source;
 use log::{info, trace};
-use miette::{IntoDiagnostic, Result};
 #[allow(deprecated)]
 use nu_engine::{convert_env_values, current_dir, eval_block};
 use nu_parser::parse;
@@ -22,74 +21,43 @@ pub fn evaluate_file(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     input: PipelineData,
-) -> Result<()> {
+) -> Result<(), ShellError> {
     // Convert environment variables from Strings to Values and store them in the engine state.
     if let Some(e) = convert_env_values(engine_state, stack) {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, &e);
-        std::process::exit(1);
+        return Err(e);
     }
 
     #[allow(deprecated)]
     let cwd = current_dir(engine_state, stack)?;
 
-    let file_path = canonicalize_with(&path, cwd).unwrap_or_else(|e| {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(
-            &working_set,
-            &ShellError::FileNotFoundCustom {
-                msg: format!("Could not access file '{}': {:?}", path, e.to_string()),
-                span: Span::unknown(),
-            },
-        );
-        std::process::exit(1);
-    });
+    let file_path =
+        canonicalize_with(&path, cwd).map_err(|err| ShellError::FileNotFoundCustom {
+            msg: format!("Could not access file '{path}': {err}"),
+            span: Span::unknown(),
+        })?;
 
-    let file_path_str = file_path.to_str().unwrap_or_else(|| {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(
-            &working_set,
-            &ShellError::NonUtf8Custom {
-                msg: format!(
-                    "Input file name '{}' is not valid UTF8",
-                    file_path.to_string_lossy()
-                ),
-                span: Span::unknown(),
-            },
-        );
-        std::process::exit(1);
-    });
+    let file_path_str = file_path
+        .to_str()
+        .ok_or_else(|| ShellError::NonUtf8Custom {
+            msg: format!(
+                "Input file name '{}' is not valid UTF8",
+                file_path.to_string_lossy()
+            ),
+            span: Span::unknown(),
+        })?;
 
-    let file = std::fs::read(&file_path)
-        .into_diagnostic()
-        .unwrap_or_else(|e| {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(
-                &working_set,
-                &ShellError::FileNotFoundCustom {
-                    msg: format!(
-                        "Could not read file '{}': {:?}",
-                        file_path_str,
-                        e.to_string()
-                    ),
-                    span: Span::unknown(),
-                },
-            );
-            std::process::exit(1);
-        });
+    let file = std::fs::read(&file_path).map_err(|err| ShellError::FileNotFoundCustom {
+        msg: format!("Could not read file '{file_path_str}': {err}"),
+        span: Span::unknown(),
+    })?;
     engine_state.file = Some(file_path.clone());
 
-    let parent = file_path.parent().unwrap_or_else(|| {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(
-            &working_set,
-            &ShellError::FileNotFoundCustom {
-                msg: format!("The file path '{file_path_str}' does not have a parent"),
-                span: Span::unknown(),
-            },
-        );
-        std::process::exit(1);
-    });
+    let parent = file_path
+        .parent()
+        .ok_or_else(|| ShellError::FileNotFoundCustom {
+            msg: format!("The file path '{file_path_str}' does not have a parent"),
+            span: Span::unknown(),
+        })?;
 
     stack.add_env_var(
         "FILE_PWD".to_string(),
@@ -129,42 +97,26 @@ pub fn evaluate_file(
     }
 
     // Merge the changes into the engine state.
-    engine_state
-        .merge_delta(working_set.delta)
-        .expect("merging delta into engine_state should succeed");
+    engine_state.merge_delta(working_set.delta)?;
 
     // Check if the file contains a main command.
     if engine_state.find_decl(b"main", &[]).is_some() {
         // Evaluate the file, but don't run main yet.
         let pipeline_data =
-            eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty());
-        let pipeline_data = match pipeline_data {
-            Err(ShellError::Return { .. }) => {
-                // Allow early return before main is run.
-                return Ok(());
-            }
-            x => x,
-        }
-        .unwrap_or_else(|e| {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
-            std::process::exit(1);
-        });
+            match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
+                Ok(data) => data,
+                Err(ShellError::Return { .. }) => {
+                    // Allow early return before main is run.
+                    return Ok(());
+                }
+                Err(err) => return Err(err),
+            };
 
         // Print the pipeline output of the file.
         // The pipeline output of a file is the pipeline output of its last command.
-        let result = pipeline_data.print(engine_state, stack, true, false);
-        match result {
-            Err(err) => {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &err);
-                std::process::exit(1);
-            }
-            Ok(exit_code) => {
-                if exit_code != 0 {
-                    std::process::exit(exit_code as i32);
-                }
-            }
+        let exit_code = pipeline_data.print(engine_state, stack, true, false)?;
+        if exit_code != 0 {
+            std::process::exit(exit_code as i32);
         }
 
         // Invoke the main command with arguments.
