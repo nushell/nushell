@@ -65,7 +65,7 @@ fn get_prompt_string(
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
             Value::Closure { val, .. } => {
-                let result = ClosureEvalOnce::new(engine_state, stack, val)
+                let result = ClosureEvalOnce::new(engine_state, stack, *val)
                     .run_with_input(PipelineData::Empty);
 
                 trace!(

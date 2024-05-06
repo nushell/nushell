@@ -122,7 +122,7 @@ pub enum Value {
         internal_span: Span,
     },
     Closure {
-        val: Closure,
+        val: Box<Closure>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -553,7 +553,7 @@ impl Value {
     /// Unwraps the inner [`Closure`] value or returns an error if this `Value` is not a closure
     pub fn into_closure(self) -> Result<Closure, ShellError> {
         if let Value::Closure { val, .. } = self {
-            Ok(val)
+            Ok(*val)
         } else {
             self.cant_convert_to("closure")
         }
@@ -1862,7 +1862,7 @@ impl Value {
 
     pub fn closure(val: Closure, span: Span) -> Value {
         Value::Closure {
-            val,
+            val: val.into(),
             internal_span: span,
         }
     }
