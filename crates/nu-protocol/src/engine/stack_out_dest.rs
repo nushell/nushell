@@ -121,13 +121,10 @@ impl<'a> StackIoGuard<'a> {
                 let old = mem::replace(&mut out_dest.pipe_stdout, Some(stdout));
                 (old, out_dest.parent_stdout.take())
             }
-            Some(Redirection::File(file)) => {
-                let file = OutDest::from(file);
-                (
-                    mem::replace(&mut out_dest.pipe_stdout, Some(file.clone())),
-                    out_dest.push_stdout(file),
-                )
-            }
+            Some(Redirection::File(file)) => (
+                out_dest.pipe_stdout.take(),
+                out_dest.push_stdout(file.into()),
+            ),
             None => (out_dest.pipe_stdout.take(), out_dest.parent_stdout.take()),
         };
 
