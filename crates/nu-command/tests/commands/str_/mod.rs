@@ -385,6 +385,60 @@ fn str_reverse() {
 }
 
 #[test]
+fn str_starts_with() {
+    let actual = nu!(r#"
+        echo "nushell" | str starts-with "nush"
+        "#);
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn str_not_starts_with_returns_false() {
+    let actual = nu!(r#"
+        echo "nushell" | str starts-with --not "nush"
+        "#);
+
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
+fn str_not_starts_with_returns_true() {
+    let actual = nu!(r#"
+        echo "nushell" | str starts-with --not "shell"
+        "#);
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn str_ends_with() {
+    let actual = nu!(r#"
+        echo "nushell" | str ends-with "ell"
+        "#);
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn str_not_ends_with_returns_false() {
+    let actual = nu!(r#"
+        echo "nushell" | str ends-with --not "nu"
+        "#);
+
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
+fn str_not_ends_with_returns_true() {
+    let actual = nu!(r#"
+        echo "nushell" | str ends-with --not "nush"
+        "#);
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
 fn test_redirection_trim() {
     let actual = nu!(r#"
         let x = (nu --testbin cococo niceone); $x | str trim | str length
