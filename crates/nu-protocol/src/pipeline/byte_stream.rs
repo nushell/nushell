@@ -203,16 +203,27 @@ impl ByteStream {
     }
 
     pub fn into_string(self) -> Result<String, ShellError> {
+        let trim = matches!(self.stream, ByteStreamSource::Child(..));
         let span = self.span;
         let bytes = self.into_bytes()?;
-        String::from_utf8(bytes).map_err(|_| ShellError::NonUtf8 { span })
+        let mut string = String::from_utf8(bytes).map_err(|_| ShellError::NonUtf8 { span })?;
+        if trim {
+            trim_end_newline(&mut string);
+        }
+        Ok(string)
     }
 
     pub fn into_value(self) -> Result<Value, ShellError> {
+        let trim = matches!(self.stream, ByteStreamSource::Child(..));
         let span = self.span;
         let bytes = self.into_bytes()?;
         let value = match String::from_utf8(bytes) {
-            Ok(str) => Value::string(str, span),
+            Ok(mut str) => {
+                if trim {
+                    trim_end_newline(&mut str);
+                }
+                Value::string(str, span)
+            }
             Err(err) => Value::binary(err.into_bytes(), span),
         };
         Ok(value)
@@ -573,5 +584,14 @@ where
             }
         }
         Ok(0)
+    }
+}
+
+fn trim_end_newline(string: &mut String) {
+    if string.ends_with('\n') {
+        string.pop();
+        if string.ends_with('\r') {
+            string.pop();
+        }
     }
 }

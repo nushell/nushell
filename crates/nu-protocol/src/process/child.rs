@@ -4,11 +4,7 @@ use os_pipe::PipeReader;
 use std::{
     fmt::Debug,
     io::{self, BufReader, Read},
-    sync::{
-        atomic::AtomicBool,
-        mpsc::{self, Receiver, RecvError, TryRecvError},
-        Arc,
-    },
+    sync::mpsc::{self, Receiver, RecvError, TryRecvError},
     thread,
 };
 
@@ -103,7 +99,6 @@ pub struct ChildProcess {
     pub stderr: Option<ChildPipe>,
     exit_status: ExitStatusFuture,
     span: Span,
-    trim_end_newline: bool,
 }
 
 impl ChildProcess {
@@ -150,13 +145,7 @@ impl ChildProcess {
                 .map(ExitStatusFuture::Running)
                 .unwrap_or(ExitStatusFuture::Finished(Ok(ExitStatus::Exited(0)))),
             span,
-            trim_end_newline: false,
         }
-    }
-
-    pub fn trim_end_newline(mut self, trim: bool) -> Self {
-        self.trim_end_newline = trim;
-        self
     }
 
     pub fn set_exit_code(&mut self, exit_code: i32) {
@@ -167,47 +156,7 @@ impl ChildProcess {
         self.span
     }
 
-    pub fn lines(self, ctrlc: Option<Arc<AtomicBool>>) -> Result<Option<Lines>, ShellError> {
-        if self.stderr.is_some() {
-            debug_assert!(false, "stderr should not exist");
-            return Err(ShellError::IOErrorSpanned {
-                msg: "internal error".into(),
-                span: self.span,
-            });
-        }
-        if let Some(stdout) = self.stdout {
-            Ok(Some(Lines(crate::io::Lines::new(
-                BufReader::new(stdout),
-                self.span,
-                ctrlc,
-            ))))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub fn values(self, ctrlc: Option<Arc<AtomicBool>>) -> Result<Option<Values>, ShellError> {
-        if self.stderr.is_some() {
-            debug_assert!(false, "stderr should not exist");
-            return Err(ShellError::IOErrorSpanned {
-                msg: "internal error".into(),
-                span: self.span,
-            });
-        }
-        if let Some(stdout) = self.stdout {
-            Ok(Some(Values(crate::io::Values::new(
-                BufReader::new(stdout),
-                self.span,
-                ctrlc,
-            ))))
-        } else {
-            Ok(None)
-        }
-    }
-
     pub fn into_bytes(mut self) -> Result<Vec<u8>, ShellError> {
-        // todo!() trim end newline?
-
         if self.stderr.is_some() {
             debug_assert!(false, "stderr should not exist");
             return Err(ShellError::IOErrorSpanned {
@@ -226,24 +175,6 @@ impl ChildProcess {
         self.exit_status.wait(self.span)?;
 
         Ok(bytes)
-    }
-
-    pub fn into_string(self) -> Result<String, ShellError> {
-        // todo!() trim end newline?
-
-        let span = self.span;
-        String::from_utf8(self.into_bytes()?).map_err(|_| ShellError::NonUtf8 { span })
-    }
-
-    pub fn into_value(self) -> Result<Value, ShellError> {
-        // todo!() trim end newline?
-
-        let span = self.span;
-        let value = match String::from_utf8(self.into_bytes()?) {
-            Ok(str) => Value::string(str, span),
-            Err(err) => Value::binary(err.into_bytes(), span),
-        };
-        Ok(value)
     }
 
     pub fn wait(mut self) -> Result<ExitStatus, ShellError> {

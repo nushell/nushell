@@ -4,7 +4,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-pub struct ByteLines<R: Read>(BufReader<R>);
+struct ByteLines<R: Read>(BufReader<R>);
 
 impl<R: Read> ByteLines<R> {
     pub fn new(read: R) -> Self {
