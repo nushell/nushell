@@ -140,11 +140,11 @@ fn operate(
 
     let columns = regex
         .capture_names()
-        .enumerate()
         .skip(1)
+        .enumerate()
         .map(|(i, name)| {
             name.map(String::from)
-                .unwrap_or_else(|| format!("capture{}", i - 1))
+                .unwrap_or_else(|| format!("capture{i}"))
         })
         .collect::<Vec<_>>();
 
