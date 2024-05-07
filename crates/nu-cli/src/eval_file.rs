@@ -1,7 +1,6 @@
 use crate::util::eval_source;
 use log::trace;
-#[allow(deprecated)]
-use nu_engine::{convert_env_values, current_dir, eval_block};
+use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -27,8 +26,7 @@ pub fn evaluate_file(
         return Err(err);
     }
 
-    #[allow(deprecated)]
-    let cwd = current_dir(engine_state, stack)?;
+    let cwd = engine_state.cwd_as_string(Some(stack))?;
 
     let file_path = canonicalize_with(&path, cwd).map_err(|e| ShellError::FileNotFoundCustom {
         msg: format!("Could not access file '{}': {:?}", path, e.to_string()),

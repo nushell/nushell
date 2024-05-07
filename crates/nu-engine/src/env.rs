@@ -286,8 +286,7 @@ pub fn find_in_dirs_env(
             Err(e) => return Err(e),
         }
     } else {
-        #[allow(deprecated)]
-        current_dir_str(engine_state, stack)?
+        engine_state.cwd_as_string(Some(stack))?
     };
 
     let check_dir = |lib_dirs: Option<Value>| -> Option<PathBuf> {
