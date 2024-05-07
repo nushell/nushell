@@ -1547,7 +1547,8 @@ mod test_auto_cd {
         std::fs::create_dir_all(&foo).unwrap();
         std::fs::create_dir_all(&bar).unwrap();
 
-        check(foo, "../bar", bar);
+        let input = if cfg!(windows) { r"..\bar" } else { "../bar" };
+        check(foo, input, bar);
     }
 
     #[test]
@@ -1556,7 +1557,8 @@ mod test_auto_cd {
         let dir = tempdir.path().join("foo");
         std::fs::create_dir_all(&dir).unwrap();
 
-        check(&tempdir, "foo/", dir);
+        let input = if cfg!(windows) { r"foo\" } else { "foo/" };
+        check(&tempdir, input, dir);
     }
 
     #[test]
@@ -1567,7 +1569,8 @@ mod test_auto_cd {
         let link = tempdir.path().join("link");
         symlink(&dir, &link).unwrap();
 
-        check(&tempdir, "./link", link);
+        let input = if cfg!(windows) { r".\link" } else { "./link" };
+        check(&tempdir, input, link);
     }
 
     #[test]
@@ -1576,6 +1579,7 @@ mod test_auto_cd {
         let tempdir = tempdir().unwrap();
         let dir = tempdir.path().join("foo");
 
-        check(&tempdir, "foo/", dir);
+        let input = if cfg!(windows) { r"foo\" } else { "foo/" };
+        check(&tempdir, input, dir);
     }
 }
