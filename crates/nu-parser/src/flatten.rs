@@ -385,12 +385,23 @@ fn flatten_expression_into(
 
                         output.extend(flattened);
                     }
-                    ListItem::Spread(_, expr) => {
-                        output.push((
-                            Span::new(expr.span.start, expr.span.start + 3),
-                            FlatShape::Operator,
-                        ));
-                        flatten_expression_into(working_set, expr, output);
+                    ListItem::Spread(op_span, expr) => {
+                        if op_span.start > last_end {
+                            output.push((Span::new(last_end, op_span.start), FlatShape::List));
+                        }
+                        output.push((*op_span, FlatShape::Operator));
+                        last_end = op_span.end;
+
+                        let flattened_inner = flatten_expression(working_set, expr);
+                        if let Some(first) = flattened_inner.first() {
+                            if first.0.start > last_end {
+                                output.push((Span::new(last_end, first.0.start), FlatShape::List));
+                            }
+                        }
+                        if let Some(last) = flattened_inner.last() {
+                            last_end = last.0.end;
+                        }
+                        output.extend(flattened_inner);
                     }
                 }
             }
