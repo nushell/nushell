@@ -208,7 +208,7 @@ fn operate(
                         excess: VecDeque::new(),
                         regex: regex_pattern,
                         columns,
-                        stream: lines,
+                        lines,
                     },
                     head,
                     None,
@@ -337,7 +337,7 @@ pub struct ParseStreamerExternal {
     excess: VecDeque<Value>,
     regex: Regex,
     columns: Vec<String>,
-    stream: byte_stream::Lines,
+    lines: byte_stream::Lines,
 }
 
 impl Iterator for ParseStreamerExternal {
@@ -353,27 +353,15 @@ impl Iterator for ParseStreamerExternal {
                 break None;
             }
 
-            let mut chunk = match self.stream.next() {
-                Some(Ok(chunk)) => chunk,
+            let line = match self.lines.next() {
+                Some(Ok(line)) => line,
                 Some(Err(err)) => return Some(Value::error(err, self.span)),
                 None => return None,
             };
 
-            // Collect all `stream` chunks into a single `chunk` to be able to deal with matches that
-            // extend across chunk boundaries.
-            // This is a stop-gap solution until the `regex` crate supports streaming or an alternative
-            // solution is found.
-            // See https://github.com/nushell/nushell/issues/9795
-            for next in &mut self.stream {
-                match next {
-                    Ok(next) => chunk.push_str(&next),
-                    Err(err) => return Some(Value::error(err, self.span)),
-                }
-            }
-
             if let Err(err) = get_captures(
                 &self.regex,
-                &chunk,
+                &line,
                 self.span,
                 &self.columns,
                 &mut self.excess,
