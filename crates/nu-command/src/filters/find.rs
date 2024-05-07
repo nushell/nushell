@@ -457,29 +457,20 @@ fn find_with_rest_and_highlight(
 
                 let mut output: Vec<Value> = vec![];
                 for line in lines {
-                    match line {
-                        Ok(line) => match String::from_utf8(line) {
-                            Ok(line) => {
-                                let line = line.to_lowercase();
-                                for term in &terms {
-                                    if line.contains(term) {
-                                        output.push(Value::string(
-                                            highlight_search_string(
-                                                &line,
-                                                term,
-                                                &string_style,
-                                                &highlight_style,
-                                            )?,
-                                            span,
-                                        ))
-                                    }
-                                }
-                            }
-                            Err(_) => return Err(ShellError::NonUtf8 { span }),
-                        },
-                        // Propagate any errors that were in the stream
-                        Err(e) => return Err(e),
-                    };
+                    let line = line?.to_lowercase();
+                    for term in &terms {
+                        if line.contains(term) {
+                            output.push(Value::string(
+                                highlight_search_string(
+                                    &line,
+                                    term,
+                                    &string_style,
+                                    &highlight_style,
+                                )?,
+                                span,
+                            ))
+                        }
+                    }
                 }
                 Ok(Value::list(output, span).into_pipeline_data())
             } else {

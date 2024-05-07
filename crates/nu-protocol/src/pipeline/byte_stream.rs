@@ -139,7 +139,7 @@ impl ByteStream {
     pub fn lines(self) -> Option<Lines> {
         let reader = self.stream.reader()?;
         Some(Lines {
-            lines: ByteLines::new(reader),
+            reader: BufReader::new(reader),
             span: self.span,
             ctrlc: self.ctrlc,
         })
@@ -148,7 +148,7 @@ impl ByteStream {
     pub fn values(self) -> Option<Values> {
         let reader = self.stream.reader()?;
         Some(Values {
-            lines: ByteLines::new(reader),
+            reader: BufReader::new(reader),
             span: self.span,
             ctrlc: self.ctrlc,
         })
@@ -568,7 +568,7 @@ where
 }
 
 pub struct Lines {
-    lines: ByteLines<ByteStreamSourceReader>,
+    reader: BufReader<ByteStreamSourceReader>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
@@ -580,23 +580,30 @@ impl Lines {
 }
 
 impl Iterator for Lines {
-    type Item = Result<Vec<u8>, ShellError>;
+    type Item = Result<String, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
             None
         } else {
-            match self.lines.next() {
-                Some(Ok(line)) => Some(Ok(line)),
-                Some(Err(err)) => Some(Err(err.into_spanned(self.span).into())),
-                None => None,
+            let mut buf = Vec::new();
+            match self.reader.read_until(b'\n', &mut buf) {
+                Ok(0) => None,
+                Ok(_) => {
+                    let Ok(mut string) = String::from_utf8(buf) else {
+                        return Some(Err(ShellError::NonUtf8 { span: self.span }));
+                    };
+                    trim_end_newline(&mut string);
+                    Some(Ok(string))
+                }
+                Err(e) => Some(Err(e.into_spanned(self.span).into())),
             }
         }
     }
 }
 
 pub struct Values {
-    lines: ByteLines<ByteStreamSourceReader>,
+    reader: BufReader<ByteStreamSourceReader>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
@@ -614,48 +621,15 @@ impl Iterator for Values {
         if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
             None
         } else {
-            match self.lines.next() {
-                Some(Ok(line)) => Some(Ok(match String::from_utf8(line) {
-                    Ok(str) => Value::string(str, self.span),
-                    Err(err) => Value::binary(err.into_bytes(), self.span),
-                })),
-                Some(Err(err)) => Some(Err(err.into_spanned(self.span).into())),
-                None => None,
-            }
-        }
-    }
-}
-
-struct ByteLines<R: Read>(BufReader<R>);
-
-impl<R: Read> ByteLines<R> {
-    pub fn new(read: R) -> Self {
-        Self(BufReader::new(read))
-    }
-}
-
-impl<R: Read> Iterator for ByteLines<R> {
-    type Item = io::Result<Vec<u8>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut buf = Vec::new();
-        // `read_until` will never stop reading unless `\n` or EOF is encountered,
-        // so we may want to limit the number of bytes by using `take` as the Rust docs suggest.
-        // let capacity = self.0.capacity() as u64;
-        // let mut reader = (&mut self.0).take(capacity);
-        let reader = &mut self.0;
-        match reader.read_until(b'\n', &mut buf) {
-            Ok(0) => None,
-            Ok(_) => {
-                if buf.ends_with(&[b'\n']) {
-                    let _ = buf.pop();
-                    if buf.ends_with(&[b'\r']) {
-                        let _ = buf.pop();
-                    }
-                }
-                Some(Ok(buf))
-            }
-            Err(e) => Some(Err(e)),
+            todo!()
+            // match self.reader.next() {
+            //     Some(Ok(line)) => Some(Ok(match String::from_utf8(line) {
+            //         Ok(str) => Value::string(str, self.span),
+            //         Err(err) => Value::binary(err.into_bytes(), self.span),
+            //     })),
+            //     Some(Err(err)) => Some(Err(err.into_spanned(self.span).into())),
+            //     None => None,
+            // }
         }
     }
 }

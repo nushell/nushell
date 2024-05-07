@@ -353,25 +353,27 @@ impl Iterator for ParseStreamerExternal {
                 break None;
             }
 
-            let chunk = match self.stream.next()? {
-                Ok(chunk) => chunk,
-                Err(err) => break Some(Value::error(err, self.span)),
+            let mut chunk = match self.stream.next() {
+                Some(Ok(chunk)) => chunk,
+                Some(Err(err)) => return Some(Value::error(err, self.span)),
+                None => return None,
             };
 
-            let Ok(text) = String::from_utf8(chunk) else {
-                break Some(Value::error(
-                    ShellError::PipelineMismatch {
-                        exp_input_type: "string".into(),
-                        dst_span: self.span,
-                        src_span: self.span,
-                    },
-                    self.span,
-                ));
-            };
+            // Collect all `stream` chunks into a single `chunk` to be able to deal with matches that
+            // extend across chunk boundaries.
+            // This is a stop-gap solution until the `regex` crate supports streaming or an alternative
+            // solution is found.
+            // See https://github.com/nushell/nushell/issues/9795
+            for next in &mut self.stream {
+                match next {
+                    Ok(next) => chunk.push_str(&next),
+                    Err(err) => return Some(Value::error(err, self.span)),
+                }
+            }
 
             if let Err(err) = get_captures(
                 &self.regex,
-                &text,
+                &chunk,
                 self.span,
                 &self.columns,
                 &mut self.excess,
