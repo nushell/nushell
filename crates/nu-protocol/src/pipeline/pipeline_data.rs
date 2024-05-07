@@ -433,7 +433,7 @@ impl PipelineData {
     ///
     /// Currently this will consume an external stream to completion.
     pub fn check_external_failed(self) -> Result<(Self, bool), ShellError> {
-        if let PipelineData::ByteStream(stream, metdata) = self {
+        if let PipelineData::ByteStream(stream, metadata) = self {
             let span = stream.span();
             match stream.into_child() {
                 Ok(mut child) => {
@@ -467,13 +467,13 @@ impl PipelineData {
                         }
                         child.set_exit_code(code);
                         let stream = ByteStream::child(child, span);
-                        Ok((PipelineData::ByteStream(stream, metdata), code != 0))
+                        Ok((PipelineData::ByteStream(stream, metadata), code != 0))
                     } else {
                         let stream = ByteStream::child(child, span);
-                        Ok((PipelineData::ByteStream(stream, metdata), false))
+                        Ok((PipelineData::ByteStream(stream, metadata), false))
                     }
                 }
-                Err(stream) => Ok((PipelineData::ByteStream(stream, metdata), false)),
+                Err(stream) => Ok((PipelineData::ByteStream(stream, metadata), false)),
             }
         } else {
             Ok((self, false))
