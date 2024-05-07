@@ -125,6 +125,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SysMem,
             SysNet,
             SysTemp,
+            SysUsers,
             UName,
 
         };

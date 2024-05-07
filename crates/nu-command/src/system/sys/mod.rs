@@ -5,6 +5,7 @@ mod mem;
 mod net;
 mod sys_;
 mod temp;
+mod users;
 
 pub use cpu::SysCpu;
 pub use disks::SysDisks;
@@ -13,6 +14,7 @@ pub use mem::SysMem;
 pub use net::SysNet;
 pub use sys_::Sys;
 pub use temp::SysTemp;
+pub use users::SysUsers;
 
 use chrono::{DateTime, Local};
 use nu_protocol::{record, Record, Span, Value};
@@ -122,7 +124,29 @@ pub fn mem(span: Span) -> Value {
     Value::record(record, span)
 }
 
-pub fn host(span: Span) -> Value {
+pub fn users(span: Span) -> Value {
+    let users = Users::new_with_refreshed_list()
+        .iter()
+        .map(|user| {
+            let groups = user
+                .groups()
+                .iter()
+                .map(|group| Value::string(trim_cstyle_null(group.name()), span))
+                .collect();
+
+            let record = record! {
+                "name" => Value::string(trim_cstyle_null(user.name()), span),
+                "groups" => Value::list(groups, span),
+            };
+
+            Value::record(record, span)
+        })
+        .collect();
+
+    Value::list(users, span)
+}
+
+pub fn host(span: Span) -> Record {
     let mut record = Record::new();
 
     if let Some(name) = System::name() {
@@ -160,27 +184,7 @@ pub fn host(span: Span) -> Value {
     let timestamp_str = datetime.with_timezone(datetime.offset()).to_rfc3339();
     record.push("boot_time", Value::string(timestamp_str, span));
 
-    let users = Users::new_with_refreshed_list()
-        .iter()
-        .map(|user| {
-            let groups = user
-                .groups()
-                .iter()
-                .map(|group| Value::string(trim_cstyle_null(group.name()), span))
-                .collect();
-
-            let record = record! {
-                "name" => Value::string(trim_cstyle_null(user.name()), span),
-                "groups" => Value::list(groups, span),
-            };
-
-            Value::record(record, span)
-        })
-        .collect();
-
-    record.push("sessions", Value::list(users, span));
-
-    Value::record(record, span)
+    record
 }
 
 pub fn temp(span: Span) -> Value {
