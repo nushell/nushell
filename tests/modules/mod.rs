@@ -760,3 +760,25 @@ fn nested_list_export_works() {
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "bacon");
 }
+
+#[test]
+fn load_module_file_no_cache() {
+    Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContentToBeTrimmed("voice.nu", r#"export module animals.nu"#),
+            FileWithContentToBeTrimmed("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+
+        let inp = &[
+            "use voice.nu",
+            "(voice animals cat) == 'meow'",
+            r#""export def cat [] {'meowww'}" | save -f animals.nu"#,
+            "use voice.nu",
+            "(voice animals cat) == 'meowww'",
+        ];
+
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+
+        assert_eq!(actual.out, "true\ntrue");
+    });
+}
