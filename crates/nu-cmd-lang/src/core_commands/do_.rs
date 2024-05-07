@@ -147,15 +147,12 @@ impl Command for Do {
                             None
                         };
 
-                        match child.wait()? {
-                            ExitStatus::Exited(0) => (),
-                            ExitStatus::Exited(..) | ExitStatus::Signaled { .. } => {
-                                return Err(ShellError::ExternalCommand {
-                                    label: "External command failed".to_string(),
-                                    help: stderr_msg,
-                                    span,
-                                })
-                            }
+                        if child.wait()? != ExitStatus::Exited(0) {
+                            return Err(ShellError::ExternalCommand {
+                                label: "External command failed".to_string(),
+                                help: stderr_msg,
+                                span,
+                            });
                         }
 
                         let mut child = ChildProcess::from_raw(None, None, None, span);
