@@ -1,6 +1,6 @@
 use fancy_regex::{Captures, Regex};
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, ValueIterator};
+use nu_protocol::ListStream;
 use std::{
     collections::VecDeque,
     sync::{atomic::AtomicBool, Arc},
@@ -160,16 +160,25 @@ fn operate(
                 Ok(Value::list(captures, head).into_pipeline_data())
             }
             Value::List { vals, .. } => {
-                let stream = ParseStreamer {
-                    span: head,
+                let iter = vals.into_iter().map(move |val| {
+                    let span = val.span();
+                    val.into_string().map_err(|_| ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: head,
+                        src_span: span,
+                    })
+                });
+
+                let iter = ParseIter {
                     captures: VecDeque::new(),
                     regex,
                     columns,
-                    stream: Box::new(vals.into_iter()),
+                    iter,
+                    span: head,
                     ctrlc,
                 };
 
-                Ok(ListStream::new(stream, head, None).into())
+                Ok(ListStream::new(iter, head, None).into())
             }
             value => Err(ShellError::PipelineMismatch {
                 exp_input_type: "string".into(),
@@ -178,13 +187,24 @@ fn operate(
             }),
         },
         PipelineData::ListStream(stream, ..) => Ok(stream
-            .modify(|stream| ParseStreamer {
-                span: head,
-                captures: VecDeque::new(),
-                regex,
-                columns,
-                stream,
-                ctrlc,
+            .modify(|stream| {
+                let iter = stream.map(move |val| {
+                    let span = val.span();
+                    val.into_string().map_err(|_| ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: head,
+                        src_span: span,
+                    })
+                });
+
+                ParseIter {
+                    captures: VecDeque::new(),
+                    regex,
+                    columns,
+                    iter,
+                    span: head,
+                    ctrlc,
+                }
             })
             .into()),
 
@@ -193,18 +213,27 @@ fn operate(
         PipelineData::ExternalStream {
             stdout: Some(stream),
             ..
-        } => Ok(ListStream::new(
-            ParseStreamerExternal {
-                span: head,
+        } => {
+            // Collect all `stream` chunks into a single `chunk` to be able to deal with matches that
+            // extend across chunk boundaries.
+            // This is a stop-gap solution until the `regex` crate supports streaming or an alternative
+            // solution is found.
+            // See https://github.com/nushell/nushell/issues/9795
+            let str = stream.into_string()?.item;
+
+            // let iter = stream.lines();
+
+            let iter = ParseIter {
                 captures: VecDeque::new(),
                 regex,
                 columns,
-                stream: stream.stream,
-            },
-            head,
-            ctrlc,
-        )
-        .into()),
+                iter: std::iter::once(Ok(str)),
+                span: head,
+                ctrlc,
+            };
+
+            Ok(ListStream::new(iter, head, None).into())
+        }
     }
 }
 
@@ -262,16 +291,16 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
     Ok(output)
 }
 
-pub struct ParseStreamer {
-    span: Span,
+pub struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
     captures: VecDeque<Value>,
     regex: Regex,
     columns: Vec<String>,
-    stream: ValueIterator,
+    iter: I,
+    span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
 
-impl Iterator for ParseStreamer {
+impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
     type Item = Value;
 
     fn next(&mut self) -> Option<Value> {
@@ -284,82 +313,17 @@ impl Iterator for ParseStreamer {
                 return Some(val);
             }
 
-            let val = self.stream.next()?;
-            let span = val.span();
-
-            let Ok(string) = val.coerce_into_string() else {
-                return Some(Value::error(
-                    ShellError::PipelineMismatch {
-                        exp_input_type: "string".into(),
-                        dst_span: self.span,
-                        src_span: span,
-                    },
-                    span,
-                ));
-            };
-
-            if let Err(err) =
-                populate_captures(&self.regex, span, string, &self.columns, &mut self.captures)
-            {
-                return Some(Value::error(err, self.span));
-            }
-        }
-    }
-}
-
-pub struct ParseStreamerExternal {
-    span: Span,
-    captures: VecDeque<Value>,
-    regex: Regex,
-    columns: Vec<String>,
-    stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
-}
-
-impl Iterator for ParseStreamerExternal {
-    type Item = Value;
-
-    fn next(&mut self) -> Option<Value> {
-        loop {
-            if let Some(val) = self.captures.pop_front() {
-                return Some(val);
-            }
-
-            let mut chunk = match self.stream.next() {
-                Some(Ok(chunk)) => chunk,
-                Some(Err(err)) => return Some(Value::error(err, self.span)),
-                None => return None,
-            };
-
-            // Collect all `stream` chunks into a single `chunk` to be able to deal with matches that
-            // extend across chunk boundaries.
-            // This is a stop-gap solution until the `regex` crate supports streaming or an alternative
-            // solution is found.
-            // See https://github.com/nushell/nushell/issues/9795
-            for next in &mut self.stream {
-                match next {
-                    Ok(next_chunk) => chunk.extend(next_chunk),
-                    Err(err) => return Some(Value::error(err, self.span)),
-                }
-            }
-
-            let Ok(chunk) = String::from_utf8(chunk) else {
-                return Some(Value::error(
-                    ShellError::PipelineMismatch {
-                        exp_input_type: "string".into(),
-                        dst_span: self.span,
-                        src_span: self.span,
-                    },
+            let result = self.iter.next()?.and_then(|str| {
+                populate_captures(
+                    &self.regex,
                     self.span,
-                ));
-            };
+                    str,
+                    &self.columns,
+                    &mut self.captures,
+                )
+            });
 
-            if let Err(err) = populate_captures(
-                &self.regex,
-                self.span,
-                chunk,
-                &self.columns,
-                &mut self.captures,
-            ) {
+            if let Err(err) = result {
                 return Some(Value::error(err, self.span));
             }
         }
