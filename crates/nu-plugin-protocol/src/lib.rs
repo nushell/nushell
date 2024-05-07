@@ -89,7 +89,7 @@ pub enum PipelineDataHeader {
 }
 
 impl PipelineDataHeader {
-    /// Return a list of stream IDs embedded in the header
+    /// Return the stream ID, if any, embedded in the header
     pub fn stream_id(&self) -> Option<StreamId> {
         match self {
             PipelineDataHeader::Empty => None,
