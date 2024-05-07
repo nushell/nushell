@@ -32,7 +32,7 @@ impl PluginCommand for Echo {
             example: "example seq 1 5 | example echo",
             description: "echos the values from 1 to 5",
             result: Some(Value::test_list(
-                [1..=5].into_iter().map(Value::test_int).collect(),
+                (1..=5).map(Value::test_int).collect::<Vec<_>>(),
             )),
         }]
     }
