@@ -192,7 +192,7 @@ fn operate(
         PipelineData::ListStream(stream, ..) => Ok(stream
             .modify(|stream| ParseStreamer {
                 span: head,
-                excess: VecDeque::new(),
+                captures: VecDeque::new(),
                 regex: regex_pattern,
                 columns,
                 stream,
@@ -208,7 +208,7 @@ fn operate(
         } => Ok(ListStream::new(
             ParseStreamerExternal {
                 span: head,
-                excess: VecDeque::new(),
+                captures: VecDeque::new(),
                 regex: regex_pattern,
                 columns,
                 stream: stream.stream,
@@ -288,7 +288,7 @@ fn column_names(regex: &Regex) -> Vec<String> {
 
 pub struct ParseStreamer {
     span: Span,
-    excess: VecDeque<Value>,
+    captures: VecDeque<Value>,
     regex: Regex,
     columns: Vec<String>,
     stream: ValueIterator,
@@ -303,7 +303,7 @@ impl Iterator for ParseStreamer {
                 return None;
             }
 
-            if let Some(val) = self.excess.pop_front() {
+            if let Some(val) = self.captures.pop_front() {
                 return Some(val);
             }
 
@@ -322,7 +322,7 @@ impl Iterator for ParseStreamer {
             };
 
             if let Err(err) =
-                stream_helper(&self.regex, span, string, &self.columns, &mut self.excess)
+                populate_captures(&self.regex, span, string, &self.columns, &mut self.captures)
             {
                 return Some(Value::error(err, self.span));
             }
@@ -332,7 +332,7 @@ impl Iterator for ParseStreamer {
 
 pub struct ParseStreamerExternal {
     span: Span,
-    excess: VecDeque<Value>,
+    captures: VecDeque<Value>,
     regex: Regex,
     columns: Vec<String>,
     stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
@@ -342,7 +342,7 @@ impl Iterator for ParseStreamerExternal {
     type Item = Value;
     fn next(&mut self) -> Option<Value> {
         loop {
-            if let Some(val) = self.excess.pop_front() {
+            if let Some(val) = self.captures.pop_front() {
                 return Some(val);
             }
 
@@ -375,12 +375,12 @@ impl Iterator for ParseStreamerExternal {
                 ));
             };
 
-            if let Err(err) = stream_helper(
+            if let Err(err) = populate_captures(
                 &self.regex,
                 self.span,
                 chunk,
                 &self.columns,
-                &mut self.excess,
+                &mut self.captures,
             ) {
                 return Some(Value::error(err, self.span));
             }
@@ -388,12 +388,12 @@ impl Iterator for ParseStreamerExternal {
     }
 }
 
-fn stream_helper(
+fn populate_captures(
     regex: &Regex,
     span: Span,
     string: String,
     columns: &[String],
-    excess: &mut VecDeque<Value>,
+    output: &mut VecDeque<Value>,
 ) -> Result<(), ShellError> {
     for captures in regex.captures_iter(&string) {
         let captures = captures.map_err(|err| ShellError::GenericError {
@@ -413,7 +413,7 @@ fn stream_helper(
             })
             .collect();
 
-        excess.push_back(Value::record(record, span));
+        output.push_back(Value::record(record, span));
     }
 
     Ok(())
