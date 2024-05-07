@@ -1,5 +1,4 @@
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
+use nu_engine::command_prelude::*;
 use nu_plugin_engine::{GetPlugin, PersistentPlugin};
 use nu_protocol::{PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 use std::sync::Arc;
@@ -82,8 +81,7 @@ apparent the next time `nu` is next launched with that plugin registry file.
         let filename: Spanned<String> = call.req(engine_state, stack, 0)?;
         let shell: Option<Spanned<String>> = call.get_flag(engine_state, stack, "shell")?;
 
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
+        let cwd = engine_state.cwd(Some(stack))?;
 
         // Check the current directory, or fall back to NU_PLUGIN_DIRS
         let filename_expanded = nu_path::locate_in_dirs(&filename.item, &cwd, || {

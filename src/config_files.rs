@@ -31,14 +31,19 @@ pub(crate) fn read_config_file(
     // Load config startup file
     if let Some(file) = config_file {
         let working_set = StateWorkingSet::new(engine_state);
-        #[allow(deprecated)]
-        let cwd = working_set.get_cwd();
 
-        if let Ok(path) = canonicalize_with(&file.item, cwd) {
-            eval_config_contents(path, engine_state, stack);
-        } else {
-            let e = ParseError::FileNotFound(file.item, file.span);
-            report_error(&working_set, &e);
+        match engine_state.cwd_as_string(Some(stack)) {
+            Ok(cwd) => {
+                if let Ok(path) = canonicalize_with(&file.item, cwd) {
+                    eval_config_contents(path, engine_state, stack);
+                } else {
+                    let e = ParseError::FileNotFound(file.item, file.span);
+                    report_error(&working_set, &e);
+                }
+            }
+            Err(e) => {
+                report_error(&working_set, &e);
+            }
         }
     } else if let Some(mut config_path) = nu_path::config_dir() {
         config_path.push(NUSHELL_FOLDER);
@@ -144,8 +149,7 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
 
     info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     // Merge the environment in case env vars changed in the config
-    #[allow(deprecated)]
-    match nu_engine::env::current_dir(engine_state, stack) {
+    match engine_state.cwd(Some(stack)) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
                 let working_set = StateWorkingSet::new(engine_state);
@@ -186,8 +190,7 @@ fn eval_default_config(
     );
 
     // Merge the environment in case env vars changed in the config
-    #[allow(deprecated)]
-    match nu_engine::env::current_dir(engine_state, stack) {
+    match engine_state.cwd(Some(stack)) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
                 let working_set = StateWorkingSet::new(engine_state);
