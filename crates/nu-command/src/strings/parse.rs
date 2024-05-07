@@ -153,21 +153,18 @@ fn operate(
         PipelineData::Value(..) => {
             let mut parsed: Vec<Value> = Vec::new();
 
-            for v in input {
-                let v_span = v.span();
-                match v.coerce_into_string() {
-                    Ok(s) => {
-                        for captures in regex.captures_iter(&s) {
-                            parsed.push(captures_to_value(captures, &columns, head)?);
-                        }
-                    }
-                    Err(_) => {
-                        return Err(ShellError::PipelineMismatch {
-                            exp_input_type: "string".into(),
-                            dst_span: head,
-                            src_span: v_span,
-                        })
-                    }
+            for value in input {
+                let span = value.span();
+                let Ok(str) = value.coerce_into_string() else {
+                    return Err(ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: head,
+                        src_span: span,
+                    });
+                };
+
+                for captures in regex.captures_iter(&str) {
+                    parsed.push(captures_to_value(captures, &columns, head)?);
                 }
             }
 
@@ -269,6 +266,7 @@ pub struct ParseStreamer {
 
 impl Iterator for ParseStreamer {
     type Item = Value;
+
     fn next(&mut self) -> Option<Value> {
         loop {
             if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
@@ -312,6 +310,7 @@ pub struct ParseStreamerExternal {
 
 impl Iterator for ParseStreamerExternal {
     type Item = Value;
+
     fn next(&mut self) -> Option<Value> {
         loop {
             if let Some(val) = self.captures.pop_front() {
