@@ -1,7 +1,7 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_protocol::{
-    engine::Closure, io::copy_with_interrupt, process::ChildPipe, ByteStream, ByteStreamSource,
-    OutDest, PipelineMetadata,
+    byte_stream::copy_with_interrupt, engine::Closure, process::ChildPipe, ByteStream,
+    ByteStreamSource, OutDest, PipelineMetadata,
 };
 use std::{
     io::{self, Read, Write},

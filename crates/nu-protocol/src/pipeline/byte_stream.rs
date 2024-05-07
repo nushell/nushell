@@ -1,14 +1,20 @@
 use crate::{
-    io::{convert_file, copy_with_interrupt},
     process::{ChildPipe, ChildProcess, ExitStatus},
     ErrSpan, IntoSpanned, OutDest, PipelineData, ShellError, Span, Value,
 };
+#[cfg(unix)]
+use std::os::fd::OwnedFd;
+#[cfg(windows)]
+use std::os::windows::io::OwnedHandle;
 use std::{
     fmt::Debug,
     fs::File,
-    io::{self, BufRead, BufReader, Cursor, Read, Write},
+    io::{self, BufRead, BufReader, Cursor, ErrorKind, Read, Write},
     process::Stdio,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     thread,
 };
 
@@ -412,34 +418,6 @@ impl ByteStream {
     }
 }
 
-fn trim_end_newline(string: &mut String) {
-    if string.ends_with('\n') {
-        string.pop();
-        if string.ends_with('\r') {
-            string.pop();
-        }
-    }
-}
-
-fn write_to_out_dest(
-    mut read: impl Read,
-    stream: &OutDest,
-    stdout: bool,
-    span: Span,
-    ctrlc: Option<&AtomicBool>,
-) -> Result<(), ShellError> {
-    match stream {
-        OutDest::Pipe | OutDest::Capture => return Ok(()),
-        OutDest::Null => copy_with_interrupt(&mut read, &mut io::sink(), span, ctrlc),
-        OutDest::Inherit if stdout => {
-            copy_with_interrupt(&mut read, &mut io::stdout(), span, ctrlc)
-        }
-        OutDest::Inherit => copy_with_interrupt(&mut read, &mut io::stderr(), span, ctrlc),
-        OutDest::File(file) => copy_with_interrupt(&mut read, &mut file.as_ref(), span, ctrlc),
-    }?;
-    Ok(())
-}
-
 impl Debug for ByteStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ByteStream").finish()
@@ -649,4 +627,112 @@ impl Iterator for Chunks {
             }
         }
     }
+}
+
+fn trim_end_newline(string: &mut String) {
+    if string.ends_with('\n') {
+        string.pop();
+        if string.ends_with('\r') {
+            string.pop();
+        }
+    }
+}
+
+fn write_to_out_dest(
+    mut read: impl Read,
+    stream: &OutDest,
+    stdout: bool,
+    span: Span,
+    ctrlc: Option<&AtomicBool>,
+) -> Result<(), ShellError> {
+    match stream {
+        OutDest::Pipe | OutDest::Capture => return Ok(()),
+        OutDest::Null => copy_with_interrupt(&mut read, &mut io::sink(), span, ctrlc),
+        OutDest::Inherit if stdout => {
+            copy_with_interrupt(&mut read, &mut io::stdout(), span, ctrlc)
+        }
+        OutDest::Inherit => copy_with_interrupt(&mut read, &mut io::stderr(), span, ctrlc),
+        OutDest::File(file) => copy_with_interrupt(&mut read, &mut file.as_ref(), span, ctrlc),
+    }?;
+    Ok(())
+}
+
+#[cfg(unix)]
+pub(crate) fn convert_file<T: From<OwnedFd>>(file: impl Into<OwnedFd>) -> T {
+    file.into().into()
+}
+
+#[cfg(windows)]
+pub(crate) fn convert_file<T: From<OwnedHandle>>(file: impl Into<OwnedHandle>) -> T {
+    file.into().into()
+}
+
+const DEFAULT_BUF_SIZE: usize = 8192;
+
+pub fn copy_with_interrupt<R: ?Sized, W: ?Sized>(
+    reader: &mut R,
+    writer: &mut W,
+    span: Span,
+    interrupt: Option<&AtomicBool>,
+) -> Result<u64, ShellError>
+where
+    R: Read,
+    W: Write,
+{
+    if let Some(interrupt) = interrupt {
+        // #[cfg(any(target_os = "linux", target_os = "android"))]
+        // {
+        //     return crate::sys::kernel_copy::copy_spec(reader, writer);
+        // }
+        match generic_copy(reader, writer, span, interrupt) {
+            Ok(len) => {
+                writer.flush().err_span(span)?;
+                Ok(len)
+            }
+            Err(err) => {
+                let _ = writer.flush();
+                Err(err)
+            }
+        }
+    } else {
+        match io::copy(reader, writer) {
+            Ok(n) => {
+                writer.flush().err_span(span)?;
+                Ok(n)
+            }
+            Err(err) => {
+                let _ = writer.flush();
+                Err(err.into_spanned(span).into())
+            }
+        }
+    }
+}
+
+// Copied from [`std::io::copy`]
+fn generic_copy<R: ?Sized, W: ?Sized>(
+    reader: &mut R,
+    writer: &mut W,
+    span: Span,
+    interrupt: &AtomicBool,
+) -> Result<u64, ShellError>
+where
+    R: Read,
+    W: Write,
+{
+    let buf = &mut [0; DEFAULT_BUF_SIZE];
+    let mut len = 0;
+    loop {
+        if interrupt.load(Ordering::Relaxed) {
+            return Err(ShellError::InterruptedByUser { span: Some(span) });
+        }
+        let n = match reader.read(buf) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e.into_spanned(span).into()),
+        };
+        len += n;
+        writer.write_all(&buf[..n]).err_span(span)?;
+    }
+    Ok(len as u64)
 }

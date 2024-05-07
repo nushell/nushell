@@ -9,7 +9,6 @@ pub mod eval_base;
 pub mod eval_const;
 mod example;
 mod id;
-pub mod io;
 mod lev_distance;
 mod module;
 mod pipeline;

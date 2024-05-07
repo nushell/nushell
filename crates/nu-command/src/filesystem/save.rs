@@ -4,7 +4,7 @@ use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Expr, Expression},
-    io::copy_with_interrupt,
+    byte_stream::copy_with_interrupt,
     process::ChildPipe,
     ByteStreamSource, DataSource, OutDest, PipelineMetadata,
 };

@@ -1,4 +1,6 @@
-use crate::{io::convert_file, process::ExitStatus, ErrSpan, IntoSpanned, ShellError, Span};
+use crate::{
+    byte_stream::convert_file, process::ExitStatus, ErrSpan, IntoSpanned, ShellError, Span,
+};
 use nu_system::ForegroundChild;
 use os_pipe::PipeReader;
 use std::{
