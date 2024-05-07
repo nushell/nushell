@@ -1,9 +1,9 @@
-use crate::{io::convert_file, process::ExitStatus, ErrSpan, IntoSpanned, ShellError, Span, Value};
+use crate::{io::convert_file, process::ExitStatus, ErrSpan, IntoSpanned, ShellError, Span};
 use nu_system::ForegroundChild;
 use os_pipe::PipeReader;
 use std::{
     fmt::Debug,
-    io::{self, BufReader, Read},
+    io::{self, Read},
     sync::mpsc::{self, Receiver, RecvError, TryRecvError},
     thread,
 };
@@ -285,24 +285,4 @@ pub struct ProcessOutput {
     pub stdout: Option<Vec<u8>>,
     pub stderr: Option<Vec<u8>>,
     pub exit_status: ExitStatus,
-}
-
-pub struct Lines(crate::io::Lines<BufReader<ChildPipe>>);
-
-impl Iterator for Lines {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-pub struct Values(crate::io::Values<BufReader<ChildPipe>>);
-
-impl Iterator for Values {
-    type Item = Result<Value, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
 }

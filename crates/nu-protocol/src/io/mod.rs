@@ -1,8 +1,6 @@
 mod copy;
-mod lines;
 
 pub use copy::*;
-pub use lines::*;
 
 #[cfg(unix)]
 use std::os::fd::OwnedFd;

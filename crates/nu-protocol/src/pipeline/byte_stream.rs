@@ -1,7 +1,7 @@
 use crate::{
     io::{convert_file, copy_with_interrupt},
     process::{ChildPipe, ChildProcess, ExitStatus},
-    ErrSpan, OutDest, PipelineData, ShellError, Span, Value,
+    ErrSpan, IntoSpanned, OutDest, PipelineData, ShellError, Span, Value,
 };
 use std::{
     fmt::Debug,
@@ -128,27 +128,30 @@ impl ByteStream {
     }
 
     pub fn reader(self) -> Option<ByteStreamReader> {
+        let reader = self.stream.reader()?;
         Some(ByteStreamReader {
-            reader: BufReader::new(self.stream.reader()?),
+            reader: BufReader::new(reader),
             span: self.span,
             ctrlc: self.ctrlc,
         })
     }
 
     pub fn lines(self) -> Option<Lines> {
-        Some(Lines(crate::io::Lines::new(
-            BufReader::new(self.stream.reader()?),
-            self.span,
-            self.ctrlc,
-        )))
+        let reader = self.stream.reader()?;
+        Some(Lines {
+            lines: ByteLines::new(reader),
+            span: self.span,
+            ctrlc: self.ctrlc,
+        })
     }
 
     pub fn values(self) -> Option<Values> {
-        Some(Values(crate::io::Values::new(
-            BufReader::new(self.stream.reader()?),
-            self.span,
-            self.ctrlc,
-        )))
+        let reader = self.stream.reader()?;
+        Some(Values {
+            lines: ByteLines::new(reader),
+            span: self.span,
+            ctrlc: self.ctrlc,
+        })
     }
 
     pub fn into_source(self) -> ByteStreamSource {
@@ -409,6 +412,34 @@ impl ByteStream {
     }
 }
 
+fn trim_end_newline(string: &mut String) {
+    if string.ends_with('\n') {
+        string.pop();
+        if string.ends_with('\r') {
+            string.pop();
+        }
+    }
+}
+
+fn write_to_out_dest(
+    mut read: impl Read,
+    stream: &OutDest,
+    stdout: bool,
+    span: Span,
+    ctrlc: Option<&AtomicBool>,
+) -> Result<(), ShellError> {
+    match stream {
+        OutDest::Pipe | OutDest::Capture => return Ok(()),
+        OutDest::Null => copy_with_interrupt(&mut read, &mut io::sink(), span, ctrlc),
+        OutDest::Inherit if stdout => {
+            copy_with_interrupt(&mut read, &mut io::stdout(), span, ctrlc)
+        }
+        OutDest::Inherit => copy_with_interrupt(&mut read, &mut io::stderr(), span, ctrlc),
+        OutDest::File(file) => copy_with_interrupt(&mut read, &mut file.as_ref(), span, ctrlc),
+    }?;
+    Ok(())
+}
+
 impl Debug for ByteStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ByteStream").finish()
@@ -418,38 +449,6 @@ impl Debug for ByteStream {
 impl From<ByteStream> for PipelineData {
     fn from(stream: ByteStream) -> Self {
         Self::ByteStream(stream, None)
-    }
-}
-
-pub struct Lines(crate::io::Lines<BufReader<ByteStreamSourceReader>>);
-
-impl Lines {
-    pub fn span(&self) -> Span {
-        self.0.span()
-    }
-}
-
-impl Iterator for Lines {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
-pub struct Values(crate::io::Values<BufReader<ByteStreamSourceReader>>);
-
-impl Values {
-    pub fn span(&self) -> Span {
-        self.0.span()
-    }
-}
-
-impl Iterator for Values {
-    type Item = Result<Value, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
     }
 }
 
@@ -488,26 +487,7 @@ impl BufRead for ByteStreamReader {
     }
 }
 
-fn write_to_out_dest(
-    mut read: impl Read,
-    stream: &OutDest,
-    stdout: bool,
-    span: Span,
-    ctrlc: Option<&AtomicBool>,
-) -> Result<(), ShellError> {
-    match stream {
-        OutDest::Pipe | OutDest::Capture => return Ok(()),
-        OutDest::Null => copy_with_interrupt(&mut read, &mut io::sink(), span, ctrlc),
-        OutDest::Inherit if stdout => {
-            copy_with_interrupt(&mut read, &mut io::stdout(), span, ctrlc)
-        }
-        OutDest::Inherit => copy_with_interrupt(&mut read, &mut io::stderr(), span, ctrlc),
-        OutDest::File(file) => copy_with_interrupt(&mut read, &mut file.as_ref(), span, ctrlc),
-    }?;
-    Ok(())
-}
-
-pub struct ReadIterator<I>
+struct ReadIterator<I>
 where
     I: Iterator,
     I::Item: AsRef<[u8]>,
@@ -547,7 +527,7 @@ where
     }
 }
 
-pub struct ReadResultIterator<I, T>
+struct ReadResultIterator<I, T>
 where
     I: Iterator<Item = Result<T, ShellError>>,
     T: AsRef<[u8]>,
@@ -587,11 +567,95 @@ where
     }
 }
 
-fn trim_end_newline(string: &mut String) {
-    if string.ends_with('\n') {
-        string.pop();
-        if string.ends_with('\r') {
-            string.pop();
+pub struct Lines {
+    lines: ByteLines<ByteStreamSourceReader>,
+    span: Span,
+    ctrlc: Option<Arc<AtomicBool>>,
+}
+
+impl Lines {
+    pub fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl Iterator for Lines {
+    type Item = Result<Vec<u8>, ShellError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            None
+        } else {
+            match self.lines.next() {
+                Some(Ok(line)) => Some(Ok(line)),
+                Some(Err(err)) => Some(Err(err.into_spanned(self.span).into())),
+                None => None,
+            }
+        }
+    }
+}
+
+pub struct Values {
+    lines: ByteLines<ByteStreamSourceReader>,
+    span: Span,
+    ctrlc: Option<Arc<AtomicBool>>,
+}
+
+impl Values {
+    pub fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl Iterator for Values {
+    type Item = Result<Value, ShellError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            None
+        } else {
+            match self.lines.next() {
+                Some(Ok(line)) => Some(Ok(match String::from_utf8(line) {
+                    Ok(str) => Value::string(str, self.span),
+                    Err(err) => Value::binary(err.into_bytes(), self.span),
+                })),
+                Some(Err(err)) => Some(Err(err.into_spanned(self.span).into())),
+                None => None,
+            }
+        }
+    }
+}
+
+struct ByteLines<R: Read>(BufReader<R>);
+
+impl<R: Read> ByteLines<R> {
+    pub fn new(read: R) -> Self {
+        Self(BufReader::new(read))
+    }
+}
+
+impl<R: Read> Iterator for ByteLines<R> {
+    type Item = io::Result<Vec<u8>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut buf = Vec::new();
+        // `read_until` will never stop reading unless `\n` or EOF is encountered,
+        // so we may want to limit the number of bytes by using `take` as the Rust docs suggest.
+        // let capacity = self.0.capacity() as u64;
+        // let mut reader = (&mut self.0).take(capacity);
+        let reader = &mut self.0;
+        match reader.read_until(b'\n', &mut buf) {
+            Ok(0) => None,
+            Ok(_) => {
+                if buf.ends_with(&[b'\n']) {
+                    let _ = buf.pop();
+                    if buf.ends_with(&[b'\r']) {
+                        let _ = buf.pop();
+                    }
+                }
+                Some(Ok(buf))
+            }
+            Err(e) => Some(Err(e)),
         }
     }
 }
