@@ -1,8 +1,6 @@
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    format_duration, format_filesize_from_conf, io::ReadIterator, ByteStream, Config,
-};
+use nu_protocol::{format_duration, format_filesize_from_conf, ByteStream, Config};
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {
     "\r\n"
@@ -47,13 +45,13 @@ impl Command for ToText {
             PipelineData::ListStream(stream, meta) => {
                 let span = stream.span();
                 let config = engine_state.get_config().clone();
-                let stream = ReadIterator::new(stream.into_inner().map(move |value| {
+                let iter = stream.into_inner().map(move |value| {
                     let mut str = local_into_string(value, LINE_ENDING, &config);
                     str.push_str(LINE_ENDING);
                     str
-                }));
+                });
                 Ok(PipelineData::ByteStream(
-                    ByteStream::read(stream, span, engine_state.ctrlc.clone()),
+                    ByteStream::from_iter(iter, span, engine_state.ctrlc.clone()),
                     meta,
                 ))
             }

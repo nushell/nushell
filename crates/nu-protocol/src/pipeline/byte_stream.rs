@@ -6,7 +6,7 @@ use crate::{
 use std::{
     fmt::Debug,
     fs::File,
-    io::{self, BufRead, BufReader, Read, Write},
+    io::{self, BufRead, BufReader, Cursor, Read, Write},
     process::Stdio,
     sync::{atomic::AtomicBool, Arc},
     thread,
@@ -82,6 +82,28 @@ impl ByteStream {
         let stdin = os_pipe::dup_stdin().err_span(span)?;
         let source = ByteStreamSource::File(convert_file(stdin));
         Ok(Self::new(source, span, None))
+    }
+
+    pub fn from_iter<T>(
+        iter: impl Iterator<Item = T> + Send + 'static,
+        span: Span,
+        interrupt: Option<Arc<AtomicBool>>,
+    ) -> Self
+    where
+        T: AsRef<[u8]> + Send + Default + 'static,
+    {
+        Self::read(ReadIterator::new(iter), span, interrupt)
+    }
+
+    pub fn from_result_iter<T>(
+        iter: impl Iterator<Item = Result<T, ShellError>> + Send + 'static,
+        span: Span,
+        interrupt: Option<Arc<AtomicBool>>,
+    ) -> Self
+    where
+        T: AsRef<[u8]> + Send + Default + 'static,
+    {
+        Self::read(ReadResultIterator::new(iter), span, interrupt)
     }
 
     pub fn with_known_size(mut self, size: Option<u64>) -> Self {
@@ -464,4 +486,84 @@ fn write_to_out_dest(
         OutDest::File(file) => copy_with_interrupt(&mut read, &mut file.as_ref(), span, ctrlc),
     }?;
     Ok(())
+}
+
+pub struct ReadIterator<I>
+where
+    I: Iterator,
+    I::Item: AsRef<[u8]>,
+{
+    iter: I,
+    cursor: Option<Cursor<I::Item>>,
+}
+
+impl<I> ReadIterator<I>
+where
+    I: Iterator,
+    I::Item: AsRef<[u8]> + Default,
+{
+    pub fn new(iter: I) -> Self {
+        Self {
+            iter: iter.into_iter(),
+            cursor: Some(Cursor::new(I::Item::default())),
+        }
+    }
+}
+
+impl<I> Read for ReadIterator<I>
+where
+    I: Iterator,
+    I::Item: AsRef<[u8]>,
+{
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        while let Some(cursor) = self.cursor.as_mut() {
+            let read = cursor.read(buf)?;
+            if read == 0 {
+                self.cursor = self.iter.next().map(Cursor::new);
+            } else {
+                return Ok(read);
+            }
+        }
+        Ok(0)
+    }
+}
+
+pub struct ReadResultIterator<I, T>
+where
+    I: Iterator<Item = Result<T, ShellError>>,
+    T: AsRef<[u8]>,
+{
+    iter: I,
+    cursor: Option<Cursor<T>>,
+}
+
+impl<I, T> ReadResultIterator<I, T>
+where
+    I: Iterator<Item = Result<T, ShellError>>,
+    T: AsRef<[u8]> + Default,
+{
+    pub fn new(iter: I) -> Self {
+        Self {
+            iter: iter.into_iter(),
+            cursor: Some(Cursor::new(T::default())),
+        }
+    }
+}
+
+impl<I, T> Read for ReadResultIterator<I, T>
+where
+    I: Iterator<Item = Result<T, ShellError>>,
+    T: AsRef<[u8]>,
+{
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        while let Some(cursor) = self.cursor.as_mut() {
+            let read = cursor.read(buf)?;
+            if read == 0 {
+                self.cursor = self.iter.next().transpose()?.map(Cursor::new);
+            } else {
+                return Ok(read);
+            }
+        }
+        Ok(0)
+    }
 }

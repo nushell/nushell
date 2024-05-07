@@ -1,10 +1,8 @@
 mod copy;
 mod lines;
-mod read_iterator;
 
 pub use copy::*;
 pub use lines::*;
-pub use read_iterator::*;
 
 #[cfg(unix)]
 use std::os::fd::OwnedFd;

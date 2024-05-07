@@ -1,9 +1,7 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_protocol::{
-    engine::Closure,
-    io::{copy_with_interrupt, ReadIterator},
-    process::ChildPipe,
-    ByteStream, ByteStreamSource, OutDest, PipelineMetadata,
+    engine::Closure, io::copy_with_interrupt, process::ChildPipe, ByteStream, ByteStreamSource,
+    OutDest, PipelineMetadata,
 };
 use std::{
     io::{self, Read, Write},
@@ -427,7 +425,7 @@ fn spawn_tee(
     let thread = thread::Builder::new()
         .name("tee".into())
         .spawn(move || {
-            let stream = ByteStream::read(ReadIterator::new(receiver.into_iter()), span, None);
+            let stream = ByteStream::from_iter(receiver.into_iter(), span, None);
             eval_block(PipelineData::ByteStream(stream, meta))
         })
         .err_span(span)?;

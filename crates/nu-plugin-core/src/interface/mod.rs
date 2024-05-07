@@ -2,8 +2,7 @@
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
 use nu_protocol::{
-    io::ReadResultIterator, ByteStream, ByteStreamReader, IntoSpanned, ListStream, PipelineData,
-    ShellError,
+    ByteStream, ByteStreamReader, IntoSpanned, ListStream, PipelineData, ShellError,
 };
 use std::{
     io::{Read, Write},
@@ -186,7 +185,7 @@ pub trait InterfaceManager {
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ByteStream::read(ReadResultIterator::new(reader), info.span, None).into()
+                ByteStream::from_result_iter(reader, info.span, None).into()
             }
         })
     }

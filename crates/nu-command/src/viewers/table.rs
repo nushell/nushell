@@ -6,8 +6,7 @@ use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env::get_config, env_to_string};
 use nu_protocol::{
-    io::ReadResultIterator, ByteStream, Config, DataSource, ListStream, PipelineMetadata,
-    TableMode, ValueIterator,
+    ByteStream, Config, DataSource, ListStream, PipelineMetadata, TableMode, ValueIterator,
 };
 use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
@@ -609,7 +608,7 @@ fn handle_row_stream(
         ctrlc.clone(),
         cfg,
     );
-    let stream = ByteStream::read(ReadResultIterator::new(paginator), input.call.head, None);
+    let stream = ByteStream::from_result_iter(paginator, input.call.head, None);
     Ok(PipelineData::ByteStream(stream, None))
 }
 
