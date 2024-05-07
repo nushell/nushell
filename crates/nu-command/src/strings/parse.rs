@@ -130,7 +130,7 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex_pattern = Regex::new(&item_to_parse).map_err(|e| ShellError::GenericError {
+    let regex = Regex::new(&item_to_parse).map_err(|e| ShellError::GenericError {
         error: "Error with regular expression".into(),
         msg: e.to_string(),
         span: Some(pattern_span),
@@ -138,7 +138,15 @@ fn operate(
         inner: vec![],
     })?;
 
-    let columns = column_names(&regex_pattern);
+    let columns = regex
+        .capture_names()
+        .enumerate()
+        .skip(1)
+        .map(|(i, name)| {
+            name.map(String::from)
+                .unwrap_or_else(|| format!("capture{}", i - 1))
+        })
+        .collect::<Vec<_>>();
 
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
@@ -149,7 +157,7 @@ fn operate(
                 let v_span = v.span();
                 match v.coerce_into_string() {
                     Ok(s) => {
-                        let results = regex_pattern.captures_iter(&s);
+                        let results = regex.captures_iter(&s);
 
                         for c in results {
                             let captures = match c {
@@ -193,7 +201,7 @@ fn operate(
             .modify(|stream| ParseStreamer {
                 span: head,
                 captures: VecDeque::new(),
-                regex: regex_pattern,
+                regex,
                 columns,
                 stream,
                 ctrlc,
@@ -209,7 +217,7 @@ fn operate(
             ParseStreamerExternal {
                 span: head,
                 captures: VecDeque::new(),
-                regex: regex_pattern,
+                regex,
                 columns,
                 stream: stream.stream,
             },
@@ -272,18 +280,6 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
 
     output.push_str("\\z");
     Ok(output)
-}
-
-fn column_names(regex: &Regex) -> Vec<String> {
-    regex
-        .capture_names()
-        .enumerate()
-        .skip(1)
-        .map(|(i, name)| {
-            name.map(String::from)
-                .unwrap_or_else(|| format!("capture{}", i - 1))
-        })
-        .collect()
 }
 
 pub struct ParseStreamer {
