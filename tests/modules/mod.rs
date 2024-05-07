@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
@@ -765,15 +765,17 @@ fn nested_list_export_works() {
 fn load_module_file_no_cache() {
     Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
         sandbox.with_files(&[
-            FileWithContentToBeTrimmed("voice.nu", r#"export module animals.nu"#),
-            FileWithContentToBeTrimmed("animals.nu", "export def cat [] { 'meow'}"),
+            FileWithContent("voice.nu", r#"export module animals.nu"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
 
         let inp = &[
             "use voice.nu",
+            "print -e (voice animals cat)",
             "(voice animals cat) == 'meow'",
-            r#""export def cat [] {'meowww'}" | save -f animals.nu"#,
+            r#""export def cat [] {'meowww'}" | save animals.nu"#,
             "use voice.nu",
+            "print -e (voice animals cat)",
             "(voice animals cat) == 'meowww'",
         ];
 
