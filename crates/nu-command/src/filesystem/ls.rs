@@ -1,9 +1,10 @@
 use super::util::get_rest_for_glob_pattern;
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
+use nu_engine::glob_from;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, env::current_dir};
-use nu_glob::{MatchOptions, Pattern};
+use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
 use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
@@ -30,6 +31,8 @@ struct Args {
     use_mime_type: bool,
     call_span: Span,
 }
+
+const GLOB_CHARS: &[char] = &['*', '?', '['];
 
 impl Command for Ls {
     fn name(&self) -> &str {
@@ -235,24 +238,20 @@ fn ls_for_one_pattern(
         }
     };
 
-    // it indicates we need to append an extra '*' after pattern for listing given directory
-    // Example: 'ls directory' -> 'ls directory/*'
-    let mut extra_star_under_given_directory = false;
-    let (path, p_tag, absolute_path, quoted) = match pattern_arg {
+    let mut just_read_dir = false;
+    let p_tag: Span = pattern_arg.as_ref().map(|p| p.span).unwrap_or(call_span);
+    let (pattern_arg, absolute_path) = match pattern_arg {
         Some(pat) => {
-            let p_tag = pat.span;
-            let expanded = nu_path::expand_path_with(
-                pat.item.as_ref(),
-                &cwd,
-                matches!(pat.item, NuGlob::Expand(..)),
-            );
+            // expand with cwd here is only used for checking
+            let tmp_expanded =
+                nu_path::expand_path_with(pat.item.as_ref(), &cwd, pat.item.is_expand());
             // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
-            if !directory && expanded.is_dir() {
-                if permission_denied(&expanded) {
+            if !directory && tmp_expanded.is_dir() {
+                if permission_denied(&tmp_expanded) {
                     #[cfg(unix)]
                     let error_msg = format!(
                         "The permissions of {:o} do not allow access for this user",
-                        expanded
+                        tmp_expanded
                             .metadata()
                             .expect("this shouldn't be called since we already know there is a dir")
                             .permissions()
@@ -269,10 +268,10 @@ fn ls_for_one_pattern(
                         inner: vec![],
                     });
                 }
-                if is_empty_dir(&expanded) {
+                if is_empty_dir(&tmp_expanded) {
                     return Ok(Box::new(vec![].into_iter()));
                 }
-                extra_star_under_given_directory = true;
+                just_read_dir = !(pat.item.is_expand() && pat.item.as_ref().contains(GLOB_CHARS));
             }
 
             // it's absolute path if:
@@ -282,67 +281,44 @@ fn ls_for_one_pattern(
             //    path.
             let absolute_path = Path::new(pat.item.as_ref()).is_absolute()
                 || (pat.item.is_expand() && expand_to_real_path(pat.item.as_ref()).is_absolute());
-            (
-                expanded,
-                p_tag,
-                absolute_path,
-                matches!(pat.item, NuGlob::DoNotExpand(_)),
-            )
+            (pat.item, absolute_path)
         }
         None => {
             // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
             if directory {
-                (PathBuf::from("."), call_span, false, false)
+                (NuGlob::Expand(".".to_string()), false)
             } else if is_empty_dir(&cwd) {
                 return Ok(Box::new(vec![].into_iter()));
             } else {
-                (PathBuf::from("*"), call_span, false, false)
+                (NuGlob::Expand("*".to_string()), false)
             }
         }
     };
 
-    let hidden_dir_specified = is_hidden_dir(&path);
-    // when it's quoted, we need to escape our glob pattern(but without the last extra
-    // start which may be added under given directory)
-    // so we can do ls for a file or directory like `a[123]b`
-    let path = if quoted {
-        let p = path.display().to_string();
-        let mut glob_escaped = Pattern::escape(&p);
-        if extra_star_under_given_directory {
-            glob_escaped.push(std::path::MAIN_SEPARATOR);
-            glob_escaped.push('*');
-        }
-        glob_escaped
+    let hidden_dir_specified = is_hidden_dir(pattern_arg.as_ref());
+    let path = pattern_arg.into_spanned(p_tag);
+    let (prefix, paths) = if just_read_dir {
+        let expanded = nu_path::expand_path_with(path.item.as_ref(), &cwd, path.item.is_expand());
+        let paths = read_dir(&expanded)?;
+        // just need to read the directory, so prefix is path itself.
+        (Some(expanded), paths)
     } else {
-        let mut p = path.display().to_string();
-        if extra_star_under_given_directory {
-            p.push(std::path::MAIN_SEPARATOR);
-            p.push('*');
-        }
-        p
-    };
-
-    let glob_path = Spanned {
-        // use NeedExpand, the relative escaping logic is handled previously
-        item: NuGlob::Expand(path.clone()),
-        span: p_tag,
-    };
-
-    let glob_options = if all {
-        None
-    } else {
-        let glob_options = MatchOptions {
-            recursive_match_hidden_dir: false,
-            ..Default::default()
+        let glob_options = if all {
+            None
+        } else {
+            let glob_options = MatchOptions {
+                recursive_match_hidden_dir: false,
+                ..Default::default()
+            };
+            Some(glob_options)
         };
-        Some(glob_options)
+        glob_from(&path, &cwd, call_span, glob_options)?
     };
-    let (prefix, paths) = nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options)?;
 
     let mut paths_peek = paths.peekable();
     if paths_peek.peek().is_none() {
         return Err(ShellError::GenericError {
-            error: format!("No matches found for {}", &path),
+            error: format!("No matches found for {:?}", path.item),
             msg: "Pattern, file or folder not found".into(),
             span: Some(p_tag),
             help: Some("no matches found".into()),
@@ -903,4 +879,15 @@ mod windows_helper {
         }
         false
     }
+}
+
+#[allow(clippy::type_complexity)]
+fn read_dir(
+    f: &Path,
+) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
+    let iter = f.read_dir()?.map(|d| {
+        d.map(|r| r.path())
+            .map_err(|e| ShellError::IOError { msg: e.to_string() })
+    });
+    Ok(Box::new(iter))
 }

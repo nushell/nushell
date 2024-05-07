@@ -6,7 +6,7 @@ use nu_protocol::{
 
 use crate::{
     dataframe::{utils::extract_strings, values::NuLazyFrame},
-    values::{CustomValueSupport, PolarsPluginObject},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 
@@ -49,7 +49,7 @@ impl PluginCommand for RenameDF {
         vec![
             Example {
                 description: "Renames a series",
-                example: "[5 6 7 8] | polars into-df | polars rename '0' new_name",
+                example: "[5 6 7 8] | polars into-df | polars rename '0' new_name | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
@@ -69,7 +69,7 @@ impl PluginCommand for RenameDF {
             },
             Example {
                 description: "Renames a dataframe column",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars rename a a_new",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars rename a a_new | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -91,7 +91,7 @@ impl PluginCommand for RenameDF {
             Example {
                 description: "Renames two dataframe columns",
                 example:
-                    "[[a b]; [1 2] [3 4]] | polars into-df | polars rename [a b] [a_new b_new]",
+                    "[[a b]; [1 2] [3 4]] | polars into-df | polars rename [a b] [a_new b_new] | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -121,47 +121,9 @@ impl PluginCommand for RenameDF {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head)?;
-        match PolarsPluginObject::try_from_value(plugin, &value).map_err(LabeledError::from)? {
-            PolarsPluginObject::NuDataFrame(df) => {
-                command_eager(plugin, engine, call, df).map_err(LabeledError::from)
-            }
-            PolarsPluginObject::NuLazyFrame(lazy) => {
-                command_lazy(plugin, engine, call, lazy).map_err(LabeledError::from)
-            }
-            _ => Err(LabeledError::new(format!("Unsupported type: {value:?}"))
-                .with_label("Unsupported Type", call.head)),
-        }
+        let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
+        command_lazy(plugin, engine, call, lazy).map_err(LabeledError::from)
     }
-}
-
-fn command_eager(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    call: &EvaluatedCall,
-    df: NuDataFrame,
-) -> Result<PipelineData, ShellError> {
-    let columns: Value = call.req(0)?;
-    let columns = extract_strings(columns)?;
-
-    let new_names: Value = call.req(1)?;
-    let new_names = extract_strings(new_names)?;
-
-    let mut polars_df = df.to_polars();
-
-    for (from, to) in columns.iter().zip(new_names.iter()) {
-        polars_df
-            .rename(from, to)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error renaming".into(),
-                msg: e.to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })?;
-    }
-
-    let df = NuDataFrame::new(false, polars_df);
-    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_lazy(

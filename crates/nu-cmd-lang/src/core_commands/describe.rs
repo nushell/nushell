@@ -158,8 +158,8 @@ fn run(
     input: PipelineData,
     options: Options,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata().clone().map(Box::new);
     let head = call.head;
+    let metadata = input.metadata();
 
     let description: Value = match input {
         PipelineData::ByteStream(stream, ..) => {
@@ -190,19 +190,18 @@ fn run(
         }
         PipelineData::ListStream(stream, ..) => {
             if options.detailed {
+                let subtype = if options.no_collect {
+                    Value::string("any", head)
+                } else {
+                    describe_value(stream.into_value(), head, engine_state)
+                };
                 Value::record(
-                    record!(
+                    record! {
                         "type" => Value::string("stream", head),
                         "origin" => Value::string("nushell", head),
-                        "subtype" => {
-                           if options.no_collect {
-                            Value::string("any", head)
-                           } else {
-                            describe_value(stream.into_value(), head, engine_state)
-                           }
-                        },
+                        "subtype" => subtype,
                         "metadata" => metadata_to_value(metadata, head),
-                    ),
+                    },
                     head,
                 )
             } else if options.no_collect {
@@ -226,31 +225,34 @@ fn run(
     Ok(description.into_pipeline_data())
 }
 
-fn compact_primitive_description(mut value: Value) -> Value {
-    if let Value::Record { ref mut val, .. } = value {
-        if val.len() != 1 {
-            return value;
-        }
-        if let Some(type_name) = val.to_mut().get_mut("type") {
-            return std::mem::take(type_name);
-        }
-    }
-    value
+enum Description {
+    String(String),
+    Record(Record),
 }
 
-fn describe_value(
+impl Description {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            Description::String(ty) => Value::string(ty, span),
+            Description::Record(record) => Value::record(record, span),
+        }
+    }
+}
+
+fn describe_value(value: Value, head: Span, engine_state: Option<&EngineState>) -> Value {
+    let record = match describe_value_inner(value, head, engine_state) {
+        Description::String(ty) => record! { "type" => Value::string(ty, head) },
+        Description::Record(record) => record,
+    };
+    Value::record(record, head)
+}
+
+fn describe_value_inner(
     value: Value,
-    head: nu_protocol::Span,
+    head: Span,
     engine_state: Option<&EngineState>,
-) -> Value {
+) -> Description {
     match value {
-        Value::Custom { val, .. } => Value::record(
-            record!(
-                "type" => Value::string("custom", head),
-                "subtype" => Value::string(val.type_name(), head),
-            ),
-            head,
-        ),
         Value::Bool { .. }
         | Value::Int { .. }
         | Value::Float { .. }
@@ -260,101 +262,74 @@ fn describe_value(
         | Value::Range { .. }
         | Value::String { .. }
         | Value::Glob { .. }
-        | Value::Nothing { .. } => Value::record(
-            record!(
-                "type" => Value::string(value.get_type().to_string(), head),
-            ),
-            head,
-        ),
+        | Value::Nothing { .. } => Description::String(value.get_type().to_string()),
         Value::Record { val, .. } => {
-            let mut val = val.into_owned();
-            for (_k, v) in val.iter_mut() {
-                *v = compact_primitive_description(describe_value(
-                    std::mem::take(v),
-                    head,
-                    engine_state,
-                ));
+            let mut columns = val.into_owned();
+            for (_, val) in &mut columns {
+                *val =
+                    describe_value_inner(std::mem::take(val), head, engine_state).into_value(head);
             }
 
-            Value::record(
-                record!(
-                    "type" => Value::string("record", head),
-                    "columns" => Value::record(val, head),
-                ),
-                head,
-            )
+            Description::Record(record! {
+                "type" => Value::string("record", head),
+                "columns" => Value::record(columns, head),
+            })
         }
-        Value::List { vals, .. } => Value::record(
-            record!(
+        Value::List { mut vals, .. } => {
+            for val in &mut vals {
+                *val =
+                    describe_value_inner(std::mem::take(val), head, engine_state).into_value(head);
+            }
+
+            Description::Record(record! {
                 "type" => Value::string("list", head),
                 "length" => Value::int(vals.len() as i64, head),
-                "values" => Value::list(vals.into_iter().map(|v|
-                    compact_primitive_description(describe_value(v, head, engine_state))
-                )
-                .collect(), head),
-            ),
-            head,
-        ),
+                "values" => Value::list(vals, head),
+            })
+        }
         Value::Closure { val, .. } => {
             let block = engine_state.map(|engine_state| engine_state.get_block(val.block_id));
 
+            let mut record = record! { "type" => Value::string("closure", head) };
             if let Some(block) = block {
-                let mut record = Record::new();
-                record.push("type", Value::string("closure", head));
                 record.push(
                     "signature",
                     Value::record(
-                        record!(
+                        record! {
                             "name" => Value::string(block.signature.name.clone(), head),
                             "category" => Value::string(block.signature.category.to_string(), head),
-                        ),
+                        },
                         head,
                     ),
                 );
-                Value::record(record, head)
-            } else {
-                Value::record(
-                    record!(
-                        "type" => Value::string("closure", head),
-                    ),
-                    head,
-                )
             }
+            Description::Record(record)
         }
-
-        Value::Error { error, .. } => Value::record(
-            record!(
-                "type" => Value::string("error", head),
-                "subtype" => Value::string(error.to_string(), head),
-            ),
-            head,
-        ),
-        Value::Binary { val, .. } => Value::record(
-            record!(
-                "type" => Value::string("binary", head),
-                "length" => Value::int(val.len() as i64, head),
-            ),
-            head,
-        ),
-        Value::CellPath { val, .. } => Value::record(
-            record!(
-                "type" => Value::string("cellpath", head),
-                "length" => Value::int(val.members.len() as i64, head),
-            ),
-            head,
-        ),
+        Value::Error { error, .. } => Description::Record(record! {
+            "type" => Value::string("error", head),
+            "subtype" => Value::string(error.to_string(), head),
+        }),
+        Value::Binary { val, .. } => Description::Record(record! {
+            "type" => Value::string("binary", head),
+            "length" => Value::int(val.len() as i64, head),
+        }),
+        Value::CellPath { val, .. } => Description::Record(record! {
+            "type" => Value::string("cell-path", head),
+            "length" => Value::int(val.members.len() as i64, head),
+        }),
+        Value::Custom { val, .. } => Description::Record(record! {
+            "type" => Value::string("custom", head),
+            "subtype" => Value::string(val.type_name(), head),
+        }),
     }
 }
 
-fn metadata_to_value(metadata: Option<Box<PipelineMetadata>>, head: nu_protocol::Span) -> Value {
-    match metadata {
-        Some(metadata) => Value::record(
-            record!(
-                "data_source" => Value::string(format!("{:?}", metadata.data_source), head),
-            ),
-            head,
-        ),
-        _ => Value::nothing(head),
+fn metadata_to_value(metadata: Option<PipelineMetadata>, head: Span) -> Value {
+    if let Some(metadata) = metadata {
+        let data_source = Value::string(format!("{:?}", metadata.data_source), head);
+        Value::record(record! { "data_source" => data_source }, head)
+    } else {
+        Value::nothing(head)
     }
 }
 

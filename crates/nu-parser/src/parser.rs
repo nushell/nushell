@@ -3895,7 +3895,7 @@ pub fn parse_list_expression(
                         Type::List(elem_ty) => *elem_ty.clone(),
                         _ => Type::Any,
                     };
-                    let span = Span::new(curr_span.start, spread_arg.span.end);
+                    let span = Span::new(curr_span.start, curr_span.start + 3);
                     (ListItem::Spread(span, spread_arg), elem_ty)
                 } else {
                     let arg = parse_multispan_value(

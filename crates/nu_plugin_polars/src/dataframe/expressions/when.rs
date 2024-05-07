@@ -57,7 +57,7 @@ impl PluginCommand for ExprWhen {
             Example {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
-   | polars into-lazy
+   | polars into-df
    | polars with-column (
     polars when ((polars col a) > 2) 4 | polars otherwise 5 | polars as c
      )

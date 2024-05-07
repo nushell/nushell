@@ -3,7 +3,7 @@ use crate::{
     PolarsPlugin,
 };
 
-use super::super::values::{utils::DEFAULT_ROWS, NuDataFrame, NuExpression};
+use super::super::values::{NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
@@ -44,7 +44,7 @@ impl PluginCommand for LastDF {
         vec![
             Example {
                 description: "Create new dataframe with last rows",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars last 1",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars last | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -74,7 +74,7 @@ impl PluginCommand for LastDF {
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head)?;
         if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
-            let df = NuDataFrame::try_from_value_coerce(plugin, &value, call.head)?;
+            let df = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
             command(plugin, engine, call, df).map_err(|e| e.into())
         } else {
             let expr = NuExpression::try_from_value(plugin, &value)?;
@@ -90,13 +90,13 @@ fn command(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    df: NuDataFrame,
+    df: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.opt(0)?;
-    let rows = rows.unwrap_or(DEFAULT_ROWS);
+    let rows = rows.unwrap_or(1);
 
-    let res = df.as_ref().tail(Some(rows));
-    let res = NuDataFrame::new(false, res);
+    let res = df.to_polars().tail(rows as u32);
+    let res = NuLazyFrame::new(res);
     res.to_pipeline_data(plugin, engine, call.head)
 }
 

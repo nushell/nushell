@@ -132,7 +132,6 @@ fn command(
     quantile: f64,
 ) -> Result<PipelineData, ShellError> {
     let lazy = NuLazyFrame::new(
-        lazy.from_eager,
         lazy.to_polars()
             .quantile(lit(quantile), QuantileInterpolOptions::default())
             .map_err(|e| ShellError::GenericError {

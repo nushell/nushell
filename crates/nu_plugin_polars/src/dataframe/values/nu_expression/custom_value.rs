@@ -63,45 +63,16 @@ fn compute_with_value(
     op: Span,
     right: &Value,
 ) -> Result<Value, ShellError> {
-    let rhs_span = right.span();
-    match right {
-        Value::Custom { val: rhs, .. } => {
-            let rhs = rhs.as_any().downcast_ref::<NuExpression>().ok_or_else(|| {
-                ShellError::DowncastNotPossible {
-                    msg: "Unable to create expression".into(),
-                    span: rhs_span,
-                }
-            })?;
-
-            match rhs.as_ref() {
-                polars::prelude::Expr::Literal(..) => with_operator(
-                    (plugin, engine),
-                    operator,
-                    left,
-                    rhs,
-                    lhs_span,
-                    right.span(),
-                    op,
-                ),
-                _ => Err(ShellError::TypeMismatch {
-                    err_message: "Only literal expressions or number".into(),
-                    span: right.span(),
-                }),
-            }
-        }
-        _ => {
-            let rhs = NuExpression::try_from_value(plugin, right)?;
-            with_operator(
-                (plugin, engine),
-                operator,
-                left,
-                &rhs,
-                lhs_span,
-                right.span(),
-                op,
-            )
-        }
-    }
+    let rhs = NuExpression::try_from_value(plugin, right)?;
+    with_operator(
+        (plugin, engine),
+        operator,
+        left,
+        &rhs,
+        lhs_span,
+        right.span(),
+        op,
+    )
 }
 
 fn with_operator(
