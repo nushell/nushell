@@ -769,17 +769,16 @@ fn load_module_file_no_cache() {
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
 
-        let inp = &[
+        let inp = [
             "use voice.nu",
-            "print -e (voice animals cat)",
+            "print (voice animals cat) == 'meow'",
             "(voice animals cat) == 'meow'",
             r#""export def cat [] {'meowww'}" | save animals.nu"#,
             "use voice.nu",
-            "print -e (voice animals cat)",
             "(voice animals cat) == 'meowww'",
         ];
 
-        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
 
         assert_eq!(actual.out, "true\ntrue");
     });
