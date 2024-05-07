@@ -1,9 +1,9 @@
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ListStream, ValueIterator};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
+use std::{
+    collections::VecDeque,
+    sync::{atomic::AtomicBool, Arc},
 };
 
 #[derive(Clone)]
@@ -192,7 +192,7 @@ fn operate(
         PipelineData::ListStream(stream, ..) => Ok(stream
             .modify(|stream| ParseStreamer {
                 span: head,
-                excess: Vec::new(),
+                excess: VecDeque::new(),
                 regex: regex_pattern,
                 columns,
                 stream,
@@ -208,7 +208,7 @@ fn operate(
         } => Ok(ListStream::new(
             ParseStreamerExternal {
                 span: head,
-                excess: Vec::new(),
+                excess: VecDeque::new(),
                 regex: regex_pattern,
                 columns,
                 stream: stream.stream,
@@ -288,7 +288,7 @@ fn column_names(regex: &Regex) -> Vec<String> {
 
 pub struct ParseStreamer {
     span: Span,
-    excess: Vec<Value>,
+    excess: VecDeque<Value>,
     regex: Regex,
     columns: Vec<String>,
     stream: ValueIterator,
@@ -298,21 +298,19 @@ pub struct ParseStreamer {
 impl Iterator for ParseStreamer {
     type Item = Value;
     fn next(&mut self) -> Option<Value> {
-        if !self.excess.is_empty() {
-            return Some(self.excess.remove(0));
-        }
-
         loop {
-            if let Some(ctrlc) = &self.ctrlc {
-                if ctrlc.load(Ordering::SeqCst) {
-                    break None;
-                }
+            if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+                return None;
             }
 
-            let v = self.stream.next()?;
-            let span = v.span();
+            if let Some(val) = self.excess.pop_front() {
+                return Some(val);
+            }
 
-            let Ok(s) = v.coerce_into_string() else {
+            let val = self.stream.next()?;
+            let span = val.span();
+
+            let Ok(string) = val.coerce_into_string() else {
                 return Some(Value::error(
                     ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
@@ -323,26 +321,18 @@ impl Iterator for ParseStreamer {
                 ));
             };
 
-            let parsed = stream_helper(
-                self.regex.clone(),
-                span,
-                s,
-                self.columns.clone(),
-                &mut self.excess,
-            );
-
-            if parsed.is_none() {
-                continue;
-            };
-
-            return parsed;
+            if let Err(err) =
+                stream_helper(&self.regex, span, string, &self.columns, &mut self.excess)
+            {
+                return Some(Value::error(err, self.span));
+            }
         }
     }
 }
 
 pub struct ParseStreamerExternal {
     span: Span,
-    excess: Vec<Value>,
+    excess: VecDeque<Value>,
     regex: Regex,
     columns: Vec<String>,
     stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
@@ -351,95 +341,82 @@ pub struct ParseStreamerExternal {
 impl Iterator for ParseStreamerExternal {
     type Item = Value;
     fn next(&mut self) -> Option<Value> {
-        if !self.excess.is_empty() {
-            return Some(self.excess.remove(0));
-        }
+        loop {
+            if let Some(val) = self.excess.pop_front() {
+                return Some(val);
+            }
 
-        let mut chunk = self.stream.next();
+            let mut chunk = match self.stream.next() {
+                Some(Ok(chunk)) => chunk,
+                Some(Err(err)) => return Some(Value::error(err, self.span)),
+                None => return None,
+            };
 
-        // Collect all `stream` chunks into a single `chunk` to be able to deal with matches that
-        // extend across chunk boundaries.
-        // This is a stop-gap solution until the `regex` crate supports streaming or an alternative
-        // solution is found.
-        // See https://github.com/nushell/nushell/issues/9795
-        while let Some(Ok(chunks)) = &mut chunk {
-            match self.stream.next() {
-                Some(Ok(mut next_chunk)) => chunks.append(&mut next_chunk),
-                error @ Some(Err(_)) => chunk = error,
-                None => break,
+            // Collect all `stream` chunks into a single `chunk` to be able to deal with matches that
+            // extend across chunk boundaries.
+            // This is a stop-gap solution until the `regex` crate supports streaming or an alternative
+            // solution is found.
+            // See https://github.com/nushell/nushell/issues/9795
+            for next in &mut self.stream {
+                match next {
+                    Ok(next_chunk) => chunk.extend(next_chunk),
+                    Err(err) => return Some(Value::error(err, self.span)),
+                }
+            }
+
+            let Ok(chunk) = String::from_utf8(chunk) else {
+                return Some(Value::error(
+                    ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: self.span,
+                        src_span: self.span,
+                    },
+                    self.span,
+                ));
+            };
+
+            if let Err(err) = stream_helper(
+                &self.regex,
+                self.span,
+                chunk,
+                &self.columns,
+                &mut self.excess,
+            ) {
+                return Some(Value::error(err, self.span));
             }
         }
-
-        let chunk = match chunk {
-            Some(Ok(chunk)) => chunk,
-            Some(Err(err)) => return Some(Value::error(err, self.span)),
-            _ => return None,
-        };
-
-        let Ok(chunk) = String::from_utf8(chunk) else {
-            return Some(Value::error(
-                ShellError::PipelineMismatch {
-                    exp_input_type: "string".into(),
-                    dst_span: self.span,
-                    src_span: self.span,
-                },
-                self.span,
-            ));
-        };
-
-        stream_helper(
-            self.regex.clone(),
-            self.span,
-            chunk,
-            self.columns.clone(),
-            &mut self.excess,
-        )
     }
 }
 
 fn stream_helper(
-    regex: Regex,
+    regex: &Regex,
     span: Span,
-    s: String,
-    columns: Vec<String>,
-    excess: &mut Vec<Value>,
-) -> Option<Value> {
-    let results = regex.captures_iter(&s);
-
-    for c in results {
-        let captures = match c {
-            Ok(c) => c,
-            Err(e) => {
-                return Some(Value::error(
-                    ShellError::GenericError {
-                        error: "Error with regular expression captures".into(),
-                        msg: e.to_string(),
-                        span: Some(span),
-                        help: Some(e.to_string()),
-                        inner: vec![],
-                    },
-                    span,
-                ))
-            }
-        };
+    string: String,
+    columns: &[String],
+    excess: &mut VecDeque<Value>,
+) -> Result<(), ShellError> {
+    for captures in regex.captures_iter(&string) {
+        let captures = captures.map_err(|err| ShellError::GenericError {
+            error: "Error with regular expression captures".into(),
+            msg: err.to_string(),
+            span: Some(span),
+            help: Some(err.to_string()),
+            inner: vec![],
+        })?;
 
         let record = columns
             .iter()
             .zip(captures.iter().skip(1))
-            .map(|(column_name, cap)| {
-                let cap_string = cap.map(|v| v.as_str()).unwrap_or("");
-                (column_name.clone(), Value::string(cap_string, span))
+            .map(|(column, match_)| {
+                let match_str = match_.map(|m| m.as_str()).unwrap_or("");
+                (column.clone(), Value::string(match_str, span))
             })
             .collect();
 
-        excess.push(Value::record(record, span));
+        excess.push_back(Value::record(record, span));
     }
 
-    if !excess.is_empty() {
-        Some(excess.remove(0))
-    } else {
-        None
-    }
+    Ok(())
 }
 
 #[cfg(test)]
