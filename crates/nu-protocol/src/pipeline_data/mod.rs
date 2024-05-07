@@ -15,7 +15,7 @@ use crate::{
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
-    io::{self, Cursor, Read, Write},
+    io::Write,
     sync::{atomic::AtomicBool, Arc},
     thread,
 };
@@ -207,144 +207,6 @@ impl PipelineData {
                         output, span, // FIXME?
                     )
                 }
-            }
-        }
-    }
-
-    /// Writes all values or redirects all output to the current [`OutDest`]s in `stack`.
-    ///
-    /// For [`OutDest::Pipe`] and [`OutDest::Capture`], this will return the `PipelineData` as is
-    /// without consuming input and without writing anything.
-    ///
-    /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
-    /// and `PipelineData::Empty` will be returned.
-    pub fn write_to_out_dests(
-        self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-    ) -> Result<PipelineData, ShellError> {
-        match (self, stack.stdout()) {
-            (
-                PipelineData::ExternalStream {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    span,
-                    metadata,
-                    trim_end_newline,
-                },
-                _,
-            ) => {
-                fn needs_redirect(
-                    stream: Option<RawStream>,
-                    out_dest: &OutDest,
-                ) -> Result<RawStream, Option<RawStream>> {
-                    match (stream, out_dest) {
-                        (Some(stream), OutDest::Pipe | OutDest::Capture) => Err(Some(stream)),
-                        (Some(stream), _) => Ok(stream),
-                        (None, _) => Err(None),
-                    }
-                }
-
-                let (stdout, stderr) = match (
-                    needs_redirect(stdout, stack.stdout()),
-                    needs_redirect(stderr, stack.stderr()),
-                ) {
-                    (Ok(stdout), Ok(stderr)) => {
-                        // We need to redirect both stdout and stderr
-
-                        // To avoid deadlocks, we must spawn a separate thread to wait on stderr.
-                        let err_thread = {
-                            let err = stack.stderr().clone();
-                            std::thread::Builder::new()
-                                .spawn(move || consume_child_output(stderr, &err))
-                        };
-
-                        consume_child_output(stdout, stack.stdout())?;
-
-                        match err_thread?.join() {
-                            Ok(result) => result?,
-                            Err(err) => {
-                                return Err(ShellError::GenericError {
-                                    error: "Error consuming external command stderr".into(),
-                                    msg: format! {"{err:?}"},
-                                    span: Some(span),
-                                    help: None,
-                                    inner: Vec::new(),
-                                })
-                            }
-                        }
-
-                        (None, None)
-                    }
-                    (Ok(stdout), Err(stderr)) => {
-                        // single output stream, we can consume directly
-                        consume_child_output(stdout, stack.stdout())?;
-                        (None, stderr)
-                    }
-                    (Err(stdout), Ok(stderr)) => {
-                        // single output stream, we can consume directly
-                        consume_child_output(stderr, stack.stderr())?;
-                        (stdout, None)
-                    }
-                    (Err(stdout), Err(stderr)) => (stdout, stderr),
-                };
-
-                Ok(PipelineData::ExternalStream {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    span,
-                    metadata,
-                    trim_end_newline,
-                })
-            }
-            (data, OutDest::Pipe | OutDest::Capture) => Ok(data),
-            (PipelineData::Empty, _) => Ok(PipelineData::Empty),
-            (PipelineData::Value(_, _), OutDest::Null) => Ok(PipelineData::Empty),
-            (PipelineData::ListStream(stream, _), OutDest::Null) => {
-                // we need to drain the stream in case there are external commands in the pipeline
-                stream.drain()?;
-                Ok(PipelineData::Empty)
-            }
-            (PipelineData::Value(value, _), OutDest::File(file)) => {
-                let bytes = value_to_bytes(value)?;
-                let mut file = file.try_clone()?;
-                file.write_all(&bytes)?;
-                file.flush()?;
-                Ok(PipelineData::Empty)
-            }
-            (PipelineData::ListStream(stream, _), OutDest::File(file)) => {
-                let mut file = file.try_clone()?;
-                // use BufWriter here?
-                for value in stream {
-                    let bytes = value_to_bytes(value)?;
-                    file.write_all(&bytes)?;
-                    file.write_all(b"\n")?;
-                }
-                file.flush()?;
-                Ok(PipelineData::Empty)
-            }
-            (
-                data @ (PipelineData::Value(_, _) | PipelineData::ListStream(_, _)),
-                OutDest::Inherit,
-            ) => {
-                let config = engine_state.get_config();
-
-                if let Some(decl_id) = engine_state.table_decl_id {
-                    let command = engine_state.get_decl(decl_id);
-                    if command.get_block_id().is_some() {
-                        data.write_all_and_flush(engine_state, config, false, false)?;
-                    } else {
-                        let call = Call::new(Span::unknown());
-                        let stack = &mut stack.start_capture();
-                        let table = command.run(engine_state, stack, &call, data)?;
-                        table.write_all_and_flush(engine_state, config, false, false)?;
-                    }
-                } else {
-                    data.write_all_and_flush(engine_state, config, false, false)?;
-                };
-                Ok(PipelineData::Empty)
             }
         }
     }
@@ -1048,32 +910,6 @@ fn drain_exit_code(exit_code: ListStream) -> Result<i64, ShellError> {
     }
 }
 
-/// Only call this if `output_stream` is not `OutDest::Pipe` or `OutDest::Capture`.
-fn consume_child_output(child_output: RawStream, output_stream: &OutDest) -> io::Result<()> {
-    let mut output = ReadRawStream::new(child_output);
-    match output_stream {
-        OutDest::Pipe | OutDest::Capture => {
-            // The point of `consume_child_output` is to redirect output *right now*,
-            // but OutDest::Pipe means to redirect output
-            // into an OS pipe for *future use* (as input for another command).
-            // So, this branch makes no sense, and will simply drop `output` instead of draining it.
-            // This could trigger a `SIGPIPE` for the external command,
-            // since there will be no reader for its pipe.
-            debug_assert!(false)
-        }
-        OutDest::Null => {
-            io::copy(&mut output, &mut io::sink())?;
-        }
-        OutDest::Inherit => {
-            io::copy(&mut output, &mut io::stdout())?;
-        }
-        OutDest::File(file) => {
-            io::copy(&mut output, &mut file.try_clone()?)?;
-        }
-    }
-    Ok(())
-}
-
 impl Iterator for PipelineIterator {
     type Item = Value;
 
@@ -1149,63 +985,5 @@ where
             ListStream::new(self.into_iter().map(Into::into), span, ctrlc),
             metadata.into(),
         )
-    }
-}
-
-fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
-    let bytes = match value {
-        Value::String { val, .. } => val.into_bytes(),
-        Value::Binary { val, .. } => val,
-        Value::List { vals, .. } => {
-            let val = vals
-                .into_iter()
-                .map(Value::coerce_into_string)
-                .collect::<Result<Vec<String>, ShellError>>()?
-                .join("\n")
-                + "\n";
-
-            val.into_bytes()
-        }
-        // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error, .. } => return Err(*error),
-        value => value.coerce_into_string()?.into_bytes(),
-    };
-    Ok(bytes)
-}
-
-struct ReadRawStream {
-    iter: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>>>,
-    cursor: Option<Cursor<Vec<u8>>>,
-}
-
-impl ReadRawStream {
-    fn new(stream: RawStream) -> Self {
-        debug_assert!(stream.leftover.is_empty());
-        Self {
-            iter: stream.stream,
-            cursor: Some(Cursor::new(Vec::new())),
-        }
-    }
-}
-
-impl Read for ReadRawStream {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        while let Some(cursor) = self.cursor.as_mut() {
-            let read = cursor.read(buf)?;
-            if read > 0 {
-                return Ok(read);
-            } else {
-                match self.iter.next().transpose() {
-                    Ok(next) => {
-                        self.cursor = next.map(Cursor::new);
-                    }
-                    Err(err) => {
-                        // temporary hack
-                        return Err(io::Error::new(io::ErrorKind::Other, err));
-                    }
-                }
-            }
-        }
-        Ok(0)
     }
 }
