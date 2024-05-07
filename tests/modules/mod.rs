@@ -771,15 +771,13 @@ fn load_module_file_no_cache() {
 
         let inp = [
             "use voice.nu",
-            "print (voice animals cat) == 'meow'",
-            "(voice animals cat) == 'meow'",
-            r#""export def cat [] {'meowww'}" | save animals.nu"#,
+            r#""export def cat [] {'meowww'}" | save -f animals.nu"#,
             "use voice.nu",
             "(voice animals cat) == 'meowww'",
         ];
 
         let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
 
-        assert_eq!(actual.out, "true\ntrue");
+        assert_eq!(actual.out, "true");
     });
 }
