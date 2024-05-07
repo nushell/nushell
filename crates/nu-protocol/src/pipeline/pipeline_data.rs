@@ -214,8 +214,8 @@ impl PipelineData {
                 })
             }
             PipelineData::ByteStream(stream, ..) => {
-                if let Some(values) = stream.values() {
-                    PipelineIteratorInner::ByteStream(values)
+                if let Some(chunks) = stream.chunks() {
+                    PipelineIteratorInner::ByteStream(chunks)
                 } else {
                     PipelineIteratorInner::Empty
                 }
@@ -609,7 +609,7 @@ enum PipelineIteratorInner {
     Empty,
     Value(Value),
     ListStream(crate::list_stream::IntoIter),
-    ByteStream(crate::byte_stream::Values),
+    ByteStream(crate::byte_stream::Chunks),
 }
 
 pub struct PipelineIterator(PipelineIteratorInner);
@@ -637,7 +637,7 @@ impl IntoIterator for PipelineData {
             PipelineData::ListStream(stream, ..) => {
                 PipelineIteratorInner::ListStream(stream.into_iter())
             }
-            PipelineData::ByteStream(stream, ..) => stream.values().map_or(
+            PipelineData::ByteStream(stream, ..) => stream.chunks().map_or(
                 PipelineIteratorInner::Empty,
                 PipelineIteratorInner::ByteStream,
             ),

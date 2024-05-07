@@ -75,9 +75,9 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     .into_pipeline_data(head, engine_state.ctrlc.clone()))
             }
             PipelineData::ByteStream(stream, ..) => {
-                if let Some(values) = stream.values() {
+                if let Some(chunks) = stream.chunks() {
                     let mut closure = ClosureEval::new(engine_state, stack, closure);
-                    Ok(values
+                    Ok(chunks
                         .into_iter()
                         .filter_map(move |value| {
                             let value = match value {

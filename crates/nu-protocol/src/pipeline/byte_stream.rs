@@ -145,9 +145,9 @@ impl ByteStream {
         })
     }
 
-    pub fn values(self) -> Option<Values> {
+    pub fn chunks(self) -> Option<Chunks> {
         let reader = self.stream.reader()?;
-        Some(Values {
+        Some(Chunks {
             reader: BufReader::new(reader),
             span: self.span,
             ctrlc: self.ctrlc,
@@ -602,19 +602,19 @@ impl Iterator for Lines {
     }
 }
 
-pub struct Values {
+pub struct Chunks {
     reader: BufReader<ByteStreamSourceReader>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
 
-impl Values {
+impl Chunks {
     pub fn span(&self) -> Span {
         self.span
     }
 }
 
-impl Iterator for Values {
+impl Iterator for Chunks {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {

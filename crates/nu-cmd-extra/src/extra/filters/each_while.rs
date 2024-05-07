@@ -93,9 +93,9 @@ impl Command for EachWhile {
             }
             PipelineData::ByteStream(stream, ..) => {
                 let span = stream.span();
-                if let Some(values) = stream.values() {
+                if let Some(chunks) = stream.chunks() {
                     let mut closure = ClosureEval::new(engine_state, stack, closure);
-                    Ok(values
+                    Ok(chunks
                         .map_while(move |value| {
                             let value = value.ok()?;
                             match closure

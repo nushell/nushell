@@ -111,9 +111,12 @@ impl Command for Lines {
                 Ok(PipelineData::ListStream(stream, metadata))
             }
             PipelineData::ByteStream(stream, ..) => {
-                if let Some(lines) = stream.values() {
+                if let Some(lines) = stream.lines() {
                     Ok(lines
-                        .map(move |v| v.unwrap_or_else(|err| Value::error(err, head)))
+                        .map(move |line| match line {
+                            Ok(line) => Value::string(line, head),
+                            Err(err) => Value::error(err, head),
+                        })
                         .into_pipeline_data(head, ctrlc))
                 } else {
                     Ok(PipelineData::empty())

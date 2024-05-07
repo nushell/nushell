@@ -215,9 +215,9 @@ impl Command for ParEach {
                 apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
             })),
             PipelineData::ByteStream(stream, ..) => {
-                if let Some(values) = stream.values() {
+                if let Some(chunks) = stream.chunks() {
                     Ok(create_pool(max_threads)?.install(|| {
-                        let vec = values
+                        let vec = chunks
                             .enumerate()
                             .par_bridge()
                             .map(move |(index, value)| {
