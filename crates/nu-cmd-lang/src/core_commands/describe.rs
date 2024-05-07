@@ -163,14 +163,12 @@ fn run(
 
     let description: Value = match input {
         PipelineData::ByteStream(stream, ..) => {
-            if options.detailed {
+            let description = if options.detailed {
                 let origin = match stream.source() {
                     ByteStreamSource::Read(_) => "unknown",
                     ByteStreamSource::File(_) => "file",
                     ByteStreamSource::Child(_) => "external",
                 };
-
-                stream.drain()?;
 
                 Value::record(
                     record! {
@@ -181,9 +179,14 @@ fn run(
                     head,
                 )
             } else {
-                stream.drain()?;
                 Value::string("byte stream", head)
+            };
+
+            if !options.no_collect {
+                stream.drain()?;
             }
+
+            description
         }
         PipelineData::ListStream(stream, ..) => {
             if options.detailed {
