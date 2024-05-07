@@ -621,15 +621,32 @@ impl Iterator for Values {
         if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
             None
         } else {
-            todo!()
-            // match self.reader.next() {
-            //     Some(Ok(line)) => Some(Ok(match String::from_utf8(line) {
-            //         Ok(str) => Value::string(str, self.span),
-            //         Err(err) => Value::binary(err.into_bytes(), self.span),
-            //     })),
-            //     Some(Err(err)) => Some(Err(err.into_spanned(self.span).into())),
-            //     None => None,
-            // }
+            match self.reader.fill_buf() {
+                Ok(&[]) => None,
+                Ok(buf) => match std::str::from_utf8(buf) {
+                    Ok(str) => {
+                        let len = buf.len();
+                        let val = Value::string(str, self.span);
+                        self.reader.consume(len);
+                        Some(Ok(val))
+                    }
+                    Err(err) => {
+                        if err.error_len().is_some() {
+                            let len = buf.len();
+                            let val = Value::binary(buf, self.span);
+                            self.reader.consume(len);
+                            Some(Ok(val))
+                        } else {
+                            let len = err.valid_up_to();
+                            let str = std::str::from_utf8(&buf[..len]).expect("valid utf8");
+                            let val = Value::string(str, self.span);
+                            self.reader.consume(len);
+                            Some(Ok(val))
+                        }
+                    }
+                },
+                Err(err) => Some(Err(err.into_spanned(self.span).into())),
+            }
         }
     }
 }
