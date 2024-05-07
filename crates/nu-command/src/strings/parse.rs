@@ -150,26 +150,33 @@ fn operate(
 
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
-        PipelineData::Value(..) => {
-            let mut parsed: Vec<Value> = Vec::new();
+        PipelineData::Value(value, ..) => match value {
+            Value::String { val, .. } => {
+                let captures = regex
+                    .captures_iter(&val)
+                    .map(|captures| captures_to_value(captures, &columns, head))
+                    .collect::<Result<_, _>>()?;
 
-            for value in input {
-                let span = value.span();
-                let Ok(str) = value.coerce_into_string() else {
-                    return Err(ShellError::PipelineMismatch {
-                        exp_input_type: "string".into(),
-                        dst_span: head,
-                        src_span: span,
-                    });
+                Ok(Value::list(captures, head).into_pipeline_data())
+            }
+            Value::List { vals, .. } => {
+                let stream = ParseStreamer {
+                    span: head,
+                    captures: VecDeque::new(),
+                    regex,
+                    columns,
+                    stream: Box::new(vals.into_iter()),
+                    ctrlc,
                 };
 
-                for captures in regex.captures_iter(&str) {
-                    parsed.push(captures_to_value(captures, &columns, head)?);
-                }
+                Ok(ListStream::new(stream, head, None).into())
             }
-
-            Ok(ListStream::new(parsed.into_iter(), head, ctrlc).into())
-        }
+            value => Err(ShellError::PipelineMismatch {
+                exp_input_type: "string".into(),
+                dst_span: head,
+                src_span: value.span(),
+            }),
+        },
         PipelineData::ListStream(stream, ..) => Ok(stream
             .modify(|stream| ParseStreamer {
                 span: head,
