@@ -3,7 +3,7 @@ use super::util::{get_rest_for_glob_pattern, try_interaction};
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
-use nu_protocol::NuGlob;
+use nu_protocol::{engine::StateWorkingSet, format_error, NuGlob};
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
 use std::{
@@ -117,8 +117,6 @@ fn rm(
     let verbose = call.has_flag(engine_state, stack, "verbose")?;
     let interactive = call.has_flag(engine_state, stack, "interactive")?;
     let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
-
-    let ctrlc = engine_state.ctrlc.clone();
 
     let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
 
@@ -341,132 +339,136 @@ fn rm(
         }
     }
 
-    all_targets
-        .into_iter()
-        .map(move |(f, span)| {
-            let is_empty = || match f.read_dir() {
-                Ok(mut p) => p.next().is_none(),
-                Err(_) => false,
-            };
+    let iter = all_targets.into_iter().map(move |(f, span)| {
+        let is_empty = || match f.read_dir() {
+            Ok(mut p) => p.next().is_none(),
+            Err(_) => false,
+        };
 
-            if let Ok(metadata) = f.symlink_metadata() {
-                #[cfg(unix)]
-                let is_socket = metadata.file_type().is_socket();
-                #[cfg(unix)]
-                let is_fifo = metadata.file_type().is_fifo();
+        if let Ok(metadata) = f.symlink_metadata() {
+            #[cfg(unix)]
+            let is_socket = metadata.file_type().is_socket();
+            #[cfg(unix)]
+            let is_fifo = metadata.file_type().is_fifo();
 
-                #[cfg(not(unix))]
-                let is_socket = false;
-                #[cfg(not(unix))]
-                let is_fifo = false;
+            #[cfg(not(unix))]
+            let is_socket = false;
+            #[cfg(not(unix))]
+            let is_fifo = false;
 
-                if metadata.is_file()
-                    || metadata.file_type().is_symlink()
-                    || recursive
-                    || is_socket
-                    || is_fifo
-                    || is_empty()
-                {
-                    let (interaction, confirmed) = try_interaction(
-                        interactive,
-                        format!("rm: remove '{}'? ", f.to_string_lossy()),
-                    );
+            if metadata.is_file()
+                || metadata.file_type().is_symlink()
+                || recursive
+                || is_socket
+                || is_fifo
+                || is_empty()
+            {
+                let (interaction, confirmed) = try_interaction(
+                    interactive,
+                    format!("rm: remove '{}'? ", f.to_string_lossy()),
+                );
 
-                    let result = if let Err(e) = interaction {
-                        let e = Error::new(ErrorKind::Other, &*e.to_string());
-                        Err(e)
-                    } else if interactive && !confirmed {
-                        Ok(())
-                    } else if TRASH_SUPPORTED && (trash || (rm_always_trash && !permanent)) {
-                        #[cfg(all(
-                            feature = "trash-support",
-                            not(any(target_os = "android", target_os = "ios"))
-                        ))]
-                        {
-                            trash::delete(&f).map_err(|e: trash::Error| {
-                                Error::new(
-                                    ErrorKind::Other,
-                                    format!("{e:?}\nTry '--permanent' flag"),
-                                )
-                            })
-                        }
-
-                        // Should not be reachable since we error earlier if
-                        // these options are given on an unsupported platform
-                        #[cfg(any(
-                            not(feature = "trash-support"),
-                            target_os = "android",
-                            target_os = "ios"
-                        ))]
-                        {
-                            unreachable!()
-                        }
-                    } else if metadata.is_symlink() {
-                        // In Windows, symlink pointing to a directory can be removed using
-                        // std::fs::remove_dir instead of std::fs::remove_file.
-                        #[cfg(windows)]
-                        {
-                            f.metadata().and_then(|metadata| {
-                                if metadata.is_dir() {
-                                    std::fs::remove_dir(&f)
-                                } else {
-                                    std::fs::remove_file(&f)
-                                }
-                            })
-                        }
-
-                        #[cfg(not(windows))]
-                        std::fs::remove_file(&f)
-                    } else if metadata.is_file() || is_socket || is_fifo {
-                        std::fs::remove_file(&f)
-                    } else {
-                        std::fs::remove_dir_all(&f)
-                    };
-
-                    if let Err(e) = result {
-                        let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
-                        Value::error(ShellError::RemoveNotPossible { msg, span }, span)
-                    } else if verbose {
-                        let msg = if interactive && !confirmed {
-                            "not deleted"
-                        } else {
-                            "deleted"
-                        };
-                        let val = format!("{} {:}", msg, f.to_string_lossy());
-                        Value::string(val, span)
-                    } else {
-                        Value::nothing(span)
+                let result = if let Err(e) = interaction {
+                    Err(Error::new(ErrorKind::Other, &*e.to_string()))
+                } else if interactive && !confirmed {
+                    Ok(())
+                } else if TRASH_SUPPORTED && (trash || (rm_always_trash && !permanent)) {
+                    #[cfg(all(
+                        feature = "trash-support",
+                        not(any(target_os = "android", target_os = "ios"))
+                    ))]
+                    {
+                        trash::delete(&f).map_err(|e: trash::Error| {
+                            Error::new(ErrorKind::Other, format!("{e:?}\nTry '--permanent' flag"))
+                        })
                     }
+
+                    // Should not be reachable since we error earlier if
+                    // these options are given on an unsupported platform
+                    #[cfg(any(
+                        not(feature = "trash-support"),
+                        target_os = "android",
+                        target_os = "ios"
+                    ))]
+                    {
+                        unreachable!()
+                    }
+                } else if metadata.is_symlink() {
+                    // In Windows, symlink pointing to a directory can be removed using
+                    // std::fs::remove_dir instead of std::fs::remove_file.
+                    #[cfg(windows)]
+                    {
+                        f.metadata().and_then(|metadata| {
+                            if metadata.is_dir() {
+                                std::fs::remove_dir(&f)
+                            } else {
+                                std::fs::remove_file(&f)
+                            }
+                        })
+                    }
+
+                    #[cfg(not(windows))]
+                    std::fs::remove_file(&f)
+                } else if metadata.is_file() || is_socket || is_fifo {
+                    std::fs::remove_file(&f)
                 } else {
-                    let error = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
-                    Value::error(
-                        ShellError::GenericError {
-                            error,
-                            msg: "cannot remove non-empty directory".into(),
-                            span: Some(span),
-                            help: None,
-                            inner: vec![],
-                        },
-                        span,
-                    )
+                    std::fs::remove_dir_all(&f)
+                };
+
+                if let Err(e) = result {
+                    let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
+                    Err(ShellError::RemoveNotPossible { msg, span })
+                } else if verbose {
+                    let msg = if interactive && !confirmed {
+                        "not deleted"
+                    } else {
+                        "deleted"
+                    };
+                    Ok(Some(format!("{} {:}", msg, f.to_string_lossy())))
+                } else {
+                    Ok(None)
                 }
             } else {
-                let error = format!("no such file or directory: {:}", f.to_string_lossy());
-                Value::error(
-                    ShellError::GenericError {
-                        error,
-                        msg: "no such file or directory".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    },
-                    span,
-                )
+                let error = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
+                Err(ShellError::GenericError {
+                    error,
+                    msg: "cannot remove non-empty directory".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                })
             }
-        })
-        .filter(|x| !matches!(x.get_type(), Type::Nothing))
-        .into_pipeline_data(span, ctrlc)
-        .print_not_formatted(engine_state, false, true)?;
+        } else {
+            let error = format!("no such file or directory: {:}", f.to_string_lossy());
+            Err(ShellError::GenericError {
+                error,
+                msg: "no such file or directory".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })
+        }
+    });
+
+    for result in iter {
+        if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+            return Err(ShellError::InterruptedByUser {
+                span: Some(call.head),
+            });
+        }
+
+        match result {
+            Ok(None) => {}
+            Ok(Some(msg)) => {
+                eprintln!("{msg}");
+            }
+            Err(err) => {
+                let working_set = StateWorkingSet::new(engine_state);
+                let msg = format_error(&working_set, &err);
+                eprintln!("{msg}");
+            }
+        }
+    }
 
     Ok(PipelineData::empty())
 }
