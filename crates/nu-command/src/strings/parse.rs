@@ -1,4 +1,4 @@
-use fancy_regex::Regex;
+use fancy_regex::{Captures, Regex};
 use nu_engine::command_prelude::*;
 use nu_protocol::{ListStream, ValueIterator};
 use std::{
@@ -157,32 +157,8 @@ fn operate(
                 let v_span = v.span();
                 match v.coerce_into_string() {
                     Ok(s) => {
-                        let results = regex.captures_iter(&s);
-
-                        for c in results {
-                            let captures = match c {
-                                Ok(c) => c,
-                                Err(e) => {
-                                    return Err(ShellError::GenericError {
-                                        error: "Error with regular expression captures".into(),
-                                        msg: e.to_string(),
-                                        span: None,
-                                        help: None,
-                                        inner: vec![],
-                                    })
-                                }
-                            };
-
-                            let record = columns
-                                .iter()
-                                .zip(captures.iter().skip(1))
-                                .map(|(column_name, cap)| {
-                                    let cap_string = cap.map(|v| v.as_str()).unwrap_or("");
-                                    (column_name.clone(), Value::string(cap_string, v_span))
-                                })
-                                .collect();
-
-                            parsed.push(Value::record(record, head));
+                        for captures in regex.captures_iter(&s) {
+                            parsed.push(captures_to_value(captures, &columns, head)?);
                         }
                     }
                     Err(_) => {
@@ -392,27 +368,35 @@ fn populate_captures(
     output: &mut VecDeque<Value>,
 ) -> Result<(), ShellError> {
     for captures in regex.captures_iter(&string) {
-        let captures = captures.map_err(|err| ShellError::GenericError {
-            error: "Error with regular expression captures".into(),
-            msg: err.to_string(),
-            span: Some(span),
-            help: Some(err.to_string()),
-            inner: vec![],
-        })?;
-
-        let record = columns
-            .iter()
-            .zip(captures.iter().skip(1))
-            .map(|(column, match_)| {
-                let match_str = match_.map(|m| m.as_str()).unwrap_or("");
-                (column.clone(), Value::string(match_str, span))
-            })
-            .collect();
-
-        output.push_back(Value::record(record, span));
+        output.push_back(captures_to_value(captures, columns, span)?);
     }
 
     Ok(())
+}
+
+fn captures_to_value(
+    captures: Result<Captures, fancy_regex::Error>,
+    columns: &[String],
+    span: Span,
+) -> Result<Value, ShellError> {
+    let captures = captures.map_err(|err| ShellError::GenericError {
+        error: "Error with regular expression captures".into(),
+        msg: err.to_string(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
+    })?;
+
+    let record = columns
+        .iter()
+        .zip(captures.iter().skip(1))
+        .map(|(column, match_)| {
+            let match_str = match_.map(|m| m.as_str()).unwrap_or("");
+            (column.clone(), Value::string(match_str, span))
+        })
+        .collect();
+
+    Ok(Value::record(record, span))
 }
 
 #[cfg(test)]
