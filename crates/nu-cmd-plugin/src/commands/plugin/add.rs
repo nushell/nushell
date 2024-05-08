@@ -43,7 +43,8 @@ impl Command for PluginAdd {
 
     fn extra_usage(&self) -> &str {
         r#"
-This does not load the plugin commands into the scope - see `register` for that.
+This does not load the plugin commands into the scope - see `plugin use` for
+that.
 
 Instead, it runs the plugin to get its command signatures, and then edits the
 plugin registry file (by default, `$nu.plugin-path`). The changes will be

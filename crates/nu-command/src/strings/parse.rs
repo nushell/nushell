@@ -1,6 +1,6 @@
-use fancy_regex::Regex;
+use fancy_regex::{Captures, Regex};
 use nu_engine::command_prelude::*;
-use nu_protocol::{byte_stream, ListStream, ValueIterator};
+use nu_protocol::ListStream;
 use std::{
     collections::VecDeque,
     sync::{atomic::AtomicBool, Arc},
@@ -119,7 +119,6 @@ fn operate(
     let head = call.head;
     let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
     let regex: bool = call.has_flag(engine_state, stack, "regex")?;
-    let ctrlc = engine_state.ctrlc.clone();
 
     let pattern_item = pattern.item;
     let pattern_span = pattern.span;
@@ -130,7 +129,7 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex_pattern = Regex::new(&item_to_parse).map_err(|e| ShellError::GenericError {
+    let regex = Regex::new(&item_to_parse).map_err(|e| ShellError::GenericError {
         error: "Error with regular expression".into(),
         msg: e.to_string(),
         span: Some(pattern_span),
@@ -138,82 +137,89 @@ fn operate(
         inner: vec![],
     })?;
 
-    let columns = column_names(&regex_pattern);
+    let columns = regex
+        .capture_names()
+        .skip(1)
+        .enumerate()
+        .map(|(i, name)| {
+            name.map(String::from)
+                .unwrap_or_else(|| format!("capture{i}"))
+        })
+        .collect::<Vec<_>>();
+
+    let ctrlc = engine_state.ctrlc.clone();
 
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
-        PipelineData::Value(..) => {
-            let mut parsed: Vec<Value> = Vec::new();
+        PipelineData::Value(value, ..) => match value {
+            Value::String { val, .. } => {
+                let captures = regex
+                    .captures_iter(&val)
+                    .map(|captures| captures_to_value(captures, &columns, head))
+                    .collect::<Result<_, _>>()?;
 
-            for v in input {
-                let v_span = v.span();
-                match v.coerce_into_string() {
-                    Ok(s) => {
-                        let results = regex_pattern.captures_iter(&s);
-
-                        for c in results {
-                            let captures = match c {
-                                Ok(c) => c,
-                                Err(e) => {
-                                    return Err(ShellError::GenericError {
-                                        error: "Error with regular expression captures".into(),
-                                        msg: e.to_string(),
-                                        span: None,
-                                        help: None,
-                                        inner: vec![],
-                                    })
-                                }
-                            };
-
-                            let record = columns
-                                .iter()
-                                .zip(captures.iter().skip(1))
-                                .map(|(column_name, cap)| {
-                                    let cap_string = cap.map(|v| v.as_str()).unwrap_or("");
-                                    (column_name.clone(), Value::string(cap_string, v_span))
-                                })
-                                .collect();
-
-                            parsed.push(Value::record(record, head));
-                        }
-                    }
-                    Err(_) => {
-                        return Err(ShellError::PipelineMismatch {
-                            exp_input_type: "string".into(),
-                            dst_span: head,
-                            src_span: v_span,
-                        })
-                    }
-                }
+                Ok(Value::list(captures, head).into_pipeline_data())
             }
+            Value::List { vals, .. } => {
+                let iter = vals.into_iter().map(move |val| {
+                    let span = val.span();
+                    val.into_string().map_err(|_| ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: head,
+                        src_span: span,
+                    })
+                });
 
-            Ok(ListStream::new(parsed.into_iter(), head, ctrlc).into())
-        }
+                let iter = ParseIter {
+                    captures: VecDeque::new(),
+                    regex,
+                    columns,
+                    iter,
+                    span: head,
+                    ctrlc,
+                };
+
+                Ok(ListStream::new(iter, head, None).into())
+            }
+            value => Err(ShellError::PipelineMismatch {
+                exp_input_type: "string".into(),
+                dst_span: head,
+                src_span: value.span(),
+            }),
+        },
         PipelineData::ListStream(stream, ..) => Ok(stream
-            .modify(|stream| ParseStreamer {
-                span: head,
-                excess: VecDeque::new(),
-                regex: regex_pattern,
-                columns,
-                stream,
-                ctrlc,
+            .modify(|stream| {
+                let iter = stream.map(move |val| {
+                    let span = val.span();
+                    val.into_string().map_err(|_| ShellError::PipelineMismatch {
+                        exp_input_type: "string".into(),
+                        dst_span: head,
+                        src_span: span,
+                    })
+                });
+
+                ParseIter {
+                    captures: VecDeque::new(),
+                    regex,
+                    columns,
+                    iter,
+                    span: head,
+                    ctrlc,
+                }
             })
             .into()),
         PipelineData::ByteStream(stream, ..) => {
             if let Some(lines) = stream.lines() {
-                Ok(ListStream::new(
-                    ParseStreamerExternal {
-                        span: head,
-                        ctrlc,
-                        excess: VecDeque::new(),
-                        regex: regex_pattern,
-                        columns,
-                        lines,
-                    },
-                    head,
-                    None,
-                )
-                .into())
+                let iter = ParseIter {
+                    captures: VecDeque::new(),
+                    regex,
+                    columns,
+                    iter: lines,
+                    span: head,
+                    ctrlc,
+                };
+
+                Ok(ListStream::new(iter, head, None).into())
             } else {
                 Ok(PipelineData::Empty)
             }
@@ -224,7 +230,6 @@ fn operate(
 fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
     let mut output = "(?s)\\A".to_string();
 
-    //let mut loop_input = input;
     let mut loop_input = input.chars().peekable();
     loop {
         let mut before = String::new();
@@ -275,131 +280,73 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
     Ok(output)
 }
 
-fn column_names(regex: &Regex) -> Vec<String> {
-    regex
-        .capture_names()
-        .enumerate()
-        .skip(1)
-        .map(|(i, name)| {
-            name.map(String::from)
-                .unwrap_or_else(|| format!("capture{}", i - 1))
-        })
-        .collect()
-}
-
-pub struct ParseStreamer {
-    span: Span,
-    excess: VecDeque<Value>,
+struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
+    captures: VecDeque<Value>,
     regex: Regex,
     columns: Vec<String>,
-    stream: ValueIterator,
+    iter: I,
+    span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
 
-impl Iterator for ParseStreamer {
+impl<I: Iterator<Item = Result<String, ShellError>>> ParseIter<I> {
+    fn populate_captures(&mut self, str: &str) -> Result<(), ShellError> {
+        for captures in self.regex.captures_iter(str) {
+            self.captures
+                .push_back(captures_to_value(captures, &self.columns, self.span)?);
+        }
+        Ok(())
+    }
+}
+
+impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
     type Item = Value;
+
     fn next(&mut self) -> Option<Value> {
         loop {
-            if let Some(next) = self.excess.pop_front() {
-                break Some(next);
-            }
-
             if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
-                break None;
+                return None;
             }
 
-            let value = self.stream.next()?;
-            let span = value.span();
+            if let Some(val) = self.captures.pop_front() {
+                return Some(val);
+            }
 
-            let Ok(text) = value.coerce_into_string() else {
-                return Some(Value::error(
-                    ShellError::PipelineMismatch {
-                        exp_input_type: "string".into(),
-                        dst_span: self.span,
-                        src_span: span,
-                    },
-                    span,
-                ));
-            };
+            let result = self
+                .iter
+                .next()?
+                .and_then(|str| self.populate_captures(&str));
 
-            if let Err(err) =
-                get_captures(&self.regex, &text, span, &self.columns, &mut self.excess)
-            {
-                break Some(Value::error(err, span));
+            if let Err(err) = result {
+                return Some(Value::error(err, self.span));
             }
         }
     }
 }
 
-pub struct ParseStreamerExternal {
-    span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
-    excess: VecDeque<Value>,
-    regex: Regex,
-    columns: Vec<String>,
-    lines: byte_stream::Lines,
-}
-
-impl Iterator for ParseStreamerExternal {
-    type Item = Value;
-
-    fn next(&mut self) -> Option<Value> {
-        loop {
-            if let Some(next) = self.excess.pop_front() {
-                break Some(next);
-            }
-
-            if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
-                break None;
-            }
-
-            let line = match self.lines.next() {
-                Some(Ok(line)) => line,
-                Some(Err(err)) => return Some(Value::error(err, self.span)),
-                None => return None,
-            };
-
-            if let Err(err) = get_captures(
-                &self.regex,
-                &line,
-                self.span,
-                &self.columns,
-                &mut self.excess,
-            ) {
-                break Some(Value::error(err, self.span));
-            }
-        }
-    }
-}
-
-fn get_captures(
-    regex: &Regex,
-    text: &str,
-    span: Span,
+fn captures_to_value(
+    captures: Result<Captures, fancy_regex::Error>,
     columns: &[String],
-    output: &mut VecDeque<Value>,
-) -> Result<(), ShellError> {
-    for captures in regex.captures_iter(text) {
-        let captures = captures.map_err(|e| ShellError::GenericError {
-            error: "Error with regular expression captures".into(),
-            msg: e.to_string(),
-            span: Some(span),
-            help: Some(e.to_string()),
-            inner: vec![],
-        })?;
+    span: Span,
+) -> Result<Value, ShellError> {
+    let captures = captures.map_err(|err| ShellError::GenericError {
+        error: "Error with regular expression captures".into(),
+        msg: err.to_string(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
+    })?;
 
-        let record = columns
-            .iter()
-            .zip(captures.iter().skip(1))
-            .map(|(column_name, match_)| {
-                let cap_string = match_.map(|m| m.as_str()).unwrap_or("");
-                (column_name.clone(), Value::string(cap_string, span))
-            })
-            .collect();
+    let record = columns
+        .iter()
+        .zip(captures.iter().skip(1))
+        .map(|(column, match_)| {
+            let match_str = match_.map(|m| m.as_str()).unwrap_or("");
+            (column.clone(), Value::string(match_str, span))
+        })
+        .collect();
 
-        output.push_back(Value::record(record, span));
-    }
-    Ok(())
+    Ok(Value::record(record, span))
 }
 
 #[cfg(test)]
