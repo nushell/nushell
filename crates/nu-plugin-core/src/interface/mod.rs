@@ -1,9 +1,7 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
-use nu_protocol::{
-    ByteStream, ByteStreamReader, IntoSpanned, ListStream, PipelineData, ShellError,
-};
+use nu_protocol::{ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError};
 use std::{
     io::{Read, Write},
     sync::{atomic::AtomicBool, Arc, Mutex},
@@ -296,7 +294,7 @@ pub enum PipelineDataWriter<W: WriteStreamMessage> {
     #[default]
     None,
     ListStream(StreamWriter<W>, ListStream),
-    ByteStream(StreamWriter<W>, ByteStreamReader),
+    ByteStream(StreamWriter<W>, Reader),
 }
 
 impl<W> PipelineDataWriter<W>

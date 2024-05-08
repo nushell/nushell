@@ -25,28 +25,28 @@ pub enum ByteStreamSource {
 }
 
 impl ByteStreamSource {
-    fn reader(self) -> Option<ByteStreamSourceReader> {
+    fn reader(self) -> Option<SourceReader> {
         match self {
-            ByteStreamSource::Read(read) => Some(ByteStreamSourceReader::Read(read)),
-            ByteStreamSource::File(file) => Some(ByteStreamSourceReader::File(file)),
+            ByteStreamSource::Read(read) => Some(SourceReader::Read(read)),
+            ByteStreamSource::File(file) => Some(SourceReader::File(file)),
             ByteStreamSource::Child(mut child) => child.stdout.take().map(|stdout| match stdout {
-                ChildPipe::Pipe(pipe) => ByteStreamSourceReader::File(convert_file(pipe)),
-                ChildPipe::Tee(tee) => ByteStreamSourceReader::Read(tee),
+                ChildPipe::Pipe(pipe) => SourceReader::File(convert_file(pipe)),
+                ChildPipe::Tee(tee) => SourceReader::Read(tee),
             }),
         }
     }
 }
 
-enum ByteStreamSourceReader {
+enum SourceReader {
     Read(Box<dyn Read + Send + 'static>),
     File(File),
 }
 
-impl Read for ByteStreamSourceReader {
+impl Read for SourceReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         match self {
-            ByteStreamSourceReader::Read(reader) => reader.read(buf),
-            ByteStreamSourceReader::File(file) => file.read(buf),
+            SourceReader::Read(reader) => reader.read(buf),
+            SourceReader::File(file) => file.read(buf),
         }
     }
 }
@@ -133,9 +133,9 @@ impl ByteStream {
         self.known_size
     }
 
-    pub fn reader(self) -> Option<ByteStreamReader> {
+    pub fn reader(self) -> Option<Reader> {
         let reader = self.stream.reader()?;
-        Some(ByteStreamReader {
+        Some(Reader {
             reader: BufReader::new(reader),
             span: self.span,
             ctrlc: self.ctrlc,
@@ -331,10 +331,10 @@ impl ByteStream {
         let ctrlc = self.ctrlc.as_deref();
         if let Some(reader) = self.stream.reader() {
             match reader {
-                ByteStreamSourceReader::Read(mut reader) => {
+                SourceReader::Read(mut reader) => {
                     copy_with_interrupt(&mut reader, dest, span, ctrlc)?;
                 }
-                ByteStreamSourceReader::File(mut file) => {
+                SourceReader::File(mut file) => {
                     copy_with_interrupt(&mut file, dest, span, ctrlc)?;
                 }
             };
@@ -430,19 +430,19 @@ impl From<ByteStream> for PipelineData {
     }
 }
 
-pub struct ByteStreamReader {
-    reader: BufReader<ByteStreamSourceReader>,
+pub struct Reader {
+    reader: BufReader<SourceReader>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
 
-impl ByteStreamReader {
+impl Reader {
     pub fn span(&self) -> Span {
         self.span
     }
 }
 
-impl Read for ByteStreamReader {
+impl Read for Reader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
             Err(ShellError::InterruptedByUser {
@@ -455,7 +455,7 @@ impl Read for ByteStreamReader {
     }
 }
 
-impl BufRead for ByteStreamReader {
+impl BufRead for Reader {
     fn fill_buf(&mut self) -> io::Result<&[u8]> {
         self.reader.fill_buf()
     }
@@ -546,7 +546,7 @@ where
 }
 
 pub struct Lines {
-    reader: BufReader<ByteStreamSourceReader>,
+    reader: BufReader<SourceReader>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
@@ -581,7 +581,7 @@ impl Iterator for Lines {
 }
 
 pub struct Chunks {
-    reader: BufReader<ByteStreamSourceReader>,
+    reader: BufReader<SourceReader>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
 }
