@@ -157,6 +157,7 @@ impl ByteStream {
             reader: BufReader::new(reader),
             span: self.span,
             ctrlc: self.ctrlc,
+            leftover: Vec::new(),
         })
     }
 
@@ -584,6 +585,7 @@ pub struct Chunks {
     reader: BufReader<SourceReader>,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
+    leftover: Vec<u8>,
 }
 
 impl Chunks {
@@ -600,30 +602,31 @@ impl Iterator for Chunks {
             None
         } else {
             match self.reader.fill_buf() {
-                Ok(&[]) => None,
-                Ok(buf) => match std::str::from_utf8(buf) {
-                    Ok(str) => {
-                        let len = buf.len();
-                        let val = Value::string(str, self.span);
-                        self.reader.consume(len);
-                        Some(Ok(val))
+                Ok(buf) => {
+                    self.leftover.extend_from_slice(buf);
+                    let len = buf.len();
+                    self.reader.consume(len);
+                }
+                Err(err) => return Some(Err(err.into_spanned(self.span).into())),
+            };
+
+            if self.leftover.is_empty() {
+                return None;
+            }
+
+            match String::from_utf8(std::mem::take(&mut self.leftover)) {
+                Ok(str) => Some(Ok(Value::string(str, self.span))),
+                Err(err) => {
+                    if err.utf8_error().error_len().is_some() {
+                        Some(Ok(Value::binary(err.into_bytes(), self.span)))
+                    } else {
+                        let i = err.utf8_error().valid_up_to();
+                        let mut bytes = err.into_bytes();
+                        self.leftover = bytes.split_off(i);
+                        let str = String::from_utf8(bytes).expect("valid utf8");
+                        Some(Ok(Value::string(str, self.span)))
                     }
-                    Err(err) => {
-                        if err.error_len().is_some() {
-                            let len = buf.len();
-                            let val = Value::binary(buf, self.span);
-                            self.reader.consume(len);
-                            Some(Ok(val))
-                        } else {
-                            let len = err.valid_up_to();
-                            let str = std::str::from_utf8(&buf[..len]).expect("valid utf8");
-                            let val = Value::string(str, self.span);
-                            self.reader.consume(len);
-                            Some(Ok(val))
-                        }
-                    }
-                },
-                Err(err) => Some(Err(err.into_spanned(self.span).into())),
+                }
             }
         }
     }
