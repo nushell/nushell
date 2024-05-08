@@ -90,15 +90,13 @@ impl ByteStream {
         Ok(Self::new(source, span, None))
     }
 
-    pub fn from_iter<T>(
-        iter: impl Iterator<Item = T> + Send + 'static,
-        span: Span,
-        interrupt: Option<Arc<AtomicBool>>,
-    ) -> Self
+    pub fn from_iter<I>(iter: I, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self
     where
-        T: AsRef<[u8]> + Send + Default + 'static,
+        I: Iterator + Send + 'static,
+        I::Item: AsRef<[u8]> + Default + Send + 'static,
     {
-        Self::read(ReadIterator::new(iter), span, interrupt)
+        let cursor = Some(Cursor::new(I::Item::default()));
+        Self::read(ReadIterator { iter, cursor }, span, interrupt)
     }
 
     pub fn from_result_iter<T>(
@@ -107,9 +105,10 @@ impl ByteStream {
         interrupt: Option<Arc<AtomicBool>>,
     ) -> Self
     where
-        T: AsRef<[u8]> + Send + Default + 'static,
+        T: AsRef<[u8]> + Default + Send + 'static,
     {
-        Self::read(ReadResultIterator::new(iter), span, interrupt)
+        let cursor = Some(Cursor::new(T::default()));
+        Self::read(ReadResultIterator { iter, cursor }, span, interrupt)
     }
 
     pub fn with_known_size(mut self, size: Option<u64>) -> Self {
@@ -475,19 +474,6 @@ where
     cursor: Option<Cursor<I::Item>>,
 }
 
-impl<I> ReadIterator<I>
-where
-    I: Iterator,
-    I::Item: AsRef<[u8]> + Default,
-{
-    pub fn new(iter: I) -> Self {
-        Self {
-            iter: iter.into_iter(),
-            cursor: Some(Cursor::new(I::Item::default())),
-        }
-    }
-}
-
 impl<I> Read for ReadIterator<I>
 where
     I: Iterator,
@@ -513,19 +499,6 @@ where
 {
     iter: I,
     cursor: Option<Cursor<T>>,
-}
-
-impl<I, T> ReadResultIterator<I, T>
-where
-    I: Iterator<Item = Result<T, ShellError>>,
-    T: AsRef<[u8]> + Default,
-{
-    pub fn new(iter: I) -> Self {
-        Self {
-            iter: iter.into_iter(),
-            cursor: Some(Cursor::new(T::default())),
-        }
-    }
 }
 
 impl<I, T> Read for ReadResultIterator<I, T>
