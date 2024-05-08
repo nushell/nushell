@@ -3,10 +3,10 @@ use crate::util::eval_source;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, report_error_new, HistoryFileFormat, PipelineData,
+    report_error_new, HistoryFileFormat, PipelineData,
 };
 #[cfg(feature = "plugin")]
-use nu_protocol::{ParseError, PluginRegistryFile, Spanned};
+use nu_protocol::{report_error, ParseError, PluginRegistryFile, Spanned};
 #[cfg(feature = "plugin")]
 use nu_utils::utils::perf;
 use std::path::PathBuf;
