@@ -73,7 +73,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.4
+    - uses: actions/checkout@v4.1.5
 
     - name: Update Rust Toolchain Target
       run: |
@@ -163,7 +163,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.4
+    - uses: actions/checkout@v4.1.5
 
     - name: Update Rust Toolchain Target
       run: |
