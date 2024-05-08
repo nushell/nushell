@@ -291,13 +291,23 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
     Ok(output)
 }
 
-pub struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
+struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
     captures: VecDeque<Value>,
     regex: Regex,
     columns: Vec<String>,
     iter: I,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
+}
+
+impl<I: Iterator<Item = Result<String, ShellError>>> ParseIter<I> {
+    fn populate_captures(&mut self, str: &str) -> Result<(), ShellError> {
+        for captures in self.regex.captures_iter(str) {
+            self.captures
+                .push_back(captures_to_value(captures, &self.columns, self.span)?);
+        }
+        Ok(())
+    }
 }
 
 impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
@@ -313,35 +323,16 @@ impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
                 return Some(val);
             }
 
-            let result = self.iter.next()?.and_then(|str| {
-                populate_captures(
-                    &self.regex,
-                    self.span,
-                    str,
-                    &self.columns,
-                    &mut self.captures,
-                )
-            });
+            let result = self
+                .iter
+                .next()?
+                .and_then(|str| self.populate_captures(&str));
 
             if let Err(err) = result {
                 return Some(Value::error(err, self.span));
             }
         }
     }
-}
-
-fn populate_captures(
-    regex: &Regex,
-    span: Span,
-    string: String,
-    columns: &[String],
-    output: &mut VecDeque<Value>,
-) -> Result<(), ShellError> {
-    for captures in regex.captures_iter(&string) {
-        output.push_back(captures_to_value(captures, columns, span)?);
-    }
-
-    Ok(())
 }
 
 fn captures_to_value(
