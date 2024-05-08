@@ -633,7 +633,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                         column!(),
                         use_color,
                     );
-                } else {
                 }
             } else if shell_integration_osc133 {
                 start_time = Instant::now();
@@ -1395,7 +1394,6 @@ fn run_finaliziation_ansi_sequence(
                 column!(),
                 use_color,
             );
-        } else {
         }
     } else if shell_integration_osc133 {
         let start_time = Instant::now();
