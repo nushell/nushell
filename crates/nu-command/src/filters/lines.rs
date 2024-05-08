@@ -49,32 +49,6 @@ impl Command for Lines {
 
                     Ok(Value::list(lines, span).into_pipeline_data())
                 }
-                Value::List { vals, .. } => {
-                    let list = vals
-                        .into_iter()
-                        .filter_map(move |value| {
-                            let span = value.span();
-                            if let Value::String { val, .. } = value {
-                                Some(
-                                    val.lines()
-                                        .filter_map(|s| {
-                                            if skip_empty && s.trim().is_empty() {
-                                                None
-                                            } else {
-                                                Some(Value::string(s, span))
-                                            }
-                                        })
-                                        .collect::<Vec<_>>(),
-                                )
-                            } else {
-                                None
-                            }
-                        })
-                        .flatten()
-                        .collect();
-
-                    Ok(Value::list(list, span).into_pipeline_data())
-                }
                 // Propagate existing errors
                 Value::Error { error, .. } => Err(*error),
                 value => Err(ShellError::OnlySupportsThisInputType {
