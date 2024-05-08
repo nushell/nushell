@@ -119,7 +119,6 @@ fn operate(
     let head = call.head;
     let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
     let regex: bool = call.has_flag(engine_state, stack, "regex")?;
-    let ctrlc = engine_state.ctrlc.clone();
 
     let pattern_item = pattern.item;
     let pattern_span = pattern.span;
@@ -147,6 +146,8 @@ fn operate(
                 .unwrap_or_else(|| format!("capture{i}"))
         })
         .collect::<Vec<_>>();
+
+    let ctrlc = engine_state.ctrlc.clone();
 
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
@@ -207,9 +208,7 @@ fn operate(
                 }
             })
             .into()),
-
         PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
-
         PipelineData::ExternalStream {
             stdout: Some(stream),
             ..
@@ -240,7 +239,6 @@ fn operate(
 fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
     let mut output = "(?s)\\A".to_string();
 
-    //let mut loop_input = input;
     let mut loop_input = input.chars().peekable();
     loop {
         let mut before = String::new();
