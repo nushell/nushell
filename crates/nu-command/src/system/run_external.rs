@@ -217,19 +217,7 @@ impl ExternalCommand {
                         .iter()
                         .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
 
-                    let (data, stdin) = {
-                        match input {
-                            PipelineData::ByteStream(stream, metadata) => match stream.into_stdio()
-                            {
-                                Ok(pipe) => (PipelineData::Empty, pipe),
-                                Err(stream) => {
-                                    (PipelineData::ByteStream(stream, metadata), Stdio::piped())
-                                }
-                            },
-                            PipelineData::Empty => (PipelineData::Empty, Stdio::inherit()),
-                            input => (input, Stdio::piped()),
-                        }
-                    };
+                    let (data, stdin) = extract_stdio(input);
                     input = data;
 
                     if looks_like_cmd_internal {
@@ -284,16 +272,7 @@ impl ExternalCommand {
 
         #[cfg(unix)]
         let (child, reader, input) = {
-            let (input, stdin) = {
-                match input {
-                    PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
-                        Ok(pipe) => (PipelineData::Empty, pipe),
-                        Err(stream) => (PipelineData::ByteStream(stream, metadata), Stdio::piped()),
-                    },
-                    PipelineData::Empty => (PipelineData::Empty, Stdio::inherit()),
-                    input => (input, Stdio::piped()),
-                }
-            };
+            let (input, stdin) = extract_stdio(input);
             let (cmd, reader) = self.create_process(stdin, false, head)?;
             let child = ForegroundChild::spawn(
                 cmd,
@@ -708,6 +687,17 @@ fn remove_quotes(input: String) -> String {
             .replace(r#"\""#, "\""),
         (Some('\''), true) => chars.collect::<String>().replacen('\'', "", 1),
         _ => input,
+    }
+}
+
+fn extract_stdio(pipeline: PipelineData) -> (PipelineData, Stdio) {
+    match pipeline {
+        PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
+            Ok(pipe) => (PipelineData::Empty, pipe),
+            Err(stream) => (PipelineData::ByteStream(stream, metadata), Stdio::piped()),
+        },
+        PipelineData::Empty => (PipelineData::Empty, Stdio::inherit()),
+        data => (data, Stdio::piped()),
     }
 }
 
