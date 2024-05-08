@@ -194,7 +194,7 @@ impl PipelineData {
                     Value::Error { error, .. } => return Err(*error),
                     other => {
                         return Err(ShellError::OnlySupportsThisInputType {
-                            exp_input_type: "list, binary, raw data or range".into(),
+                            exp_input_type: "list, binary, range, or byte stream".into(),
                             wrong_type: other.get_type().to_string(),
                             dst_span: span,
                             src_span: val_span,
