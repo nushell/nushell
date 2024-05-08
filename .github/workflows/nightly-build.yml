@@ -174,7 +174,7 @@ jobs:
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
     - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.4
+      uses: softprops/action-gh-release@v2.0.5
       if: ${{ startsWith(github.repository, 'nushell/nightly') }}
       with:
         prerelease: true
@@ -286,7 +286,7 @@ jobs:
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
     - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.4
+      uses: softprops/action-gh-release@v2.0.5
       if: ${{ startsWith(github.repository, 'nushell/nightly') }}
       with:
         draft: false
