@@ -232,6 +232,7 @@ pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
 serial_test = "3.1"
 tempfile = { workspace = true }
+iai-callgrind = "0.10.2"
 
 [features]
 plugin = [
@@ -312,4 +313,9 @@ reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
 [[bench]]
 name = "benchmarks"
+harness = false
+
+# cargo bench --bench iai_benchmarks -- --save-summary=pretty-json
+[[bench]]
+name = "iai_benchmarks"
 harness = false

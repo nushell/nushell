@@ -380,12 +380,15 @@ dependencies = [
  "itertools 0.11.0",
  "lazy_static",
  "lazycell",
+ "log",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
  "rustc-hash",
  "shlex",
  "syn 2.0.60",
+ "which 4.4.2",
 ]
 
 [[package]]
@@ -1932,6 +1935,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "iai-callgrind"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e99bf26f496b13ac6273014f40afda46a233fbfb0289ce50fb4daaad2f2ffc80"
+dependencies = [
+ "bincode",
+ "bindgen",
+ "cc",
+ "iai-callgrind-macros",
+ "iai-callgrind-runner",
+ "regex",
+]
+
+[[package]]
+name = "iai-callgrind-macros"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e2a4bb39225592c0a28cfca6f70af52ebd8da23f533c2cdd0a3329c1fa252d56"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.60",
+]
+
+[[package]]
+name = "iai-callgrind-runner"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c23a951b9eccaa1e38556d27473d1462a9c247a27961812edcaac156af861282"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "iana-time-zone"
 version = "0.1.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2776,6 +2814,7 @@ dependencies = [
  "crossterm",
  "ctrlc",
  "dirs-next",
+ "iai-callgrind",
  "log",
  "miette",
  "mimalloc",
@@ -2855,7 +2894,7 @@ dependencies = [
  "tempfile",
  "unicode-segmentation",
  "uuid",
- "which",
+ "which 6.0.1",
 ]
 
 [[package]]
@@ -3056,7 +3095,7 @@ dependencies = [
  "uuid",
  "v_htmlescape",
  "wax",
- "which",
+ "which 6.0.1",
  "windows 0.54.0",
  "winreg",
 ]
@@ -3332,7 +3371,7 @@ dependencies = [
  "nu-utils",
  "num-format",
  "tempfile",
- "which",
+ "which 6.0.1",
 ]
 
 [[package]]
@@ -4511,6 +4550,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "prettyplease"
+version = "0.2.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5f12335488a2f3b0a83b14edad48dca9879ce89b2edd10e80237e4e852dd645e"
+dependencies = [
+ "proc-macro2",
+ "syn 2.0.60",
+]
+
+[[package]]
 name = "print-positions"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4537,6 +4586,7 @@ dependencies = [
  "proc-macro-error-attr",
  "proc-macro2",
  "quote",
+ "syn 1.0.109",
  "version_check",
 ]
 
@@ -6749,6 +6799,18 @@ dependencies = [
  "dlib",
  "log",
  "pkg-config",
+]
+
+[[package]]
+name = "which"
+version = "4.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87ba24419a2078cd2b0f2ede2691b6c66d8e47836da3b6db8265ebad47afbfc7"
+dependencies = [
+ "either",
+ "home",
+ "once_cell",
+ "rustix",
 ]
 
 [[package]]
