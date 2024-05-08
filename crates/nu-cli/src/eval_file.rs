@@ -107,7 +107,11 @@ pub fn evaluate_file(
                 Err(err) => return Err(err),
             };
 
-        data.print(engine_state, stack, true, false)?;
+        if let Some(status) = data.print(engine_state, stack, true, false)? {
+            if status.code() != 0 {
+                std::process::exit(status.code())
+            }
+        }
 
         // Invoke the main command with arguments.
         // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.

@@ -212,8 +212,7 @@ pub fn eval_source(
     let start_time = std::time::Instant::now();
 
     let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
-        Ok(true) => 0,
-        Ok(false) => 1,
+        Ok(code) => code,
         Err(err) => {
             report_error_new(engine_state, &err);
             1
@@ -244,7 +243,7 @@ fn evaluate_source(
     fname: &str,
     input: PipelineData,
     allow_return: bool,
-) -> Result<bool, ShellError> {
+) -> Result<i32, ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
@@ -259,7 +258,7 @@ fn evaluate_source(
 
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
-            return Ok(false);
+            return Ok(1);
         }
 
         (output, working_set.render())
@@ -273,12 +272,12 @@ fn evaluate_source(
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
 
-    if let PipelineData::ByteStream(stream, ..) = data {
-        stream.print(false)?;
+    let status = if let PipelineData::ByteStream(stream, ..) = data {
+        stream.print(false)?
     } else {
         let display_hook = engine_state.get_config().hooks.display_output.clone();
 
-        if let Some(hook) = display_hook {
+        let status = if let Some(hook) = display_hook {
             let data = eval_hook(
                 engine_state,
                 stack,
@@ -297,8 +296,12 @@ fn evaluate_source(
         {
             let _ = enable_vt_processing();
         }
-    }
-    Ok(true)
+
+        #[allow(clippy::let_and_return)]
+        status
+    };
+
+    Ok(status.map(|status| status.code()).unwrap_or(0))
 }
 
 #[cfg(test)]

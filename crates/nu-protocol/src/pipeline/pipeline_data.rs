@@ -534,9 +534,9 @@ impl PipelineData {
         stack: &mut Stack,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<(), ShellError> {
+    ) -> Result<Option<ExitStatus>, ShellError> {
         if let PipelineData::ByteStream(stream, ..) = self {
-            stream.print(to_stderr)?;
+            stream.print(to_stderr)
         } else {
             // If the table function is in the declarations, then we can use it
             // to create the table value that will be printed in the terminal
@@ -552,8 +552,8 @@ impl PipelineData {
             } else {
                 self.write_all_and_flush(engine_state, no_newline, to_stderr)?;
             }
+            Ok(None)
         }
-        Ok(())
     }
 
     /// Consume and print self data immediately.

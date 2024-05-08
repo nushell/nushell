@@ -60,5 +60,10 @@ pub fn evaluate_commands(
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 
-    data.print(engine_state, stack, no_newline, false)
+    if let Some(status) = data.print(engine_state, stack, no_newline, false)? {
+        if status.code() != 0 {
+            std::process::exit(status.code())
+        }
+    }
+    Ok(())
 }
