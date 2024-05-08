@@ -10,7 +10,7 @@ use nu_protocol::{
 };
 use std::{
     fs::File,
-    io::{self, BufReader, Read, Write},
+    io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     sync::{atomic::AtomicBool, Arc},
     thread,
@@ -134,41 +134,49 @@ impl Command for Save {
                         stream_to_file(source, size, ctrlc, file, span, progress)?;
                     }
                     ByteStreamSource::Child(mut child) => {
+                        fn write_or_consume_stderr(
+                            stderr: ChildPipe,
+                            file: Option<File>,
+                            span: Span,
+                            ctrlc: Option<Arc<AtomicBool>>,
+                            progress: bool,
+                        ) -> Result<(), ShellError> {
+                            if let Some(file) = file {
+                                match stderr {
+                                    ChildPipe::Pipe(pipe) => {
+                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                    }
+                                    ChildPipe::Tee(tee) => {
+                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                    }
+                                }?
+                            } else {
+                                match stderr {
+                                    ChildPipe::Pipe(mut pipe) => {
+                                        io::copy(&mut pipe, &mut io::sink())
+                                    }
+                                    ChildPipe::Tee(mut tee) => io::copy(&mut tee, &mut io::sink()),
+                                }
+                                .err_span(span)?;
+                            }
+                            Ok(())
+                        }
+
                         match (child.stdout.take(), child.stderr.take()) {
                             (Some(stdout), stderr) => {
                                 // delegate a thread to redirect stderr to result.
                                 let handler = stderr
-                                    .map(|mut stderr| match stderr_file {
-                                        Some(stderr_file) => {
-                                            let ctrlc = ctrlc.clone();
-                                            thread::Builder::new()
-                                                .name("stderr redirector".to_string())
-                                                .spawn(move || match stderr {
-                                                    ChildPipe::Pipe(pipe) => stream_to_file(
-                                                        pipe,
-                                                        None,
-                                                        ctrlc,
-                                                        stderr_file,
-                                                        span,
-                                                        progress,
-                                                    ),
-                                                    ChildPipe::Tee(tee) => stream_to_file(
-                                                        tee,
-                                                        None,
-                                                        ctrlc,
-                                                        stderr_file,
-                                                        span,
-                                                        progress,
-                                                    ),
-                                                })
-                                        }
-                                        None => thread::Builder::new()
-                                            .name("stderr redirector".to_string())
-                                            .spawn(move || {
-                                                io::copy(&mut stderr, &mut io::sink())
-                                                    .err_span(span)?;
-                                                Ok(())
-                                            }),
+                                    .map(|stderr| {
+                                        let ctrlc = ctrlc.clone();
+                                        thread::Builder::new().spawn(move || {
+                                            write_or_consume_stderr(
+                                                stderr,
+                                                stderr_file,
+                                                span,
+                                                ctrlc,
+                                                progress,
+                                            )
+                                        })
                                     })
                                     .transpose()
                                     .err_span(span)?;
@@ -191,37 +199,15 @@ impl Command for Save {
                                 }
                                 res?;
                             }
-                            (None, Some(stderr)) => match stderr_file {
-                                Some(stderr_file) => match stderr {
-                                    ChildPipe::Pipe(pipe) => stream_to_file(
-                                        pipe,
-                                        None,
-                                        ctrlc,
-                                        stderr_file,
-                                        span,
-                                        progress,
-                                    ),
-                                    ChildPipe::Tee(tee) => stream_to_file(
-                                        tee,
-                                        None,
-                                        ctrlc,
-                                        stderr_file,
-                                        span,
-                                        progress,
-                                    ),
-                                }?,
-                                None => {
-                                    match stderr {
-                                        ChildPipe::Pipe(mut pipe) => {
-                                            io::copy(&mut pipe, &mut io::sink())
-                                        }
-                                        ChildPipe::Tee(mut tee) => {
-                                            io::copy(&mut tee, &mut io::sink())
-                                        }
-                                    }
-                                    .err_span(span)?;
-                                }
-                            },
+                            (None, Some(stderr)) => {
+                                write_or_consume_stderr(
+                                    stderr,
+                                    stderr_file,
+                                    span,
+                                    ctrlc,
+                                    progress,
+                                )?;
+                            }
                             (None, None) => {}
                         };
                     }
@@ -533,7 +519,6 @@ fn stream_to_file(
         // TODO: reduce the number of progress bar updates?
 
         let mut reader = BufReader::new(source);
-        let mut buf = vec![0; reader.capacity()];
 
         let res = loop {
             if nu_utils::ctrl_c::was_pressed(&ctrlc) {
@@ -541,10 +526,12 @@ fn stream_to_file(
                 return Ok(());
             }
 
-            match reader.read(&mut buf) {
-                Ok(0) => break Ok(()),
-                Ok(len) => {
-                    file.write_all(&buf[..len]).err_span(span)?;
+            match reader.fill_buf() {
+                Ok(&[]) => break Ok(()),
+                Ok(buf) => {
+                    file.write_all(buf).err_span(span)?;
+                    let len = buf.len();
+                    reader.consume(len);
                     bytes_processed += len as u64;
                     bar.update_bar(bytes_processed);
                 }
