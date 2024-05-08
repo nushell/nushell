@@ -176,36 +176,36 @@ pub fn add_plugin_file(
     use std::path::Path;
 
     let working_set = StateWorkingSet::new(engine_state);
-    #[allow(deprecated)]
-    let cwd = working_set.get_cwd();
 
-    if let Some(plugin_file) = plugin_file {
-        let path = Path::new(&plugin_file.item);
-        let path_dir = path.parent().unwrap_or(path);
-        // Just try to canonicalize the directory of the plugin file first.
-        if let Ok(path_dir) = canonicalize_with(path_dir, &cwd) {
-            // Try to canonicalize the actual filename, but it's ok if that fails. The file doesn't
-            // have to exist.
-            let path = path_dir.join(path.file_name().unwrap_or(path.as_os_str()));
-            let path = canonicalize_with(&path, &cwd).unwrap_or(path);
-            engine_state.plugin_path = Some(path)
-        } else {
-            // It's an error if the directory for the plugin file doesn't exist.
-            report_error(
-                &working_set,
-                &ParseError::FileNotFound(
-                    path_dir.to_string_lossy().into_owned(),
-                    plugin_file.span,
-                ),
-            );
+    if let Ok(cwd) = engine_state.cwd_as_string(None) {
+        if let Some(plugin_file) = plugin_file {
+            let path = Path::new(&plugin_file.item);
+            let path_dir = path.parent().unwrap_or(path);
+            // Just try to canonicalize the directory of the plugin file first.
+            if let Ok(path_dir) = canonicalize_with(path_dir, &cwd) {
+                // Try to canonicalize the actual filename, but it's ok if that fails. The file doesn't
+                // have to exist.
+                let path = path_dir.join(path.file_name().unwrap_or(path.as_os_str()));
+                let path = canonicalize_with(&path, &cwd).unwrap_or(path);
+                engine_state.plugin_path = Some(path)
+            } else {
+                // It's an error if the directory for the plugin file doesn't exist.
+                report_error(
+                    &working_set,
+                    &ParseError::FileNotFound(
+                        path_dir.to_string_lossy().into_owned(),
+                        plugin_file.span,
+                    ),
+                );
+            }
+        } else if let Some(mut plugin_path) = nu_path::config_dir() {
+            // Path to store plugins signatures
+            plugin_path.push(storage_path);
+            let mut plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
+            plugin_path.push(PLUGIN_FILE);
+            let plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
+            engine_state.plugin_path = Some(plugin_path);
         }
-    } else if let Some(mut plugin_path) = nu_path::config_dir() {
-        // Path to store plugins signatures
-        plugin_path.push(storage_path);
-        let mut plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
-        plugin_path.push(PLUGIN_FILE);
-        let plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
-        engine_state.plugin_path = Some(plugin_path);
     }
 }
 
@@ -235,8 +235,7 @@ pub fn eval_config_contents(
             engine_state.file = prev_file;
 
             // Merge the environment in case env vars changed in the config
-            #[allow(deprecated)]
-            match nu_engine::env::current_dir(engine_state, stack) {
+            match engine_state.cwd(Some(stack)) {
                 Ok(cwd) => {
                     if let Err(e) = engine_state.merge_env(stack, cwd) {
                         report_error_new(engine_state, &e);
@@ -271,8 +270,9 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
 
     let start_time = std::time::Instant::now();
 
-    #[allow(deprecated)]
-    let cwd = engine_state.current_work_dir();
+    let Ok(cwd) = engine_state.cwd_as_string(None) else {
+        return false;
+    };
 
     let Some(config_dir) = nu_path::config_dir().and_then(|mut dir| {
         dir.push(storage_path);

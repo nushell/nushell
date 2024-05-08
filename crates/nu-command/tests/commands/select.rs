@@ -172,7 +172,7 @@ fn select_ignores_errors_successfully2() {
 
 #[test]
 fn select_ignores_errors_successfully3() {
-    let actual = nu!("sys | select invalid_key? | to nuon");
+    let actual = nu!("{foo: bar} | select invalid_key? | to nuon");
 
     assert_eq!(actual.out, "{invalid_key: null}".to_string());
     assert!(actual.err.is_empty());

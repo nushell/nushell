@@ -73,7 +73,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.4
+    - uses: actions/checkout@v4.1.5
 
     - name: Update Rust Toolchain Target
       run: |
@@ -104,7 +104,7 @@ jobs:
 
     # REF: https://github.com/marketplace/actions/gh-release
     - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.4
+      uses: softprops/action-gh-release@v2.0.5
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
         draft: true
@@ -163,7 +163,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.4
+    - uses: actions/checkout@v4.1.5
 
     - name: Update Rust Toolchain Target
       run: |
@@ -194,7 +194,7 @@ jobs:
 
     # REF: https://github.com/marketplace/actions/gh-release
     - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.4
+      uses: softprops/action-gh-release@v2.0.5
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
         draft: true

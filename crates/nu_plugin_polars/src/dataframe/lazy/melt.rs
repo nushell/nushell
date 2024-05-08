@@ -1,11 +1,14 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
+use polars::frame::explode::MeltArgs;
 
 use crate::{
-    dataframe::values::utils::convert_columns_string, values::CustomValueSupport, PolarsPlugin,
+    dataframe::values::utils::convert_columns_string,
+    values::{CustomValueSupport, NuLazyFrame},
+    PolarsPlugin,
 };
 
 use super::super::values::{Column, NuDataFrame};
@@ -50,6 +53,11 @@ impl PluginCommand for MeltDF {
                 "optional name for value column",
                 Some('l'),
             )
+            .switch(
+                "streamable",
+                "Use polar's streaming engine. Results will not have a stable ordering.",
+                Some('s'),
+            )
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -61,7 +69,7 @@ impl PluginCommand for MeltDF {
         vec![Example {
             description: "melt dataframe",
             example:
-                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars melt -c [b c] -v [a d]",
+                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars melt -c [b c] -v [a d] | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -135,109 +143,29 @@ fn command(
     let id_col: Vec<Value> = call.get_flag("columns")?.expect("required value");
     let val_col: Vec<Value> = call.get_flag("values")?.expect("required value");
 
-    let value_name: Option<Spanned<String>> = call.get_flag("value-name")?;
-    let variable_name: Option<Spanned<String>> = call.get_flag("variable-name")?;
+    let value_name = call.get_flag("value-name")?.map(|v: String| v.into());
+    let variable_name = call.get_flag("variable-name")?.map(|v: String| v.into());
+    let streamable = call.has_flag("streamable")?;
 
-    let (id_col_string, id_col_span) = convert_columns_string(id_col, call.head)?;
-    let (val_col_string, val_col_span) = convert_columns_string(val_col, call.head)?;
+    let (id_vars, _id_col_span) = convert_columns_string(id_col, call.head)?;
+    let id_vars = id_vars.into_iter().map(Into::into).collect();
+    let (value_vars, _val_col_span) = convert_columns_string(val_col, call.head)?;
+    let value_vars = value_vars.into_iter().map(Into::into).collect();
 
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let polars_df = df.to_polars();
 
-    check_column_datatypes(df.as_ref(), &id_col_string, id_col_span)?;
-    check_column_datatypes(df.as_ref(), &val_col_string, val_col_span)?;
+    let args = MeltArgs {
+        id_vars,
+        value_vars,
+        variable_name,
+        value_name,
+        streamable,
+    };
 
-    let mut res = df
-        .as_ref()
-        .melt(&id_col_string, &val_col_string)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error calculating melt".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
-
-    if let Some(name) = &variable_name {
-        res.rename("variable", &name.item)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error renaming column".into(),
-                msg: e.to_string(),
-                span: Some(name.span),
-                help: None,
-                inner: vec![],
-            })?;
-    }
-
-    if let Some(name) = &value_name {
-        res.rename("value", &name.item)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error renaming column".into(),
-                msg: e.to_string(),
-                span: Some(name.span),
-                help: None,
-                inner: vec![],
-            })?;
-    }
-
-    let res = NuDataFrame::new(false, res);
+    let res = polars_df.melt(args);
+    let res = NuLazyFrame::new(res);
     res.to_pipeline_data(plugin, engine, call.head)
-}
-
-fn check_column_datatypes<T: AsRef<str>>(
-    df: &polars::prelude::DataFrame,
-    cols: &[T],
-    col_span: Span,
-) -> Result<(), ShellError> {
-    if cols.is_empty() {
-        return Err(ShellError::GenericError {
-            error: "Merge error".into(),
-            msg: "empty column list".into(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
-        });
-    }
-
-    // Checking if they are same type
-    if cols.len() > 1 {
-        for w in cols.windows(2) {
-            let l_series = df
-                .column(w[0].as_ref())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error selecting columns".into(),
-                    msg: e.to_string(),
-                    span: Some(col_span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-            let r_series = df
-                .column(w[1].as_ref())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error selecting columns".into(),
-                    msg: e.to_string(),
-                    span: Some(col_span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-            if l_series.dtype() != r_series.dtype() {
-                return Err(ShellError::GenericError {
-                    error: "Merge error".into(),
-                    msg: "found different column types in list".into(),
-                    span: Some(col_span),
-                    help: Some(format!(
-                        "datatypes {} and {} are incompatible",
-                        l_series.dtype(),
-                        r_series.dtype()
-                    )),
-                    inner: vec![],
-                });
-            }
-        }
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]
