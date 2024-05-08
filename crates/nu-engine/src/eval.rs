@@ -300,7 +300,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
         }
     };
 
-    // If input is PipelineData::ExternalStream,
+    // If input an external command,
     // then `might_consume_external_result` will consume `stderr` if `stdout` is `None`.
     // This should not happen if the user wants to capture stderr.
     if !matches!(stack.stdout(), OutDest::Pipe | OutDest::Capture)

@@ -30,7 +30,7 @@ pub use interface::{EngineInterface, EngineInterfaceManager};
 
 /// This should be larger than the largest commonly sent message to avoid excessive fragmentation.
 ///
-/// The buffers coming from external streams are typically each 8192 bytes, so double that.
+/// The buffers coming from byte streams are typically each 8192 bytes, so double that.
 #[allow(dead_code)]
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 

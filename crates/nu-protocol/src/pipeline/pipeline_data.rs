@@ -55,7 +55,7 @@ impl PipelineData {
         PipelineData::Empty
     }
 
-    /// create a `PipelineData::ExternalStream` with proper exit_code
+    /// create a `PipelineData::ByteStream` with proper exit_code
     ///
     /// It's useful to break running without raising error at user level.
     pub fn new_external_stream_with_only_exit_code(exit_code: i32) -> PipelineData {
@@ -423,22 +423,22 @@ impl PipelineData {
         }
     }
 
-    /// Try to catch the external stream exit status and detect if it failed.
+    /// Try to catch the external command exit status and detect if it failed.
     ///
     /// This is useful for external commands with semicolon, we can detect errors early to avoid
     /// commands after the semicolon running.
     ///
-    /// Returns `self` and a flag that indicates if the external stream run failed. If `self` is
-    /// not [`PipelineData::ExternalStream`], the flag will be `false`.
+    /// Returns `self` and a flag that indicates if the external command run failed. If `self` is
+    /// not [`PipelineData::ByteStream`], the flag will be `false`.
     ///
-    /// Currently this will consume an external stream to completion.
+    /// Currently this will consume an external command to completion.
     pub fn check_external_failed(self) -> Result<(Self, bool), ShellError> {
         if let PipelineData::ByteStream(stream, metadata) = self {
             let span = stream.span();
             match stream.into_child() {
                 Ok(mut child) => {
-                    // Only need ExternalStream without redirecting output.
-                    // It indicates we have no more commands to execute currently.
+                    // Only check children without stdout. This means that nothing
+                    // later in the pipeline can possibly consume output from this external command.
                     if child.stdout.is_none() {
                         // Note:
                         // In run-external's implementation detail, the result sender thread
