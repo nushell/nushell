@@ -216,7 +216,7 @@ pub fn eval_source(
         Ok(false) => 1,
         Err(err) => {
             report_error_new(engine_state, &err);
-            err.exit_code()
+            1
         }
     };
 

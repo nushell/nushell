@@ -139,7 +139,7 @@ fn collect_bytes_accepts_list_of_binary() {
 }
 
 #[test]
-fn collect_bytes_produces_raw_input() {
+fn collect_bytes_produces_byte_stream() {
     let actual = nu_with_plugins!(
         cwd: "tests/fixtures/formats",
         plugin: ("nu_plugin_example"),

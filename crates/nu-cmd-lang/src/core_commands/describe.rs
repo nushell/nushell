@@ -161,7 +161,7 @@ fn run(
     let head = call.head;
     let metadata = input.metadata();
 
-    let description: Value = match input {
+    let description = match input {
         PipelineData::ByteStream(stream, ..) => {
             let description = if options.detailed {
                 let origin = match stream.source() {

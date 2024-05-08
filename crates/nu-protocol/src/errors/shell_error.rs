@@ -639,20 +639,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// An external command core dumped.
-    ///
-    /// ## Resolution
-    ///
-    /// Check why the core dumped was triggered.
-    #[error("External command core dumped")]
-    #[diagnostic(code(nu::shell::external_command_core_dumped))]
-    ExternalCommandCoreDumped {
-        signal_name: String,
-        signal: i32,
-        #[label("core dumped with {signal_name} {signal}")]
-        span: Span,
-    },
-
     /// An operation was attempted with an input unsupported for some reason.
     ///
     /// ## Resolution
@@ -1386,13 +1372,6 @@ impl ShellError {
             "Encountered error during parse-time evaluation".into(),
             span,
         )
-    }
-
-    pub fn exit_code(&self) -> i32 {
-        match *self {
-            ShellError::ExternalCommandCoreDumped { signal, .. } => -signal,
-            _ => 1,
-        }
     }
 }
 

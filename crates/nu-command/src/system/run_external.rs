@@ -181,7 +181,7 @@ impl ExternalCommand {
                         }
                     }
                 },
-                PipelineData::Empty => (true, Stdio::inherit()),
+                PipelineData::Empty => (false, Stdio::inherit()),
                 _ => (false, Stdio::piped()),
             };
 
@@ -457,9 +457,7 @@ impl ExternalCommand {
                                 };
 
                                 if let PipelineData::ByteStream(stream, ..) = input {
-                                    if let Some(mut reader) = stream.reader() {
-                                        std::io::copy(&mut reader, &mut stdin_write)?;
-                                    }
+                                    stream.write_to(&mut stdin_write)?;
                                 } else {
                                     for value in input.into_iter() {
                                         let buf = value.coerce_into_binary()?;

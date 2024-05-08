@@ -125,7 +125,7 @@ pub(crate) fn run_commands(
 
     if let Err(err) = result {
         report_error_new(engine_state, &err);
-        std::process::exit(err.exit_code())
+        std::process::exit(1)
     }
 }
 
@@ -217,7 +217,7 @@ pub(crate) fn run_file(
 
     if let Err(err) = result {
         report_error_new(engine_state, &err);
-        std::process::exit(err.exit_code())
+        std::process::exit(1)
     }
 }
 
