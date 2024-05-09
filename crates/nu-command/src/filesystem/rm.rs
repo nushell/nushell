@@ -3,7 +3,7 @@ use super::util::{get_rest_for_glob_pattern, try_interaction};
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
-use nu_protocol::{engine::StateWorkingSet, format_error, NuGlob};
+use nu_protocol::{report_error_new, NuGlob};
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
 use std::{
@@ -369,8 +369,7 @@ fn rm(
                 );
 
                 let result = if let Err(e) = interaction {
-                    let e = Error::new(ErrorKind::Other, &*e.to_string());
-                    Err(e)
+                    Err(Error::new(ErrorKind::Other, &*e.to_string()))
                 } else if interactive && !confirmed {
                     Ok(())
                 } else if TRASH_SUPPORTED && (trash || (rm_always_trash && !permanent)) {
@@ -425,8 +424,7 @@ fn rm(
                     } else {
                         "deleted"
                     };
-                    let msg = format!("{} {:}", msg, f.to_string_lossy());
-                    Ok(Some(msg))
+                    Ok(Some(format!("{} {:}", msg, f.to_string_lossy())))
                 } else {
                     Ok(None)
                 }
@@ -452,23 +450,17 @@ fn rm(
         }
     });
 
-    for value in iter {
+    for result in iter {
         if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
             return Err(ShellError::InterruptedByUser {
                 span: Some(call.head),
             });
         }
 
-        match value {
+        match result {
             Ok(None) => {}
-            Ok(Some(msg)) => {
-                eprintln!("{msg}");
-            }
-            Err(err) => {
-                let working_set = StateWorkingSet::new(engine_state);
-                let msg = format_error(&working_set, &err);
-                eprintln!("{msg}");
-            }
+            Ok(Some(msg)) => eprintln!("{msg}"),
+            Err(err) => report_error_new(engine_state, &err),
         }
     }
 

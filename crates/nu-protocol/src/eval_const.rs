@@ -12,7 +12,7 @@ use std::{
 };
 
 /// Create a Value for `$nu`.
-pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Value {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
         #[allow(deprecated)]
         let cwd = engine_state.current_work_dir();
@@ -200,7 +200,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
         },
     );
 
-    Ok(Value::record(record, span))
+    Value::record(record, span)
 }
 
 fn eval_const_call(

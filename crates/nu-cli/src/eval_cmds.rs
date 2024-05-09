@@ -1,10 +1,10 @@
+use log::info;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    eval_const::create_nu_constant,
-    report_error, PipelineData, ShellError, Spanned, Value, NU_VARIABLE_ID,
+    report_error, PipelineData, ShellError, Spanned, Value,
 };
 use std::sync::Arc;
 
@@ -17,14 +17,8 @@ pub fn evaluate_commands(
     table_mode: Option<Value>,
     no_newline: bool,
 ) -> Result<(), ShellError> {
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
-    let nu_const = create_nu_constant(engine_state, commands.span)?;
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
-
     // Translate environment variables from Strings to Values
-    if let Some(err) = convert_env_values(engine_state, stack) {
-        return Err(err);
-    }
+    convert_env_values(engine_state, stack)?;
 
     // Parse the source code
     let (block, delta) = {
@@ -53,17 +47,24 @@ pub fn evaluate_commands(
     engine_state.merge_delta(delta)?;
 
     // Run the block
-    let data = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
+    let pipeline = eval_block::<WithoutDebug>(engine_state, stack, &block, input)?;
+
+    if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
+        return Err(*error);
+    }
 
     if let Some(t_mode) = table_mode {
         Arc::make_mut(&mut engine_state.config).table_mode =
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 
-    if let Some(status) = data.print(engine_state, stack, no_newline, false)? {
+    if let Some(status) = pipeline.print(engine_state, stack, no_newline, false)? {
         if status.code() != 0 {
             std::process::exit(status.code())
         }
     }
+
+    info!("evaluate {}:{}:{}", file!(), line!(), column!());
+
     Ok(())
 }

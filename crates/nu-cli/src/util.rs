@@ -39,9 +39,8 @@ fn gather_env_vars(
     init_cwd: &Path,
 ) {
     fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(
-            &working_set,
+        report_error_new(
+            engine_state,
             &ShellError::GenericError {
                 error: format!("Environment variable was not captured: {env_str}"),
                 msg: "".into(),
@@ -71,9 +70,8 @@ fn gather_env_vars(
         }
         None => {
             // Could not capture current working directory
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(
-                &working_set,
+            report_error_new(
+                engine_state,
                 &ShellError::GenericError {
                     error: "Current directory is not a valid utf-8 path".into(),
                     msg: "".into(),
@@ -212,7 +210,7 @@ pub fn eval_source(
     let start_time = std::time::Instant::now();
 
     let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
-        Ok(code) => code,
+        Ok(code) => code.unwrap_or(0),
         Err(err) => {
             report_error_new(engine_state, &err);
             1
@@ -223,6 +221,12 @@ pub fn eval_source(
         "LAST_EXIT_CODE".to_string(),
         Value::int(exit_code.into(), Span::unknown()),
     );
+
+    // reset vt processing, aka ansi because illbehaved externals can break it
+    #[cfg(windows)]
+    {
+        let _ = enable_vt_processing();
+    }
 
     perf(
         &format!("eval_source {}", &fname),
@@ -243,7 +247,7 @@ fn evaluate_source(
     fname: &str,
     input: PipelineData,
     allow_return: bool,
-) -> Result<i32, ShellError> {
+) -> Result<Option<i32>, ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
@@ -258,7 +262,7 @@ fn evaluate_source(
 
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
-            return Ok(1);
+            return Ok(Some(1));
         }
 
         (output, working_set.render())
@@ -266,42 +270,31 @@ fn evaluate_source(
 
     engine_state.merge_delta(delta)?;
 
-    let data = if allow_return {
+    let pipeline = if allow_return {
         eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
     } else {
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
 
-    let status = if let PipelineData::ByteStream(stream, ..) = data {
+    let status = if let PipelineData::ByteStream(stream, ..) = pipeline {
         stream.print(false)?
     } else {
-        let display_hook = engine_state.get_config().hooks.display_output.clone();
-
-        let status = if let Some(hook) = display_hook {
-            let data = eval_hook(
+        if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
+            let pipeline = eval_hook(
                 engine_state,
                 stack,
-                Some(data),
+                Some(pipeline),
                 vec![],
                 &hook,
                 "display_output",
             )?;
-            data.print(engine_state, stack, false, false)
+            pipeline.print(engine_state, stack, false, false)
         } else {
-            data.print(engine_state, stack, true, false)
-        }?;
-
-        // reset vt processing, aka ansi because illbehaved externals can break it
-        #[cfg(windows)]
-        {
-            let _ = enable_vt_processing();
-        }
-
-        #[allow(clippy::let_and_return)]
-        status
+            pipeline.print(engine_state, stack, true, false)
+        }?
     };
 
-    Ok(status.map(|status| status.code()).unwrap_or(0))
+    Ok(status.map(|status| status.code()))
 }
 
 #[cfg(test)]

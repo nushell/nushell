@@ -1,6 +1,6 @@
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Range, ShellError, Span, Value,
+    engine::{EngineState, Stack},
+    report_error_new, Range, ShellError, Span, Value,
 };
 use std::{ops::Bound, path::PathBuf};
 
@@ -14,8 +14,7 @@ pub fn get_init_cwd() -> PathBuf {
 
 pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
     engine_state.cwd(Some(stack)).unwrap_or_else(|e| {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, &e);
+        report_error_new(engine_state, &e);
         crate::util::get_init_cwd()
     })
 }

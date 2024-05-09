@@ -1,5 +1,5 @@
 use crate::util::eval_source;
-use log::trace;
+use log::{info, trace};
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
@@ -22,16 +22,15 @@ pub fn evaluate_file(
     input: PipelineData,
 ) -> Result<(), ShellError> {
     // Convert environment variables from Strings to Values and store them in the engine state.
-    if let Some(err) = convert_env_values(engine_state, stack) {
-        return Err(err);
-    }
+    convert_env_values(engine_state, stack)?;
 
     let cwd = engine_state.cwd_as_string(Some(stack))?;
 
-    let file_path = canonicalize_with(&path, cwd).map_err(|e| ShellError::FileNotFoundCustom {
-        msg: format!("Could not access file '{}': {:?}", path, e.to_string()),
-        span: Span::unknown(),
-    })?;
+    let file_path =
+        canonicalize_with(&path, cwd).map_err(|err| ShellError::FileNotFoundCustom {
+            msg: format!("Could not access file '{path}': {err}"),
+            span: Span::unknown(),
+        })?;
 
     let file_path_str = file_path
         .to_str()
@@ -43,12 +42,8 @@ pub fn evaluate_file(
             span: Span::unknown(),
         })?;
 
-    let file = std::fs::read(&file_path).map_err(|e| ShellError::FileNotFoundCustom {
-        msg: format!(
-            "Could not read file '{}': {:?}",
-            file_path_str,
-            e.to_string()
-        ),
+    let file = std::fs::read(&file_path).map_err(|err| ShellError::FileNotFoundCustom {
+        msg: format!("Could not read file '{file_path_str}': {err}"),
         span: Span::unknown(),
     })?;
     engine_state.file = Some(file_path.clone());
@@ -97,17 +92,24 @@ pub fn evaluate_file(
         }
     }
 
+    // Merge the changes into the engine state.
     engine_state.merge_delta(working_set.delta)?;
 
+    // Check if the file contains a main command.
     let exit_code = if engine_state.find_decl(b"main", &[]).is_some() {
-        let data =
+        // Evaluate the file, but don't run main yet.
+        let pipeline =
             match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
                 Ok(data) => data,
-                Err(ShellError::Return { .. }) => return Ok(()),
+                Err(ShellError::Return { .. }) => {
+                    // Allow early return before main is run.
+                    return Ok(());
+                }
                 Err(err) => return Err(err),
             };
 
-        if let Some(status) = data.print(engine_state, stack, true, false)? {
+        // Print the pipeline output of the last command of the file.
+        if let Some(status) = pipeline.print(engine_state, stack, true, false)? {
             if status.code() != 0 {
                 std::process::exit(status.code())
             }
@@ -131,6 +133,8 @@ pub fn evaluate_file(
     if exit_code != 0 {
         std::process::exit(exit_code)
     }
+
+    info!("evaluate {}:{}:{}", file!(), line!(), column!());
 
     Ok(())
 }

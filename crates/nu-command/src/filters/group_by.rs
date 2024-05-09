@@ -139,7 +139,7 @@ pub fn group_by(
             match grouper {
                 Value::CellPath { val, .. } => group_cell_path(val, values)?,
                 Value::Closure { val, .. } => {
-                    group_closure(values, span, val, engine_state, stack)?
+                    group_closure(values, span, *val, engine_state, stack)?
                 }
                 _ => {
                     return Err(ShellError::TypeMismatch {

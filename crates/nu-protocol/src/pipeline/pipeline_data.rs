@@ -187,7 +187,7 @@ impl PipelineData {
                         .into_iter(),
                     ),
                     Value::Range { val, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(val.into_range_iter(value.span(), None), val_span, None)
+                        ListStream::new(val.into_range_iter(val_span, None), val_span, None)
                             .into_iter(),
                     ),
                     // Propagate errors by explicitly matching them before the final case.
@@ -490,7 +490,7 @@ impl PipelineData {
                 let span = v.span();
                 match v {
                     Value::Range { val, .. } => {
-                        match val {
+                        match *val {
                             Range::IntRange(range) => {
                                 if range.is_unbounded() {
                                     return Err(ShellError::GenericError {
@@ -554,26 +554,6 @@ impl PipelineData {
             }
             Ok(None)
         }
-    }
-
-    /// Consume and print self data immediately.
-    ///
-    /// Unlike [`.print()`] does not call `table` to format data and just prints it
-    /// one element on a line
-    /// * `no_newline` controls if we need to attach newline character to output.
-    /// * `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
-    pub fn print_not_formatted(
-        self,
-        engine_state: &EngineState,
-        no_newline: bool,
-        to_stderr: bool,
-    ) -> Result<(), ShellError> {
-        if let PipelineData::ByteStream(stream, ..) = self {
-            stream.print(to_stderr)?;
-        } else {
-            self.write_all_and_flush(engine_state, no_newline, to_stderr)?;
-        }
-        Ok(())
     }
 
     fn write_all_and_flush(

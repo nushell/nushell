@@ -10,7 +10,7 @@ use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_error_new, PipelineData,
+    report_error_new, PipelineData, Spanned,
 };
 use nu_utils::utils::perf;
 
@@ -18,7 +18,7 @@ pub(crate) fn run_commands(
     engine_state: &mut EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,
     use_color: bool,
-    commands: &nu_protocol::Spanned<String>,
+    commands: &Spanned<String>,
     input: PipelineData,
     entire_start_time: std::time::Instant,
 ) {
@@ -105,15 +105,21 @@ pub(crate) fn run_commands(
     // Before running commands, set up the startup time
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
+    // Regenerate the $nu constant to contain the startup time and any other potential updates
+    engine_state.generate_nu_constant();
+
     let start_time = std::time::Instant::now();
-    let result = evaluate_commands(
+    if let Err(err) = evaluate_commands(
         commands,
         engine_state,
         &mut stack,
         input,
         parsed_nu_cli_args.table_mode,
         parsed_nu_cli_args.no_newline.is_some(),
-    );
+    ) {
+        report_error_new(engine_state, &err);
+        std::process::exit(1);
+    }
     perf(
         "evaluate_commands",
         start_time,
@@ -122,11 +128,6 @@ pub(crate) fn run_commands(
         column!(),
         use_color,
     );
-
-    if let Err(err) = result {
-        report_error_new(engine_state, &err);
-        std::process::exit(1)
-    }
 }
 
 pub(crate) fn run_file(
@@ -198,14 +199,20 @@ pub(crate) fn run_file(
         );
     }
 
+    // Regenerate the $nu constant to contain the startup time and any other potential updates
+    engine_state.generate_nu_constant();
+
     let start_time = std::time::Instant::now();
-    let result = evaluate_file(
+    if let Err(err) = evaluate_file(
         script_name,
         &args_to_script,
         engine_state,
         &mut stack,
         input,
-    );
+    ) {
+        report_error_new(engine_state, &err);
+        std::process::exit(1);
+    }
     perf(
         "evaluate_file",
         start_time,
@@ -215,10 +222,24 @@ pub(crate) fn run_file(
         use_color,
     );
 
-    if let Err(err) = result {
-        report_error_new(engine_state, &err);
-        std::process::exit(1)
+    let start_time = std::time::Instant::now();
+    let last_exit_code = stack.get_env_var(&*engine_state, "LAST_EXIT_CODE");
+    if let Some(last_exit_code) = last_exit_code {
+        let value = last_exit_code.as_int();
+        if let Ok(value) = value {
+            if value != 0 {
+                std::process::exit(value as i32);
+            }
+        }
     }
+    perf(
+        "get exit code",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
 }
 
 pub(crate) fn run_repl(

@@ -22,10 +22,10 @@ pub struct NuCompleter {
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
+    pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self {
             engine_state,
-            stack: stack.reset_out_dest().capture(),
+            stack: Stack::with_parent(stack).reset_out_dest().capture(),
         }
     }
 
@@ -52,8 +52,15 @@ impl NuCompleter {
         };
 
         // Fetch
-        let mut suggestions =
-            completer.fetch(working_set, prefix.clone(), new_span, offset, pos, &options);
+        let mut suggestions = completer.fetch(
+            working_set,
+            &self.stack,
+            prefix.clone(),
+            new_span,
+            offset,
+            pos,
+            &options,
+        );
 
         // Sort
         suggestions = completer.sort(suggestions, prefix);
@@ -174,11 +181,8 @@ impl NuCompleter {
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
-                            let mut completer = VariableCompletion::new(
-                                self.engine_state.clone(),
-                                self.stack.clone(),
-                                most_left_var.unwrap_or((vec![], vec![])),
-                            );
+                            let mut completer =
+                                VariableCompletion::new(most_left_var.unwrap_or((vec![], vec![])));
 
                             return self.process_completion(
                                 &mut completer,
@@ -223,8 +227,6 @@ impl NuCompleter {
                             || (flat_idx == 0 && working_set.get_span_contents(new_span).is_empty())
                         {
                             let mut completer = CommandCompletion::new(
-                                self.engine_state.clone(),
-                                &working_set,
                                 flattened.clone(),
                                 // flat_idx,
                                 FlatShape::String,
@@ -252,10 +254,7 @@ impl NuCompleter {
                                     || prev_expr_str == b"overlay use"
                                     || prev_expr_str == b"source-env"
                                 {
-                                    let mut completer = DotNuCompletion::new(
-                                        self.engine_state.clone(),
-                                        self.stack.clone(),
-                                    );
+                                    let mut completer = DotNuCompletion::new();
 
                                     return self.process_completion(
                                         &mut completer,
@@ -266,10 +265,7 @@ impl NuCompleter {
                                         pos,
                                     );
                                 } else if prev_expr_str == b"ls" {
-                                    let mut completer = FileCompletion::new(
-                                        self.engine_state.clone(),
-                                        self.stack.clone(),
-                                    );
+                                    let mut completer = FileCompletion::new();
 
                                     return self.process_completion(
                                         &mut completer,
@@ -287,7 +283,6 @@ impl NuCompleter {
                         match &flat.1 {
                             FlatShape::Custom(decl_id) => {
                                 let mut completer = CustomCompletion::new(
-                                    self.engine_state.clone(),
                                     self.stack.clone(),
                                     *decl_id,
                                     initial_line,
@@ -303,10 +298,7 @@ impl NuCompleter {
                                 );
                             }
                             FlatShape::Directory => {
-                                let mut completer = DirectoryCompletion::new(
-                                    self.engine_state.clone(),
-                                    self.stack.clone(),
-                                );
+                                let mut completer = DirectoryCompletion::new();
 
                                 return self.process_completion(
                                     &mut completer,
@@ -318,10 +310,7 @@ impl NuCompleter {
                                 );
                             }
                             FlatShape::Filepath | FlatShape::GlobPattern => {
-                                let mut completer = FileCompletion::new(
-                                    self.engine_state.clone(),
-                                    self.stack.clone(),
-                                );
+                                let mut completer = FileCompletion::new();
 
                                 return self.process_completion(
                                     &mut completer,
@@ -334,8 +323,6 @@ impl NuCompleter {
                             }
                             flat_shape => {
                                 let mut completer = CommandCompletion::new(
-                                    self.engine_state.clone(),
-                                    &working_set,
                                     flattened.clone(),
                                     // flat_idx,
                                     flat_shape.clone(),
@@ -368,10 +355,7 @@ impl NuCompleter {
                                 }
 
                                 // Check for file completion
-                                let mut completer = FileCompletion::new(
-                                    self.engine_state.clone(),
-                                    self.stack.clone(),
-                                );
+                                let mut completer = FileCompletion::new();
                                 out = self.process_completion(
                                     &mut completer,
                                     &working_set,
@@ -556,7 +540,7 @@ mod completer_tests {
             result.err().unwrap()
         );
 
-        let mut completer = NuCompleter::new(engine_state.into(), Stack::new());
+        let mut completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
         let dataset = [
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),

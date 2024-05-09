@@ -27,8 +27,7 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, eval_const::create_nu_constant, report_error_new, ByteStream,
-    PipelineData, ShellError, Span, Value, NU_VARIABLE_ID,
+    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -346,11 +345,7 @@ fn main() -> Result<()> {
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
-        if !engine_state.is_interactive {
-            PipelineData::ByteStream(ByteStream::stdin(redirect_stdin.span)?, None)
-        } else {
-            PipelineData::empty()
-        }
+        PipelineData::ByteStream(ByteStream::stdin(redirect_stdin.span)?, None)
     } else {
         trace!("not redirecting stdin");
         PipelineData::empty()
@@ -366,8 +361,7 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     // Set up the $nu constant before evaluating config files (need to have $nu available in them)
-    let nu_const = create_nu_constant(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    engine_state.generate_nu_constant();
     perf(
         "create_nu_constant",
         start_time,
@@ -450,7 +444,7 @@ fn main() -> Result<()> {
             &commands,
             input,
             entire_start_time,
-        )
+        );
     } else if !script_name.is_empty() {
         run_file(
             &mut engine_state,
@@ -459,7 +453,7 @@ fn main() -> Result<()> {
             script_name,
             args_to_script,
             input,
-        )
+        );
     } else {
         run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)?
     }

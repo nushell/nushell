@@ -26,9 +26,8 @@ use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    eval_const::create_nu_constant,
     report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value, NU_VARIABLE_ID,
+    Value,
 };
 use nu_utils::{
     filesystem::{have_permission, PermissionResult},
@@ -87,7 +86,7 @@ pub fn evaluate_repl(
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, &unique_stack) {
+    if let Err(e) = convert_env_values(engine_state, &unique_stack) {
         report_error_new(engine_state, &e);
     }
     perf(
@@ -145,8 +144,7 @@ pub fn evaluate_repl(
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
-    let nu_const = create_nu_constant(engine_state, Span::unknown())?;
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    engine_state.generate_nu_constant();
 
     if load_std_lib.is_none() && engine_state.get_config().show_banner {
         eval_source(
@@ -389,7 +387,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_completer(Box::new(NuCompleter::new(
             engine_reference.clone(),
             // STACK-REFERENCE 2
-            Stack::with_parent(stack_arc.clone()),
+            stack_arc.clone(),
         )))
         .with_quick_completions(config.quick_completions)
         .with_partial_completions(config.partial_completions)

@@ -163,7 +163,7 @@ fn upsert(
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
-                        let mut closure = ClosureEval::new(engine_state, stack, val);
+                        let mut closure = ClosureEval::new(engine_state, stack, *val);
                         for val in vals {
                             upsert_value_by_closure(
                                 val,
@@ -177,7 +177,7 @@ fn upsert(
                     (first, _) => {
                         upsert_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, val),
+                            ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
@@ -216,7 +216,7 @@ fn upsert(
                 let value = if path.is_empty() {
                     let value = stream.next().unwrap_or(Value::nothing(head));
                     if let Value::Closure { val, .. } = replacement {
-                        ClosureEvalOnce::new(engine_state, stack, val)
+                        ClosureEvalOnce::new(engine_state, stack, *val)
                             .run_with_value(value)?
                             .into_value(head)?
                     } else {
@@ -226,7 +226,7 @@ fn upsert(
                     if let Value::Closure { val, .. } = replacement {
                         upsert_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, val),
+                            ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
                             path,
                             true,
@@ -249,7 +249,7 @@ fn upsert(
                     .chain(stream)
                     .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             } else if let Value::Closure { val, .. } = replacement {
-                let mut closure = ClosureEval::new(engine_state, stack, val);
+                let mut closure = ClosureEval::new(engine_state, stack, *val);
                 let stream = stream.map(move |mut value| {
                     let err = upsert_value_by_closure(
                         &mut value,

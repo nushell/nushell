@@ -4,16 +4,14 @@ use crate::{
 };
 use nu_parser::FlatShape;
 use nu_protocol::{
-    engine::{CachedFile, EngineState, StateWorkingSet},
+    engine::{CachedFile, Stack, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
-use std::sync::Arc;
 
 use super::SemanticSuggestion;
 
 pub struct CommandCompletion {
-    engine_state: Arc<EngineState>,
     flattened: Vec<(Span, FlatShape)>,
     flat_shape: FlatShape,
     force_completion_after_space: bool,
@@ -21,14 +19,11 @@ pub struct CommandCompletion {
 
 impl CommandCompletion {
     pub fn new(
-        engine_state: Arc<EngineState>,
-        _: &StateWorkingSet,
         flattened: Vec<(Span, FlatShape)>,
         flat_shape: FlatShape,
         force_completion_after_space: bool,
     ) -> Self {
         Self {
-            engine_state,
             flattened,
             flat_shape,
             force_completion_after_space,
@@ -37,13 +32,14 @@ impl CommandCompletion {
 
     fn external_command_completion(
         &self,
+        working_set: &StateWorkingSet,
         prefix: &str,
         match_algorithm: MatchAlgorithm,
     ) -> Vec<String> {
         let mut executables = vec![];
 
         // os agnostic way to get the PATH env var
-        let paths = self.engine_state.get_path_env_var();
+        let paths = working_set.permanent_state.get_path_env_var();
 
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
@@ -52,7 +48,10 @@ impl CommandCompletion {
 
                     if let Ok(mut contents) = std::fs::read_dir(path.as_ref()) {
                         while let Some(Ok(item)) = contents.next() {
-                            if self.engine_state.config.max_external_completion_results
+                            if working_set
+                                .permanent_state
+                                .config
+                                .max_external_completion_results
                                 > executables.len() as i64
                                 && !executables.contains(
                                     &item
@@ -114,7 +113,7 @@ impl CommandCompletion {
 
         if find_externals {
             let results_external = self
-                .external_command_completion(&partial, match_algorithm)
+                .external_command_completion(working_set, &partial, match_algorithm)
                 .into_iter()
                 .map(move |x| SemanticSuggestion {
                     suggestion: Suggestion {
@@ -161,6 +160,7 @@ impl Completer for CommandCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
+        _stack: &Stack,
         _prefix: Vec<u8>,
         span: Span,
         offset: usize,
@@ -266,6 +266,8 @@ pub fn is_passthrough_command(working_set_file_contents: &[CachedFile]) -> bool 
 #[cfg(test)]
 mod command_completions_tests {
     use super::*;
+    use nu_protocol::engine::EngineState;
+    use std::sync::Arc;
 
     #[test]
     fn test_find_non_whitespace_index() {

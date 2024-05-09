@@ -2,8 +2,8 @@ use crate::NushellPrompt;
 use log::trace;
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Config, PipelineData, Value,
+    engine::{EngineState, Stack},
+    report_error_new, Config, PipelineData, Value,
 };
 use reedline::Prompt;
 
@@ -65,7 +65,7 @@ fn get_prompt_string(
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
             Value::Closure { val, .. } => {
-                let result = ClosureEvalOnce::new(engine_state, stack, val)
+                let result = ClosureEvalOnce::new(engine_state, stack, *val)
                     .run_with_input(PipelineData::Empty);
 
                 trace!(
@@ -77,8 +77,7 @@ fn get_prompt_string(
 
                 result
                     .map_err(|err| {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        report_error(&working_set, &err);
+                        report_error_new(engine_state, &err);
                     })
                     .ok()
             }
