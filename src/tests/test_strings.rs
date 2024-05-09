@@ -154,6 +154,11 @@ fn raw_string_inside_closure() -> TestResult {
 }
 
 #[test]
+fn raw_string_as_external_argument() -> TestResult {
+    run_test("nu --testbin cococo r#'asdf'#", "asdf")
+}
+
+#[test]
 fn incomplete_raw_string() -> TestResult {
     fail_test("r#abc", "expected '")
 }
