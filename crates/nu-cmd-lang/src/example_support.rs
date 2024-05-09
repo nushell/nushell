@@ -223,7 +223,7 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::Date { val, .. } => {
                 write!(f, "Date({:?})", val)
             }
-            Value::Range { val, .. } => match val {
+            Value::Range { val, .. } => match **val {
                 Range::IntRange(range) => match range.end() {
                     Bound::Included(end) => write!(
                         f,

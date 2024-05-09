@@ -387,7 +387,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_completer(Box::new(NuCompleter::new(
             engine_reference.clone(),
             // STACK-REFERENCE 2
-            Stack::with_parent(stack_arc.clone()),
+            stack_arc.clone(),
         )))
         .with_quick_completions(config.quick_completions)
         .with_partial_completions(config.partial_completions)
@@ -618,7 +618,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                         column!(),
                         use_color,
                     );
-                } else {
+                } else if shell_integration_osc133 {
                     start_time = Instant::now();
 
                     run_ansi_sequence(PRE_EXECUTION_MARKER);
@@ -658,9 +658,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                         run_finaliziation_ansi_sequence(
                             &stack,
                             engine_state,
+                            use_color,
                             shell_integration_osc633,
                             shell_integration_osc133,
-                            use_color,
                         );
                     }
                     ReplOperation::RunCommand(cmd) => {
@@ -677,9 +677,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                         run_finaliziation_ansi_sequence(
                             &stack,
                             engine_state,
+                            use_color,
                             shell_integration_osc633,
                             shell_integration_osc133,
-                            use_color,
                         );
                     }
                     // as the name implies, we do nothing in this case
@@ -729,9 +729,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             run_finaliziation_ansi_sequence(
                 &stack,
                 engine_state,
+                use_color,
                 shell_integration_osc633,
                 shell_integration_osc133,
-                use_color,
             );
         }
         Ok(Signal::CtrlD) => {
@@ -740,9 +740,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             run_finaliziation_ansi_sequence(
                 &stack,
                 engine_state,
+                use_color,
                 shell_integration_osc633,
                 shell_integration_osc133,
-                use_color,
             );
 
             println!();
@@ -761,9 +761,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             run_finaliziation_ansi_sequence(
                 &stack,
                 engine_state,
+                use_color,
                 shell_integration_osc633,
                 shell_integration_osc133,
-                use_color,
             );
         }
     }
@@ -1296,27 +1296,46 @@ fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorSty
     }
 }
 
-fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState, vscode: bool) -> String {
+fn get_command_finished_marker(
+    stack: &Stack,
+    engine_state: &EngineState,
+    shell_integration_osc633: bool,
+    shell_integration_osc133: bool,
+) -> String {
     let exit_code = stack
         .get_env_var(engine_state, "LAST_EXIT_CODE")
         .and_then(|e| e.as_i64().ok());
 
-    if vscode {
-        // format!("\x1b]633;D;{}\x1b\\", exit_code.unwrap_or(0))
-        format!(
-            "{}{}{}",
-            VSCODE_POST_EXECUTION_MARKER_PREFIX,
-            exit_code.unwrap_or(0),
-            VSCODE_POST_EXECUTION_MARKER_SUFFIX
-        )
-    } else {
-        // format!("\x1b]133;D;{}\x1b\\", exit_code.unwrap_or(0))
+    if shell_integration_osc633 {
+        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+            // We're in vscode and we have osc633 enabled
+            format!(
+                "{}{}{}",
+                VSCODE_POST_EXECUTION_MARKER_PREFIX,
+                exit_code.unwrap_or(0),
+                VSCODE_POST_EXECUTION_MARKER_SUFFIX
+            )
+        } else if shell_integration_osc133 {
+            // If we're in VSCode but we don't find the env var, just return the regular markers
+            format!(
+                "{}{}{}",
+                POST_EXECUTION_MARKER_PREFIX,
+                exit_code.unwrap_or(0),
+                POST_EXECUTION_MARKER_SUFFIX
+            )
+        } else {
+            // We're not in vscode, so we don't need to do anything special
+            "\x1b[0m".to_string()
+        }
+    } else if shell_integration_osc133 {
         format!(
             "{}{}{}",
             POST_EXECUTION_MARKER_PREFIX,
             exit_code.unwrap_or(0),
             POST_EXECUTION_MARKER_SUFFIX
         )
+    } else {
+        "\x1b[0m".to_string()
     }
 }
 
@@ -1340,7 +1359,12 @@ fn run_finaliziation_ansi_sequence(
         if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
             let start_time = Instant::now();
 
-            run_ansi_sequence(&get_command_finished_marker(stack, engine_state, true));
+            run_ansi_sequence(&get_command_finished_marker(
+                stack,
+                engine_state,
+                shell_integration_osc633,
+                shell_integration_osc133,
+            ));
 
             perf(
                 "post_execute_marker (633;D) ansi escape sequences",
@@ -1350,10 +1374,15 @@ fn run_finaliziation_ansi_sequence(
                 column!(),
                 use_color,
             );
-        } else {
+        } else if shell_integration_osc133 {
             let start_time = Instant::now();
 
-            run_ansi_sequence(&get_command_finished_marker(stack, engine_state, false));
+            run_ansi_sequence(&get_command_finished_marker(
+                stack,
+                engine_state,
+                shell_integration_osc633,
+                shell_integration_osc133,
+            ));
 
             perf(
                 "post_execute_marker (133;D) ansi escape sequences",
@@ -1367,7 +1396,12 @@ fn run_finaliziation_ansi_sequence(
     } else if shell_integration_osc133 {
         let start_time = Instant::now();
 
-        run_ansi_sequence(&get_command_finished_marker(stack, engine_state, false));
+        run_ansi_sequence(&get_command_finished_marker(
+            stack,
+            engine_state,
+            shell_integration_osc633,
+            shell_integration_osc133,
+        ));
 
         perf(
             "post_execute_marker (133;D) ansi escape sequences",

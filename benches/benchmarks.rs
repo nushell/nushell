@@ -8,10 +8,7 @@ use nu_protocol::{
 };
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::rc::Rc;
 
 use std::hint::black_box;
 
@@ -21,34 +18,16 @@ fn load_bench_commands() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
 }
 
-fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
-    let cwd = engine_state.cwd_as_string(None).unwrap();
-
-    if path.exists() {
-        match nu_path::canonicalize_with(path, cwd) {
-            Ok(canon_path) => canon_path,
-            Err(_) => path.to_owned(),
-        }
-    } else {
-        path.to_owned()
-    }
-}
-
-fn get_home_path(engine_state: &EngineState) -> PathBuf {
-    nu_path::home_dir()
-        .map(|path| canonicalize_path(engine_state, &path))
-        .unwrap_or_default()
-}
-
 fn setup_engine() -> EngineState {
     let mut engine_state = load_bench_commands();
-    let home_path = get_home_path(&engine_state);
+    let cwd = std::env::current_dir()
+        .unwrap()
+        .into_os_string()
+        .into_string()
+        .unwrap();
 
     // parsing config.nu breaks without PWD set, so set a valid path
-    engine_state.add_env_var(
-        "PWD".into(),
-        Value::string(home_path.to_string_lossy(), Span::test_data()),
-    );
+    engine_state.add_env_var("PWD".into(), Value::string(cwd, Span::test_data()));
 
     engine_state.generate_nu_constant();
 

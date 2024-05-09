@@ -595,8 +595,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
 }
 
 pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &Value) {
-    let stack = Stack::new();
-    let mut completer = NuCompleter::new(engine_reference, stack);
+    let mut completer = NuCompleter::new(engine_reference, Arc::new(Stack::new()));
 
     let file = std::fs::read(file_path)
         .into_diagnostic()
