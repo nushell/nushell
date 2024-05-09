@@ -180,12 +180,12 @@ fn flatten_expression_into(
             flatten_expression_into(working_set, op, output);
             flatten_expression_into(working_set, rhs, output);
         }
-        Expr::UnaryNot(expr) => {
+        Expr::UnaryNot(not) => {
             output.push((
                 Span::new(expr.span.start, expr.span.start + 3),
                 FlatShape::Operator,
             ));
-            flatten_expression_into(working_set, expr, output);
+            flatten_expression_into(working_set, not, output);
         }
         Expr::Closure(block_id) => {
             let outer_span = expr.span;
