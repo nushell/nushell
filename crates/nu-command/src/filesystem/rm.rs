@@ -3,7 +3,7 @@ use super::util::{get_rest_for_glob_pattern, try_interaction};
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
-use nu_protocol::{engine::StateWorkingSet, format_error, NuGlob};
+use nu_protocol::{report_error_new, NuGlob};
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
 use std::{
@@ -459,14 +459,8 @@ fn rm(
 
         match result {
             Ok(None) => {}
-            Ok(Some(msg)) => {
-                eprintln!("{msg}");
-            }
-            Err(err) => {
-                let working_set = StateWorkingSet::new(engine_state);
-                let msg = format_error(&working_set, &err);
-                eprintln!("{msg}");
-            }
+            Ok(Some(msg)) => eprintln!("{msg}"),
+            Err(err) => report_error_new(engine_state, &err),
         }
     }
 
