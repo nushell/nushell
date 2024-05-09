@@ -106,7 +106,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
                 let span = value.span();
                 match value {
                     Value::Closure { val, .. } => {
-                        ClosureEvalOnce::new(&self.engine_state, &self.stack, val)
+                        ClosureEvalOnce::new(&self.engine_state, &self.stack, *val)
                             .run_with_input(PipelineData::Empty)
                             .map(|data| data.into_value(span))
                             .unwrap_or_else(|err| Value::error(err, self.call.head))
