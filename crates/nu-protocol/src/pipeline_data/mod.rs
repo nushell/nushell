@@ -877,32 +877,6 @@ impl PipelineData {
         Ok(0)
     }
 
-    /// Consume and print self data immediately.
-    ///
-    /// Unlike [`.print()`] does not call `table` to format data and just prints it
-    /// one element on a line
-    /// * `no_newline` controls if we need to attach newline character to output.
-    /// * `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
-    pub fn print_not_formatted(
-        self,
-        engine_state: &EngineState,
-        no_newline: bool,
-        to_stderr: bool,
-    ) -> Result<i64, ShellError> {
-        if let PipelineData::ExternalStream {
-            stdout: stream,
-            stderr: stderr_stream,
-            exit_code,
-            ..
-        } = self
-        {
-            print_if_stream(stream, stderr_stream, to_stderr, exit_code)
-        } else {
-            let config = engine_state.get_config();
-            self.write_all_and_flush(engine_state, config, no_newline, to_stderr)
-        }
-    }
-
     fn write_all_and_flush(
         self,
         engine_state: &EngineState,
