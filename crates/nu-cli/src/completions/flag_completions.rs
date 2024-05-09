@@ -1,7 +1,7 @@
 use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
     ast::{Expr, Expression},
-    engine::StateWorkingSet,
+    engine::{Stack, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
@@ -23,10 +23,11 @@ impl Completer for FlagCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
+        _stack: &Stack,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
-        _: usize,
+        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         // Check if it's a flag

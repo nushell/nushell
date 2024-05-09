@@ -389,7 +389,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_completer(Box::new(NuCompleter::new(
             engine_reference.clone(),
             // STACK-REFERENCE 2
-            Stack::with_parent(stack_arc.clone()),
+            stack_arc.clone(),
         )))
         .with_quick_completions(config.quick_completions)
         .with_partial_completions(config.partial_completions)

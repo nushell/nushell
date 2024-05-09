@@ -6,14 +6,13 @@ use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{Stack, StateWorkingSet},
     PipelineData, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 pub struct CustomCompletion {
-    engine_state: Arc<EngineState>,
     stack: Stack,
     decl_id: usize,
     line: String,
@@ -21,10 +20,9 @@ pub struct CustomCompletion {
 }
 
 impl CustomCompletion {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack, decl_id: usize, line: String) -> Self {
+    pub fn new(stack: Stack, decl_id: usize, line: String) -> Self {
         Self {
-            engine_state,
-            stack: stack.reset_out_dest().capture(),
+            stack,
             decl_id,
             line,
             sort_by: SortBy::None,
@@ -35,7 +33,8 @@ impl CustomCompletion {
 impl Completer for CustomCompletion {
     fn fetch(
         &mut self,
-        _: &StateWorkingSet,
+        working_set: &StateWorkingSet,
+        _stack: &Stack,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
@@ -47,7 +46,7 @@ impl Completer for CustomCompletion {
 
         // Call custom declaration
         let result = eval_call::<WithoutDebug>(
-            &self.engine_state,
+            working_set.permanent_state,
             &mut self.stack,
             &Call {
                 decl_id: self.decl_id,
