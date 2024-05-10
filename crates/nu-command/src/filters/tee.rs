@@ -141,33 +141,30 @@ use it in your pipeline."#
                                 OutDest::Pipe | OutDest::Capture => {
                                     let tee = IoTee::new(stderr, span, eval_block)?;
                                     child.stderr = Some(ChildPipe::Tee(Box::new(tee)));
-                                    Ok(None)
+                                    None
                                 }
-                                OutDest::Null => tee_pipe_on_thread(
+                                OutDest::Null => Some(tee_pipe_on_thread(
                                     stderr,
                                     io::sink(),
                                     span,
                                     ctrlc.as_ref(),
                                     eval_block,
-                                )
-                                .map(Some),
-                                OutDest::Inherit => tee_pipe_on_thread(
+                                )?),
+                                OutDest::Inherit => Some(tee_pipe_on_thread(
                                     stderr,
                                     io::stderr(),
                                     span,
                                     ctrlc.as_ref(),
                                     eval_block,
-                                )
-                                .map(Some),
-                                OutDest::File(file) => tee_pipe_on_thread(
+                                )?),
+                                OutDest::File(file) => Some(tee_pipe_on_thread(
                                     stderr,
                                     file.clone(),
                                     span,
                                     ctrlc.as_ref(),
                                     eval_block,
-                                )
-                                .map(Some),
-                            }?
+                                )?),
+                            }
                         } else {
                             None
                         };
