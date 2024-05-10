@@ -106,6 +106,7 @@ fn from_tsv_text_to_table() {
 }
 
 #[test]
+#[ignore = "csv crate has a bug when the last line is a comment: https://github.com/BurntSushi/rust-csv/issues/363"]
 fn from_tsv_text_with_comments_to_table() {
     Playground::setup("filter_from_tsv_test_2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
