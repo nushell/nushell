@@ -18,6 +18,12 @@ use std::{
     thread,
 };
 
+/// The source of bytes for a [`ByteStream`].
+///
+/// Currently, there are only three possiblities:
+/// 1. `Read` (any `dyn` type that implements [`Read`])
+/// 2. [`File`]
+/// 3. [`ChildProcess`]
 pub enum ByteStreamSource {
     Read(Box<dyn Read + Send + 'static>),
     File(File),
@@ -51,6 +57,30 @@ impl Read for SourceReader {
     }
 }
 
+/// A potentially infinite, interruptible stream of bytes.
+///
+/// The data of a [`ByteStream`] can be accessed using one of the following methods:
+/// - [`reader`](ByteStream::reader): returns a [`Read`]-able type to get the raw bytes in the stream.
+/// - [`lines`](ByteStream::lines): splits the bytes on lines and returns an [`Iterator`]
+///   where each item is a `Result<String, ShellError>`.
+/// - [`chunks`](ByteStream::chunks): returns an [`Iterator`] of [`Value`]s where each value is either a string or binary.
+///   Try not to use this method if possible. Rather, please use [`reader`](ByteStream::reader)
+///   (or [`lines`](ByteStream::lines) if it matches the situation).
+///
+/// Additionally, there are few methods to collect a [`Bytestream`] into memory:
+/// - [`into_bytes`](ByteStream::into_bytes): collects all bytes into a [`Vec<u8>`].
+/// - [`into_string`](ByteStream::into_string): collects all bytes into a [`String`], erroring if utf-8 decoding failed.
+/// - [`into_value`](ByteStream::into_value): collects all bytes into a string [`Value`].
+///   If utf-8 decoding failed, then a binary [`Value`] is returned instead.
+///
+/// There are also a few other methods to consume all the data of a [`Bytestream`]:
+/// - [`drain`](ByteStream::drain): consumes all bytes and outputs nothing.
+/// - [`write_to`](ByteStream::write_to): writes all bytes to the given [`Write`] destination.
+/// - [`print`](ByteStream::print): a convenience wrapper around [`write_to`](ByteStream::write_to).
+///   It prints all bytes to stdout or stderr.
+///
+/// Internally, [`ByteStream`]s currently come in three flavors according to [`ByteStreamSource`].
+/// See its documentation for more information.
 pub struct ByteStream {
     stream: ByteStreamSource,
     span: Span,
@@ -59,6 +89,7 @@ pub struct ByteStream {
 }
 
 impl ByteStream {
+    /// Create a new [`ByteStream`] from a [`ByteStreamSource`].
     pub fn new(stream: ByteStreamSource, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self {
         Self {
             stream,
@@ -68,6 +99,7 @@ impl ByteStream {
         }
     }
 
+    /// Create a new [`ByteStream`] from a [`ByteStreamSource::Read`].
     pub fn read(
         reader: impl Read + Send + 'static,
         span: Span,
@@ -76,20 +108,26 @@ impl ByteStream {
         Self::new(ByteStreamSource::Read(Box::new(reader)), span, interrupt)
     }
 
+    /// Create a new [`ByteStream`] from a [`ByteStreamSource::File`].
     pub fn file(file: File, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self {
         Self::new(ByteStreamSource::File(file), span, interrupt)
     }
 
+    /// Create a new [`ByteStream`] from a [`ByteStreamSource::Child`].
     pub fn child(child: ChildProcess, span: Span) -> Self {
         Self::new(ByteStreamSource::Child(Box::new(child)), span, None)
     }
 
+    /// Create a new [`ByteStream`] that reads from stdin.
     pub fn stdin(span: Span) -> Result<Self, ShellError> {
         let stdin = os_pipe::dup_stdin().err_span(span)?;
         let source = ByteStreamSource::File(convert_file(stdin));
         Ok(Self::new(source, span, None))
     }
 
+    /// Create a new [`ByteStream`] from an [`Iterator`] of bytes slices.
+    ///
+    /// The returned [`ByteStream`] will have a [`ByteStreamSource`] of `Read`.
     pub fn from_iter<I>(iter: I, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self
     where
         I: Iterator + Send + 'static,
@@ -99,6 +137,9 @@ impl ByteStream {
         Self::read(ReadIterator { iter, cursor }, span, interrupt)
     }
 
+    /// Create a new [`ByteStream`] from an [`Iterator`] of [`Result`] bytes slices.
+    ///
+    /// The returned [`ByteStream`] will have a [`ByteStreamSource`] of `Read`.
     pub fn from_result_iter<T>(
         iter: impl Iterator<Item = Result<T, ShellError>> + Send + 'static,
         span: Span,
@@ -111,27 +152,38 @@ impl ByteStream {
         Self::read(ReadResultIterator { iter, cursor }, span, interrupt)
     }
 
+    /// Set the known size, in number of bytes, of the [`ByteStream`].
     pub fn with_known_size(mut self, size: Option<u64>) -> Self {
         self.known_size = size;
         self
     }
 
+    /// Get a reference to the inner [`ByteStreamSource`] of the [`ByteStream`].
     pub fn source(&self) -> &ByteStreamSource {
         &self.stream
     }
 
+    /// Get a mutable reference to the inner [`ByteStreamSource`] of the [`ByteStream`].
     pub fn source_mut(&mut self) -> &mut ByteStreamSource {
         &mut self.stream
     }
 
+    /// Returns the [`Span`] associated with the [`ByteStream`].
     pub fn span(&self) -> Span {
         self.span
     }
 
+    /// Returns the known size, in number of bytes, of the [`ByteStream`].
     pub fn known_size(&self) -> Option<u64> {
         self.known_size
     }
 
+    /// Convert the [`ByteStream`] into its [`Reader`] which allows one to [`Read`] the raw bytes of the stream.
+    ///
+    /// [`Reader`] is buffered and also implements [`BufRead`].
+    ///
+    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`] and the child has no stdout,
+    /// then the stream is considered empty and `None` will be returned.
     pub fn reader(self) -> Option<Reader> {
         let reader = self.stream.reader()?;
         Some(Reader {
@@ -141,6 +193,13 @@ impl ByteStream {
         })
     }
 
+    /// Convert the [`ByteStream`] into a [`Lines`] iterator where each element is a `Result<String, ShellError>`.
+    ///
+    /// There is no limit on how large each line will be. Ending new lines (`\n` or `\r\n`) are
+    /// stripped from each line. If a line fails to be decoded as utf-8, then it will become a [`ShellError`].
+    ///
+    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`] and the child has no stdout,
+    /// then the stream is considered empty and `None` will be returned.
     pub fn lines(self) -> Option<Lines> {
         let reader = self.stream.reader()?;
         Some(Lines {
@@ -150,6 +209,19 @@ impl ByteStream {
         })
     }
 
+    /// Convert the [`ByteStream`] into a [`Chunks`] iterator where each element is a `Result<Value, ShellError>`.
+    ///
+    /// Each call to [`next`](Iterator::next) reads the currently available data from the byte stream source,
+    /// up to a maximum size. If the chunk of bytes, or an expected portion of it, succeeds utf-8 decoding,
+    /// then it is returned as a [`Value::String`]. Otherwise, it is turned into a [`Value::Binary`].
+    /// Any and all newlines are kept intact in each chunk.
+    ///
+    /// Where possible, prefer [`reader`](ByteStream::reader) or [`lines`](ByteStream::lines) over this method.
+    /// Those methods are more likely to be used in a semantically correct way
+    /// (and [`reader`](ByteStream::reader) is more efficient too).
+    ///
+    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`] and the child has no stdout,
+    /// then the stream is considered empty and `None` will be returned.
     pub fn chunks(self) -> Option<Chunks> {
         let reader = self.stream.reader()?;
         Some(Chunks {
@@ -160,10 +232,18 @@ impl ByteStream {
         })
     }
 
+    /// Convert the [`ByteStream`] into its inner [`ByteStreamSource`].
     pub fn into_source(self) -> ByteStreamSource {
         self.stream
     }
 
+    /// Attempt to convert the [`ByteStream`] into a [`Stdio`].
+    ///
+    /// This will succeed if the [`ByteStreamSource`] of the [`ByteStream`] is either:
+    /// - [`File`](ByteStreamSource::File)
+    /// - [`Child`](ByteStreamSource::Child) and the child has a stdout that is `Some(ChildPipe::Pipe(..))`.
+    ///
+    /// All other cases return an `Err` with the original [`ByteStream`] in it.
     pub fn into_stdio(mut self) -> Result<Stdio, Self> {
         match self.stream {
             ByteStreamSource::Read(..) => Err(self),
@@ -175,9 +255,7 @@ impl ByteStream {
                     ..
                 } = *child
                 {
-                    if stderr.is_some() {
-                        debug_assert!(false, "stderr should not exist");
-                    }
+                    debug_assert!(stderr.is_none(), "stderr should not exist");
                     Ok(stdout.into())
                 } else {
                     self.stream = ByteStreamSource::Child(child);
@@ -187,13 +265,21 @@ impl ByteStream {
         }
     }
 
+    /// Attempt to convert the [`ByteStream`] into a [`ChildProcess`].
+    ///
+    /// This will only succeed if the [`ByteStreamSource`] of the [`ByteStream`] is [`Child`](ByteStreamSource::Child).
+    /// All other cases return an `Err` with the original [`ByteStream`] in it.
     pub fn into_child(self) -> Result<ChildProcess, Self> {
-        match self.stream {
-            ByteStreamSource::Child(child) => Ok(*child),
-            _ => Err(self),
+        if let ByteStreamSource::Child(child) = self.stream {
+            Ok(*child)
+        } else {
+            Err(self)
         }
     }
 
+    /// Collect all the bytes of the [`ByteStream`] into a [`Vec<u8>`].
+    ///
+    /// Any trailing new lines are kept in the returned [`Vec`].
     pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
         // todo!() ctrlc
         match self.stream {
@@ -211,26 +297,30 @@ impl ByteStream {
         }
     }
 
+    /// Collect all the bytes of the [`ByteStream`] into a [`String`].
+    ///
+    /// The trailing new line (`\n` or `\r\n`), if any, is removed from the [`String`] prior to being returned.
+    ///
+    /// If utf-8 decoding fails, an error is returned.
     pub fn into_string(self) -> Result<String, ShellError> {
-        let trim = matches!(self.stream, ByteStreamSource::Child(..));
         let span = self.span;
         let bytes = self.into_bytes()?;
         let mut string = String::from_utf8(bytes).map_err(|_| ShellError::NonUtf8 { span })?;
-        if trim {
-            trim_end_newline(&mut string);
-        }
+        trim_end_newline(&mut string);
         Ok(string)
     }
 
+    /// Collect all the bytes of the [`ByteStream`] into a [`Value`].
+    ///
+    /// If the collected bytes are successfully decoded as utf-8, then a [`Value::String`] is returned.
+    /// The trailing new line (`\n` or `\r\n`), if any, is removed from the [`String`] prior to being returned.
+    /// Otherwise, a [`Value::Binary`] is returned with any trailing new lines preserved.
     pub fn into_value(self) -> Result<Value, ShellError> {
-        let trim = matches!(self.stream, ByteStreamSource::Child(..));
         let span = self.span;
         let bytes = self.into_bytes()?;
         let value = match String::from_utf8(bytes) {
             Ok(mut str) => {
-                if trim {
-                    trim_end_newline(&mut str);
-                }
+                trim_end_newline(&mut str);
                 Value::string(str, span)
             }
             Err(err) => Value::binary(err.into_bytes(), span),
@@ -238,6 +328,10 @@ impl ByteStream {
         Ok(value)
     }
 
+    /// Consume and drop all bytes of the [`ByteStream`].
+    ///
+    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
+    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
     pub fn drain(self) -> Result<Option<ExitStatus>, ShellError> {
         match self.stream {
             ByteStreamSource::Read(mut read) => {
@@ -249,100 +343,56 @@ impl ByteStream {
         }
     }
 
-    fn print_to(self, mut dest: impl Write) -> Result<Option<ExitStatus>, ShellError> {
+    /// Print all bytes of the [`ByteStream`] to stdout or stderr.
+    ///
+    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
+    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
+    pub fn print(self, to_stderr: bool) -> Result<Option<ExitStatus>, ShellError> {
+        if to_stderr {
+            self.write_to(&mut io::stderr())
+        } else {
+            self.write_to(&mut io::stdout())
+        }
+    }
+
+    /// Write all bytes of the [`ByteStream`] to `dest`.
+    ///
+    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
+    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
+    pub fn write_to(self, dest: &mut impl Write) -> Result<Option<ExitStatus>, ShellError> {
         let span = self.span;
         let ctrlc = self.ctrlc.as_deref();
-
         match self.stream {
             ByteStreamSource::Read(mut read) => {
-                copy_with_interrupt(&mut read, &mut dest, span, ctrlc)?;
+                copy_with_interrupt(&mut read, dest, span, ctrlc)?;
                 Ok(None)
             }
             ByteStreamSource::File(mut file) => {
-                copy_with_interrupt(&mut file, &mut dest, span, ctrlc)?;
+                copy_with_interrupt(&mut file, dest, span, ctrlc)?;
                 Ok(None)
             }
             ByteStreamSource::Child(mut child) => {
-                match (child.stdout.take(), child.stderr.take()) {
-                    (Some(stdout), Some(stderr)) => {
-                        thread::scope(|s| {
-                            // To avoid deadlocks, we must spawn a separate thread to wait on stderr.
-                            let err_thread = thread::Builder::new()
-                                .spawn_scoped(s, move || match stderr {
-                                    ChildPipe::Pipe(mut pipe) => copy_with_interrupt(
-                                        &mut pipe,
-                                        &mut io::stderr(),
-                                        span,
-                                        ctrlc,
-                                    ),
-                                    ChildPipe::Tee(mut tee) => copy_with_interrupt(
-                                        &mut tee,
-                                        &mut io::stderr(),
-                                        span,
-                                        ctrlc,
-                                    ),
-                                })
-                                .err_span(span);
+                // All `OutDest`s except `OutDest::Capture` will cause `stderr` to be `None`.
+                // Only `save`, `tee`, and `complete` set the stderr `OutDest` to `OutDest::Capture`,
+                // and those commands have proper simultaneous handling of stdout and stderr.
+                debug_assert!(child.stderr.is_none(), "stderr should not exist");
 
-                            match stdout {
-                                ChildPipe::Pipe(mut pipe) => {
-                                    copy_with_interrupt(&mut pipe, &mut dest, span, ctrlc)
-                                }
-                                ChildPipe::Tee(mut tee) => {
-                                    copy_with_interrupt(&mut tee, &mut dest, span, ctrlc)
-                                }
-                            }?;
-
-                            if let Ok(result) = err_thread?.join() {
-                                result?;
-                            } else {
-                                // thread panicked, which should not happen
-                                debug_assert!(false)
-                            }
-
-                            Ok::<_, ShellError>(())
-                        })?;
+                if let Some(stdout) = child.stdout.take() {
+                    match stdout {
+                        ChildPipe::Pipe(mut pipe) => {
+                            copy_with_interrupt(&mut pipe, dest, span, ctrlc)?;
+                        }
+                        ChildPipe::Tee(mut tee) => {
+                            copy_with_interrupt(&mut tee, dest, span, ctrlc)?;
+                        }
                     }
-                    (Some(mut stdout), None) => {
-                        // single output stream, we can consume directly
-                        copy_with_interrupt(&mut stdout, &mut dest, span, ctrlc)?;
-                    }
-                    (None, Some(mut stderr)) => {
-                        // single output stream, we can consume directly
-                        copy_with_interrupt(&mut stderr, &mut io::stderr(), span, ctrlc)?;
-                    }
-                    (None, None) => {}
                 }
                 Ok(Some(child.wait()?))
             }
         }
     }
 
-    pub fn print(self, to_stderr: bool) -> Result<Option<ExitStatus>, ShellError> {
-        if to_stderr {
-            self.print_to(io::stderr())
-        } else {
-            self.print_to(io::stdout())
-        }
-    }
-
-    pub fn write_to(self, dest: &mut impl Write) -> Result<(), ShellError> {
-        let span = self.span;
-        let ctrlc = self.ctrlc.as_deref();
-        if let Some(reader) = self.stream.reader() {
-            match reader {
-                SourceReader::Read(mut reader) => {
-                    copy_with_interrupt(&mut reader, dest, span, ctrlc)?;
-                }
-                SourceReader::File(mut file) => {
-                    copy_with_interrupt(&mut file, dest, span, ctrlc)?;
-                }
-            };
-        }
-        Ok(())
-    }
-
-    pub fn write_to_out_dests(
+    pub(crate) fn write_to_out_dests(
         self,
         stdout: &OutDest,
         stderr: &OutDest,
@@ -430,41 +480,6 @@ impl From<ByteStream> for PipelineData {
     }
 }
 
-pub struct Reader {
-    reader: BufReader<SourceReader>,
-    span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
-}
-
-impl Reader {
-    pub fn span(&self) -> Span {
-        self.span
-    }
-}
-
-impl Read for Reader {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
-            Err(ShellError::InterruptedByUser {
-                span: Some(self.span),
-            }
-            .into())
-        } else {
-            self.reader.read(buf)
-        }
-    }
-}
-
-impl BufRead for Reader {
-    fn fill_buf(&mut self) -> io::Result<&[u8]> {
-        self.reader.fill_buf()
-    }
-
-    fn consume(&mut self, amt: usize) {
-        self.reader.consume(amt)
-    }
-}
-
 struct ReadIterator<I>
 where
     I: Iterator,
@@ -516,6 +531,41 @@ where
             }
         }
         Ok(0)
+    }
+}
+
+pub struct Reader {
+    reader: BufReader<SourceReader>,
+    span: Span,
+    ctrlc: Option<Arc<AtomicBool>>,
+}
+
+impl Reader {
+    pub fn span(&self) -> Span {
+        self.span
+    }
+}
+
+impl Read for Reader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            Err(ShellError::InterruptedByUser {
+                span: Some(self.span),
+            }
+            .into())
+        } else {
+            self.reader.read(buf)
+        }
+    }
+}
+
+impl BufRead for Reader {
+    fn fill_buf(&mut self) -> io::Result<&[u8]> {
+        self.reader.fill_buf()
+    }
+
+    fn consume(&mut self, amt: usize) {
+        self.reader.consume(amt)
     }
 }
 
