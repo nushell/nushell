@@ -1,6 +1,6 @@
-use crate::{ast::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
-
 use super::{EngineState, Stack, StateWorkingSet};
+use crate::{ast::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
+use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandType {
@@ -10,6 +10,20 @@ pub enum CommandType {
     External,
     Alias,
     Plugin,
+}
+
+impl Display for CommandType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            CommandType::Builtin => "built-in",
+            CommandType::Custom => "custom",
+            CommandType::Keyword => "keyword",
+            CommandType::External => "external",
+            CommandType::Alias => "alias",
+            CommandType::Plugin => "plugin",
+        };
+        write!(f, "{str}")
+    }
 }
 
 pub trait Command: Send + Sync + CommandClone {
