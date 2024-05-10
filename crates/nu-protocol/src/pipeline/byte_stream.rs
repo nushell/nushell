@@ -763,3 +763,59 @@ where
     }
     Ok(len as u64)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_chunks<T>(data: Vec<T>) -> Chunks
+    where
+        T: AsRef<[u8]> + Default + Send + 'static,
+    {
+        let reader = ReadIterator {
+            iter: data.into_iter(),
+            cursor: Some(Cursor::new(T::default())),
+        };
+        Chunks {
+            reader: BufReader::new(SourceReader::Read(Box::new(reader))),
+            span: Span::test_data(),
+            ctrlc: None,
+            leftover: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn chunks_read_string() {
+        let data = vec!["Nushell", "が好きです"];
+        let chunks = test_chunks(data.clone());
+        let actual = chunks.collect::<Result<Vec<_>, _>>().unwrap();
+        let expected = data.into_iter().map(Value::test_string).collect::<Vec<_>>();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn chunks_read_string_split_utf8() {
+        let expected = "Nushell最高!";
+        let chunks = test_chunks(vec![&b"Nushell\xe6"[..], b"\x9c\x80\xe9", b"\xab\x98!"]);
+
+        let actual = chunks
+            .into_iter()
+            .map(|value| value.and_then(Value::into_string))
+            .collect::<Result<String, _>>()
+            .unwrap();
+
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn chunks_returns_string_or_binary() {
+        let chunks = test_chunks(vec![b"Nushell".as_slice(), b"\x9c\x80\xe9abcd", b"efgh"]);
+        let actual = chunks.collect::<Result<Vec<_>, _>>().unwrap();
+        let expected = vec![
+            Value::test_string("Nushell"),
+            Value::test_binary(b"\x9c\x80\xe9abcd"),
+            Value::test_string("efgh"),
+        ];
+        assert_eq!(actual, expected)
+    }
+}
