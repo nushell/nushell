@@ -146,7 +146,10 @@ impl<'a> StyleComputer<'a> {
             let span = value.span();
             match value {
                 Value::Closure { val, .. } => {
-                    map.insert(key.to_string(), ComputableStyle::Closure(val.clone(), span));
+                    map.insert(
+                        key.to_string(),
+                        ComputableStyle::Closure(*val.clone(), span),
+                    );
                 }
                 Value::Record { .. } => {
                     map.insert(

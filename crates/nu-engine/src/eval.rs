@@ -654,7 +654,7 @@ impl Eval for EvalRuntime {
         } else if quoted {
             Ok(Value::string(path, span))
         } else {
-            let cwd = engine_state.cwd(Some(stack))?;
+            let cwd = engine_state.cwd(Some(stack)).unwrap_or_default();
             let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))

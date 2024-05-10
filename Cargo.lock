@@ -2852,6 +2852,7 @@ dependencies = [
  "reedline",
  "rstest",
  "sysinfo",
+ "tempfile",
  "unicode-segmentation",
  "uuid",
  "which",

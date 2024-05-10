@@ -314,6 +314,7 @@ mod external_words {
     use super::nu;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::{pipeline, playground::Playground};
+
     #[test]
     fn relaxed_external_words() {
         let actual = nu!("
@@ -321,6 +322,12 @@ mod external_words {
         ");
 
         assert_eq!(actual.out, "joturner@foo.bar.baz");
+    }
+
+    #[test]
+    fn raw_string_as_external_argument() {
+        let actual = nu!("nu --testbin cococo r#'asdf'#");
+        assert_eq!(actual.out, "asdf");
     }
 
     //FIXME: jt: limitation in testing - can't use single ticks currently

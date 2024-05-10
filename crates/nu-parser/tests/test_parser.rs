@@ -1,6 +1,6 @@
 use nu_parser::*;
 use nu_protocol::{
-    ast::{Argument, Call, Expr, PathMember, Range},
+    ast::{Argument, Call, Expr, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
     ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape,
 };
@@ -925,6 +925,28 @@ mod string {
 
             assert!(working_set.parse_errors.is_empty());
         }
+    }
+
+    #[test]
+    fn parse_raw_string_as_external_argument() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let block = parse(&mut working_set, None, b"^echo r#'text'#", true);
+
+        assert!(working_set.parse_errors.is_empty());
+        assert_eq!(block.len(), 1);
+        let pipeline = &block.pipelines[0];
+        assert_eq!(pipeline.len(), 1);
+        let element = &pipeline.elements[0];
+        assert!(element.redirection.is_none());
+        if let Expr::ExternalCall(_, args) = &element.expr.expr {
+            if let [ExternalArgument::Regular(expr)] = args.as_ref() {
+                assert_eq!(expr.expr, Expr::RawString("text".into()));
+                return;
+            }
+        }
+        panic!("wrong expression: {:?}", element.expr.expr)
     }
 }
 

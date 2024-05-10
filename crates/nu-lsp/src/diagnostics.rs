@@ -7,8 +7,7 @@ use miette::{IntoDiagnostic, Result};
 use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
-    eval_const::create_nu_constant,
-    Span, Value, NU_VARIABLE_ID,
+    Value,
 };
 
 impl LanguageServer {
@@ -19,11 +18,7 @@ impl LanguageServer {
     ) -> Result<()> {
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
         engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
-
-        let Ok(nu_const) = create_nu_constant(engine_state, Span::unknown()) else {
-            return Ok(());
-        };
-        engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+        engine_state.generate_nu_constant();
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
