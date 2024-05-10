@@ -32,13 +32,11 @@ impl Highlighter for NuHighlighter {
             if highlight_resolved_externals {
                 for (span, shape) in shapes.iter_mut() {
                     if *shape == FlatShape::External {
-                        let str_contents = working_set.get_span_contents(*span);
-                        // working_set.get_span_contents(ActualSpan::new(span.start, span.end));
+                        let str_contents =
+                            working_set.get_span_contents(ActualSpan::new(span.start, span.end));
 
                         let str_word = String::from_utf8_lossy(str_contents).to_string();
-                        // let paths = env::path_str(&self.engine_state, &self.stack, *span).ok();
-                        // TODO SPAN: Unknown span should be fine, PATH should be guaranteed anyway
-                        let paths = env::path_str(&self.engine_state, &self.stack, FutureSpanId::unknown()).ok();
+                        let paths = env::path_str(&self.engine_state, &self.stack, *span).ok();
                         let res = if let Ok(cwd) =
                             env::current_dir_str(&self.engine_state, &self.stack)
                         {
@@ -177,16 +175,16 @@ impl Highlighter for NuHighlighter {
 
 fn split_span_by_highlight_positions(
     line: &str,
-    span: ActualSpan,
+    span: FutureSpanId,
     highlight_positions: &[usize],
     global_span_offset: usize,
-) -> Vec<(ActualSpan, bool)> {
+) -> Vec<(FutureSpanId, bool)> {
     let mut start = span.start;
-    let mut result: Vec<(ActualSpan, bool)> = Vec::new();
+    let mut result: Vec<(FutureSpanId, bool)> = Vec::new();
     for pos in highlight_positions {
         if start <= *pos && pos < &span.end {
             if start < *pos {
-                result.push((ActualSpan::new(start, *pos), false));
+                result.push((FutureSpanId::new(start, *pos), false));
             }
             let span_str = &line[pos - global_span_offset..span.end - global_span_offset];
             let end = span_str
@@ -194,12 +192,12 @@ fn split_span_by_highlight_positions(
                 .next()
                 .map(|c| pos + get_char_length(c))
                 .unwrap_or(pos + 1);
-            result.push((ActualSpan::new(*pos, end), true));
+            result.push((FutureSpanId::new(*pos, end), true));
             start = end;
         }
     }
     if start < span.end {
-        result.push((ActualSpan::new(start, span.end), false));
+        result.push((FutureSpanId::new(start, span.end), false));
     }
     result
 }

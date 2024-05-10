@@ -3,7 +3,10 @@ use crate::{
     SuggestionKind,
 };
 use nu_parser::FlatShape;
-use nu_protocol::{ActualSpan, engine::{CachedFile, EngineState, StateWorkingSet}, FutureSpanId};
+use nu_protocol::{
+    engine::{CachedFile, EngineState, StateWorkingSet},
+    FutureSpanId,
+};
 use reedline::Suggestion;
 use std::sync::Arc;
 
@@ -11,7 +14,7 @@ use super::SemanticSuggestion;
 
 pub struct CommandCompletion {
     engine_state: Arc<EngineState>,
-    flattened: Vec<(ActualSpan, FlatShape)>,
+    flattened: Vec<(FutureSpanId, FlatShape)>,
     flat_shape: FlatShape,
     force_completion_after_space: bool,
 }
@@ -20,7 +23,7 @@ impl CommandCompletion {
     pub fn new(
         engine_state: Arc<EngineState>,
         _: &StateWorkingSet,
-        flattened: Vec<(ActualSpan, FlatShape)>,
+        flattened: Vec<(FutureSpanId, FlatShape)>,
         flat_shape: FlatShape,
         force_completion_after_space: bool,
     ) -> Self {
