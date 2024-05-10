@@ -1,6 +1,6 @@
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_error_new, Range, ShellError, Span, Value,
+    Range, ShellError, Span, Value,
 };
 use std::{ops::Bound, path::PathBuf};
 
@@ -13,10 +13,9 @@ pub fn get_init_cwd() -> PathBuf {
 }
 
 pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
-    engine_state.cwd(Some(stack)).unwrap_or_else(|e| {
-        report_error_new(engine_state, &e);
-        crate::util::get_init_cwd()
-    })
+    engine_state
+        .cwd(Some(stack))
+        .unwrap_or(crate::util::get_init_cwd())
 }
 
 type MakeRangeError = fn(&str, Span) -> ShellError;
