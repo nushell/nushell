@@ -900,7 +900,7 @@ fn do_auto_cd(
     engine_state: &mut EngineState,
     span: Span,
 ) {
-    let path = {
+    let mut path = {
         if !path.exists() {
             report_error_new(
                 engine_state,
@@ -921,6 +921,10 @@ fn do_auto_cd(
             },
         );
         return;
+    }
+
+    if path.ends_with('/') {
+        path.pop();
     }
 
     stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
