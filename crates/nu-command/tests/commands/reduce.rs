@@ -90,7 +90,7 @@ fn folding_with_tables() {
         "
         echo [10 20 30 40]
         | reduce --fold [] { |it, acc|
-            with-env [value $it] {
+            with-env { value: $it } {
               echo $acc | append (10 * ($env.value | into int))
             }
           }

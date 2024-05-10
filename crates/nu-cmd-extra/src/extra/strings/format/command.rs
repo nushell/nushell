@@ -13,8 +13,8 @@ impl Command for FormatPattern {
     fn signature(&self) -> Signature {
         Signature::build("format pattern")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
-                (Type::Record(vec![]), Type::Any),
+                (Type::table(), Type::List(Box::new(Type::String))),
+                (Type::record(), Type::Any),
             ])
             .required(
                 "pattern",
@@ -238,10 +238,7 @@ fn format(
                 }
             }
 
-            Ok(PipelineData::ListStream(
-                ListStream::from_stream(list.into_iter(), None),
-                None,
-            ))
+            Ok(ListStream::new(list.into_iter(), head_span, engine_state.ctrlc.clone()).into())
         }
         // Unwrapping this ShellError is a bit unfortunate.
         // Ideally, its Span would be preserved.

@@ -5,7 +5,9 @@
 use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env::get_config, env_to_string};
-use nu_protocol::{Config, DataSource, ListStream, PipelineMetadata, RawStream, TableMode};
+use nu_protocol::{
+    Config, DataSource, ListStream, PipelineMetadata, RawStream, TableMode, ValueIterator,
+};
 use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
     StringResult, TableOpts, TableOutput,
@@ -381,7 +383,7 @@ fn handle_table_command(
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::from_stream(vals.into_iter(), ctrlc);
+            let stream = ListStream::new(vals.into_iter(), span, ctrlc);
             input.data = PipelineData::Empty;
 
             handle_row_stream(input, cfg, stream, metadata)
@@ -392,11 +394,7 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::Empty;
-            handle_record(input, cfg, *val)
-        }
-        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
-            input.data = val.collect()?.into_pipeline_data();
-            handle_table_command(input, cfg)
+            handle_record(input, cfg, val.into_owned())
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
@@ -409,7 +407,7 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::from_stream(val.into_range_iter(span, ctrlc.clone()), ctrlc);
+            let stream = ListStream::new(val.into_range_iter(span, ctrlc), span, None);
             input.data = PipelineData::Empty;
             handle_row_stream(input, cfg, stream, metadata)
         }
@@ -541,7 +539,6 @@ fn handle_row_stream(
             data_source: DataSource::Ls,
         }) => {
             let config = get_config(input.engine_state, input.stack);
-            let ctrlc = ctrlc.clone();
             let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
                 Some(v) => Some(env_to_string(
                     "LS_COLORS",
@@ -553,67 +550,55 @@ fn handle_row_stream(
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
 
-            ListStream::from_stream(
-                stream.map(move |mut x| match &mut x {
-                    Value::Record { val: record, .. } => {
-                        // Only the name column gets special colors, for now
-                        if let Some(value) = record.get_mut("name") {
-                            let span = value.span();
-                            if let Value::String { val, .. } = value {
-                                if let Some(val) = render_path_name(val, &config, &ls_colors, span)
-                                {
-                                    *value = val;
-                                }
+            stream.map(move |mut value| {
+                if let Value::Record { val: record, .. } = &mut value {
+                    // Only the name column gets special colors, for now
+                    if let Some(value) = record.to_mut().get_mut("name") {
+                        let span = value.span();
+                        if let Value::String { val, .. } = value {
+                            if let Some(val) = render_path_name(val, &config, &ls_colors, span) {
+                                *value = val;
                             }
                         }
-
-                        x
                     }
-                    _ => x,
-                }),
-                ctrlc,
-            )
+                }
+                value
+            })
         }
         // Next, `to html -l` sources:
         Some(PipelineMetadata {
             data_source: DataSource::HtmlThemes,
         }) => {
-            let ctrlc = ctrlc.clone();
-
-            ListStream::from_stream(
-                stream.map(move |mut x| match &mut x {
-                    Value::Record { val: record, .. } => {
-                        for (rec_col, rec_val) in record.iter_mut() {
-                            // Every column in the HTML theme table except 'name' is colored
-                            if rec_col != "name" {
-                                continue;
-                            }
-                            // Simple routine to grab the hex code, convert to a style,
-                            // then place it in a new Value::String.
-
-                            let span = rec_val.span();
-                            if let Value::String { val, .. } = rec_val {
-                                let s = match color_from_hex(val) {
-                                    Ok(c) => match c {
-                                        // .normal() just sets the text foreground color.
-                                        Some(c) => c.normal(),
-                                        None => nu_ansi_term::Style::default(),
-                                    },
-                                    Err(_) => nu_ansi_term::Style::default(),
-                                };
-                                *rec_val = Value::string(
-                                    // Apply the style (ANSI codes) to the string
-                                    s.paint(&*val).to_string(),
-                                    span,
-                                );
-                            }
+            stream.map(|mut value| {
+                if let Value::Record { val: record, .. } = &mut value {
+                    for (rec_col, rec_val) in record.to_mut().iter_mut() {
+                        // Every column in the HTML theme table except 'name' is colored
+                        if rec_col != "name" {
+                            continue;
                         }
-                        x
+                        // Simple routine to grab the hex code, convert to a style,
+                        // then place it in a new Value::String.
+
+                        let span = rec_val.span();
+                        if let Value::String { val, .. } = rec_val {
+                            let s = match color_from_hex(val) {
+                                Ok(c) => match c {
+                                    // .normal() just sets the text foreground color.
+                                    Some(c) => c.normal(),
+                                    None => nu_ansi_term::Style::default(),
+                                },
+                                Err(_) => nu_ansi_term::Style::default(),
+                            };
+                            *rec_val = Value::string(
+                                // Apply the style (ANSI codes) to the string
+                                s.paint(&*val).to_string(),
+                                span,
+                            );
+                        }
                     }
-                    _ => x,
-                }),
-                ctrlc,
-            )
+                }
+                value
+            })
         }
         _ => stream,
     };
@@ -666,7 +651,7 @@ fn make_clickable_link(
 
 struct PagingTableCreator {
     head: Span,
-    stream: ListStream,
+    stream: ValueIterator,
     engine_state: EngineState,
     stack: Stack,
     ctrlc: Option<Arc<AtomicBool>>,
@@ -687,7 +672,7 @@ impl PagingTableCreator {
     ) -> Self {
         PagingTableCreator {
             head,
-            stream,
+            stream: stream.into_inner(),
             engine_state,
             stack,
             ctrlc,
@@ -826,7 +811,7 @@ impl Iterator for PagingTableCreator {
 }
 
 fn stream_collect(
-    stream: &mut ListStream,
+    stream: impl Iterator<Item = Value>,
     size: usize,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> (Vec<Value>, bool) {
@@ -834,7 +819,7 @@ fn stream_collect(
     let mut end = true;
 
     let mut batch = Vec::with_capacity(size);
-    for (i, item) in stream.by_ref().enumerate() {
+    for (i, item) in stream.enumerate() {
         batch.push(item);
 
         // If we've been buffering over a second, go ahead and send out what we have so far
@@ -857,7 +842,7 @@ fn stream_collect(
 }
 
 fn stream_collect_abbriviated(
-    stream: &mut ListStream,
+    stream: impl Iterator<Item = Value>,
     size: usize,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> (Vec<Value>, usize, bool) {
@@ -870,7 +855,7 @@ fn stream_collect_abbriviated(
         return (vec![], 0, false);
     }
 
-    for item in stream.by_ref() {
+    for item in stream {
         read += 1;
 
         if read <= size {
@@ -942,7 +927,11 @@ fn render_path_name(
 
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
-    let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session && has_metadata;
+    //TODO: Deprecated show_clickable_links_in_ls in favor of shell_integration_osc8
+    let show_clickable_links = config.show_clickable_links_in_ls
+        && !in_ssh_session
+        && has_metadata
+        && config.shell_integration_osc8;
 
     let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
 

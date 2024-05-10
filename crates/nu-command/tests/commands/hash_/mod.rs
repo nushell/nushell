@@ -15,7 +15,7 @@ fn base64_encode_characterset_binhex() {
         echo 'username:password' | encode base64 --character-set binhex
         "#);
 
-    assert_eq!(actual.out, "F@0NEPjJD97kE\'&bEhFZEP3");
+    assert_eq!(actual.out, "GA0PFQjKE@8kF'&cFhG[FQ3");
 }
 
 #[test]
@@ -31,9 +31,9 @@ fn error_when_invalid_character_set_given() {
 
 #[test]
 fn base64_decode_characterset_binhex() {
-    let actual = nu!(r#"
-        echo "F@0NEPjJD97kE'&bEhFZEP3" | decode base64 --character-set binhex --binary | decode utf-8
-        "#);
+    let actual = nu!(
+        r#""GA0PFQjKE@8kF'&cFhG[FQ3" | decode base64 --character-set binhex --binary | decode utf-8"#
+    );
 
     assert_eq!(actual.out, "username:password");
 }

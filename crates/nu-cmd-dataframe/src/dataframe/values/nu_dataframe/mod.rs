@@ -9,7 +9,10 @@ pub use operations::Axis;
 use super::{nu_schema::NuSchema, utils::DEFAULT_ROWS, NuLazyFrame};
 use indexmap::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
+use polars::{
+    chunked_array::ops::SortMultipleOptions,
+    prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series},
+};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::{TotalEq, TotalHash};
 use serde::{Deserialize, Serialize};
@@ -176,9 +179,11 @@ impl NuDataFrame {
 
                     conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
-                Value::Record { val: record, .. } => {
-                    conversion::insert_record(&mut column_values, *record, &maybe_schema)?
-                }
+                Value::Record { val: record, .. } => conversion::insert_record(
+                    &mut column_values,
+                    record.into_owned(),
+                    &maybe_schema,
+                )?,
                 _ => {
                     let key = "0".to_string();
                     conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
@@ -486,12 +491,18 @@ impl NuDataFrame {
             .expect("already checked that dataframe is different than 0");
 
         // if unable to sort, then unable to compare
-        let lhs = match self.as_ref().sort(vec![*first_col], false, false) {
+        let lhs = match self
+            .as_ref()
+            .sort(vec![*first_col], SortMultipleOptions::default())
+        {
             Ok(df) => df,
             Err(_) => return None,
         };
 
-        let rhs = match other.as_ref().sort(vec![*first_col], false, false) {
+        let rhs = match other
+            .as_ref()
+            .sort(vec![*first_col], SortMultipleOptions::default())
+        {
             Ok(df) => df,
             Err(_) => return None,
         };

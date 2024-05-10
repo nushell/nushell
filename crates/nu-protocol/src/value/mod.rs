@@ -4,7 +4,6 @@ mod filesize;
 mod from;
 mod from_value;
 mod glob;
-mod lazy_record;
 mod range;
 
 pub mod record;
@@ -13,7 +12,6 @@ pub use duration::*;
 pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
-pub use lazy_record::LazyRecord;
 pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
@@ -21,7 +19,7 @@ use crate::{
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
-    BlockId, Config, ShellError, Span, Type,
+    Config, ShellError, Span, Type,
 };
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
@@ -29,7 +27,7 @@ use fancy_regex::Regex;
 use nu_utils::{
     contains_emoji,
     locale::{get_system_locale_string, LOCALE_OVERRIDE_ENV_VAR},
-    IgnoreCaseExt,
+    IgnoreCaseExt, SharedCow,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -88,7 +86,7 @@ pub enum Value {
         internal_span: Span,
     },
     Range {
-        val: Range,
+        val: Box<Range>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -110,7 +108,7 @@ pub enum Value {
         internal_span: Span,
     },
     Record {
-        val: Box<Record>,
+        val: SharedCow<Record>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -123,15 +121,8 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
-    Block {
-        val: BlockId,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        #[serde(rename = "span")]
-        internal_span: Span,
-    },
     Closure {
-        val: Closure,
+        val: Box<Closure>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -171,13 +162,6 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
-    #[serde(skip)]
-    LazyRecord {
-        val: Box<dyn for<'a> LazyRecord<'a>>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        internal_span: Span,
-    },
 }
 
 impl Clone for Value {
@@ -198,7 +182,7 @@ impl Clone for Value {
                 internal_span: *internal_span,
             },
             Value::Range { val, internal_span } => Value::Range {
-                val: *val,
+                val: val.clone(),
                 internal_span: *internal_span,
             },
             Value::Float { val, internal_span } => Value::float(*val, *internal_span),
@@ -219,16 +203,11 @@ impl Clone for Value {
                 val: val.clone(),
                 internal_span: *internal_span,
             },
-            Value::LazyRecord { val, internal_span } => val.clone_value(*internal_span),
             Value::List {
                 vals,
                 internal_span,
             } => Value::List {
                 vals: vals.clone(),
-                internal_span: *internal_span,
-            },
-            Value::Block { val, internal_span } => Value::Block {
-                val: *val,
                 internal_span: *internal_span,
             },
             Value::Closure { val, internal_span } => Value::Closure {
@@ -348,7 +327,7 @@ impl Value {
     /// Returns a reference to the inner [`Range`] value or an error if this `Value` is not a range
     pub fn as_range(&self) -> Result<Range, ShellError> {
         if let Value::Range { val, .. } = self {
-            Ok(*val)
+            Ok(**val)
         } else {
             self.cant_convert_to("range")
         }
@@ -357,7 +336,7 @@ impl Value {
     /// Unwraps the inner [`Range`] value or returns an error if this `Value` is not a range
     pub fn into_range(self) -> Result<Range, ShellError> {
         if let Value::Range { val, .. } = self {
-            Ok(val)
+            Ok(*val)
         } else {
             self.cant_convert_to("range")
         }
@@ -538,7 +517,7 @@ impl Value {
     /// Unwraps the inner [`Record`] value or returns an error if this `Value` is not a record
     pub fn into_record(self) -> Result<Record, ShellError> {
         if let Value::Record { val, .. } = self {
-            Ok(*val)
+            Ok(val.into_owned())
         } else {
             self.cant_convert_to("record")
         }
@@ -562,38 +541,6 @@ impl Value {
         }
     }
 
-    /// Returns the inner [`BlockId`] or an error if this `Value` is not a block
-    pub fn as_block(&self) -> Result<BlockId, ShellError> {
-        if let Value::Block { val, .. } = self {
-            Ok(*val)
-        } else {
-            self.cant_convert_to("block")
-        }
-    }
-
-    /// Returns this `Value`'s [`BlockId`] or an error if it does not have one
-    ///
-    /// Only the following `Value` cases will return an `Ok` result:
-    /// - `Block`
-    /// - `Closure`
-    ///
-    /// ```
-    /// # use nu_protocol::Value;
-    /// for val in Value::test_values() {
-    ///     assert_eq!(
-    ///         matches!(val, Value::Block { .. } | Value::Closure { .. }),
-    ///         val.coerce_block().is_ok(),
-    ///     );
-    /// }
-    /// ```
-    pub fn coerce_block(&self) -> Result<BlockId, ShellError> {
-        match self {
-            Value::Block { val, .. } => Ok(*val),
-            Value::Closure { val, .. } => Ok(val.block_id),
-            val => val.cant_convert_to("block"),
-        }
-    }
-
     /// Returns a reference to the inner [`Closure`] value or an error if this `Value` is not a closure
     pub fn as_closure(&self) -> Result<&Closure, ShellError> {
         if let Value::Closure { val, .. } = self {
@@ -606,7 +553,7 @@ impl Value {
     /// Unwraps the inner [`Closure`] value or returns an error if this `Value` is not a closure
     pub fn into_closure(self) -> Result<Closure, ShellError> {
         if let Value::Closure { val, .. } = self {
-            Ok(val)
+            Ok(*val)
         } else {
             self.cant_convert_to("closure")
         }
@@ -715,24 +662,6 @@ impl Value {
         }
     }
 
-    /// Returns a reference to the inner [`LazyRecord`] trait object or an error if this `Value` is not a lazy record
-    pub fn as_lazy_record(&self) -> Result<&dyn for<'a> LazyRecord<'a>, ShellError> {
-        if let Value::LazyRecord { val, .. } = self {
-            Ok(val.as_ref())
-        } else {
-            self.cant_convert_to("lazy record")
-        }
-    }
-
-    /// Unwraps the inner [`LazyRecord`] trait object or returns an error if this `Value` is not a lazy record
-    pub fn into_lazy_record(self) -> Result<Box<dyn for<'a> LazyRecord<'a>>, ShellError> {
-        if let Value::LazyRecord { val, .. } = self {
-            Ok(val)
-        } else {
-            self.cant_convert_to("lazy record")
-        }
-    }
-
     /// Get the span for the current value
     pub fn span(&self) -> Span {
         match self {
@@ -747,13 +676,11 @@ impl Value {
             | Value::Glob { internal_span, .. }
             | Value::Record { internal_span, .. }
             | Value::List { internal_span, .. }
-            | Value::Block { internal_span, .. }
             | Value::Closure { internal_span, .. }
             | Value::Nothing { internal_span, .. }
             | Value::Binary { internal_span, .. }
             | Value::CellPath { internal_span, .. }
             | Value::Custom { internal_span, .. }
-            | Value::LazyRecord { internal_span, .. }
             | Value::Error { internal_span, .. } => *internal_span,
         }
     }
@@ -771,10 +698,8 @@ impl Value {
             | Value::String { internal_span, .. }
             | Value::Glob { internal_span, .. }
             | Value::Record { internal_span, .. }
-            | Value::LazyRecord { internal_span, .. }
             | Value::List { internal_span, .. }
             | Value::Closure { internal_span, .. }
-            | Value::Block { internal_span, .. }
             | Value::Nothing { internal_span, .. }
             | Value::Binary { internal_span, .. }
             | Value::CellPath { internal_span, .. }
@@ -829,17 +754,12 @@ impl Value {
                     None => Type::List(Box::new(Type::Any)),
                 }
             }
-            Value::LazyRecord { val, .. } => match val.collect() {
-                Ok(val) => val.get_type(),
-                Err(..) => Type::Error,
-            },
             Value::Nothing { .. } => Type::Nothing,
-            Value::Block { .. } => Type::Block,
             Value::Closure { .. } => Type::Closure,
             Value::Error { .. } => Type::Error,
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
-            Value::Custom { val, .. } => Type::Custom(val.type_name()),
+            Value::Custom { val, .. } => Type::Custom(val.type_name().into()),
         }
     }
 
@@ -939,11 +859,6 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::LazyRecord { val, .. } => val
-                .collect()
-                .unwrap_or_else(|err| Value::error(err, span))
-                .to_expanded_string(separator, config),
-            Value::Block { val, .. } => format!("<Block {val}>"),
             Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
@@ -966,7 +881,6 @@ impl Value {
     /// - "[list {n} items]"
     /// - "[record {n} fields]"
     pub fn to_abbreviated_string(&self, config: &Config) -> String {
-        let span = self.span();
         match self {
             Value::Date { val, .. } => match &config.datetime_table_format {
                 Some(format) => self.format_datetime(val, format),
@@ -992,10 +906,6 @@ impl Value {
                 val.len(),
                 if val.len() == 1 { "" } else { "s" }
             ),
-            Value::LazyRecord { val, .. } => val
-                .collect()
-                .unwrap_or_else(|err| Value::error(err, span))
-                .to_abbreviated_string(config),
             val => val.to_expanded_string(", ", config),
         }
     }
@@ -1102,7 +1012,7 @@ impl Value {
                                 });
                             }
                         }
-                        Value::Range { val, .. } => {
+                        Value::Range { ref val, .. } => {
                             if let Some(item) =
                                 val.into_range_iter(current.span(), None).nth(*count)
                             {
@@ -1134,7 +1044,7 @@ impl Value {
                         }
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
-                        Value::Record { .. } | Value::LazyRecord { .. } => {
+                        Value::Record { .. } => {
                             return Err(ShellError::TypeMismatch {
                                 err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span,
@@ -1159,7 +1069,7 @@ impl Value {
                     match current {
                         Value::Record { mut val, .. } => {
                             // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
-                            if let Some(found) = val.iter_mut().rev().find(|x| {
+                            if let Some(found) = val.to_mut().iter_mut().rev().find(|x| {
                                 if insensitive {
                                     x.0.eq_ignore_case(column_name)
                                 } else {
@@ -1184,32 +1094,6 @@ impl Value {
                                 });
                             }
                         }
-                        Value::LazyRecord { val, .. } => {
-                            let columns = val.column_names();
-
-                            if let Some(col) = columns.iter().rev().find(|&col| {
-                                if insensitive {
-                                    col.eq_ignore_case(column_name)
-                                } else {
-                                    col == column_name
-                                }
-                            }) {
-                                current = val.get_column_value(col)?;
-                            } else if *optional {
-                                return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else if let Some(suggestion) = did_you_mean(&columns, column_name) {
-                                return Err(ShellError::DidYouMean {
-                                    suggestion,
-                                    span: *origin_span,
-                                });
-                            } else {
-                                return Err(ShellError::CantFindColumn {
-                                    col_name: column_name.clone(),
-                                    span: *origin_span,
-                                    src_span: span,
-                                });
-                            }
-                        }
                         // String access of Lists always means Table access.
                         // Create a List which contains each matching value for contained
                         // records in the source list.
@@ -1220,13 +1104,15 @@ impl Value {
                                     let val_span = val.span();
                                     match val {
                                         Value::Record { mut val, .. } => {
-                                            if let Some(found) = val.iter_mut().rev().find(|x| {
-                                                if insensitive {
-                                                    x.0.eq_ignore_case(column_name)
-                                                } else {
-                                                    x.0 == column_name
-                                                }
-                                            }) {
+                                            if let Some(found) =
+                                                val.to_mut().iter_mut().rev().find(|x| {
+                                                    if insensitive {
+                                                        x.0.eq_ignore_case(column_name)
+                                                    } else {
+                                                        x.0 == column_name
+                                                    }
+                                                })
+                                            {
                                                 Ok(std::mem::take(found.1))
                                             } else if *optional {
                                                 Ok(Value::nothing(*origin_span))
@@ -1332,7 +1218,7 @@ impl Value {
                         for val in vals.iter_mut() {
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.get_mut(col_name) {
+                                    if let Some(val) = record.to_mut().get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         let new_col = if path.is_empty() {
@@ -1344,7 +1230,7 @@ impl Value {
                                                 .upsert_data_at_cell_path(path, new_val.clone())?;
                                             new_col
                                         };
-                                        record.push(col_name, new_col);
+                                        record.to_mut().push(col_name, new_col);
                                     }
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
@@ -1359,7 +1245,7 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.get_mut(col_name) {
+                        if let Some(val) = record.to_mut().get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
                             let new_col = if path.is_empty() {
@@ -1369,13 +1255,8 @@ impl Value {
                                 new_col.upsert_data_at_cell_path(path, new_val)?;
                                 new_col
                             };
-                            record.push(col_name, new_col);
+                            record.to_mut().push(col_name, new_col);
                         }
-                    }
-                    Value::LazyRecord { val, .. } => {
-                        // convert to Record first.
-                        *self = val.collect()?;
-                        self.upsert_data_at_cell_path(cell_path, new_val)?;
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
                     v => {
@@ -1456,7 +1337,7 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.get_mut(col_name) {
+                                    if let Some(val) = record.to_mut().get_mut(col_name) {
                                         val.update_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         return Err(ShellError::CantFindColumn {
@@ -1478,7 +1359,7 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.get_mut(col_name) {
+                        if let Some(val) = record.to_mut().get_mut(col_name) {
                             val.update_data_at_cell_path(path, new_val)?;
                         } else {
                             return Err(ShellError::CantFindColumn {
@@ -1487,11 +1368,6 @@ impl Value {
                                 src_span: v_span,
                             });
                         }
-                    }
-                    Value::LazyRecord { val, .. } => {
-                        // convert to Record first.
-                        *self = val.collect()?;
-                        self.update_data_at_cell_path(cell_path, new_val)?;
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
                     v => {
@@ -1548,7 +1424,7 @@ impl Value {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        if record.remove(col_name).is_none() && !optional {
+                                        if record.to_mut().remove(col_name).is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.clone(),
                                                 span: *span,
@@ -1568,7 +1444,7 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if record.remove(col_name).is_none() && !optional {
+                            if record.to_mut().remove(col_name).is_none() && !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.clone(),
                                     span: *span,
@@ -1576,11 +1452,6 @@ impl Value {
                                 });
                             }
                             Ok(())
-                        }
-                        Value::LazyRecord { val, .. } => {
-                            // convert to Record first.
-                            *self = val.collect()?;
-                            self.remove_data_at_cell_path(cell_path)
                         }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
@@ -1628,7 +1499,7 @@ impl Value {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        if let Some(val) = record.get_mut(col_name) {
+                                        if let Some(val) = record.to_mut().get_mut(col_name) {
                                             val.remove_data_at_cell_path(path)?;
                                         } else if !optional {
                                             return Err(ShellError::CantFindColumn {
@@ -1650,7 +1521,7 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            if let Some(val) = record.get_mut(col_name) {
+                            if let Some(val) = record.to_mut().get_mut(col_name) {
                                 val.remove_data_at_cell_path(path)?;
                             } else if !optional {
                                 return Err(ShellError::CantFindColumn {
@@ -1660,11 +1531,6 @@ impl Value {
                                 });
                             }
                             Ok(())
-                        }
-                        Value::LazyRecord { val, .. } => {
-                            // convert to Record first.
-                            *self = val.collect()?;
-                            self.remove_data_at_cell_path(cell_path)
                         }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
@@ -1720,7 +1586,7 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.get_mut(col_name) {
+                                    if let Some(val) = record.to_mut().get_mut(col_name) {
                                         if path.is_empty() {
                                             return Err(ShellError::ColumnAlreadyExists {
                                                 col_name: col_name.clone(),
@@ -1747,7 +1613,7 @@ impl Value {
                                             )?;
                                             new_col
                                         };
-                                        record.push(col_name, new_col);
+                                        record.to_mut().push(col_name, new_col);
                                     }
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
@@ -1763,7 +1629,7 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.get_mut(col_name) {
+                        if let Some(val) = record.to_mut().get_mut(col_name) {
                             if path.is_empty() {
                                 return Err(ShellError::ColumnAlreadyExists {
                                     col_name: col_name.clone(),
@@ -1781,13 +1647,8 @@ impl Value {
                                 new_col.insert_data_at_cell_path(path, new_val, head_span)?;
                                 new_col
                             };
-                            record.push(col_name, new_col);
+                            record.to_mut().push(col_name, new_col);
                         }
-                    }
-                    Value::LazyRecord { val, .. } => {
-                        // convert to Record first.
-                        *self = val.collect()?;
-                        self.insert_data_at_cell_path(cell_path, new_val, v_span)?;
                     }
                     other => {
                         return Err(ShellError::UnsupportedInput {
@@ -1842,8 +1703,6 @@ impl Value {
     ///
     /// If the closure returns `Err`, the traversal will stop.
     ///
-    /// If collecting lazy records to check them as well is desirable, make sure to do it in your
-    /// closure. The traversal continues on whatever modifications you make during the closure.
     /// Captures of closure values are currently visited, as they are values owned by the closure.
     pub fn recurse_mut<E>(
         &mut self,
@@ -1854,6 +1713,7 @@ impl Value {
         // Check for contained values
         match self {
             Value::Record { ref mut val, .. } => val
+                .to_mut()
                 .iter_mut()
                 .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
             Value::List { ref mut vals, .. } => vals
@@ -1876,13 +1736,12 @@ impl Value {
             | Value::Range { .. }
             | Value::String { .. }
             | Value::Glob { .. }
-            | Value::Block { .. }
             | Value::Nothing { .. }
             | Value::Error { .. }
             | Value::Binary { .. }
             | Value::CellPath { .. } => Ok(()),
             // These could potentially contain values, but we expect the closure to handle them
-            Value::LazyRecord { .. } | Value::Custom { .. } => Ok(()),
+            Value::Custom { .. } => Ok(()),
         }
     }
 
@@ -1967,7 +1826,7 @@ impl Value {
 
     pub fn range(val: Range, span: Span) -> Value {
         Value::Range {
-            val,
+            val: val.into(),
             internal_span: span,
         }
     }
@@ -1989,7 +1848,7 @@ impl Value {
 
     pub fn record(val: Record, span: Span) -> Value {
         Value::Record {
-            val: Box::new(val),
+            val: SharedCow::new(val),
             internal_span: span,
         }
     }
@@ -2001,16 +1860,9 @@ impl Value {
         }
     }
 
-    pub fn block(val: BlockId, span: Span) -> Value {
-        Value::Block {
-            val,
-            internal_span: span,
-        }
-    }
-
     pub fn closure(val: Closure, span: Span) -> Value {
         Value::Closure {
-            val,
+            val: val.into(),
             internal_span: span,
         }
     }
@@ -2045,13 +1897,6 @@ impl Value {
 
     pub fn custom(val: Box<dyn CustomValue>, span: Span) -> Value {
         Value::Custom {
-            val,
-            internal_span: span,
-        }
-    }
-
-    pub fn lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>, span: Span) -> Value {
-        Value::LazyRecord {
             val,
             internal_span: span,
         }
@@ -2125,12 +1970,6 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_block(val: BlockId) -> Value {
-        Value::block(val, Span::test_data())
-    }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
     pub fn test_closure(val: Closure) -> Value {
         Value::closure(val, Span::test_data())
     }
@@ -2159,17 +1998,11 @@ impl Value {
         Value::custom(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>) -> Value {
-        Value::lazy_record(val, Span::test_data())
-    }
-
     /// Note: Only use this for test data, *not* live data,
     /// as it will point into unknown source when used in errors.
     ///
     /// Returns a `Vec` containing one of each value case (`Value::Int`, `Value::String`, etc.)
-    /// except for `Value::LazyRecord` and `Value::CustomValue`.
+    /// except for `Value::CustomValue`.
     pub fn test_values() -> Vec<Value> {
         vec![
             Value::test_bool(false),
@@ -2185,9 +2018,7 @@ impl Value {
             Value::test_float(0.0),
             Value::test_string(String::new()),
             Value::test_record(Record::new()),
-            // Value::test_lazy_record(Box::new(todo!())),
             Value::test_list(Vec::new()),
-            Value::test_block(0),
             Value::test_closure(Closure {
                 block_id: 0,
                 captures: Vec::new(),
@@ -2240,9 +2071,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
-                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2261,9 +2090,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
-                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2282,9 +2109,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
-                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2303,9 +2128,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
-                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2324,9 +2147,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
-                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2345,9 +2166,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
-                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2366,9 +2185,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Less),
                 Value::Glob { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
-                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2387,9 +2204,7 @@ impl PartialOrd for Value {
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
-                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2408,9 +2223,7 @@ impl PartialOrd for Value {
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Glob { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
-                Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2432,8 +2245,8 @@ impl PartialOrd for Value {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
                     // the order of cols shouldn't affect the equal property.
-                    let mut lhs = lhs.clone();
-                    let mut rhs = rhs.clone();
+                    let mut lhs = lhs.clone().into_owned();
+                    let mut rhs = rhs.clone().into_owned();
                     lhs.sort_cols();
                     rhs.sort_cols();
 
@@ -2455,15 +2268,7 @@ impl PartialOrd for Value {
                     // that the shorter sequence is less than the longer one
                     lhs.len().partial_cmp(&rhs.len())
                 }
-                Value::LazyRecord { val, .. } => {
-                    if let Ok(rhs) = val.collect() {
-                        self.partial_cmp(&rhs)
-                    } else {
-                        None
-                    }
-                }
                 Value::List { .. } => Some(Ordering::Less),
-                Value::Block { .. } => Some(Ordering::Less),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2482,30 +2287,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
-                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
-                Value::Block { .. } => Some(Ordering::Less),
-                Value::Closure { .. } => Some(Ordering::Less),
-                Value::Nothing { .. } => Some(Ordering::Less),
-                Value::Error { .. } => Some(Ordering::Less),
-                Value::Binary { .. } => Some(Ordering::Less),
-                Value::CellPath { .. } => Some(Ordering::Less),
-                Value::Custom { .. } => Some(Ordering::Less),
-            },
-            (Value::Block { val: lhs, .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Glob { .. } => Some(Ordering::Greater),
-                Value::Record { .. } => Some(Ordering::Greater),
-                Value::List { .. } => Some(Ordering::Greater),
-                Value::LazyRecord { .. } => Some(Ordering::Greater),
-                Value::Block { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Closure { .. } => Some(Ordering::Less),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2524,9 +2306,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
-                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { val: rhs, .. } => lhs.block_id.partial_cmp(&rhs.block_id),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2545,9 +2325,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
-                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Nothing { .. } => Some(Ordering::Equal),
                 Value::Error { .. } => Some(Ordering::Less),
@@ -2566,9 +2344,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
-                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Equal),
@@ -2587,9 +2363,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
-                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
@@ -2608,9 +2382,7 @@ impl PartialOrd for Value {
                 Value::String { .. } => Some(Ordering::Greater),
                 Value::Glob { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
-                Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
                 Value::Closure { .. } => Some(Ordering::Greater),
                 Value::Nothing { .. } => Some(Ordering::Greater),
                 Value::Error { .. } => Some(Ordering::Greater),
@@ -2619,13 +2391,6 @@ impl PartialOrd for Value {
                 Value::Custom { .. } => Some(Ordering::Less),
             },
             (Value::Custom { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
-            (Value::LazyRecord { val, .. }, rhs) => {
-                if let Ok(val) = val.collect() {
-                    val.partial_cmp(rhs)
-                } else {
-                    None
-                }
-            }
         }
     }
 }
@@ -2989,7 +2754,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::int(
                         (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -3001,7 +2766,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::int(
                         (*lhs as f64 / *rhs)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -3013,7 +2778,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::int(
                         (*lhs / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -3024,9 +2789,7 @@ impl Value {
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
                     Ok(Value::int(
-                        (lhs / rhs)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
-                            .floor() as i64,
+                        (lhs / rhs).clamp(i64::MIN as f64, i64::MAX as f64).floor() as i64,
                         span,
                     ))
                 } else {
@@ -3037,7 +2800,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::int(
                         (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -3049,7 +2812,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::filesize(
                         ((*lhs as f64) / (*rhs as f64))
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -3061,7 +2824,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::filesize(
                         (*lhs as f64 / *rhs)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -3073,7 +2836,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::int(
                         (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -3085,7 +2848,7 @@ impl Value {
                 if *rhs != 0 {
                     Ok(Value::duration(
                         (*lhs as f64 / *rhs as f64)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))
@@ -3097,7 +2860,7 @@ impl Value {
                 if *rhs != 0.0 {
                     Ok(Value::duration(
                         (*lhs as f64 / *rhs)
-                            .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
+                            .clamp(i64::MIN as f64, i64::MAX as f64)
                             .floor() as i64,
                         span,
                     ))

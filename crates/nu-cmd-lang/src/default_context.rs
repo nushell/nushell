@@ -43,7 +43,6 @@ pub fn create_default_context() -> EngineState {
             OverlayList,
             OverlayNew,
             OverlayHide,
-            LazyMake,
             Let,
             Loop,
             Match,
@@ -62,9 +61,6 @@ pub fn create_default_context() -> EngineState {
             Version,
             While,
         };
-
-        //#[cfg(feature = "plugin")]
-        bind_command!(PluginCommand, PluginList, PluginStop, Register,);
 
         working_set.render()
     };

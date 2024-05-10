@@ -1,4 +1,5 @@
 use filetime::FileTime;
+#[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::NuGlob;
@@ -113,6 +114,7 @@ impl Command for Touch {
                 })?;
         }
 
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
 
         for (index, glob) in files.into_iter().enumerate() {

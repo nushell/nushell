@@ -5,6 +5,7 @@ use self::output::*;
 use self::reedline::*;
 use self::table::*;
 
+use crate::engine::Closure;
 use crate::{record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -48,7 +49,7 @@ impl Default for HistoryConfig {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    pub external_completer: Option<usize>,
+    pub external_completer: Option<Closure>,
     pub filesize_metric: bool,
     pub table_mode: TableMode,
     pub table_move_header: bool,
@@ -73,7 +74,14 @@ pub struct Config {
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
     pub rm_always_trash: bool,
-    pub shell_integration: bool,
+    // Shell integration OSC meaning is described in the default_config.nu
+    pub shell_integration_osc2: bool,
+    pub shell_integration_osc7: bool,
+    pub shell_integration_osc8: bool,
+    pub shell_integration_osc9_9: bool,
+    pub shell_integration_osc133: bool,
+    pub shell_integration_osc633: bool,
+    pub shell_integration_reset_application_mode: bool,
     pub buffer_editor: Value,
     pub table_index_mode: TableIndexMode,
     pub case_sensitive_completions: bool,
@@ -153,7 +161,15 @@ impl Default for Config {
             use_ansi_coloring: true,
             bracketed_paste: true,
             edit_mode: EditBindings::default(),
-            shell_integration: false,
+            // shell_integration: false,
+            shell_integration_osc2: false,
+            shell_integration_osc7: false,
+            shell_integration_osc8: false,
+            shell_integration_osc9_9: false,
+            shell_integration_osc133: false,
+            shell_integration_osc633: false,
+            shell_integration_reset_application_mode: false,
+
             render_right_prompt_on_last_line: false,
 
             hooks: Hooks::new(),
@@ -201,13 +217,13 @@ impl Value {
         // the `2`.
 
         if let Value::Record { val, .. } = self {
-            val.retain_mut(|key, value| {
+            val.to_mut().retain_mut(|key, value| {
                 let span = value.span();
                 match key {
                     // Grouped options
                     "ls" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "use_ls_colors" => {
@@ -236,7 +252,7 @@ impl Value {
                     }
                     "rm" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "always_trash" => {
@@ -263,7 +279,7 @@ impl Value {
                     "history" => {
                         let history = &mut config.history;
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "isolation" => {
@@ -305,7 +321,7 @@ impl Value {
                     }
                     "completions" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "quick" => {
@@ -326,7 +342,7 @@ impl Value {
                                     }
                                     "external" => {
                                         if let Value::Record { val, .. } = value {
-                                            val.retain_mut(|key3, value|
+                                            val.to_mut().retain_mut(|key3, value|
                                                 {
                                                     let span = value.span();
                                                     match key3 {
@@ -334,13 +350,13 @@ impl Value {
                                                             process_int_config(value, &mut errors, &mut config.max_external_completion_results);
                                                         }
                                                         "completer" => {
-                                                            if let Ok(v) = value.coerce_block() {
-                                                                config.external_completer = Some(v)
+                                                            if let Ok(v) = value.as_closure() {
+                                                                config.external_completer = Some(v.clone())
                                                             } else {
                                                                 match value {
                                                                     Value::Nothing { .. } => {}
                                                                     _ => {
-                                                                        report_invalid_value("should be a block or null", span, &mut errors);
+                                                                        report_invalid_value("should be a closure or null", span, &mut errors);
                                                                         // Reconstruct
                                                                         *value = reconstruct_external_completer(&config,
                                                                             span
@@ -393,7 +409,7 @@ impl Value {
                     }
                     "cursor_shape" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 let config_point = match key2 {
                                     "vi_insert" => &mut config.cursor_shape_vi_insert,
@@ -426,7 +442,7 @@ impl Value {
                     }
                     "table" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "mode" => {
@@ -451,7 +467,7 @@ impl Value {
                                         }
                                         Value::Record { val, .. } => {
                                             let mut invalid = false;
-                                            val.retain(|key3, value| {
+                                            val.to_mut().retain(|key3, value| {
                                                 match key3 {
                                                     "left" => {
                                                         match value.as_int() {
@@ -546,7 +562,7 @@ impl Value {
                     }
                     "filesize" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                 "metric" => {
@@ -638,7 +654,54 @@ impl Value {
                             &mut errors);
                     }
                     "shell_integration" => {
-                        process_bool_config(value, &mut errors, &mut config.shell_integration);
+                        if let Value::Record { val, .. } = value {
+                            val.to_mut().retain_mut(|key2, value| {
+                                let span = value.span();
+                                match key2 {
+                                "osc2" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc2);
+                                }
+                                "osc7" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc7);
+                                }
+                                "osc8" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc8);
+                                }
+                                "osc9_9" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc9_9);
+                                }
+                                "osc133" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc133);
+                                }
+                                "osc633" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc633);
+                                }
+                                "reset_application_mode" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_reset_application_mode);
+                                }
+                                _ => {
+                                    report_invalid_key(&[key, key2], span, &mut errors);
+                                    return false;
+                                }
+                            };
+                            true
+                        })
+                        } else {
+                            report_invalid_value("boolean value is deprecated, should be a record. see `config nu --default`.", span, &mut errors);
+                            // Reconstruct
+                            *value = Value::record(
+                                record! {
+                                    "osc2" => Value::bool(config.shell_integration_osc2, span),
+                                    "ocs7" => Value::bool(config.shell_integration_osc7, span),
+                                    "osc8" => Value::bool(config.shell_integration_osc8, span),
+                                    "osc9_9" => Value::bool(config.shell_integration_osc9_9, span),
+                                    "osc133" => Value::bool(config.shell_integration_osc133, span),
+                                    "osc633" => Value::bool(config.shell_integration_osc633, span),
+                                    "reset_application_mode" => Value::bool(config.shell_integration_reset_application_mode, span),
+                                },
+                                span,
+                            );
+                        }
                     }
                     "buffer_editor" => match value {
                         Value::Nothing { .. } | Value::String { .. } => {
@@ -719,7 +782,7 @@ impl Value {
                     },
                     "datetime_format" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value|
+                            val.to_mut().retain_mut(|key2, value|
                                 {
                                 let span = value.span();
                                 match key2 {

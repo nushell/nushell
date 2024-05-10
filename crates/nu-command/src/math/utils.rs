@@ -69,7 +69,7 @@ pub fn calculate(
     let span = values.span().unwrap_or(name);
     match values {
         PipelineData::ListStream(s, ..) => {
-            helper_for_tables(&s.collect::<Vec<Value>>(), span, name, mf)
+            helper_for_tables(&s.into_iter().collect::<Vec<Value>>(), span, name, mf)
         }
         PipelineData::Value(Value::List { ref vals, .. }, ..) => match &vals[..] {
             [Value::Record { .. }, _end @ ..] => helper_for_tables(
@@ -80,15 +80,15 @@ pub fn calculate(
             ),
             _ => mf(vals, span, name),
         },
-        PipelineData::Value(Value::Record { val: record, .. }, ..) => {
-            let mut record = record;
+        PipelineData::Value(Value::Record { val, .. }, ..) => {
+            let mut record = val.into_owned();
             record
                 .iter_mut()
                 .try_for_each(|(_, val)| -> Result<(), ShellError> {
                     *val = mf(slice::from_ref(val), span, name)?;
                     Ok(())
                 })?;
-            Ok(Value::record(*record, span))
+            Ok(Value::record(record, span))
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val

@@ -1,5 +1,5 @@
 use crate::dataframe::values::{Column, NuDataFrame};
-use crate::values::{to_pipeline_data, CustomValueSupport, NuLazyFrame};
+use crate::values::{CustomValueSupport, NuLazyFrame};
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -70,7 +70,7 @@ impl PluginCommand for LazyFetch {
         let value = input.into_value(call.head);
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
 
-        let mut eager: NuDataFrame = lazy
+        let eager: NuDataFrame = lazy
             .to_polars()
             .fetch(rows as usize)
             .map_err(|e| ShellError::GenericError {
@@ -82,9 +82,9 @@ impl PluginCommand for LazyFetch {
             })?
             .into();
 
-        // mark this as not from lazy so it doesn't get converted back to a lazy frame
-        eager.from_lazy = false;
-        to_pipeline_data(plugin, engine, call.head, eager).map_err(LabeledError::from)
+        eager
+            .to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
     }
 }
 

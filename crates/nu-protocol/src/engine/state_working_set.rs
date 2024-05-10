@@ -2,7 +2,7 @@ use crate::{
     ast::Block,
     engine::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
-        StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
+        StateDelta, Variable, VirtualPath, Visibility,
     },
     BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
     Type, Value, VarId, VirtualPathId,
@@ -10,12 +10,12 @@ use crate::{
 use core::panic;
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
 #[cfg(feature = "plugin")]
-use crate::{PluginIdentity, RegisteredPlugin};
+use crate::{PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 
 /// A temporary extension to the global state. This handles bridging between the global state and the
 /// additional declarations and scope changes that are not yet part of the global scope.
@@ -26,10 +26,7 @@ pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
     pub external_commands: Vec<Vec<u8>>,
-    /// Current working directory relative to the file being parsed right now
-    pub currently_parsed_cwd: Option<PathBuf>,
-    /// All previously parsed module files. Used to protect against circular imports.
-    pub parsed_module_files: Vec<PathBuf>,
+    pub files: FileStack,
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
@@ -38,12 +35,18 @@ pub struct StateWorkingSet<'a> {
 
 impl<'a> StateWorkingSet<'a> {
     pub fn new(permanent_state: &'a EngineState) -> Self {
+        // Initialize the file stack with the top-level file.
+        let files = if let Some(file) = permanent_state.file.clone() {
+            FileStack::with_file(file)
+        } else {
+            FileStack::new()
+        };
+
         Self {
             delta: StateDelta::new(permanent_state),
             permanent_state,
             external_commands: vec![],
-            currently_parsed_cwd: permanent_state.currently_parsed_cwd.clone(),
-            parsed_module_files: vec![],
+            files,
             search_predecls: true,
             parse_errors: vec![],
             parse_warnings: vec![],
@@ -157,11 +160,6 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn mark_plugins_file_dirty(&mut self) {
-        self.delta.plugins_changed = true;
-    }
-
-    #[cfg(feature = "plugin")]
     pub fn find_or_create_plugin(
         &mut self,
         identity: &PluginIdentity,
@@ -181,6 +179,11 @@ impl<'a> StateWorkingSet<'a> {
             self.delta.plugins.push(plugin.clone());
             plugin
         }
+    }
+
+    #[cfg(feature = "plugin")]
+    pub fn update_plugin_registry(&mut self, item: PluginRegistryItem) {
+        self.delta.plugin_registry_items.push(item);
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
@@ -598,13 +601,16 @@ impl<'a> StateWorkingSet<'a> {
         next_id
     }
 
+    /// Returns the current working directory as a String, which is guaranteed to be canonicalized.
+    /// Returns an empty string if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+    ///
+    /// It does NOT consider modifications to the working directory made on a stack.
+    #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
     pub fn get_cwd(&self) -> String {
-        let pwd = self
-            .permanent_state
-            .get_env_var(PWD_ENV)
-            .expect("internal error: can't find PWD");
-        pwd.coerce_string()
-            .expect("internal error: PWD not a string")
+        self.permanent_state
+            .cwd(None)
+            .map(|path| path.to_string_lossy().to_string())
+            .unwrap_or_default()
     }
 
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
@@ -617,16 +623,6 @@ impl<'a> StateWorkingSet<'a> {
     /// does not capture environment updates during runtime.
     pub fn get_config(&self) -> &Config {
         &self.permanent_state.config
-    }
-
-    pub fn list_env(&self) -> Vec<String> {
-        let mut env_vars = vec![];
-
-        for env_var in self.permanent_state.env_vars.iter() {
-            env_vars.push(env_var.0.clone());
-        }
-
-        env_vars
     }
 
     pub fn set_variable_type(&mut self, var_id: VarId, ty: Type) {
@@ -1098,5 +1094,67 @@ impl<'a> miette::SourceCode for &StateWorkingSet<'a> {
             }
         }
         Err(miette::MietteError::OutOfBounds)
+    }
+}
+
+/// Files being evaluated, arranged as a stack.
+///
+/// The current active file is on the top of the stack.
+/// When a file source/import another file, the new file is pushed onto the stack.
+/// Attempting to add files that are already in the stack (circular import) results in an error.
+///
+/// Note that file paths are compared without canonicalization, so the same
+/// physical file may still appear multiple times under different paths.
+/// This doesn't affect circular import detection though.
+#[derive(Debug, Default)]
+pub struct FileStack(Vec<PathBuf>);
+
+impl FileStack {
+    /// Creates an empty stack.
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
+    /// Creates a stack with a single file on top.
+    ///
+    /// This is a convenience method that creates an empty stack, then pushes the file onto it.
+    /// It skips the circular import check and always succeeds.
+    pub fn with_file(path: PathBuf) -> Self {
+        Self(vec![path])
+    }
+
+    /// Adds a file to the stack.
+    ///
+    /// If the same file is already present in the stack, returns `ParseError::CircularImport`.
+    pub fn push(&mut self, path: PathBuf, span: Span) -> Result<(), ParseError> {
+        // Check for circular import.
+        if let Some(i) = self.0.iter().rposition(|p| p == &path) {
+            let filenames: Vec<String> = self.0[i..]
+                .iter()
+                .chain(std::iter::once(&path))
+                .map(|p| p.to_string_lossy().to_string())
+                .collect();
+            let msg = filenames.join("\nuses ");
+            return Err(ParseError::CircularImport(msg, span));
+        }
+
+        self.0.push(path);
+        Ok(())
+    }
+
+    /// Removes a file from the stack and returns its path, or None if the stack is empty.
+    pub fn pop(&mut self) -> Option<PathBuf> {
+        self.0.pop()
+    }
+
+    /// Returns the active file (that is, the file on the top of the stack), or None if the stack is empty.
+    pub fn top(&self) -> Option<&Path> {
+        self.0.last().map(PathBuf::as_path)
+    }
+
+    /// Returns the parent directory of the active file, or None if the stack is empty
+    /// or the active file doesn't have a parent directory as part of its path.
+    pub fn current_working_directory(&self) -> Option<&Path> {
+        self.0.last().and_then(|path| path.parent())
     }
 }

@@ -1,9 +1,9 @@
 use std::sync::{mpsc, Arc};
 
-use nu_plugin::{
-    InterfaceManager, Plugin, PluginInput, PluginInterfaceManager, PluginOutput, PluginRead,
-    PluginSource, PluginWrite,
-};
+use nu_plugin::Plugin;
+use nu_plugin_core::{InterfaceManager, PluginRead, PluginWrite};
+use nu_plugin_engine::{PluginInterfaceManager, PluginSource};
+use nu_plugin_protocol::{PluginInput, PluginOutput};
 use nu_protocol::{PluginIdentity, ShellError};
 
 use crate::fake_persistent_plugin::FakePersistentPlugin;
@@ -47,7 +47,9 @@ pub(crate) fn spawn_fake_plugin(
     let identity = PluginIdentity::new_fake(name);
     let reg_plugin = Arc::new(FakePersistentPlugin::new(identity.clone()));
     let source = Arc::new(PluginSource::new(reg_plugin.clone()));
-    let mut manager = PluginInterfaceManager::new(source, input_write);
+
+    // The fake plugin has no process ID, and we also don't set the garbage collector
+    let mut manager = PluginInterfaceManager::new(source, None, input_write);
 
     // Set up the persistent plugin with the interface before continuing
     let interface = manager.get_interface();

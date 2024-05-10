@@ -11,8 +11,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+/// Create a Value for `$nu`.
+pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Value {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
+        #[allow(deprecated)]
         let cwd = engine_state.current_work_dir();
 
         if path.exists() {
@@ -115,7 +117,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
     {
         record.push(
             "plugin-path",
-            if let Some(path) = &engine_state.plugin_signatures {
+            if let Some(path) = &engine_state.plugin_path {
                 let canon_plugin_path = canonicalize_path(engine_state, path);
                 Value::string(canon_plugin_path.to_string_lossy(), span)
             } else {
@@ -123,7 +125,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
                 config_path.clone().map_or_else(
                     |e| e,
                     |mut path| {
-                        path.push("plugin.nu");
+                        path.push("plugin.msgpackz");
                         let canonical_plugin_path = canonicalize_path(engine_state, &path);
                         Value::string(canonical_plugin_path.to_string_lossy(), span)
                     },
@@ -198,7 +200,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
         },
     );
 
-    Ok(Value::record(record, span))
+    Value::record(record, span)
 }
 
 fn eval_const_call(

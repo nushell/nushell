@@ -2,7 +2,7 @@ use nu_test_support::nu;
 
 #[test]
 fn with_env_extends_environment() {
-    let actual = nu!("with-env [FOO BARRRR] {echo $env} | get FOO");
+    let actual = nu!("with-env { FOO: BARRRR } {echo $env} | get FOO");
 
     assert_eq!(actual.out, "BARRRR");
 }
@@ -32,7 +32,7 @@ fn with_env_shorthand_trims_quotes() {
 fn with_env_and_shorthand_same_result() {
     let actual_shorthand = nu!("FOO='BARRRR' echo $env | get FOO");
 
-    let actual_normal = nu!("with-env [FOO BARRRR] {echo $env} | get FOO");
+    let actual_normal = nu!("with-env { FOO: BARRRR } {echo $env} | get FOO");
 
     assert_eq!(actual_shorthand.out, actual_normal.out);
 }
@@ -50,7 +50,7 @@ fn with_env_hides_variables_in_parent_scope() {
     let actual = nu!(r#"
         $env.FOO = "1"
         print $env.FOO
-        with-env [FOO null] {
+        with-env { FOO: null } {
             echo $env.FOO
         }
         print $env.FOO

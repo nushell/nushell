@@ -1,8 +1,7 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuLazyFrame},
     values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, NuExpression, PolarsPluginObject,
-        PolarsPluginType,
+        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
     },
     PolarsPlugin,
 };
@@ -95,8 +94,8 @@ impl PluginCommand for LazyMedian {
             PolarsPluginObject::NuDataFrame(df) => command(plugin, engine, call, df.lazy()),
             PolarsPluginObject::NuLazyFrame(lazy) => command(plugin, engine, call, lazy),
             PolarsPluginObject::NuExpression(expr) => {
-                let expr: NuExpression = expr.to_polars().median().into();
-                to_pipeline_data(plugin, engine, call.head, expr)
+                let expr: NuExpression = expr.into_polars().median().into();
+                expr.to_pipeline_data(plugin, engine, call.head)
             }
             _ => Err(cant_convert_err(
                 &value,
@@ -127,8 +126,8 @@ fn command(
             span: None,
             inner: vec![],
         })?;
-    let lazy = NuLazyFrame::new(lazy.from_eager, polars_lazy);
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    let lazy = NuLazyFrame::new(polars_lazy);
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

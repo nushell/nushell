@@ -5,7 +5,7 @@ use notify_debouncer_full::{
         EventKind, RecursiveMode, Watcher,
     },
 };
-use nu_engine::{command_prelude::*, current_dir, get_eval_block};
+use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
     format_error,
@@ -38,7 +38,7 @@ impl Command for Watch {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
-        .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+        .input_output_types(vec![(Type::Nothing, Type::table())])
             .required("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
             .required("closure",
             SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
@@ -72,7 +72,8 @@ impl Command for Watch {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cwd = current_dir(engine_state, stack)?;
+        let head = call.head;
+        let cwd = engine_state.cwd_as_string(Some(stack))?;
         let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         let path_no_whitespace = &path_arg
@@ -89,11 +90,7 @@ impl Command for Watch {
             }
         };
 
-        let capture_block: Closure = call.req(engine_state, stack, 1)?;
-        let block = engine_state
-            .clone()
-            .get_block(capture_block.block_id)
-            .clone();
+        let closure: Closure = call.req(engine_state, stack, 1)?;
 
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
 
@@ -167,69 +164,43 @@ impl Command for Watch {
 
         eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
 
-        let eval_block = get_eval_block(engine_state);
+        let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-        let event_handler =
-            |operation: &str, path: PathBuf, new_path: Option<PathBuf>| -> Result<(), ShellError> {
-                let glob_pattern = glob_pattern.clone();
-                let matches_glob = match glob_pattern.clone() {
-                    Some(glob) => glob.matches_path(&path),
-                    None => true,
-                };
-                if verbose && glob_pattern.is_some() {
-                    eprintln!("Matches glob: {matches_glob}");
-                }
-
-                if matches_glob {
-                    let stack = &mut stack.clone();
-
-                    if let Some(position) = block.signature.get_positional(0) {
-                        if let Some(position_id) = &position.var_id {
-                            stack.add_var(*position_id, Value::string(operation, call.span()));
-                        }
-                    }
-
-                    if let Some(position) = block.signature.get_positional(1) {
-                        if let Some(position_id) = &position.var_id {
-                            stack.add_var(
-                                *position_id,
-                                Value::string(path.to_string_lossy(), call.span()),
-                            );
-                        }
-                    }
-
-                    if let Some(position) = block.signature.get_positional(2) {
-                        if let Some(position_id) = &position.var_id {
-                            stack.add_var(
-                                *position_id,
-                                Value::string(
-                                    new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
-                                    call.span(),
-                                ),
-                            );
-                        }
-                    }
-
-                    let eval_result = eval_block(
-                        engine_state,
-                        stack,
-                        &block,
-                        Value::nothing(call.span()).into_pipeline_data(),
-                    );
-
-                    match eval_result {
-                        Ok(val) => {
-                            val.print(engine_state, stack, false, false)?;
-                        }
-                        Err(err) => {
-                            let working_set = StateWorkingSet::new(engine_state);
-                            eprintln!("{}", format_error(&working_set, &err));
-                        }
-                    }
-                }
-
-                Ok(())
+        let mut event_handler = move |operation: &str,
+                                      path: PathBuf,
+                                      new_path: Option<PathBuf>|
+              -> Result<(), ShellError> {
+            let matches_glob = match &glob_pattern {
+                Some(glob) => glob.matches_path(&path),
+                None => true,
             };
+            if verbose && glob_pattern.is_some() {
+                eprintln!("Matches glob: {matches_glob}");
+            }
+
+            if matches_glob {
+                let result = closure
+                    .add_arg(Value::string(operation, head))
+                    .add_arg(Value::string(path.to_string_lossy(), head))
+                    .add_arg(Value::string(
+                        new_path.unwrap_or_else(|| "".into()).to_string_lossy(),
+                        head,
+                    ))
+                    .run_with_input(PipelineData::Empty);
+
+                match result {
+                    Ok(val) => {
+                        val.print(engine_state, stack, false, false)?;
+                    }
+                    Err(err) => {
+                        let working_set = StateWorkingSet::new(engine_state);
+                        eprintln!("{}", format_error(&working_set, &err));
+                    }
+                }
+            }
+
+            Ok(())
+        };
 
         loop {
             match rx.recv_timeout(CHECK_CTRL_C_FREQUENCY) {

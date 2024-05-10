@@ -48,6 +48,7 @@ export def clippy [
         --
             -D warnings
             -D clippy::unwrap_used
+            -D clippy::unchecked_duration_subtraction
     )
 
     if $verbose {
@@ -73,6 +74,7 @@ export def clippy [
         --
             -D warnings
             -D clippy::unwrap_used
+            -D clippy::unchecked_duration_subtraction
     )
 
     } catch {
@@ -408,10 +410,10 @@ def keep-plugin-executables [] {
     if (windows?) { where name ends-with '.exe' } else { where name !~ '\.d' }
 }
 
-# register all installed plugins
-export def "register plugins" [] {
+# add all installed plugins
+export def "add plugins" [] {
     let plugin_path = (which nu | get path.0 | path dirname)
-    let plugins = (ls $plugin_path | where name =~ nu_plugin | keep-plugin-executables)
+    let plugins = (ls $plugin_path | where name =~ nu_plugin | keep-plugin-executables | get name)
 
     if ($plugins | is-empty) {
         print $"no plugins found in ($plugin_path)..."
@@ -419,12 +421,15 @@ export def "register plugins" [] {
     }
 
     for plugin in $plugins {
-        print -n $"registering ($plugin.name), "
-        nu -c $"register '($plugin.name)'"
-        print "success!"
+        try {
+            print $"> plugin add ($plugin)"
+            plugin add $plugin
+        } catch { |err|
+            print -e $"(ansi rb)Failed to add ($plugin):\n($err.msg)(ansi reset)"
+        }
     }
 
-    print "\nplugins registered, please restart nushell"
+    print $"\n(ansi gb)plugins registered, please restart nushell(ansi reset)"
 }
 
 def compute-coverage [] {
@@ -484,6 +489,73 @@ export def cov [] {
 
     let end = (date now)
     print $"Coverage generation took ($end - $start)."
+}
+
+
+# Benchmark the current branch against the main branch
+# Ensure you have `cargo-export` installed to generate separate artifacts for each branch.
+export def "benchmark-current-branch-with-main" [] {
+    let main = "main"
+    let current_branch = (git branch --show-current)
+
+    cargo export $"target/($current_branch)" -- bench
+    git checkout $main
+    cargo export $"target/($main)" -- bench
+    git checkout $current_branch
+    ^$"./target/($current_branch)/benchmarks" compare $"./target/($main)/benchmarks" -o -s 50
+}
+
+# Benchmark the current branch and logs the result in `./target/samples`
+# Ensure you have `cargo-export` installed to generate separate artifacts for each branch.
+export def "benchmark-and-log-result" [] {
+    let current_branch = (git branch --show-current)
+    let current_dir = "./" | path expand
+    let res_path = $"($current_dir)/target/samples"
+
+    cargo export $"target/($current_branch)" -- bench
+    ^$"./target/($current_branch)/benchmarks" compare -o -s 50 --dump $res_path
+}    
+
+# Build all Windows archives and MSIs for release manually
+#
+# This builds std and full distributions for both aarch64 and x86_64.
+#
+# You need to have the cross-compilers for MSVC installed (see Visual Studio).
+# If compiling on x86_64, you need ARM64 compilers and libs too, and vice versa.
+export def 'release-pkg windows' [
+    --artifacts-dir="artifacts" # Where to copy the final msi and zip files to
+] {
+    $env.RUSTFLAGS = ""
+    $env.CARGO_TARGET_DIR = ""
+    hide-env RUSTFLAGS
+    hide-env CARGO_TARGET_DIR
+    $env.OS = "windows-latest"
+    $env.GITHUB_WORKSPACE = ("." | path expand)
+    $env.GITHUB_OUTPUT = ("./output/out.txt" | path expand)
+    let version = (open Cargo.toml | get package.version)
+    mkdir $artifacts_dir
+    for target in ["aarch64" "x86_64"] {
+        $env.TARGET = $target ++ "-pc-windows-msvc"
+        for release_type in ["" full] {
+            $env.RELEASE_TYPE = $release_type
+            $env.TARGET_RUSTFLAGS = if $release_type == "full" {
+                "--features=dataframe"
+            } else {
+                ""
+            }
+            let out_filename = if $release_type == "full" {
+                $target ++ "-windows-msvc-full"
+            } else {
+                $target ++ "-pc-windows-msvc"
+            }
+            rm -rf output
+            _EXTRA_=bin nu .github/workflows/release-pkg.nu
+            cp $"output/nu-($version)-($out_filename).zip" $artifacts_dir
+            rm -rf output
+            _EXTRA_=msi nu .github/workflows/release-pkg.nu
+            cp $"target/wix/nu-($version)-($out_filename).msi" $artifacts_dir
+        }
+    }
 }
 
 export def main [] { help toolkit }

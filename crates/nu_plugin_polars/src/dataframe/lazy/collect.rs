@@ -32,8 +32,8 @@ impl PluginCommand for LazyCollect {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "drop duplicates",
-            example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars collect",
+            description: "collect a lazy dataframe",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars select [(polars col a) (polars col b)] | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![

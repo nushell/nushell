@@ -8,7 +8,7 @@ pub(crate) fn parse_date_from_string(
     match dtparse::parse(input) {
         Ok((native_dt, fixed_offset)) => {
             let offset = match fixed_offset {
-                Some(fo) => fo,
+                Some(offset) => offset,
                 None => *(Local::now().offset()),
             };
             match offset.from_local_datetime(&native_dt) {

@@ -33,7 +33,7 @@ fn parses_utf16_ini() {
 #[test]
 fn read_ini_with_missing_session() {
     Playground::setup("from ini with missiong session", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "some_missing.ini",
             r#"
             min-width=450

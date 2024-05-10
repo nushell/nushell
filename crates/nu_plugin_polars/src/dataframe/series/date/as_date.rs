@@ -1,4 +1,4 @@
-use crate::{values::to_pipeline_data, PolarsPlugin};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::super::values::NuDataFrame;
 
@@ -41,11 +41,18 @@ impl PluginCommand for AsDate {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Converts string to date",
-            example: r#"["2021-12-30" "2021-12-31"] | polars into-df | polars as-date "%Y-%m-%d""#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Converts string to date",
+                example: r#"["2021-12-30" "2021-12-31"] | polars into-df | polars as-date "%Y-%m-%d""#,
+                result: None, // help is needed on how to provide results
+            },
+            Example {
+                description: "Converts string to date",
+                example: r#"["2021-12-30" "2021-12-31 21:00:00"] | polars into-df | polars as-date "%Y-%m-%d" --not-exact"#,
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -97,5 +104,16 @@ fn command(
     res.rename("date");
 
     let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&AsDate)
+    }
 }

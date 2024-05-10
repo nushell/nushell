@@ -249,7 +249,9 @@ pub fn nu_repl() {
 
     for (i, line) in source_lines.iter().enumerate() {
         let mut stack = Stack::with_parent(top_stack.clone());
-        let cwd = nu_engine::env::current_dir(&engine_state, &stack)
+
+        let cwd = engine_state
+            .cwd(Some(&stack))
             .unwrap_or_else(|err| outcome_err(&engine_state, &err));
 
         // Before doing anything, merge the environment from the previous REPL iteration into the

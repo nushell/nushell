@@ -1,9 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression},
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -156,8 +153,8 @@ fn command_expr(
         });
     }
 
-    let expr: NuExpression = expr.to_polars().is_in(lit(list)).into();
-    to_pipeline_data(plugin, engine, call.head, expr)
+    let expr: NuExpression = expr.into_polars().is_in(lit(list)).into();
+    expr.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_df(
@@ -168,7 +165,7 @@ fn command_df(
 ) -> Result<PipelineData, ShellError> {
     let other_value: Value = call.req(0)?;
     let other_span = other_value.span();
-    let other_df = NuDataFrame::try_from_value(plugin, &other_value)?;
+    let other_df = NuDataFrame::try_from_value_coerce(plugin, &other_value, call.head)?;
     let other = other_df.as_series(other_span)?;
     let series = df.as_series(call.head)?;
 
@@ -184,8 +181,8 @@ fn command_df(
 
     res.rename("is_in");
 
-    let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
-    to_pipeline_data(plugin, engine, call.head, df)
+    let new_df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
+    new_df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

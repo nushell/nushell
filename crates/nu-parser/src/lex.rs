@@ -225,6 +225,19 @@ pub fn lex_item(
                     )),
                 );
             }
+        } else if c == b'r' && input.get(*curr_offset + 1) == Some(b'#').as_ref() {
+            // already checked `r#` pattern, so it's a raw string.
+            let lex_result = lex_raw_string(input, curr_offset, span_offset);
+            let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+            if let Err(e) = lex_result {
+                return (
+                    Token {
+                        contents: TokenContents::Item,
+                        span,
+                    },
+                    Some(e),
+                );
+            }
         } else if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
             break;
         }
@@ -329,6 +342,65 @@ pub fn lex_item(
         },
     };
     (output, err)
+}
+
+fn lex_raw_string(
+    input: &[u8],
+    curr_offset: &mut usize,
+    span_offset: usize,
+) -> Result<(), ParseError> {
+    // A raw string literal looks like `echo r#'Look, I can use 'single quotes'!'#`
+    // If the next character is `#` we're probably looking at a raw string literal
+    // so we need to read all the text until we find a closing `#`. This raw string
+    // can contain any character, including newlines and double quotes without needing
+    // to escape them.
+    //
+    // A raw string can contain many `#` as prefix,
+    // incase if there is a `'#` or `#'` in the string itself.
+    // E.g: r##'I can use '#' in a raw string'##
+    let mut prefix_sharp_cnt = 0;
+    let start = *curr_offset;
+    while let Some(b'#') = input.get(start + prefix_sharp_cnt + 1) {
+        prefix_sharp_cnt += 1;
+    }
+
+    // curr_offset is the character `r`, we need to move forward and skip all `#`
+    // characters.
+    //
+    // e.g: r###'<body>
+    //      ^
+    //      ^
+    //   curr_offset
+    *curr_offset += prefix_sharp_cnt + 1;
+    // the next one should be a single quote.
+    if input.get(*curr_offset) != Some(&b'\'') {
+        return Err(ParseError::Expected(
+            "'",
+            Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1),
+        ));
+    }
+
+    *curr_offset += 1;
+    let mut matches = false;
+    while let Some(ch) = input.get(*curr_offset) {
+        // check for postfix '###
+        if *ch == b'#' {
+            let start_ch = input[*curr_offset - prefix_sharp_cnt];
+            let postfix = &input[*curr_offset - prefix_sharp_cnt + 1..=*curr_offset];
+            if start_ch == b'\'' && postfix.iter().all(|x| *x == b'#') {
+                matches = true;
+                break;
+            }
+        }
+        *curr_offset += 1
+    }
+    if !matches {
+        return Err(ParseError::UnexpectedEof(
+            "#".to_string(),
+            Span::new(span_offset + *curr_offset, span_offset + *curr_offset),
+        ));
+    }
+    Ok(())
 }
 
 pub fn lex_signature(

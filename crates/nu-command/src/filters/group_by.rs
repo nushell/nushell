@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use nu_engine::{command_prelude::*, get_eval_block};
+use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -26,7 +26,6 @@ impl Command for GroupBy {
                 "grouper",
                 SyntaxShape::OneOf(vec![
                     SyntaxShape::CellPath,
-                    SyntaxShape::Block,
                     SyntaxShape::Closure(None),
                     SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 ]),
@@ -65,75 +64,54 @@ impl Command for GroupBy {
                 description: "Group using a block which is evaluated against each input value",
                 example: "[foo.txt bar.csv baz.txt] | group-by { path parse | get extension }",
                 result: Some(Value::test_record(record! {
-                    "txt" =>  Value::test_list(
-                            vec![
-                                Value::test_string("foo.txt"),
-                                Value::test_string("baz.txt"),
-                            ],
-                        ),
-                    "csv" => Value::test_list(
-                            vec![Value::test_string("bar.csv")],
-                        ),
+                    "txt" => Value::test_list(vec![
+                        Value::test_string("foo.txt"),
+                        Value::test_string("baz.txt"),
+                    ]),
+                    "csv" => Value::test_list(vec![Value::test_string("bar.csv")]),
                 })),
             },
             Example {
                 description: "You can also group by raw values by leaving out the argument",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by",
                 result: Some(Value::test_record(record! {
-                    "1" =>  Value::test_list(
-                            vec![
-                                Value::test_string("1"),
-                                Value::test_string("1"),
-                                Value::test_string("1"),
-                                Value::test_string("1"),
-                            ],
-                        ),
-                    "3" =>  Value::test_list(
-                            vec![Value::test_string("3"), Value::test_string("3")],
-                        ),
-                    "2" => Value::test_list(
-                            vec![Value::test_string("2")],
-                        ),
+                    "1" => Value::test_list(vec![
+                        Value::test_string("1"),
+                        Value::test_string("1"),
+                        Value::test_string("1"),
+                        Value::test_string("1"),
+                    ]),
+                    "3" => Value::test_list(vec![
+                        Value::test_string("3"),
+                        Value::test_string("3"),
+                    ]),
+                    "2" => Value::test_list(vec![Value::test_string("2")]),
                 })),
             },
             Example {
                 description: "You can also output a table instead of a record",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by --to-table",
                 result: Some(Value::test_list(vec![
-                    Value::test_record(
-                        record! {
-                            "group" => Value::test_string("1"),
-                            "items" => Value::test_list(
-                                vec![
-                                    Value::test_string("1"),
-                                    Value::test_string("1"),
-                                    Value::test_string("1"),
-                                    Value::test_string("1"),
-                                ]
-                            )
-                        }
-                    ),
-                    Value::test_record(
-                        record! {
-                            "group" => Value::test_string("3"),
-                            "items" => Value::test_list(
-                                vec![
-                                    Value::test_string("3"),
-                                    Value::test_string("3"),
-                                ]
-                            )
-                        }
-                    ),
-                    Value::test_record(
-                        record! {
-                            "group" => Value::test_string("2"),
-                            "items" => Value::test_list(
-                                vec![
-                                    Value::test_string("2"),
-                                ]
-                            )
-                        }
-                    ),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("1"),
+                        "items" => Value::test_list(vec![
+                            Value::test_string("1"),
+                            Value::test_string("1"),
+                            Value::test_string("1"),
+                            Value::test_string("1"),
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("3"),
+                        "items" => Value::test_list(vec![
+                            Value::test_string("3"),
+                            Value::test_string("3"),
+                        ]),
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("2"),
+                        "items" => Value::test_list(vec![Value::test_string("2")]),
+                    }),
                 ])),
             },
         ]
@@ -146,28 +124,23 @@ pub fn group_by(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let span = call.head;
-
+    let head = call.head;
     let grouper: Option<Value> = call.opt(engine_state, stack, 0)?;
-    let values: Vec<Value> = input.into_iter().collect();
+    let to_table = call.has_flag(engine_state, stack, "to-table")?;
 
+    let values: Vec<Value> = input.into_iter().collect();
     if values.is_empty() {
-        return Ok(PipelineData::Value(
-            Value::record(Record::new(), Span::unknown()),
-            None,
-        ));
+        return Ok(Value::record(Record::new(), head).into_pipeline_data());
     }
 
     let groups = match grouper {
-        Some(v) => {
-            let span = v.span();
-            match v {
+        Some(grouper) => {
+            let span = grouper.span();
+            match grouper {
                 Value::CellPath { val, .. } => group_cell_path(val, values)?,
-                Value::Block { .. } | Value::Closure { .. } => {
-                    let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
-                    group_closure(values, span, block, stack, engine_state)?
+                Value::Closure { val, .. } => {
+                    group_closure(values, span, *val, engine_state, stack)?
                 }
-
                 _ => {
                     return Err(ShellError::TypeMismatch {
                         err_message: "unsupported grouper type".to_string(),
@@ -179,44 +152,43 @@ pub fn group_by(
         None => group_no_grouper(values)?,
     };
 
-    let value = if call.has_flag(engine_state, stack, "to-table")? {
-        groups_to_table(groups, span)
+    let value = if to_table {
+        groups_to_table(groups, head)
     } else {
-        groups_to_record(groups, span)
+        groups_to_record(groups, head)
     };
 
-    Ok(PipelineData::Value(value, None))
+    Ok(value.into_pipeline_data())
 }
 
-pub fn group_cell_path(
+fn group_cell_path(
     column_name: CellPath,
     values: Vec<Value>,
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
-    let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
+    let mut groups = IndexMap::<_, Vec<_>>::new();
 
     for value in values.into_iter() {
-        let group_key = value
+        let key = value
             .clone()
             .follow_cell_path(&column_name.members, false)?;
-        if matches!(group_key, Value::Nothing { .. }) {
+
+        if matches!(key, Value::Nothing { .. }) {
             continue; // likely the result of a failed optional access, ignore this value
         }
 
-        let group_key = group_key.coerce_string()?;
-        let group = groups.entry(group_key).or_default();
-        group.push(value);
+        let key = key.coerce_string()?;
+        groups.entry(key).or_default().push(value);
     }
 
     Ok(groups)
 }
 
-pub fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
-    let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
+fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
+    let mut groups = IndexMap::<_, Vec<_>>::new();
 
     for value in values.into_iter() {
-        let group_key = value.coerce_string()?;
-        let group = groups.entry(group_key).or_default();
-        group.push(value);
+        let key = value.coerce_string()?;
+        groups.entry(key).or_default().push(value);
     }
 
     Ok(groups)
@@ -225,53 +197,20 @@ pub fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value
 fn group_closure(
     values: Vec<Value>,
     span: Span,
-    block: Option<Closure>,
-    stack: &mut Stack,
+    closure: Closure,
     engine_state: &EngineState,
+    stack: &mut Stack,
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
-    let error_key = "error";
-    let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
-    let eval_block = get_eval_block(engine_state);
+    let mut groups = IndexMap::<_, Vec<_>>::new();
+    let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-    if let Some(capture_block) = &block {
-        let block = engine_state.get_block(capture_block.block_id);
+    for value in values {
+        let key = closure
+            .run_with_value(value.clone())?
+            .into_value(span)
+            .coerce_into_string()?;
 
-        for value in values {
-            let mut stack = stack.captures_to_stack(capture_block.captures.clone());
-
-            let pipeline = eval_block(
-                engine_state,
-                &mut stack,
-                block,
-                value.clone().into_pipeline_data(),
-            );
-
-            let group_key = match pipeline {
-                Ok(s) => {
-                    let mut s = s.into_iter();
-
-                    let key = match s.next() {
-                        Some(Value::Error { .. }) | None => error_key.into(),
-                        Some(return_value) => return_value.coerce_into_string()?,
-                    };
-
-                    if s.next().is_some() {
-                        return Err(ShellError::GenericError {
-                            error: "expected one value from the block".into(),
-                            msg: "requires a table with one value for grouping".into(),
-                            span: Some(span),
-                            help: None,
-                            inner: vec![],
-                        });
-                    }
-
-                    key
-                }
-                Err(_) => error_key.into(),
-            };
-
-            groups.entry(group_key).or_default().push(value);
-        }
+        groups.entry(key).or_default().push(value);
     }
 
     Ok(groups)

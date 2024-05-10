@@ -1,9 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
-    values::{
-        cant_convert_err, to_pipeline_data, CustomValueSupport, PolarsPluginObject,
-        PolarsPluginType,
-    },
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -43,7 +40,7 @@ impl PluginCommand for LazyFillNull {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Fills the null values by 0",
-            example: "[1 2 2 3 3] | polars into-df | polars shift 2 | polars fill-null 0",
+            example: "[1 2 2 3 3] | polars into-df | polars shift 2 | polars fill-null 0 | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new(
@@ -98,9 +95,9 @@ fn cmd_lazy(
     lazy: NuLazyFrame,
     fill: Value,
 ) -> Result<PipelineData, ShellError> {
-    let expr = NuExpression::try_from_value(plugin, &fill)?.to_polars();
-    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().fill_null(expr));
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    let expr = NuExpression::try_from_value(plugin, &fill)?.into_polars();
+    let lazy = NuLazyFrame::new(lazy.to_polars().fill_null(expr));
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn cmd_expr(
@@ -110,9 +107,9 @@ fn cmd_expr(
     expr: NuExpression,
     fill: Value,
 ) -> Result<PipelineData, ShellError> {
-    let fill = NuExpression::try_from_value(plugin, &fill)?.to_polars();
-    let expr: NuExpression = expr.to_polars().fill_null(fill).into();
-    to_pipeline_data(plugin, engine, call.head, expr)
+    let fill = NuExpression::try_from_value(plugin, &fill)?.into_polars();
+    let expr: NuExpression = expr.into_polars().fill_null(fill).into();
+    expr.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

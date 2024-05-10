@@ -1,5 +1,5 @@
 use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-use crate::values::{to_pipeline_data, CustomValueSupport, PolarsPluginObject};
+use crate::values::{CustomValueSupport, PolarsPluginObject};
 use crate::PolarsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
@@ -151,7 +151,7 @@ pub(crate) fn explode_lazy(
         .explode(columns.iter().map(AsRef::as_ref).collect::<Vec<&str>>());
     let lazy = NuLazyFrame::from(exploded);
 
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 pub(crate) fn explode_expr(
@@ -160,9 +160,10 @@ pub(crate) fn explode_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let expr: NuExpression = expr.to_polars().explode().into();
-    to_pipeline_data(plugin, engine, call.head, expr)
+    let expr: NuExpression = expr.into_polars().explode().into();
+    expr.to_pipeline_data(plugin, engine, call.head)
 }
+
 #[cfg(test)]
 mod test {
     use super::*;

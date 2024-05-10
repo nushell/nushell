@@ -2,7 +2,7 @@
 /// All of these commands have an identical body and only require
 /// to have a change in the name, description and function
 use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
-use crate::values::{to_pipeline_data, CustomValueSupport};
+use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
@@ -46,8 +46,9 @@ macro_rules! lazy_command {
             ) -> Result<PipelineData, LabeledError> {
                 let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
-                let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().$func());
-                to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
+                let lazy = NuLazyFrame::new(lazy.to_polars().$func());
+                lazy.to_pipeline_data(plugin, engine, call.head)
+                    .map_err(LabeledError::from)
             }
         }
 
@@ -92,7 +93,8 @@ macro_rules! lazy_command {
                 let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
                 let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func($ddot));
-                to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
+                lazy.to_pipeline_data(plugin, engine, call.head)
+                    .map_err(LabeledError::from)
             }
         }
 
@@ -160,7 +162,8 @@ macro_rules! lazy_command {
                         .map_err(LabeledError::from)?,
                 );
 
-                to_pipeline_data(plugin, engine, call.head, lazy).map_err(LabeledError::from)
+                lazy.to_pipeline_data(plugin, engine, call.head)
+                    .map_err(LabeledError::from)
             }
         }
 

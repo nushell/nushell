@@ -13,7 +13,7 @@ impl Command for Complete {
     fn signature(&self) -> Signature {
         Signature::build("complete")
             .category(Category::System)
-            .input_output_types(vec![(Type::Any, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Any, Type::record())])
     }
 
     fn usage(&self) -> &str {
@@ -62,7 +62,7 @@ impl Command for Complete {
                                 }
                             })
                             .map(|handle| (handle, stderr_span))
-                            .map_err(|err| err.into_spanned(call.head))
+                            .err_span(call.head)
                     })
                     .transpose()?;
 
@@ -88,7 +88,7 @@ impl Command for Complete {
                 };
 
                 if let Some(exit_code) = exit_code {
-                    let mut v: Vec<_> = exit_code.collect();
+                    let mut v: Vec<_> = exit_code.into_iter().collect();
 
                     if let Some(v) = v.pop() {
                         record.push("exit_code", v);

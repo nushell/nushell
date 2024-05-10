@@ -250,8 +250,7 @@ impl LanguageServer {
     ) -> Option<(&Rope, &PathBuf, StateWorkingSet<'a>)> {
         let (file, path) = self.rope(file_url)?;
 
-        // TODO: AsPath thingy
-        engine_state.start_in_file(Some(&path.to_string_lossy()));
+        engine_state.file = Some(path.to_owned());
 
         let working_set = StateWorkingSet::new(engine_state);
 
@@ -366,7 +365,7 @@ impl LanguageServer {
                 }
 
                 // Usage
-                description.push_str("### Usage \n```\n");
+                description.push_str("### Usage \n```nu\n");
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
@@ -473,7 +472,7 @@ impl LanguageServer {
                 // Input/output types
                 if !signature.input_output_types.is_empty() {
                     description.push_str("\n### Input/output types\n");
-                    description.push_str("\n```\n");
+                    description.push_str("\n```nu\n");
                     for input_output in &signature.input_output_types {
                         description
                             .push_str(&format!(" {} | {}\n", input_output.0, input_output.1));
@@ -486,7 +485,7 @@ impl LanguageServer {
                     description.push_str("### Example(s)\n");
                     for example in decl.examples() {
                         description.push_str(&format!(
-                            "  {}\n```\n  {}\n```\n",
+                            "  {}\n```nu\n  {}\n```\n",
                             example.description, example.example
                         ));
                     }
@@ -553,8 +552,8 @@ impl LanguageServer {
             &params.text_document_position.text_document.uri,
         )?;
 
-        let stack = Stack::new();
-        let mut completer = NuCompleter::new(Arc::new(engine_state.clone()), stack);
+        let mut completer =
+            NuCompleter::new(Arc::new(engine_state.clone()), Arc::new(Stack::new()));
 
         let location =
             Self::lsp_position_to_location(&params.text_document_position.position, rope_of_file);
@@ -1004,7 +1003,7 @@ mod tests {
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "Renders some greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                    "value": "Renders some greeting message\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -1034,7 +1033,7 @@ mod tests {
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n### Usage \n```\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```\n  ['nu', 'shell'] | str join '-'\n```\n"
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );

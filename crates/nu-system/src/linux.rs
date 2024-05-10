@@ -106,7 +106,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
         let curr_stat = curr_proc.stat().ok();
         let curr_status = curr_proc.status().ok();
         let curr_time = Instant::now();
-        let interval = curr_time - prev_time;
+        let interval = curr_time.saturating_duration_since(prev_time);
         let ppid = curr_proc.stat().map(|p| p.ppid).unwrap_or_default();
         let curr_proc = ProcessTask::Process(curr_proc);
 
@@ -203,7 +203,8 @@ impl ProcessInfo {
                 let curr_time = cs.utime + cs.stime;
                 let prev_time = ps.utime + ps.stime;
 
-                let usage_ms = (curr_time - prev_time) * 1000 / procfs::ticks_per_second();
+                let usage_ms =
+                    curr_time.saturating_sub(prev_time) * 1000 / procfs::ticks_per_second();
                 let interval_ms =
                     self.interval.as_secs() * 1000 + u64::from(self.interval.subsec_millis());
                 usage_ms as f64 * 100.0 / interval_ms as f64

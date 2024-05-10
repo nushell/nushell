@@ -223,7 +223,7 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::Date { val, .. } => {
                 write!(f, "Date({:?})", val)
             }
-            Value::Range { val, .. } => match val {
+            Value::Range { val, .. } => match **val {
                 Range::IntRange(range) => match range.end() {
                     Bound::Included(end) => write!(
                         f,
@@ -288,9 +288,6 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
                 }
                 write!(f, "]")
             }
-            Value::Block { val, .. } => {
-                write!(f, "Block({:?})", val)
-            }
             Value::Closure { val, .. } => {
                 write!(f, "Closure({:?})", val)
             }
@@ -308,10 +305,6 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             }
             Value::Custom { val, .. } => {
                 write!(f, "CustomValue({:?})", val)
-            }
-            Value::LazyRecord { val, .. } => {
-                let rec = val.collect().map_err(|_| std::fmt::Error)?;
-                write!(f, "LazyRecord({:?})", DebuggableValue(&rec))
             }
         }
     }

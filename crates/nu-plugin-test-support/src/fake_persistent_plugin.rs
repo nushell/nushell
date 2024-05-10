@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use nu_plugin::{GetPlugin, PluginInterface};
+use nu_plugin_engine::{GetPlugin, PluginInterface};
 use nu_protocol::{
     engine::{EngineState, Stack},
     PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
@@ -47,6 +47,11 @@ impl RegisteredPlugin for FakePersistentPlugin {
     }
 
     fn stop(&self) -> Result<(), ShellError> {
+        // We can't stop
+        Ok(())
+    }
+
+    fn reset(&self) -> Result<(), ShellError> {
         // We can't stop
         Ok(())
     }

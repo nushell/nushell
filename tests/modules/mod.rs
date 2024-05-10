@@ -7,7 +7,7 @@ use pretty_assertions::assert_eq;
 fn module_private_import_decl() {
     Playground::setup("module_private_import_decl", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     use spam.nu foo-helper
@@ -15,7 +15,7 @@ fn module_private_import_decl() {
                     export def foo [] { foo-helper }
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
                     def get-foo [] { "foo" }
@@ -35,7 +35,7 @@ fn module_private_import_decl() {
 fn module_private_import_alias() {
     Playground::setup("module_private_import_alias", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     use spam.nu foo-helper
@@ -43,7 +43,7 @@ fn module_private_import_alias() {
                     export def foo [] { foo-helper }
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
                     export alias foo-helper = echo "foo"
@@ -62,13 +62,13 @@ fn module_private_import_alias() {
 fn module_private_import_decl_not_public() {
     Playground::setup("module_private_import_decl_not_public", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     use spam.nu foo-helper
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
                     def get-foo [] { "foo" }
@@ -88,13 +88,13 @@ fn module_private_import_decl_not_public() {
 fn module_public_import_decl() {
     Playground::setup("module_public_import_decl", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     export use spam.nu foo
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
                     def foo-helper [] { "foo" }
@@ -114,13 +114,13 @@ fn module_public_import_decl() {
 fn module_public_import_alias() {
     Playground::setup("module_public_import_alias", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     export use spam.nu foo
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
                     export alias foo = echo "foo"
@@ -139,25 +139,25 @@ fn module_public_import_alias() {
 fn module_nested_imports() {
     Playground::setup("module_nested_imports", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     export use spam.nu [ foo bar ]
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 "
                     export use spam2.nu [ foo bar ]
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam2.nu",
                 "
                     export use spam3.nu [ foo bar ]
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam3.nu",
                 r#"
                     export def foo [] { "foo" }
@@ -183,25 +183,25 @@ fn module_nested_imports_in_dirs() {
             .mkdir("spam")
             .mkdir("spam/spam2")
             .mkdir("spam/spam3")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     export use spam/spam.nu [ foo bar ]
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam/spam.nu",
                 "
                     export use spam2/spam2.nu [ foo bar ]
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam/spam2/spam2.nu",
                 "
                     export use ../spam3/spam3.nu [ foo bar ]
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam/spam3/spam3.nu",
                 r#"
                     export def foo [] { "foo" }
@@ -224,13 +224,13 @@ fn module_nested_imports_in_dirs() {
 fn module_public_import_decl_prefixed() {
     Playground::setup("module_public_import_decl", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     export use spam.nu
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
                     def foo-helper [] { "foo" }
@@ -253,26 +253,26 @@ fn module_nested_imports_in_dirs_prefixed() {
             .mkdir("spam")
             .mkdir("spam/spam2")
             .mkdir("spam/spam3")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 r#"
                     export use spam/spam.nu [ "spam2 foo" "spam2 spam3 bar" ]
                 "#,
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam/spam.nu",
                 "
                     export use spam2/spam2.nu
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam/spam2/spam2.nu",
                 "
                     export use ../spam3/spam3.nu
                     export use ../spam3/spam3.nu foo
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam/spam3/spam3.nu",
                 r#"
                     export def foo [] { "foo" }
@@ -295,7 +295,7 @@ fn module_nested_imports_in_dirs_prefixed() {
 fn module_import_env_1() {
     Playground::setup("module_import_env_1", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     export-env { source-env spam.nu }
@@ -303,7 +303,7 @@ fn module_import_env_1() {
                     export def foo [] { $env.FOO_HELPER }
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
                     export-env { $env.FOO_HELPER = "foo" }
@@ -322,13 +322,13 @@ fn module_import_env_1() {
 fn module_import_env_2() {
     Playground::setup("module_import_env_2", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     export-env { source-env spam.nu }
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 r#"
                     export-env { $env.FOO = "foo" }
@@ -346,7 +346,7 @@ fn module_import_env_2() {
 #[test]
 fn module_cyclical_imports_0() {
     Playground::setup("module_cyclical_imports_0", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             "
                     use eggs.nu
@@ -364,7 +364,7 @@ fn module_cyclical_imports_0() {
 #[test]
 fn module_cyclical_imports_1() {
     Playground::setup("module_cyclical_imports_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             "
                     use spam.nu
@@ -383,13 +383,13 @@ fn module_cyclical_imports_1() {
 fn module_cyclical_imports_2() {
     Playground::setup("module_cyclical_imports_2", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 "
                     use eggs.nu
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "eggs.nu",
                 "
                     use spam.nu
@@ -408,19 +408,19 @@ fn module_cyclical_imports_2() {
 fn module_cyclical_imports_3() {
     Playground::setup("module_cyclical_imports_3", |dirs, sandbox| {
         sandbox
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "spam.nu",
                 "
                     use eggs.nu
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "eggs.nu",
                 "
                     use bacon.nu
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "bacon.nu",
                 "
                     use spam.nu
@@ -438,7 +438,7 @@ fn module_cyclical_imports_3() {
 #[test]
 fn module_import_const_file() {
     Playground::setup("module_import_const_file", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
                 export def foo [] { "foo" }
@@ -456,7 +456,7 @@ fn module_import_const_file() {
 #[test]
 fn module_import_const_module_name() {
     Playground::setup("module_import_const_file", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
                 export def foo [] { "foo" }

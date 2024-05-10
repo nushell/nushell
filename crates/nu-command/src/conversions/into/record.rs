@@ -13,11 +13,11 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("into record")
             .input_output_types(vec![
-                (Type::Date, Type::Record(vec![])),
-                (Type::Duration, Type::Record(vec![])),
-                (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
-                (Type::Range, Type::Record(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::Date, Type::record()),
+                (Type::Duration, Type::record()),
+                (Type::List(Box::new(Type::Any)), Type::record()),
+                (Type::Range, Type::record()),
+                (Type::record(), Type::record()),
             ])
             .category(Category::Conversions)
     }
@@ -131,7 +131,7 @@ fn into_record(
                 .collect(),
             span,
         ),
-        Value::Record { val, .. } => Value::record(*val, span),
+        Value::Record { .. } => input,
         Value::Error { .. } => input,
         other => Value::error(
             ShellError::TypeMismatch {

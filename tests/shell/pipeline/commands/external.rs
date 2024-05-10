@@ -133,26 +133,27 @@ fn command_not_found_error_shows_not_found_1() {
 #[test]
 fn command_substitution_wont_output_extra_newline() {
     let actual = nu!(r#"
-        with-env [FOO "bar"] { echo $"prefix (nu --testbin echo_env FOO) suffix" }
+        with-env { FOO: "bar" } { echo $"prefix (nu --testbin echo_env FOO) suffix" }
         "#);
     assert_eq!(actual.out, "prefix bar suffix");
 
     let actual = nu!(r#"
-        with-env [FOO "bar"] { (nu --testbin echo_env FOO) }
+        with-env { FOO: "bar" } { (nu --testbin echo_env FOO) }
         "#);
     assert_eq!(actual.out, "bar");
 }
 
 #[test]
 fn basic_err_pipe_works() {
-    let actual = nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr FOO e>| str length }"#);
+    let actual =
+        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr FOO e>| str length }"#);
     assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn basic_outerr_pipe_works() {
     let actual = nu!(
-        r#"with-env [FOO "bar"] { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
+        r#"with-env { FOO: "bar" } { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
     );
     assert_eq!(actual.out, "7");
 }
@@ -160,14 +161,14 @@ fn basic_outerr_pipe_works() {
 #[test]
 fn err_pipe_with_failed_external_works() {
     let actual =
-        nu!(r#"with-env [FOO "bar"] { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
+        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
     assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn dont_run_glob_if_pass_variable_to_external() {
     Playground::setup("dont_run_glob", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("jt_likes_cake.txt"),
             EmptyFile("andres_likes_arepas.txt"),
         ]);
@@ -181,7 +182,7 @@ fn dont_run_glob_if_pass_variable_to_external() {
 #[test]
 fn run_glob_if_pass_variable_to_external() {
     Playground::setup("run_glob_on_external", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("jt_likes_cake.txt"),
             EmptyFile("andres_likes_arepas.txt"),
         ]);
@@ -201,7 +202,7 @@ mod it_evaluation {
     #[test]
     fn takes_rows_of_nu_value_strings() {
         Playground::setup("it_argument_test_1", |dirs, sandbox| {
-            sandbox.with_files(vec![
+            sandbox.with_files(&[
                 EmptyFile("jt_likes_cake.txt"),
                 EmptyFile("andres_likes_arepas.txt"),
             ]);
@@ -224,7 +225,7 @@ mod it_evaluation {
     #[test]
     fn takes_rows_of_nu_value_lines() {
         Playground::setup("it_argument_test_2", |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
                 "nu_candies.txt",
                 "
                     AndrásWithKitKatzz
@@ -257,7 +258,7 @@ mod it_evaluation {
     #[test]
     fn supports_fetching_given_a_column_path_to_it() {
         Playground::setup("it_argument_test_3", |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContent(
+            sandbox.with_files(&[FileWithContent(
                 "sample.toml",
                 r#"
                     nu_party_venue = "zion"
@@ -285,7 +286,7 @@ mod stdin_evaluation {
     fn does_not_panic_with_no_newline_in_stream() {
         let actual = nu!(pipeline(
             r#"
-                nu --testbin nonu "wheres the nuline?" | length
+                nu --testbin nonu "where's the nuline?" | length
             "#
         ));
 
@@ -313,6 +314,7 @@ mod external_words {
     use super::nu;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::{pipeline, playground::Playground};
+
     #[test]
     fn relaxed_external_words() {
         let actual = nu!("
@@ -320,6 +322,12 @@ mod external_words {
         ");
 
         assert_eq!(actual.out, "joturner@foo.bar.baz");
+    }
+
+    #[test]
+    fn raw_string_as_external_argument() {
+        let actual = nu!("nu --testbin cococo r#'asdf'#");
+        assert_eq!(actual.out, "asdf");
     }
 
     //FIXME: jt: limitation in testing - can't use single ticks currently
@@ -348,7 +356,7 @@ mod external_words {
     #[case("$ sign.toml", r#""$ sign.toml""#)]
     fn external_arg_with_special_characters(#[case] path: &str, #[case] nu_path_argument: &str) {
         Playground::setup("external_arg_with_quotes", |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContent(
+            sandbox.with_files(&[FileWithContent(
                 path,
                 r#"
                     nu_party_venue = "zion"
@@ -478,7 +486,7 @@ mod external_command_arguments {
         Playground::setup(
             "expands_table_of_primitives_to_positional_arguments",
             |dirs, sandbox| {
-                sandbox.with_files(vec![
+                sandbox.with_files(&[
                     EmptyFile("jt_likes_cake.txt"),
                     EmptyFile("andres_likes_arepas.txt"),
                     EmptyFile("ferris_not_here.txt"),
@@ -504,7 +512,7 @@ mod external_command_arguments {
         Playground::setup(
             "expands_table_of_primitives_to_positional_arguments",
             |dirs, sandbox| {
-                sandbox.with_files(vec![
+                sandbox.with_files(&[
                     EmptyFile("jt_likes_cake.txt"),
                     EmptyFile("andres_likes_arepas.txt"),
                     EmptyFile("ferris_not_here.txt"),
@@ -530,7 +538,7 @@ mod external_command_arguments {
             |dirs, sandbox| {
                 sandbox.mkdir("cd");
 
-                sandbox.with_files(vec![EmptyFile("cd/jt_likes_cake.txt")]);
+                sandbox.with_files(&[EmptyFile("cd/jt_likes_cake.txt")]);
 
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(

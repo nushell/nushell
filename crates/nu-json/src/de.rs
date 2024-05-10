@@ -260,8 +260,8 @@ where
                     }
                     _ => {
                         if chf == b'-' || chf.is_ascii_digit() {
-                            let mut pn = ParseNumber::new(self.str_buf.iter().copied());
-                            match pn.parse(false) {
+                            let mut parser = ParseNumber::new(self.str_buf.iter().copied());
+                            match parser.parse(false) {
                                 Ok(Number::F64(v)) => {
                                     self.rdr.uneat_char(ch);
                                     return visitor.visit_f64(v);

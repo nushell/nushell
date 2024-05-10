@@ -34,6 +34,15 @@ fn source_const_file() {
 }
 
 #[test]
+fn source_circular() {
+    let actual = nu!(cwd: "tests/parsing/samples", "
+        nu source_circular_1.nu
+        ");
+
+    assert!(actual.err.contains("nu::parser::circular_import"));
+}
+
+#[test]
 fn run_nu_script_single_line() {
     let actual = nu!(cwd: "tests/parsing/samples", "
         nu single_line.nu
@@ -84,7 +93,7 @@ fn parse_file_relative_to_parsed_file_simple() {
         sandbox
             .mkdir("lol")
             .mkdir("lol/lol")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol/lol.nu",
                 "
                     use ../lol_shell.nu
@@ -92,7 +101,7 @@ fn parse_file_relative_to_parsed_file_simple() {
                     $env.LOL = (lol_shell ls)
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol_shell.nu",
                 r#"
                     export def ls [] { "lol" }
@@ -114,7 +123,7 @@ fn parse_file_relative_to_parsed_file_simple() {
 #[test]
 fn predecl_signature_single_inp_out_type() {
     Playground::setup("predecl_signature_single_inp_out_type", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam1.nu",
             "
                 def main [] { foo }
@@ -134,7 +143,7 @@ fn predecl_signature_multiple_inp_out_types() {
     Playground::setup(
         "predecl_signature_multiple_inp_out_types",
         |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
                 "spam2.nu",
                 "
                 def main [] { foo }
@@ -157,7 +166,7 @@ fn parse_file_relative_to_parsed_file() {
         sandbox
             .mkdir("lol")
             .mkdir("lol/lol")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol/lol.nu",
                 "
                     source-env ../../foo.nu
@@ -167,13 +176,13 @@ fn parse_file_relative_to_parsed_file() {
                     $env.LOL = $'($env.FOO) (lol_shell ls) (ls)'
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol_shell.nu",
                 r#"
                     export def ls [] { "lol" }
                 "#,
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "foo.nu",
                 "
                     $env.FOO = 'foo'
@@ -197,19 +206,19 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_1() {
     Playground::setup("relative_files", |dirs, sandbox| {
         sandbox
             .mkdir("lol")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 "
                     source-env foo.nu
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/foo.nu",
                 "
                     $env.FOO = 'good'
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "foo.nu",
                 "
                     $env.FOO = 'bad'
@@ -233,13 +242,13 @@ fn parse_file_relative_to_parsed_file_dont_use_cwd_2() {
     Playground::setup("relative_files", |dirs, sandbox| {
         sandbox
             .mkdir("lol")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 "
                     source-env foo.nu
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "foo.nu",
                 "
                     $env.FOO = 'bad'

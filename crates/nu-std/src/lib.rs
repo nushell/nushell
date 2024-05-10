@@ -1,9 +1,9 @@
 use log::trace;
-use nu_engine::{env::current_dir, eval_block};
+use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     debugger::WithoutDebug,
-    engine::{Stack, StateWorkingSet, VirtualPath},
+    engine::{FileStack, Stack, StateWorkingSet, VirtualPath},
     report_error, PipelineData,
 };
 use std::path::PathBuf;
@@ -50,10 +50,9 @@ pub fn load_standard_library(
         }
 
         let std_dir = std_dir.to_string_lossy().to_string();
-        let source = format!(
-            r#"
+        let source = r#"
 # Define the `std` module
-module {std_dir}
+module std
 
 # Prelude
 use std dirs [
@@ -65,14 +64,14 @@ use std dirs [
     dexit
 ]
 use std pwd
-"#
-        );
+"#;
 
         let _ = working_set.add_virtual_path(std_dir, VirtualPath::Dir(std_virt_paths));
 
-        // Change the currently parsed directory
-        let prev_currently_parsed_cwd = working_set.currently_parsed_cwd.clone();
-        working_set.currently_parsed_cwd = Some(PathBuf::from(NU_STDLIB_VIRTUAL_DIR));
+        // Add a placeholder file to the stack of files being evaluated.
+        // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.
+        let placeholder = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("loading stdlib");
+        working_set.files = FileStack::with_file(placeholder);
 
         let block = parse(
             &mut working_set,
@@ -81,12 +80,12 @@ use std pwd
             false,
         );
 
+        // Remove the placeholder file from the stack of files being evaluated.
+        working_set.files.pop();
+
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
         }
-
-        // Restore the currently parsed directory back
-        working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
 
         (block, working_set.render())
     };
@@ -99,7 +98,7 @@ use std pwd
 
     eval_block::<WithoutDebug>(engine_state, &mut stack, &block, pipeline_data)?;
 
-    let cwd = current_dir(engine_state, &stack)?;
+    let cwd = engine_state.cwd(Some(&stack))?;
     engine_state.merge_env(&mut stack, cwd)?;
 
     Ok(())

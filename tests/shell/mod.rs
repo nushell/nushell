@@ -65,7 +65,7 @@ fn nu_lib_dirs_repl() {
     Playground::setup("nu_lib_dirs_repl", |dirs, sandbox| {
         sandbox
             .mkdir("scripts")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
                     $env.FOO = "foo"
@@ -90,13 +90,13 @@ fn nu_lib_dirs_script() {
     Playground::setup("nu_lib_dirs_script", |dirs, sandbox| {
         sandbox
             .mkdir("scripts")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
                     $env.FOO = "foo"
                 "#,
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     source-env foo.nu
@@ -121,7 +121,7 @@ fn nu_lib_dirs_relative_repl() {
     Playground::setup("nu_lib_dirs_relative_repl", |dirs, sandbox| {
         sandbox
             .mkdir("scripts")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
                     $env.FOO = "foo"
@@ -147,13 +147,13 @@ fn const_nu_lib_dirs_relative() {
     Playground::setup("const_nu_lib_dirs_relative", |dirs, sandbox| {
         sandbox
             .mkdir("scripts")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
                     $env.FOO = "foo"
                 "#,
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
                     const NU_LIB_DIRS = [ 'scripts' ]
@@ -174,13 +174,13 @@ fn nu_lib_dirs_relative_script() {
     Playground::setup("nu_lib_dirs_relative_script", |dirs, sandbox| {
         sandbox
             .mkdir("scripts")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "scripts/main.nu",
                 "
                     source-env ../foo.nu
                 ",
             )])
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
                     $env.FOO = "foo"
@@ -288,7 +288,7 @@ fn run_with_no_newline() {
 fn main_script_can_have_subcommands1() {
     Playground::setup("main_subcommands", |dirs, sandbox| {
         sandbox.mkdir("main_subcommands");
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "script.nu",
             r#"def "main foo" [x: int] {
                     print ($x + 100)
@@ -309,7 +309,7 @@ fn main_script_can_have_subcommands1() {
 fn main_script_can_have_subcommands2() {
     Playground::setup("main_subcommands", |dirs, sandbox| {
         sandbox.mkdir("main_subcommands");
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "script.nu",
             r#"def "main foo" [x: int] {
                     print ($x + 100)
@@ -330,7 +330,7 @@ fn main_script_can_have_subcommands2() {
 fn source_empty_file() {
     Playground::setup("source_empty_file", |dirs, sandbox| {
         sandbox.mkdir("source_empty_file");
-        sandbox.with_files(vec![FileWithContent("empty.nu", "")]);
+        sandbox.with_files(&[FileWithContent("empty.nu", "")]);
 
         let actual = nu!(cwd: dirs.test(), pipeline("nu empty.nu"));
         assert!(actual.out.is_empty());

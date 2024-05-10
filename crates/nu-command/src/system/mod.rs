@@ -30,6 +30,6 @@ pub use ps::Ps;
 #[cfg(windows)]
 pub use registry_query::RegistryQuery;
 pub use run_external::{External, ExternalCommand};
-pub use sys::Sys;
+pub use sys::*;
 pub use uname::UName;
 pub use which_::Which;

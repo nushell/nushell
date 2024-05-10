@@ -9,25 +9,16 @@ use nu_protocol::{
 };
 use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
-use std::{
-    path::{Path, MAIN_SEPARATOR as SEP},
-    sync::Arc,
-};
+use std::path::{Path, MAIN_SEPARATOR as SEP};
 
 use super::SemanticSuggestion;
 
-#[derive(Clone)]
-pub struct FileCompletion {
-    engine_state: Arc<EngineState>,
-    stack: Stack,
-}
+#[derive(Clone, Default)]
+pub struct FileCompletion {}
 
 impl FileCompletion {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
-        Self {
-            engine_state,
-            stack,
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
@@ -35,10 +26,11 @@ impl Completer for FileCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
-        _: usize,
+        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let AdjustView {
@@ -47,14 +39,15 @@ impl Completer for FileCompletion {
             readjusted,
         } = adjust_if_intermediate(&prefix, working_set, span);
 
+        #[allow(deprecated)]
         let output: Vec<_> = complete_item(
             readjusted,
             span,
             &prefix,
-            &self.engine_state.current_work_dir(),
+            &working_set.permanent_state.current_work_dir(),
             options,
-            self.engine_state.as_ref(),
-            &self.stack,
+            working_set.permanent_state,
+            stack,
         )
         .into_iter()
         .map(move |x| SemanticSuggestion {

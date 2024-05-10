@@ -1,7 +1,4 @@
-use crate::{
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::{Column, NuDataFrame};
 
@@ -275,9 +272,9 @@ fn command(
         inner: vec![],
     })?;
 
-    let df = NuDataFrame::new(df.from_lazy, polars_df);
+    let df = NuDataFrame::new(polars_df);
 
-    to_pipeline_data(plugin, engine, call.head, df)
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

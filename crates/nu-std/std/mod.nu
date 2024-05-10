@@ -22,7 +22,7 @@ use dt.nu [datetime-diff, pretty-print-duration]
 # # Example
 # - adding some dummy paths to an empty PATH
 # ```nushell
-# >_ with-env [PATH []] {
+# >_ with-env { PATH: [] } {
 #     std path add "foo"
 #     std path add "bar" "baz"
 #     std path add "fooo" --append
@@ -196,8 +196,14 @@ export def ellie [] {
 }
 
 # Return the current working directory
-export def pwd [] {
-    $env.PWD
+export def pwd [
+    --physical (-P) # resolve symbolic links
+] {
+    if $physical {
+        $env.PWD | path expand
+    } else {
+        $env.PWD
+    }
 }
 
 # repeat anything a bunch of times, yielding a list of *n* times the input

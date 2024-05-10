@@ -8,7 +8,10 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
-use polars::prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series};
+use polars::{
+    chunked_array::ops::SortMultipleOptions,
+    prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series},
+};
 use polars_plan::prelude::{lit, Expr, Null};
 use polars_utils::total_ord::{TotalEq, TotalHash};
 use std::{
@@ -101,7 +104,6 @@ impl PolarsObject for DataFrameValue {
 pub struct NuDataFrame {
     pub id: Uuid,
     pub df: Arc<DataFrame>,
-    pub from_lazy: bool,
 }
 
 impl AsRef<DataFrame> for NuDataFrame {
@@ -112,17 +114,16 @@ impl AsRef<DataFrame> for NuDataFrame {
 
 impl From<DataFrame> for NuDataFrame {
     fn from(df: DataFrame) -> Self {
-        Self::new(false, df)
+        Self::new(df)
     }
 }
 
 impl NuDataFrame {
-    pub fn new(from_lazy: bool, df: DataFrame) -> Self {
+    pub fn new(df: DataFrame) -> Self {
         let id = Uuid::new_v4();
         Self {
             id,
             df: Arc::new(df),
-            from_lazy,
         }
     }
 
@@ -131,12 +132,12 @@ impl NuDataFrame {
     }
 
     pub fn lazy(&self) -> NuLazyFrame {
-        NuLazyFrame::new(true, self.to_polars().lazy())
+        NuLazyFrame::new(self.to_polars().lazy())
     }
 
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
         match DataFrame::new(vec![series]) {
-            Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
+            Ok(dataframe) => Ok(NuDataFrame::new(dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
                 msg: e.to_string(),
@@ -174,9 +175,11 @@ impl NuDataFrame {
 
                     conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
-                Value::Record { val: record, .. } => {
-                    conversion::insert_record(&mut column_values, *record, &maybe_schema)?
-                }
+                Value::Record { val: record, .. } => conversion::insert_record(
+                    &mut column_values,
+                    record.into_owned(),
+                    &maybe_schema,
+                )?,
                 _ => {
                     let key = "0".to_string();
                     conversion::insert_value(value, key, &mut column_values, &maybe_schema)?
@@ -197,7 +200,7 @@ impl NuDataFrame {
             inner: vec![],
         })?;
 
-        Ok(Self::new(false, dataframe))
+        Ok(Self::new(dataframe))
     }
 
     pub fn try_from_columns(
@@ -271,7 +274,7 @@ impl NuDataFrame {
             inner: vec![],
         })?;
 
-        Ok(Self::new(false, df))
+        Ok(Self::new(df))
     }
 
     pub fn is_series(&self) -> bool {
@@ -434,12 +437,18 @@ impl NuDataFrame {
             .expect("already checked that dataframe is different than 0");
 
         // if unable to sort, then unable to compare
-        let lhs = match self.as_ref().sort(vec![*first_col], false, false) {
+        let lhs = match self
+            .as_ref()
+            .sort(vec![*first_col], SortMultipleOptions::default())
+        {
             Ok(df) => df,
             Err(_) => return None,
         };
 
-        let rhs = match other.as_ref().sort(vec![*first_col], false, false) {
+        let rhs = match other
+            .as_ref()
+            .sort(vec![*first_col], SortMultipleOptions::default())
+        {
             Ok(df) => df,
             Err(_) => return None,
         };

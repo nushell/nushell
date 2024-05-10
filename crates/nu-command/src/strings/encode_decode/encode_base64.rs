@@ -28,8 +28,8 @@ impl Command for EncodeBase64 {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .named(
@@ -65,7 +65,7 @@ impl Command for EncodeBase64 {
             Example {
                 description: "Encode a string with the binhex character set",
                 example: "'Some Data' | encode base64 --character-set binhex",
-                result: Some(Value::test_string(r#"7epXB5"%A@4J"#)),
+                result: Some(Value::test_string(r#"8fpYC5"%BA4K"#)),
             },
         ]
     }

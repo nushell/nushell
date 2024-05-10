@@ -36,8 +36,8 @@ impl ReconstructVal for CompletionAlgorithm {
 }
 
 pub(super) fn reconstruct_external_completer(config: &Config, span: Span) -> Value {
-    if let Some(block) = config.external_completer {
-        Value::block(block, span)
+    if let Some(closure) = config.external_completer.as_ref() {
+        Value::closure(closure.clone(), span)
     } else {
         Value::nothing(span)
     }

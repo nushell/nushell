@@ -3,7 +3,7 @@ use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, ListStream};
+use nu_protocol::Config;
 use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
@@ -416,9 +416,9 @@ fn find_with_rest_and_highlight(
                 },
                 ctrlc,
             ),
-        PipelineData::ListStream(stream, metadata) => Ok(ListStream::from_stream(
-            stream
-                .map(move |mut x| {
+        PipelineData::ListStream(stream, metadata) => {
+            let stream = stream.modify(|iter| {
+                iter.map(move |mut x| {
                     let span = x.span();
                     match &mut x {
                         Value::Record { val, .. } => highlight_terms_in_record_with_search_columns(
@@ -442,10 +442,11 @@ fn find_with_rest_and_highlight(
                         &cols_to_search_in_filter,
                         invert,
                     )
-                }),
-            ctrlc.clone(),
-        )
-        .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                })
+            });
+
+            Ok(PipelineData::ListStream(stream, metadata))
+        }
         PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
         PipelineData::ExternalStream {
             stdout: Some(stream),
@@ -496,7 +497,7 @@ fn find_with_rest_and_highlight(
                     Err(e) => return Err(e),
                 };
             }
-            Ok(output.into_pipeline_data(ctrlc))
+            Ok(output.into_pipeline_data(span, ctrlc))
         }
     }
 }
@@ -522,7 +523,6 @@ fn value_should_be_printed(
         | Value::Date { .. }
         | Value::Range { .. }
         | Value::Float { .. }
-        | Value::Block { .. }
         | Value::Closure { .. }
         | Value::Nothing { .. }
         | Value::Error { .. } => term_equals_value(term, &lower_value, span),
@@ -534,15 +534,6 @@ fn value_should_be_printed(
         Value::Record { val, .. } => {
             record_matches_term(val, columns_to_search, filter_config, term, span)
         }
-        Value::LazyRecord { val, .. } => match val.collect() {
-            Ok(val) => match val {
-                Value::Record { val, .. } => {
-                    record_matches_term(&val, columns_to_search, filter_config, term, span)
-                }
-                _ => false,
-            },
-            Err(_) => false,
-        },
         Value::Binary { .. } => false,
     });
     if invert {

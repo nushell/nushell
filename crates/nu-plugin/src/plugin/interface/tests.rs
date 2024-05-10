@@ -1,435 +1,706 @@
-use super::{
-    stream::{StreamManager, StreamManagerHandle},
-    test_util::TestCase,
-    Interface, InterfaceManager, PluginRead, PluginWrite,
-};
-use crate::{
-    protocol::{
-        ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, PluginInput, PluginOutput,
-        RawStreamInfo, StreamData, StreamMessage,
-    },
-    sequence::Sequence,
+use crate::test_util::TestCaseExt;
+
+use super::{EngineInterfaceManager, ReceivedPluginCall};
+use nu_plugin_core::{interface_test_util::TestCase, Interface, InterfaceManager};
+use nu_plugin_protocol::{
+    test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue},
+    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall,
+    ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallResponse,
+    PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, RawStreamInfo,
+    StreamData,
 };
 use nu_protocol::{
-    DataSource, ListStream, PipelineData, PipelineMetadata, RawStream, ShellError, Span, Value,
+    engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
+    PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
 };
-use std::{path::Path, sync::Arc};
-
-fn test_metadata() -> PipelineMetadata {
-    PipelineMetadata {
-        data_source: DataSource::FilePath("/test/path".into()),
-    }
-}
-
-#[derive(Debug)]
-struct TestInterfaceManager {
-    stream_manager: StreamManager,
-    test: TestCase<PluginInput, PluginOutput>,
-    seq: Arc<Sequence>,
-}
-
-#[derive(Debug, Clone)]
-struct TestInterface {
-    stream_manager_handle: StreamManagerHandle,
-    test: TestCase<PluginInput, PluginOutput>,
-    seq: Arc<Sequence>,
-}
-
-impl TestInterfaceManager {
-    fn new(test: &TestCase<PluginInput, PluginOutput>) -> TestInterfaceManager {
-        TestInterfaceManager {
-            stream_manager: StreamManager::new(),
-            test: test.clone(),
-            seq: Arc::new(Sequence::default()),
-        }
-    }
-
-    fn consume_all(&mut self) -> Result<(), ShellError> {
-        while let Some(msg) = self.test.read()? {
-            self.consume(msg)?;
-        }
-        Ok(())
-    }
-}
-
-impl InterfaceManager for TestInterfaceManager {
-    type Interface = TestInterface;
-    type Input = PluginInput;
-
-    fn get_interface(&self) -> Self::Interface {
-        TestInterface {
-            stream_manager_handle: self.stream_manager.get_handle(),
-            test: self.test.clone(),
-            seq: self.seq.clone(),
-        }
-    }
-
-    fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
-        match input {
-            PluginInput::Stream(msg) => self.consume_stream_message(msg),
-            _ => unimplemented!(),
-        }
-    }
-
-    fn stream_manager(&self) -> &StreamManager {
-        &self.stream_manager
-    }
-
-    fn prepare_pipeline_data(&self, data: PipelineData) -> Result<PipelineData, ShellError> {
-        Ok(data.set_metadata(Some(test_metadata())))
-    }
-}
-
-impl Interface for TestInterface {
-    type Output = PluginOutput;
-    type DataContext = ();
-
-    fn write(&self, output: Self::Output) -> Result<(), ShellError> {
-        self.test.write(&output)
-    }
-
-    fn flush(&self) -> Result<(), ShellError> {
-        Ok(())
-    }
-
-    fn stream_id_sequence(&self) -> &Sequence {
-        &self.seq
-    }
-
-    fn stream_manager_handle(&self) -> &StreamManagerHandle {
-        &self.stream_manager_handle
-    }
-
-    fn prepare_pipeline_data(
-        &self,
-        data: PipelineData,
-        _context: &(),
-    ) -> Result<PipelineData, ShellError> {
-        // Add an arbitrary check to the data to verify this is being called
-        match data {
-            PipelineData::Value(Value::Binary { .. }, None) => Err(ShellError::NushellFailed {
-                msg: "TEST can't send binary".into(),
-            }),
-            _ => Ok(data),
-        }
-    }
-}
+use std::{
+    collections::HashMap,
+    sync::{
+        mpsc::{self, TryRecvError},
+        Arc,
+    },
+};
 
 #[test]
-fn read_pipeline_data_empty() -> Result<(), ShellError> {
-    let manager = TestInterfaceManager::new(&TestCase::new());
-    let header = PipelineDataHeader::Empty;
-
-    assert!(matches!(
-        manager.read_pipeline_data(header, None)?,
-        PipelineData::Empty
-    ));
-    Ok(())
-}
-
-#[test]
-fn read_pipeline_data_value() -> Result<(), ShellError> {
-    let manager = TestInterfaceManager::new(&TestCase::new());
-    let value = Value::test_int(4);
-    let header = PipelineDataHeader::Value(value.clone());
-
-    match manager.read_pipeline_data(header, None)? {
-        PipelineData::Value(read_value, _) => assert_eq!(value, read_value),
-        PipelineData::ListStream(_, _) => panic!("unexpected ListStream"),
-        PipelineData::ExternalStream { .. } => panic!("unexpected ExternalStream"),
-        PipelineData::Empty => panic!("unexpected Empty"),
-    }
-
-    Ok(())
-}
-
-#[test]
-fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
+fn is_using_stdio_is_false_for_test() {
     let test = TestCase::new();
-    let mut manager = TestInterfaceManager::new(&test);
+    let manager = test.engine();
+    let interface = manager.get_interface();
 
-    let data = (0..100).map(Value::test_int).collect::<Vec<_>>();
+    assert!(!interface.is_using_stdio());
+}
 
-    for value in &data {
-        test.add(StreamMessage::Data(7, value.clone().into()));
+#[test]
+fn manager_consume_all_consumes_messages() -> Result<(), ShellError> {
+    let mut test = TestCase::new();
+    let mut manager = test.engine();
+
+    // This message should be non-problematic
+    test.add(PluginInput::Hello(ProtocolInfo::default()));
+
+    manager.consume_all(&mut test)?;
+
+    assert!(!test.has_unconsumed_read());
+    Ok(())
+}
+
+#[test]
+fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Result<(), ShellError> {
+    let mut test = TestCase::new();
+    let mut manager = test.engine();
+
+    // Add messages that won't cause errors
+    for _ in 0..5 {
+        test.add(PluginInput::Hello(ProtocolInfo::default()));
     }
-    test.add(StreamMessage::End(7));
 
-    let header = PipelineDataHeader::ListStream(ListStreamInfo { id: 7 });
+    // Create a stream...
+    let stream = manager.read_pipeline_data(
+        PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
+        None,
+    )?;
 
-    let pipe = manager.read_pipeline_data(header, None)?;
+    // and an interface...
+    let interface = manager.get_interface();
+
+    // Expect that is_finished is false
     assert!(
-        matches!(pipe, PipelineData::ListStream(..)),
-        "unexpected PipelineData: {pipe:?}"
+        !manager.is_finished(),
+        "is_finished is true even though active stream/interface exists"
     );
 
-    // need to consume input
-    manager.consume_all()?;
+    // After dropping, it should be true
+    drop(stream);
+    drop(interface);
 
-    let mut count = 0;
-    for (expected, read) in data.into_iter().zip(pipe) {
-        assert_eq!(expected, read);
-        count += 1;
-    }
-    assert_eq!(100, count);
+    assert!(
+        manager.is_finished(),
+        "is_finished is false even though manager has no stream or interface"
+    );
 
-    assert!(test.has_unconsumed_write());
+    // When it's true, consume_all shouldn't consume everything
+    manager.consume_all(&mut test)?;
 
+    assert!(
+        test.has_unconsumed_read(),
+        "consume_all consumed the messages"
+    );
     Ok(())
 }
 
-#[test]
-fn read_pipeline_data_external_stream() -> Result<(), ShellError> {
-    let test = TestCase::new();
-    let mut manager = TestInterfaceManager::new(&test);
-
-    let iterations = 100;
-    let out_pattern = b"hello".to_vec();
-    let err_pattern = vec![5, 4, 3, 2];
-
-    test.add(StreamMessage::Data(14, Value::test_int(1).into()));
-    for _ in 0..iterations {
-        test.add(StreamMessage::Data(
-            12,
-            StreamData::Raw(Ok(out_pattern.clone())),
-        ));
-        test.add(StreamMessage::Data(
-            13,
-            StreamData::Raw(Ok(err_pattern.clone())),
-        ));
+fn test_io_error() -> ShellError {
+    ShellError::IOError {
+        msg: "test io error".into(),
     }
-    test.add(StreamMessage::End(12));
-    test.add(StreamMessage::End(13));
-    test.add(StreamMessage::End(14));
+}
 
-    let test_span = Span::new(10, 13);
-    let header = PipelineDataHeader::ExternalStream(ExternalStreamInfo {
-        span: test_span,
-        stdout: Some(RawStreamInfo {
-            id: 12,
-            is_binary: false,
-            known_size: Some((out_pattern.len() * iterations) as u64),
-        }),
-        stderr: Some(RawStreamInfo {
-            id: 13,
-            is_binary: true,
-            known_size: None,
-        }),
-        exit_code: Some(ListStreamInfo { id: 14 }),
-        trim_end_newline: true,
-    });
-
-    let pipe = manager.read_pipeline_data(header, None)?;
-
-    // need to consume input
-    manager.consume_all()?;
-
-    match pipe {
-        PipelineData::ExternalStream {
-            stdout,
-            stderr,
-            exit_code,
-            span,
-            metadata,
-            trim_end_newline,
-        } => {
-            let stdout = stdout.expect("stdout is None");
-            let stderr = stderr.expect("stderr is None");
-            let exit_code = exit_code.expect("exit_code is None");
-            assert_eq!(test_span, span);
-            assert!(
-                metadata.is_some(),
-                "expected metadata to be Some due to prepare_pipeline_data()"
-            );
-            assert!(trim_end_newline);
-
-            assert!(!stdout.is_binary);
-            assert!(stderr.is_binary);
-
-            assert_eq!(
-                Some((out_pattern.len() * iterations) as u64),
-                stdout.known_size
-            );
-            assert_eq!(None, stderr.known_size);
-
-            // check the streams
-            let mut count = 0;
-            for chunk in stdout.stream {
-                assert_eq!(out_pattern, chunk?);
-                count += 1;
-            }
-            assert_eq!(iterations, count, "stdout length");
-            let mut count = 0;
-
-            for chunk in stderr.stream {
-                assert_eq!(err_pattern, chunk?);
-                count += 1;
-            }
-            assert_eq!(iterations, count, "stderr length");
-
-            assert_eq!(vec![Value::test_int(1)], exit_code.collect::<Vec<_>>());
-        }
-        _ => panic!("unexpected PipelineData: {pipe:?}"),
-    }
-
-    // Don't need to check exactly what was written, just be sure that there is some output
-    assert!(test.has_unconsumed_write());
-
-    Ok(())
+fn check_test_io_error(error: &ShellError) {
+    assert!(
+        format!("{error:?}").contains("test io error"),
+        "error: {error}"
+    );
 }
 
 #[test]
-fn read_pipeline_data_ctrlc() -> Result<(), ShellError> {
-    let manager = TestInterfaceManager::new(&TestCase::new());
-    let header = PipelineDataHeader::ListStream(ListStreamInfo { id: 0 });
-    let ctrlc = Default::default();
-    match manager.read_pipeline_data(header, Some(&ctrlc))? {
-        PipelineData::ListStream(
-            ListStream {
-                ctrlc: stream_ctrlc,
-                ..
-            },
-            _,
-        ) => {
-            assert!(Arc::ptr_eq(&ctrlc, &stream_ctrlc.expect("ctrlc not set")));
+fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError> {
+    let mut test = TestCase::new();
+    let mut manager = test.engine();
+
+    test.set_read_error(test_io_error());
+
+    let stream = manager.read_pipeline_data(
+        PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
+        None,
+    )?;
+
+    manager
+        .consume_all(&mut test)
+        .expect_err("consume_all did not error");
+
+    // Ensure end of stream
+    drop(manager);
+
+    let value = stream.into_iter().next().expect("stream is empty");
+    if let Value::Error { error, .. } = value {
+        check_test_io_error(&error);
+        Ok(())
+    } else {
+        panic!("did not get an error");
+    }
+}
+
+fn invalid_input() -> PluginInput {
+    // This should definitely cause an error, as 0.0.0 is not compatible with any version other than
+    // itself
+    PluginInput::Hello(ProtocolInfo {
+        protocol: Protocol::NuPlugin,
+        version: "0.0.0".into(),
+        features: vec![],
+    })
+}
+
+fn check_invalid_input_error(error: &ShellError) {
+    // the error message should include something about the version...
+    assert!(format!("{error:?}").contains("0.0.0"), "error: {error}");
+}
+
+#[test]
+fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), ShellError> {
+    let mut test = TestCase::new();
+    let mut manager = test.engine();
+
+    test.add(invalid_input());
+
+    let stream = manager.read_pipeline_data(
+        PipelineDataHeader::ExternalStream(ExternalStreamInfo {
+            span: Span::test_data(),
+            stdout: Some(RawStreamInfo {
+                id: 0,
+                is_binary: false,
+                known_size: None,
+            }),
+            stderr: None,
+            exit_code: None,
+            trim_end_newline: false,
+        }),
+        None,
+    )?;
+
+    manager
+        .consume_all(&mut test)
+        .expect_err("consume_all did not error");
+
+    // Ensure end of stream
+    drop(manager);
+
+    let value = stream.into_iter().next().expect("stream is empty");
+    if let Value::Error { error, .. } = value {
+        check_invalid_input_error(&error);
+        Ok(())
+    } else {
+        panic!("did not get an error");
+    }
+}
+
+fn fake_engine_call(
+    manager: &mut EngineInterfaceManager,
+    id: EngineCallId,
+) -> mpsc::Receiver<EngineCallResponse<PipelineData>> {
+    // Set up a fake engine call subscription
+    let (tx, rx) = mpsc::channel();
+
+    manager.engine_call_subscriptions.insert(id, tx);
+
+    rx
+}
+
+#[test]
+fn manager_consume_all_propagates_io_error_to_engine_calls() -> Result<(), ShellError> {
+    let mut test = TestCase::new();
+    let mut manager = test.engine();
+    let interface = manager.get_interface();
+
+    test.set_read_error(test_io_error());
+
+    // Set up a fake engine call subscription
+    let rx = fake_engine_call(&mut manager, 0);
+
+    manager
+        .consume_all(&mut test)
+        .expect_err("consume_all did not error");
+
+    // We have to hold interface until now otherwise consume_all won't try to process the message
+    drop(interface);
+
+    let message = rx.try_recv().expect("failed to get engine call message");
+    match message {
+        EngineCallResponse::Error(error) => {
+            check_test_io_error(&error);
             Ok(())
         }
-        _ => panic!("Unexpected PipelineData, should have been ListStream"),
+        _ => panic!("received something other than an error: {message:?}"),
     }
 }
 
 #[test]
-fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
-    let manager = TestInterfaceManager::new(&TestCase::new());
-    let header = PipelineDataHeader::ListStream(ListStreamInfo { id: 0 });
-    match manager.read_pipeline_data(header, None)? {
-        PipelineData::ListStream(_, meta) => match meta {
-            Some(PipelineMetadata { data_source }) => match data_source {
-                DataSource::FilePath(path) => {
-                    assert_eq!(Path::new("/test/path"), path);
-                    Ok(())
-                }
-                _ => panic!("wrong metadata: {data_source:?}"),
-            },
-            None => panic!("metadata not set"),
-        },
-        _ => panic!("Unexpected PipelineData, should have been ListStream"),
-    }
-}
-
-#[test]
-fn write_pipeline_data_empty() -> Result<(), ShellError> {
-    let test = TestCase::new();
-    let manager = TestInterfaceManager::new(&test);
+fn manager_consume_all_propagates_message_error_to_engine_calls() -> Result<(), ShellError> {
+    let mut test = TestCase::new();
+    let mut manager = test.engine();
     let interface = manager.get_interface();
 
-    let (header, writer) = interface.init_write_pipeline_data(PipelineData::Empty, &())?;
+    test.add(invalid_input());
 
-    assert!(matches!(header, PipelineDataHeader::Empty));
+    // Set up a fake engine call subscription
+    let rx = fake_engine_call(&mut manager, 0);
 
-    writer.write()?;
+    manager
+        .consume_all(&mut test)
+        .expect_err("consume_all did not error");
 
-    assert!(
-        !test.has_unconsumed_write(),
-        "Empty shouldn't write any stream messages, test: {test:#?}"
-    );
+    // We have to hold interface until now otherwise consume_all won't try to process the message
+    drop(interface);
 
-    Ok(())
-}
-
-#[test]
-fn write_pipeline_data_value() -> Result<(), ShellError> {
-    let test = TestCase::new();
-    let manager = TestInterfaceManager::new(&test);
-    let interface = manager.get_interface();
-    let value = Value::test_int(7);
-
-    let (header, writer) =
-        interface.init_write_pipeline_data(PipelineData::Value(value.clone(), None), &())?;
-
-    match header {
-        PipelineDataHeader::Value(read_value) => assert_eq!(value, read_value),
-        _ => panic!("unexpected header: {header:?}"),
-    }
-
-    writer.write()?;
-
-    assert!(
-        !test.has_unconsumed_write(),
-        "Value shouldn't write any stream messages, test: {test:#?}"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn write_pipeline_data_prepared_properly() {
-    let manager = TestInterfaceManager::new(&TestCase::new());
-    let interface = manager.get_interface();
-
-    // Sending a binary should be an error in our test scenario
-    let value = Value::test_binary(vec![7, 8]);
-
-    match interface.init_write_pipeline_data(PipelineData::Value(value, None), &()) {
-        Ok(_) => panic!("prepare_pipeline_data was not called"),
-        Err(err) => {
-            assert_eq!(
-                ShellError::NushellFailed {
-                    msg: "TEST can't send binary".into()
-                }
-                .to_string(),
-                err.to_string()
-            );
+    let message = rx.try_recv().expect("failed to get engine call message");
+    match message {
+        EngineCallResponse::Error(error) => {
+            check_invalid_input_error(&error);
+            Ok(())
         }
+        _ => panic!("received something other than an error: {message:?}"),
     }
 }
 
 #[test]
-fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
-    let test = TestCase::new();
-    let manager = TestInterfaceManager::new(&test);
-    let interface = manager.get_interface();
+fn manager_consume_sets_protocol_info_on_hello() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
 
-    let values = vec![
-        Value::test_int(40),
-        Value::test_bool(false),
-        Value::test_string("this is a test"),
-    ];
+    let info = ProtocolInfo::default();
 
-    // Set up pipeline data for a list stream
-    let pipe = PipelineData::ListStream(
-        ListStream::from_stream(values.clone().into_iter(), None),
-        None,
-    );
+    manager.consume(PluginInput::Hello(info.clone()))?;
 
-    let (header, writer) = interface.init_write_pipeline_data(pipe, &())?;
+    let set_info = manager
+        .state
+        .protocol_info
+        .try_get()?
+        .expect("protocol info not set");
+    assert_eq!(info.version, set_info.version);
+    Ok(())
+}
 
-    let info = match header {
-        PipelineDataHeader::ListStream(info) => info,
-        _ => panic!("unexpected header: {header:?}"),
+#[test]
+fn manager_consume_errors_on_wrong_nushell_version() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+
+    let info = ProtocolInfo {
+        protocol: Protocol::NuPlugin,
+        version: "0.0.0".into(),
+        features: vec![],
     };
 
-    writer.write()?;
+    manager
+        .consume(PluginInput::Hello(info))
+        .expect_err("version 0.0.0 should cause an error");
+    Ok(())
+}
 
-    // Now make sure the stream messages have been written
-    for value in values {
-        match test.next_written().expect("unexpected end of stream") {
-            PluginOutput::Stream(StreamMessage::Data(id, data)) => {
-                assert_eq!(info.id, id, "Data id");
-                match data {
-                    StreamData::List(read_value) => assert_eq!(value, read_value, "Data value"),
-                    _ => panic!("unexpected Data: {data:?}"),
-                }
-            }
-            other => panic!("unexpected output: {other:?}"),
-        }
+#[test]
+fn manager_consume_errors_on_sending_other_messages_before_hello() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+
+    // hello not set
+    assert!(!manager.state.protocol_info.is_set());
+
+    let error = manager
+        .consume(PluginInput::Drop(0))
+        .expect_err("consume before Hello should cause an error");
+
+    assert!(format!("{error:?}").contains("Hello"));
+    Ok(())
+}
+
+fn set_default_protocol_info(manager: &mut EngineInterfaceManager) -> Result<(), ShellError> {
+    manager
+        .protocol_info_mut
+        .set(Arc::new(ProtocolInfo::default()))
+}
+
+#[test]
+fn manager_consume_goodbye_closes_plugin_call_channel() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = manager
+        .take_plugin_call_receiver()
+        .expect("plugin call receiver missing");
+
+    manager.consume(PluginInput::Goodbye)?;
+
+    match rx.try_recv() {
+        Err(TryRecvError::Disconnected) => (),
+        _ => panic!("receiver was not disconnected"),
     }
 
-    match test.next_written().expect("unexpected end of stream") {
-        PluginOutput::Stream(StreamMessage::End(id)) => {
-            assert_eq!(info.id, id, "End id");
+    Ok(())
+}
+
+#[test]
+fn manager_consume_call_signature_forwards_to_receiver_with_context() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = manager
+        .take_plugin_call_receiver()
+        .expect("couldn't take receiver");
+
+    manager.consume(PluginInput::Call(0, PluginCall::Signature))?;
+
+    match rx.try_recv().expect("call was not forwarded to receiver") {
+        ReceivedPluginCall::Signature { engine } => {
+            assert_eq!(Some(0), engine.context);
+            Ok(())
         }
-        other => panic!("unexpected output: {other:?}"),
+        call => panic!("wrong call type: {call:?}"),
+    }
+}
+
+#[test]
+fn manager_consume_call_run_forwards_to_receiver_with_context() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = manager
+        .take_plugin_call_receiver()
+        .expect("couldn't take receiver");
+
+    manager.consume(PluginInput::Call(
+        17,
+        PluginCall::Run(CallInfo {
+            name: "bar".into(),
+            call: EvaluatedCall {
+                head: Span::test_data(),
+                positional: vec![],
+                named: vec![],
+            },
+            input: PipelineDataHeader::Empty,
+        }),
+    ))?;
+
+    // Make sure the streams end and we don't deadlock
+    drop(manager);
+
+    match rx.try_recv().expect("call was not forwarded to receiver") {
+        ReceivedPluginCall::Run { engine, call: _ } => {
+            assert_eq!(Some(17), engine.context, "context");
+            Ok(())
+        }
+        call => panic!("wrong call type: {call:?}"),
+    }
+}
+
+#[test]
+fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = manager
+        .take_plugin_call_receiver()
+        .expect("couldn't take receiver");
+
+    manager.consume(PluginInput::Call(
+        0,
+        PluginCall::Run(CallInfo {
+            name: "bar".into(),
+            call: EvaluatedCall {
+                head: Span::test_data(),
+                positional: vec![],
+                named: vec![],
+            },
+            input: PipelineDataHeader::ListStream(ListStreamInfo {
+                id: 6,
+                span: Span::test_data(),
+            }),
+        }),
+    ))?;
+
+    for i in 0..10 {
+        manager.consume(PluginInput::Data(6, Value::test_int(i).into()))?;
+    }
+
+    manager.consume(PluginInput::End(6))?;
+
+    // Make sure the streams end and we don't deadlock
+    drop(manager);
+
+    match rx.try_recv().expect("call was not forwarded to receiver") {
+        ReceivedPluginCall::Run { engine: _, call } => {
+            assert_eq!("bar", call.name);
+            // Ensure we manage to receive the stream messages
+            assert_eq!(10, call.input.into_iter().count());
+            Ok(())
+        }
+        call => panic!("wrong call type: {call:?}"),
+    }
+}
+
+#[test]
+fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = manager
+        .take_plugin_call_receiver()
+        .expect("couldn't take receiver");
+
+    let value = Value::test_custom_value(Box::new(test_plugin_custom_value()));
+
+    manager.consume(PluginInput::Call(
+        0,
+        PluginCall::Run(CallInfo {
+            name: "bar".into(),
+            call: EvaluatedCall {
+                head: Span::test_data(),
+                positional: vec![value.clone()],
+                named: vec![(
+                    Spanned {
+                        item: "flag".into(),
+                        span: Span::test_data(),
+                    },
+                    Some(value),
+                )],
+            },
+            input: PipelineDataHeader::Empty,
+        }),
+    ))?;
+
+    // Make sure the streams end and we don't deadlock
+    drop(manager);
+
+    match rx.try_recv().expect("call was not forwarded to receiver") {
+        ReceivedPluginCall::Run { engine: _, call } => {
+            assert_eq!(1, call.call.positional.len());
+            assert_eq!(1, call.call.named.len());
+
+            for arg in call.call.positional {
+                let custom_value: &TestCustomValue = arg
+                    .as_custom_value()?
+                    .as_any()
+                    .downcast_ref()
+                    .expect("positional arg is not TestCustomValue");
+                assert_eq!(expected_test_custom_value(), *custom_value, "positional");
+            }
+
+            for (key, val) in call.call.named {
+                let key = &key.item;
+                let custom_value: &TestCustomValue = val
+                    .as_ref()
+                    .unwrap_or_else(|| panic!("found empty named argument: {key}"))
+                    .as_custom_value()?
+                    .as_any()
+                    .downcast_ref()
+                    .unwrap_or_else(|| panic!("named arg {key} is not TestCustomValue"));
+                assert_eq!(expected_test_custom_value(), *custom_value, "named: {key}");
+            }
+
+            Ok(())
+        }
+        call => panic!("wrong call type: {call:?}"),
+    }
+}
+
+#[test]
+fn manager_consume_call_custom_value_op_forwards_to_receiver_with_context() -> Result<(), ShellError>
+{
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = manager
+        .take_plugin_call_receiver()
+        .expect("couldn't take receiver");
+
+    manager.consume(PluginInput::Call(
+        32,
+        PluginCall::CustomValueOp(
+            Spanned {
+                item: test_plugin_custom_value(),
+                span: Span::test_data(),
+            },
+            CustomValueOp::ToBaseValue,
+        ),
+    ))?;
+
+    match rx.try_recv().expect("call was not forwarded to receiver") {
+        ReceivedPluginCall::CustomValueOp {
+            engine,
+            custom_value,
+            op,
+        } => {
+            assert_eq!(Some(32), engine.context);
+            assert_eq!("TestCustomValue", custom_value.item.name());
+            assert!(
+                matches!(op, CustomValueOp::ToBaseValue),
+                "incorrect op: {op:?}"
+            );
+        }
+        call => panic!("wrong call type: {call:?}"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_data(
+) -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = fake_engine_call(&mut manager, 0);
+
+    manager.consume(PluginInput::EngineCallResponse(
+        0,
+        EngineCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        })),
+    ))?;
+
+    for i in 0..2 {
+        manager.consume(PluginInput::Data(0, Value::test_int(i).into()))?;
+    }
+
+    manager.consume(PluginInput::End(0))?;
+
+    // Make sure the streams end and we don't deadlock
+    drop(manager);
+
+    let response = rx.try_recv().expect("failed to get engine call response");
+
+    match response {
+        EngineCallResponse::PipelineData(data) => {
+            // Ensure we manage to receive the stream messages
+            assert_eq!(2, data.into_iter().count());
+            Ok(())
+        }
+        _ => panic!("unexpected response: {response:?}"),
+    }
+}
+
+#[test]
+fn manager_prepare_pipeline_data_deserializes_custom_values() -> Result<(), ShellError> {
+    let manager = TestCase::new().engine();
+
+    let data = manager.prepare_pipeline_data(PipelineData::Value(
+        Value::test_custom_value(Box::new(test_plugin_custom_value())),
+        None,
+    ))?;
+
+    let value = data
+        .into_iter()
+        .next()
+        .expect("prepared pipeline data is empty");
+    let custom_value: &TestCustomValue = value
+        .as_custom_value()?
+        .as_any()
+        .downcast_ref()
+        .expect("custom value is not a TestCustomValue, probably not deserialized");
+
+    assert_eq!(expected_test_custom_value(), *custom_value);
+
+    Ok(())
+}
+
+#[test]
+fn manager_prepare_pipeline_data_deserializes_custom_values_in_streams() -> Result<(), ShellError> {
+    let manager = TestCase::new().engine();
+
+    let data = manager.prepare_pipeline_data(
+        [Value::test_custom_value(Box::new(
+            test_plugin_custom_value(),
+        ))]
+        .into_pipeline_data(Span::test_data(), None),
+    )?;
+
+    let value = data
+        .into_iter()
+        .next()
+        .expect("prepared pipeline data is empty");
+    let custom_value: &TestCustomValue = value
+        .as_custom_value()?
+        .as_any()
+        .downcast_ref()
+        .expect("custom value is not a TestCustomValue, probably not deserialized");
+
+    assert_eq!(expected_test_custom_value(), *custom_value);
+
+    Ok(())
+}
+
+#[test]
+fn manager_prepare_pipeline_data_embeds_deserialization_errors_in_streams() -> Result<(), ShellError>
+{
+    let manager = TestCase::new().engine();
+
+    let invalid_custom_value = PluginCustomValue::new(
+        "Invalid".into(),
+        vec![0; 8], // should fail to decode to anything
+        false,
+    );
+
+    let span = Span::new(20, 30);
+    let data = manager.prepare_pipeline_data(
+        [Value::custom(Box::new(invalid_custom_value), span)]
+            .into_pipeline_data(Span::test_data(), None),
+    )?;
+
+    let value = data
+        .into_iter()
+        .next()
+        .expect("prepared pipeline data is empty");
+
+    match value {
+        Value::Error { error, .. } => match *error {
+            ShellError::CustomValueFailedToDecode {
+                span: error_span, ..
+            } => {
+                assert_eq!(span, error_span, "error span not the same as the value's");
+            }
+            _ => panic!("expected ShellError::CustomValueFailedToDecode, but got {error:?}"),
+        },
+        _ => panic!("unexpected value, not error: {value:?}"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn interface_hello_sends_protocol_info() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let interface = test.engine().get_interface();
+    interface.hello()?;
+
+    let written = test.next_written().expect("nothing written");
+
+    match written {
+        PluginOutput::Hello(info) => {
+            assert_eq!(ProtocolInfo::default().version, info.version);
+        }
+        _ => panic!("unexpected message written: {written:?}"),
+    }
+
+    assert!(!test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_write_response_with_value() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let interface = test.engine().interface_for_context(33);
+    interface
+        .write_response(Ok::<_, ShellError>(PipelineData::Value(
+            Value::test_int(6),
+            None,
+        )))?
+        .write()?;
+
+    let written = test.next_written().expect("nothing written");
+
+    match written {
+        PluginOutput::CallResponse(id, response) => {
+            assert_eq!(33, id, "id");
+            match response {
+                PluginCallResponse::PipelineData(header) => match header {
+                    PipelineDataHeader::Value(value) => assert_eq!(6, value.as_int()?),
+                    _ => panic!("unexpected pipeline data header: {header:?}"),
+                },
+                _ => panic!("unexpected response: {response:?}"),
+            }
+        }
+        _ => panic!("unexpected message written: {written:?}"),
     }
 
     assert!(!test.has_unconsumed_write());
@@ -438,130 +709,495 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
 }
 
 #[test]
-fn write_pipeline_data_external_stream() -> Result<(), ShellError> {
+fn interface_write_response_with_stream() -> Result<(), ShellError> {
     let test = TestCase::new();
-    let manager = TestInterfaceManager::new(&test);
-    let interface = manager.get_interface();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(34);
 
-    let stdout_bufs = vec![
-        b"hello".to_vec(),
-        b"world".to_vec(),
-        b"these are tests".to_vec(),
-    ];
-    let stdout_len = stdout_bufs.iter().map(|b| b.len() as u64).sum::<u64>();
-    let stderr_bufs = vec![b"error messages".to_vec(), b"go here".to_vec()];
-    let exit_code = Value::test_int(7);
+    interface
+        .write_response(Ok::<_, ShellError>(
+            [Value::test_int(3), Value::test_int(4), Value::test_int(5)]
+                .into_pipeline_data(Span::test_data(), None),
+        ))?
+        .write()?;
 
-    let span = Span::new(400, 500);
+    let written = test.next_written().expect("nothing written");
 
-    // Set up pipeline data for an external stream
-    let pipe = PipelineData::ExternalStream {
-        stdout: Some(RawStream::new(
-            Box::new(stdout_bufs.clone().into_iter().map(Ok)),
-            None,
-            span,
-            Some(stdout_len),
-        )),
-        stderr: Some(RawStream::new(
-            Box::new(stderr_bufs.clone().into_iter().map(Ok)),
-            None,
-            span,
-            None,
-        )),
-        exit_code: Some(ListStream::from_stream(
-            std::iter::once(exit_code.clone()),
-            None,
-        )),
-        span,
-        metadata: None,
-        trim_end_newline: true,
+    let info = match written {
+        PluginOutput::CallResponse(_, response) => match response {
+            PluginCallResponse::PipelineData(header) => match header {
+                PipelineDataHeader::ListStream(info) => info,
+                _ => panic!("expected ListStream header: {header:?}"),
+            },
+            _ => panic!("wrong response: {response:?}"),
+        },
+        _ => panic!("wrong output written: {written:?}"),
     };
 
-    let (header, writer) = interface.init_write_pipeline_data(pipe, &())?;
-
-    let info = match header {
-        PipelineDataHeader::ExternalStream(info) => info,
-        _ => panic!("unexpected header: {header:?}"),
-    };
-
-    writer.write()?;
-
-    let stdout_info = info.stdout.as_ref().expect("stdout info is None");
-    let stderr_info = info.stderr.as_ref().expect("stderr info is None");
-    let exit_code_info = info.exit_code.as_ref().expect("exit code info is None");
-
-    assert_eq!(span, info.span);
-    assert!(info.trim_end_newline);
-
-    assert_eq!(Some(stdout_len), stdout_info.known_size);
-    assert_eq!(None, stderr_info.known_size);
-
-    // Now make sure the stream messages have been written
-    let mut stdout_iter = stdout_bufs.into_iter();
-    let mut stderr_iter = stderr_bufs.into_iter();
-    let mut exit_code_iter = std::iter::once(exit_code);
-
-    let mut stdout_ended = false;
-    let mut stderr_ended = false;
-    let mut exit_code_ended = false;
-
-    // There's no specific order these messages must come in with respect to how the streams are
-    // interleaved, but all of the data for each stream must be in its original order, and the
-    // End must come after all Data
-    for msg in test.written() {
-        match msg {
-            PluginOutput::Stream(StreamMessage::Data(id, data)) => {
-                if id == stdout_info.id {
-                    let result: Result<Vec<u8>, ShellError> =
-                        data.try_into().expect("wrong data in stdout stream");
-                    assert_eq!(
-                        stdout_iter.next().expect("too much data in stdout"),
-                        result.expect("unexpected error in stdout stream")
-                    );
-                } else if id == stderr_info.id {
-                    let result: Result<Vec<u8>, ShellError> =
-                        data.try_into().expect("wrong data in stderr stream");
-                    assert_eq!(
-                        stderr_iter.next().expect("too much data in stderr"),
-                        result.expect("unexpected error in stderr stream")
-                    );
-                } else if id == exit_code_info.id {
-                    let code: Value = data.try_into().expect("wrong data in stderr stream");
-                    assert_eq!(
-                        exit_code_iter.next().expect("too much data in stderr"),
-                        code
-                    );
-                } else {
-                    panic!("unrecognized stream id: {id}");
+    for number in [3, 4, 5] {
+        match test.next_written().expect("missing stream Data message") {
+            PluginOutput::Data(id, data) => {
+                assert_eq!(info.id, id, "Data id");
+                match data {
+                    StreamData::List(val) => assert_eq!(number, val.as_int()?),
+                    _ => panic!("expected List data: {data:?}"),
                 }
             }
-            PluginOutput::Stream(StreamMessage::End(id)) => {
-                if id == stdout_info.id {
-                    assert!(!stdout_ended, "double End of stdout");
-                    assert!(stdout_iter.next().is_none(), "unexpected end of stdout");
-                    stdout_ended = true;
-                } else if id == stderr_info.id {
-                    assert!(!stderr_ended, "double End of stderr");
-                    assert!(stderr_iter.next().is_none(), "unexpected end of stderr");
-                    stderr_ended = true;
-                } else if id == exit_code_info.id {
-                    assert!(!exit_code_ended, "double End of exit_code");
-                    assert!(
-                        exit_code_iter.next().is_none(),
-                        "unexpected end of exit_code"
-                    );
-                    exit_code_ended = true;
-                } else {
-                    panic!("unrecognized stream id: {id}");
-                }
-            }
-            other => panic!("unexpected output: {other:?}"),
+            message => panic!("expected Data(..): {message:?}"),
         }
     }
 
-    assert!(stdout_ended, "stdout did not End");
-    assert!(stderr_ended, "stderr did not End");
-    assert!(exit_code_ended, "exit_code did not End");
+    match test.next_written().expect("missing stream End message") {
+        PluginOutput::End(id) => assert_eq!(info.id, id, "End id"),
+        message => panic!("expected Data(..): {message:?}"),
+    }
+
+    assert!(!test.has_unconsumed_write());
+
+    Ok(())
+}
+
+#[test]
+fn interface_write_response_with_error() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let interface = test.engine().interface_for_context(35);
+    let labeled_error = LabeledError::new("this is an error").with_help("a test error");
+    interface
+        .write_response(Err(labeled_error.clone()))?
+        .write()?;
+
+    let written = test.next_written().expect("nothing written");
+
+    match written {
+        PluginOutput::CallResponse(id, response) => {
+            assert_eq!(35, id, "id");
+            match response {
+                PluginCallResponse::Error(err) => assert_eq!(labeled_error, err),
+                _ => panic!("unexpected response: {response:?}"),
+            }
+        }
+        _ => panic!("unexpected message written: {written:?}"),
+    }
+
+    assert!(!test.has_unconsumed_write());
+
+    Ok(())
+}
+
+#[test]
+fn interface_write_signature() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let interface = test.engine().interface_for_context(36);
+    let signatures = vec![PluginSignature::build("test command")];
+    interface.write_signature(signatures.clone())?;
+
+    let written = test.next_written().expect("nothing written");
+
+    match written {
+        PluginOutput::CallResponse(id, response) => {
+            assert_eq!(36, id, "id");
+            match response {
+                PluginCallResponse::Signature(sigs) => assert_eq!(1, sigs.len(), "sigs.len"),
+                _ => panic!("unexpected response: {response:?}"),
+            }
+        }
+        _ => panic!("unexpected message written: {written:?}"),
+    }
+
+    assert!(!test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_write_engine_call_registers_subscription() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    assert!(
+        manager.engine_call_subscriptions.is_empty(),
+        "engine call subscriptions not empty before start of test"
+    );
+
+    let interface = manager.interface_for_context(0);
+    let _ = interface.write_engine_call(EngineCall::GetConfig)?;
+
+    manager.receive_engine_call_subscriptions();
+    assert!(
+        !manager.engine_call_subscriptions.is_empty(),
+        "not registered"
+    );
+    Ok(())
+}
+
+#[test]
+fn interface_write_engine_call_writes_with_correct_context() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(32);
+    let _ = interface.write_engine_call(EngineCall::GetConfig)?;
+
+    match test.next_written().expect("nothing written") {
+        PluginOutput::EngineCall { context, call, .. } => {
+            assert_eq!(32, context, "context incorrect");
+            assert!(
+                matches!(call, EngineCall::GetConfig),
+                "incorrect engine call (expected GetConfig): {call:?}"
+            );
+        }
+        other => panic!("incorrect output: {other:?}"),
+    }
+
+    assert!(!test.has_unconsumed_write());
+    Ok(())
+}
+
+/// Fake responses to requests for engine call messages
+fn start_fake_plugin_call_responder(
+    manager: EngineInterfaceManager,
+    take: usize,
+    mut f: impl FnMut(EngineCallId) -> EngineCallResponse<PipelineData> + Send + 'static,
+) {
+    std::thread::Builder::new()
+        .name("fake engine call responder".into())
+        .spawn(move || {
+            for (id, sub) in manager
+                .engine_call_subscription_receiver
+                .into_iter()
+                .take(take)
+            {
+                sub.send(f(id)).expect("failed to send");
+            }
+        })
+        .expect("failed to spawn thread");
+}
+
+#[test]
+fn interface_get_config() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        EngineCallResponse::Config(Config::default().into())
+    });
+
+    let _ = interface.get_config()?;
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_plugin_config() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 2, |id| {
+        if id == 0 {
+            EngineCallResponse::PipelineData(PipelineData::Empty)
+        } else {
+            EngineCallResponse::PipelineData(PipelineData::Value(Value::test_int(2), None))
+        }
+    });
+
+    let first_config = interface.get_plugin_config()?;
+    assert!(first_config.is_none(), "should be None: {first_config:?}");
+
+    let second_config = interface.get_plugin_config()?;
+    assert_eq!(Some(Value::test_int(2)), second_config);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_env_var() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 2, |id| {
+        if id == 0 {
+            EngineCallResponse::empty()
+        } else {
+            EngineCallResponse::value(Value::test_string("/foo"))
+        }
+    });
+
+    let first_val = interface.get_env_var("FOO")?;
+    assert!(first_val.is_none(), "should be None: {first_val:?}");
+
+    let second_val = interface.get_env_var("FOO")?;
+    assert_eq!(Some(Value::test_string("/foo")), second_val);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_current_dir() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        EngineCallResponse::value(Value::test_string("/current/directory"))
+    });
+
+    let val = interface.get_env_var("FOO")?;
+    assert_eq!(Some(Value::test_string("/current/directory")), val);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_env_vars() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    let envs: HashMap<String, Value> = [("FOO".to_owned(), Value::test_string("foo"))]
+        .into_iter()
+        .collect();
+    let envs_clone = envs.clone();
+
+    start_fake_plugin_call_responder(manager, 1, move |_| {
+        EngineCallResponse::ValueMap(envs_clone.clone())
+    });
+
+    let received_envs = interface.get_env_vars()?;
+
+    assert_eq!(envs, received_envs);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_add_env_var() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, move |_| EngineCallResponse::empty());
+
+    interface.add_env_var("FOO", Value::test_string("bar"))?;
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_help() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, move |_| {
+        EngineCallResponse::value(Value::test_string("help string"))
+    });
+
+    let help = interface.get_help()?;
+
+    assert_eq!("help string", help);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_get_span_contents() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, move |_| {
+        EngineCallResponse::value(Value::test_binary(b"test string"))
+    });
+
+    let contents = interface.get_span_contents(Span::test_data())?;
+
+    assert_eq!(b"test string", &contents[..]);
+
+    assert!(test.has_unconsumed_write());
+    Ok(())
+}
+
+#[test]
+fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.engine();
+    let interface = manager.interface_for_context(0);
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        EngineCallResponse::PipelineData(PipelineData::Value(Value::test_int(2), None))
+    });
+
+    let result = interface
+        .eval_closure_with_stream(
+            &Spanned {
+                item: Closure {
+                    block_id: 42,
+                    captures: vec![(0, Value::test_int(5))],
+                },
+                span: Span::test_data(),
+            },
+            vec![Value::test_string("test")],
+            PipelineData::Empty,
+            true,
+            false,
+        )?
+        .into_value(Span::test_data());
+
+    assert_eq!(Value::test_int(2), result);
+
+    // Double check the message that was written, as it's complicated
+    match test.next_written().expect("nothing written") {
+        PluginOutput::EngineCall { call, .. } => match call {
+            EngineCall::EvalClosure {
+                closure,
+                positional,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            } => {
+                assert_eq!(42, closure.item.block_id, "closure.item.block_id");
+                assert_eq!(1, closure.item.captures.len(), "closure.item.captures.len");
+                assert_eq!(
+                    (0, Value::test_int(5)),
+                    closure.item.captures[0],
+                    "closure.item.captures[0]"
+                );
+                assert_eq!(Span::test_data(), closure.span, "closure.span");
+                assert_eq!(1, positional.len(), "positional.len");
+                assert_eq!(Value::test_string("test"), positional[0], "positional[0]");
+                assert!(matches!(input, PipelineDataHeader::Empty));
+                assert!(redirect_stdout);
+                assert!(!redirect_stderr);
+            }
+            _ => panic!("wrong engine call: {call:?}"),
+        },
+        other => panic!("wrong output: {other:?}"),
+    }
+
+    Ok(())
+}
+
+#[test]
+fn interface_prepare_pipeline_data_serializes_custom_values() -> Result<(), ShellError> {
+    let interface = TestCase::new().engine().get_interface();
+
+    let data = interface.prepare_pipeline_data(
+        PipelineData::Value(
+            Value::test_custom_value(Box::new(expected_test_custom_value())),
+            None,
+        ),
+        &(),
+    )?;
+
+    let value = data
+        .into_iter()
+        .next()
+        .expect("prepared pipeline data is empty");
+    let custom_value: &PluginCustomValue = value
+        .as_custom_value()?
+        .as_any()
+        .downcast_ref()
+        .expect("custom value is not a PluginCustomValue, probably not serialized");
+
+    let expected = test_plugin_custom_value();
+    assert_eq!(expected.name(), custom_value.name());
+    assert_eq!(expected.data(), custom_value.data());
+
+    Ok(())
+}
+
+#[test]
+fn interface_prepare_pipeline_data_serializes_custom_values_in_streams() -> Result<(), ShellError> {
+    let interface = TestCase::new().engine().get_interface();
+
+    let data = interface.prepare_pipeline_data(
+        [Value::test_custom_value(Box::new(
+            expected_test_custom_value(),
+        ))]
+        .into_pipeline_data(Span::test_data(), None),
+        &(),
+    )?;
+
+    let value = data
+        .into_iter()
+        .next()
+        .expect("prepared pipeline data is empty");
+    let custom_value: &PluginCustomValue = value
+        .as_custom_value()?
+        .as_any()
+        .downcast_ref()
+        .expect("custom value is not a PluginCustomValue, probably not serialized");
+
+    let expected = test_plugin_custom_value();
+    assert_eq!(expected.name(), custom_value.name());
+    assert_eq!(expected.data(), custom_value.data());
+
+    Ok(())
+}
+
+/// A non-serializable custom value. Should cause a serialization error
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+enum CantSerialize {
+    #[serde(skip_serializing)]
+    BadVariant,
+}
+
+#[typetag::serde]
+impl CustomValue for CantSerialize {
+    fn clone_value(&self, span: Span) -> Value {
+        Value::custom(Box::new(self.clone()), span)
+    }
+
+    fn type_name(&self) -> String {
+        "CantSerialize".into()
+    }
+
+    fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
+        unimplemented!()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+#[test]
+fn interface_prepare_pipeline_data_embeds_serialization_errors_in_streams() -> Result<(), ShellError>
+{
+    let interface = TestCase::new().engine().get_interface();
+
+    let span = Span::new(40, 60);
+    let data = interface.prepare_pipeline_data(
+        [Value::custom(Box::new(CantSerialize::BadVariant), span)]
+            .into_pipeline_data(Span::test_data(), None),
+        &(),
+    )?;
+
+    let value = data
+        .into_iter()
+        .next()
+        .expect("prepared pipeline data is empty");
+
+    match value {
+        Value::Error { error, .. } => match *error {
+            ShellError::CustomValueFailedToEncode {
+                span: error_span, ..
+            } => {
+                assert_eq!(span, error_span, "error span not the same as the value's");
+            }
+            _ => panic!("expected ShellError::CustomValueFailedToEncode, but got {error:?}"),
+        },
+        _ => panic!("unexpected value, not error: {value:?}"),
+    }
 
     Ok(())
 }

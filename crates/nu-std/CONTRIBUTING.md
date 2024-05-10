@@ -13,7 +13,7 @@ You'll generally find the team members on
 [Discord `#standard-library` channel][discord#standard-library] and can have
 preliminary discussions there to clarify the issues involved.
 
-You can open a [Github issue][new-issue] to have a more focused discussion of
+You can open a [GitHub issue][new-issue] to have a more focused discussion of
 your idea.
 
 Generally, we think the standard library should contain items that are relevant

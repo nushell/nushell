@@ -1,10 +1,9 @@
-use crate::eval_block;
+use crate::ClosureEvalOnce;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr},
-    debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet, PWD_ENV},
-    Config, PipelineData, ShellError, Span, Value, VarId,
+    engine::{EngineState, Stack, StateWorkingSet},
+    Config, ShellError, Span, Value, VarId,
 };
 use std::{
     collections::HashMap,
@@ -33,7 +32,7 @@ enum ConversionResult {
 /// It returns Option instead of Result since we do want to translate all the values we can and
 /// skip errors. This function is called in the main() so we want to keep running, we cannot just
 /// exit.
-pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Option<ShellError> {
+pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Result<(), ShellError> {
     let mut error = None;
 
     let mut new_scope = HashMap::new();
@@ -86,7 +85,11 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
         });
     }
 
-    error
+    if let Some(err) = error {
+        Err(err)
+    } else {
+        Ok(())
+    }
 }
 
 /// Translate one environment variable from Value to String
@@ -157,85 +160,56 @@ pub fn env_to_strings(
     Ok(env_vars_str)
 }
 
-/// Shorthand for env_to_string() for PWD with custom error
+/// Returns the current working directory as a String, which is guaranteed to be canonicalized.
+/// Unlike `current_dir_str_const()`, this also considers modifications to the current working directory made on the stack.
+///
+/// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+#[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<String, ShellError> {
-    if let Some(pwd) = stack.get_env_var(engine_state, PWD_ENV) {
-        // TODO: PWD should be string by default, we don't need to run ENV_CONVERSIONS on it
-        match env_to_string(PWD_ENV, &pwd, engine_state, stack) {
-            Ok(cwd) => {
-                if Path::new(&cwd).is_absolute() {
-                    Ok(cwd)
-                } else {
-                    Err(ShellError::GenericError {
-                            error: "Invalid current directory".into(),
-                            msg: format!("The 'PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                            span: Some(pwd.span()),
-                            help: None,
-                            inner: vec![]
-                    })
-                }
-            }
-            Err(e) => Err(e),
-        }
-    } else {
-        Err(ShellError::GenericError {
-                error: "Current directory not found".into(),
-                msg: "".into(),
-                span: None,
-                help: Some("The environment variable 'PWD' was not found. It is required to define the current directory.".into()),
-                inner: vec![],
-        })
-    }
+    #[allow(deprecated)]
+    current_dir(engine_state, stack).map(|path| path.to_string_lossy().to_string())
 }
 
-/// Simplified version of current_dir_str() for constant evaluation
+/// Returns the current working directory as a String, which is guaranteed to be canonicalized.
+///
+/// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+#[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir_str_const(working_set: &StateWorkingSet) -> Result<String, ShellError> {
-    if let Some(pwd) = working_set.get_env_var(PWD_ENV) {
-        let span = pwd.span();
-        match pwd {
-            Value::String { val, .. } => {
-                if Path::new(val).is_absolute() {
-                    Ok(val.clone())
-                } else {
-                    Err(ShellError::GenericError {
-                            error: "Invalid current directory".into(),
-                            msg: format!("The 'PWD' environment variable must be set to an absolute path. Found: '{val}'"),
-                            span: Some(span),
-                            help: None,
-                            inner: vec![]
-                    })
-                }
-            }
-            _ => Err(ShellError::GenericError {
-                error: "PWD is not a string".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(
-                    "Cusrrent working directory environment variable 'PWD' must be a string."
-                        .into(),
-                ),
-                inner: vec![],
-            }),
-        }
-    } else {
-        Err(ShellError::GenericError{
-                error: "Current directory not found".into(),
-                msg: "".into(),
-                span: None,
-                help: Some("The environment variable 'PWD' was not found. It is required to define the current directory.".into()),
-                inner: vec![],
-        })
-    }
+    #[allow(deprecated)]
+    current_dir_const(working_set).map(|path| path.to_string_lossy().to_string())
 }
 
-/// Calls current_dir_str() and returns the current directory as a PathBuf
+/// Returns the current working directory, which is guaranteed to be canonicalized.
+/// Unlike `current_dir_const()`, this also considers modifications to the current working directory made on the stack.
+///
+/// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+#[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir(engine_state: &EngineState, stack: &Stack) -> Result<PathBuf, ShellError> {
-    current_dir_str(engine_state, stack).map(PathBuf::from)
+    let cwd = engine_state.cwd(Some(stack))?;
+    // `EngineState::cwd()` always returns absolute path.
+    // We're using `canonicalize_with` instead of `fs::canonicalize()` because
+    // we still need to simplify Windows paths. "." is safe because `cwd` should
+    // be an absolute path already.
+    canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
+        dir: cwd.to_string_lossy().to_string(),
+        span: Span::unknown(),
+    })
 }
 
-/// Version of current_dir() for constant evaluation
+/// Returns the current working directory, which is guaranteed to be canonicalized.
+///
+/// Returns an error if $env.PWD doesn't exist, is not a String, or is not an absolute path.
+#[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
 pub fn current_dir_const(working_set: &StateWorkingSet) -> Result<PathBuf, ShellError> {
-    current_dir_str_const(working_set).map(PathBuf::from)
+    let cwd = working_set.permanent_state.cwd(None)?;
+    // `EngineState::cwd()` always returns absolute path.
+    // We're using `canonicalize_with` instead of `fs::canonicalize()` because
+    // we still need to simplify Windows paths. "." is safe because `cwd` should
+    // be an absolute path already.
+    canonicalize_with(&cwd, ".").map_err(|_| ShellError::DirectoryNotFound {
+        dir: cwd.to_string_lossy().to_string(),
+        span: Span::unknown(),
+    })
 }
 
 /// Get the contents of path environment variable as a list of strings
@@ -316,7 +290,7 @@ pub fn find_in_dirs_env(
             Err(e) => return Err(e),
         }
     } else {
-        current_dir_str(engine_state, stack)?
+        engine_state.cwd_as_string(Some(stack))?
     };
 
     let check_dir = |lib_dirs: Option<Value>| -> Option<PathBuf> {
@@ -376,37 +350,12 @@ fn get_converted_value(
         .and_then(|record| record.get(direction));
 
     if let Some(conversion) = conversion {
-        let from_span = conversion.span();
         match conversion.as_closure() {
-            Ok(val) => {
-                let block = engine_state.get_block(val.block_id);
-
-                if let Some(var) = block.signature.get_positional(0) {
-                    let mut stack = stack.captures_to_stack(val.captures.clone());
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, orig_val.clone());
-                    }
-
-                    let val_span = orig_val.span();
-                    // TODO DEBUG
-                    let result = eval_block::<WithoutDebug>(
-                        engine_state,
-                        &mut stack,
-                        block,
-                        PipelineData::new_with_metadata(None, val_span),
-                    );
-
-                    match result {
-                        Ok(data) => ConversionResult::Ok(data.into_value(val_span)),
-                        Err(e) => ConversionResult::ConversionError(e),
-                    }
-                } else {
-                    ConversionResult::ConversionError(ShellError::MissingParameter {
-                        param_name: "block input".into(),
-                        span: from_span,
-                    })
-                }
-            }
+            Ok(closure) => ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                .debug(false)
+                .run_with_value(orig_val.clone())
+                .map(|data| ConversionResult::Ok(data.into_value(orig_val.span())))
+                .unwrap_or_else(ConversionResult::ConversionError),
             Err(e) => ConversionResult::ConversionError(e),
         }
     } else {

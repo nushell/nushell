@@ -192,3 +192,34 @@ impl From<Span> for SourceSpan {
         Self::new(s.start.into(), s.end - s.start)
     }
 }
+
+/// An extension trait for `Result`, which adds a span to the error type.
+pub trait ErrSpan {
+    type Result;
+
+    /// Add the given span to the error type `E`, turning it into a `Spanned<E>`.
+    ///
+    /// Some auto-conversion methods to `ShellError` from other error types are available on spanned
+    /// errors, to give users better information about where an error came from. For example, it is
+    /// preferred when working with `std::io::Error`:
+    ///
+    /// ```no_run
+    /// use nu_protocol::{ErrSpan, ShellError, Span};
+    /// use std::io::Read;
+    ///
+    /// fn read_from(mut reader: impl Read, span: Span) -> Result<Vec<u8>, ShellError> {
+    ///     let mut vec = vec![];
+    ///     reader.read_to_end(&mut vec).err_span(span)?;
+    ///     Ok(vec)
+    /// }
+    /// ```
+    fn err_span(self, span: Span) -> Self::Result;
+}
+
+impl<T, E> ErrSpan for Result<T, E> {
+    type Result = Result<T, Spanned<E>>;
+
+    fn err_span(self, span: Span) -> Self::Result {
+        self.map_err(|err| err.into_spanned(span))
+    }
+}

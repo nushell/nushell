@@ -5,7 +5,7 @@ use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Config, ParseError, PipelineData, Spanned,
+    report_error, report_error_new, Config, ParseError, PipelineData, Spanned,
 };
 use nu_utils::{get_default_config, get_default_env};
 use std::{
@@ -31,13 +31,19 @@ pub(crate) fn read_config_file(
     // Load config startup file
     if let Some(file) = config_file {
         let working_set = StateWorkingSet::new(engine_state);
-        let cwd = working_set.get_cwd();
 
-        if let Ok(path) = canonicalize_with(&file.item, cwd) {
-            eval_config_contents(path, engine_state, stack);
-        } else {
-            let e = ParseError::FileNotFound(file.item, file.span);
-            report_error(&working_set, &e);
+        match engine_state.cwd_as_string(Some(stack)) {
+            Ok(cwd) => {
+                if let Ok(path) = canonicalize_with(&file.item, cwd) {
+                    eval_config_contents(path, engine_state, stack);
+                } else {
+                    let e = ParseError::FileNotFound(file.item, file.span);
+                    report_error(&working_set, &e);
+                }
+            }
+            Err(e) => {
+                report_error(&working_set, &e);
+            }
         }
     } else if let Some(mut config_path) = nu_path::config_dir() {
         config_path.push(NUSHELL_FOLDER);
@@ -143,16 +149,14 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
 
     info!("read_config_file {}:{}:{}", file!(), line!(), column!());
     // Merge the environment in case env vars changed in the config
-    match nu_engine::env::current_dir(engine_state, stack) {
+    match engine_state.cwd(Some(stack)) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
+                report_error_new(engine_state, &e);
             }
         }
         Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
+            report_error_new(engine_state, &e);
         }
     }
 }
@@ -184,16 +188,14 @@ fn eval_default_config(
     );
 
     // Merge the environment in case env vars changed in the config
-    match nu_engine::env::current_dir(engine_state, stack) {
+    match engine_state.cwd(Some(stack)) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
+                report_error_new(engine_state, &e);
             }
         }
         Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
+            report_error_new(engine_state, &e);
         }
     }
 }
@@ -214,7 +216,7 @@ pub(crate) fn setup_config(
     );
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
-        read_plugin_file(engine_state, stack, plugin_file, NUSHELL_FOLDER);
+        read_plugin_file(engine_state, plugin_file, NUSHELL_FOLDER);
 
         read_config_file(engine_state, stack, env_file, true);
         read_config_file(engine_state, stack, config_file, false);

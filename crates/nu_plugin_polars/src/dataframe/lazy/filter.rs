@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
-    values::{to_pipeline_data, CustomValueSupport},
+    values::CustomValueSupport,
     PolarsPlugin,
 };
 
@@ -42,7 +42,7 @@ impl PluginCommand for LazyFilter {
         vec![Example {
             description: "Filter dataframe using an expression",
             example:
-                "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars filter ((polars col a) >= 4)",
+                "[[a b]; [6 2] [4 2] [2 2]] | polars into-df | polars filter ((polars col a) >= 4) | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -85,11 +85,8 @@ fn command(
     lazy: NuLazyFrame,
     filter_expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let lazy = NuLazyFrame::new(
-        lazy.from_eager,
-        lazy.to_polars().filter(filter_expr.to_polars()),
-    );
-    to_pipeline_data(plugin, engine, call.head, lazy)
+    let lazy = NuLazyFrame::new(lazy.to_polars().filter(filter_expr.into_polars()));
+    lazy.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

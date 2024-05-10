@@ -11,7 +11,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("date list-timezone")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .category(Category::Date)
     }
 
@@ -30,17 +30,17 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
+        let head = call.head;
 
         Ok(TZ_VARIANTS
             .iter()
             .map(move |x| {
                 Value::record(
-                    record! { "timezone" => Value::string(x.name(), span) },
-                    span,
+                    record! { "timezone" => Value::string(x.name(), head) },
+                    head,
                 )
             })
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(head, engine_state.ctrlc.clone()))
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -23,7 +23,7 @@ impl Command for Ps {
 
     fn signature(&self) -> Signature {
         Signature::build("ps")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .switch(
                 "long",
                 "list all available columns for each entry",
@@ -195,5 +195,5 @@ fn run_ps(
 
     Ok(output
         .into_iter()
-        .into_pipeline_data(engine_state.ctrlc.clone()))
+        .into_pipeline_data(span, engine_state.ctrlc.clone()))
 }

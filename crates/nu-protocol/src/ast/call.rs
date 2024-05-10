@@ -36,6 +36,15 @@ impl Argument {
             Argument::Spread(e) => e.span,
         }
     }
+
+    pub fn expr(&self) -> Option<&Expression> {
+        match self {
+            Argument::Named((_, _, expr)) => expr.as_ref(),
+            Argument::Positional(expr) | Argument::Unknown(expr) | Argument::Spread(expr) => {
+                Some(expr)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

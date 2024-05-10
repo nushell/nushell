@@ -7,8 +7,8 @@ use nu_engine::eval_block;
 use nu_parser::{flatten_pipeline_element, parse, FlatShape};
 use nu_protocol::{
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
-    BlockId, PipelineData, Span, Value,
+    engine::{Closure, EngineState, Stack, StateWorkingSet},
+    PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::{str, sync::Arc};
@@ -22,10 +22,10 @@ pub struct NuCompleter {
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
+    pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self {
             engine_state,
-            stack: stack.reset_out_dest().capture(),
+            stack: Stack::with_parent(stack).reset_out_dest().capture(),
         }
     }
 
@@ -52,8 +52,15 @@ impl NuCompleter {
         };
 
         // Fetch
-        let mut suggestions =
-            completer.fetch(working_set, prefix.clone(), new_span, offset, pos, &options);
+        let mut suggestions = completer.fetch(
+            working_set,
+            &self.stack,
+            prefix.clone(),
+            new_span,
+            offset,
+            pos,
+            &options,
+        );
 
         // Sort
         suggestions = completer.sort(suggestions, prefix);
@@ -63,15 +70,15 @@ impl NuCompleter {
 
     fn external_completion(
         &self,
-        block_id: BlockId,
+        closure: &Closure,
         spans: &[String],
         offset: usize,
         span: Span,
     ) -> Option<Vec<SemanticSuggestion>> {
-        let block = self.engine_state.get_block(block_id);
+        let block = self.engine_state.get_block(closure.block_id);
         let mut callee_stack = self
             .stack
-            .gather_captures(&self.engine_state, &block.captures);
+            .captures_to_stack_preserve_out_dest(closure.captures.clone());
 
         // Line
         if let Some(pos_arg) = block.signature.required_positional.first() {
@@ -175,11 +182,8 @@ impl NuCompleter {
 
                         // Variables completion
                         if prefix.starts_with(b"$") || most_left_var.is_some() {
-                            let mut completer = VariableCompletion::new(
-                                self.engine_state.clone(),
-                                self.stack.clone(),
-                                most_left_var.unwrap_or((vec![], vec![])),
-                            );
+                            let mut completer =
+                                VariableCompletion::new(most_left_var.unwrap_or((vec![], vec![])));
 
                             return self.process_completion(
                                 &mut completer,
@@ -210,13 +214,10 @@ impl NuCompleter {
 
                             // We got no results for internal completion
                             // now we can check if external completer is set and use it
-                            if let Some(block_id) = config.external_completer {
-                                if let Some(external_result) = self.external_completion(
-                                    block_id,
-                                    &spans,
-                                    fake_offset,
-                                    new_span,
-                                ) {
+                            if let Some(closure) = config.external_completer.as_ref() {
+                                if let Some(external_result) =
+                                    self.external_completion(closure, &spans, fake_offset, new_span)
+                                {
                                     return external_result;
                                 }
                             }
@@ -227,8 +228,6 @@ impl NuCompleter {
                             || (flat_idx == 0 && working_set.get_span_contents(new_span).is_empty())
                         {
                             let mut completer = CommandCompletion::new(
-                                self.engine_state.clone(),
-                                &working_set,
                                 flattened.clone(),
                                 // flat_idx,
                                 FlatShape::String,
@@ -256,10 +255,7 @@ impl NuCompleter {
                                     || prev_expr_str == b"overlay use"
                                     || prev_expr_str == b"source-env"
                                 {
-                                    let mut completer = DotNuCompletion::new(
-                                        self.engine_state.clone(),
-                                        self.stack.clone(),
-                                    );
+                                    let mut completer = DotNuCompletion::new();
 
                                     return self.process_completion(
                                         &mut completer,
@@ -270,10 +266,7 @@ impl NuCompleter {
                                         pos,
                                     );
                                 } else if prev_expr_str == b"ls" {
-                                    let mut completer = FileCompletion::new(
-                                        self.engine_state.clone(),
-                                        self.stack.clone(),
-                                    );
+                                    let mut completer = FileCompletion::new();
 
                                     return self.process_completion(
                                         &mut completer,
@@ -291,7 +284,6 @@ impl NuCompleter {
                         match &flat.1 {
                             FlatShape::Custom(decl_id) => {
                                 let mut completer = CustomCompletion::new(
-                                    self.engine_state.clone(),
                                     self.stack.clone(),
                                     *decl_id,
                                     initial_line,
@@ -307,10 +299,7 @@ impl NuCompleter {
                                 );
                             }
                             FlatShape::Directory => {
-                                let mut completer = DirectoryCompletion::new(
-                                    self.engine_state.clone(),
-                                    self.stack.clone(),
-                                );
+                                let mut completer = DirectoryCompletion::new();
 
                                 return self.process_completion(
                                     &mut completer,
@@ -322,10 +311,7 @@ impl NuCompleter {
                                 );
                             }
                             FlatShape::Filepath | FlatShape::GlobPattern => {
-                                let mut completer = FileCompletion::new(
-                                    self.engine_state.clone(),
-                                    self.stack.clone(),
-                                );
+                                let mut completer = FileCompletion::new();
 
                                 return self.process_completion(
                                     &mut completer,
@@ -338,8 +324,6 @@ impl NuCompleter {
                             }
                             flat_shape => {
                                 let mut completer = CommandCompletion::new(
-                                    self.engine_state.clone(),
-                                    &working_set,
                                     flattened.clone(),
                                     // flat_idx,
                                     flat_shape.clone(),
@@ -360,9 +344,9 @@ impl NuCompleter {
                                 }
 
                                 // Try to complete using an external completer (if set)
-                                if let Some(block_id) = config.external_completer {
+                                if let Some(closure) = config.external_completer.as_ref() {
                                     if let Some(external_result) = self.external_completion(
-                                        block_id,
+                                        closure,
                                         &spans,
                                         fake_offset,
                                         new_span,
@@ -372,10 +356,7 @@ impl NuCompleter {
                                 }
 
                                 // Check for file completion
-                                let mut completer = FileCompletion::new(
-                                    self.engine_state.clone(),
-                                    self.stack.clone(),
-                                );
+                                let mut completer = FileCompletion::new();
                                 out = self.process_completion(
                                     &mut completer,
                                     &working_set,
@@ -560,7 +541,7 @@ mod completer_tests {
             result.err().unwrap()
         );
 
-        let mut completer = NuCompleter::new(engine_state.into(), Stack::new());
+        let mut completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
         let dataset = [
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),

@@ -26,7 +26,7 @@ fn chooses_highest_increment_if_given_more_than_one() {
 #[test]
 fn by_one_with_field_passed() {
     Playground::setup("plugin_inc_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [package]
@@ -47,7 +47,7 @@ fn by_one_with_field_passed() {
 #[test]
 fn by_one_with_no_field_passed() {
     Playground::setup("plugin_inc_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [package]
@@ -68,7 +68,7 @@ fn by_one_with_no_field_passed() {
 #[test]
 fn semversion_major_inc() {
     Playground::setup("plugin_inc_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [package]
@@ -89,7 +89,7 @@ fn semversion_major_inc() {
 #[test]
 fn semversion_minor_inc() {
     Playground::setup("plugin_inc_test_4", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [package]
@@ -110,7 +110,7 @@ fn semversion_minor_inc() {
 #[test]
 fn semversion_patch_inc() {
     Playground::setup("plugin_inc_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [package]
@@ -131,7 +131,7 @@ fn semversion_patch_inc() {
 #[test]
 fn semversion_without_passing_field() {
     Playground::setup("plugin_inc_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [package]

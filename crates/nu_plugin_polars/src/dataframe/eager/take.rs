@@ -5,11 +5,7 @@ use nu_protocol::{
 };
 use polars::prelude::DataType;
 
-use crate::{
-    dataframe::values::Column,
-    values::{to_pipeline_data, CustomValueSupport},
-    PolarsPlugin,
-};
+use crate::{dataframe::values::Column, values::CustomValueSupport, PolarsPlugin};
 
 use super::super::values::NuDataFrame;
 
@@ -105,7 +101,8 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let index_value: Value = call.req(0)?;
     let index_span = index_value.span();
-    let index = NuDataFrame::try_from_value(plugin, &index_value)?.as_series(index_span)?;
+    let index = NuDataFrame::try_from_value_coerce(plugin, &index_value, call.head)?
+        .as_series(index_span)?;
 
     let casted = match index.dtype() {
         DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => index
@@ -146,8 +143,8 @@ fn command(
             inner: vec![],
         })?;
 
-    let df = NuDataFrame::new(df.from_lazy, polars_df);
-    to_pipeline_data(plugin, engine, call.head, df)
+    let df = NuDataFrame::new(polars_df);
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

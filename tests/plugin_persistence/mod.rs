@@ -43,6 +43,7 @@ fn plugin_process_exits_after_stop() {
         plugin: ("nu_plugin_inc"),
         r#"
             "2.0.0" | inc -m | ignore
+            sleep 500ms
             let pid = (plugin list).0.pid
             if (ps | where pid == $pid | is-empty) {
                 error make {
@@ -73,6 +74,17 @@ fn plugin_process_exits_after_stop() {
 }
 
 #[test]
+fn plugin_stop_can_find_by_filename() {
+    let result = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"plugin stop (plugin list | where name == inc).0.filename"#
+    );
+    assert!(result.status.success());
+    assert!(result.err.is_empty());
+}
+
+#[test]
 fn plugin_process_exits_when_nushell_exits() {
     let out = nu_with_plugins!(
         cwd: ".",
@@ -90,7 +102,7 @@ fn plugin_process_exits_when_nushell_exits() {
     // use nu to check if process exists
     assert_eq!(
         "0",
-        nu!(format!("ps | where pid == {pid} | length")).out,
+        nu!(format!("sleep 500ms; ps | where pid == {pid} | length")).out,
         "plugin process {pid} is still running"
     );
 }

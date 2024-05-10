@@ -13,8 +13,8 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("date to-record")
             .input_output_types(vec![
-                (Type::Date, Type::Record(vec![])),
-                (Type::String, Type::Record(vec![])),
+                (Type::Date, Type::record()),
+                (Type::String, Type::record()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .category(Category::Date)
@@ -112,9 +112,11 @@ fn helper(val: Value, head: Span) -> Value {
         }
         Value::Date { val, .. } => parse_date_into_table(val, head),
         _ => Value::error(
-            ShellError::DatetimeParseError {
-                msg: val.to_debug_string(),
-                span: head,
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "date, string (that represents datetime), or nothing".into(),
+                wrong_type: val.get_type().to_string(),
+                dst_span: head,
+                src_span: span,
             },
             head,
         ),
