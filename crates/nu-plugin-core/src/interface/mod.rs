@@ -183,7 +183,7 @@ pub trait InterfaceManager {
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ByteStream::from_result_iter(reader, info.span, None).into()
+                ByteStream::from_result_iter(reader, info.span, ctrlc.cloned()).into()
             }
         })
     }
