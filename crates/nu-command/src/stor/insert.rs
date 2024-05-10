@@ -1,5 +1,6 @@
-use crate::database::{SQLiteDatabase, MEMORY_DB};
+use crate::database::{values_to_sql, SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
+use rusqlite::params_from_iter;
 
 #[derive(Clone)]
 pub struct StorInsert;
@@ -77,33 +78,12 @@ impl Command for StorInsert {
                         create_stmt.pop();
                     }
 
+                    // Values are set as placeholders.
                     create_stmt.push_str(") VALUES ( ");
-                    let vals = record.values();
-                    vals.for_each(|val| match val {
-                        Value::Int { val, .. } => {
-                            create_stmt.push_str(&format!("{}, ", val));
-                        }
-                        Value::Float { val, .. } => {
-                            create_stmt.push_str(&format!("{}, ", val));
-                        }
-                        Value::String { val, .. } => {
-                            create_stmt.push_str(&format!("'{}', ", val));
-                        }
-                        Value::Date { val, .. } => {
-                            create_stmt.push_str(&format!("'{}', ", val));
-                        }
-                        Value::Bool { val, .. } => {
-                            create_stmt.push_str(&format!("{}, ", val));
-                        }
-                        _ => {
-                            // return Err(ShellError::UnsupportedInput {
-                            //     msg: format!("{} is not a valid datepart, expected one of year, month, day, hour, minute, second, millisecond, microsecond, nanosecond", part.item),
-                            //     input: "value originates from here".to_string(),
-                            //     msg_span: span,
-                            //     input_span: val.span(),
-                            // });
-                        }
-                    });
+                    for (index, _) in record.columns().enumerate() {
+                        create_stmt.push_str(&format!("?{}, ", index + 1));
+                    }
+
                     if create_stmt.ends_with(", ") {
                         create_stmt.pop();
                         create_stmt.pop();
@@ -113,7 +93,10 @@ impl Command for StorInsert {
 
                     // dbg!(&create_stmt);
 
-                    conn.execute(&create_stmt, [])
+                    // Get the params from the passed values
+                    let params = values_to_sql(record.values().cloned())?;
+
+                    conn.execute(&create_stmt, params_from_iter(params))
                         .map_err(|err| ShellError::GenericError {
                             error: "Failed to open SQLite connection in memory from insert".into(),
                             msg: err.to_string(),
