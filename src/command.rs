@@ -2,7 +2,7 @@ use nu_engine::{command_prelude::*, get_full_help};
 use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_protocol::{
     ast::{Expr, Expression},
-    engine::StateWorkingSet,
+    engine::{CommandType, StateWorkingSet},
     report_error,
 };
 use nu_utils::stdout_write_all_and_flush;
@@ -191,13 +191,7 @@ pub(crate) fn parse_commandline_args(
             let help = call.has_flag(engine_state, &mut stack, "help")?;
 
             if help {
-                let full_help = get_full_help(
-                    &Nu.signature(),
-                    &Nu.examples(),
-                    engine_state,
-                    &mut stack,
-                    true,
-                );
+                let full_help = get_full_help(&Nu, engine_state, &mut stack);
 
                 let _ = std::panic::catch_unwind(move || stdout_write_all_and_flush(full_help));
 
@@ -245,13 +239,7 @@ pub(crate) fn parse_commandline_args(
     }
 
     // Just give the help and exit if the above fails
-    let full_help = get_full_help(
-        &Nu.signature(),
-        &Nu.examples(),
-        engine_state,
-        &mut stack,
-        true,
-    );
+    let full_help = get_full_help(&Nu, engine_state, &mut stack);
     print!("{full_help}");
     std::process::exit(1);
 }
@@ -452,11 +440,7 @@ impl Command for Nu {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(
-            get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack, true),
-            call.head,
-        )
-        .into_pipeline_data())
+        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<nu_protocol::Example> {
@@ -472,5 +456,9 @@ impl Command for Nu {
                 result: None,
             },
         ]
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 }
