@@ -3,8 +3,7 @@ use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    eval_const::create_nu_constant,
-    report_error, DeclId, ShellError, Span, Value, VarId, NU_VARIABLE_ID,
+    report_error_new, DeclId, ShellError, Span, Value, VarId,
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
@@ -56,9 +55,8 @@ fn read_in_file<'a>(
     let file = std::fs::read(file_path)
         .into_diagnostic()
         .unwrap_or_else(|e| {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(
-                &working_set,
+            report_error_new(
+                engine_state,
                 &ShellError::FileNotFoundCustom {
                     msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
                     span: Span::unknown(),
@@ -77,16 +75,7 @@ fn read_in_file<'a>(
 pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
-    let working_set = StateWorkingSet::new(engine_state);
-
-    let nu_const = match create_nu_constant(engine_state, Span::unknown()) {
-        Ok(nu_const) => nu_const,
-        Err(err) => {
-            report_error(&working_set, &err);
-            std::process::exit(1);
-        }
-    };
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    engine_state.generate_nu_constant();
 
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);

@@ -6,6 +6,7 @@ use crate::{
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
+    eval_const::create_nu_constant,
     BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
     ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
 };
@@ -753,8 +754,8 @@ impl EngineState {
         var.const_val.as_ref()
     }
 
-    pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
-        self.vars[var_id].const_val = Some(val);
+    pub fn generate_nu_constant(&mut self) {
+        self.vars[NU_VARIABLE_ID].const_val = Some(create_nu_constant(self, Span::unknown()));
     }
 
     pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
