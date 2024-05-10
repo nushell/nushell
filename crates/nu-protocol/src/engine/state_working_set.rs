@@ -1,12 +1,7 @@
-use crate::{
-    ast::Block,
-    engine::{
-        usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
-        StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
-    },
-    ActualSpan, BlockId, Category, Config, DeclId, FileId, FutureSpanId, GetSpan, Module, ModuleId,
-    ParseError, ParseWarning, SpanId, Type, Value, VarId, VirtualPathId,
-};
+use crate::{ast::Block, engine::{
+    usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
+    StateDelta, Variable, VirtualPath, Visibility, PWD_ENV,
+}, ActualSpan, BlockId, Category, Config, DeclId, FileId, FutureSpanId, GetSpan, Module, ModuleId, ParseError, ParseWarning, SpanId, Type, Value, VarId, VirtualPathId, span};
 use core::panic;
 use std::{
     collections::{HashMap, HashSet},
@@ -1051,6 +1046,12 @@ impl<'a> StateWorkingSet<'a> {
         let num_permanent_spans = self.permanent_state.spans.len();
         self.delta.spans.push(span);
         SpanId(num_permanent_spans + self.delta.spans.len() - 1)
+    }
+
+    pub fn add_new_span(&mut self, span_start: usize, span_end: usize) -> FutureSpanId {
+        let span = ActualSpan::new(span_start, span_end);
+        let id = self.add_span(span);
+        FutureSpanId { start: span.start, end: span.end, id }
     }
 }
 
