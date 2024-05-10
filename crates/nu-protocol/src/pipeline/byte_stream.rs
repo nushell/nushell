@@ -20,7 +20,7 @@ use std::{
 
 /// The source of bytes for a [`ByteStream`].
 ///
-/// Currently, there are only three possiblities:
+/// Currently, there are only three possibilities:
 /// 1. `Read` (any `dyn` type that implements [`Read`])
 /// 2. [`File`]
 /// 3. [`ChildProcess`]
