@@ -1,7 +1,7 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_protocol::{
     byte_stream::copy_with_interrupt, engine::Closure, process::ChildPipe, ByteStream,
-    ByteStreamSource, OutDest, PipelineMetadata,
+    ByteStreamSource, OutDest,
 };
 use std::{
     io::{self, Read, Write},
@@ -104,6 +104,10 @@ use it in your pipeline."#
         if let PipelineData::ByteStream(stream, metadata) = input {
             let span = stream.span();
             let ctrlc = engine_state.ctrlc.clone();
+            let eval_block = {
+                let metadata = metadata.clone();
+                move |stream| eval_block(PipelineData::ByteStream(stream, metadata))
+            };
 
             match stream.into_source() {
                 ByteStreamSource::Read(read) => {
@@ -111,8 +115,7 @@ use it in your pipeline."#
                         return stderr_misuse(span, head);
                     }
 
-                    let (sender, thread) = spawn_tee(&metadata, eval_block, span)?;
-                    let tee = IoTee::new(read, sender, thread);
+                    let tee = IoTee::new(read, span, eval_block)?;
 
                     Ok(PipelineData::ByteStream(
                         ByteStream::read(tee, span, ctrlc),
@@ -124,8 +127,7 @@ use it in your pipeline."#
                         return stderr_misuse(span, head);
                     }
 
-                    let (sender, thread) = spawn_tee(&metadata, eval_block, span)?;
-                    let tee = IoTee::new(file, sender, thread);
+                    let tee = IoTee::new(file, span, eval_block)?;
 
                     Ok(PipelineData::ByteStream(
                         ByteStream::read(tee, span, ctrlc),
@@ -137,35 +139,31 @@ use it in your pipeline."#
                         let stderr_thread = if let Some(stderr) = child.stderr.take() {
                             match stack.stderr() {
                                 OutDest::Pipe | OutDest::Capture => {
-                                    let (sender, thread) = spawn_tee(&metadata, eval_block, span)?;
-                                    let tee = IoTee::new(stderr, sender, thread);
+                                    let tee = IoTee::new(stderr, span, eval_block)?;
                                     child.stderr = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(None)
                                 }
-                                OutDest::Null => tee_and_drain_on_thread(
+                                OutDest::Null => tee_pipe_on_thread(
                                     stderr,
                                     io::sink(),
                                     span,
                                     ctrlc.as_ref(),
-                                    &metadata,
                                     eval_block,
                                 )
                                 .map(Some),
-                                OutDest::Inherit => tee_and_drain_on_thread(
+                                OutDest::Inherit => tee_pipe_on_thread(
                                     stderr,
                                     io::stderr(),
                                     span,
                                     ctrlc.as_ref(),
-                                    &metadata,
                                     eval_block,
                                 )
                                 .map(Some),
-                                OutDest::File(file) => tee_and_drain_on_thread(
+                                OutDest::File(file) => tee_pipe_on_thread(
                                     stderr,
                                     file.clone(),
                                     span,
                                     ctrlc.as_ref(),
-                                    &metadata,
                                     eval_block,
                                 )
                                 .map(Some),
@@ -181,13 +179,13 @@ use it in your pipeline."#
                                     Ok(())
                                 }
                                 OutDest::Null => {
-                                    drain_pipe(stdout, io::sink(), span, ctrlc.as_deref())
+                                    copy_pipe(stdout, io::sink(), span, ctrlc.as_deref())
                                 }
                                 OutDest::Inherit => {
-                                    drain_pipe(stdout, io::stdout(), span, ctrlc.as_deref())
+                                    copy_pipe(stdout, io::stdout(), span, ctrlc.as_deref())
                                 }
                                 OutDest::File(file) => {
-                                    drain_pipe(stdout, file.as_ref(), span, ctrlc.as_deref())
+                                    copy_pipe(stdout, file.as_ref(), span, ctrlc.as_deref())
                                 }
                             }?;
                         }
@@ -201,15 +199,15 @@ use it in your pipeline."#
                                     Ok(None)
                                 }
                                 OutDest::Null => {
-                                    copy_on_thread(stderr, io::sink(), span, ctrlc.as_ref())
+                                    copy_pipe_on_thread(stderr, io::sink(), span, ctrlc.as_ref())
                                         .map(Some)
                                 }
                                 OutDest::Inherit => {
-                                    copy_on_thread(stderr, io::stderr(), span, ctrlc.as_ref())
+                                    copy_pipe_on_thread(stderr, io::stderr(), span, ctrlc.as_ref())
                                         .map(Some)
                                 }
                                 OutDest::File(file) => {
-                                    copy_on_thread(stderr, file.clone(), span, ctrlc.as_ref())
+                                    copy_pipe_on_thread(stderr, file.clone(), span, ctrlc.as_ref())
                                         .map(Some)
                                 }
                             }?
@@ -220,33 +218,25 @@ use it in your pipeline."#
                         if let Some(stdout) = child.stdout.take() {
                             match stack.stdout() {
                                 OutDest::Pipe | OutDest::Capture => {
-                                    let (sender, thread) = spawn_tee(&metadata, eval_block, span)?;
-                                    let tee = IoTee::new(stdout, sender, thread);
+                                    let tee = IoTee::new(stdout, span, eval_block)?;
                                     child.stdout = Some(ChildPipe::Tee(Box::new(tee)));
                                     Ok(())
                                 }
-                                OutDest::Null => tee_and_drain(
-                                    stdout,
-                                    io::sink(),
-                                    span,
-                                    ctrlc,
-                                    &metadata,
-                                    eval_block,
-                                ),
-                                OutDest::Inherit => tee_and_drain(
+                                OutDest::Null => {
+                                    tee_pipe(stdout, io::sink(), span, ctrlc.as_deref(), eval_block)
+                                }
+                                OutDest::Inherit => tee_pipe(
                                     stdout,
                                     io::stdout(),
                                     span,
-                                    ctrlc,
-                                    &metadata,
+                                    ctrlc.as_deref(),
                                     eval_block,
                                 ),
-                                OutDest::File(file) => tee_and_drain(
+                                OutDest::File(file) => tee_pipe(
                                     stdout,
                                     file.as_ref(),
                                     span,
-                                    ctrlc,
-                                    &metadata,
+                                    ctrlc.as_deref(),
                                     eval_block,
                                 ),
                             }?;
@@ -376,12 +366,23 @@ struct IoTee<R: Read> {
 }
 
 impl<R: Read> IoTee<R> {
-    fn new(reader: R, sender: Sender<Vec<u8>>, thread: JoinHandle<Result<(), ShellError>>) -> Self {
-        Self {
+    fn new(
+        reader: R,
+        span: Span,
+        eval_block: impl FnOnce(ByteStream) -> Result<(), ShellError> + Send + 'static,
+    ) -> Result<Self, ShellError> {
+        let (sender, receiver) = mpsc::channel();
+
+        let thread = thread::Builder::new()
+            .name("tee".into())
+            .spawn(move || eval_block(ByteStream::from_iter(receiver.into_iter(), span, None)))
+            .err_span(span)?;
+
+        Ok(Self {
             reader,
             sender: Some(sender),
             thread: Some(thread),
-        }
+        })
     }
 }
 
@@ -413,82 +414,47 @@ impl<R: Read> Read for IoTee<R> {
     }
 }
 
-#[allow(clippy::type_complexity)]
-fn spawn_tee(
-    metadata: &Option<PipelineMetadata>,
-    mut eval_block: impl FnMut(PipelineData) -> Result<(), ShellError> + Send + 'static,
-    span: Span,
-) -> Result<(Sender<Vec<u8>>, JoinHandle<Result<(), ShellError>>), ShellError> {
-    let (sender, receiver) = mpsc::channel();
-
-    let meta = metadata.clone();
-    let thread = thread::Builder::new()
-        .name("tee".into())
-        .spawn(move || {
-            let stream = ByteStream::from_iter(receiver.into_iter(), span, None);
-            eval_block(PipelineData::ByteStream(stream, meta))
-        })
-        .err_span(span)?;
-
-    Ok((sender, thread))
-}
-
-fn drain_teed_pipe(
-    child_pipe: ChildPipe,
+fn tee_pipe(
+    pipe: ChildPipe,
     mut dest: impl Write,
-    sender: Sender<Vec<u8>>,
-    thread: JoinHandle<Result<(), ShellError>>,
     span: Span,
     ctrlc: Option<&AtomicBool>,
+    eval_block: impl FnOnce(ByteStream) -> Result<(), ShellError> + Send + 'static,
 ) -> Result<(), ShellError> {
-    match child_pipe {
+    match pipe {
         ChildPipe::Pipe(pipe) => {
-            let mut tee = IoTee::new(pipe, sender, thread);
+            let mut tee = IoTee::new(pipe, span, eval_block)?;
             copy_with_interrupt(&mut tee, &mut dest, span, ctrlc)?;
         }
         ChildPipe::Tee(tee) => {
-            let mut tee = IoTee::new(tee, sender, thread);
+            let mut tee = IoTee::new(tee, span, eval_block)?;
             copy_with_interrupt(&mut tee, &mut dest, span, ctrlc)?;
         }
     }
     Ok(())
 }
 
-fn tee_and_drain_on_thread(
+fn tee_pipe_on_thread(
     pipe: ChildPipe,
     dest: impl Write + Send + 'static,
     span: Span,
     ctrlc: Option<&Arc<AtomicBool>>,
-    metadata: &Option<PipelineMetadata>,
-    eval_block: impl FnMut(PipelineData) -> Result<(), ShellError> + Send + 'static,
+    eval_block: impl FnOnce(ByteStream) -> Result<(), ShellError> + Send + 'static,
 ) -> Result<JoinHandle<Result<(), ShellError>>, ShellError> {
     let ctrlc = ctrlc.cloned();
-    let (sender, thread) = spawn_tee(metadata, eval_block, span)?;
     thread::Builder::new()
         .name("stderr tee".into())
-        .spawn(move || drain_teed_pipe(pipe, dest, sender, thread, span, ctrlc.as_deref()))
+        .spawn(move || tee_pipe(pipe, dest, span, ctrlc.as_deref(), eval_block))
         .map_err(|e| e.into_spanned(span).into())
 }
 
-fn tee_and_drain(
+fn copy_pipe(
     pipe: ChildPipe,
-    dest: impl Write,
-    span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
-    metadata: &Option<PipelineMetadata>,
-    eval_block: impl FnMut(PipelineData) -> Result<(), ShellError> + Send + 'static,
-) -> Result<(), ShellError> {
-    let (sender, thread) = spawn_tee(metadata, eval_block, span)?;
-    drain_teed_pipe(pipe, dest, sender, thread, span, ctrlc.as_deref())
-}
-
-fn drain_pipe(
-    child_pipe: ChildPipe,
     mut dest: impl Write,
     span: Span,
     ctrlc: Option<&AtomicBool>,
 ) -> Result<(), ShellError> {
-    match child_pipe {
+    match pipe {
         ChildPipe::Pipe(mut pipe) => {
             copy_with_interrupt(&mut pipe, &mut dest, span, ctrlc)?;
         }
@@ -499,27 +465,16 @@ fn drain_pipe(
     Ok(())
 }
 
-fn copy_on_thread(
-    read: ChildPipe,
-    mut write: impl Write + Send + 'static,
+fn copy_pipe_on_thread(
+    pipe: ChildPipe,
+    dest: impl Write + Send + 'static,
     span: Span,
     ctrlc: Option<&Arc<AtomicBool>>,
 ) -> Result<JoinHandle<Result<(), ShellError>>, ShellError> {
     let ctrlc = ctrlc.cloned();
     thread::Builder::new()
-        .name("stderr consumer".into())
-        .spawn(move || {
-            match read {
-                ChildPipe::Pipe(mut pipe) => {
-                    copy_with_interrupt(&mut pipe, &mut write, span, ctrlc.as_deref())
-                }
-                ChildPipe::Tee(mut tee) => {
-                    copy_with_interrupt(&mut tee, &mut write, span, ctrlc.as_deref())
-                }
-            }?;
-
-            Ok(())
-        })
+        .name("stderr copier".into())
+        .spawn(move || copy_pipe(pipe, dest, span, ctrlc.as_deref()))
         .map_err(|e| e.into_spanned(span).into())
 }
 
