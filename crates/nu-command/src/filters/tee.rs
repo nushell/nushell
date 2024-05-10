@@ -372,7 +372,7 @@ impl<R: Read> IoTee<R> {
 
         let thread = thread::Builder::new()
             .name("tee".into())
-            .spawn(move || eval_block(ByteStream::from_iter(receiver.into_iter(), span, None)))
+            .spawn(move || eval_block(ByteStream::from_iter(receiver, span, None)))
             .err_span(span)?;
 
         Ok(Self {

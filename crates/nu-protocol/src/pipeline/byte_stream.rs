@@ -130,9 +130,11 @@ impl ByteStream {
     /// The returned [`ByteStream`] will have a [`ByteStreamSource`] of `Read`.
     pub fn from_iter<I>(iter: I, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self
     where
-        I: Iterator + Send + 'static,
+        I: IntoIterator,
+        I::IntoIter: Send + 'static,
         I::Item: AsRef<[u8]> + Default + Send + 'static,
     {
+        let iter = iter.into_iter();
         let cursor = Some(Cursor::new(I::Item::default()));
         Self::read(ReadIterator { iter, cursor }, span, interrupt)
     }
@@ -140,14 +142,13 @@ impl ByteStream {
     /// Create a new [`ByteStream`] from an [`Iterator`] of [`Result`] bytes slices.
     ///
     /// The returned [`ByteStream`] will have a [`ByteStreamSource`] of `Read`.
-    pub fn from_result_iter<T>(
-        iter: impl Iterator<Item = Result<T, ShellError>> + Send + 'static,
-        span: Span,
-        interrupt: Option<Arc<AtomicBool>>,
-    ) -> Self
+    pub fn from_result_iter<I, T>(iter: I, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self
     where
+        I: IntoIterator<Item = Result<T, ShellError>>,
+        I::IntoIter: Send + 'static,
         T: AsRef<[u8]> + Default + Send + 'static,
     {
+        let iter = iter.into_iter();
         let cursor = Some(Cursor::new(T::default()));
         Self::read(ReadResultIterator { iter, cursor }, span, interrupt)
     }
