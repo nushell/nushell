@@ -260,7 +260,8 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
         }
     } else {
         eprintln!(
-            "{}: This plugin must be run from within Nushell.",
+            "{}: This plugin must be run from within Nushell. See `plugin add --help` for details \
+            on how to use plugins.",
             env::current_exe()
                 .map(|path| path.display().to_string())
                 .unwrap_or_else(|_| "plugin".into())

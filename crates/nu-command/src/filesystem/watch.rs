@@ -5,8 +5,7 @@ use notify_debouncer_full::{
         EventKind, RecursiveMode, Watcher,
     },
 };
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir, ClosureEval};
+use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::{
     engine::{Closure, StateWorkingSet},
     format_error,
@@ -74,8 +73,7 @@ impl Command for Watch {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
+        let cwd = engine_state.cwd_as_string(Some(stack))?;
         let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         let path_no_whitespace = &path_arg

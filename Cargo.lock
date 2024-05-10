@@ -3420,6 +3420,7 @@ dependencies = [
  "polars",
  "polars-arrow",
  "polars-io",
+ "polars-lazy",
  "polars-ops",
  "polars-plan",
  "polars-utils",

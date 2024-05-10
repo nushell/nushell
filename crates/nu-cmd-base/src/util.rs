@@ -13,8 +13,9 @@ pub fn get_init_cwd() -> PathBuf {
 }
 
 pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
-    #[allow(deprecated)]
-    nu_engine::env::current_dir(engine_state, stack).unwrap_or(crate::util::get_init_cwd())
+    engine_state
+        .cwd(Some(stack))
+        .unwrap_or(crate::util::get_init_cwd())
 }
 
 type MakeRangeError = fn(&str, Span) -> ShellError;

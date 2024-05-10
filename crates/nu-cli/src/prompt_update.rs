@@ -65,7 +65,7 @@ fn get_prompt_string(
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
             Value::Closure { val, .. } => {
-                let result = ClosureEvalOnce::new(engine_state, stack, val)
+                let result = ClosureEvalOnce::new(engine_state, stack, *val)
                     .run_with_input(PipelineData::Empty);
 
                 trace!(
@@ -108,50 +108,34 @@ pub(crate) fn update_prompt(
     stack: &mut Stack,
     nu_prompt: &mut NushellPrompt,
 ) {
-    let left_prompt_string = get_prompt_string(PROMPT_COMMAND, config, engine_state, stack);
+    let configured_left_prompt_string =
+        match get_prompt_string(PROMPT_COMMAND, config, engine_state, stack) {
+            Some(s) => s,
+            None => "".to_string(),
+        };
 
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
-    let left_prompt_string_133 = if config.shell_integration_osc133 {
-        if let Some(prompt_string) = left_prompt_string.clone() {
+    let left_prompt_string = if config.shell_integration_osc633 {
+        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+            // We're in vscode and we have osc633 enabled
             Some(format!(
-                "{PRE_PROMPT_MARKER}{prompt_string}{POST_PROMPT_MARKER}"
+                "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
+            ))
+        } else if config.shell_integration_osc133 {
+            // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
+            Some(format!(
+                "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
             ))
         } else {
-            left_prompt_string.clone()
+            configured_left_prompt_string.into()
         }
+    } else if config.shell_integration_osc133 {
+        Some(format!(
+            "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
+        ))
     } else {
-        left_prompt_string.clone()
-    };
-
-    let left_prompt_string_633 = if config.shell_integration_osc633 {
-        if let Some(prompt_string) = left_prompt_string.clone() {
-            if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode"))
-            {
-                // If the user enabled osc633 and we're in vscode, use the vscode markers
-                Some(format!(
-                    "{VSCODE_PRE_PROMPT_MARKER}{prompt_string}{VSCODE_POST_PROMPT_MARKER}"
-                ))
-            } else {
-                // otherwise, use the regular osc133 markers
-                Some(format!(
-                    "{PRE_PROMPT_MARKER}{prompt_string}{POST_PROMPT_MARKER}"
-                ))
-            }
-        } else {
-            left_prompt_string.clone()
-        }
-    } else {
-        left_prompt_string.clone()
-    };
-
-    let left_prompt_string = match (left_prompt_string_133, left_prompt_string_633) {
-        (None, None) => left_prompt_string,
-        (None, Some(l633)) => Some(l633),
-        (Some(l133), None) => Some(l133),
-        // If both are set, it means we're in vscode, so use the vscode markers
-        // and even if we're not actually in vscode atm, the regular 133 markers are used
-        (Some(_l133), Some(l633)) => Some(l633),
+        configured_left_prompt_string.into()
     };
 
     let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack);

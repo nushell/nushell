@@ -5,28 +5,31 @@ use nu_protocol::{
 };
 
 use crate::{
-    dataframe::values::utils::convert_columns_string, values::CustomValueSupport, PolarsPlugin,
+    dataframe::values::Column,
+    values::{CustomValueSupport, NuLazyFrame},
+    PolarsPlugin,
 };
 
-use super::super::values::{Column, NuDataFrame};
+use super::super::values::NuDataFrame;
 
 #[derive(Clone)]
-pub struct GetDF;
+pub struct SliceDF;
 
-impl PluginCommand for GetDF {
+impl PluginCommand for SliceDF {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars get"
+        "polars slice"
     }
 
     fn usage(&self) -> &str {
-        "Creates dataframe with the selected columns."
+        "Creates new dataframe from a slice of rows."
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest("rest", SyntaxShape::Any, "column names to sort dataframe")
+            .required("offset", SyntaxShape::Int, "start of slice")
+            .required("size", SyntaxShape::Int, "size of slice")
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -36,14 +39,14 @@ impl PluginCommand for GetDF {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Returns the selected column",
-            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars get a",
+            description: "Create new dataframe from a slice of the rows",
+            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars slice 0 1 | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
-                    vec![Column::new(
-                        "a".to_string(),
-                        vec![Value::test_int(1), Value::test_int(3)],
-                    )],
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_int(1)]),
+                        Column::new("b".to_string(), vec![Value::test_int(2)]),
+                    ],
                     None,
                 )
                 .expect("simple df for test should not fail")
@@ -69,33 +72,24 @@ fn command(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let columns: Vec<Value> = call.rest(0)?;
-    let (col_string, col_span) = convert_columns_string(columns, call.head)?;
+    let offset: i64 = call.req(0)?;
+    let size: i64 = call.req(1)?;
 
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
-    let df = df
-        .as_ref()
-        .select(col_string)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error selecting columns".into(),
-            msg: e.to_string(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
-        })?;
-    let df = NuDataFrame::new(false, df);
-    df.to_pipeline_data(plugin, engine, call.head)
+    let res = df.to_polars().slice(offset, size as u32);
+    let res = NuLazyFrame::new(res);
+
+    res.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::test::test_polars_plugin_command;
-
     use super::*;
+    use crate::test::test_polars_plugin_command;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&GetDF)
+        test_polars_plugin_command(&SliceDF)
     }
 }
