@@ -158,7 +158,7 @@ impl Span {
     ///
     /// (Two consecutive spans can overlap as long as the above is true.)
     ///
-    /// Use [`Span::from_unordered`] if the spans are not known to be in order.
+    /// Use [`Span::merge_many`] if the spans are not known to be in order.
     pub fn concat(spans: &[Self]) -> Self {
         // TODO: enable assert below
         // debug_assert!(!spans.is_empty());
