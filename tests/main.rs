@@ -13,3 +13,4 @@ mod plugin_persistence;
 mod plugins;
 mod scope;
 mod shell;
+mod repl;

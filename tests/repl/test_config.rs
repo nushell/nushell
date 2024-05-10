@@ -1,5 +1,4 @@
-use super::{fail_test, run_test, run_test_std};
-use crate::tests::TestResult;
+use crate::repl::tests::{fail_test, run_test, run_test_std, TestResult};
 
 #[test]
 fn mutate_nu_config() -> TestResult {

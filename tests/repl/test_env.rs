@@ -1,5 +1,5 @@
-use crate::tests::{fail_test, run_test, TestResult};
 use nu_test_support::nu;
+use crate::repl::tests::{fail_test, run_test, TestResult};
 
 #[test]
 fn shorthand_env_1() -> TestResult {

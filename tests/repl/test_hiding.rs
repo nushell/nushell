@@ -1,4 +1,4 @@
-use crate::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{fail_test, run_test, TestResult};
 
 // TODO: Test the use/hide tests also as separate lines in REPL (i.e., with  merging the delta in between)
 #[test]
