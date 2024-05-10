@@ -333,7 +333,7 @@ impl PipelineData {
 
                 if let Some(decl_id) = engine_state.table_decl_id {
                     let command = engine_state.get_decl(decl_id);
-                    if command.get_block_id().is_some() {
+                    if command.block_id().is_some() {
                         data.write_all_and_flush(engine_state, config, false, false)?;
                     } else {
                         let call = Call::new(Span::unknown());
@@ -863,7 +863,7 @@ impl PipelineData {
 
         if let Some(decl_id) = engine_state.table_decl_id {
             let command = engine_state.get_decl(decl_id);
-            if command.get_block_id().is_some() {
+            if command.block_id().is_some() {
                 return self.write_all_and_flush(engine_state, config, no_newline, to_stderr);
             }
 

@@ -794,7 +794,7 @@ impl EngineState {
     }
 
     pub fn get_signature(&self, decl: &dyn Command) -> Signature {
-        if let Some(block_id) = decl.get_block_id() {
+        if let Some(block_id) = decl.block_id() {
             *self.blocks[block_id].signature.clone()
         } else {
             decl.signature()
@@ -820,20 +820,12 @@ impl EngineState {
     pub fn get_signatures_with_examples(
         &self,
         include_hidden: bool,
-    ) -> Vec<(Signature, Vec<Example>, bool, bool, bool)> {
+    ) -> Vec<(Signature, Vec<Example>, CommandType)> {
         self.get_decls_sorted(include_hidden)
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
-
                 let signature = self.get_signature(decl).update_from_command(decl);
-
-                (
-                    signature,
-                    decl.examples(),
-                    decl.is_plugin(),
-                    decl.get_block_id().is_some(),
-                    decl.is_parser_keyword(),
-                )
+                (signature, decl.examples(), decl.command_type())
             })
             .collect()
     }

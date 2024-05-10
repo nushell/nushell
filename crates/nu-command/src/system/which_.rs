@@ -66,7 +66,7 @@ fn entry(
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
     if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
-        let cmd_type = if engine_state.get_decl(decl_id).is_custom_command() {
+        let cmd_type = if engine_state.get_decl(decl_id).is_custom() {
             "custom"
         } else if engine_state.get_decl(decl_id).is_alias() {
             "alias"

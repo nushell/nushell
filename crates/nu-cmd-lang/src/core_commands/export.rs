@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_full_help};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct ExportCommand;
@@ -23,8 +24,8 @@ impl Command for ExportCommand {
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -40,7 +41,7 @@ impl Command for ExportCommand {
                 &ExportCommand.examples(),
                 engine_state,
                 stack,
-                self.is_parser_keyword(),
+                self.is_keyword(),
             ),
             call.head,
         )

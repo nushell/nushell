@@ -36,10 +36,10 @@ pub fn eval_call<D: DebugContext>(
             &decl.examples(),
             engine_state,
             caller_stack,
-            decl.is_parser_keyword(),
+            decl.is_keyword(),
         );
         Ok(Value::string(full_help, call.head).into_pipeline_data())
-    } else if let Some(block_id) = decl.get_block_id() {
+    } else if let Some(block_id) = decl.block_id() {
         let block = engine_state.get_block(block_id);
 
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
