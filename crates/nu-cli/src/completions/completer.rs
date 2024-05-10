@@ -134,7 +134,7 @@ impl NuCompleter {
 
         for pipeline in &output.pipelines {
             for pipeline_element in &pipeline.elements {
-                let flattened = flatten_pipeline_element(&working_set, pipeline_element);
+                let flattened = flatten_pipeline_element(&mut working_set, pipeline_element);
                 let mut spans: Vec<String> = vec![];
 
                 for (flat_idx, flat) in flattened.iter().enumerate() {

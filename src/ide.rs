@@ -1,7 +1,7 @@
 use miette::IntoDiagnostic;
 use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::{engine::{EngineState, Stack, StateWorkingSet}, eval_const::create_nu_constant, report_error, DeclId, FutureSpanId, ShellError, Value, VarId, NU_VARIABLE_ID, ActualSpan};
+use nu_protocol::{engine::{EngineState, Stack, StateWorkingSet}, eval_const::create_nu_constant, report_error, DeclId, FutureSpanId, ShellError, Value, VarId, NU_VARIABLE_ID, ActualSpan, GetSpan};
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
 use std::{path::PathBuf, sync::Arc};
@@ -26,16 +26,18 @@ fn find_id(
 
     if let Ok(location) = location.as_i64() {
         let location = location as usize + offset;
-        for item in flattened {
-            if location >= item.0.start && location < item.0.end {
-                match &item.1 {
+        for (span_id, shape) in flattened {
+            let span = working_set.get_actual_span(span_id.id);
+
+            if location >= span.start && location < span.end {
+                match &shape {
                     FlatShape::Variable(var_id) | FlatShape::VarDecl(var_id) => {
-                        return Some((Id::Variable(*var_id), offset, item.0));
+                        return Some((Id::Variable(*var_id), offset, span));
                     }
                     FlatShape::InternalCall(decl_id) => {
-                        return Some((Id::Declaration(*decl_id), offset, item.0));
+                        return Some((Id::Declaration(*decl_id), offset, span));
                     }
-                    _ => return Some((Id::Value(item.1), offset, item.0)),
+                    _ => return Some((Id::Value(shape), offset, span)),
                 }
             }
         }
@@ -122,7 +124,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
             );
         }
 
-        let flattened = flatten_block(&working_set, &block);
+        let flattened = flatten_block(&mut working_set, &block);
 
         for flat in flattened {
             if let FlatShape::VarDecl(var_id) = flat.1 {
@@ -634,9 +636,10 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
         let offset = working_set.next_span_start();
         let parsed_block = parse(&mut working_set, Some(file_path), &contents, false);
 
-        let flat = flatten_block(&working_set, &parsed_block);
+        let flat = flatten_block(&mut working_set, &parsed_block);
         let mut json_val: JsonValue = json!([]);
-        for (span, shape) in flat {
+        for (span_id, shape) in flat {
+            let span = working_set.get_actual_span(span_id.id);
             let content =
                 String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
 

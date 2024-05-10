@@ -9,7 +9,7 @@ use lsp_types::{
 use miette::{IntoDiagnostic, Result};
 use nu_cli::{NuCompleter, SuggestionKind};
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::{engine::{EngineState, Stack, StateWorkingSet}, DeclId, FutureSpanId, Value, VarId, ActualSpan};
+use nu_protocol::{engine::{EngineState, Stack, StateWorkingSet}, DeclId, FutureSpanId, Value, VarId, ActualSpan, GetSpan};
 use ropey::Rope;
 use std::{
     collections::BTreeMap,
@@ -216,7 +216,9 @@ impl LanguageServer {
         let offset = working_set.get_span_for_filename(&file_path)?.start;
         let location = location + offset;
 
-        for (span, shape) in flattened {
+        for (span_id, shape) in flattened {
+            let span = working_set.get_actual_span(span_id.id);
+
             if location >= span.start && location < span.end {
                 match &shape {
                     FlatShape::Variable(var_id) | FlatShape::VarDecl(var_id) => {

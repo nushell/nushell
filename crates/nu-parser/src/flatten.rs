@@ -91,7 +91,7 @@ impl Display for FlatShape {
 }
 
 pub fn flatten_block(
-    working_set: &StateWorkingSet,
+    working_set: &mut StateWorkingSet,
     block: &Block,
 ) -> Vec<(FutureSpanId, FlatShape)> {
     let mut output = vec![];
@@ -103,7 +103,7 @@ pub fn flatten_block(
 }
 
 pub fn flatten_expression(
-    working_set: &StateWorkingSet,
+    working_set: &mut StateWorkingSet,
     expr: &Expression,
 ) -> Vec<(FutureSpanId, FlatShape)> {
     if let Some(custom_completion) = &expr.custom_completion {
@@ -137,8 +137,8 @@ pub fn flatten_expression(
 
             let mut output = vec![];
 
-            let block = working_set.get_block(*block_id);
-            let flattened = flatten_block(working_set, block);
+            let block = working_set.get_block(*block_id).clone();
+            let flattened = flatten_block(working_set, &block);
 
             if let Some(first) = flattened.first() {
                 if first.0.start > outer_span.start {
@@ -174,7 +174,8 @@ pub fn flatten_expression(
 
             let mut output = vec![];
 
-            let flattened = flatten_block(working_set, working_set.get_block(*block_id));
+            let block = working_set.get_block(*block_id).clone();
+            let flattened = flatten_block(working_set, &block);
 
             if let Some(first) = flattened.first() {
                 if first.0.start > outer_span.start {
@@ -613,7 +614,7 @@ pub fn flatten_expression(
 }
 
 pub fn flatten_pipeline_element(
-    working_set: &StateWorkingSet,
+    working_set: &mut StateWorkingSet,
     pipeline_element: &PipelineElement,
 ) -> Vec<(FutureSpanId, FlatShape)> {
     let mut output = if let Some(span) = pipeline_element.pipe {
@@ -655,7 +656,7 @@ pub fn flatten_pipeline_element(
 }
 
 pub fn flatten_pipeline(
-    working_set: &StateWorkingSet,
+    working_set: &mut StateWorkingSet,
     pipeline: &Pipeline,
 ) -> Vec<(FutureSpanId, FlatShape)> {
     let mut output = vec![];

@@ -99,18 +99,18 @@ impl From<FutureSpanId> for SourceSpan {
 }
 
 impl FutureSpanId {
-    // pub fn new(start: usize, end: usize) -> FutureSpanId {
-    //     debug_assert!(
-    //         end >= start,
-    //         "Can't create a Span whose end < start, start={start}, end={end}"
-    //     );
-    //
-    //     FutureSpanId {
-    //         start,
-    //         end,
-    //         id: UNKNOWN_SPAN_ID,
-    //     }
-    // }
+    pub fn new(start: usize, end: usize) -> FutureSpanId {
+        debug_assert!(
+            end >= start,
+            "Can't create a Span whose end < start, start={start}, end={end}"
+        );
+
+        FutureSpanId {
+            start,
+            end,
+            id: UNKNOWN_SPAN_ID,
+        }
+    }
 
     pub const fn unknown() -> FutureSpanId {
         FutureSpanId {

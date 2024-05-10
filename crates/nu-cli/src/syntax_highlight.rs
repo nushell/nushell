@@ -26,7 +26,7 @@ impl Highlighter for NuHighlighter {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let block = parse(&mut working_set, None, line.as_bytes(), false);
         let (shapes, global_span_offset) = {
-            let mut shapes = flatten_block(&working_set, &block);
+            let mut shapes = flatten_block(&mut working_set, &block);
             // Highlighting externals has a config point because of concerns that using which to resolve
             // externals may slow down things too much.
             if highlight_resolved_externals {
