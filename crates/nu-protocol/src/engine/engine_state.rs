@@ -814,9 +814,7 @@ impl EngineState {
 
     /// Get signatures of all commands within scope.
     ///
-    /// In addition to signatures, it returns whether each command is:
-    ///     a) a plugin
-    ///     b) custom
+    /// In addition to signatures, it returns each command's examples and type.
     pub fn get_signatures_with_examples(
         &self,
         include_hidden: bool,
