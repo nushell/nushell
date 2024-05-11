@@ -416,11 +416,11 @@ fn save_with_custom_converter() {
         nu!(cwd: dirs.test(), pipeline(
             r#"
                 def "to ndjson" []: any -> string { each { to json --raw } | to text } ;
-                [a b] | save test.ndjson
+                {a: 1, b: 2} | save test.ndjson
             "#
         ));
 
         let actual = file_contents(file);
-        assert_eq!(actual, "\"a\"\n\"b\"\n");
+        assert_eq!(actual, r#"{"a":1,"b":2}"#);
     })
 }
