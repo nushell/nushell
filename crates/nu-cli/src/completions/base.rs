@@ -1,13 +1,18 @@
 use crate::completions::{CompletionOptions, SortBy};
-use nu_protocol::{engine::StateWorkingSet, levenshtein_distance, Span};
+use nu_protocol::{
+    engine::{Stack, StateWorkingSet},
+    levenshtein_distance, Span,
+};
 use reedline::Suggestion;
 
 // Completer trait represents the three stages of the completion
 // fetch, filter and sort
 pub trait Completer {
+    #[allow(clippy::too_many_arguments)]
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,

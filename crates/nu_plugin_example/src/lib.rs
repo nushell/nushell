@@ -25,6 +25,7 @@ impl Plugin for ExamplePlugin {
             Box::new(DisableGc),
             // Stream demos
             Box::new(CollectExternal),
+            Box::new(Echo),
             Box::new(ForEach),
             Box::new(Generate),
             Box::new(Seq),

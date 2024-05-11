@@ -39,9 +39,8 @@ fn gather_env_vars(
     init_cwd: &Path,
 ) {
     fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(
-            &working_set,
+        report_error_new(
+            engine_state,
             &ShellError::GenericError {
                 error: format!("Environment variable was not captured: {env_str}"),
                 msg: "".into(),
@@ -71,9 +70,8 @@ fn gather_env_vars(
         }
         None => {
             // Could not capture current working directory
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(
-                &working_set,
+            report_error_new(
+                engine_state,
                 &ShellError::GenericError {
                     error: "Current directory is not a valid utf-8 path".into(),
                     msg: "".into(),
@@ -278,10 +276,7 @@ pub fn eval_source(
 
             match result {
                 Err(err) => {
-                    let working_set = StateWorkingSet::new(engine_state);
-
-                    report_error(&working_set, &err);
-
+                    report_error_new(engine_state, &err);
                     return false;
                 }
                 Ok(exit_code) => {
@@ -297,11 +292,7 @@ pub fn eval_source(
         }
         Err(err) => {
             set_last_exit_code(stack, 1);
-
-            let working_set = StateWorkingSet::new(engine_state);
-
-            report_error(&working_set, &err);
-
+            report_error_new(engine_state, &err);
             return false;
         }
     }

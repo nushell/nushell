@@ -86,7 +86,7 @@ pub enum Value {
         internal_span: Span,
     },
     Range {
-        val: Range,
+        val: Box<Range>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -122,7 +122,7 @@ pub enum Value {
         internal_span: Span,
     },
     Closure {
-        val: Closure,
+        val: Box<Closure>,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -182,7 +182,7 @@ impl Clone for Value {
                 internal_span: *internal_span,
             },
             Value::Range { val, internal_span } => Value::Range {
-                val: *val,
+                val: val.clone(),
                 internal_span: *internal_span,
             },
             Value::Float { val, internal_span } => Value::float(*val, *internal_span),
@@ -327,7 +327,7 @@ impl Value {
     /// Returns a reference to the inner [`Range`] value or an error if this `Value` is not a range
     pub fn as_range(&self) -> Result<Range, ShellError> {
         if let Value::Range { val, .. } = self {
-            Ok(*val)
+            Ok(**val)
         } else {
             self.cant_convert_to("range")
         }
@@ -336,7 +336,7 @@ impl Value {
     /// Unwraps the inner [`Range`] value or returns an error if this `Value` is not a range
     pub fn into_range(self) -> Result<Range, ShellError> {
         if let Value::Range { val, .. } = self {
-            Ok(val)
+            Ok(*val)
         } else {
             self.cant_convert_to("range")
         }
@@ -553,7 +553,7 @@ impl Value {
     /// Unwraps the inner [`Closure`] value or returns an error if this `Value` is not a closure
     pub fn into_closure(self) -> Result<Closure, ShellError> {
         if let Value::Closure { val, .. } = self {
-            Ok(val)
+            Ok(*val)
         } else {
             self.cant_convert_to("closure")
         }
@@ -1012,7 +1012,7 @@ impl Value {
                                 });
                             }
                         }
-                        Value::Range { val, .. } => {
+                        Value::Range { ref val, .. } => {
                             if let Some(item) =
                                 val.into_range_iter(current.span(), None).nth(*count)
                             {
@@ -1826,7 +1826,7 @@ impl Value {
 
     pub fn range(val: Range, span: Span) -> Value {
         Value::Range {
-            val,
+            val: val.into(),
             internal_span: span,
         }
     }
@@ -1862,7 +1862,7 @@ impl Value {
 
     pub fn closure(val: Closure, span: Span) -> Value {
         Value::Closure {
-            val,
+            val: val.into(),
             internal_span: span,
         }
     }
