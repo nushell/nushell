@@ -136,7 +136,7 @@ fn plugin_add_to_custom_path() {
 fn plugin_rm_then_restart_nu() {
     let example_plugin_path = example_plugin_path();
     Playground::setup("plugin rm from custom path", |dirs, playground| {
-        playground.with_files(vec![
+        playground.with_files(&[
             Stub::FileWithContent("config.nu", ""),
             Stub::FileWithContent("env.nu", ""),
         ]);
@@ -318,7 +318,7 @@ fn plugin_rm_using_filename() {
 fn warning_on_invalid_plugin_item() {
     let example_plugin_path = example_plugin_path();
     Playground::setup("warning on invalid plugin item", |dirs, playground| {
-        playground.with_files(vec![
+        playground.with_files(&[
             Stub::FileWithContent("config.nu", ""),
             Stub::FileWithContent("env.nu", ""),
         ]);
@@ -380,7 +380,7 @@ fn warning_on_invalid_plugin_item() {
 #[test]
 fn plugin_use_error_not_found() {
     Playground::setup("plugin use error not found", |dirs, playground| {
-        playground.with_files(vec![
+        playground.with_files(&[
             Stub::FileWithContent("config.nu", ""),
             Stub::FileWithContent("env.nu", ""),
         ]);

@@ -12,7 +12,7 @@ fn sources_also_files_under_custom_lib_dirs_path() {
         let library_path = AbsolutePath::new(dirs.test().join("lib"));
 
         nu.with_config(&file);
-        nu.with_files(vec![FileWithContent(
+        nu.with_files(&[FileWithContent(
             "config.toml",
             &format!(
                 r#"
@@ -22,13 +22,13 @@ fn sources_also_files_under_custom_lib_dirs_path() {
             ),
         )]);
 
-        nu.within("lib").with_files(vec![FileWithContent(
+        nu.within("lib").with_files(&[FileWithContent(
             "my_library.nu",
             r#"
                 source-env my_library/main.nu
             "#,
         )]);
-        nu.within("lib/my_library").with_files(vec![FileWithContent(
+        nu.within("lib/my_library").with_files(&[FileWithContent(
             "main.nu",
             r#"
                 $env.hello = "hello nu"
@@ -55,7 +55,7 @@ fn try_source_foo_with_double_quotes_in(testdir: &str, playdir: &str) {
         foo_file.push_str("/foo.nu");
 
         sandbox.mkdir(&testdir);
-        sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
+        sandbox.with_files(&[FileWithContent(&foo_file, "echo foo")]);
 
         let cmd = String::from("source-env ") + r#"""# + foo_file.as_str() + r#"""#;
 
@@ -72,7 +72,7 @@ fn try_source_foo_with_single_quotes_in(testdir: &str, playdir: &str) {
         foo_file.push_str("/foo.nu");
 
         sandbox.mkdir(&testdir);
-        sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
+        sandbox.with_files(&[FileWithContent(&foo_file, "echo foo")]);
 
         let cmd = String::from("source-env ") + r#"'"# + foo_file.as_str() + r#"'"#;
 
@@ -89,7 +89,7 @@ fn try_source_foo_without_quotes_in(testdir: &str, playdir: &str) {
         foo_file.push_str("/foo.nu");
 
         sandbox.mkdir(&testdir);
-        sandbox.with_files(vec![FileWithContent(&foo_file, "echo foo")]);
+        sandbox.with_files(&[FileWithContent(&foo_file, "echo foo")]);
 
         let cmd = String::from("source-env ") + foo_file.as_str();
 
@@ -148,7 +148,7 @@ fn can_source_dynamic_path() {
     Playground::setup("can_source_dynamic_path", |dirs, sandbox| {
         let foo_file = "foo.nu";
 
-        sandbox.with_files(vec![FileWithContent(foo_file, "echo foo")]);
+        sandbox.with_files(&[FileWithContent(foo_file, "echo foo")]);
 
         let cmd = format!("let file = `{foo_file}`; source-env $file");
         let actual = nu!(cwd: dirs.test(), &cmd);
@@ -160,7 +160,7 @@ fn can_source_dynamic_path() {
 #[test]
 fn source_env_eval_export_env() {
     Playground::setup("source_env_eval_export_env", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
                 export-env { $env.FOO = 'foo' }
@@ -178,7 +178,7 @@ fn source_env_eval_export_env() {
 #[test]
 fn source_env_eval_export_env_hide() {
     Playground::setup("source_env_eval_export_env", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
                 export-env { hide-env FOO }
@@ -202,7 +202,7 @@ fn source_env_do_cd() {
     Playground::setup("source_env_do_cd", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
                 r#"
                     cd test1/test2
@@ -225,7 +225,7 @@ fn source_env_do_cd_file_relative() {
     Playground::setup("source_env_do_cd_file_relative", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
                 r#"
                     cd ($env.FILE_PWD | path join '..')
@@ -248,7 +248,7 @@ fn source_env_dont_cd_overlay() {
     Playground::setup("source_env_dont_cd_overlay", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
                 r#"
                     overlay new spam
@@ -271,7 +271,7 @@ fn source_env_dont_cd_overlay() {
 #[test]
 fn source_env_is_scoped() {
     Playground::setup("source_env_is_scoped", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
                 def no-name-similar-to-this [] { 'no-name-similar-to-this' }
@@ -296,7 +296,7 @@ fn source_env_is_scoped() {
 #[test]
 fn source_env_const_file() {
     Playground::setup("source_env_const_file", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
                 $env.FOO = 'foo'

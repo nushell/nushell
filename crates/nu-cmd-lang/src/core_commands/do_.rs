@@ -62,6 +62,7 @@ impl Command for Do {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let block: Closure = call.req(engine_state, caller_stack, 0)?;
         let rest: Vec<Value> = call.rest(engine_state, caller_stack, 1)?;
         let ignore_all_errors = call.has_flag(engine_state, caller_stack, "ignore-errors")?;
@@ -75,7 +76,7 @@ impl Command for Do {
         let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(block.captures);
         let block = engine_state.get_block(block.block_id);
 
-        bind_args_to(&mut callee_stack, &block.signature, rest, call.head)?;
+        bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
@@ -117,7 +118,7 @@ impl Command for Do {
                                     None,
                                 )
                             })
-                            .err_span(call.head)
+                            .err_span(head)
                     })
                     .transpose()?;
 
@@ -148,13 +149,9 @@ impl Command for Do {
                     None
                 };
 
-                let mut exit_code_ctrlc = None;
                 let exit_code: Vec<Value> = match exit_code {
                     None => vec![],
-                    Some(exit_code_stream) => {
-                        exit_code_ctrlc.clone_from(&exit_code_stream.ctrlc);
-                        exit_code_stream.into_iter().collect()
-                    }
+                    Some(exit_code_stream) => exit_code_stream.into_iter().collect(),
                 };
                 if let Some(Value::Int { val: code, .. }) = exit_code.last() {
                     if *code != 0 {
@@ -174,10 +171,7 @@ impl Command for Do {
                         span,
                         None,
                     )),
-                    exit_code: Some(ListStream::from_stream(
-                        exit_code.into_iter(),
-                        exit_code_ctrlc,
-                    )),
+                    exit_code: Some(ListStream::new(exit_code.into_iter(), span, None)),
                     span,
                     metadata,
                     trim_end_newline,
@@ -205,21 +199,15 @@ impl Command for Do {
             Ok(PipelineData::Value(Value::Error { .. }, ..)) | Err(_) if ignore_shell_errors => {
                 Ok(PipelineData::empty())
             }
-            Ok(PipelineData::ListStream(ls, metadata)) if ignore_shell_errors => {
-                // check if there is a `Value::Error` in given list stream first.
-                let mut values = vec![];
-                let ctrlc = ls.ctrlc.clone();
-                for v in ls {
-                    if let Value::Error { .. } = v {
-                        values.push(Value::nothing(call.head));
+            Ok(PipelineData::ListStream(stream, metadata)) if ignore_shell_errors => {
+                let stream = stream.map(move |value| {
+                    if let Value::Error { .. } = value {
+                        Value::nothing(head)
                     } else {
-                        values.push(v)
+                        value
                     }
-                }
-                Ok(PipelineData::ListStream(
-                    ListStream::from_stream(values.into_iter(), ctrlc),
-                    metadata,
-                ))
+                });
+                Ok(PipelineData::ListStream(stream, metadata))
             }
             r => r,
         }

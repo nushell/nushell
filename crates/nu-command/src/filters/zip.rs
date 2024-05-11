@@ -103,7 +103,7 @@ impl Command for Zip {
         let metadata = input.metadata();
         let other = if let Value::Closure { val, .. } = other {
             // If a closure was provided, evaluate it and consume its stream output
-            ClosureEvalOnce::new(engine_state, stack, val).run_with_input(PipelineData::Empty)?
+            ClosureEvalOnce::new(engine_state, stack, *val).run_with_input(PipelineData::Empty)?
         } else {
             other.into_pipeline_data()
         };
@@ -112,7 +112,7 @@ impl Command for Zip {
             .into_iter()
             .zip(other)
             .map(move |(x, y)| Value::list(vec![x, y], head))
-            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
     }
 }
 

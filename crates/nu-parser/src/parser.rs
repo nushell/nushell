@@ -228,6 +228,8 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
         ExternalArgument::Regular(parse_dollar_expr(working_set, span))
     } else if contents.starts_with(b"[") {
         ExternalArgument::Regular(parse_list_expression(working_set, span, &SyntaxShape::Any))
+    } else if contents.starts_with(b"r#") {
+        ExternalArgument::Regular(parse_raw_string(working_set, span))
     } else if contents.len() > 3
         && contents.starts_with(b"...")
         && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
@@ -3895,7 +3897,7 @@ pub fn parse_list_expression(
                         Type::List(elem_ty) => *elem_ty.clone(),
                         _ => Type::Any,
                     };
-                    let span = Span::new(curr_span.start, spread_arg.span.end);
+                    let span = Span::new(curr_span.start, curr_span.start + 3);
                     (ListItem::Spread(span, spread_arg), elem_ty)
                 } else {
                     let arg = parse_multispan_value(

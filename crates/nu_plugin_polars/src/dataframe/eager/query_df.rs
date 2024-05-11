@@ -91,7 +91,7 @@ fn command(
             help: None,
             inner: vec![],
         })?;
-    let lazy = NuLazyFrame::new(!df.from_lazy, df_sql);
+    let lazy = NuLazyFrame::new(df_sql);
     lazy.to_pipeline_data(plugin, engine, call.head)
 }
 

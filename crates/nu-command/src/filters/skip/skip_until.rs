@@ -88,7 +88,7 @@ impl Command for SkipUntil {
                     .map(|data| data.into_value(head).is_false())
                     .unwrap_or(false)
             })
-            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
     }
 }
 

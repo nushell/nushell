@@ -1,6 +1,5 @@
 use log::trace;
-#[allow(deprecated)]
-use nu_engine::{env::current_dir, eval_block};
+use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
     debugger::WithoutDebug,
@@ -99,8 +98,7 @@ use std pwd
 
     eval_block::<WithoutDebug>(engine_state, &mut stack, &block, pipeline_data)?;
 
-    #[allow(deprecated)]
-    let cwd = current_dir(engine_state, &stack)?;
+    let cwd = engine_state.cwd(Some(&stack))?;
     engine_state.merge_env(&mut stack, cwd)?;
 
     Ok(())

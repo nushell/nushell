@@ -1,5 +1,4 @@
 use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
-use nu_protocol::ListStream;
 
 #[derive(Clone)]
 pub struct For;
@@ -88,7 +87,11 @@ impl Command for For {
         let span = value.span();
         match value {
             Value::List { vals, .. } => {
-                for (idx, x) in ListStream::from_stream(vals.into_iter(), ctrlc).enumerate() {
+                for (idx, x) in vals.into_iter().enumerate() {
+                    if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                        break;
+                    }
+
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.

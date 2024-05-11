@@ -59,11 +59,11 @@ impl Command for Reverse {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let metadata = input.metadata();
-
-        let v: Vec<_> = input.into_iter_strict(call.head)?.collect();
-        let iter = v.into_iter().rev();
-        Ok(iter.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+        let values = input.into_iter_strict(head)?.collect::<Vec<_>>();
+        let iter = values.into_iter().rev();
+        Ok(iter.into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
     }
 }
 

@@ -107,7 +107,7 @@ impl Command for History {
                             file: history_path.display().to_string(),
                             span: head,
                         })?
-                        .into_pipeline_data(ctrlc)),
+                        .into_pipeline_data(head, ctrlc)),
                     HistoryFileFormat::Sqlite => Ok(history_reader
                         .and_then(|h| {
                             h.search(SearchQuery::everything(SearchDirection::Forward, None))
@@ -122,7 +122,7 @@ impl Command for History {
                             file: history_path.display().to_string(),
                             span: head,
                         })?
-                        .into_pipeline_data(ctrlc)),
+                        .into_pipeline_data(head, ctrlc)),
                 }
             }
         } else {

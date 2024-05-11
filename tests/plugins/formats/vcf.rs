@@ -6,7 +6,7 @@ use pretty_assertions::assert_eq;
 #[test]
 fn infers_types() {
     Playground::setup("filter_from_vcf_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "contacts.vcf",
             r"
                 BEGIN:VCARD
@@ -46,7 +46,7 @@ fn infers_types() {
 #[test]
 fn from_vcf_text_to_table() {
     Playground::setup("filter_from_vcf_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "contacts.txt",
             r"
                 BEGIN:VCARD
@@ -86,7 +86,7 @@ fn from_vcf_text_to_table() {
 #[test]
 fn from_vcf_text_with_linebreak_to_table() {
     Playground::setup("filter_from_vcf_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "contacts.txt",
             r"BEGIN:VCARD
 VERSION:3.0

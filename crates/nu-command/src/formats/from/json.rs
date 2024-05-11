@@ -84,8 +84,11 @@ impl Command for FromJson {
                     .collect()
             };
 
-            Ok(converted_lines
-                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+            Ok(converted_lines.into_pipeline_data_with_metadata(
+                span,
+                engine_state.ctrlc.clone(),
+                metadata,
+            ))
         } else if strict {
             Ok(convert_string_to_value_strict(&string_input, span)?
                 .into_pipeline_data_with_metadata(metadata))

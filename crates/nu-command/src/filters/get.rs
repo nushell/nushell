@@ -89,7 +89,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 output.push(val?);
             }
 
-            Ok(output.into_iter().into_pipeline_data(ctrlc))
+            Ok(output.into_iter().into_pipeline_data(span, ctrlc))
         }
         .map(|x| x.set_metadata(metadata))
     }
@@ -122,11 +122,6 @@ If multiple cell paths are given, this will produce a list of values."#
             Example {
                 description: "Extract the name of the 3rd record in a list",
                 example: "ls | get 2.name",
-                result: None,
-            },
-            Example {
-                description: "Extract the cpu list from the sys information record",
-                example: "sys | get cpu",
                 result: None,
             },
             Example {

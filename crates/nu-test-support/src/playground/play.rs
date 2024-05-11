@@ -199,7 +199,7 @@ impl<'a> Playground<'a> {
         self
     }
 
-    pub fn with_files(&mut self, files: Vec<Stub>) -> &mut Self {
+    pub fn with_files(&mut self, files: &[Stub]) -> &mut Self {
         let endl = fs::line_ending();
 
         files

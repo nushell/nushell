@@ -7,7 +7,9 @@ use std::sync::Arc;
 
 /// convert a raw string representation of NUON data to an actual Nushell [`Value`]
 ///
-/// > **Note**
+// WARNING: please leave the following two trailing spaces, they matter for the documentation
+// formatting
+/// > **Note**  
 /// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as
 /// [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).

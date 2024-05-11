@@ -109,7 +109,7 @@ fn correct_scope_modules_fields() {
     "#;
 
     Playground::setup("correct_scope_modules_fields", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent("spam.nu", module_setup)]);
+        sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
 
         let inp = &[
             "use spam.nu",
@@ -191,7 +191,7 @@ fn correct_scope_aliases_fields() {
     "#;
 
     Playground::setup("correct_scope_aliases_fields", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent("spam.nu", module_setup)]);
+        sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
 
         let inp = &[
             "use spam.nu",
@@ -248,7 +248,7 @@ fn correct_scope_externs_fields() {
     "#;
 
     Playground::setup("correct_scope_aliases_fields", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent("spam.nu", module_setup)]);
+        sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
 
         let inp = &[
             "use spam.nu",

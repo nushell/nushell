@@ -65,7 +65,7 @@ fn error_unmatched_brace() {
 #[test]
 fn format_filesize_works() {
     Playground::setup("format_filesize_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
@@ -90,7 +90,7 @@ fn format_filesize_works_with_nonempty_files() {
     Playground::setup(
         "format_filesize_works_with_nonempty_files",
         |dirs, sandbox| {
-            sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
                 "sample.toml",
                 r#"
                     [dependency]

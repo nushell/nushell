@@ -26,13 +26,10 @@ impl Command for ScopeVariables {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
-        let ctrlc = engine_state.ctrlc.clone();
-
+        let head = call.head;
         let mut scope_data = ScopeData::new(engine_state, stack);
         scope_data.populate_vars();
-
-        Ok(scope_data.collect_vars(span).into_pipeline_data(ctrlc))
+        Ok(Value::list(scope_data.collect_vars(head), head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

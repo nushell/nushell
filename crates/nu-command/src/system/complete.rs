@@ -88,7 +88,7 @@ impl Command for Complete {
                 };
 
                 if let Some(exit_code) = exit_code {
-                    let mut v: Vec<_> = exit_code.collect();
+                    let mut v: Vec<_> = exit_code.into_iter().collect();
 
                     if let Some(v) = v.pop() {
                         record.push("exit_code", v);

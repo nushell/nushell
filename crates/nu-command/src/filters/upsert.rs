@@ -163,7 +163,7 @@ fn upsert(
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
-                        let mut closure = ClosureEval::new(engine_state, stack, val);
+                        let mut closure = ClosureEval::new(engine_state, stack, *val);
                         for val in vals {
                             upsert_value_by_closure(
                                 val,
@@ -177,7 +177,7 @@ fn upsert(
                     (first, _) => {
                         upsert_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, val),
+                            ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
@@ -189,7 +189,7 @@ fn upsert(
             }
             Ok(value.into_pipeline_data_with_metadata(metadata))
         }
-        PipelineData::ListStream(mut stream, metadata) => {
+        PipelineData::ListStream(stream, metadata) => {
             if let Some((
                 &PathMember::Int {
                     val,
@@ -199,6 +199,7 @@ fn upsert(
                 path,
             )) = cell_path.members.split_first()
             {
+                let mut stream = stream.into_iter();
                 let mut pre_elems = vec![];
 
                 for idx in 0..val {
@@ -215,7 +216,7 @@ fn upsert(
                 let value = if path.is_empty() {
                     let value = stream.next().unwrap_or(Value::nothing(head));
                     if let Value::Closure { val, .. } = replacement {
-                        ClosureEvalOnce::new(engine_state, stack, val)
+                        ClosureEvalOnce::new(engine_state, stack, *val)
                             .run_with_value(value)?
                             .into_value(head)
                     } else {
@@ -225,7 +226,7 @@ fn upsert(
                     if let Value::Closure { val, .. } = replacement {
                         upsert_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, val),
+                            ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
                             path,
                             true,
@@ -246,38 +247,38 @@ fn upsert(
                 Ok(pre_elems
                     .into_iter()
                     .chain(stream)
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             } else if let Value::Closure { val, .. } = replacement {
-                let mut closure = ClosureEval::new(engine_state, stack, val);
-                Ok(stream
-                    .map(move |mut value| {
-                        let err = upsert_value_by_closure(
-                            &mut value,
-                            &mut closure,
-                            head,
-                            &cell_path.members,
-                            false,
-                        );
+                let mut closure = ClosureEval::new(engine_state, stack, *val);
+                let stream = stream.map(move |mut value| {
+                    let err = upsert_value_by_closure(
+                        &mut value,
+                        &mut closure,
+                        head,
+                        &cell_path.members,
+                        false,
+                    );
 
-                        if let Err(e) = err {
-                            Value::error(e, head)
-                        } else {
-                            value
-                        }
-                    })
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    if let Err(e) = err {
+                        Value::error(e, head)
+                    } else {
+                        value
+                    }
+                });
+
+                Ok(PipelineData::ListStream(stream, metadata))
             } else {
-                Ok(stream
-                    .map(move |mut value| {
-                        if let Err(e) =
-                            value.upsert_data_at_cell_path(&cell_path.members, replacement.clone())
-                        {
-                            Value::error(e, head)
-                        } else {
-                            value
-                        }
-                    })
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                let stream = stream.map(move |mut value| {
+                    if let Err(e) =
+                        value.upsert_data_at_cell_path(&cell_path.members, replacement.clone())
+                    {
+                        Value::error(e, head)
+                    } else {
+                        value
+                    }
+                });
+
+                Ok(PipelineData::ListStream(stream, metadata))
             }
         }
         PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {

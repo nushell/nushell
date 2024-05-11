@@ -284,7 +284,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         command.arg("--no-std-lib");
     }
     command
-        .arg(format!("-c {}", escape_quote_string(commands)))
+        .arg(format!("-c {}", escape_quote_string(&commands)))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
@@ -353,7 +353,7 @@ where
             let plugin_path = nu_path::canonicalize_with(&plugin, &test_bins)
                 .unwrap_or_else(|_| panic!("failed to canonicalize plugin {} path", &plugin));
             let plugin_path = plugin_path.to_string_lossy();
-            escape_quote_string(plugin_path.into_owned())
+            escape_quote_string(&plugin_path)
         })
         .collect();
     let plugins_arg = format!("[{}]", plugin_paths_quoted.join(","));
@@ -397,7 +397,7 @@ where
     Outcome::new(out, err.into_owned(), output.status)
 }
 
-fn escape_quote_string(input: String) -> String {
+fn escape_quote_string(input: &str) -> String {
     let mut output = String::with_capacity(input.len() + 2);
     output.push('"');
 

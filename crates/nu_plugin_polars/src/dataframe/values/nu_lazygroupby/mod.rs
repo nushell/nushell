@@ -20,7 +20,6 @@ pub struct NuLazyGroupBy {
     pub id: Uuid,
     pub group_by: Arc<LazyGroupBy>,
     pub schema: NuSchema,
-    pub from_eager: bool,
 }
 
 impl fmt::Debug for NuLazyGroupBy {
@@ -30,11 +29,10 @@ impl fmt::Debug for NuLazyGroupBy {
 }
 
 impl NuLazyGroupBy {
-    pub fn new(group_by: LazyGroupBy, from_eager: bool, schema: NuSchema) -> Self {
+    pub fn new(group_by: LazyGroupBy, schema: NuSchema) -> Self {
         NuLazyGroupBy {
             id: Uuid::new_v4(),
             group_by: Arc::new(group_by),
-            from_eager,
             schema,
         }
     }

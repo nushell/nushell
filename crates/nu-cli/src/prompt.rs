@@ -129,9 +129,11 @@ impl Prompt for NushellPrompt {
                 {
                     // We're in vscode and we have osc633 enabled
                     format!("{VSCODE_PRE_PROMPT_MARKER}{prompt}{VSCODE_POST_PROMPT_MARKER}").into()
-                } else {
-                    // If we're in VSCode but we don't find the env var, just return the regular markers
+                } else if self.shell_integration_osc133 {
+                    // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
                     format!("{PRE_PROMPT_MARKER}{prompt}{POST_PROMPT_MARKER}").into()
+                } else {
+                    prompt.into()
                 }
             } else if self.shell_integration_osc133 {
                 format!("{PRE_PROMPT_MARKER}{prompt}{POST_PROMPT_MARKER}").into()

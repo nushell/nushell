@@ -196,9 +196,12 @@ fn split_list(
     let mut temp_list = Vec::new();
     let mut returned_list = Vec::new();
 
-    let iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
     let matcher = Matcher::new(call.has_flag(engine_state, stack, "regex")?, separator)?;
-    for val in iter {
+    for val in input {
+        if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+            break;
+        }
+
         if matcher.compare(&val)? {
             if !temp_list.is_empty() {
                 returned_list.push(Value::list(temp_list.clone(), call.head));

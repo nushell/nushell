@@ -24,14 +24,12 @@
 //! `Path::join()`. It works because `PathBuf::push("")` will add a trailing
 //! slash when the original path doesn't have one.
 
-#[cfg(unix)]
-use std::os::unix::ffi::OsStrExt;
-#[cfg(windows)]
-use std::os::windows::ffi::OsStrExt;
 use std::{
     ffi::OsStr,
     path::{Component, Path},
 };
+
+use crate::trailing_slash::has_trailing_slash;
 
 /// Like `Path::components()`, but produces an extra empty component at the end
 /// when `path` contains a trailing slash.
@@ -61,17 +59,6 @@ pub fn components(path: &Path) -> impl Iterator<Item = Component> {
             None
         }
     }))
-}
-
-#[cfg(windows)]
-fn has_trailing_slash(path: &Path) -> bool {
-    let last = path.as_os_str().encode_wide().last();
-    last == Some(b'\\' as u16) || last == Some(b'/' as u16)
-}
-#[cfg(unix)]
-fn has_trailing_slash(path: &Path) -> bool {
-    let last = path.as_os_str().as_bytes().last();
-    last == Some(&b'/')
 }
 
 #[cfg(test)]

@@ -117,7 +117,7 @@ fn update(
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
-                        let mut closure = ClosureEval::new(engine_state, stack, val);
+                        let mut closure = ClosureEval::new(engine_state, stack, *val);
                         for val in vals {
                             update_value_by_closure(
                                 val,
@@ -131,7 +131,7 @@ fn update(
                     (first, _) => {
                         update_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, val),
+                            ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
@@ -143,7 +143,7 @@ fn update(
             }
             Ok(value.into_pipeline_data_with_metadata(metadata))
         }
-        PipelineData::ListStream(mut stream, metadata) => {
+        PipelineData::ListStream(stream, metadata) => {
             if let Some((
                 &PathMember::Int {
                     val,
@@ -153,6 +153,7 @@ fn update(
                 path,
             )) = cell_path.members.split_first()
             {
+                let mut stream = stream.into_iter();
                 let mut pre_elems = vec![];
 
                 for idx in 0..=val {
@@ -174,7 +175,7 @@ fn update(
                 if let Value::Closure { val, .. } = replacement {
                     update_single_value_by_closure(
                         value,
-                        ClosureEvalOnce::new(engine_state, stack, val),
+                        ClosureEvalOnce::new(engine_state, stack, *val),
                         head,
                         path,
                         true,
@@ -186,38 +187,38 @@ fn update(
                 Ok(pre_elems
                     .into_iter()
                     .chain(stream)
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             } else if let Value::Closure { val, .. } = replacement {
-                let mut closure = ClosureEval::new(engine_state, stack, val);
-                Ok(stream
-                    .map(move |mut value| {
-                        let err = update_value_by_closure(
-                            &mut value,
-                            &mut closure,
-                            head,
-                            &cell_path.members,
-                            false,
-                        );
+                let mut closure = ClosureEval::new(engine_state, stack, *val);
+                let stream = stream.map(move |mut value| {
+                    let err = update_value_by_closure(
+                        &mut value,
+                        &mut closure,
+                        head,
+                        &cell_path.members,
+                        false,
+                    );
 
-                        if let Err(e) = err {
-                            Value::error(e, head)
-                        } else {
-                            value
-                        }
-                    })
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                    if let Err(e) = err {
+                        Value::error(e, head)
+                    } else {
+                        value
+                    }
+                });
+
+                Ok(PipelineData::ListStream(stream, metadata))
             } else {
-                Ok(stream
-                    .map(move |mut value| {
-                        if let Err(e) =
-                            value.update_data_at_cell_path(&cell_path.members, replacement.clone())
-                        {
-                            Value::error(e, head)
-                        } else {
-                            value
-                        }
-                    })
-                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                let stream = stream.map(move |mut value| {
+                    if let Err(e) =
+                        value.update_data_at_cell_path(&cell_path.members, replacement.clone())
+                    {
+                        Value::error(e, head)
+                    } else {
+                        value
+                    }
+                });
+
+                Ok(PipelineData::ListStream(stream, metadata))
             }
         }
         PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {

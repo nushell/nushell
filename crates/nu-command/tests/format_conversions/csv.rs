@@ -15,7 +15,7 @@ fn table_to_csv_text_and_from_csv_text_back_into_table() {
 #[test]
 fn table_to_csv_text() {
     Playground::setup("filter_to_csv_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "csv_text_sample.txt",
             r#"
                 importer,shipper,tariff_item,name,origin
@@ -47,7 +47,7 @@ fn table_to_csv_text() {
 #[test]
 fn table_to_csv_text_skipping_headers_after_conversion() {
     Playground::setup("filter_to_csv_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "csv_text_sample.txt",
             r#"
                 importer,shipper,tariff_item,name,origin
@@ -77,7 +77,7 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
 #[test]
 fn infers_types() {
     Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_cuatro_mosqueteros.csv",
             r#"
                 first_name,last_name,rusty_luck,d
@@ -104,7 +104,7 @@ fn infers_types() {
 #[test]
 fn from_csv_text_to_table() {
     Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name,last_name,rusty_luck
@@ -131,7 +131,7 @@ fn from_csv_text_to_table() {
 #[test]
 fn from_csv_text_with_separator_to_table() {
     Playground::setup("filter_from_csv_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name;last_name;rusty_luck
@@ -158,7 +158,7 @@ fn from_csv_text_with_separator_to_table() {
 #[test]
 fn from_csv_text_with_tab_separator_to_table() {
     Playground::setup("filter_from_csv_test_4", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name	last_name	rusty_luck
@@ -185,7 +185,7 @@ fn from_csv_text_with_tab_separator_to_table() {
 #[test]
 fn from_csv_text_with_comments_to_table() {
     Playground::setup("filter_from_csv_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 # This is a comment
@@ -215,7 +215,7 @@ fn from_csv_text_with_comments_to_table() {
 #[test]
 fn from_csv_text_with_custom_quotes_to_table() {
     Playground::setup("filter_from_csv_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name,last_name,rusty_luck
@@ -242,7 +242,7 @@ fn from_csv_text_with_custom_quotes_to_table() {
 #[test]
 fn from_csv_text_with_custom_escapes_to_table() {
     Playground::setup("filter_from_csv_test_7", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name,last_name,rusty_luck
@@ -269,7 +269,7 @@ fn from_csv_text_with_custom_escapes_to_table() {
 #[test]
 fn from_csv_text_skipping_headers_to_table() {
     Playground::setup("filter_from_csv_test_8", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
                 Andrés,Robalino,1
@@ -295,7 +295,7 @@ fn from_csv_text_skipping_headers_to_table() {
 #[test]
 fn from_csv_text_with_missing_columns_to_table() {
     Playground::setup("filter_from_csv_test_9", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name,last_name,rusty_luck
@@ -323,7 +323,7 @@ fn from_csv_text_with_missing_columns_to_table() {
 #[test]
 fn from_csv_text_with_multiple_char_separator() {
     Playground::setup("filter_from_csv_test_10", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name,last_name,rusty_luck
@@ -350,7 +350,7 @@ fn from_csv_text_with_multiple_char_separator() {
 #[test]
 fn from_csv_text_with_wrong_type_separator() {
     Playground::setup("filter_from_csv_test_11", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name,last_name,rusty_luck
@@ -410,7 +410,7 @@ fn string_to_csv_error() {
 #[test]
 fn parses_csv_with_unicode_sep() {
     Playground::setup("filter_from_csv_unicode_sep_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name;last_name;rusty_luck
@@ -437,7 +437,7 @@ fn parses_csv_with_unicode_sep() {
 #[test]
 fn parses_csv_with_unicode_x1f_sep() {
     Playground::setup("filter_from_csv_unicode_sep_x1f_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_namelast_namerusty_luck

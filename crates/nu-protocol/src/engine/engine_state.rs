@@ -6,6 +6,7 @@ use crate::{
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
+    eval_const::create_nu_constant,
     BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
     ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
 };
@@ -753,8 +754,8 @@ impl EngineState {
         var.const_val.as_ref()
     }
 
-    pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
-        self.vars[var_id].const_val = Some(val);
+    pub fn generate_nu_constant(&mut self) {
+        self.vars[NU_VARIABLE_ID].const_val = Some(create_nu_constant(self, Span::unknown()));
     }
 
     pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
@@ -923,22 +924,26 @@ impl EngineState {
     }
 
     /// Returns the current working directory, which is guaranteed to be an
-    /// absolute path without trailing slashes, but might contain symlink
-    /// components.
+    /// absolute path without trailing slashes (unless it's the root path), but
+    /// might contain symlink components.
     ///
     /// If `stack` is supplied, also considers modifications to the working
     /// directory on the stack that have yet to be merged into the engine state.
     pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
         // Helper function to create a simple generic error.
-        // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
-        fn error(msg: &str) -> Result<PathBuf, ShellError> {
+        fn error(msg: &str, cwd: impl AsRef<Path>) -> Result<PathBuf, ShellError> {
             Err(ShellError::GenericError {
                 error: msg.into(),
-                msg: "".into(),
+                msg: format!("$env.PWD = {}", cwd.as_ref().display()),
                 span: None,
-                help: None,
+                help: Some("Use `cd` to reset $env.PWD into a good state".into()),
                 inner: vec![],
             })
+        }
+
+        // Helper function to check if a path is a root path.
+        fn is_root(path: &Path) -> bool {
+            path.parent().is_none()
         }
 
         // Helper function to check if a path has trailing slashes.
@@ -958,23 +963,39 @@ impl EngineState {
             if let Value::String { val, .. } = pwd {
                 let path = PathBuf::from(val);
 
-                if has_trailing_slash(&path) {
-                    error("$env.PWD contains trailing slashes")
+                // Technically, a root path counts as "having trailing slashes", but
+                // for the purpose of PWD, a root path is acceptable.
+                if !is_root(&path) && has_trailing_slash(&path) {
+                    error("$env.PWD contains trailing slashes", path)
                 } else if !path.is_absolute() {
-                    error("$env.PWD is not an absolute path")
+                    error("$env.PWD is not an absolute path", path)
                 } else if !path.exists() {
-                    error("$env.PWD points to a non-existent directory")
+                    error("$env.PWD points to a non-existent directory", path)
                 } else if !path.is_dir() {
-                    error("$env.PWD points to a non-directory")
+                    error("$env.PWD points to a non-directory", path)
                 } else {
                     Ok(path)
                 }
             } else {
-                error("$env.PWD is not a string")
+                error("$env.PWD is not a string", format!("{pwd:?}"))
             }
         } else {
-            error("$env.PWD not found")
+            error("$env.PWD not found", "")
         }
+    }
+
+    /// Like `EngineState::cwd()`, but returns a String instead of a PathBuf for convenience.
+    pub fn cwd_as_string(&self, stack: Option<&Stack>) -> Result<String, ShellError> {
+        let cwd = self.cwd(stack)?;
+        cwd.into_os_string()
+            .into_string()
+            .map_err(|err| ShellError::NonUtf8Custom {
+                msg: format!(
+                    "The current working directory is not a valid utf-8 string: {:?}",
+                    err
+                ),
+                span: Span::unknown(),
+            })
     }
 
     // TODO: see if we can completely get rid of this
@@ -1233,6 +1254,18 @@ mod test_cwd {
         let engine_state = engine_state_with_pwd(dir.path().join(""));
 
         engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_root() {
+        #[cfg(windows)]
+        let root = Path::new(r"C:\");
+        #[cfg(not(windows))]
+        let root = Path::new("/");
+
+        let engine_state = engine_state_with_pwd(root);
+        let cwd = engine_state.cwd(None).unwrap();
+        assert_path_eq!(cwd, root);
     }
 
     #[test]

@@ -119,7 +119,7 @@ fn ignores_duplicate_columns_selected() {
 #[test]
 fn selects_a_row() {
     Playground::setup("select_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
+        sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -138,7 +138,7 @@ fn selects_a_row() {
 #[test]
 fn selects_many_rows() {
     Playground::setup("select_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
+        sandbox.with_files(&[EmptyFile("notes.txt"), EmptyFile("arepas.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -172,7 +172,7 @@ fn select_ignores_errors_successfully2() {
 
 #[test]
 fn select_ignores_errors_successfully3() {
-    let actual = nu!("sys | select invalid_key? | to nuon");
+    let actual = nu!("{foo: bar} | select invalid_key? | to nuon");
 
     assert_eq!(actual.out, "{invalid_key: null}".to_string());
     assert!(actual.err.is_empty());

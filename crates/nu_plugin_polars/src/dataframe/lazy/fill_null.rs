@@ -40,7 +40,7 @@ impl PluginCommand for LazyFillNull {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Fills the null values by 0",
-            example: "[1 2 2 3 3] | polars into-df | polars shift 2 | polars fill-null 0",
+            example: "[1 2 2 3 3] | polars into-df | polars shift 2 | polars fill-null 0 | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new(
@@ -96,7 +96,7 @@ fn cmd_lazy(
     fill: Value,
 ) -> Result<PipelineData, ShellError> {
     let expr = NuExpression::try_from_value(plugin, &fill)?.into_polars();
-    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().fill_null(expr));
+    let lazy = NuLazyFrame::new(lazy.to_polars().fill_null(expr));
     lazy.to_pipeline_data(plugin, engine, call.head)
 }
 

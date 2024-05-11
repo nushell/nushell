@@ -69,35 +69,47 @@ impl Command for PluginList {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.span();
+        let head = call.head;
+
         // Group plugin decls by plugin identity
         let decls = engine_state.plugin_decls().into_group_map_by(|decl| {
             decl.plugin_identity()
                 .expect("plugin decl should have identity")
         });
+
         // Build plugins list
         let list = engine_state.plugins().iter().map(|plugin| {
             // Find commands that belong to the plugin
             let commands = decls.get(plugin.identity())
                 .into_iter()
                 .flat_map(|decls| {
-                    decls.iter().map(|decl| Value::string(decl.name(), span))
+                    decls.iter().map(|decl| Value::string(decl.name(), head))
                 })
                 .collect();
 
-            Value::record(record! {
-                "name" => Value::string(plugin.identity().name(), span),
-                "is_running" => Value::bool(plugin.is_running(), span),
-                "pid" => plugin.pid()
-                    .map(|p| Value::int(p as i64, span))
-                    .unwrap_or(Value::nothing(span)),
-                "filename" => Value::string(plugin.identity().filename().to_string_lossy(), span),
-                "shell" => plugin.identity().shell()
-                    .map(|s| Value::string(s.to_string_lossy(), span))
-                    .unwrap_or(Value::nothing(span)),
-                "commands" => Value::list(commands, span),
-            }, span)
-        }).collect::<Vec<Value>>();
-        Ok(list.into_pipeline_data(engine_state.ctrlc.clone()))
+            let pid = plugin
+                .pid()
+                .map(|p| Value::int(p as i64, head))
+                .unwrap_or(Value::nothing(head));
+
+            let shell = plugin
+                .identity()
+                .shell()
+                .map(|s| Value::string(s.to_string_lossy(), head))
+                .unwrap_or(Value::nothing(head));
+
+            let record = record! {
+                "name" => Value::string(plugin.identity().name(), head),
+                "is_running" => Value::bool(plugin.is_running(), head),
+                "pid" => pid,
+                "filename" => Value::string(plugin.identity().filename().to_string_lossy(), head),
+                "shell" => shell,
+                "commands" => Value::list(commands, head),
+            };
+
+            Value::record(record, head)
+        }).collect();
+
+        Ok(Value::list(list, head).into_pipeline_data())
     }
 }

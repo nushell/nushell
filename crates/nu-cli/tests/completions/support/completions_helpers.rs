@@ -3,8 +3,7 @@ use nu_parser::parse;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    eval_const::create_nu_constant,
-    PipelineData, ShellError, Span, Value, NU_VARIABLE_ID,
+    PipelineData, ShellError, Span, Value,
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
@@ -28,9 +27,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     let mut engine_state = create_default_context();
 
     // Add $nu
-    let nu_const =
-        create_nu_constant(&engine_state, Span::test_data()).expect("Failed creating $nu");
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    engine_state.generate_nu_constant();
 
     // New stack
     let mut stack = Stack::new();

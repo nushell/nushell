@@ -47,13 +47,21 @@ impl Command for MetadataSet {
                 let metadata = PipelineMetadata {
                     data_source: DataSource::FilePath(path.into()),
                 };
-                Ok(input.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                Ok(input.into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.ctrlc.clone(),
+                    metadata,
+                ))
             }
             (None, true) => {
                 let metadata = PipelineMetadata {
                     data_source: DataSource::Ls,
                 };
-                Ok(input.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+                Ok(input.into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.ctrlc.clone(),
+                    metadata,
+                ))
             }
             _ => Err(ShellError::IncorrectValue {
                 msg: "Expected either --datasource-ls(-l) or --datasource-filepath(-f)".to_string(),

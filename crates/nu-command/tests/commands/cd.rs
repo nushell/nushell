@@ -27,6 +27,16 @@ fn filesystem_change_from_current_directory_using_relative_path() {
 }
 
 #[test]
+fn filesystem_change_from_current_directory_using_relative_path_with_trailing_slash() {
+    Playground::setup("cd_test_1_slash", |dirs, _| {
+        // Intentionally not using correct path sep because this should work on Windows
+        let actual = nu!( cwd: dirs.root(), "cd cd_test_1_slash/; $env.PWD");
+
+        assert_eq!(PathBuf::from(actual.out), *dirs.test());
+    })
+}
+
+#[test]
 fn filesystem_change_from_current_directory_using_absolute_path() {
     Playground::setup("cd_test_2", |dirs, _| {
         let actual = nu!(
@@ -36,6 +46,23 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
                 $env.PWD
             "#,
             dirs.formats().display()
+        );
+
+        assert_eq!(PathBuf::from(actual.out), dirs.formats());
+    })
+}
+
+#[test]
+fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash() {
+    Playground::setup("cd_test_2", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+                cd '{}{}'
+                $env.PWD
+            "#,
+            dirs.formats().display(),
+            std::path::MAIN_SEPARATOR_STR,
         );
 
         assert_eq!(PathBuf::from(actual.out), dirs.formats());
@@ -151,7 +178,7 @@ fn filesystem_change_to_a_directory_containing_spaces() {
 #[test]
 fn filesystem_not_a_directory() {
     Playground::setup("cd_test_10", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("ferris_did_it.txt")]);
+        sandbox.with_files(&[EmptyFile("ferris_did_it.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -284,4 +311,18 @@ fn cd_permission_denied_folder() {
         );
         assert!(actual.err.contains("Folder is not able to read"));
     });
+}
+
+#[test]
+#[cfg(unix)]
+fn pwd_recovery() {
+    let nu = nu_test_support::fs::executable_path().display().to_string();
+    let tmpdir = std::env::temp_dir().join("foobar").display().to_string();
+
+    // We `cd` into a temporary directory, then spawn another `nu` process to
+    // delete that directory. Then we attempt to recover by running `cd /`.
+    let cmd = format!("mkdir {tmpdir}; cd {tmpdir}; {nu} -c 'cd /; rm -r {tmpdir}'; cd /; pwd");
+    let actual = nu!(cmd);
+
+    assert_eq!(actual.out, "/");
 }

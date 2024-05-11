@@ -552,8 +552,8 @@ impl LanguageServer {
             &params.text_document_position.text_document.uri,
         )?;
 
-        let stack = Stack::new();
-        let mut completer = NuCompleter::new(Arc::new(engine_state.clone()), stack);
+        let mut completer =
+            NuCompleter::new(Arc::new(engine_state.clone()), Arc::new(Stack::new()));
 
         let location =
             Self::lsp_position_to_location(&params.text_document_position.position, rope_of_file);

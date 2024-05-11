@@ -3,8 +3,8 @@ use nu_ansi_term::{Color, Style};
 use nu_protocol::{Config, Value};
 
 // The default colors for shapes, used when there is no config for them.
-pub fn default_shape_color(shape: String) -> Style {
-    match shape.as_ref() {
+pub fn default_shape_color(shape: &str) -> Style {
+    match shape {
         "shape_and" => Style::new().fg(Color::Purple).bold(),
         "shape_binary" => Style::new().fg(Color::Purple).bold(),
         "shape_block" => Style::new().fg(Color::Blue).bold(),
@@ -45,8 +45,8 @@ pub fn default_shape_color(shape: String) -> Style {
     }
 }
 
-pub fn get_shape_color(shape: String, conf: &Config) -> Style {
-    match conf.color_config.get(shape.as_str()) {
+pub fn get_shape_color(shape: &str, conf: &Config) -> Style {
+    match conf.color_config.get(shape) {
         Some(int_color) => {
             // Shapes do not use color_config closures, currently.
             match int_color {
