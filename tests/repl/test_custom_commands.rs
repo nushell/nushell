@@ -1,6 +1,6 @@
+use crate::repl::tests::{fail_test, run_test, run_test_contains, TestResult};
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
-use crate::repl::tests::{fail_test, run_test, run_test_contains, TestResult};
 
 #[test]
 fn no_scope_leak1() -> TestResult {

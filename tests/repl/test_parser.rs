@@ -2,7 +2,6 @@ use crate::repl::tests::{fail_test, run_test, run_test_contains, run_test_with_e
 use nu_test_support::{nu, nu_repl_code};
 use std::collections::HashMap;
 
-
 #[test]
 fn env_shorthand() -> TestResult {
     run_test("FOO=BAR if false { 3 } else { 4 }", "4")

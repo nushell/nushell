@@ -1,5 +1,4 @@
-#[cfg(test)]
-mod tests;
+mod test_bits;
 mod test_cell_path;
 mod test_commandline;
 mod test_conditionals;
@@ -25,4 +24,5 @@ mod test_stdlib;
 mod test_strings;
 mod test_table_operations;
 mod test_type_check;
-mod test_bits;
+#[cfg(test)]
+mod tests;

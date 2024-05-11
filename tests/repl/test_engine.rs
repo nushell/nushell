@@ -1,5 +1,5 @@
-use rstest::rstest;
 use crate::repl::tests::{fail_test, run_test, TestResult};
+use rstest::rstest;
 
 #[test]
 fn concrete_variable_assignment() -> TestResult {
