@@ -64,7 +64,8 @@ impl Command for SubCommand {
                 engine_state,
                 &ShellError::GenericError {
                     error: "Deprecated option".into(),
-                    msg: "`str contains --not {string}` is deprecated and will be removed in 0.95.".into(),
+                    msg: "`str contains --not {string}` is deprecated and will be removed in 0.95."
+                        .into(),
                     span: Some(call.head),
                     help: Some("Please use the `not` operator instead.".into()),
                     inner: vec![],
