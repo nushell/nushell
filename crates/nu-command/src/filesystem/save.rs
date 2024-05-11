@@ -1,4 +1,5 @@
 use crate::progress_bar;
+use nu_engine::get_eval_block;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
@@ -311,12 +312,13 @@ fn input_to_bytes(
             .map(|name| name.to_string_lossy().to_string())
     };
 
-    if let Some(ext) = ext {
-        convert_to_extension(engine_state, &ext, stack, input, span)
+    let input = if let Some(ext) = ext {
+        convert_to_extension(engine_state, &ext, stack, input, span)?
     } else {
-        let value = input.into_value(span);
-        value_to_bytes(value)
-    }
+        input
+    };
+
+    value_to_bytes(input.into_value(span))
 }
 
 /// Convert given data into content of file of specified extension if
@@ -328,24 +330,19 @@ fn convert_to_extension(
     stack: &mut Stack,
     input: PipelineData,
     span: Span,
-) -> Result<Vec<u8>, ShellError> {
-    let converter = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]);
-
-    let output = match converter {
-        Some(converter_id) => {
-            let output = engine_state.get_decl(converter_id).run(
-                engine_state,
-                stack,
-                &Call::new(span),
-                input,
-            )?;
-
-            output.into_value(span)
+) -> Result<PipelineData, ShellError> {
+    if let Some(decl_id) = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]) {
+        let decl = engine_state.get_decl(decl_id);
+        if let Some(block_id) = decl.get_block_id() {
+            let block = engine_state.get_block(block_id);
+            let eval_block = get_eval_block(engine_state);
+            eval_block(engine_state, stack, block, input)
+        } else {
+            decl.run(engine_state, stack, &Call::new(span), input)
         }
-        None => input.into_value(span),
-    };
-
-    value_to_bytes(output)
+    } else {
+        Ok(input)
+    }
 }
 
 /// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`] of bytes
