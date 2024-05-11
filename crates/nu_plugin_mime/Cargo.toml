@@ -1,0 +1,21 @@
+[package]
+authors = ["kik4444"]
+description = "A simple plugin for working with mime types without performing disk access"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_mime"
+edition = "2021"
+license = "MIT"
+name = "nu_plugin_mime"
+version = "0.93.1"
+
+[lib]
+doctest = false
+bench = false
+
+[[bin]]
+name = "nu_plugin_mime"
+bench = false
+
+[dependencies]
+nu-plugin = { path = "../nu-plugin", version = "0.93.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.93.1" }
+mime_guess.workspace = true

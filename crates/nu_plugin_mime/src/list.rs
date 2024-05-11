@@ -1,9 +1,13 @@
-use nu_engine::command_prelude::*;
+use nu_plugin::SimplePluginCommand;
+use nu_protocol::{Category, Example, Signature, Spanned, SyntaxShape, Type, Value};
 
-#[derive(Clone)]
+use crate::Mime;
+
 pub struct MimeList;
 
-impl Command for MimeList {
+impl SimplePluginCommand for MimeList {
+    type Plugin = Mime;
+
     fn name(&self) -> &str {
         "mime list"
     }
@@ -58,12 +62,12 @@ If <main type> is "*" all known extensions are returned."#,
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let mime_str: Spanned<String> = call.req(engine_state, stack, 0)?;
+        _plugin: &Self::Plugin,
+        _engine: &nu_plugin::EngineInterface,
+        call: &nu_plugin::EvaluatedCall,
+        _input: &Value,
+    ) -> Result<Value, nu_protocol::LabeledError> {
+        let mime_str: Spanned<String> = call.req(0)?;
 
         let extensions = mime_guess::get_mime_extensions_str(&mime_str.item)
             .unwrap_or_default()
@@ -71,6 +75,6 @@ If <main type> is "*" all known extensions are returned."#,
             .map(|ext| Value::string(*ext, mime_str.span))
             .collect::<Vec<_>>();
 
-        Ok(Value::list(extensions, mime_str.span).into_pipeline_data())
+        Ok(Value::list(extensions, mime_str.span))
     }
 }

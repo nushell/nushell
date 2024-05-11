@@ -1,9 +1,16 @@
-use nu_engine::command_prelude::*;
+use nu_plugin::PluginCommand;
+use nu_protocol::{
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, Type, Value,
+};
 
-#[derive(Clone)]
+use crate::Mime;
+
 pub struct MimeGuess;
 
-impl Command for MimeGuess {
+impl PluginCommand for MimeGuess {
+    type Plugin = Mime;
+
     fn name(&self) -> &str {
         "mime guess"
     }
@@ -79,12 +86,12 @@ impl Command for MimeGuess {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let use_extension: bool = call.has_flag(engine_state, stack, "extension")?;
+        plugin: &Self::Plugin,
+        engine: &nu_plugin::EngineInterface,
+        call: &nu_plugin::EvaluatedCall,
+        input: nu_protocol::PipelineData,
+    ) -> Result<nu_protocol::PipelineData, nu_protocol::LabeledError> {
+        let use_extension: bool = call.has_flag("extension")?;
 
         let guess_function: fn(&str) -> mime_guess::MimeGuess = if use_extension {
             mime_guess::from_ext
@@ -124,15 +131,16 @@ impl Command for MimeGuess {
                     }
                 });
 
-                let ctrlc = engine_state.ctrlc.clone();
+                let ctrlc = compile_error!("can't figure out how to get ctrlc in plugin yet");
 
-                Ok(mime_records_iter.into_pipeline_data(ctrlc))
+                Ok(mime_records_iter.into_pipeline_data(call.head, ctrlc))
             }
             PipelineData::Empty => Ok(PipelineData::empty()),
             _ => Err(ShellError::TypeMismatch {
                 err_message: "Only string input is supported.".to_string(),
                 span: input.span().unwrap_or(Span::unknown()),
-            }),
+            }
+            .into()),
         }
     }
 }
