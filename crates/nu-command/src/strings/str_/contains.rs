@@ -10,6 +10,7 @@ struct Arguments {
     substring: String,
     cell_paths: Option<Vec<CellPath>>,
     case_insensitive: bool,
+    not_contain: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -39,6 +40,7 @@ impl Command for SubCommand {
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
+            .switch("not", "does not contain", Some('n'))
             .category(Category::Strings)
     }
 
@@ -63,6 +65,7 @@ impl Command for SubCommand {
             substring: call.req::<String>(engine_state, stack, 0)?,
             cell_paths,
             case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
+            not_contain: call.has_flag(engine_state, stack, "not")?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -117,6 +120,15 @@ impl Command for SubCommand {
                     Value::test_bool(false),
                 ])),
             },
+            Example {
+                description: "Check if list does not contain string",
+                example: "[one two three] | str contains --not o",
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(false),
+                    Value::test_bool(true),
+                ])),
+            },
         ]
     }
 }
@@ -125,6 +137,7 @@ fn action(
     input: &Value,
     Arguments {
         case_insensitive,
+        not_contain,
         substring,
         ..
     }: &Arguments,
@@ -133,10 +146,22 @@ fn action(
     match input {
         Value::String { val, .. } => Value::bool(
             match case_insensitive {
-                true => val
-                    .to_folded_case()
-                    .contains(substring.to_folded_case().as_str()),
-                false => val.contains(substring),
+                true => {
+                    if *not_contain {
+                        !val.to_folded_case()
+                            .contains(substring.to_folded_case().as_str())
+                    } else {
+                        val.to_folded_case()
+                            .contains(substring.to_folded_case().as_str())
+                    }
+                }
+                false => {
+                    if *not_contain {
+                        !val.contains(substring)
+                    } else {
+                        val.contains(substring)
+                    }
+                }
             },
             head,
         ),
