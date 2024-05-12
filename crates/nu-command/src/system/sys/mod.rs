@@ -16,9 +16,8 @@ pub use sys_::Sys;
 pub use temp::SysTemp;
 pub use users::SysUsers;
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, FixedOffset, Local};
 use nu_protocol::{record, Record, Span, Value};
-use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,
 };
@@ -176,15 +175,23 @@ pub fn host(span: Span) -> Record {
         Value::duration(1000000000 * System::uptime() as i64, span),
     );
 
-    // Creates a new SystemTime from the specified number of whole seconds
-    let d = UNIX_EPOCH + Duration::from_secs(System::boot_time());
-    // Create DateTime from SystemTime
-    let datetime = DateTime::<Local>::from(d);
-    // Convert to local time and then rfc3339
-    let timestamp_str = datetime.with_timezone(datetime.offset()).to_rfc3339();
-    record.push("boot_time", Value::string(timestamp_str, span));
+    record.push(
+        "boot_time",
+        boot_time()
+            .map(|time| Value::date(time, span))
+            .unwrap_or(Value::nothing(span)),
+    );
 
     record
+}
+
+fn boot_time() -> Option<DateTime<FixedOffset>> {
+    // Broken systems can apparently return really high values.
+    // See: https://github.com/nushell/nushell/issues/10155
+    // First, try to convert u64 to i64, and then try to create a `DateTime`.
+    let secs = System::boot_time().try_into().ok()?;
+    let time = DateTime::from_timestamp(secs, 0)?;
+    Some(time.with_timezone(&Local).fixed_offset())
 }
 
 pub fn temp(span: Span) -> Value {
