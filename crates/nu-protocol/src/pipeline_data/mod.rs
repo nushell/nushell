@@ -547,42 +547,46 @@ impl PipelineData {
         F: FnMut(Value) -> Value + 'static + Send,
     {
         match self {
-            PipelineData::Value(value, ..) => {
+            PipelineData::Value(value, metadata) => {
                 let span = value.span();
-                match value {
+                let data = match value {
                     Value::List { vals, .. } => {
-                        Ok(vals.into_iter().map(f).into_pipeline_data(span, ctrlc))
+                        vals.into_iter().map(f).into_pipeline_data(span, ctrlc)
                     }
-                    Value::Range { val, .. } => Ok(val
+                    Value::Range { val, .. } => val
                         .into_range_iter(span, ctrlc.clone())
                         .map(f)
-                        .into_pipeline_data(span, ctrlc)),
+                        .into_pipeline_data(span, ctrlc),
                     value => match f(value) {
-                        Value::Error { error, .. } => Err(*error),
-                        v => Ok(v.into_pipeline_data()),
+                        Value::Error { error, .. } => return Err(*error),
+                        v => v.into_pipeline_data(),
                     },
-                }
+                };
+                Ok(data.set_metadata(metadata))
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::ListStream(stream, ..) => {
-                Ok(PipelineData::ListStream(stream.map(f), None))
+            PipelineData::ListStream(stream, metadata) => {
+                Ok(PipelineData::ListStream(stream.map(f), metadata))
             }
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 trim_end_newline,
+                metadata,
                 ..
             } => {
                 let collected = stream.into_bytes()?;
 
-                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
+                let data = if let Ok(mut st) = String::from_utf8(collected.clone().item) {
                     if trim_end_newline {
                         st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len());
                     }
-                    Ok(f(Value::string(st, collected.span)).into_pipeline_data())
+                    f(Value::string(st, collected.span)).into_pipeline_data()
                 } else {
-                    Ok(f(Value::binary(collected.item, collected.span)).into_pipeline_data())
-                }
+                    f(Value::binary(collected.item, collected.span)).into_pipeline_data()
+                };
+
+                Ok(data.set_metadata(metadata))
             }
         }
     }
@@ -601,43 +605,48 @@ impl PipelineData {
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(value, ..) => {
+            PipelineData::Value(value, metadata) => {
                 let span = value.span();
-                match value {
+                let data = match value {
                     Value::List { vals, .. } => {
-                        Ok(vals.into_iter().flat_map(f).into_pipeline_data(span, ctrlc))
+                        vals.into_iter().flat_map(f).into_pipeline_data(span, ctrlc)
                     }
-                    Value::Range { val, .. } => Ok(val
+                    Value::Range { val, .. } => val
                         .into_range_iter(span, ctrlc.clone())
                         .flat_map(f)
-                        .into_pipeline_data(span, ctrlc)),
-                    value => Ok(f(value).into_iter().into_pipeline_data(span, ctrlc)),
-                }
+                        .into_pipeline_data(span, ctrlc),
+                    value => f(value).into_iter().into_pipeline_data(span, ctrlc),
+                };
+                Ok(data.set_metadata(metadata))
             }
-            PipelineData::ListStream(stream, ..) => {
-                Ok(stream.modify(|iter| iter.flat_map(f)).into())
-            }
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+                stream.modify(|iter| iter.flat_map(f)),
+                metadata,
+            )),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 span,
                 trim_end_newline,
+                metadata,
                 ..
             } => {
                 let collected = stream.into_bytes()?;
 
-                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
+                let data = if let Ok(mut st) = String::from_utf8(collected.clone().item) {
                     if trim_end_newline {
                         st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
-                    Ok(f(Value::string(st, collected.span))
+                    f(Value::string(st, collected.span))
                         .into_iter()
-                        .into_pipeline_data(span, ctrlc))
+                        .into_pipeline_data(span, ctrlc)
                 } else {
-                    Ok(f(Value::binary(collected.item, collected.span))
+                    f(Value::binary(collected.item, collected.span))
                         .into_iter()
-                        .into_pipeline_data(span, ctrlc))
-                }
+                        .into_pipeline_data(span, ctrlc)
+                };
+
+                Ok(data.set_metadata(metadata))
             }
         }
     }
@@ -653,54 +662,61 @@ impl PipelineData {
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(value, ..) => {
+            PipelineData::Value(value, metadata) => {
                 let span = value.span();
-                match value {
+                let data = match value {
                     Value::List { vals, .. } => {
-                        Ok(vals.into_iter().filter(f).into_pipeline_data(span, ctrlc))
+                        vals.into_iter().filter(f).into_pipeline_data(span, ctrlc)
                     }
-                    Value::Range { val, .. } => Ok(val
+                    Value::Range { val, .. } => val
                         .into_range_iter(span, ctrlc.clone())
                         .filter(f)
-                        .into_pipeline_data(span, ctrlc)),
+                        .into_pipeline_data(span, ctrlc),
                     value => {
                         if f(&value) {
-                            Ok(value.into_pipeline_data())
+                            value.into_pipeline_data()
                         } else {
-                            Ok(Value::nothing(span).into_pipeline_data())
+                            Value::nothing(span).into_pipeline_data()
                         }
                     }
-                }
+                };
+                Ok(data.set_metadata(metadata))
             }
-            PipelineData::ListStream(stream, ..) => Ok(stream.modify(|iter| iter.filter(f)).into()),
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+                stream.modify(|iter| iter.filter(f)),
+                metadata,
+            )),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
             PipelineData::ExternalStream {
                 stdout: Some(stream),
                 trim_end_newline,
+                metadata,
                 ..
             } => {
                 let collected = stream.into_bytes()?;
 
-                if let Ok(mut st) = String::from_utf8(collected.clone().item) {
+                let data = if let Ok(mut st) = String::from_utf8(collected.clone().item) {
                     if trim_end_newline {
                         st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
                     let v = Value::string(st, collected.span);
 
                     if f(&v) {
-                        Ok(v.into_pipeline_data())
+                        v.into_pipeline_data_with_metadata(metadata)
                     } else {
-                        Ok(PipelineData::new_with_metadata(None, collected.span))
+                        PipelineData::new_with_metadata(metadata, collected.span)
                     }
                 } else {
                     let v = Value::binary(collected.item, collected.span);
 
                     if f(&v) {
-                        Ok(v.into_pipeline_data())
+                        v.into_pipeline_data_with_metadata(metadata)
                     } else {
-                        Ok(PipelineData::new_with_metadata(None, collected.span))
+                        PipelineData::new_with_metadata(metadata, collected.span)
                     }
-                }
+                };
+
+                Ok(data)
             }
         }
     }

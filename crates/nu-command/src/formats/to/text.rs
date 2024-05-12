@@ -37,7 +37,7 @@ impl Command for ToText {
         };
         let input = input.try_expand_range()?;
 
-        if let PipelineData::ListStream(stream, _) = input {
+        if let PipelineData::ListStream(stream, metadata) = input {
             Ok(PipelineData::ExternalStream {
                 stdout: Some(RawStream::new(
                     Box::new(ListStreamIterator {
@@ -52,7 +52,7 @@ impl Command for ToText {
                 stderr: None,
                 exit_code: None,
                 span,
-                metadata: None,
+                metadata,
                 trim_end_newline: false,
             })
         } else {
