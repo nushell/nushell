@@ -8,7 +8,7 @@ fn better_empty_redirection() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
         "
-            ls | each { |it| nu --testbin cococo $it.name } | ignore
+            ls | each { |it| nu-testbin cococo $it.name } | ignore
         "
     ));
 
@@ -145,7 +145,7 @@ fn external_args_with_quoted() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu --testbin cococo "foo=bar 'hi'"
+                nu-testbin cococo "foo=bar 'hi'"
             "#
         ));
 
@@ -175,7 +175,7 @@ fn external_arg_with_variable_name() {
             cwd: dirs.test(), pipeline(
             r#"
                 let dump_command = "PGPASSWORD='db_secret' pg_dump -Fc -h 'db.host' -p '$db.port' -U postgres -d 'db_name' > '/tmp/dump_name'";
-                nu --testbin nonu $dump_command
+                nu-testbin nonu $dump_command
             "#
         ));
 
@@ -192,7 +192,7 @@ fn external_command_escape_args() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu --testbin cococo "\"abcd"
+                nu-testbin cococo "\"abcd"
             "#
         ));
 
@@ -205,7 +205,7 @@ fn external_command_not_expand_tilde_with_quotes() {
     Playground::setup(
         "external command not expand tilde with quotes",
         |dirs, _| {
-            let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu "~""#));
+            let actual = nu!(cwd: dirs.test(), pipeline(r#"nu-testbin nonu "~""#));
             assert_eq!(actual.out, r#"~"#);
         },
     )
@@ -216,7 +216,7 @@ fn external_command_expand_tilde_with_back_quotes() {
     Playground::setup(
         "external command not expand tilde with quotes",
         |dirs, _| {
-            let actual = nu!(cwd: dirs.test(), pipeline(r#"nu --testbin nonu `~`"#));
+            let actual = nu!(cwd: dirs.test(), pipeline(r#"nu-testbin nonu `~`"#));
             assert!(!actual.out.contains('~'));
         },
     )
@@ -226,7 +226,7 @@ fn external_command_expand_tilde_with_back_quotes() {
 fn external_command_receives_raw_binary_data() {
     Playground::setup("external command receives raw binary data", |dirs, _| {
         let actual =
-            nu!(cwd: dirs.test(), pipeline("0x[deadbeef] | nu --testbin input_bytes_length"));
+            nu!(cwd: dirs.test(), pipeline("0x[deadbeef] | nu-testbin input_bytes_length"));
         assert_eq!(actual.out, r#"4"#);
     })
 }
@@ -311,7 +311,7 @@ fn quotes_trimmed_when_shelling_out() {
     // regression test for a bug where we weren't trimming quotes around string args before shelling out to cmd.exe
     let actual = nu!(pipeline(
         r#"
-            nu --testbin cococo "foo"
+            nu-testbin cococo "foo"
         "#
     ));
 

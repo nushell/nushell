@@ -16,7 +16,7 @@ fn for_break_on_external_failed() {
     let actual = nu!("
         for i in 1..2 {
             print 1;
-            nu --testbin fail
+            nu-testbin fail
         }");
     // Note: nu! macro auto replace "\n" and "\r\n" with ""
     // so our output will be `1`
@@ -27,7 +27,7 @@ fn for_break_on_external_failed() {
 fn failed_for_should_break_running() {
     let actual = nu!("
         for i in 1..2 {
-            nu --testbin fail
+            nu-testbin fail
         }
         print 3");
     assert!(!actual.out.contains('3'));
@@ -35,7 +35,7 @@ fn failed_for_should_break_running() {
     let actual = nu!("
         let x = [1 2]
         for i in $x {
-            nu --testbin fail
+            nu-testbin fail
         }
         print 3");
     assert!(!actual.out.contains('3'));

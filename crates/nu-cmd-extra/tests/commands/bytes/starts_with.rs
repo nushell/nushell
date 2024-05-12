@@ -22,7 +22,7 @@ fn basic_string_fails() {
 #[test]
 fn short_stream_binary() {
     let actual = nu!(r#"
-            nu --testbin repeater (0x[01]) 5 | bytes starts-with 0x[010101]
+            nu-testbin repeater (0x[01]) 5 | bytes starts-with 0x[010101]
         "#);
 
     assert_eq!(actual.out, "true");
@@ -31,7 +31,7 @@ fn short_stream_binary() {
 #[test]
 fn short_stream_mismatch() {
     let actual = nu!(r#"
-            nu --testbin repeater (0x[010203]) 5 | bytes starts-with 0x[010204]
+            nu-testbin repeater (0x[010203]) 5 | bytes starts-with 0x[010204]
         "#);
 
     assert_eq!(actual.out, "false");
@@ -40,7 +40,7 @@ fn short_stream_mismatch() {
 #[test]
 fn short_stream_binary_overflow() {
     let actual = nu!(r#"
-            nu --testbin repeater (0x[01]) 5 | bytes starts-with 0x[010101010101]
+            nu-testbin repeater (0x[01]) 5 | bytes starts-with 0x[010101010101]
         "#);
 
     assert_eq!(actual.out, "false");
@@ -49,7 +49,7 @@ fn short_stream_binary_overflow() {
 #[test]
 fn long_stream_binary() {
     let actual = nu!(r#"
-            nu --testbin repeater (0x[01]) 32768 | bytes starts-with 0x[010101]
+            nu-testbin repeater (0x[01]) 32768 | bytes starts-with 0x[010101]
         "#);
 
     assert_eq!(actual.out, "true");
@@ -59,7 +59,7 @@ fn long_stream_binary() {
 fn long_stream_binary_overflow() {
     // .. ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
     let actual = nu!(r#"
-            nu --testbin repeater (0x[01]) 32768 | bytes starts-with (0..32768 | each {|| 0x[01] } | bytes collect)
+            nu-testbin repeater (0x[01]) 32768 | bytes starts-with (0..32768 | each {|| 0x[01] } | bytes collect)
         "#);
 
     assert_eq!(actual.out, "false");
@@ -69,7 +69,7 @@ fn long_stream_binary_overflow() {
 fn long_stream_binary_exact() {
     // ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
     let actual = nu!(r#"
-            nu --testbin repeater (0x[01020304]) 8192 | bytes starts-with (0..<8192 | each {|| 0x[01020304] } | bytes collect)
+            nu-testbin repeater (0x[01020304]) 8192 | bytes starts-with (0..<8192 | each {|| 0x[01020304] } | bytes collect)
         "#);
 
     assert_eq!(actual.out, "true");
@@ -79,7 +79,7 @@ fn long_stream_binary_exact() {
 fn long_stream_string_exact() {
     // ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
     let actual = nu!(r#"
-            nu --testbin repeater hell 8192 | bytes starts-with (0..<8192 | each {|| "hell" | into binary } | bytes collect)
+            nu-testbin repeater hell 8192 | bytes starts-with (0..<8192 | each {|| "hell" | into binary } | bytes collect)
         "#);
 
     assert_eq!(actual.out, "true");
@@ -92,7 +92,7 @@ fn long_stream_mixed_exact() {
             let binseg = (0..<2048 | each {|| 0x[003d9fbf] } | bytes collect)
             let strseg = (0..<2048 | each {|| "hell" | into binary } | bytes collect)
 
-            nu --testbin repeat_bytes 003d9fbf 2048 68656c6c 2048 | bytes starts-with (bytes build $binseg $strseg)
+            nu-testbin repeat_bytes 003d9fbf 2048 68656c6c 2048 | bytes starts-with (bytes build $binseg $strseg)
         "#);
 
     assert_eq!(
@@ -109,7 +109,7 @@ fn long_stream_mixed_overflow() {
             let binseg = (0..<2048 | each {|| 0x[003d9fbf] } | bytes collect)
             let strseg = (0..<2048 | each {|| "hell" | into binary } | bytes collect)
 
-            nu --testbin repeat_bytes 003d9fbf 2048 68656c6c 2048 | bytes starts-with (bytes build $binseg $strseg 0x[01])
+            nu-testbin repeat_bytes 003d9fbf 2048 68656c6c 2048 | bytes starts-with (bytes build $binseg $strseg 0x[01])
         "#);
 
     assert_eq!(

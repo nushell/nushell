@@ -387,7 +387,7 @@ fn str_reverse() {
 #[test]
 fn test_redirection_trim() {
     let actual = nu!(r#"
-        let x = (nu --testbin cococo niceone); $x | str trim | str length
+        let x = (nu-testbin cococo niceone); $x | str trim | str length
         "#);
 
     assert_eq!(actual.out, "7");

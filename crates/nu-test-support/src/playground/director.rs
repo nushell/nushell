@@ -14,21 +14,6 @@ pub struct Director {
 }
 
 impl Director {
-    pub fn cococo(&self, arg: &str) -> Self {
-        let mut process = NuProcess {
-            environment_vars: self.environment_vars.clone(),
-            ..Default::default()
-        };
-
-        process.args(&["--testbin", "cococo", arg]);
-        Director {
-            config: self.config.clone(),
-            executable: Some(process),
-            environment_vars: self.environment_vars.clone(),
-            ..Default::default()
-        }
-    }
-
     pub fn and_then(&mut self, commands: &str) -> &mut Self {
         let commands = commands.to_string();
 

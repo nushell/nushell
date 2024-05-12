@@ -30,7 +30,7 @@ fn catch_can_access_error_as_dollar_in() {
 
 #[test]
 fn external_failed_should_be_caught() {
-    let output = nu!("try { nu --testbin fail; echo 'success' } catch { echo 'fail' }");
+    let output = nu!("try { nu-testbin fail; echo 'success' } catch { echo 'fail' }");
 
     assert!(output.out.contains("fail"));
 }

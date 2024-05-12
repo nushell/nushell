@@ -184,7 +184,7 @@ fn def_wrapped_with_block() {
 #[test]
 fn def_wrapped_from_module() {
     let actual = nu!(r#"module spam {
-            export def --wrapped my-echo [...rest] { nu --testbin cococo ...$rest }
+            export def --wrapped my-echo [...rest] { nu-testbin cococo ...$rest }
         }
 
         use spam

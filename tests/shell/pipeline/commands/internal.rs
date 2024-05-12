@@ -17,7 +17,7 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
         "
             {sample}
             | get origin
-            | each {{ |it| nu --testbin cococo $it | nu --testbin chop }}
+            | each {{ |it| nu-testbin cococo $it | nu-testbin chop }}
             | get 2
             "
     )));
@@ -56,7 +56,7 @@ fn treats_dot_dot_as_path_not_range() {
 #[test]
 fn subexpression_properly_redirects() {
     let actual = nu!(r#"
-            echo (nu --testbin cococo "hello") | str join
+            echo (nu-testbin cococo "hello") | str join
         "#);
 
     assert_eq!(actual.out, "hello");
@@ -99,7 +99,7 @@ fn subexpression_handles_dot() {
         "
             echo (open nu_times.csv)
             | get name
-            | each { |it| nu --testbin chop $it }
+            | each { |it| nu-testbin chop $it }
             | get 3
             "
         ));
@@ -551,7 +551,7 @@ fn argument_subexpression_reports_errors() {
 
 #[test]
 fn can_process_one_row_from_internal_and_pipes_it_to_stdin_of_external() {
-    let actual = nu!(r#""nushelll" | nu --testbin chop"#);
+    let actual = nu!(r#""nushelll" | nu-testbin chop"#);
 
     assert_eq!(actual.out, "nushell");
 }

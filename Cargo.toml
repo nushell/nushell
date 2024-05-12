@@ -302,6 +302,11 @@ name = "nu"
 path = "src/main.rs"
 bench = false
 
+# Test binary
+[[bin]]
+name = "nu-testbin"
+path = "testbin/src/main.rs"
+
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]

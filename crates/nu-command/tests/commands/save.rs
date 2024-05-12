@@ -93,7 +93,7 @@ fn save_stderr_and_stdout_to_afame_file() {
             r#"
             $env.FOO = "bar";
             $env.BAZ = "ZZZ";
-            do -c {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_5/new-file.txt --stderr save_test_5/new-file.txt
+            do -c {nu -n -c 'nu-testbin echo_env FOO; nu-testbin echo_env_stderr BAZ'} | save -r save_test_5/new-file.txt --stderr save_test_5/new-file.txt
             "#,
         );
         assert!(actual
@@ -115,7 +115,7 @@ fn save_stderr_and_stdout_to_diff_file() {
             r#"
             $env.FOO = "bar";
             $env.BAZ = "ZZZ";
-            do -c {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_6/log.txt --stderr save_test_6/err.txt
+            do -c {nu -n -c 'nu-testbin echo_env FOO; nu-testbin echo_env_stderr BAZ'} | save -r save_test_6/log.txt --stderr save_test_6/err.txt
             "#,
         );
 
@@ -208,7 +208,7 @@ fn save_append_works_on_stderr() {
             r#"
             $env.FOO = " New";
             $env.BAZ = " New Err";
-            do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_11/log.txt --stderr save_test_11/err.txt"#,
+            do -i {nu -n -c 'nu-testbin echo_env FOO; nu-testbin echo_env_stderr BAZ'} | save -a -r save_test_11/log.txt --stderr save_test_11/err.txt"#,
         );
 
         let actual = file_contents(expected_file);
@@ -229,7 +229,7 @@ fn save_not_overrides_err_by_default() {
             r#"
             $env.FOO = " New";
             $env.BAZ = " New Err";
-            do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -r save_test_12/log.txt --stderr save_test_12/err.txt"#,
+            do -i {nu -n -c 'nu-testbin echo_env FOO; nu-testbin echo_env_stderr BAZ'} | save -r save_test_12/log.txt --stderr save_test_12/err.txt"#,
         );
 
         assert!(actual.err.contains("Destination file already exists"));
@@ -252,7 +252,7 @@ fn save_override_works_stderr() {
             r#"
             $env.FOO = "New";
             $env.BAZ = "New Err";
-            do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -f -r save_test_13/log.txt --stderr save_test_13/err.txt"#,
+            do -i {nu -n -c 'nu-testbin echo_env FOO; nu-testbin echo_env_stderr BAZ'} | save -f -r save_test_13/log.txt --stderr save_test_13/err.txt"#,
         );
 
         let actual = file_contents(expected_file);

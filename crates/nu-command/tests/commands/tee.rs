@@ -22,7 +22,7 @@ fn tee_save_stdout_to_file() {
             cwd: dirs.test(),
             r#"
                 $env.FOO = "teststring"
-                nu --testbin echo_env FOO | tee { save copy.txt }
+                nu-testbin echo_env FOO | tee { save copy.txt }
             "#
         );
         assert_eq!("teststring", output.out);
@@ -37,7 +37,7 @@ fn tee_save_stderr_to_file() {
             cwd: dirs.test(),
             "\
                 $env.FOO = \"teststring\"; \
-                do { nu --testbin echo_env_stderr FOO } | \
+                do { nu-testbin echo_env_stderr FOO } | \
                     tee --stderr { save copy.txt } | \
                     complete | \
                     get stderr

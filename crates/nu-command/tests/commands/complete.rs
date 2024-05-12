@@ -3,10 +3,10 @@ use nu_test_support::nu;
 #[test]
 fn basic_stdout() {
     let without_complete = nu!(r#"
-        nu --testbin cococo test
+        nu-testbin cococo test
     "#);
     let with_complete = nu!(r#"
-        (nu --testbin cococo test | complete).stdout
+        (nu-testbin cococo test | complete).stdout
     "#);
 
     assert_eq!(with_complete.out, without_complete.out);
@@ -15,7 +15,7 @@ fn basic_stdout() {
 #[test]
 fn basic_exit_code() {
     let with_complete = nu!(r#"
-        (nu --testbin cococo test | complete).exit_code
+        (nu-testbin cococo test | complete).exit_code
     "#);
 
     assert_eq!(with_complete.out, "0");
@@ -95,13 +95,12 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
 
 #[test]
 fn combined_pipe_redirection() {
-    let actual = nu!("$env.FOO = hello; $env.BAR = world; nu --testbin echo_env_mixed out-err FOO BAR o+e>| complete | get stdout");
+    let actual = nu!("$env.FOO = hello; $env.BAR = world; nu-testbin echo_env_mixed out-err FOO BAR o+e>| complete | get stdout");
     assert_eq!(actual.out, "helloworld");
 }
 
 #[test]
 fn err_pipe_redirection() {
-    let actual =
-        nu!("$env.FOO = hello; nu --testbin echo_env_stderr FOO e>| complete | get stdout");
+    let actual = nu!("$env.FOO = hello; nu-testbin echo_env_stderr FOO e>| complete | get stdout");
     assert_eq!(actual.out, "hello");
 }

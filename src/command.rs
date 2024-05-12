@@ -33,9 +33,8 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--env-config" | "-I" | "ide-ast" => args.next().map(|a| escape_quote_string(&a)),
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-            "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
-            | "--include-path" | "--lsp" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
-            | "--ide-check" => args.next(),
+            "--log-level" | "--log-target" | "--threads" | "-t" | "--include-path" | "--lsp"
+            | "--ide-goto-def" | "--ide-hover" | "--ide-complete" | "--ide-check" => args.next(),
             #[cfg(feature = "plugin")]
             "--plugins" => args.next(),
             _ => None,
@@ -85,7 +84,6 @@ pub(crate) fn parse_commandline_args(
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
             let commands = call.get_flag_expr("commands");
-            let testbin = call.get_flag_expr("testbin");
             #[cfg(feature = "plugin")]
             let plugin_file = call.get_flag_expr("plugin-config");
             #[cfg(feature = "plugin")]
@@ -156,7 +154,6 @@ pub(crate) fn parse_commandline_args(
             }
 
             let commands = extract_contents(commands)?;
-            let testbin = extract_contents(testbin)?;
             #[cfg(feature = "plugin")]
             let plugin_file = extract_path(plugin_file)?;
             let config_file = extract_path(config_file)?;
@@ -218,7 +215,6 @@ pub(crate) fn parse_commandline_args(
                 login_shell,
                 interactive_shell,
                 commands,
-                testbin,
                 #[cfg(feature = "plugin")]
                 plugin_file,
                 #[cfg(feature = "plugin")]
@@ -262,7 +258,6 @@ pub(crate) struct NushellCliArgs {
     pub(crate) login_shell: Option<Spanned<String>>,
     pub(crate) interactive_shell: Option<Spanned<String>>,
     pub(crate) commands: Option<Spanned<String>>,
-    pub(crate) testbin: Option<Spanned<String>>,
     #[cfg(feature = "plugin")]
     pub(crate) plugin_file: Option<Spanned<String>>,
     #[cfg(feature = "plugin")]
