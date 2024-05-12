@@ -592,6 +592,40 @@ impl Stack {
         self.out_dest.pipe_stderr = None;
         self
     }
+
+    /// Set the PWD environment variable to `path`.
+    ///
+    /// This method accepts `path` with trailing slashes, but they're removed
+    /// before writing the value into PWD.
+    pub fn set_cwd(&mut self, path: impl AsRef<std::path::Path>) -> Result<(), ShellError> {
+        // Helper function to create a simple generic error.
+        // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
+        fn error(msg: &str) -> Result<(), ShellError> {
+            Err(ShellError::GenericError {
+                error: msg.into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
+        }
+
+        let path = path.as_ref();
+
+        if !path.is_absolute() {
+            error("Cannot set $env.PWD to a non-absolute path")
+        } else if !path.exists() {
+            error("Cannot set $env.PWD to a non-existent directory")
+        } else if !path.is_dir() {
+            error("Cannot set $env.PWD to a non-directory")
+        } else {
+            // Strip trailing slashes, if any.
+            let path = nu_path::strip_trailing_slash(path);
+            let value = Value::string(path.to_string_lossy(), Span::unknown());
+            self.add_env_var("PWD".into(), value);
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]

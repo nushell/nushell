@@ -334,7 +334,13 @@ fn eval_redirection<D: DebugContext>(
             }
             Ok(Redirection::file(options.create(true).open(path)?))
         }
-        RedirectionTarget::Pipe { .. } => Ok(Redirection::Pipe(next_out.unwrap_or(OutDest::Pipe))),
+        RedirectionTarget::Pipe { .. } => {
+            let dest = match next_out {
+                None | Some(OutDest::Capture) => OutDest::Pipe,
+                Some(next) => next,
+            };
+            Ok(Redirection::Pipe(dest))
+        }
     }
 }
 
@@ -361,11 +367,12 @@ fn eval_element_redirection<D: DebugContext>(
             } => {
                 let stderr = eval_redirection::<D>(engine_state, stack, target, None)?;
                 if matches!(stderr, Redirection::Pipe(OutDest::Pipe)) {
+                    let dest = match next_out {
+                        None | Some(OutDest::Capture) => OutDest::Pipe,
+                        Some(next) => next,
+                    };
                     // e>| redirection, don't override current stack `stdout`
-                    Ok((
-                        None,
-                        Some(next_out.map(Redirection::Pipe).unwrap_or(stderr)),
-                    ))
+                    Ok((None, Some(Redirection::Pipe(dest))))
                 } else {
                     Ok((next_out.map(Redirection::Pipe), Some(stderr)))
                 }
@@ -682,7 +689,7 @@ impl Eval for EvalRuntime {
         } else if quoted {
             Ok(Value::string(path, span))
         } else {
-            let cwd = engine_state.cwd(Some(stack))?;
+            let cwd = engine_state.cwd(Some(stack)).unwrap_or_default();
             let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
