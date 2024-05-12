@@ -1,17 +1,18 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_protocol::{ast::Expr, did_you_mean, ListStream, NuGlob, OutDest, RawStream};
+use nu_protocol::{ast::Expr, did_you_mean, ListStream, NuGlob, OutDest, OutDestWrite, RawStream};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
+use parking_lot::Mutex;
 use pathdiff::diff_paths;
 use std::{
     collections::HashMap,
-    io::{BufRead, BufReader, Read, Write},
+    io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::{Command as CommandSys, Stdio},
     sync::{mpsc, Arc},
-    thread,
+    thread::{self, JoinHandle},
 };
 
 #[derive(Clone)]
@@ -436,6 +437,21 @@ impl ExternalCommand {
                         None,
                     )
                 } else {
+                    // Create threads to receive stdout/-err to not block the execution of the command.
+                    if let OutDest::Writer(ref writer) = self.out {
+                        let writer = writer.clone();
+                        if let Some(stdout) = child.as_mut().stdout.take() {
+                            self.write_childio(format!("{:?} stdout receiver", self.name.item), stdout, writer).err_span(head)?;
+                        }
+                    }
+
+                    if let OutDest::Writer(ref writer) = self.err {
+                        let writer = writer.clone();
+                        if let Some(stderr) = child.as_mut().stderr.take() {
+                            self.write_childio(format!("{:?} stderr receiver", self.name.item), stderr, writer).err_span(head)?;
+                        }
+                    }
+
                     let stdout = child.as_mut().stdout.take().map(|out| {
                         RawStream::new(
                             Box::new(ByteLines::new(out)),
@@ -642,6 +658,31 @@ impl ExternalCommand {
         }
 
         process
+    }
+
+    /// Create a new thread to write a childio stream into a writer.
+    fn write_childio(
+        &self,
+        name: String,
+        mut childio: impl Read + Send + 'static,
+        writer: Arc<Mutex<dyn OutDestWrite + Send + 'static>>,
+    ) -> io::Result<JoinHandle<()>> {
+        thread::Builder::new().name(name).spawn(move || {
+            let mut buf = [0u8; 8192];
+            loop {
+                match childio.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        // Lock here to be a fine granular as possible.
+                        let mut writer = writer.lock();
+                        // We don't really have a place to detect that writing failed, so we make this silently fail.
+                        let _ = writer.write_all(&buf[0..n]);
+                    }
+                    // We also don't have a real place to notify if reading a stdio stream failed, so we just stop.
+                    Err(_) => break,
+                }
+            }
+        })
     }
 }
 

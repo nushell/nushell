@@ -66,6 +66,7 @@ num-traits = { workspace = true }
 once_cell = { workspace = true }
 open = { workspace = true }
 os_pipe = { workspace = true }
+parking_lot = { workspace = true }
 pathdiff = { workspace = true }
 percent-encoding = { workspace = true }
 print-positions = { workspace = true }

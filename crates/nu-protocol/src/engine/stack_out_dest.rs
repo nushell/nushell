@@ -35,11 +35,11 @@ pub(crate) struct StackOutDest {
     pub pipe_stderr: Option<OutDest>,
     /// The stream used for the command stdout if `pipe_stdout` is `None`.
     ///
-    /// This should only ever be `File` or `Inherit`.
+    /// This should only ever be `File`, `Inherit` or `Writer`.
     pub stdout: OutDest,
     /// The stream used for the command stderr if `pipe_stderr` is `None`.
     ///
-    /// This should only ever be `File` or `Inherit`.
+    /// This should only ever be `File`, `Inherit` or `Writer`.
     pub stderr: OutDest,
     /// The previous stdout used before the current `stdout` was set.
     ///
@@ -47,7 +47,7 @@ pub(crate) struct StackOutDest {
     /// since the arguments are lazily evaluated inside each command
     /// after redirections have already been applied to the command/stack.
     ///
-    /// This should only ever be `File` or `Inherit`.
+    /// This should only ever be `File`, `Inherit` or `Writer`.
     pub parent_stdout: Option<OutDest>,
     /// The previous stderr used before the current `stderr` was set.
     ///
@@ -55,7 +55,7 @@ pub(crate) struct StackOutDest {
     /// since the arguments are lazily evaluated inside each command
     /// after redirections have already been applied to the command/stack.
     ///
-    /// This should only ever be `File` or `Inherit`.
+    /// This should only ever be `File`, `Inherit` or `Writer`.
     pub parent_stderr: Option<OutDest>,
 }
 
@@ -73,18 +73,18 @@ impl StackOutDest {
 
     /// Returns the [`OutDest`] to use for current command's stdout.
     ///
-    /// This will be the pipe redirection if one is set,
-    /// otherwise it will be the current file redirection,
-    /// otherwise it will be the process's stdout indicated by [`OutDest::Inherit`].
+    /// This will be the pipe redirection if one is set, otherwise it will be current file redirection.
+    /// If no redirection is set, this will fallback to either the process's stdout indicated by 
+    /// [`OutDest::Inherit`] or, if set, to a custom writer indicated by [`OutDest::Writer`].
     pub(crate) fn stdout(&self) -> &OutDest {
         self.pipe_stdout.as_ref().unwrap_or(&self.stdout)
     }
 
     /// Returns the [`OutDest`] to use for current command's stderr.
     ///
-    /// This will be the pipe redirection if one is set,
-    /// otherwise it will be the current file redirection,
-    /// otherwise it will be the process's stderr indicated by [`OutDest::Inherit`].
+    /// This will be the pipe redirection if one is set, otherwise it will be current file redirection.
+    /// If no redirection is set, this will fallback to either the process's stderr indicated by 
+    /// [`OutDest::Inherit`] or, if set, to a custom writer indicated by [`OutDest::Writer`].
     pub(crate) fn stderr(&self) -> &OutDest {
         self.pipe_stderr.as_ref().unwrap_or(&self.stderr)
     }

@@ -26,6 +26,7 @@ indexmap = { workspace = true }
 lru = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
+parking_lot = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false }
 serde_json = { workspace = true, optional = true }

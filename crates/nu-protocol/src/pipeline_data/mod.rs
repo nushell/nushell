@@ -314,6 +314,14 @@ impl PipelineData {
                 file.flush()?;
                 Ok(PipelineData::Empty)
             }
+            (PipelineData::Value(value, _), OutDest::Writer(writer)) => {
+                // merge this with the file variant?
+                let bytes = value_to_bytes(value)?;
+                let mut writer = writer.lock();
+                writer.write_all(&bytes)?;
+                writer.flush()?;
+                Ok(PipelineData::Empty)
+            }
             (PipelineData::ListStream(stream, _), OutDest::File(file)) => {
                 let mut file = file.try_clone()?;
                 // use BufWriter here?
@@ -323,6 +331,17 @@ impl PipelineData {
                     file.write_all(b"\n")?;
                 }
                 file.flush()?;
+                Ok(PipelineData::Empty)
+            }
+            (PipelineData::ListStream(stream, _), OutDest::Writer(writer)) => {
+                // merge this with the file variant?
+                let mut writer = writer.lock();
+                for value in stream {
+                    let bytes = value_to_bytes(value)?;
+                    writer.write_all(&bytes)?;
+                    writer.write_all(b"\n")?;
+                }
+                writer.flush()?;
                 Ok(PipelineData::Empty)
             }
             (
@@ -1043,6 +1062,10 @@ fn consume_child_output(child_output: RawStream, output_stream: &OutDest) -> io:
         }
         OutDest::File(file) => {
             io::copy(&mut output, &mut file.try_clone()?)?;
+        }
+        OutDest::Writer(writer) => {
+            let mut writer = writer.lock();
+            io::copy(&mut output, &mut *writer)?;
         }
     }
     Ok(())

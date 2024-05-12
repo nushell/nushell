@@ -1,9 +1,12 @@
+use parking_lot::Mutex;
+
 use crate::{
     engine::{
         EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackOutDest,
         DEFAULT_OVERLAY_NAME,
     },
-    OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+    OutDest, OutDestWrite, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
+    NU_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -591,6 +594,46 @@ impl Stack {
         self.out_dest.pipe_stdout = None;
         self.out_dest.pipe_stderr = None;
         self
+    }
+
+    /// Replace the stdout with a writer.
+    ///
+    /// This will replace the fallback out destination for external processes to a custom writer 
+    /// instead of the stdout of the current process.
+    /// 
+    /// To reset the stdout again, use [`reset_out_dest`]´.
+    /// 
+    /// # Example
+    /// 
+    /// Using a `Vec` as a writer:
+    /// ```
+    /// # use nu_protocol::engine::Stack;
+    /// let buf: Vec<u8> = Vec::new();
+    /// let (stack, buf) = Stack::new().stdout_writer(buf);
+    /// // execute some code
+    /// 
+    /// let content = buf.lock();
+    /// // work with the content
+    /// ```
+    pub fn stdout_writer<W>(mut self, writer: W) -> (Self, Arc<Mutex<W>>)
+    where
+        W: OutDestWrite + Send + 'static,
+    {
+        let writer = Arc::new(Mutex::new(writer));
+        self.out_dest.stdout = OutDest::Writer(writer.clone());
+        (self, writer)
+    }
+
+    /// Replace the stderr with a writer.
+    /// 
+    /// For more info, see [`stdout_writer`].
+    pub fn stderr_writer<W>(mut self, writer: W) -> (Self, Arc<Mutex<W>>)
+    where
+        W: OutDestWrite + Send + 'static,
+    {
+        let writer = Arc::new(Mutex::new(writer));
+        self.out_dest.stderr = OutDest::Writer(writer.clone());
+        (self, writer)
     }
 
     /// Set the PWD environment variable to `path`.
