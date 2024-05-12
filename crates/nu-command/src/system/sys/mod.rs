@@ -170,17 +170,18 @@ pub fn host(span: Span) -> Record {
         record.push("hostname", Value::string(trim_cstyle_null(hostname), span));
     }
 
-    record.push(
-        "uptime",
-        Value::duration(1000000000 * System::uptime() as i64, span),
-    );
+    let uptime = System::uptime()
+        .saturating_mul(1_000_000_000)
+        .try_into()
+        .unwrap_or(i64::MAX);
 
-    record.push(
-        "boot_time",
-        boot_time()
-            .map(|time| Value::date(time, span))
-            .unwrap_or(Value::nothing(span)),
-    );
+    record.push("uptime", Value::duration(uptime, span));
+
+    let boot_time = boot_time()
+        .map(|time| Value::date(time, span))
+        .unwrap_or(Value::nothing(span));
+
+    record.push("boot_time", boot_time);
 
     record
 }
