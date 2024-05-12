@@ -407,3 +407,20 @@ fn save_same_file_without_extension_pipeline() {
             .contains("pipeline input and output are the same file"));
     })
 }
+
+#[test]
+fn save_with_custom_converter() {
+    Playground::setup("save_with_custom_converter", |dirs, _| {
+        let file = dirs.test().join("test.ndjson");
+
+        nu!(cwd: dirs.test(), pipeline(
+            r#"
+                def "to ndjson" []: any -> string { each { to json --raw } | to text } ;
+                {a: 1, b: 2} | save test.ndjson
+            "#
+        ));
+
+        let actual = file_contents(file);
+        assert_eq!(actual, r#"{"a":1,"b":2}"#);
+    })
+}
