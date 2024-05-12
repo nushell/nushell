@@ -5,8 +5,7 @@ use crate::{
         EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackOutDest,
         DEFAULT_OVERLAY_NAME,
     },
-    OutDest, OutDestWrite, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
-    NU_VARIABLE_ID,
+    OutDest, OutDestWrite, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -598,20 +597,20 @@ impl Stack {
 
     /// Replace the stdout with a writer.
     ///
-    /// This will replace the fallback out destination for external processes to a custom writer 
+    /// This will replace the fallback out destination for external processes to a custom writer
     /// instead of the stdout of the current process.
-    /// 
+    ///
     /// To reset the stdout again, use [`reset_out_dest`]´.
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// Using a `Vec` as a writer:
     /// ```
     /// # use nu_protocol::engine::Stack;
     /// let buf: Vec<u8> = Vec::new();
     /// let (stack, buf) = Stack::new().stdout_writer(buf);
     /// // execute some code
-    /// 
+    ///
     /// let content = buf.lock();
     /// // work with the content
     /// ```
@@ -625,7 +624,7 @@ impl Stack {
     }
 
     /// Replace the stderr with a writer.
-    /// 
+    ///
     /// For more info, see [`stdout_writer`].
     pub fn stderr_writer<W>(mut self, writer: W) -> (Self, Arc<Mutex<W>>)
     where

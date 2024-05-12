@@ -441,14 +441,24 @@ impl ExternalCommand {
                     if let OutDest::Writer(ref writer) = self.out {
                         let writer = writer.clone();
                         if let Some(stdout) = child.as_mut().stdout.take() {
-                            self.write_childio(format!("{:?} stdout receiver", self.name.item), stdout, writer).err_span(head)?;
+                            self.write_childio(
+                                format!("{:?} stdout receiver", self.name.item),
+                                stdout,
+                                writer,
+                            )
+                            .err_span(head)?;
                         }
                     }
 
                     if let OutDest::Writer(ref writer) = self.err {
                         let writer = writer.clone();
                         if let Some(stderr) = child.as_mut().stderr.take() {
-                            self.write_childio(format!("{:?} stderr receiver", self.name.item), stderr, writer).err_span(head)?;
+                            self.write_childio(
+                                format!("{:?} stderr receiver", self.name.item),
+                                stderr,
+                                writer,
+                            )
+                            .err_span(head)?;
                         }
                     }
 

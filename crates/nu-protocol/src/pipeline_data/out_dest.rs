@@ -30,22 +30,22 @@ pub enum OutDest {
     File(Arc<File>), // Arc<File>, since we sometimes need to clone `OutDest` into iterators, etc.
     /// Redirect output to a custom writer.
     ///
-    /// This variant isn't used in `nushell` itself but is available for other uses of the `nu` 
+    /// This variant isn't used in `nushell` itself but is available for other uses of the `nu`
     /// language.
-    /// It allows capturing stdout and stderr from external commands directly, without executing nu 
+    /// It allows capturing stdout and stderr from external commands directly, without executing nu
     /// code in another process.
     ///
-    /// The `Writer` variant is different from the `File` variant, which passes output to a file and 
+    /// The `Writer` variant is different from the `File` variant, which passes output to a file and
     /// lets the operating system handle it.
     /// `Stdio` implements for that specific case `From<File>`.
-    /// 
+    ///
     /// Check [`Stack::stdout_writer`] and [`Stack::stderr_writer`] for how to apply a writer to a stack.
     Writer(Arc<Mutex<dyn OutDestWrite + Send + 'static>>),
 }
 
 /// Represents a trait object for output destination writer.
 ///
-/// This trait is sealed and is automatically implemented for all types that satisfy [`fmt::Debug`] 
+/// This trait is sealed and is automatically implemented for all types that satisfy [`fmt::Debug`]
 /// and [`io::Write`].
 pub trait OutDestWrite: sealed::Sealed + fmt::Debug + io::Write {}
 

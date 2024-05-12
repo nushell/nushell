@@ -74,7 +74,7 @@ impl StackOutDest {
     /// Returns the [`OutDest`] to use for current command's stdout.
     ///
     /// This will be the pipe redirection if one is set, otherwise it will be current file redirection.
-    /// If no redirection is set, this will fallback to either the process's stdout indicated by 
+    /// If no redirection is set, this will fallback to either the process's stdout indicated by
     /// [`OutDest::Inherit`] or, if set, to a custom writer indicated by [`OutDest::Writer`].
     pub(crate) fn stdout(&self) -> &OutDest {
         self.pipe_stdout.as_ref().unwrap_or(&self.stdout)
@@ -83,7 +83,7 @@ impl StackOutDest {
     /// Returns the [`OutDest`] to use for current command's stderr.
     ///
     /// This will be the pipe redirection if one is set, otherwise it will be current file redirection.
-    /// If no redirection is set, this will fallback to either the process's stderr indicated by 
+    /// If no redirection is set, this will fallback to either the process's stderr indicated by
     /// [`OutDest::Inherit`] or, if set, to a custom writer indicated by [`OutDest::Writer`].
     pub(crate) fn stderr(&self) -> &OutDest {
         self.pipe_stderr.as_ref().unwrap_or(&self.stderr)
