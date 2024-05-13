@@ -1,4 +1,4 @@
-use crate::tests::{fail_test, run_test, TestResult};
+use crate::repl::tests::{fail_test, run_test, TestResult};
 use rstest::rstest;
 
 #[test]

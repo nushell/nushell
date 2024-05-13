@@ -7,8 +7,6 @@ mod signals;
 #[cfg(unix)]
 mod terminal;
 mod test_bins;
-#[cfg(test)]
-mod tests;
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
