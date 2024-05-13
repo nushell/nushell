@@ -11,14 +11,14 @@ impl Command for StorInsert {
 
     fn signature(&self) -> Signature {
         Signature::build("stor insert")
-            .input_output_types(vec![(Type::Nothing, Type::table())])
+            .input_output_types(vec![(Type::Any, Type::table())])
             .required_named(
                 "table-name",
                 SyntaxShape::String,
                 "name of the table you want to insert into",
                 Some('t'),
             )
-            .required_named(
+            .named(
                 "data-record",
                 SyntaxShape::Record(vec![]),
                 "a record of column names and column values to insert into the specified table",
@@ -49,11 +49,19 @@ impl Command for StorInsert {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let table_name: Option<String> = call.get_flag(engine_state, stack, "table-name")?;
-        let columns: Option<Record> = call.get_flag(engine_state, stack, "data-record")?;
+        let columns: Option<Record> = match input {
+            PipelineData::Value(val, _) => {
+                Some(val.into_record()?)
+            }
+            _ => {
+                call.get_flag(engine_state, stack, "data-record")?
+            }
+        };
+        // call.get_flag(engine_state, stack, "data-record")?;
         // let config = engine_state.get_config();
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
 
