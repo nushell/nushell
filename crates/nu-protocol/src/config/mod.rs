@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub use self::completer::CompletionAlgorithm;
+pub use self::filesize::FilesizeFormat;
 pub use self::helper::extract_value;
 pub use self::hooks::Hooks;
 pub use self::output::ErrorStyle;
@@ -21,6 +22,7 @@ pub use self::reedline::{
 pub use self::table::{FooterMode, TableIndexMode, TableMode, TrimStrategy};
 
 mod completer;
+mod filesize;
 mod helper;
 mod hooks;
 mod output;
@@ -63,7 +65,7 @@ pub struct Config {
     pub float_precision: i64,
     pub max_external_completion_results: i64,
     pub recursion_limit: i64,
-    pub filesize_format: String,
+    pub filesize_format: FilesizeFormat,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
     pub partial_completions: bool,
@@ -147,7 +149,7 @@ impl Default for Config {
             use_ls_colors_completions: true,
 
             filesize_metric: false,
-            filesize_format: "auto".into(),
+            filesize_format: FilesizeFormat::default(),
 
             cursor_shape_emacs: NuCursorShape::default(),
             cursor_shape_vi_insert: NuCursorShape::default(),
@@ -569,14 +571,12 @@ impl Value {
                                     process_bool_config(value, &mut errors, &mut config.filesize_metric);
                                 }
                                 "format" => {
-                                    if let Ok(v) = value.coerce_str() {
-                                        config.filesize_format = v.to_lowercase();
-                                    } else {
-                                        report_invalid_value("should be a string", span, &mut errors);
-                                        // Reconstruct
-                                        *value =
-                                            Value::string(config.filesize_format.clone(), span);
-                                    }
+                                    process_string_enum(
+                                        &mut config.filesize_format,
+                                        &[key, key2],
+                                        value,
+                                        &mut errors
+                                    );
                                 }
                                 _ => {
                                     report_invalid_key(&[key, key2], span, &mut errors);
@@ -591,7 +591,7 @@ impl Value {
                             *value = Value::record(
                                 record! {
                                     "metric" => Value::bool(config.filesize_metric, span),
-                                    "format" => Value::string(config.filesize_format.clone(), span),
+                                    "format" => Value::string(config.filesize_format.to_string(), span),
                                 },
                                 span,
                             );
