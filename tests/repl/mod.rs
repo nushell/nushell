@@ -24,5 +24,4 @@ mod test_stdlib;
 mod test_strings;
 mod test_table_operations;
 mod test_type_check;
-#[cfg(test)]
 mod tests;
