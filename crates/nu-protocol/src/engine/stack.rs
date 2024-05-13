@@ -608,15 +608,15 @@ impl Stack {
     /// access the stdout.
     ///
     /// ```
-    /// # use std::{fs::File, io, thread, error};
+    /// # use std::{fs::File, io::{self, Read}, thread, error};
     /// # use nu_protocol::engine::Stack;
     /// #
     /// let (mut reader, writer) = os_pipe::pipe().unwrap();
     /// // Use a thread to avoid blocking the execution of the called command.
     /// let reader = thread::spawn(move || {
     ///     let mut buf: Vec<u8> = Vec::new();
-    ///     let _ = io::copy(&mut reader, &mut buf); // Maybe handle errors more gracefully.
-    ///     buf
+    ///     reader.read_to_end(&mut buf)?;
+    ///     Ok::<_, io::Error>(buf)
     /// });
     ///
     /// #[cfg(windows)]
@@ -629,7 +629,7 @@ impl Stack {
     /// // Execute some nu code.
     ///
     /// drop(stack); // drop the stack so that the writer will be dropped too
-    /// let buf = reader.join().unwrap();
+    /// let buf = reader.join().unwrap().unwrap();
     /// // Do with your buffer whatever you want.
     /// ```
     pub fn stdout_file(mut self, file: File) -> Self {
