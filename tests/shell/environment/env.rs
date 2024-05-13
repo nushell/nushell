@@ -121,7 +121,7 @@ fn load_env_pwd_env_var_fails() {
 #[test]
 fn passes_with_env_env_var_to_external_process() {
     let actual = nu!("
-        with-env { FOO: foo } {nu --testbin echo_env FOO}
+        with-env { FOO: foo } {nu-testbin echo_env FOO}
         ");
     assert_eq!(actual.out, "foo");
 }
@@ -163,7 +163,7 @@ fn passes_env_from_local_cfg_to_external_process() {
 
         let actual = Trusted::in_path(&dirs, || {
             nu!(cwd: dirs.test(), "
-                nu --testbin echo_env FOO
+                nu-testbin echo_env FOO
             ")
         });
 

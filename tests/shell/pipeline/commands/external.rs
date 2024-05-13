@@ -63,7 +63,7 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
 
 #[test]
 fn correctly_escape_external_arguments() {
-    let actual = nu!("^nu --testbin cococo '$0'");
+    let actual = nu!("^nu-testbin cococo '$0'");
 
     assert_eq!(actual.out, "$0");
 }
@@ -78,8 +78,8 @@ fn escape_also_escapes_equals() {
 #[test]
 fn execute_binary_in_string() {
     let actual = nu!(r#"
-        let cmd = "nu"
-        ^$"($cmd)" --testbin cococo "$0"
+        let cmd = "nu-testbin"
+        ^$"($cmd)" cococo "$0"
     "#);
 
     assert_eq!(actual.out, "$0");
@@ -87,20 +87,20 @@ fn execute_binary_in_string() {
 
 #[test]
 fn single_quote_dollar_external() {
-    let actual = nu!("let author = 'JT'; nu --testbin cococo $'foo=($author)'");
+    let actual = nu!("let author = 'JT'; nu-testbin cococo $'foo=($author)'");
 
     assert_eq!(actual.out, "foo=JT");
 }
 
 #[test]
 fn redirects_custom_command_external() {
-    let actual = nu!("def foo [] { nu --testbin cococo foo bar }; foo | str length");
+    let actual = nu!("def foo [] { nu-testbin cococo foo bar }; foo | str length");
     assert_eq!(actual.out, "7");
 }
 
 #[test]
 fn passes_binary_data_between_externals() {
-    let actual = nu!(cwd: "tests/fixtures/formats", "nu --testbin meowb sample.db | nu --testbin relay | hash sha256");
+    let actual = nu!(cwd: "tests/fixtures/formats", "nu-testbin meowb sample.db | nu-testbin relay | hash sha256");
 
     assert_eq!(
         actual.out,
@@ -133,12 +133,12 @@ fn command_not_found_error_shows_not_found_1() {
 #[test]
 fn command_substitution_wont_output_extra_newline() {
     let actual = nu!(r#"
-        with-env { FOO: "bar" } { echo $"prefix (nu --testbin echo_env FOO) suffix" }
+        with-env { FOO: "bar" } { echo $"prefix (nu-testbin echo_env FOO) suffix" }
         "#);
     assert_eq!(actual.out, "prefix bar suffix");
 
     let actual = nu!(r#"
-        with-env { FOO: "bar" } { (nu --testbin echo_env FOO) }
+        with-env { FOO: "bar" } { (nu-testbin echo_env FOO) }
         "#);
     assert_eq!(actual.out, "bar");
 }
@@ -146,14 +146,14 @@ fn command_substitution_wont_output_extra_newline() {
 #[test]
 fn basic_err_pipe_works() {
     let actual =
-        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr FOO e>| str length }"#);
+        nu!(r#"with-env { FOO: "bar" } { nu-testbin echo_env_stderr FOO e>| str length }"#);
     assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn basic_outerr_pipe_works() {
     let actual = nu!(
-        r#"with-env { FOO: "bar" } { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
+        r#"with-env { FOO: "bar" } { nu-testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
     );
     assert_eq!(actual.out, "7");
 }
@@ -161,7 +161,7 @@ fn basic_outerr_pipe_works() {
 #[test]
 fn err_pipe_with_failed_external_works() {
     let actual =
-        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
+        nu!(r#"with-env { FOO: "bar" } { nu-testbin echo_env_stderr_fail FOO e>| str length }"#);
     assert_eq!(actual.out, "3");
 }
 
@@ -173,7 +173,7 @@ fn dont_run_glob_if_pass_variable_to_external() {
             EmptyFile("andres_likes_arepas.txt"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), r#"let f = "*.txt"; nu --testbin nonu $f"#);
+        let actual = nu!(cwd: dirs.test(), r#"let f = "*.txt"; nu-testbin nonu $f"#);
 
         assert_eq!(actual.out, "*.txt");
     })
@@ -187,7 +187,7 @@ fn run_glob_if_pass_variable_to_external() {
             EmptyFile("andres_likes_arepas.txt"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), r#"let f = "*.txt"; nu --testbin nonu ...(glob $f)"#);
+        let actual = nu!(cwd: dirs.test(), r#"let f = "*.txt"; nu-testbin nonu ...(glob $f)"#);
 
         assert!(actual.out.contains("jt_likes_cake.txt"));
         assert!(actual.out.contains("andres_likes_arepas.txt"));
@@ -213,7 +213,7 @@ mod it_evaluation {
                 ls
                 | sort-by name
                 | get name
-                | each { |it| nu --testbin cococo $it }
+                | each { |it| nu-testbin cococo $it }
                 | get 1
                 "
             ));
@@ -238,7 +238,7 @@ mod it_evaluation {
             "
                 open nu_candies.txt
                 | lines
-                | each { |it| nu --testbin chop $it}
+                | each { |it| nu-testbin chop $it}
                 | get 1
                 "
             ));
@@ -250,7 +250,7 @@ mod it_evaluation {
     #[test]
     fn can_properly_buffer_lines_externally() {
         let actual = nu!("
-                nu --testbin repeater c 8197 | lines | length
+                nu-testbin repeater c 8197 | lines | length
             ");
 
         assert_eq!(actual.out, "1");
@@ -269,7 +269,7 @@ mod it_evaluation {
                 cwd: dirs.test(), pipeline(
                 "
                     open sample.toml
-                    | nu --testbin cococo $in.nu_party_venue
+                    | nu-testbin cococo $in.nu_party_venue
                 "
             ));
 
@@ -286,7 +286,7 @@ mod stdin_evaluation {
     fn does_not_panic_with_no_newline_in_stream() {
         let actual = nu!(pipeline(
             r#"
-                nu --testbin nonu "where's the nuline?" | length
+                nu-testbin nonu "where's the nuline?" | length
             "#
         ));
 
@@ -297,9 +297,9 @@ mod stdin_evaluation {
     fn does_not_block_indefinitely() {
         let stdout = nu!(pipeline(
             "
-                ( nu --testbin iecho yes
-                | nu --testbin chop
-                | nu --testbin chop
+                ( nu-testbin iecho yes
+                | nu-testbin chop
+                | nu-testbin chop
                 | lines
                 | first )
             "
@@ -318,7 +318,7 @@ mod external_words {
     #[test]
     fn relaxed_external_words() {
         let actual = nu!("
-        nu --testbin cococo joturner@foo.bar.baz
+        nu-testbin cococo joturner@foo.bar.baz
         ");
 
         assert_eq!(actual.out, "joturner@foo.bar.baz");
@@ -326,7 +326,7 @@ mod external_words {
 
     #[test]
     fn raw_string_as_external_argument() {
-        let actual = nu!("nu --testbin cococo r#'asdf'#");
+        let actual = nu!("nu-testbin cococo r#'asdf'#");
         assert_eq!(actual.out, "asdf");
     }
 
@@ -335,7 +335,7 @@ mod external_words {
     #[test]
     fn no_escaping_for_single_quoted_strings() {
         let actual = nu!(r#"
-        nu --testbin cococo 'test "things"'
+        nu-testbin cococo 'test "things"'
         "#);
 
         assert_eq!(actual.out, "test \"things\"");
@@ -366,7 +366,7 @@ mod external_words {
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 &format!("
-                    nu --testbin meow {nu_path_argument} | from toml | get nu_party_venue
+                    nu-testbin meow {nu_path_argument} | from toml | get nu_party_venue
                 ")
             ));
 
@@ -461,7 +461,7 @@ mod tilde_expansion {
     #[test]
     fn as_home_directory_when_passed_as_argument_and_begins_with_tilde() {
         let actual = nu!("
-            nu --testbin cococo  ~
+            nu-testbin cococo  ~
         ");
 
         assert!(!actual.out.contains('~'));
@@ -470,7 +470,7 @@ mod tilde_expansion {
     #[test]
     fn does_not_expand_when_passed_as_argument_and_does_not_start_with_tilde() {
         let actual = nu!(r#"
-                nu --testbin cococo  "1~1"
+                nu-testbin cococo  "1~1"
                 "#);
 
         assert_eq!(actual.out, "1~1");
@@ -495,7 +495,7 @@ mod external_command_arguments {
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 "
-                    nu --testbin cococo ...(ls | get name)
+                    nu-testbin cococo ...(ls | get name)
                 "
                 ));
 
@@ -521,7 +521,7 @@ mod external_command_arguments {
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 "
-                    nu --testbin cococo (ls | sort-by name | get name).1
+                    nu-testbin cococo (ls | sort-by name | get name).1
                 "
                 ));
 
@@ -543,7 +543,7 @@ mod external_command_arguments {
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 r#"
-                    nu --testbin cococo $"(pwd)/cd"
+                    nu-testbin cococo $"(pwd)/cd"
                 "#
                 ));
 
@@ -554,14 +554,14 @@ mod external_command_arguments {
 
     #[test]
     fn semicolons_are_sanitized_before_passing_to_subshell() {
-        let actual = nu!("nu --testbin cococo \"a;b\"");
+        let actual = nu!("nu-testbin cococo \"a;b\"");
 
         assert_eq!(actual.out, "a;b");
     }
 
     #[test]
     fn ampersands_are_sanitized_before_passing_to_subshell() {
-        let actual = nu!("nu --testbin cococo \"a&b\"");
+        let actual = nu!("nu-testbin cococo \"a&b\"");
 
         assert_eq!(actual.out, "a&b");
     }
@@ -569,7 +569,7 @@ mod external_command_arguments {
     #[cfg(not(windows))]
     #[test]
     fn subcommands_are_sanitized_before_passing_to_subshell() {
-        let actual = nu!("nu --testbin cococo \"$(ls)\"");
+        let actual = nu!("nu-testbin cococo \"$(ls)\"");
 
         assert_eq!(actual.out, "$(ls)");
     }
@@ -577,7 +577,7 @@ mod external_command_arguments {
     #[cfg(not(windows))]
     #[test]
     fn shell_arguments_are_sanitized_even_if_coming_from_other_commands() {
-        let actual = nu!("nu --testbin cococo (echo \"a;&$(hello)\")");
+        let actual = nu!("nu-testbin cococo (echo \"a;&$(hello)\")");
 
         assert_eq!(actual.out, "a;&$(hello)");
     }

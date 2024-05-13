@@ -55,7 +55,7 @@ fn let_pipeline_redirects_internals() {
 
 #[test]
 fn let_pipeline_redirects_externals() {
-    let actual = nu!(r#"let x = nu --testbin cococo 'bar'; $x | str length"#);
+    let actual = nu!(r#"let x = nu-testbin cococo 'bar'; $x | str length"#);
 
     assert_eq!(actual.out, "3");
 }
@@ -63,7 +63,7 @@ fn let_pipeline_redirects_externals() {
 #[test]
 fn let_err_pipeline_redirects_externals() {
     let actual = nu!(
-        r#"let x = with-env { FOO: "foo" } {nu --testbin echo_env_stderr FOO e>| str length}; $x"#
+        r#"let x = with-env { FOO: "foo" } {nu-testbin echo_env_stderr FOO e>| str length}; $x"#
     );
     assert_eq!(actual.out, "3");
 }
@@ -71,7 +71,7 @@ fn let_err_pipeline_redirects_externals() {
 #[test]
 fn let_outerr_pipeline_redirects_externals() {
     let actual = nu!(
-        r#"let x = with-env { FOO: "foo" } {nu --testbin echo_env_stderr FOO o+e>| str length}; $x"#
+        r#"let x = with-env { FOO: "foo" } {nu-testbin echo_env_stderr FOO o+e>| str length}; $x"#
     );
     assert_eq!(actual.out, "3");
 }
@@ -81,7 +81,7 @@ fn let_outerr_pipeline_redirects_externals() {
 fn let_with_external_failed() {
     // FIXME: this test hasn't run successfully for a long time. We should
     // bring it back to life at some point.
-    let actual = nu!(r#"let x = nu --testbin outcome_err "aa"; echo fail"#);
+    let actual = nu!(r#"let x = nu-testbin outcome_err "aa"; echo fail"#);
 
     assert!(!actual.out.contains("fail"));
 }

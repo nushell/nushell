@@ -14,7 +14,7 @@ use std::{
 };
 
 /// Echo's value of env keys from args
-/// Example: nu --testbin env_echo FOO BAR
+/// Example: nu-testbin env_echo FOO BAR
 /// If it it's not present echo's nothing
 pub fn echo_env(to_stdout: bool) {
     let args = args();
@@ -40,18 +40,17 @@ fn echo_one_env(arg: &str, to_stdout: bool) {
 
 /// Mix echo of env keys from input
 /// Example:
-///     * nu --testbin echo_env_mixed out-err FOO BAR
-///     * nu --testbin echo_env_mixed err-out FOO BAR
+///     * nu-testbin echo_env_mixed out-err FOO BAR
+///     * nu-testbin echo_env_mixed err-out FOO BAR
 /// If it's not present, panic instead
 pub fn echo_env_mixed() {
     let args = args();
-    let args = &args[1..];
 
     if args.len() != 3 {
         panic!(
             r#"Usage examples:
-* nu --testbin echo_env_mixed out-err FOO BAR
-* nu --testbin echo_env_mixed err-out FOO BAR"#
+* nu-testbin echo_env_mixed out-err FOO BAR
+* nu-testbin echo_env_mixed err-out FOO BAR"#
         )
     }
     match args[0].as_str() {
@@ -70,26 +69,15 @@ pub fn echo_env_mixed() {
 }
 
 /// Cross platform echo using println!()
-/// Example: nu --testbin cococo a b c
+/// Example: nu-testbin cococo a b c
 /// a b c
 pub fn cococo() {
-    let args: Vec<String> = args();
-
-    if args.len() > 1 {
-        // Write back out all the arguments passed
-        // if given at least 1 instead of chickens
-        // speaking co co co.
-        println!("{}", &args[1..].join(" "));
-    } else {
-        println!("cococo");
-    }
+    println!("{}", args().join(" "));
 }
 
 /// Cross platform cat (open a file, print the contents) using read_to_string and println!()
 pub fn meow() {
-    let args: Vec<String> = args();
-
-    for arg in args.iter().skip(1) {
+    for arg in args() {
         let contents = std::fs::read_to_string(arg).expect("Expected a filepath");
         println!("{contents}");
     }
@@ -97,12 +85,10 @@ pub fn meow() {
 
 /// Cross platform cat (open a file, print the contents) using read() and write_all() / binary
 pub fn meowb() {
-    let args: Vec<String> = args();
-
     let stdout = io::stdout();
     let mut handle = stdout.lock();
 
-    for arg in args.iter().skip(1) {
+    for arg in args() {
         let buf = std::fs::read(arg).expect("Expected a filepath");
         handle.write_all(&buf).expect("failed to write to stdout");
     }
@@ -115,21 +101,21 @@ pub fn relay() {
 }
 
 /// Cross platform echo but concats arguments without space and NO newline
-/// nu --testbin nonu a b c
+/// nu-testbin nonu a b c
 /// abc
 pub fn nonu() {
-    args().iter().skip(1).for_each(|arg| print!("{arg}"));
+    args().iter().for_each(|arg| print!("{arg}"));
 }
 
 /// Repeat a string or char N times
-/// nu --testbin repeater a 5
+/// nu-testbin repeater a 5
 /// aaaaa
-/// nu --testbin repeater test 5
+/// nu-testbin repeater test 5
 /// testtesttesttesttest
 pub fn repeater() {
     let mut stdout = io::stdout();
     let args = args();
-    let mut args = args.iter().skip(1);
+    let mut args = args.iter();
     let letter = args.next().expect("needs a character to iterate");
     let count = args.next().expect("need the number of times to iterate");
 
@@ -145,7 +131,7 @@ pub fn repeater() {
 pub fn repeat_bytes() {
     let mut stdout = io::stdout();
     let args = args();
-    let mut args = args.iter().skip(1);
+    let mut args = args.iter();
 
     while let (Some(binary), Some(count)) = (args.next(), args.next()) {
         let bytes: Vec<u8> = (0..binary.len())
@@ -173,7 +159,6 @@ pub fn iecho() {
     let mut stdout = io::stdout();
     let _ = args()
         .iter()
-        .skip(1)
         .cycle()
         .try_for_each(|v| writeln!(stdout, "{v}"));
 }
@@ -237,6 +222,11 @@ pub fn nu_repl() {
     //cwd: &str, source_lines: &[&str]) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     let source_lines = args();
+
+    #[cfg(feature = "sqlite")]
+    let db = nu_command::open_connection_in_memory_custom().expect("failed to create db");
+    #[cfg(feature = "sqlite")]
+    db.last_insert_rowid();
 
     let mut engine_state = get_engine_state();
     let mut top_stack = Arc::new(Stack::new());
@@ -358,8 +348,7 @@ fn did_chop_arguments() -> bool {
     let args: Vec<String> = args();
 
     if args.len() > 1 {
-        let mut arguments = args.iter();
-        arguments.next();
+        let arguments = args.iter();
 
         for arg in arguments {
             let chopped = if arg.is_empty() {
@@ -386,6 +375,42 @@ pub fn input_bytes_length() {
 }
 
 fn args() -> Vec<String> {
-    // skip (--testbin bin_name args)
     std::env::args().skip(2).collect()
+}
+
+fn main() {
+    let mut args = std::env::args();
+
+    if args.next().is_none() {
+        panic!("No arguments provided");
+    }
+
+    let Some(command) = args.next() else {
+        panic!("No command provided");
+    };
+
+    let _args = args.collect::<Vec<_>>();
+
+    match command.as_str() {
+        "echo_env" => echo_env(true),
+        "echo_env_stderr" => echo_env(false),
+        "echo_env_stderr_fail" => echo_env_and_fail(false),
+        "echo_env_mixed" => echo_env_mixed(),
+        "cococo" => cococo(),
+        "meow" => meow(),
+        "meowb" => meowb(),
+        "relay" => relay(),
+        "iecho" => iecho(),
+        "fail" => fail(),
+        "nonu" => nonu(),
+        "chop" => chop(),
+        "repeater" => repeater(),
+        "repeat_bytes" => repeat_bytes(),
+        "nu_repl" => nu_repl(),
+        "input_bytes_length" => input_bytes_length(),
+        cmd => {
+            eprintln!("unknown command: {cmd}");
+            std::process::exit(1)
+        }
+    }
 }

@@ -156,10 +156,6 @@ impl<'a> Playground<'a> {
         }
     }
 
-    pub fn cococo(&mut self, arg: &str) -> Director {
-        self.build().cococo(arg)
-    }
-
     pub fn pipeline(&mut self, commands: &str) -> Director {
         self.build().pipeline(commands)
     }

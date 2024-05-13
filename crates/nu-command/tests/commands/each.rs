@@ -38,7 +38,7 @@ fn each_no_args_in_block() {
 #[test]
 fn each_implicit_it_in_block() {
     let actual = nu!(
-        "echo [[foo bar]; [a b] [c d] [e f]] | each { |it| nu --testbin cococo $it.foo } | str join"
+        "echo [[foo bar]; [a b] [c d] [e f]] | each { |it| nu-testbin cococo $it.foo } | str join"
     );
 
     assert_eq!(actual.out, "ace");

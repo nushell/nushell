@@ -20,7 +20,7 @@ fn while_doesnt_auto_print_in_each_iteration() {
 #[test]
 fn while_break_on_external_failed() {
     let actual =
-        nu!("mut total = 0; while $total < 2 { $total = $total + 1; print 1; nu --testbin fail }");
+        nu!("mut total = 0; while $total < 2 { $total = $total + 1; print 1; nu-testbin fail }");
     // Note: nu! macro auto replace "\n" and "\r\n" with ""
     // so our output will be `1`
     assert_eq!(actual.out, "1");
@@ -29,6 +29,6 @@ fn while_break_on_external_failed() {
 #[test]
 fn failed_while_should_break_running() {
     let actual =
-        nu!("mut total = 0; while $total < 2 { $total = $total + 1; nu --testbin fail }; print 3");
+        nu!("mut total = 0; while $total < 2 { $total = $total + 1; nu-testbin fail }; print 3");
     assert!(!actual.out.contains('3'));
 }

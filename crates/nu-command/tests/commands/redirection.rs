@@ -7,14 +7,14 @@ fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            r#"$env.BAZ = "asdfasdfasdf.txt"; nu --testbin echo_env_stderr BAZ err> a.txt; open a.txt"#
+            r#"$env.BAZ = "asdfasdfasdf.txt"; nu-testbin echo_env_stderr BAZ err> a.txt; open a.txt"#
         );
         assert!(output.out.contains("asdfasdfasdf.txt"));
 
         // check append mode
         let output = nu!(
             cwd: dirs.test(),
-            r#"$env.BAZ = "asdfasdfasdf.txt"; nu --testbin echo_env_stderr BAZ err>> a.txt; open a.txt"#
+            r#"$env.BAZ = "asdfasdfasdf.txt"; nu-testbin echo_env_stderr BAZ err>> a.txt; open a.txt"#
         );
         let v: Vec<_> = output.out.match_indices("asdfasdfasdf.txt").collect();
         assert_eq!(v.len(), 2);
@@ -26,13 +26,13 @@ fn redirect_outerr() {
     Playground::setup("redirect_outerr_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            r#"$env.BAZ = "asdfasdfasdf.txt"; nu --testbin echo_env_stderr BAZ out+err> a.txt; open a.txt"#
+            r#"$env.BAZ = "asdfasdfasdf.txt"; nu-testbin echo_env_stderr BAZ out+err> a.txt; open a.txt"#
         );
         assert!(output.out.contains("asdfasdfasdf.txt"));
 
         let output = nu!(
             cwd: dirs.test(),
-            r#"$env.BAZ = "asdfasdfasdf.txt"; nu --testbin echo_env_stderr BAZ o+e>> a.txt; open a.txt"#
+            r#"$env.BAZ = "asdfasdfasdf.txt"; nu-testbin echo_env_stderr BAZ o+e>> a.txt; open a.txt"#
         );
         let v: Vec<_> = output.out.match_indices("asdfasdfasdf.txt").collect();
         assert_eq!(v.len(), 2);
@@ -85,7 +85,7 @@ fn separate_redirection() {
             let expect_body = "message";
             nu!(
                 cwd: dirs.test(),
-                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ o> out.txt e> err.txt"#,
+                r#"$env.BAZ = "message"; nu-testbin echo_env_mixed out-err BAZ BAZ o> out.txt e> err.txt"#,
             );
 
             // check for stdout redirection file.
@@ -100,7 +100,7 @@ fn separate_redirection() {
 
             nu!(
                 cwd: dirs.test(),
-                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ o>> out.txt e>> err.txt"#,
+                r#"$env.BAZ = "message"; nu-testbin echo_env_mixed out-err BAZ BAZ o>> out.txt e>> err.txt"#,
             );
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");
@@ -133,7 +133,7 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
             cwd: dirs.test(), pipeline(
                 "
                 $env.LARGE = (open --raw a_large_file.txt);
-                nu --testbin echo_env_stderr LARGE out+err> another_large_file.txt
+                nu-testbin echo_env_stderr LARGE out+err> another_large_file.txt
                 "
             ),
         );
@@ -149,7 +149,7 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
             cwd: dirs.test(), pipeline(
                 "
                 $env.LARGE = (open --raw a_large_file.txt);
-                nu --testbin echo_env_stderr LARGE out+err>> another_large_file.txt
+                nu-testbin echo_env_stderr LARGE out+err>> another_large_file.txt
                 "
             ),
         );
@@ -164,7 +164,7 @@ fn redirection_keep_exit_codes() {
     Playground::setup("redirection preserves exit code", |dirs, _| {
         let out = nu!(
             cwd: dirs.test(),
-            "nu --testbin fail e> a.txt | complete | get exit_code"
+            "nu-testbin fail e> a.txt | complete | get exit_code"
         );
         // needs to use contains "1", because it complete will output `Some(RawStream)`.
         assert!(out.out.contains('1'));
@@ -176,7 +176,7 @@ fn redirection_stderr_with_failed_program() {
     Playground::setup("redirection stderr with failed program", |dirs, _| {
         let out = nu!(
             cwd: dirs.test(),
-            r#"$env.FOO = "bar"; nu --testbin echo_env_stderr_fail FOO e> file.txt; echo 3"#
+            r#"$env.FOO = "bar"; nu-testbin echo_env_stderr_fail FOO e> file.txt; echo 3"#
         );
         // firstly echo 3 shouldn't run, because previous command runs to failed.
         // second `file.txt` should contain "bar".
@@ -193,7 +193,7 @@ fn redirection_with_non_zero_exit_code_should_stop_from_running() {
         for redirection in ["o>", "o>>", "e>", "e>>", "o+e>", "o+e>>"] {
             let output = nu!(
                 cwd: dirs.test(),
-                &format!("nu --testbin fail {redirection} log.txt; echo 3")
+                &format!("nu-testbin fail {redirection} log.txt; echo 3")
             );
             assert!(!output.out.contains('3'));
         }
@@ -203,7 +203,7 @@ fn redirection_with_non_zero_exit_code_should_stop_from_running() {
         for (out, err) in [("o>", "e>"), ("o>>", "e>"), ("o>", "e>>"), ("o>>", "e>>")] {
             let output = nu!(
                 cwd: dirs.test(),
-                &format!("nu --testbin fail {out} log.txt {err} err_log.txt; echo 3")
+                &format!("nu-testbin fail {out} log.txt {err} err_log.txt; echo 3")
             );
             assert!(!output.out.contains('3'));
         }
@@ -224,14 +224,14 @@ fn redirection_with_pipeline_works() {
 
             let actual = nu!(
                 cwd: dirs.test(),
-                r#"$env.BAZ = "message"; nu --testbin echo_env BAZ out> out.txt | describe; open out.txt"#,
+                r#"$env.BAZ = "message"; nu-testbin echo_env BAZ out> out.txt | describe; open out.txt"#,
             );
             assert!(actual.out.contains(expect_body));
 
             // check append mode works
             let actual = nu!(
                 cwd: dirs.test(),
-                r#"$env.BAZ = "message"; nu --testbin echo_env BAZ out>> out.txt | describe; open out.txt"#,
+                r#"$env.BAZ = "message"; nu-testbin echo_env BAZ out>> out.txt | describe; open out.txt"#,
             );
             let v: Vec<_> = actual.out.match_indices("message").collect();
             assert_eq!(v.len(), 2);
@@ -287,7 +287,7 @@ fn separate_redirection_support_variable() {
                 r#"
             let o_f = "out2.txt"
             let e_f = "err2.txt"
-            $env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ o> $o_f e> $e_f"#,
+            $env.BAZ = "message"; nu-testbin echo_env_mixed out-err BAZ BAZ o> $o_f e> $e_f"#,
             );
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out2.txt");
@@ -304,7 +304,7 @@ fn separate_redirection_support_variable() {
                 r#"
             let o_f = "out2.txt"
             let e_f = "err2.txt"
-            $env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ out>> $o_f err>> $e_f"#,
+            $env.BAZ = "message"; nu-testbin echo_env_mixed out-err BAZ BAZ out>> $o_f err>> $e_f"#,
             );
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out2.txt");
@@ -355,7 +355,7 @@ fn redirection_with_out_pipe() {
         // check for stdout
         let actual = nu!(
             cwd: dirs.test(),
-            r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file | str length"#,
+            r#"$env.BAZ = "message"; nu-testbin echo_env_mixed out-err BAZ BAZ err> tmp_file | str length"#,
         );
 
         assert_eq!(actual.out, "7");
@@ -373,7 +373,7 @@ fn redirection_with_err_pipe() {
         // check for stdout
         let actual = nu!(
             cwd: dirs.test(),
-            r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ out> tmp_file e>| str length"#,
+            r#"$env.BAZ = "message"; nu-testbin echo_env_mixed out-err BAZ BAZ out> tmp_file e>| str length"#,
         );
 
         assert_eq!(actual.out, "7");

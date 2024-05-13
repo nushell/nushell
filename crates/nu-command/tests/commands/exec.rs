@@ -7,7 +7,7 @@ fn basic_exec() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu -n -c 'exec nu --testbin cococo a b c'
+                nu -n -c 'exec nu-testbin cococo a b c'
             "#
         ));
 
@@ -21,7 +21,7 @@ fn exec_complex_args() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu -n -c 'exec nu --testbin cococo b --bar=2 -sab --arwr - -DTEEE=aasd-290 -90 --'
+                nu -n -c 'exec nu-testbin cococo b --bar=2 -sab --arwr - -DTEEE=aasd-290 -90 --'
             "#
         ));
 
@@ -30,16 +30,17 @@ fn exec_complex_args() {
 }
 
 #[test]
-fn exec_fail_batched_short_args() {
+fn exec_fail() {
     Playground::setup("test_exec_3", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu -n -c 'exec nu --testbin cococo -ab 10'
+                nu -n -c 'exec nu-testbin cocono'
             "#
         ));
 
         assert_eq!(actual.out, "");
+        assert_eq!(actual.err, "unknown command: cocono\n");
     })
 }
 
@@ -49,7 +50,7 @@ fn exec_misc_values() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu -n -c 'let x = "abc"; exec nu --testbin cococo $x ...[ a b c ]'
+                nu -n -c 'let x = "abc"; exec nu-testbin cococo $x ...[ a b c ]'
             "#
         ));
 

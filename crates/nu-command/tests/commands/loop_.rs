@@ -28,7 +28,7 @@ fn loop_break_on_external_failed() {
                 $total += 1;
             }
             print 1;
-            nu --testbin fail;
+            nu-testbin fail;
         }");
     // Note: nu! macro auto replace "\n" and "\r\n" with ""
     // so our output will be `1`.
@@ -45,7 +45,7 @@ fn failed_loop_should_break_running() {
             } else {
                 $total += 1;
             }
-            nu --testbin fail;
+            nu-testbin fail;
         }
         print 3");
     assert!(!actual.out.contains('3'));

@@ -101,12 +101,12 @@ fn spread_type_record() -> TestResult {
 #[test]
 fn spread_external_args() {
     assert_eq!(
-        nu!(r#"nu --testbin cococo ...[1 "foo"] 2 ...[3 "bar"]"#).out,
+        nu!(r#"nu-testbin cococo ...[1 "foo"] 2 ...[3 "bar"]"#).out,
         "1 foo 2 3 bar",
     );
     // exec doesn't have rest parameters but allows unknown arguments
     assert_eq!(
-        nu!(r#"exec nu --testbin cococo "foo" ...[5 6]"#).out,
+        nu!(r#"exec nu-testbin cococo "foo" ...[5 6]"#).out,
         "foo 5 6"
     );
 }
@@ -163,7 +163,7 @@ fn bad_spread_internal_args() -> TestResult {
 #[test]
 fn spread_non_list_args() {
     fail_test(r#"echo ...(1)"#, "cannot spread value").unwrap();
-    assert!(nu!(r#"nu --testbin cococo ...(1)"#)
+    assert!(nu!(r#"nu-testbin cococo ...(1)"#)
         .err
         .contains("cannot spread value"));
 }
@@ -184,7 +184,7 @@ fn explain_spread_args() -> TestResult {
 #[test]
 fn disallow_implicit_spread_for_externals() -> TestResult {
     fail_test(
-        r#"nu --testbin cococo [1 2]"#,
+        r#"nu-testbin cococo [1 2]"#,
         "Lists are not automatically spread",
     )
 }

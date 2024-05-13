@@ -16,7 +16,7 @@ fn with_env_shorthand() {
 
 #[test]
 fn shorthand_doesnt_reorder_arguments() {
-    let actual = nu!("FOO=BARRRR nu --testbin cococo first second");
+    let actual = nu!("FOO=BARRRR nu-testbin cococo first second");
 
     assert_eq!(actual.out, "first second");
 }
@@ -39,8 +39,7 @@ fn with_env_and_shorthand_same_result() {
 
 #[test]
 fn test_redirection2() {
-    let actual =
-        nu!("let x = (FOO=BAR nu --testbin cococo niceenvvar); $x | str trim | str length");
+    let actual = nu!("let x = (FOO=BAR nu-testbin cococo niceenvvar); $x | str trim | str length");
 
     assert_eq!(actual.out, "10");
 }

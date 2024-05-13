@@ -11,21 +11,21 @@ fn capture_errors_works() {
 
 #[test]
 fn capture_errors_works_for_external() {
-    let actual = nu!("do -c {nu --testbin fail}");
+    let actual = nu!("do -c {nu-testbin fail}");
     assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
 #[test]
 fn capture_errors_works_for_external_with_pipeline() {
-    let actual = nu!("do -c {nu --testbin fail} | echo `text`");
+    let actual = nu!("do -c {nu-testbin fail} | echo `text`");
     assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
 
 #[test]
 fn capture_errors_works_for_external_with_semicolon() {
-    let actual = nu!(r#"do -c {nu --testbin fail}; echo `text`"#);
+    let actual = nu!(r#"do -c {nu-testbin fail}; echo `text`"#);
     assert!(actual.err.contains("External command failed"));
     assert_eq!(actual.out, "");
 }
@@ -55,7 +55,7 @@ fn ignore_program_errors_works_for_external_with_semicolon() {
 
 #[test]
 fn ignore_error_should_work_for_external_command() {
-    let actual = nu!(r#"do -i { nu --testbin fail asdf }; echo post"#);
+    let actual = nu!(r#"do -i { nu-testbin fail asdf }; echo post"#);
 
     assert_eq!(actual.err, "");
     assert_eq!(actual.out, "post");
