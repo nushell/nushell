@@ -40,8 +40,13 @@ impl Command for StorInsert {
         vec![Example {
             description: "Insert data the in-memory sqlite database using a data-record of column-name and column-value pairs",
             example: "stor insert --table-name nudb --data-record {bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17}",
-            result: None,
-        }]
+            result: None 
+            },
+            Example {
+            description: "Insert data into the in-memory sqlite database by pipelining a record of column-name and column-value pairs",
+            example: "{bool1: true, int1: 5, float1: 1.1, str1: fdncred, datetime1: 2023-04-17} | stor insert --table-name nudb",
+            result: None
+            }]
     }
 
     fn run(
