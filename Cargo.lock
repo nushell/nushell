@@ -3259,6 +3259,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-format",
+ "os_pipe",
  "pretty_assertions",
  "rmp-serde",
  "rstest",

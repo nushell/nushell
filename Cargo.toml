@@ -119,7 +119,7 @@ num-traits = "0.2"
 omnipath = "0.1"
 once_cell = "1.18"
 open = "5.1"
-os_pipe = "1.1"
+os_pipe = { version = "1.1", features = ["io_safety"] }
 pathdiff = "0.2"
 percent-encoding = "2"
 pretty_assertions = "1.4"
