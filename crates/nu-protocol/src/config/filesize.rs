@@ -28,7 +28,7 @@ impl FromStr for FilesizeFormat {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.is_empty() {
-            Err("")
+            Err("expected either 'auto', 'B', 'KB', 'KiB', 'MB', 'MiB', 'GB', 'GiB', 'TB', 'TiB', 'PB', 'PiB', 'EB', 'EiB', 'b', 'Kb', 'Kib', 'Mb', 'Mib', 'Gb', 'Gib', 'Tb', 'Tib', 'Pb', 'Pib', 'Eb', or 'Eib'")
         } else if s.eq_ignore_ascii_case("auto") {
             Ok(FilesizeFormat::Auto)
         } else {
