@@ -17,6 +17,7 @@ use nu_protocol::{
 };
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Debug,
     num::ParseIntError,
     str,
     sync::Arc,
@@ -2329,16 +2330,19 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     }
 }
 
-type ParseUnitResult<'res> = Result<Expression, Box<dyn Fn(&'res str) -> ParseError>>;
-type UnitGroup<'unit> = (Unit, &'unit str, Option<(Unit, i64)>);
+type ParseUnitResult = Result<Expression, Box<dyn Fn(&'static str) -> ParseError>>;
+type UnitGroup<Unit> = (Unit, &'static str, Option<(Unit, i64)>);
 
-pub fn parse_unit_value<'res>(
+pub fn parse_unit_value<T>(
     bytes: &[u8],
     span: Span,
-    unit_groups: &[UnitGroup],
+    unit_groups: &[UnitGroup<T>],
     ty: Type,
     transform: fn(String) -> String,
-) -> Option<ParseUnitResult<'res>> {
+) -> Option<ParseUnitResult>
+where
+    T: Debug + Copy + Into<Unit>,
+{
     if bytes.len() < 2
         || !(bytes[0].is_ascii_digit() || (bytes[0] == b'-' && bytes[1].is_ascii_digit()))
     {
@@ -2389,7 +2393,7 @@ pub fn parse_unit_value<'res>(
                 custom_completion: None,
             },
             unit: Spanned {
-                item: unit,
+                item: unit.into(),
                 span: unit_span,
             },
         };
@@ -2406,44 +2410,108 @@ pub fn parse_unit_value<'res>(
     }
 }
 
-pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
-    (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
-    (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
-    (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
-    (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
-    (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
-    (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
-    (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
-    (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
-    (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
-    (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
-    (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
-    (Unit::Byte, "B", None),
+pub const FILESIZE_UNIT_GROUPS: &[UnitGroup<FilesizeUnit>] = &[
+    (
+        FilesizeUnit::Kilobyte,
+        "KB",
+        Some((FilesizeUnit::Byte, 1000)),
+    ),
+    (
+        FilesizeUnit::Megabyte,
+        "MB",
+        Some((FilesizeUnit::Kilobyte, 1000)),
+    ),
+    (
+        FilesizeUnit::Gigabyte,
+        "GB",
+        Some((FilesizeUnit::Megabyte, 1000)),
+    ),
+    (
+        FilesizeUnit::Terabyte,
+        "TB",
+        Some((FilesizeUnit::Gigabyte, 1000)),
+    ),
+    (
+        FilesizeUnit::Petabyte,
+        "PB",
+        Some((FilesizeUnit::Terabyte, 1000)),
+    ),
+    (
+        FilesizeUnit::Exabyte,
+        "EB",
+        Some((FilesizeUnit::Petabyte, 1000)),
+    ),
+    (
+        FilesizeUnit::Kibibyte,
+        "KIB",
+        Some((FilesizeUnit::Byte, 1024)),
+    ),
+    (
+        FilesizeUnit::Mebibyte,
+        "MIB",
+        Some((FilesizeUnit::Kibibyte, 1024)),
+    ),
+    (
+        FilesizeUnit::Gibibyte,
+        "GIB",
+        Some((FilesizeUnit::Mebibyte, 1024)),
+    ),
+    (
+        FilesizeUnit::Tebibyte,
+        "TIB",
+        Some((FilesizeUnit::Gibibyte, 1024)),
+    ),
+    (
+        FilesizeUnit::Pebibyte,
+        "PIB",
+        Some((FilesizeUnit::Tebibyte, 1024)),
+    ),
+    (
+        FilesizeUnit::Exbibyte,
+        "EIB",
+        Some((FilesizeUnit::Pebibyte, 1024)),
+    ),
+    (FilesizeUnit::Byte, "B", None),
 ];
 
-pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Nanosecond, "ns", None),
+pub const DURATION_UNIT_GROUPS: &[UnitGroup<DurationUnit>] = &[
+    (DurationUnit::Nanosecond, "ns", None),
     // todo start adding aliases for duration units here
-    (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
+    (
+        DurationUnit::Microsecond,
+        "us",
+        Some((DurationUnit::Nanosecond, 1000)),
+    ),
     (
         // µ Micro Sign
-        Unit::Microsecond,
+        DurationUnit::Microsecond,
         "\u{00B5}s",
-        Some((Unit::Nanosecond, 1000)),
+        Some((DurationUnit::Nanosecond, 1000)),
     ),
     (
         // μ Greek small letter Mu
-        Unit::Microsecond,
+        DurationUnit::Microsecond,
         "\u{03BC}s",
-        Some((Unit::Nanosecond, 1000)),
+        Some((DurationUnit::Nanosecond, 1000)),
     ),
-    (Unit::Millisecond, "ms", Some((Unit::Microsecond, 1000))),
-    (Unit::Second, "sec", Some((Unit::Millisecond, 1000))),
-    (Unit::Minute, "min", Some((Unit::Second, 60))),
-    (Unit::Hour, "hr", Some((Unit::Minute, 60))),
-    (Unit::Day, "day", Some((Unit::Minute, 1440))),
-    (Unit::Week, "wk", Some((Unit::Day, 7))),
+    (
+        DurationUnit::Millisecond,
+        "ms",
+        Some((DurationUnit::Microsecond, 1000)),
+    ),
+    (
+        DurationUnit::Second,
+        "sec",
+        Some((DurationUnit::Millisecond, 1000)),
+    ),
+    (
+        DurationUnit::Minute,
+        "min",
+        Some((DurationUnit::Second, 60)),
+    ),
+    (DurationUnit::Hour, "hr", Some((DurationUnit::Minute, 60))),
+    (DurationUnit::Day, "day", Some((DurationUnit::Minute, 1440))),
+    (DurationUnit::Week, "wk", Some((DurationUnit::Day, 7))),
 ];
 
 // Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs

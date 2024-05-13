@@ -1,9 +1,9 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::format_filesize;
+use nu_protocol::{ast::FilesizeUnit, format_filesize};
 
 struct Arguments {
-    format_value: String,
+    unit: FilesizeUnit,
     cell_paths: Option<Vec<CellPath>>,
 }
 
@@ -57,16 +57,19 @@ impl Command for FormatFilesize {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let format_value = call
-            .req::<Value>(engine_state, stack, 0)?
-            .coerce_into_string()?
-            .to_ascii_lowercase();
+        let unit = call.req::<Spanned<String>>(engine_state, stack, 0)?;
+        let unit = unit
+            .item
+            .parse::<FilesizeUnit>()
+            .map_err(|e| ShellError::IncorrectValue {
+                msg: e.into(),
+                val_span: unit.span,
+                call_span: call.head,
+            })?;
+
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let arg = Arguments {
-            format_value,
-            cell_paths,
-        };
+        let arg = Arguments { unit, cell_paths };
         operate(
             format_value_impl,
             arg,
@@ -102,7 +105,7 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     match val {
         Value::Filesize { val, .. } => Value::string(
             // don't need to concern about metric, we just format units by what user input.
-            format_filesize(*val, &arg.format_value, None),
+            format_filesize(*val, arg.unit, None),
             span,
         ),
         Value::Error { .. } => val.clone(),

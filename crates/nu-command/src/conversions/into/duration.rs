@@ -1,6 +1,9 @@
 use nu_engine::command_prelude::*;
 use nu_parser::{parse_unit_value, DURATION_UNIT_GROUPS};
-use nu_protocol::{ast::Expr, Unit};
+use nu_protocol::{
+    ast::{DurationUnit, Expr},
+    Unit,
+};
 
 const NS_PER_SEC: i64 = 1_000_000_000;
 #[derive(Clone)]
@@ -205,16 +208,18 @@ fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     ) {
         if let Expr::ValueWithUnit(value) = expression.expr {
             if let Expr::Int(x) = value.expr.expr {
-                match value.unit.item {
-                    Unit::Nanosecond => return Ok(x),
-                    Unit::Microsecond => return Ok(x * 1000),
-                    Unit::Millisecond => return Ok(x * 1000 * 1000),
-                    Unit::Second => return Ok(x * NS_PER_SEC),
-                    Unit::Minute => return Ok(x * 60 * NS_PER_SEC),
-                    Unit::Hour => return Ok(x * 60 * 60 * NS_PER_SEC),
-                    Unit::Day => return Ok(x * 24 * 60 * 60 * NS_PER_SEC),
-                    Unit::Week => return Ok(x * 7 * 24 * 60 * 60 * NS_PER_SEC),
-                    _ => {}
+                if let Unit::Duration(unit) = value.unit.item {
+                    let val = match unit {
+                        DurationUnit::Nanosecond => x,
+                        DurationUnit::Microsecond => x * 1000,
+                        DurationUnit::Millisecond => x * 1000 * 1000,
+                        DurationUnit::Second => x * NS_PER_SEC,
+                        DurationUnit::Minute => x * 60 * NS_PER_SEC,
+                        DurationUnit::Hour => x * 60 * 60 * NS_PER_SEC,
+                        DurationUnit::Day => x * 24 * 60 * 60 * NS_PER_SEC,
+                        DurationUnit::Week => x * 7 * 24 * 60 * 60 * NS_PER_SEC,
+                    };
+                    return Ok(val);
                 }
             }
         }
