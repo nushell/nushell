@@ -19,12 +19,11 @@ pub use known_external::KnownExternal;
 pub use lex::{lex, lex_signature, Token, TokenContents};
 pub use lite_parser::{lite_parse, LiteBlock, LiteCommand};
 pub use parse_keywords::*;
-pub use parser_path::*;
-
 pub use parser::{
     is_math_expression_like, parse, parse_block, parse_expression, parse_external_call,
-    parse_unit_value, trim_quotes, trim_quotes_str, unescape_unquote_string, DURATION_UNIT_GROUPS,
+    parse_unit_value, trim_quotes, trim_quotes_str, unescape_unquote_string,
 };
+pub use parser_path::*;
 
 #[cfg(feature = "plugin")]
 pub use parse_keywords::parse_register;

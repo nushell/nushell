@@ -103,11 +103,9 @@ impl Command for FormatFilesize {
 fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     let value_span = val.span();
     match val {
-        Value::Filesize { val, .. } => Value::string(
-            // don't need to concern about metric, we just format units by what user input.
-            format_filesize(*val, arg.unit, None),
-            span,
-        ),
+        Value::Filesize { val, .. } => {
+            Value::string(format_filesize(*val, Some(arg.unit), None), span)
+        }
         Value::Error { .. } => val.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {

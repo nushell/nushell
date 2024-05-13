@@ -1,8 +1,10 @@
-use crate::{ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
+use std::{
+    fmt::{self, Display},
+    str::FromStr,
+};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FilesizeUnit {
     // Filesize units: metric
     Byte,
@@ -58,6 +60,31 @@ impl FilesizeUnit {
             FilesizeUnit::Exbibyte => "EiB",
         }
     }
+
+    pub const fn as_bytes_u64(&self) -> u64 {
+        const BASE_10: u64 = 1000;
+        const BASE_2: u64 = 1024;
+
+        match self {
+            FilesizeUnit::Byte => 1,
+            FilesizeUnit::Kilobyte => BASE_10,
+            FilesizeUnit::Megabyte => BASE_10.pow(2),
+            FilesizeUnit::Gigabyte => BASE_10.pow(3),
+            FilesizeUnit::Terabyte => BASE_10.pow(4),
+            FilesizeUnit::Petabyte => BASE_10.pow(5),
+            FilesizeUnit::Exabyte => BASE_10.pow(6),
+            FilesizeUnit::Kibibyte => BASE_2,
+            FilesizeUnit::Mebibyte => BASE_2.pow(2),
+            FilesizeUnit::Gibibyte => BASE_2.pow(3),
+            FilesizeUnit::Tebibyte => BASE_2.pow(4),
+            FilesizeUnit::Pebibyte => BASE_2.pow(5),
+            FilesizeUnit::Exbibyte => BASE_2.pow(6),
+        }
+    }
+
+    pub const fn as_bytes_i64(&self) -> i64 {
+        self.as_bytes_u64() as i64
+    }
 }
 
 impl Display for FilesizeUnit {
@@ -86,7 +113,31 @@ impl From<FilesizeUnit> for byte_unit::Unit {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+impl FromStr for FilesizeUnit {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        const ERR: &str = "expected either 'B', 'KB', 'KiB', 'MB', 'MiB', 'GB', 'GiB', 'TB', 'TiB', 'PB', 'PiB', 'EB', or 'EiB'";
+        Ok(match s.to_ascii_lowercase().as_str() {
+            "b" => FilesizeUnit::Byte,
+            "kb" => FilesizeUnit::Kilobyte,
+            "kib" => FilesizeUnit::Kibibyte,
+            "mb" => FilesizeUnit::Megabyte,
+            "mib" => FilesizeUnit::Mebibyte,
+            "gb" => FilesizeUnit::Gigabyte,
+            "gib" => FilesizeUnit::Gibibyte,
+            "tb" => FilesizeUnit::Terabyte,
+            "tib" => FilesizeUnit::Tebibyte,
+            "pb" => FilesizeUnit::Petabyte,
+            "pib" => FilesizeUnit::Pebibyte,
+            "eb" => FilesizeUnit::Exabyte,
+            "eib" => FilesizeUnit::Exbibyte,
+            _ => return Err(ERR),
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DurationUnit {
     Nanosecond,
     Microsecond,
@@ -111,6 +162,26 @@ impl DurationUnit {
             DurationUnit::Week => "wk",
         }
     }
+
+    pub const fn as_nanos_u64(&self) -> u64 {
+        const BASE_10: u64 = 10;
+        const NS_PER_SEC: u64 = BASE_10.pow(9);
+
+        match self {
+            DurationUnit::Nanosecond => 1,
+            DurationUnit::Microsecond => BASE_10.pow(3),
+            DurationUnit::Millisecond => BASE_10.pow(6),
+            DurationUnit::Second => NS_PER_SEC,
+            DurationUnit::Minute => 60 * NS_PER_SEC,
+            DurationUnit::Hour => 60 * 60 * NS_PER_SEC,
+            DurationUnit::Day => 24 * 60 * 60 * NS_PER_SEC,
+            DurationUnit::Week => 7 * 24 * 60 * 60 * NS_PER_SEC,
+        }
+    }
+
+    pub const fn as_nanos_i64(&self) -> i64 {
+        self.as_nanos_u64() as i64
+    }
 }
 
 impl Display for DurationUnit {
@@ -119,106 +190,49 @@ impl Display for DurationUnit {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Unit {
-    Filesize(FilesizeUnit),
-    Duration(DurationUnit),
-}
+impl FromStr for DurationUnit {
+    type Err = &'static str;
 
-impl Unit {
-    pub fn build_value(self, size: i64, span: Span) -> Result<Value, ShellError> {
-        match self {
-            Unit::Filesize(unit) => match unit {
-                FilesizeUnit::Byte => Ok(Value::filesize(size, span)),
-                FilesizeUnit::Kilobyte => Ok(Value::filesize(size * 1000, span)),
-                FilesizeUnit::Megabyte => Ok(Value::filesize(size * 1000 * 1000, span)),
-                FilesizeUnit::Gigabyte => Ok(Value::filesize(size * 1000 * 1000 * 1000, span)),
-                FilesizeUnit::Terabyte => {
-                    Ok(Value::filesize(size * 1000 * 1000 * 1000 * 1000, span))
-                }
-                FilesizeUnit::Petabyte => Ok(Value::filesize(
-                    size * 1000 * 1000 * 1000 * 1000 * 1000,
-                    span,
-                )),
-                FilesizeUnit::Exabyte => Ok(Value::filesize(
-                    size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-                    span,
-                )),
-
-                FilesizeUnit::Kibibyte => Ok(Value::filesize(size * 1024, span)),
-                FilesizeUnit::Mebibyte => Ok(Value::filesize(size * 1024 * 1024, span)),
-                FilesizeUnit::Gibibyte => Ok(Value::filesize(size * 1024 * 1024 * 1024, span)),
-                FilesizeUnit::Tebibyte => {
-                    Ok(Value::filesize(size * 1024 * 1024 * 1024 * 1024, span))
-                }
-                FilesizeUnit::Pebibyte => Ok(Value::filesize(
-                    size * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                )),
-                FilesizeUnit::Exbibyte => Ok(Value::filesize(
-                    size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                )),
-            },
-            Unit::Duration(unit) => match unit {
-                DurationUnit::Nanosecond => Ok(Value::duration(size, span)),
-                DurationUnit::Microsecond => Ok(Value::duration(size * 1000, span)),
-                DurationUnit::Millisecond => Ok(Value::duration(size * 1000 * 1000, span)),
-                DurationUnit::Second => Ok(Value::duration(size * 1000 * 1000 * 1000, span)),
-                DurationUnit::Minute => match size.checked_mul(1000 * 1000 * 1000 * 60) {
-                    Some(val) => Ok(Value::duration(val, span)),
-                    None => Err(ShellError::GenericError {
-                        error: "duration too large".into(),
-                        msg: "duration too large".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    }),
-                },
-                DurationUnit::Hour => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60) {
-                    Some(val) => Ok(Value::duration(val, span)),
-                    None => Err(ShellError::GenericError {
-                        error: "duration too large".into(),
-                        msg: "duration too large".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    }),
-                },
-                DurationUnit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-                    Some(val) => Ok(Value::duration(val, span)),
-                    None => Err(ShellError::GenericError {
-                        error: "duration too large".into(),
-                        msg: "duration too large".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    }),
-                },
-                DurationUnit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7)
-                {
-                    Some(val) => Ok(Value::duration(val, span)),
-                    None => Err(ShellError::GenericError {
-                        error: "duration too large".into(),
-                        msg: "duration too large".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    }),
-                },
-            },
-        }
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "ns" => DurationUnit::Nanosecond,
+            "us" | "µs" | "μs" => DurationUnit::Microsecond,
+            "ms" => DurationUnit::Millisecond,
+            "sec" => DurationUnit::Second,
+            "min" => DurationUnit::Minute,
+            "hr" => DurationUnit::Hour,
+            "day" => DurationUnit::Day,
+            "wk" => DurationUnit::Week,
+            _ => return Err(
+                "expected either 'ns', 'us'/'µs'/'μs', 'ms', 'sec', 'min', 'hr', 'day', or 'wk'",
+            ),
+        })
     }
 }
 
-impl From<FilesizeUnit> for Unit {
-    fn from(unit: FilesizeUnit) -> Self {
-        Self::Filesize(unit)
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl From<DurationUnit> for Unit {
-    fn from(unit: DurationUnit) -> Self {
-        Self::Duration(unit)
+    #[test]
+    fn duration_lossless_signed() {
+        assert!(i64::try_from(DurationUnit::Week.as_nanos_u64()).is_ok());
+    }
+
+    #[test]
+    fn duration_lossless_float() {
+        let nanos = DurationUnit::Week.as_nanos_i64();
+        assert_eq!(nanos, nanos as f64 as i64);
+    }
+
+    #[test]
+    fn filesize_lossless_signed() {
+        assert!(i64::try_from(FilesizeUnit::Exbibyte.as_bytes_u64()).is_ok());
+    }
+
+    #[test]
+    fn filesize_lossless_float() {
+        let bytes = FilesizeUnit::Exbibyte.as_bytes_i64();
+        assert_eq!(bytes, bytes as f64 as i64);
     }
 }

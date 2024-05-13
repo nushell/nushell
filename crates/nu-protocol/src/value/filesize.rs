@@ -16,16 +16,10 @@ pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
 // filesize_metric is explicit when printed a value according to user config;
 // other places (such as `format filesize`) don't.
 pub fn format_filesize(num_bytes: i64, unit: Option<FilesizeUnit>, metric: Option<bool>) -> String {
-    // Allow the user to specify how they want their numbers formatted
-
-    // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
-    // and is always B.
     let byte = byte_unit::Byte::from_u64(num_bytes.unsigned_abs());
     let adj_byte = if let Some(unit) = unit {
         byte.get_adjusted_unit(get_filesize_format(unit, metric).into())
     } else {
-        // When filesize_metric is None, format_value should never be "auto", so this
-        // unwrap_or() should always work.
         byte.get_appropriate_unit(if metric.unwrap_or(false) {
             UnitType::Decimal
         } else {
@@ -61,9 +55,9 @@ pub fn format_filesize(num_bytes: i64, unit: Option<FilesizeUnit>, metric: Optio
 }
 
 /// Get the filesize unit, or None if format is "auto"
-fn get_filesize_format(unit: FilesizeUnit, filesize_metric: Option<bool>) -> FilesizeUnit {
+fn get_filesize_format(unit: FilesizeUnit, metric: Option<bool>) -> FilesizeUnit {
     // filesize_metric always overrides the unit of filesize_format.
-    if filesize_metric.unwrap_or(unit.is_metric()) {
+    if metric.unwrap_or(unit.is_metric()) {
         match unit {
             FilesizeUnit::Byte => FilesizeUnit::Byte,
             FilesizeUnit::Kilobyte | FilesizeUnit::Kibibyte => FilesizeUnit::Kilobyte,

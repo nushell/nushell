@@ -191,6 +191,8 @@ impl Expression {
                 false
             }
             Expr::CellPath(_) => false,
+            Expr::Filesize(_) => false,
+            Expr::Duration(_) => false,
             Expr::DateTime(_) => false,
             Expr::ExternalCall(head, args) => {
                 if head.has_in_variable(working_set) {
@@ -310,8 +312,6 @@ impl Expression {
 
                 false
             }
-
-            Expr::ValueWithUnit(value) => value.expr.has_in_variable(working_set),
             Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
             Expr::VarDecl(_) => false,
         }
@@ -379,6 +379,8 @@ impl Expression {
                 }
             }
             Expr::CellPath(_) => {}
+            Expr::Filesize(_) => {}
+            Expr::Duration(_) => {}
             Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args) => {
                 head.replace_span(working_set, replaced, new_span);
@@ -465,8 +467,6 @@ impl Expression {
                     }
                 }
             }
-
-            Expr::ValueWithUnit(value) => value.expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
         }

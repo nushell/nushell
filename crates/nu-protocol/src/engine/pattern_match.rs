@@ -134,21 +134,23 @@ impl Matcher for Pattern {
                             false
                         }
                     }
-                    Expr::DateTime(x) => {
-                        if let Value::Date { val, .. } = &value {
-                            x == val
+                    Expr::Filesize(filesize) => {
+                        if let Value::Filesize { val, .. } = *value {
+                            filesize.value == val
                         } else {
                             false
                         }
                     }
-                    Expr::ValueWithUnit(val) => {
-                        let span = val.unit.span;
-
-                        if let Expr::Int(size) = val.expr.expr {
-                            match &val.unit.item.build_value(size, span) {
-                                Ok(v) => v == value,
-                                _ => false,
-                            }
+                    Expr::Duration(duration) => {
+                        if let Value::Duration { val, .. } = *value {
+                            duration.value == val
+                        } else {
+                            false
+                        }
+                    }
+                    Expr::DateTime(x) => {
+                        if let Value::Date { val, .. } = &value {
+                            x == val
                         } else {
                             false
                         }

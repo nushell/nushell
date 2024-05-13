@@ -230,6 +230,8 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         }
         Expr::CellPath(_) => "cell path".to_string(),
         Expr::Closure(_) => "closure".to_string(),
+        Expr::Filesize(_) => "filesize".to_string(),
+        Expr::Duration(_) => "duration".to_string(),
         Expr::DateTime(_) => "datetime".to_string(),
         Expr::Directory(_, _) => "directory".to_string(),
         Expr::ExternalCall(_, _) => "external call".to_string(),
@@ -258,7 +260,6 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::Subexpression(_) => "subexpression".to_string(),
         Expr::Table(_) => "table".to_string(),
         Expr::UnaryNot(_) => "unary not".to_string(),
-        Expr::ValueWithUnit(_) => "value with unit".to_string(),
         Expr::Var(_) => "var".to_string(),
         Expr::VarDecl(_) => "var decl".to_string(),
     }

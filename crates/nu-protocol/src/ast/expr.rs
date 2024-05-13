@@ -1,11 +1,10 @@
-use chrono::FixedOffset;
-use serde::{Deserialize, Serialize};
-
 use super::{
-    Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
-    Range, Table, ValueWithUnit,
+    Call, CellPath, DurationUnit, Expression, ExternalArgument, FilesizeUnit, FullCellPath,
+    Keyword, MatchPattern, Operator, Range, Table, ValueWithUnit,
 };
 use crate::{ast::ImportPattern, engine::EngineState, BlockId, OutDest, Signature, Span, VarId};
+use chrono::FixedOffset;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
@@ -30,7 +29,8 @@ pub enum Expr {
     Table(Table),
     Record(Vec<RecordItem>),
     Keyword(Box<Keyword>),
-    ValueWithUnit(Box<ValueWithUnit>),
+    Filesize(Box<ValueWithUnit<FilesizeUnit>>),
+    Duration(Box<ValueWithUnit<DurationUnit>>),
     DateTime(chrono::DateTime<FixedOffset>),
     Filepath(String, bool),
     Directory(String, bool),
@@ -78,7 +78,8 @@ impl Expr {
             | Expr::List(_)
             | Expr::Table(_)
             | Expr::Record(_)
-            | Expr::ValueWithUnit(_)
+            | Expr::Filesize(_)
+            | Expr::Duration(_)
             | Expr::DateTime(_)
             | Expr::String(_)
             | Expr::RawString(_)
