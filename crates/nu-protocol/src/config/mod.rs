@@ -5,6 +5,7 @@ use self::output::*;
 use self::reedline::*;
 use self::table::*;
 
+use crate::ast::FilesizeUnit;
 use crate::engine::Closure;
 use crate::{record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
@@ -63,7 +64,7 @@ pub struct Config {
     pub float_precision: i64,
     pub max_external_completion_results: i64,
     pub recursion_limit: i64,
-    pub filesize_format: String,
+    pub filesize_format: Option<FilesizeUnit>,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
     pub partial_completions: bool,
@@ -147,7 +148,7 @@ impl Default for Config {
             use_ls_colors_completions: true,
 
             filesize_metric: false,
-            filesize_format: "auto".into(),
+            filesize_format: None,
 
             cursor_shape_emacs: NuCursorShape::default(),
             cursor_shape_vi_insert: NuCursorShape::default(),
@@ -569,13 +570,29 @@ impl Value {
                                     process_bool_config(value, &mut errors, &mut config.filesize_metric);
                                 }
                                 "format" => {
-                                    if let Ok(v) = value.coerce_str() {
-                                        config.filesize_format = v.to_lowercase();
+                                    if let Ok(s) = value.as_str() {
+                                        if s == "auto" {
+                                            config.filesize_format = None;
+                                        } else {
+                                            match s.parse() {
+                                                Ok(unit) => config.filesize_format = Some(unit),
+                                                Err(err) => {
+                                                    report_invalid_value(err, span, &mut errors);
+                                                    let format = config
+                                                        .filesize_format
+                                                        .map(|unit| unit.as_str())
+                                                        .unwrap_or("auto");
+
+                                                    // Reconstruct
+                                                    *value = Value::string(format, span);
+                                                }
+                                            }
+                                        }
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
+                                        let format = config.filesize_format.map(|unit| unit.as_str()).unwrap_or("auto");
                                         // Reconstruct
-                                        *value =
-                                            Value::string(config.filesize_format.clone(), span);
+                                        *value = Value::string(format, span);
                                     }
                                 }
                                 _ => {
@@ -587,11 +604,12 @@ impl Value {
                         })
                         } else {
                             report_invalid_value("should be a record", span, &mut errors);
+                            let format = config.filesize_format.map(|unit| unit.as_str()).unwrap_or("auto");
                             // Reconstruct
                             *value = Value::record(
                                 record! {
                                     "metric" => Value::bool(config.filesize_metric, span),
-                                    "format" => Value::string(config.filesize_format.clone(), span),
+                                    "format" => Value::string(format, span),
                                 },
                                 span,
                             );

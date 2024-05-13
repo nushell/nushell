@@ -8,7 +8,7 @@ pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
     // and filesize_metric is false, return KiB
     format_filesize(
         num_bytes,
-        todo!(), // config.filesize_format.as_str(),
+        config.filesize_format,
         Some(config.filesize_metric),
     )
 }
