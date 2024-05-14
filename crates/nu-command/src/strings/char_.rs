@@ -240,8 +240,8 @@ impl Command for Char {
         }
         // handle -u flag
         else if unicode {
-            let string_args: Vec<String> = call.rest_const(working_set, 0)?;
-            handle_unicode_flag(string_args, call, call_span)
+            let string_args = call.rest_const(working_set, 0)?;
+            handle_unicode_flag(string_args, call_span)
         }
         // handle the rest
         else {
@@ -275,8 +275,8 @@ impl Command for Char {
         }
         // handle -u flag
         else if unicode {
-            let string_args: Vec<String> = call.rest(engine_state, stack, 0)?;
-            handle_unicode_flag(string_args, call, call_span)
+            let string_args = call.rest(engine_state, stack, 0)?;
+            handle_unicode_flag(string_args, call_span)
         }
         // handle the rest
         else {
@@ -328,8 +328,7 @@ fn handle_integer_flag(
 }
 
 fn handle_unicode_flag(
-    string_args: Vec<String>,
-    call: &Call,
+    string_args: Vec<Spanned<String>>,
     call_span: Span,
 ) -> Result<PipelineData, ShellError> {
     if string_args.is_empty() {
@@ -338,15 +337,13 @@ fn handle_unicode_flag(
             span: call_span,
         });
     }
-    let mut multi_byte = String::new();
-    for (i, arg) in string_args.iter().enumerate() {
-        let span = call
-            .positional_nth(i)
-            .expect("Unexpected missing argument")
-            .span;
-        multi_byte.push(string_to_unicode_char(arg, span)?)
-    }
-    Ok(Value::string(multi_byte, call_span).into_pipeline_data())
+
+    let str = string_args
+        .into_iter()
+        .map(string_to_unicode_char)
+        .collect::<Result<String, _>>()?;
+
+    Ok(Value::string(str, call_span).into_pipeline_data())
 }
 
 fn handle_the_rest(
@@ -387,8 +384,8 @@ fn integer_to_unicode_char(value: Spanned<i64>) -> Result<char, ShellError> {
     }
 }
 
-fn string_to_unicode_char(s: &str, t: Span) -> Result<char, ShellError> {
-    let decoded_char = u32::from_str_radix(s, 16)
+fn string_to_unicode_char(s: Spanned<String>) -> Result<char, ShellError> {
+    let decoded_char = u32::from_str_radix(&s.item, 16)
         .ok()
         .and_then(std::char::from_u32);
 
@@ -397,7 +394,7 @@ fn string_to_unicode_char(s: &str, t: Span) -> Result<char, ShellError> {
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "error decoding Unicode character".into(),
-            span: t,
+            span: s.span,
         })
     }
 }
