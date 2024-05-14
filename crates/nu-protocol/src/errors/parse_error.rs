@@ -452,9 +452,14 @@ pub enum ParseError {
         plugin_config_span: Option<Span>,
     },
 
-    #[error("Invalid literal")] // <problem> in <entity>.
+    #[error("Invalid {ty} literal")]
     #[diagnostic()]
-    InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
+    InvalidLiteral {
+        ty: &'static str,
+        label: String,
+        #[label("{label}")]
+        span: Span,
+    },
 
     #[error("{0}")]
     #[diagnostic()]
@@ -565,7 +570,7 @@ impl ParseError {
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::MultipleRedirections(_, _, s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
-            ParseError::InvalidLiteral(_, _, s) => *s,
+            ParseError::InvalidLiteral { span: s, .. } => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,

@@ -1347,12 +1347,11 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
                 custom_completion: None,
             }
         } else {
-            working_set.error(ParseError::InvalidLiteral(
-                format!("invalid digits for radix {}", radix),
-                "int".into(),
+            working_set.error(ParseError::InvalidLiteral {
+                ty: "int",
+                label: format!("invalid digits for radix {radix}"),
                 span,
-            ));
-
+            });
             garbage(span)
         }
     }
@@ -2307,11 +2306,11 @@ pub fn parse_duration(working_set: &mut StateWorkingSet, span: Span) -> Expressi
             custom_completion: None,
         },
         Some(Err(val_span)) => {
-            working_set.error(ParseError::InvalidLiteral(
-                "magnitude too large".into(),
-                "duration".into(),
-                val_span,
-            ));
+            working_set.error(ParseError::InvalidLiteral {
+                ty: "duration",
+                label: "magnitude too large".into(),
+                span: val_span,
+            });
             garbage(span)
         }
         None => {
@@ -2341,11 +2340,11 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
             custom_completion: None,
         },
         Some(Err(val_span)) => {
-            working_set.error(ParseError::InvalidLiteral(
-                "magnitude too large".into(),
-                "filesize".into(),
-                val_span,
-            ));
+            working_set.error(ParseError::InvalidLiteral {
+                ty: "filesize",
+                label: "magnitude too large".into(),
+                span: val_span,
+            });
             garbage(span)
         }
         None => {
@@ -2624,11 +2623,11 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                                     cur_idx += 1;
                                 }
                                 _ => {
-                                    error = error.or(Some(ParseError::InvalidLiteral(
-                                        "missing '}' for unicode escape '\\u{X...}'".into(),
-                                        "string".into(),
-                                        Span::new(span.start + idx, span.end),
-                                    )));
+                                    error = error.or(Some(ParseError::InvalidLiteral {
+                                        ty: "string",
+                                        label: "missing '}' for unicode escape '\\u{X...}'".into(),
+                                        span: Span::new(span.start + idx, span.end),
+                                    }));
                                     break 'us_loop;
                                 }
                             }
@@ -2657,20 +2656,20 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                         }
                     }
                     // fall through -- escape not accepted above, must be error.
-                    error = error.or(Some(ParseError::InvalidLiteral(
-                            "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
-                            "string".into(),
-                            Span::new(span.start + idx, span.end),
-                    )));
+                    error = error.or(Some(ParseError::InvalidLiteral {
+                        ty: "string",
+                        label: "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
+                        span: Span::new(span.start + idx, span.end),
+                    }));
                     break 'us_loop;
                 }
 
                 _ => {
-                    error = error.or(Some(ParseError::InvalidLiteral(
-                        "unrecognized escape after '\\'".into(),
-                        "string".into(),
-                        Span::new(span.start + idx, span.end),
-                    )));
+                    error = error.or(Some(ParseError::InvalidLiteral {
+                        ty: "string",
+                        label: "unrecognized escape after '\\'".into(),
+                        span: Span::new(span.start + idx, span.end),
+                    }));
                     break 'us_loop;
                 }
             }
