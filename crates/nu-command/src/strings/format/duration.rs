@@ -1,8 +1,9 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use nu_protocol::ast::DurationUnit;
 
 struct Arguments {
-    format_value: String,
+    unit: DurationUnit,
     float_precision: usize,
     cell_paths: Option<Vec<CellPath>>,
 }
@@ -60,15 +61,21 @@ impl Command for FormatDuration {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let format_value = call
-            .req::<Value>(engine_state, stack, 0)?
-            .coerce_into_string()?
-            .to_ascii_lowercase();
+        let unit = call.req::<Spanned<String>>(engine_state, stack, 0)?;
+        let unit = unit
+            .item
+            .parse::<DurationUnit>()
+            .map_err(|e| ShellError::IncorrectValue {
+                msg: e.into(),
+                val_span: unit.span,
+                call_span: call.head,
+            })?;
+
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let float_precision = engine_state.config.float_precision as usize;
         let arg = Arguments {
-            format_value,
+            unit,
             float_precision,
             cell_paths,
         };
@@ -106,31 +113,24 @@ impl Command for FormatDuration {
 }
 
 fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
-    let inner_span = val.span();
+    let val_span = val.span();
     match val {
-        Value::Duration { val: inner, .. } => {
-            let duration = *inner;
+        Value::Duration { val, .. } => {
+            let unit = arg.unit;
             let float_precision = arg.float_precision;
-            match convert_inner_to_unit(duration, &arg.format_value, span, inner_span) {
-                Ok(d) => {
-                    let unit = if &arg.format_value == "us" {
-                        "µs"
-                    } else {
-                        &arg.format_value
-                    };
-                    if d.fract() == 0.0 {
-                        Value::string(format!("{} {}", d, unit), inner_span)
-                    } else {
-                        Value::string(format!("{:.float_precision$} {}", d, unit), inner_span)
-                    }
-                }
-                Err(e) => Value::error(e, inner_span),
+            let (whole, fract) = div_mod_unit(*val, unit);
+            if fract == 0.0 {
+                Value::string(format!("{whole} {unit}"), val_span)
+            } else {
+                let fract = format!("{fract:.float_precision$}");
+                let fract = fract.trim_start_matches('0');
+                Value::string(format!("{whole}{fract} {unit}"), val_span)
             }
         }
         Value::Error { .. } => val.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "filesize".into(),
+                exp_input_type: "duration".into(),
                 wrong_type: val.get_type().to_string(),
                 dst_span: span,
                 src_span: val.span(),
@@ -140,38 +140,17 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
     }
 }
 
-fn convert_inner_to_unit(
-    val: i64,
-    to_unit: &str,
-    span: Span,
-    value_span: Span,
-) -> Result<f64, ShellError> {
-    match to_unit {
-        "ns" => Ok(val as f64),
-        "us" => Ok(val as f64 / 1000.0),
-        "µs" => Ok(val as f64 / 1000.0), // Micro sign
-        "μs" => Ok(val as f64 / 1000.0), // Greek small letter
-        "ms" => Ok(val as f64 / 1000.0 / 1000.0),
-        "sec" => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0),
-        "min" => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0),
-        "hr" => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0),
-        "day" => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0),
-        "wk" => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 7.0),
-        "month" => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 30.0),
-        "yr" => Ok(val as f64 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
-        "dec" => Ok(val as f64 / 10.0 / 1000.0 / 1000.0 / 1000.0 / 60.0 / 60.0 / 24.0 / 365.0),
-
-        _ => Err(ShellError::CantConvertToDuration {
-            details: to_unit.to_string(),
-            dst_span: span,
-            src_span: value_span,
-            help: Some(
-                "supported units are ns, us/µs, ms, sec, min, hr, day, wk, month, yr, and dec"
-                    .to_string(),
-            ),
-        }),
-    }
+fn div_mod_unit(val: i64, unit: DurationUnit) -> (i64, f64) {
+    let negative = val.is_negative();
+    let val = val.abs();
+    let nanos = unit.as_nanos_i64();
+    let whole = val / nanos;
+    let remainder = val % nanos;
+    let whole = if negative { -whole } else { whole };
+    let remainder = remainder as f64 / nanos as f64;
+    (whole, remainder)
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
