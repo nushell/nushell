@@ -239,7 +239,7 @@ where
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(inner_result) => inner_result,
         Err(_) => Err(ShellError::GenericError {
-            error: format!("Panic occurred"),
+            error: "Panic occurred".into(),
             msg: "".into(),
             span: Some(span),
             help: None,
