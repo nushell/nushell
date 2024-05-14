@@ -167,7 +167,7 @@ pub fn lex_item(
             *curr_offset += 1;
             break;
         } else if (c == b'\'' || c == b'"' || c == b'`') && quote_start.is_none() {
-            if *curr_offset > 0 && input.get(*curr_offset - 1) == Some(&b'$'){
+            if *curr_offset > 0 && input.get(*curr_offset - 1) == Some(&b'$') {
                 if c == b'\'' || c == b'"' {
                     string_interpolation = true;
                 }
