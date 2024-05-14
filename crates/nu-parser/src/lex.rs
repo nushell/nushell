@@ -129,7 +129,7 @@ pub fn lex_item(
                         },
                         Some(ParseError::UnexpectedEof(
                             (start as char).to_string(),
-                            Span::new(span.end, span.end),
+                            Span::new(span.end - 1, span.end),
                         )),
                     );
                 }
@@ -247,21 +247,6 @@ pub fn lex_item(
 
     let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
 
-    // If there is still unclosed opening delimiters, remember they were missing
-    if let Some(block) = block_level.last() {
-        let delim = block.closing();
-        let cause =
-            ParseError::UnexpectedEof((delim as char).to_string(), Span::new(span.end, span.end));
-
-        return (
-            Token {
-                contents: TokenContents::Item,
-                span,
-            },
-            Some(cause),
-        );
-    }
-
     if let Some(delim) = quote_start {
         // The non-lite parse trims quotes on both sides, so we add the expected quote so that
         // anyone wanting to consume this partial parse (e.g., completions) will be able to get
@@ -273,8 +258,25 @@ pub fn lex_item(
             },
             Some(ParseError::UnexpectedEof(
                 (delim as char).to_string(),
-                Span::new(span.end, span.end),
+                Span::new(span.end - 1, span.end),
             )),
+        );
+    }
+
+    // If there is still unclosed opening delimiters, remember they were missing
+    if let Some(block) = block_level.last() {
+        let delim = block.closing();
+        let cause = ParseError::UnexpectedEof(
+            (delim as char).to_string(),
+            Span::new(span.end - 1, span.end),
+        );
+
+        return (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(cause),
         );
     }
 
@@ -395,9 +397,13 @@ fn lex_raw_string(
         *curr_offset += 1
     }
     if !matches {
+        let mut expected = '\''.to_string();
+        for _ in 0..prefix_sharp_cnt {
+            expected.push('#');
+        }
         return Err(ParseError::UnexpectedEof(
-            "#".to_string(),
-            Span::new(span_offset + *curr_offset, span_offset + *curr_offset),
+            expected,
+            Span::new(span_offset + *curr_offset - 1, span_offset + *curr_offset),
         ));
     }
     Ok(())
