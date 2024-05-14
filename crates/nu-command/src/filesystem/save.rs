@@ -169,15 +169,17 @@ impl Command for Save {
                                 let handler = stderr
                                     .map(|stderr| {
                                         let ctrlc = ctrlc.clone();
-                                        thread::Builder::new().spawn(move || {
-                                            write_or_consume_stderr(
-                                                stderr,
-                                                stderr_file,
-                                                span,
-                                                ctrlc,
-                                                progress,
-                                            )
-                                        })
+                                        thread::Builder::new().name("stderr saver".into()).spawn(
+                                            move || {
+                                                write_or_consume_stderr(
+                                                    stderr,
+                                                    stderr_file,
+                                                    span,
+                                                    ctrlc,
+                                                    progress,
+                                                )
+                                            },
+                                        )
                                     })
                                     .transpose()
                                     .err_span(span)?;
