@@ -75,22 +75,6 @@ impl Stack {
         }
     }
 
-    /// Unwrap a uniquely-owned stack.
-    ///
-    /// In debug mode, this panics if there are multiple references.
-    /// In production this will instead clone the underlying stack.
-    pub fn unwrap_unique(stack_arc: Arc<Stack>) -> Stack {
-        // If you hit an error here, it's likely that you created an extra
-        // Arc pointing to the stack somewhere. Make sure that it gets dropped before
-        // getting here!
-        Arc::try_unwrap(stack_arc).unwrap_or_else(|arc| {
-            // in release mode, we clone the stack, but this can lead to
-            // major performance issues, so we should avoid it
-            debug_assert!(false, "More than one stack reference remaining!");
-            (*arc).clone()
-        })
-    }
-
     /// Create a new child stack from a parent.
     ///
     /// Changes from this child can be merged back into the parent with
@@ -121,7 +105,7 @@ impl Stack {
         // This makes the new_stack be in a bit of a weird state, so we shouldn't call
         // any structs
         drop(child.parent_stack);
-        let mut unique_stack = Stack::unwrap_unique(parent);
+        let mut unique_stack = Arc::unwrap_or_clone(parent);
 
         unique_stack
             .vars

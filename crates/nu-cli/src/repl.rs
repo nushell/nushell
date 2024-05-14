@@ -542,7 +542,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let shell_integration_osc633 = config.shell_integration_osc633;
     let shell_integration_reset_application_mode = config.shell_integration_reset_application_mode;
 
-    let mut stack = Stack::unwrap_unique(stack_arc);
+    let mut stack = Arc::unwrap_or_clone(stack_arc);
 
     perf(
         "line_editor setup",
