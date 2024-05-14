@@ -53,16 +53,21 @@ impl NuLazyFrame {
     }
 
     pub fn collect(self, span: Span) -> Result<NuDataFrame, ShellError> {
-        self.to_polars()
-            .collect()
-            .map_err(|e| ShellError::GenericError {
-                error: "Error collecting lazy frame".into(),
-                msg: e.to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            })
-            .map(NuDataFrame::new)
+        crate::handle_panic(
+            || {
+                self.to_polars()
+                    .collect()
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Error collecting lazy frame".into(),
+                        msg: e.to_string(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    })
+                    .map(NuDataFrame::new)
+            },
+            span,
+        )
     }
 
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self

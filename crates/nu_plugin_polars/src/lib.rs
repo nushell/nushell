@@ -1,4 +1,7 @@
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    panic::{catch_unwind, AssertUnwindSafe},
+};
 
 use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
@@ -8,7 +11,7 @@ use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 mod cache;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{ast::Operator, CustomValue, LabeledError, Spanned, Value};
+use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
 
 use crate::{
     eager::eager_commands, expressions::expr_commands, lazy::lazy_commands,
@@ -226,5 +229,21 @@ pub mod test {
         plugin_test.test_examples(&examples)?;
 
         Ok(())
+    }
+}
+
+pub(crate) fn handle_panic<F, R>(f: F, span: Span) -> Result<R, ShellError>
+where
+    F: FnOnce() -> Result<R, ShellError>,
+{
+    match catch_unwind(AssertUnwindSafe(f)) {
+        Ok(inner_result) => inner_result,
+        Err(_) => Err(ShellError::GenericError {
+            error: format!("Panic occurred"),
+            msg: "".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        }),
     }
 }
