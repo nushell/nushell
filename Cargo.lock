@@ -2769,6 +2769,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "ntest"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41cd16a2e6992865367e7ca50cd6953d09daaed93641421168733a1274afadd6"
+dependencies = [
+ "ntest_test_cases",
+ "ntest_timeout",
+]
+
+[[package]]
+name = "ntest_test_cases"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "197eff6c12b80ff5de6173e438fa3c1340a9e708118c1626e690f65aee1e5332"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "ntest_timeout"
+version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef492b5cf80f90c050b287e747228a1fa6517e9d754f364b5a7e0e038e49a25f"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "nu"
 version = "0.93.1"
 dependencies = [
@@ -2780,6 +2813,7 @@ dependencies = [
  "miette",
  "mimalloc",
  "nix",
+ "ntest",
  "nu-cli",
  "nu-cmd-base",
  "nu-cmd-dataframe",
