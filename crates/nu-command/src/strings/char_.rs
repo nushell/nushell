@@ -318,11 +318,13 @@ fn handle_integer_flag(
             span: call_span,
         });
     }
-    let mut multi_byte = String::new();
-    for arg in int_args {
-        multi_byte.push(integer_to_unicode_char(arg.item, arg.span)?)
-    }
-    Ok(Value::string(multi_byte, call_span).into_pipeline_data())
+
+    let str = int_args
+        .into_iter()
+        .map(integer_to_unicode_char)
+        .collect::<Result<String, _>>()?;
+
+    Ok(Value::string(str, call_span).into_pipeline_data())
 }
 
 fn handle_unicode_flag(
@@ -372,15 +374,15 @@ fn handle_the_rest(
     }
 }
 
-fn integer_to_unicode_char(value: i64, t: Span) -> Result<char, ShellError> {
-    let decoded_char = value.try_into().ok().and_then(std::char::from_u32);
+fn integer_to_unicode_char(value: Spanned<i64>) -> Result<char, ShellError> {
+    let decoded_char = value.item.try_into().ok().and_then(std::char::from_u32);
 
     if let Some(ch) = decoded_char {
         Ok(ch)
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "not a valid Unicode codepoint".into(),
-            span: t,
+            span: value.span,
         })
     }
 }
