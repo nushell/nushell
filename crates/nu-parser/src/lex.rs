@@ -167,10 +167,11 @@ pub fn lex_item(
             *curr_offset += 1;
             break;
         } else if (c == b'\'' || c == b'"' || c == b'`') && quote_start.is_none() {
-            if *curr_offset > 0 && input.get(*curr_offset - 1) == Some(&b'$') {
-                if c == b'\'' || c == b'"' {
-                    string_interpolation = true;
-                }
+            if *curr_offset > 0
+                && input.get(*curr_offset - 1) == Some(&b'$')
+                && (c == b'\'' || c == b'"')
+            {
+                string_interpolation = true;
             }
             // We encountered the opening quote of a string literal.
             quote_start = Some(c);
