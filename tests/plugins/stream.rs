@@ -190,3 +190,13 @@ fn generate_sequence() {
 
     assert_eq!(actual.out, "[0,2,4,6,8,10]");
 }
+
+#[test]
+fn echo_interactivity_on_slow_pipelines() {
+    let actual = nu_with_plugins!(
+        cwd: "tests/fixtures/formats",
+        plugin: ("nu_plugin_example"),
+        r#"[1] | each { |n| sleep 5sec; $n } | prepend 0 | example echo | first"#
+    );
+    assert_eq!(actual.out, "0");
+}
