@@ -245,8 +245,8 @@ impl Command for Char {
         }
         // handle the rest
         else {
-            let string_args: Vec<String> = call.rest_const(working_set, 0)?;
-            handle_the_rest(string_args, call, call_span)
+            let string_args = call.rest_const(working_set, 0)?;
+            handle_the_rest(string_args, call_span)
         }
     }
 
@@ -280,8 +280,8 @@ impl Command for Char {
         }
         // handle the rest
         else {
-            let string_args: Vec<String> = call.rest(engine_state, stack, 0)?;
-            handle_the_rest(string_args, call, call_span)
+            let string_args = call.rest(engine_state, stack, 0)?;
+            handle_the_rest(string_args, call_span)
         }
     }
 }
@@ -347,26 +347,24 @@ fn handle_unicode_flag(
 }
 
 fn handle_the_rest(
-    string_args: Vec<String>,
-    call: &Call,
+    string_args: Vec<Spanned<String>>,
     call_span: Span,
 ) -> Result<PipelineData, ShellError> {
-    if string_args.is_empty() {
+    let Some(s) = string_args.first() else {
         return Err(ShellError::MissingParameter {
             param_name: "missing name of the character".into(),
             span: call_span,
         });
-    }
-    let special_character = str_to_character(&string_args[0]);
+    };
+
+    let special_character = str_to_character(&s.item);
+
     if let Some(output) = special_character {
         Ok(Value::string(output, call_span).into_pipeline_data())
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "error finding named character".into(),
-            span: call
-                .positional_nth(0)
-                .expect("Unexpected missing argument")
-                .span,
+            span: s.span,
         })
     }
 }
