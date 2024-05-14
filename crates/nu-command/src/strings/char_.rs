@@ -235,8 +235,8 @@ impl Command for Char {
 
         // handle -i flag
         if integer {
-            let int_args: Vec<i64> = call.rest_const(working_set, 0)?;
-            handle_integer_flag(int_args, call, call_span)
+            let int_args = call.rest_const(working_set, 0)?;
+            handle_integer_flag(int_args, call_span)
         }
         // handle -u flag
         else if unicode {
@@ -270,8 +270,8 @@ impl Command for Char {
 
         // handle -i flag
         if integer {
-            let int_args: Vec<i64> = call.rest(engine_state, stack, 0)?;
-            handle_integer_flag(int_args, call, call_span)
+            let int_args = call.rest(engine_state, stack, 0)?;
+            handle_integer_flag(int_args, call_span)
         }
         // handle -u flag
         else if unicode {
@@ -309,8 +309,7 @@ fn generate_character_list(ctrlc: Option<Arc<AtomicBool>>, call_span: Span) -> P
 }
 
 fn handle_integer_flag(
-    int_args: Vec<i64>,
-    call: &Call,
+    int_args: Vec<Spanned<i64>>,
     call_span: Span,
 ) -> Result<PipelineData, ShellError> {
     if int_args.is_empty() {
@@ -320,12 +319,8 @@ fn handle_integer_flag(
         });
     }
     let mut multi_byte = String::new();
-    for (i, &arg) in int_args.iter().enumerate() {
-        let span = call
-            .positional_nth(i)
-            .expect("Unexpected missing argument")
-            .span;
-        multi_byte.push(integer_to_unicode_char(arg, span)?)
+    for arg in int_args {
+        multi_byte.push(integer_to_unicode_char(arg.item, arg.span)?)
     }
     Ok(Value::string(multi_byte, call_span).into_pipeline_data())
 }
