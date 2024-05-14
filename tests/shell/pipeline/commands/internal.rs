@@ -844,7 +844,7 @@ fn duration_overflow() {
         "
     ));
 
-    assert!(actual.err.contains("duration too large"));
+    assert!(actual.err.contains("magnitude too large"));
 }
 
 #[test]
@@ -855,8 +855,7 @@ fn date_and_duration_overflow() {
         "
     ));
 
-    // assert_eq!(actual.err, "overflow");
-    assert!(actual.err.contains("duration too large"));
+    assert!(actual.err.contains("magnitude too large"));
 }
 
 #[test]

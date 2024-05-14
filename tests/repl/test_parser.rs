@@ -652,7 +652,7 @@ fn duration_with_underscores_3() -> TestResult {
 
 #[test]
 fn duration_with_faulty_number() -> TestResult {
-    fail_test("sleep 4-ms", "duration value must be a number")
+    fail_test("sleep 4-ms", "duration with valid units")
 }
 
 #[test]
