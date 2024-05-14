@@ -78,7 +78,7 @@ impl Stack {
     /// Create a new child stack from a parent.
     ///
     /// Changes from this child can be merged back into the parent with
-    /// Stack::with_changes_from_child
+    /// [`Stack::with_changes_from_child`]
     pub fn with_parent(parent: Arc<Stack>) -> Stack {
         Stack {
             // here we are still cloning environment variable-related information
@@ -93,17 +93,15 @@ impl Stack {
         }
     }
 
-    /// Take an Arc of a parent (assumed to be unique), and a child, and apply
-    /// all the changes from a child back to the parent.
+    /// Take an [`Arc`] parent, and a child, and apply all the changes from a child back to the parent.
     ///
-    /// Here it is assumed that child was created with a call to Stack::with_parent
-    /// with parent
+    /// Here it is assumed that `child` was created by a call to [`Stack::with_parent`] with `parent`.
+    ///
+    /// For this to be performant and not clone `parent`, `child` should be the only other
+    /// referencer of `parent`.
     pub fn with_changes_from_child(parent: Arc<Stack>, child: Stack) -> Stack {
         // we're going to drop the link to the parent stack on our new stack
         // so that we can unwrap the Arc as a unique reference
-        //
-        // This makes the new_stack be in a bit of a weird state, so we shouldn't call
-        // any structs
         drop(child.parent_stack);
         let mut unique_stack = Arc::unwrap_or_clone(parent);
 
