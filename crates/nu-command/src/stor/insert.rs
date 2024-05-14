@@ -206,9 +206,8 @@ mod test {
         assert!(result.is_ok());
     }
 
-    #[ignore]
     #[test]
-    fn test_errors_when_string_too_long() {
+    fn test_no_errors_when_string_too_long() {
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
         let create_stmt = "CREATE TABLE test_errors_when_string_too_long (
             str_column VARCHAR(8)
@@ -228,13 +227,12 @@ mod test {
         );
 
         let result = process(table_name, span, &db, Some(columns));
-
-        assert!(result.is_err());
+        // SQLite uses dynamic typing, making any length acceptable for a varchar column
+        assert!(result.is_ok());
     }
 
-    #[ignore]
     #[test]
-    fn test_errors_when_param_is_wrong_type() {
+    fn test_no_errors_when_param_is_wrong_type() {
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
         let create_stmt = "CREATE TABLE test_errors_when_param_is_wrong_type (
             int_column INT
@@ -250,12 +248,12 @@ mod test {
         let mut columns = Record::new();
         columns.insert(
             "int_column".to_string(),
-            Value::test_string("ThisIsALongString".to_string()),
+            Value::test_string("ThisIsTheWrongType".to_string()),
         );
 
         let result = process(table_name, span, &db, Some(columns));
-
-        assert!(result.is_err());
+        // SQLite uses dynamic typing, making any type acceptable for a column
+        assert!(result.is_ok());
     }
 
     #[test]
