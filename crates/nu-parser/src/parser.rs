@@ -2306,8 +2306,12 @@ pub fn parse_duration(working_set: &mut StateWorkingSet, span: Span) -> Expressi
             ty: Type::Duration,
             custom_completion: None,
         },
-        Some(Err(mk_err_for)) => {
-            working_set.error(mk_err_for("duration"));
+        Some(Err(val_span)) => {
+            working_set.error(ParseError::InvalidLiteral(
+                "magnitude too large".into(),
+                "duration".into(),
+                val_span,
+            ));
             garbage(span)
         }
         None => {
@@ -2336,8 +2340,12 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
             ty: Type::Filesize,
             custom_completion: None,
         },
-        Some(Err(mk_err_for)) => {
-            working_set.error(mk_err_for("filesize"));
+        Some(Err(val_span)) => {
+            working_set.error(ParseError::InvalidLiteral(
+                "magnitude too large".into(),
+                "filesize".into(),
+                val_span,
+            ));
             garbage(span)
         }
         None => {
@@ -2346,14 +2354,11 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         }
     }
 }
-
-type ParseUnitResult<T> = Result<ValueWithUnit<T>, Box<dyn Fn(&'static str) -> ParseError>>;
-
 pub fn parse_unit_value<T>(
     bytes: &[u8],
     span: Span,
     unit_size: impl Fn(&T) -> i64,
-) -> Option<ParseUnitResult<T>>
+) -> Option<Result<ValueWithUnit<T>, Span>>
 where
     T: Display + FromStr,
 {
@@ -2384,13 +2389,7 @@ where
     let unit_span = Span::new(span.start + split_idx, span.end);
 
     let Some(value) = value_or_overflow(&value_str, unit_size(&unit)) else {
-        return Some(Err(Box::new(move |name| {
-            ParseError::LabeledError(
-                format!("{name} value overflowed"),
-                "magnitude too large".into(),
-                value_span,
-            )
-        })));
+        return Some(Err(value_span));
     };
 
     trace!("-- found {value} {unit}");
