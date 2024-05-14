@@ -424,6 +424,7 @@ impl ByteStream {
                         // To avoid deadlocks, we must spawn a separate thread to wait on stderr.
                         thread::scope(|s| {
                             let err_thread = thread::Builder::new()
+                                .name("stderr writer".into())
                                 .spawn_scoped(s, || match err {
                                     ChildPipe::Pipe(pipe) => {
                                         write_to_out_dest(pipe, stderr, false, span, ctrlc)

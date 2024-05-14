@@ -184,7 +184,11 @@ impl ChildProcess {
             let stderr = self
                 .stderr
                 .take()
-                .map(|stderr| thread::Builder::new().spawn(move || consume_pipe(stderr)))
+                .map(|stderr| {
+                    thread::Builder::new()
+                        .name("stderr consumer".into())
+                        .spawn(move || consume_pipe(stderr))
+                })
                 .transpose()
                 .err_span(self.span)?;
 
