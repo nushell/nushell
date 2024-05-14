@@ -1,3 +1,5 @@
+use rstest::rstest;
+
 use nu_test_support::nu_with_plugins;
 use pretty_assertions::assert_eq;
 
@@ -191,8 +193,8 @@ fn generate_sequence() {
     assert_eq!(actual.out, "[0,2,4,6,8,10]");
 }
 
-#[test]
-#[ntest::timeout(6000)]
+#[rstest]
+#[timeout(std::time::Duration::from_secs(6))]
 fn echo_interactivity_on_slow_pipelines() {
     // This test works by putting 0 on the upstream immediately, followed by 1 after 10 seconds.
     // If values aren't streamed to the plugin as they become available, `example echo` won't emit
