@@ -62,8 +62,6 @@ impl Command for StorInsert {
             PipelineData::Value(val, _) => Some(val.into_record()?),
             _ => call.get_flag(engine_state, stack, "data-record")?,
         };
-        // call.get_flag(engine_state, stack, "data-record")?;
-        // let config = engine_state.get_config();
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
 
         if table_name.is_none() {
