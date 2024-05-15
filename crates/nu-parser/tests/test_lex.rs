@@ -188,6 +188,13 @@ fn lex_incomplete_quote() {
 }
 
 #[test]
+fn lex_odd_string_interpolations() {
+    let file = b"$\"('\"')\"";
+    let output = lex(file, 0, &[], &[], true);
+    assert!(output.1.is_none());
+}
+
+#[test]
 fn lex_comments_no_space() {
     // test for parses that contain tokens that normally introduce comments
     // Code:
