@@ -398,9 +398,7 @@ fn lex_raw_string(
     }
     if !matches {
         let mut expected = '\''.to_string();
-        for _ in 0..prefix_sharp_cnt {
-            expected.push('#');
-        }
+        expected.push_str(&"#".repeat(prefix_sharp_cnt));
         return Err(ParseError::UnexpectedEof(
             expected,
             Span::new(span_offset + *curr_offset - 1, span_offset + *curr_offset),
