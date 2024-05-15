@@ -10,7 +10,7 @@ impl Command for EachWhile {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each row of the input list until a null is found, then create a new list with the results."
+        "Run a closure on each row of the input list until a null is found, then create a new list with the results."
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -1,4 +1,4 @@
-use crate::tests::{fail_test, run_test, run_test_contains, TestResult};
+use crate::repl::tests::{fail_test, run_test, run_test_contains, TestResult};
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
 

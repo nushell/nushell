@@ -1,4 +1,4 @@
-use crate::tests::{run_test, TestResult};
+use crate::repl::tests::{run_test, TestResult};
 
 #[test]
 fn if_test1() -> TestResult {
