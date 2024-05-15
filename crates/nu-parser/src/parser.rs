@@ -4518,20 +4518,6 @@ pub fn parse_closure_expression(
 
     if let Some(signature) = signature {
         output.signature = signature.0;
-    } else if let Some(last) = working_set.delta.scope.last() {
-        // FIXME: this only supports the top $it. Is this sufficient?
-
-        if let Some(var_id) = last.get_var(b"$it") {
-            let mut signature = Signature::new("");
-            signature.required_positional.push(PositionalArg {
-                var_id: Some(*var_id),
-                name: "$it".into(),
-                desc: String::new(),
-                shape: SyntaxShape::Any,
-                default_value: None,
-            });
-            output.signature = Box::new(signature);
-        }
     }
 
     output.span = Some(span);
