@@ -234,9 +234,9 @@ pub mod test {
 
 pub(crate) fn handle_panic<F, R>(f: F, span: Span) -> Result<R, ShellError>
 where
-    F: FnOnce() -> Result<R, ShellError> + UnwindSafe,
+    F: FnOnce() -> Result<R, ShellError>,
 {
-    match catch_unwind(f) {
+    match catch_unwind(AssertUnwindSafe(f)) {
         Ok(inner_result) => inner_result,
         Err(_) => Err(ShellError::GenericError {
             error: "Panic occurred".into(),
