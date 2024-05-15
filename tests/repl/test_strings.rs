@@ -154,6 +154,18 @@ fn raw_string_inside_closure() -> TestResult {
 }
 
 #[test]
-fn incomplete_raw_string() -> TestResult {
-    fail_test("r#abc", "expected '")
+fn incomplete_string() -> TestResult {
+    fail_test("r#abc", "expected '")?;
+    fail_test("r#'bc", "expected closing '#")?;
+    fail_test("'ab\"", "expected closing '")?;
+    fail_test("\"ab'", "expected closing \"")?;
+    fail_test(
+        r#"def func [] {
+  {
+    "A": ""B"   # <- the quote is bad
+  }
+}
+"#,
+        "expected closing \"",
+    )
 }
