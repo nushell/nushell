@@ -38,7 +38,7 @@ impl PluginCommand for Summary {
             )
             .named(
                 "quantiles",
-                SyntaxShape::Table(vec![]),
+                SyntaxShape::List(Box::new(SyntaxShape::Float)),
                 "provide optional quantiles",
                 Some('q'),
             )
