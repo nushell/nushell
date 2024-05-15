@@ -75,26 +75,10 @@ impl Stack {
         }
     }
 
-    /// Unwrap a uniquely-owned stack.
-    ///
-    /// In debug mode, this panics if there are multiple references.
-    /// In production this will instead clone the underlying stack.
-    pub fn unwrap_unique(stack_arc: Arc<Stack>) -> Stack {
-        // If you hit an error here, it's likely that you created an extra
-        // Arc pointing to the stack somewhere. Make sure that it gets dropped before
-        // getting here!
-        Arc::try_unwrap(stack_arc).unwrap_or_else(|arc| {
-            // in release mode, we clone the stack, but this can lead to
-            // major performance issues, so we should avoid it
-            debug_assert!(false, "More than one stack reference remaining!");
-            (*arc).clone()
-        })
-    }
-
     /// Create a new child stack from a parent.
     ///
     /// Changes from this child can be merged back into the parent with
-    /// Stack::with_changes_from_child
+    /// [`Stack::with_changes_from_child`]
     pub fn with_parent(parent: Arc<Stack>) -> Stack {
         Stack {
             // here we are still cloning environment variable-related information
@@ -109,19 +93,17 @@ impl Stack {
         }
     }
 
-    /// Take an Arc of a parent (assumed to be unique), and a child, and apply
-    /// all the changes from a child back to the parent.
+    /// Take an [`Arc`] parent, and a child, and apply all the changes from a child back to the parent.
     ///
-    /// Here it is assumed that child was created with a call to Stack::with_parent
-    /// with parent
+    /// Here it is assumed that `child` was created by a call to [`Stack::with_parent`] with `parent`.
+    ///
+    /// For this to be performant and not clone `parent`, `child` should be the only other
+    /// referencer of `parent`.
     pub fn with_changes_from_child(parent: Arc<Stack>, child: Stack) -> Stack {
         // we're going to drop the link to the parent stack on our new stack
         // so that we can unwrap the Arc as a unique reference
-        //
-        // This makes the new_stack be in a bit of a weird state, so we shouldn't call
-        // any structs
         drop(child.parent_stack);
-        let mut unique_stack = Stack::unwrap_unique(parent);
+        let mut unique_stack = Arc::unwrap_or_clone(parent);
 
         unique_stack
             .vars
