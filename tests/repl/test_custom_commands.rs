@@ -274,3 +274,9 @@ fn dont_allow_implicit_casting_between_glob_and_string() -> TestResult {
         "can't convert",
     )
 }
+
+#[test]
+fn allow_pass_negative_float() -> TestResult {
+    run_test("def spam [val: float] { $val }; spam -1.4", "-1.4")?;
+    run_test("def spam [val: float] { $val }; spam -2", "-2")
+}
