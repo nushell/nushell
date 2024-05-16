@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 fn test_1() {
     let actual = nu!(pipeline(
         r#"
-        echo 1..5 | into string | str join
+        echo 1..=5 | into string | str join
         "#
     ));
 

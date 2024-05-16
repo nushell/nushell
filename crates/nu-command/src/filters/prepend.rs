@@ -95,7 +95,6 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(1),
-                    Value::test_int(2),
                     Value::test_int(3),
                     Value::test_int(4),
                 ])),

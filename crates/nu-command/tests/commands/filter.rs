@@ -4,7 +4,7 @@ use nu_test_support::{nu, pipeline};
 fn filter_with_return_in_closure() {
     let actual = nu!(pipeline(
         "
-        1..10 | filter { |it|
+        1..=10 | filter { |it|
             if $it mod 2 == 0 {
                 return true
             };

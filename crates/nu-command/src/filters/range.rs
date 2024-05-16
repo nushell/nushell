@@ -31,7 +31,7 @@ impl Command for Range {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[0,1,2,3,4,5] | range 4..5",
+                example: "[0,1,2,3,4,5] | range 4..=5",
                 description: "Get the last 2 items",
                 result: Some(Value::list(
                     vec![Value::test_int(4), Value::test_int(5)],
@@ -47,7 +47,7 @@ impl Command for Range {
                 )),
             },
             Example {
-                example: "[0,1,2,3,4,5] | range (-3)..-2",
+                example: "[0,1,2,3,4,5] | range (-3)..=-2",
                 description: "Get the next to last 2 items",
                 result: Some(Value::list(
                     vec![Value::test_int(3), Value::test_int(4)],

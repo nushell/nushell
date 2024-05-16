@@ -67,7 +67,7 @@ impl Command for Zip {
                 )),
             },
             Example {
-                example: "1..3 | zip 4..6",
+                example: "1..=3 | zip 4..=6",
                 description: "Zip two ranges",
                 result: Some(Value::list(
                     vec![test_row_1.clone(), test_row_2.clone(), test_row_3.clone()],

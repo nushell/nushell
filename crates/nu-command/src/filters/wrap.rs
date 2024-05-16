@@ -80,9 +80,6 @@ impl Command for Wrap {
                     Value::test_record(record! {
                         "num" => Value::test_int(2),
                     }),
-                    Value::test_record(record! {
-                        "num" => Value::test_int(3),
-                    }),
                 ])),
             },
         ]

@@ -9,14 +9,14 @@ fn generates_an_integer() {
 
 #[test]
 fn generates_55() {
-    let actual = nu!("random int 55..55");
+    let actual = nu!("random int 55..=55");
 
     assert!(actual.out.contains("55"));
 }
 
 #[test]
 fn generates_0() {
-    let actual = nu!("random int ..<1");
+    let actual = nu!("random int ..1");
 
     assert!(actual.out.contains('0'));
 }

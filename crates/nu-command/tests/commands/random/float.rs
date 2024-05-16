@@ -13,14 +13,14 @@ fn generates_a_float() {
 
 #[test]
 fn generates_55() {
-    let actual = nu!("random float 55..55");
+    let actual = nu!("random float 55..=55");
 
     assert!(actual.out.contains("55"));
 }
 
 #[test]
 fn generates_0() {
-    let actual = nu!("random float ..<1");
+    let actual = nu!("random float ..1");
 
     assert!(actual.out.contains('0'));
 }

@@ -181,12 +181,12 @@ fn to_nuon_records() {
 fn to_nuon_range() {
     let actual = nu!(pipeline(
         r#"
-            1..42
+            1..=42
             | to nuon
         "#
     ));
 
-    assert_eq!(actual.out, "1..42");
+    assert_eq!(actual.out, "1..=42");
 }
 
 #[test]

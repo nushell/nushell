@@ -52,7 +52,7 @@ MessagePack: https://msgpack.org/
             },
             Example {
                 description: "Convert a range to a MessagePack array",
-                example: "1..10 | to msgpack",
+                example: "1..=10 | to msgpack",
                 result: Some(Value::test_binary(b"\x9A\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A"))
             },
             Example {

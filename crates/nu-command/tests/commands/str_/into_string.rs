@@ -5,7 +5,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn from_range() {
     let actual = nu!(r#"
-        echo 1..5 | into string | to json -r
+        echo 1..=5 | into string | to json -r
         "#);
 
     assert_eq!(actual.out, "[\"1\",\"2\",\"3\",\"4\",\"5\"]");

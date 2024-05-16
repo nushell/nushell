@@ -191,8 +191,8 @@ mod int_range {
             // what about self.step?
             let start = self.start;
             match self.end {
-                Bound::Included(end) => write!(f, "{start}..{end}"),
-                Bound::Excluded(end) => write!(f, "{start}..<{end}"),
+                Bound::Included(end) => write!(f, "{start}..={end}"),
+                Bound::Excluded(end) => write!(f, "{start}..{end}"),
                 Bound::Unbounded => write!(f, "{start}.."),
             }
         }
@@ -442,8 +442,8 @@ mod float_range {
             // what about self.step?
             let start = self.start;
             match self.end {
-                Bound::Included(end) => write!(f, "{start}..{end}"),
-                Bound::Excluded(end) => write!(f, "{start}..<{end}"),
+                Bound::Included(end) => write!(f, "{start}..={end}"),
+                Bound::Excluded(end) => write!(f, "{start}..{end}"),
                 Bound::Unbounded => write!(f, "{start}.."),
             }
         }

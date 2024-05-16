@@ -76,7 +76,7 @@ impl Command for Reduce {
                 example: r#"let s = "Str"; 0..2 | reduce --fold '' {|it, acc| $acc + $s}"#,
                 description:
                     "Concatenate a string with itself, using a range to determine the number of times.",
-                result: Some(Value::test_string("StrStrStr")),
+                result: Some(Value::test_string("StrStr")),
             },
         ]
     }

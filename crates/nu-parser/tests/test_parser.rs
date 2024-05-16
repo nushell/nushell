@@ -967,29 +967,22 @@ mod range {
     use nu_protocol::ast::{RangeInclusion, RangeOperator};
 
     #[rstest]
-    #[case(b"0..10", RangeInclusion::Inclusive, "inclusive")]
     #[case(b"0..=10", RangeInclusion::Inclusive, "=inclusive")]
-    #[case(b"0..<10", RangeInclusion::RightExclusive, "exclusive")]
-    #[case(b"10..0", RangeInclusion::Inclusive, "reverse inclusive")]
+    #[case(b"0..10", RangeInclusion::RightExclusive, "exclusive")]
+    #[case(b"10..0", RangeInclusion::RightExclusive, "reverse exclusive")]
     #[case(b"10..=0", RangeInclusion::Inclusive, "reverse =inclusive")]
     #[case(
-        b"(3 - 3)..<(8 + 2)",
+        b"(3 - 3)..(8 + 2)",
         RangeInclusion::RightExclusive,
         "subexpression exclusive"
-    )]
-    #[case(
-        b"(3 - 3)..(8 + 2)",
-        RangeInclusion::Inclusive,
-        "subexpression inclusive"
     )]
     #[case(
         b"(3 - 3)..=(8 + 2)",
         RangeInclusion::Inclusive,
         "subexpression =inclusive"
     )]
-    #[case(b"-10..-3", RangeInclusion::Inclusive, "negative inclusive")]
     #[case(b"-10..=-3", RangeInclusion::Inclusive, "negative =inclusive")]
-    #[case(b"-10..<-3", RangeInclusion::RightExclusive, "negative exclusive")]
+    #[case(b"-10..-3", RangeInclusion::RightExclusive, "negative exclusive")]
 
     fn parse_bounded_range(
         #[case] phrase: &[u8],
@@ -1034,17 +1027,12 @@ mod range {
 
     #[rstest]
     #[case(
-        b"let a = 2; $a..10",
-        RangeInclusion::Inclusive,
-        "variable start inclusive"
-    )]
-    #[case(
         b"let a = 2; $a..=10",
         RangeInclusion::Inclusive,
         "variable start =inclusive"
     )]
     #[case(
-        b"let a = 2; $a..<($a + 10)",
+        b"let a = 2; $a..($a + 10)",
         RangeInclusion::RightExclusive,
         "subexpression variable exclusive"
     )]
@@ -1092,9 +1080,8 @@ mod range {
     }
 
     #[rstest]
-    #[case(b"0..", RangeInclusion::Inclusive, "right unbounded")]
     #[case(b"0..=", RangeInclusion::Inclusive, "right unbounded =inclusive")]
-    #[case(b"0..<", RangeInclusion::RightExclusive, "right unbounded")]
+    #[case(b"0..", RangeInclusion::RightExclusive, "right unbounded")]
 
     fn parse_right_unbounded_range(
         #[case] phrase: &[u8],
@@ -1138,9 +1125,8 @@ mod range {
     }
 
     #[rstest]
-    #[case(b"..10", RangeInclusion::Inclusive, "left unbounded inclusive")]
     #[case(b"..=10", RangeInclusion::Inclusive, "left unbounded =inclusive")]
-    #[case(b"..<10", RangeInclusion::RightExclusive, "left unbounded exclusive")]
+    #[case(b"..10", RangeInclusion::RightExclusive, "left unbounded exclusive")]
 
     fn parse_left_unbounded_range(
         #[case] phrase: &[u8],
@@ -1184,9 +1170,8 @@ mod range {
     }
 
     #[rstest]
-    #[case(b"2.0..4.0..10.0", RangeInclusion::Inclusive, "float inclusive")]
     #[case(b"2.0..4.0..=10.0", RangeInclusion::Inclusive, "float =inclusive")]
-    #[case(b"2.0..4.0..<10.0", RangeInclusion::RightExclusive, "float exclusive")]
+    #[case(b"2.0..4.0..10.0", RangeInclusion::RightExclusive, "float exclusive")]
 
     fn parse_float_range(
         #[case] phrase: &[u8],

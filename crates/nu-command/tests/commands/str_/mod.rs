@@ -245,7 +245,7 @@ fn substrings_the_input() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring 6..14 fortune.teller.phone
+                 | str substring 6..=14 fortune.teller.phone
                  | get fortune.teller.phone
              "#
         ));
@@ -342,7 +342,7 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring ..2 package.name
+                 | str substring ..=2 package.name
                  | get package.name
              "#
         ));

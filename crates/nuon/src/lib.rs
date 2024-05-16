@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn range() {
         nuon_end_to_end(
-            "1..42",
+            "1..=42",
             Some(Value::test_range(Range::IntRange(
                 IntRange::new(
                     Value::test_int(1),

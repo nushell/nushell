@@ -68,7 +68,6 @@ impl Command for ParEach {
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
                     Value::test_int(4),
-                    Value::test_int(6),
                 ])),
             },
             Example {

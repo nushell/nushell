@@ -216,7 +216,7 @@ fn strict_parsing_fails_on_trailing_comma() {
 #[test]
 fn ranges_to_json_as_array() {
     let value = r#"[  1,  2,  3]"#;
-    let actual = nu!(r#"1..3 | to json"#);
+    let actual = nu!(r#"1..=3 | to json"#);
     assert_eq!(actual.out, value);
 }
 

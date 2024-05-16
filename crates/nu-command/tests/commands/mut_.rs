@@ -27,7 +27,7 @@ fn mut_name_builtin_var_with_dollar() {
 
 #[test]
 fn mut_variable_in_loop() {
-    let actual = nu!("mut x = 1; for i in 1..10 { $x = $x + $i}; $x");
+    let actual = nu!("mut x = 1; for i in 1..=10 { $x = $x + $i}; $x");
 
     assert_eq!(actual.out, "56");
 }

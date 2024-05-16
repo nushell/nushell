@@ -57,7 +57,7 @@ impl Command for Last {
             Example {
                 example: "1..3 | last",
                 description: "Return the last item of a range",
-                result: Some(Value::test_int(3)),
+                result: Some(Value::test_int(2)),
             },
         ]
     }

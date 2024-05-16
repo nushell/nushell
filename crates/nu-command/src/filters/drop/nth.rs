@@ -71,7 +71,7 @@ impl Command for DropNth {
             },
             Example {
                 description: "Drop range rows from second to fourth",
-                example: "[first second third fourth fifth] | drop nth (1..3)",
+                example: "[first second third fourth fifth] | drop nth (1..=3)",
                 result: Some(Value::list(
                     vec![Value::test_string("first"), Value::test_string("fifth")],
                     Span::test_data(),

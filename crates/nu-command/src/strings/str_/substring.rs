@@ -108,12 +108,12 @@ impl Command for SubCommand {
             Example {
                 description:
                     "Get a substring \"nushell\" from the text \"good nushell\" using a range",
-                example: " 'good nushell' | str substring 5..12",
+                example: " 'good nushell' | str substring 5..=12",
                 result: Some(Value::test_string("nushell")),
             },
             Example {
                 description: "Count indexes and split using grapheme clusters",
-                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..6",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..=6",
                 result: Some(Value::test_string("ふが")),
             },
         ]

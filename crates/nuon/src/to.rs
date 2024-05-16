@@ -183,12 +183,12 @@ fn value_to_string(
                     value_to_string(&Value::float(range.start(), span), span, depth + 1, indent)?;
                 match range.end() {
                     Bound::Included(end) => Ok(format!(
-                        "{}..{}",
+                        "{}..={}",
                         start,
                         value_to_string(&Value::float(end, span), span, depth + 1, indent)?
                     )),
                     Bound::Excluded(end) => Ok(format!(
-                        "{}..<{}",
+                        "{}..{}",
                         start,
                         value_to_string(&Value::float(end, span), span, depth + 1, indent)?
                     )),

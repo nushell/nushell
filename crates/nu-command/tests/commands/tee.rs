@@ -5,7 +5,7 @@ fn tee_save_values_to_file() {
     Playground::setup("tee_save_values_to_file_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            r#"1..5 | tee { save copy.txt } | to text"#
+            r#"1..=5 | tee { save copy.txt } | to text"#
         );
         assert_eq!("12345", output.out);
         assert_eq!(

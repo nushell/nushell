@@ -289,7 +289,7 @@ fn writes_out_range() {
 
         nu!(
             cwd: dirs.root(),
-            "1..3 | save save_test_14/list_sample.json",
+            "1..=3 | save save_test_14/list_sample.json",
         );
 
         let actual = file_contents(expected_file);

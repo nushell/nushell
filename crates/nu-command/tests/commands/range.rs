@@ -35,7 +35,7 @@ fn selects_some_rows() {
             "
                 ls
                 | get name
-                | range 1..2
+                | range 1..=2
                 | length
             "
         ));

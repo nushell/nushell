@@ -141,7 +141,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                 result: Some(Value::test_list(vec![
                     Value::test_int(9),
                     Value::test_int(11),
-                    Value::test_int(13),
                 ])),
             },
             Example {
