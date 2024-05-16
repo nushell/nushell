@@ -626,14 +626,18 @@ impl Iterator for Chunks {
         if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
             None
         } else {
-            match self.reader.fill_buf() {
-                Ok(buf) => {
-                    self.leftover.extend_from_slice(buf);
-                    let len = buf.len();
-                    self.reader.consume(len);
-                }
-                Err(err) => return Some(Err(err.into_spanned(self.span).into())),
-            };
+            loop {
+                match self.reader.fill_buf() {
+                    Ok(buf) => {
+                        self.leftover.extend_from_slice(buf);
+                        let len = buf.len();
+                        self.reader.consume(len);
+                        break;
+                    }
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(err) => return Some(Err(err.into_spanned(self.span).into())),
+                };
+            }
 
             if self.leftover.is_empty() {
                 return None;
