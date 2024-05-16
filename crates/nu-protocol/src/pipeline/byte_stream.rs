@@ -59,6 +59,13 @@ impl Read for SourceReader {
 
 /// A potentially infinite, interruptible stream of bytes.
 ///
+/// To create a [`ByteStream`], you can use any of the following methods:
+/// - [`read`](ByteStream::read): takes any type that implements [`Read`].
+/// - [`file`](ByteStream::file): takes a [`File`].
+/// - [`from_iter`](ByteStream::from_iter): takes an [`Iterator`] whose items implement `AsRef<[u8]>`.
+/// - [`from_result_iter`](ByteStream::from_result_iter): same as [`from_iter`](ByteStream::from_iter),
+///   but each item is a `Result<T, ShellError>`.
+///
 /// The data of a [`ByteStream`] can be accessed using one of the following methods:
 /// - [`reader`](ByteStream::reader): returns a [`Read`]-able type to get the raw bytes in the stream.
 /// - [`lines`](ByteStream::lines): splits the bytes on lines and returns an [`Iterator`]
