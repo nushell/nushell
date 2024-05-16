@@ -3735,28 +3735,37 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
                     )
                 })?;
 
-                let signatures = plugin
+                let metadata_and_signatures = plugin
                     .clone()
                     .get(get_envs)
-                    .and_then(|p| p.get_signature())
+                    .and_then(|p| {
+                        let meta = p.get_metadata()?;
+                        let sigs = p.get_signature()?;
+                        Ok((meta, sigs))
+                    })
                     .map_err(|err| {
-                        log::warn!("Error getting signatures: {err:?}");
+                        log::warn!("Error getting metadata and signatures: {err:?}");
                         ParseError::LabeledError(
-                            "Error getting signatures".into(),
+                            "Error getting metadata and signatures".into(),
                             err.to_string(),
                             spans[0],
                         )
                     });
 
-                if let Ok(ref signatures) = signatures {
-                    // Add the loaded plugin to the delta
-                    working_set.update_plugin_registry(PluginRegistryItem::new(
-                        &identity,
-                        signatures.clone(),
-                    ));
+                match metadata_and_signatures {
+                    Ok((meta, sigs)) => {
+                        // Set the metadata on the plugin
+                        plugin.set_metadata(Some(meta.clone()));
+                        // Add the loaded plugin to the delta
+                        working_set.update_plugin_registry(PluginRegistryItem::new(
+                            &identity,
+                            meta,
+                            sigs.clone(),
+                        ));
+                        Ok(sigs)
+                    }
+                    Err(err) => Err(err),
                 }
-
-                signatures
             },
             |sig| sig.map(|sig| vec![sig]),
         )?;

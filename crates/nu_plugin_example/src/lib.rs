@@ -1,4 +1,5 @@
 use nu_plugin::{Plugin, PluginCommand};
+use nu_protocol::PluginMetadata;
 
 mod commands;
 mod example;
@@ -31,5 +32,10 @@ impl Plugin for ExamplePlugin {
             Box::new(Seq),
             Box::new(Sum),
         ]
+    }
+
+    fn metadata(&self) -> PluginMetadata {
+        // This reports the plugin's version to Nu, and we recommend that you include it.
+        PluginMetadata::new().with_version(env!("CARGO_PKG_VERSION"))
     }
 }

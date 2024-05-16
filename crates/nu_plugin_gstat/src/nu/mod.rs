@@ -1,12 +1,16 @@
 use crate::GStat;
 use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
-use nu_protocol::{Category, LabeledError, Signature, Spanned, SyntaxShape, Value};
+use nu_protocol::{Category, LabeledError, PluginMetadata, Signature, Spanned, SyntaxShape, Value};
 
 pub struct GStatPlugin;
 
 impl Plugin for GStatPlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![Box::new(GStat)]
+    }
+
+    fn metadata(&self) -> PluginMetadata {
+        PluginMetadata::new().with_version(env!("CARGO_PKG_VERSION"))
     }
 }
 

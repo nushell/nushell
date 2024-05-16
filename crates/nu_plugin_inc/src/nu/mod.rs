@@ -1,12 +1,16 @@
 use crate::{inc::SemVerAction, Inc};
 use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
-use nu_protocol::{ast::CellPath, LabeledError, Signature, SyntaxShape, Value};
+use nu_protocol::{ast::CellPath, LabeledError, PluginMetadata, Signature, SyntaxShape, Value};
 
 pub struct IncPlugin;
 
 impl Plugin for IncPlugin {
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![Box::new(Inc::new())]
+    }
+
+    fn metadata(&self) -> PluginMetadata {
+        PluginMetadata::new().with_version(env!("CARGO_PKG_VERSION"))
     }
 }
 

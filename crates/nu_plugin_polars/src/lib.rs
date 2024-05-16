@@ -8,7 +8,7 @@ use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 mod cache;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{ast::Operator, CustomValue, LabeledError, Spanned, Value};
+use nu_protocol::{ast::Operator, CustomValue, LabeledError, PluginMetadata, Spanned, Value};
 
 use crate::{
     eager::eager_commands, expressions::expr_commands, lazy::lazy_commands,
@@ -43,6 +43,10 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut series_commands());
         commands.append(&mut cache_commands());
         commands
+    }
+
+    fn metadata(&self) -> PluginMetadata {
+        PluginMetadata::new().with_version(env!("CARGO_PKG_VERSION"))
     }
 
     fn custom_value_dropped(

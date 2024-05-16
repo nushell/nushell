@@ -1,6 +1,7 @@
 mod from;
 
 use nu_plugin::{Plugin, PluginCommand};
+use nu_protocol::PluginMetadata;
 
 pub use from::eml::FromEml;
 pub use from::ics::FromIcs;
@@ -17,5 +18,9 @@ impl Plugin for FromCmds {
             Box::new(FromIni),
             Box::new(FromVcf),
         ]
+    }
+
+    fn metadata(&self) -> PluginMetadata {
+        PluginMetadata::new().with_version(env!("CARGO_PKG_VERSION"))
     }
 }

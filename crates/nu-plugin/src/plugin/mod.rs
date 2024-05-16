@@ -16,7 +16,8 @@ use nu_plugin_core::{
 };
 use nu_plugin_protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput};
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, ShellError, Spanned, Value,
+    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata,
+    ShellError, Spanned, Value,
 };
 use thiserror::Error;
 
@@ -97,6 +98,12 @@ pub trait Plugin: Sync {
     /// This is only called once by [`serve_plugin`] at the beginning of your plugin's execution. It
     /// is not possible to change the defined commands during runtime.
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>>;
+
+    /// Optional metadata describing the plugin. Currently, this is used to report the plugin's own
+    /// version string, if supported.
+    fn metadata(&self) -> PluginMetadata {
+        PluginMetadata::default()
+    }
 
     /// Collapse a custom value to plain old data.
     ///
@@ -504,6 +511,12 @@ where
             }
 
             match plugin_call {
+                // Send metadata back to nushell so it can be stored with the plugin signatures
+                ReceivedPluginCall::Metadata { engine } => {
+                    engine
+                        .write_metadata(plugin.metadata())
+                        .try_to_report(&engine)?;
+                }
                 // Sending the signature back to nushell to create the declaration definition
                 ReceivedPluginCall::Signature { engine } => {
                     let sigs = commands

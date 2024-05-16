@@ -25,7 +25,8 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Value,
+    engine::EngineState, report_error_new, ByteStream, PipelineData, RegisteredPlugin, ShellError,
+    Span, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -391,8 +392,14 @@ fn main() -> Result<()> {
             // Create the plugin and add it to the working set
             let plugin = nu_plugin_engine::add_plugin_to_working_set(&mut working_set, &identity)?;
 
-            // Spawn the plugin to get its signatures, and then add the commands to the working set
-            for signature in plugin.clone().get_plugin(None)?.get_signature()? {
+            // Spawn the plugin to get the metadata and signatures
+            let interface = plugin.clone().get_plugin(None)?;
+
+            // Set its metadata
+            plugin.set_metadata(Some(interface.get_metadata()?));
+
+            // Add the commands from the signature to the working set
+            for signature in interface.get_signature()? {
                 let decl = PluginDeclaration::new(plugin.clone(), signature);
                 working_set.add_decl(Box::new(decl));
             }
