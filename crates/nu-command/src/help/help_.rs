@@ -2,7 +2,6 @@ use crate::help::{help_aliases, help_commands, help_modules};
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_engine::command_prelude::*;
-use nu_protocol::span;
 use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
@@ -97,9 +96,8 @@ You can also learn more at https://www.nushell.sh/book/"#;
                 span: _,
             }) = result
             {
-                let rest_spans: Vec<Span> = rest.iter().map(|arg| arg.span).collect();
                 Err(ShellError::NotFound {
-                    span: span(&rest_spans),
+                    span: Span::merge_many(rest.iter().map(|s| s.span)),
                 })
             } else {
                 result

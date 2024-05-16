@@ -67,7 +67,7 @@ impl Command for ExprQuantile {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let quantile: f64 = call.req(engine_state, stack, 0)?;
 
         let expr = NuExpression::try_from_value(value)?;

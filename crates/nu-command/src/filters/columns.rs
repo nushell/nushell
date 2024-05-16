@@ -124,13 +124,11 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                 .into_pipeline_data()
                 .set_metadata(metadata))
         }
-        PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),
-            wrong_type: "raw data".into(),
+            wrong_type: "byte stream".into(),
             dst_span: head,
-            src_span: input
-                .span()
-                .expect("PipelineData::ExternalStream had no span"),
+            src_span: stream.span(),
         }),
     }
 }

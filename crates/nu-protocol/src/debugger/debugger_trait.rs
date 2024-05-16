@@ -44,7 +44,7 @@ pub trait DebugContext: Clone + Copy + Debug {
     fn leave_element(
         engine_state: &EngineState,
         element: &PipelineElement,
-        result: &Result<(PipelineData, bool), ShellError>,
+        result: &Result<PipelineData, ShellError>,
     ) {
     }
 }
@@ -77,7 +77,7 @@ impl DebugContext for WithDebug {
     fn leave_element(
         engine_state: &EngineState,
         element: &PipelineElement,
-        result: &Result<(PipelineData, bool), ShellError>,
+        result: &Result<PipelineData, ShellError>,
     ) {
         if let Ok(mut debugger) = engine_state.debugger.lock() {
             debugger
@@ -128,7 +128,7 @@ pub trait Debugger: Send + Debug {
         &mut self,
         engine_state: &EngineState,
         element: &PipelineElement,
-        result: &Result<(PipelineData, bool), ShellError>,
+        result: &Result<PipelineData, ShellError>,
     ) {
     }
 

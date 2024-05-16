@@ -109,8 +109,7 @@ impl Command for RenameDF {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(call.head);
-
+        let value = input.into_value(call.head)?;
         if NuLazyFrame::can_downcast(&value) {
             let df = NuLazyFrame::try_from_value(value)?;
             command_lazy(engine_state, stack, call, df)

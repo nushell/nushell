@@ -32,6 +32,10 @@ serde_json = { workspace = true, optional = true }
 thiserror = "1.0"
 typetag = "0.2"
 ecow = { version = "0.2.2", features = ["serde"] }
+os_pipe = { workspace = true, features = ["io_safety"] }
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true, default-features = false, features = ["signal"] }
 
 [features]
 plugin = [
@@ -48,6 +52,7 @@ nu-test-support = { path = "../nu-test-support", version = "0.93.1" }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }
+os_pipe = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

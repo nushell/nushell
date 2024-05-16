@@ -141,7 +141,7 @@ fn to_toml(
     input: PipelineData,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(span);
+    let value = input.into_value(span)?;
 
     let toml_value = value_to_toml_value(engine_state, &value, span)?;
     match toml_value {

@@ -32,7 +32,7 @@ enum ConversionResult {
 /// It returns Option instead of Result since we do want to translate all the values we can and
 /// skip errors. This function is called in the main() so we want to keep running, we cannot just
 /// exit.
-pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Option<ShellError> {
+pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Result<(), ShellError> {
     let mut error = None;
 
     let mut new_scope = HashMap::new();
@@ -85,7 +85,11 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
         });
     }
 
-    error
+    if let Some(err) = error {
+        Err(err)
+    } else {
+        Ok(())
+    }
 }
 
 /// Translate one environment variable from Value to String
@@ -346,14 +350,15 @@ fn get_converted_value(
         .and_then(|record| record.get(direction));
 
     if let Some(conversion) = conversion {
-        match conversion.as_closure() {
-            Ok(closure) => ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                .debug(false)
-                .run_with_value(orig_val.clone())
-                .map(|data| ConversionResult::Ok(data.into_value(orig_val.span())))
-                .unwrap_or_else(ConversionResult::ConversionError),
-            Err(e) => ConversionResult::ConversionError(e),
-        }
+        conversion
+            .as_closure()
+            .and_then(|closure| {
+                ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                    .debug(false)
+                    .run_with_value(orig_val.clone())
+            })
+            .and_then(|data| data.into_value(orig_val.span()))
+            .map_or_else(ConversionResult::ConversionError, ConversionResult::Ok)
     } else {
         ConversionResult::CellPathError
     }

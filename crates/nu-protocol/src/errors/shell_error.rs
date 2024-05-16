@@ -1,5 +1,6 @@
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
+use std::io;
 use thiserror::Error;
 
 use crate::{
@@ -1374,42 +1375,79 @@ impl ShellError {
     }
 }
 
-impl From<std::io::Error> for ShellError {
-    fn from(input: std::io::Error) -> ShellError {
-        ShellError::IOError {
-            msg: format!("{input:?}"),
+impl From<io::Error> for ShellError {
+    fn from(error: io::Error) -> ShellError {
+        if error.kind() == io::ErrorKind::Other {
+            match error.into_inner() {
+                Some(err) => match err.downcast() {
+                    Ok(err) => *err,
+                    Err(err) => Self::IOError {
+                        msg: err.to_string(),
+                    },
+                },
+                None => Self::IOError {
+                    msg: "unknown error".into(),
+                },
+            }
+        } else {
+            Self::IOError {
+                msg: error.to_string(),
+            }
         }
     }
 }
 
-impl From<Spanned<std::io::Error>> for ShellError {
-    fn from(error: Spanned<std::io::Error>) -> Self {
-        ShellError::IOErrorSpanned {
-            msg: error.item.to_string(),
-            span: error.span,
+impl From<Spanned<io::Error>> for ShellError {
+    fn from(error: Spanned<io::Error>) -> Self {
+        let Spanned { item: error, span } = error;
+        if error.kind() == io::ErrorKind::Other {
+            match error.into_inner() {
+                Some(err) => match err.downcast() {
+                    Ok(err) => *err,
+                    Err(err) => Self::IOErrorSpanned {
+                        msg: err.to_string(),
+                        span,
+                    },
+                },
+                None => Self::IOErrorSpanned {
+                    msg: "unknown error".into(),
+                    span,
+                },
+            }
+        } else {
+            Self::IOErrorSpanned {
+                msg: error.to_string(),
+                span,
+            }
         }
     }
 }
 
-impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
-    fn from(input: Box<dyn std::error::Error>) -> ShellError {
+impl From<ShellError> for io::Error {
+    fn from(error: ShellError) -> Self {
+        io::Error::new(io::ErrorKind::Other, error)
+    }
+}
+
+impl From<Box<dyn std::error::Error>> for ShellError {
+    fn from(error: Box<dyn std::error::Error>) -> ShellError {
         ShellError::IOError {
-            msg: input.to_string(),
+            msg: error.to_string(),
         }
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
-    fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
+    fn from(error: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
         ShellError::IOError {
-            msg: format!("{input:?}"),
+            msg: format!("{error:?}"),
         }
     }
 }
 
 impl From<super::LabeledError> for ShellError {
-    fn from(value: super::LabeledError) -> Self {
-        ShellError::LabeledError(Box::new(value))
+    fn from(error: super::LabeledError) -> Self {
+        ShellError::LabeledError(Box::new(error))
     }
 }
 

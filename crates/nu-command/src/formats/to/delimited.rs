@@ -150,7 +150,7 @@ pub fn to_delimited_data(
     span: Span,
     config: &Config,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(span);
+    let value = input.into_value(span)?;
     let output = match from_value_to_delimited_string(&value, sep, config, span) {
         Ok(mut x) => {
             if noheaders {

@@ -41,7 +41,6 @@ pub fn report_error_new(
     error: &(dyn miette::Diagnostic + Send + Sync + 'static),
 ) {
     let working_set = StateWorkingSet::new(engine_state);
-
     report_error(&working_set, error);
 }
 

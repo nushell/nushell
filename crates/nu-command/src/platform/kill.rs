@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::span;
 use std::process::{Command as CommandSys, Stdio};
 
 #[derive(Clone)]
@@ -96,7 +95,7 @@ impl Command for Kill {
                             })?
                             .span,
                         right_message: "signal".to_string(),
-                        right_span: span(&[
+                        right_span: Span::merge(
                             call.get_named_arg("signal")
                                 .ok_or_else(|| ShellError::GenericError {
                                     error: "Flag error".into(),
@@ -107,7 +106,7 @@ impl Command for Kill {
                                 })?
                                 .span,
                             signal_span,
-                        ]),
+                        ),
                     });
                 }
                 cmd.arg("-9");

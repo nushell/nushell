@@ -95,7 +95,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
 }
 
 fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(head);
+    let value = input.into_value(head)?;
 
     let yaml_value = value_to_yaml_value(&value)?;
     match serde_yaml::to_string(&yaml_value) {

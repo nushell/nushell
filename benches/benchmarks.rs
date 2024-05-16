@@ -4,15 +4,11 @@ use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    eval_const::create_nu_constant,
-    PipelineData, Span, Spanned, Value, NU_VARIABLE_ID,
+    PipelineData, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-};
+use std::rc::Rc;
 
 use std::hint::black_box;
 
@@ -22,38 +18,18 @@ fn load_bench_commands() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
 }
 
-fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
-    let cwd = engine_state.cwd_as_string(None).unwrap();
-
-    if path.exists() {
-        match nu_path::canonicalize_with(path, cwd) {
-            Ok(canon_path) => canon_path,
-            Err(_) => path.to_owned(),
-        }
-    } else {
-        path.to_owned()
-    }
-}
-
-fn get_home_path(engine_state: &EngineState) -> PathBuf {
-    nu_path::home_dir()
-        .map(|path| canonicalize_path(engine_state, &path))
-        .unwrap_or_default()
-}
-
 fn setup_engine() -> EngineState {
     let mut engine_state = load_bench_commands();
-    let home_path = get_home_path(&engine_state);
+    let cwd = std::env::current_dir()
+        .unwrap()
+        .into_os_string()
+        .into_string()
+        .unwrap();
 
     // parsing config.nu breaks without PWD set, so set a valid path
-    engine_state.add_env_var(
-        "PWD".into(),
-        Value::string(home_path.to_string_lossy(), Span::test_data()),
-    );
+    engine_state.add_env_var("PWD".into(), Value::string(cwd, Span::test_data()));
 
-    let nu_const = create_nu_constant(&engine_state, Span::unknown())
-        .expect("Failed to create nushell constant.");
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    engine_state.generate_nu_constant();
 
     engine_state
 }
@@ -107,6 +83,7 @@ fn bench_command(
         b.iter(move || {
             let mut stack = stack.clone();
             let mut engine = engine.clone();
+            #[allow(clippy::unit_arg)]
             black_box(
                 evaluate_commands(
                     &commands,

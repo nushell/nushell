@@ -3,30 +3,20 @@ use crate::completions::{
 };
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{Stack, StateWorkingSet},
     Span, Value,
 };
 use reedline::Suggestion;
-use std::{str, sync::Arc};
+use std::str;
 
 #[derive(Clone)]
 pub struct VariableCompletion {
-    engine_state: Arc<EngineState>, // TODO: Is engine state necessary? It's already a part of working set in fetch()
-    stack: Stack,
     var_context: (Vec<u8>, Vec<Vec<u8>>), // tuple with $var and the sublevels (.b.c.d)
 }
 
 impl VariableCompletion {
-    pub fn new(
-        engine_state: Arc<EngineState>,
-        stack: Stack,
-        var_context: (Vec<u8>, Vec<Vec<u8>>),
-    ) -> Self {
-        Self {
-            engine_state,
-            stack,
-            var_context,
-        }
+    pub fn new(var_context: (Vec<u8>, Vec<Vec<u8>>)) -> Self {
+        Self { var_context }
     }
 }
 
@@ -34,10 +24,11 @@ impl Completer for VariableCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
+        stack: &Stack,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
-        _: usize,
+        _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let mut output = vec![];
@@ -54,7 +45,7 @@ impl Completer for VariableCompletion {
         if !var_str.is_empty() {
             // Completion for $env.<tab>
             if var_str == "$env" {
-                let env_vars = self.stack.get_env_vars(&self.engine_state);
+                let env_vars = stack.get_env_vars(working_set.permanent_state);
 
                 // Return nested values
                 if sublevels_count > 0 {
@@ -110,8 +101,8 @@ impl Completer for VariableCompletion {
             if var_str == "$nu" {
                 // Eval nu var
                 if let Ok(nuval) = eval_variable(
-                    &self.engine_state,
-                    &self.stack,
+                    working_set.permanent_state,
+                    stack,
                     nu_protocol::NU_VARIABLE_ID,
                     nu_protocol::Span::new(current_span.start, current_span.end),
                 ) {
@@ -133,7 +124,7 @@ impl Completer for VariableCompletion {
             // Completion other variable types
             if let Some(var_id) = var_id {
                 // Extract the variable value from the stack
-                let var = self.stack.get_var(var_id, Span::new(span.start, span.end));
+                let var = stack.get_var(var_id, Span::new(span.start, span.end));
 
                 // If the value exists and it's of type Record
                 if let Ok(value) = var {
@@ -207,7 +198,11 @@ impl Completer for VariableCompletion {
 
         // Permanent state vars
         // for scope in &self.engine_state.scope {
-        for overlay_frame in self.engine_state.active_overlays(&removed_overlays).rev() {
+        for overlay_frame in working_set
+            .permanent_state
+            .active_overlays(&removed_overlays)
+            .rev()
+        {
             for v in &overlay_frame.vars {
                 if options.match_algorithm.matches_u8_insensitive(
                     options.case_sensitive,

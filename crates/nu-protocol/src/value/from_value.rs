@@ -442,7 +442,7 @@ impl FromValue for Spanned<DateTime<FixedOffset>> {
 impl FromValue for Range {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Range { val, .. } => Ok(val),
+            Value::Range { val, .. } => Ok(*val),
             v => Err(ShellError::CantConvert {
                 to_type: "range".into(),
                 from_type: v.get_type().to_string(),
@@ -457,7 +457,7 @@ impl FromValue for Spanned<Range> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         match v {
-            Value::Range { val, .. } => Ok(Spanned { item: val, span }),
+            Value::Range { val, .. } => Ok(Spanned { item: *val, span }),
             v => Err(ShellError::CantConvert {
                 to_type: "range".into(),
                 from_type: v.get_type().to_string(),
@@ -552,7 +552,7 @@ impl FromValue for Record {
 impl FromValue for Closure {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Closure { val, .. } => Ok(val),
+            Value::Closure { val, .. } => Ok(*val),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
                 from_type: v.get_type().to_string(),
@@ -567,7 +567,7 @@ impl FromValue for Spanned<Closure> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         match v {
-            Value::Closure { val, .. } => Ok(Spanned { item: val, span }),
+            Value::Closure { val, .. } => Ok(Spanned { item: *val, span }),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
                 from_type: v.get_type().to_string(),

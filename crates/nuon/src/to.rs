@@ -176,7 +176,7 @@ fn value_to_string(
             }
         }
         Value::Nothing { .. } => Ok("null".to_string()),
-        Value::Range { val, .. } => match val {
+        Value::Range { val, .. } => match **val {
             Range::IntRange(range) => Ok(range.to_string()),
             Range::FloatRange(range) => {
                 let start =

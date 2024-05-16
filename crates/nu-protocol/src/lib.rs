@@ -11,14 +11,14 @@ mod example;
 mod id;
 mod lev_distance;
 mod module;
-mod pipeline_data;
+mod pipeline;
 #[cfg(feature = "plugin")]
 mod plugin;
+pub mod process;
 mod signature;
 pub mod span;
 mod syntax_shape;
 mod ty;
-pub mod util;
 mod value;
 
 pub use alias::*;
@@ -31,12 +31,11 @@ pub use example::*;
 pub use id::*;
 pub use lev_distance::levenshtein_distance;
 pub use module::*;
-pub use pipeline_data::*;
+pub use pipeline::*;
 #[cfg(feature = "plugin")]
 pub use plugin::*;
 pub use signature::*;
 pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
-pub use util::BufferedReader;
 pub use value::*;

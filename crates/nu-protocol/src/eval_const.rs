@@ -12,7 +12,7 @@ use std::{
 };
 
 /// Create a Value for `$nu`.
-pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Value {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
         #[allow(deprecated)]
         let cwd = engine_state.current_work_dir();
@@ -200,7 +200,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
         },
     );
 
-    Ok(Value::record(record, span))
+    Value::record(record, span)
 }
 
 fn eval_const_call(
@@ -317,7 +317,7 @@ impl Eval for EvalConst {
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
         // TODO: eval.rs uses call.head for the span rather than expr.span
-        Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(span))
+        eval_const_call(working_set, call, PipelineData::empty())?.into_value(span)
     }
 
     fn eval_external_call(
@@ -339,10 +339,7 @@ impl Eval for EvalConst {
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
         let block = working_set.get_block(block_id);
-        Ok(
-            eval_const_subexpression(working_set, block, PipelineData::empty(), span)?
-                .into_value(span),
-        )
+        eval_const_subexpression(working_set, block, PipelineData::empty(), span)?.into_value(span)
     }
 
     fn regex_match(

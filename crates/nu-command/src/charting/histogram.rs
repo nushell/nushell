@@ -121,7 +121,7 @@ impl Command for Histogram {
         };
 
         let span = call.head;
-        let data_as_value = input.into_value(span);
+        let data_as_value = input.into_value(span)?;
         let value_span = data_as_value.span();
         // `input` is not a list, here we can return an error.
         run_histogram(

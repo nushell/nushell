@@ -59,8 +59,7 @@ impl Completer for NuMenuCompleter {
 
         let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input);
 
-        if let Ok(values) = res {
-            let values = values.into_value(self.span);
+        if let Ok(values) = res.and_then(|data| data.into_value(self.span)) {
             convert_to_suggestions(values, line, pos, self.only_buffer_difference)
         } else {
             Vec::new()

@@ -87,15 +87,14 @@ impl Command for Skip {
         let ctrlc = engine_state.ctrlc.clone();
         let input_span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
+            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
-                wrong_type: "raw data".into(),
+                wrong_type: "byte stream".into(),
                 dst_span: call.head,
-                src_span: input_span,
+                src_span: stream.span(),
             }),
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
-
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
             }
             _ => Ok(input

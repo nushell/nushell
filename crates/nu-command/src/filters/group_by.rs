@@ -139,7 +139,7 @@ pub fn group_by(
             match grouper {
                 Value::CellPath { val, .. } => group_cell_path(val, values)?,
                 Value::Closure { val, .. } => {
-                    group_closure(values, span, val, engine_state, stack)?
+                    group_closure(values, span, *val, engine_state, stack)?
                 }
                 _ => {
                     return Err(ShellError::TypeMismatch {
@@ -207,7 +207,7 @@ fn group_closure(
     for value in values {
         let key = closure
             .run_with_value(value.clone())?
-            .into_value(span)
+            .into_value(span)?
             .coerce_into_string()?;
 
         groups.entry(key).or_default().push(value);

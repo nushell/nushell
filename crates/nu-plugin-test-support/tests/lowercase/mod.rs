@@ -73,7 +73,7 @@ fn test_lowercase_using_eval_with() -> Result<(), ShellError> {
 
     assert_eq!(
         Value::test_list(vec![Value::test_string("hello world")]),
-        result.into_value(Span::test_data())
+        result.into_value(Span::test_data())?
     );
 
     Ok(())

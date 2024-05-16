@@ -93,7 +93,7 @@ impl PluginTest {
     ///         "my-command",
     ///         vec![Value::test_int(42)].into_pipeline_data(Span::test_data(), None)
     ///     )?
-    ///     .into_value(Span::test_data());
+    ///     .into_value(Span::test_data())?;
     /// assert_eq!(Value::test_string("42"), result);
     /// # Ok(())
     /// # }
@@ -136,33 +136,44 @@ impl PluginTest {
 
         // Serialize custom values in the input
         let source = self.source.clone();
-        let input = input.map(
-            move |mut value| {
-                let result = PluginCustomValue::serialize_custom_values_in(&mut value)
-                    // Make sure to mark them with the source so they pass correctly, too.
-                    .and_then(|_| PluginCustomValueWithSource::add_source_in(&mut value, &source));
-                match result {
-                    Ok(()) => value,
-                    Err(err) => Value::error(err, value.span()),
-                }
-            },
-            None,
-        )?;
+        let input = if matches!(input, PipelineData::ByteStream(..)) {
+            input
+        } else {
+            input.map(
+                move |mut value| {
+                    let result = PluginCustomValue::serialize_custom_values_in(&mut value)
+                        // Make sure to mark them with the source so they pass correctly, too.
+                        .and_then(|_| {
+                            PluginCustomValueWithSource::add_source_in(&mut value, &source)
+                        });
+                    match result {
+                        Ok(()) => value,
+                        Err(err) => Value::error(err, value.span()),
+                    }
+                },
+                None,
+            )?
+        };
 
         // Eval the block with the input
         let mut stack = Stack::new().capture();
-        eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)?.map(
-            |mut value| {
-                // Make sure to deserialize custom values
-                let result = PluginCustomValueWithSource::remove_source_in(&mut value)
-                    .and_then(|_| PluginCustomValue::deserialize_custom_values_in(&mut value));
-                match result {
-                    Ok(()) => value,
-                    Err(err) => Value::error(err, value.span()),
-                }
-            },
-            None,
-        )
+        let data = eval_block::<WithoutDebug>(&self.engine_state, &mut stack, &block, input)?;
+        if matches!(data, PipelineData::ByteStream(..)) {
+            Ok(data)
+        } else {
+            data.map(
+                |mut value| {
+                    // Make sure to deserialize custom values
+                    let result = PluginCustomValueWithSource::remove_source_in(&mut value)
+                        .and_then(|_| PluginCustomValue::deserialize_custom_values_in(&mut value));
+                    match result {
+                        Ok(()) => value,
+                        Err(err) => Value::error(err, value.span()),
+                    }
+                },
+                None,
+            )
+        }
     }
 
     /// Evaluate some Nushell source code with the plugin commands in scope.
@@ -176,7 +187,7 @@ impl PluginTest {
     /// # fn test(MyPlugin: impl Plugin + Send + 'static) -> Result<(), ShellError> {
     /// let result = PluginTest::new("my_plugin", MyPlugin.into())?
     ///     .eval("42 | my-command")?
-    ///     .into_value(Span::test_data());
+    ///     .into_value(Span::test_data())?;
     /// assert_eq!(Value::test_string("42"), result);
     /// # Ok(())
     /// # }
@@ -219,7 +230,7 @@ impl PluginTest {
             if let Some(expectation) = &example.result {
                 match self.eval(example.example) {
                     Ok(data) => {
-                        let mut value = data.into_value(Span::test_data());
+                        let mut value = data.into_value(Span::test_data())?;
 
                         // Set all of the spans in the value to test_data() to avoid unnecessary
                         // differences when printing

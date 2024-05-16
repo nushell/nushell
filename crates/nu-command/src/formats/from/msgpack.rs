@@ -2,9 +2,8 @@
 // implementation here is unique.
 
 use std::{
-    collections::VecDeque,
     error::Error,
-    io::{self, Cursor, ErrorKind, Write},
+    io::{self, Cursor, ErrorKind},
     string::FromUtf8Error,
     sync::{atomic::AtomicBool, Arc},
 };
@@ -12,7 +11,6 @@ use std::{
 use byteorder::{BigEndian, ReadBytesExt};
 use chrono::{TimeZone, Utc};
 use nu_engine::command_prelude::*;
-use nu_protocol::RawStream;
 use rmp::decode::{self as mp, ValueReadError};
 
 /// Max recursion depth
@@ -121,12 +119,20 @@ MessagePack: https://msgpack.org/
                 read_msgpack(Cursor::new(bytes), opts)
             }
             // Deserialize from a raw stream directly without having to collect it
-            PipelineData::ExternalStream {
-                stdout: Some(raw_stream),
-                ..
-            } => read_msgpack(ReadRawStream::new(raw_stream), opts),
+            PipelineData::ByteStream(stream, ..) => {
+                let span = stream.span();
+                if let Some(reader) = stream.reader() {
+                    read_msgpack(reader, opts)
+                } else {
+                    Err(ShellError::PipelineMismatch {
+                        exp_input_type: "binary or byte stream".into(),
+                        dst_span: call.head,
+                        src_span: span,
+                    })
+                }
+            }
             input => Err(ShellError::PipelineMismatch {
-                exp_input_type: "binary".into(),
+                exp_input_type: "binary or byte stream".into(),
                 dst_span: call.head,
                 src_span: input.span().unwrap_or(call.head),
             }),
@@ -481,57 +487,6 @@ where
 {
     num.map(|num| Value::int(num.into(), span))
         .map_err(|err| ReadError::Io(err, span))
-}
-
-/// Adapter to read MessagePack from a `RawStream`
-///
-/// TODO: contribute this back to `RawStream` in general, with more polish, if it works
-pub(crate) struct ReadRawStream {
-    pub stream: RawStream,
-    // Use a `VecDeque` for read efficiency
-    pub leftover: VecDeque<u8>,
-}
-
-impl ReadRawStream {
-    pub(crate) fn new(mut stream: RawStream) -> ReadRawStream {
-        ReadRawStream {
-            leftover: std::mem::take(&mut stream.leftover).into(),
-            stream,
-        }
-    }
-}
-
-impl io::Read for ReadRawStream {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if buf.is_empty() {
-            Ok(0)
-        } else if !self.leftover.is_empty() {
-            // Take as many leftover bytes as possible
-            self.leftover.read(buf)
-        } else {
-            // Try to get data from the RawStream. We have to be careful not to break on a zero-len
-            // buffer though, since that would mean EOF
-            loop {
-                if let Some(result) = self.stream.stream.next() {
-                    let bytes = result.map_err(|err| io::Error::new(ErrorKind::Other, err))?;
-                    if !bytes.is_empty() {
-                        let min_len = bytes.len().min(buf.len());
-                        let (source, leftover_bytes) = bytes.split_at(min_len);
-                        buf[0..min_len].copy_from_slice(source);
-                        // Keep whatever bytes we couldn't use in the leftover vec
-                        self.leftover.write_all(leftover_bytes)?;
-                        return Ok(min_len);
-                    } else {
-                        // Zero-length buf, continue
-                        continue;
-                    }
-                } else {
-                    // End of input
-                    return Ok(0);
-                }
-            }
-        }
-    }
 }
 
 /// Return an error if this is not the end of file.

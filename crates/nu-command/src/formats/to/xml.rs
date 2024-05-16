@@ -132,7 +132,7 @@ impl Job {
     }
 
     fn run(mut self, input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(head);
+        let value = input.into_value(head)?;
 
         self.write_xml_entry(value, true).and_then(|_| {
             let b = self.writer.into_inner().into_inner();

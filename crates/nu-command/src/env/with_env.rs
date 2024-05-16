@@ -90,10 +90,7 @@ fn with_env(
                         return Err(ShellError::CantConvert {
                             to_type: "record".into(),
                             from_type: x.get_type().to_string(),
-                            span: call
-                                .positional_nth(1)
-                                .expect("already checked through .req")
-                                .span,
+                            span: x.span(),
                             help: None,
                         });
                     }
@@ -124,10 +121,7 @@ fn with_env(
             return Err(ShellError::CantConvert {
                 to_type: "record".into(),
                 from_type: x.get_type().to_string(),
-                span: call
-                    .positional_nth(1)
-                    .expect("already checked through .req")
-                    .span,
+                span: x.span(),
                 help: None,
             });
         }
