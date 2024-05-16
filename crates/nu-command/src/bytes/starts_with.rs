@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use std::io::{self, BufRead};
+use std::io::Read;
 
 struct Arguments {
     pattern: Vec<u8>,
@@ -60,33 +60,20 @@ impl Command for BytesStartsWith {
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
         if let PipelineData::ByteStream(stream, ..) = input {
-            let stream_span = stream.span();
+            let span = stream.span();
             if pattern.is_empty() {
                 return Ok(Value::bool(true, head).into_pipeline_data());
             }
-            let Some(mut reader) = stream.reader() else {
+            let Some(reader) = stream.reader() else {
                 return Ok(Value::bool(false, head).into_pipeline_data());
             };
-            let mut pattern = &pattern[..];
-            let starts_with = loop {
-                let buf = match reader.fill_buf() {
-                    Ok(&[]) => break false,
-                    Ok(buf) => buf,
-                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-                    Err(e) => return Err(e.into_spanned(stream_span).into()),
-                };
-                let len = buf.len();
-                if len >= pattern.len() {
-                    break buf.starts_with(pattern);
-                }
-                let (pat, remaining) = pattern.split_at(len);
-                if buf != pat {
-                    break false;
-                }
-                reader.consume(len);
-                pattern = remaining;
-            };
-            Ok(Value::bool(starts_with, head).into_pipeline_data())
+            let mut start = Vec::with_capacity(pattern.len());
+            reader
+                .take(pattern.len() as u64)
+                .read_to_end(&mut start)
+                .err_span(span)?;
+
+            Ok(Value::bool(start == pattern, head).into_pipeline_data())
         } else {
             let arg = Arguments {
                 pattern,
