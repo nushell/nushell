@@ -119,11 +119,6 @@ impl Command for Save {
                     force,
                 )?;
 
-                // https://github.com/nushell/nushell/pull/9377 contains the reason
-                // for not using BufWriter<File>
-                //
-                // TODO: flag to specify buffered (BufWriter), line buffered (LineWriter), or no buffering (File).
-
                 let size = stream.known_size();
                 let ctrlc = engine_state.ctrlc.clone();
 
@@ -514,7 +509,7 @@ fn stream_to_file(
     span: Span,
     progress: bool,
 ) -> Result<(), ShellError> {
-    // TODO: use bufwriter?
+    // https://github.com/nushell/nushell/pull/9377 contains the reason for not using `BufWriter`
     if progress {
         let mut bytes_processed = 0;
 
