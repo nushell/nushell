@@ -90,7 +90,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
                 ])),
             },
             Example {
-                example: "[0 1] | append 2..4",
+                example: "[0 1] | append 2..=4",
                 description: "Append a range of ints to a list",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),

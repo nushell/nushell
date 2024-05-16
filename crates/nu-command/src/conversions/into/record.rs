@@ -60,7 +60,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert from range to record",
-                example: "0..2 | into record",
+                example: "0..=2 | into record",
                 result: Some(Value::test_record(record! {
                     "0" => Value::test_int(0),
                     "1" => Value::test_int(1),

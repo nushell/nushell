@@ -175,7 +175,7 @@ fn const_operator_error(#[case] inp: &[&str], #[case] expect: &str) {
 }
 
 #[rstest]
-#[case(&["const x = (1..3)", "$x | math sum"], "6")]
+#[case(&["const x = (1..3)", "$x | math sum"], "3")]
 #[case(&["const x = (1..3)", "$x | describe"], "range")]
 fn const_range(#[case] inp: &[&str], #[case] expect: &str) {
     let actual = nu!(&inp.join("; "));

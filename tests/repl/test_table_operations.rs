@@ -160,7 +160,7 @@ fn record_2() -> TestResult {
 
 #[test]
 fn where_on_ranges() -> TestResult {
-    run_test(r#"1..10 | where $it > 8 | math sum"#, "19")
+    run_test(r#"1..10 | where $it > 8 | math sum"#, "9")
 }
 
 #[test]

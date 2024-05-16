@@ -5,7 +5,7 @@ use rstest::rstest;
 fn concrete_variable_assignment() -> TestResult {
     run_test(
         "let x = (1..100 | each { |y| $y + 100 }); let y = ($x | length); $x | length",
-        "100",
+        "99",
     )
 }
 
@@ -402,7 +402,7 @@ fn better_operator_spans() -> TestResult {
 
 #[test]
 fn range_right_exclusive() -> TestResult {
-    run_test(r#"[1, 4, 5, 8, 9] | range 1..<3 | math sum"#, "9")
+    run_test(r#"[1, 4, 5, 8, 9] | range 1..3 | math sum"#, "9")
 }
 
 /// Issue #7872

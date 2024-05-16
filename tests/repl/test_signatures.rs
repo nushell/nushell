@@ -79,7 +79,7 @@ fn list_annotations_nested_unterminated() -> TestResult {
 
 #[test]
 fn list_annotations_space_within_1() -> TestResult {
-    let input = "def run [list: list< range>] {$list | length}; run [2..32 5..<64 4..128]";
+    let input = "def run [list: list< range>] {$list | length}; run [2..32 5..64 4..128]";
     let expected = "3";
     run_test(input, expected)
 }

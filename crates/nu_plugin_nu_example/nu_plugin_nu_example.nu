@@ -139,7 +139,7 @@ def process_call [
             Record: {
               val: (
                 [one two three] |
-                  zip (0..2 | each { |y|
+                  zip (0..=2 | each { |y|
                     {
                       Int: {
                         val: ($x * $y),

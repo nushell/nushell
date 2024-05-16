@@ -77,7 +77,7 @@ fn for_loop() {
             for i in 1..3 { print $i }
         ");
 
-    assert_eq!(actual.out, "123");
+    assert_eq!(actual.out, "12");
 }
 
 #[test]
@@ -652,13 +652,13 @@ fn echoing_ranges() {
             echo 1..3 | math sum
         ");
 
-    assert_eq!(actual.out, "6");
+    assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn echoing_exclusive_ranges() {
     let actual = nu!("
-            echo 1..<4 | math sum
+            echo 1..4 | math sum
         ");
 
     assert_eq!(actual.out, "6");
@@ -697,7 +697,7 @@ fn range_with_left_var() {
         ({ size: 3}.size)..10 | math sum
         ");
 
-    assert_eq!(actual.out, "52");
+    assert_eq!(actual.out, "42");
 }
 
 #[test]
@@ -706,7 +706,7 @@ fn range_with_right_var() {
         4..({ size: 30}.size) | math sum
         ");
 
-    assert_eq!(actual.out, "459");
+    assert_eq!(actual.out, "429");
 }
 
 #[test]
@@ -715,13 +715,13 @@ fn range_with_open_left() {
         echo ..30 | math sum
         ");
 
-    assert_eq!(actual.out, "465");
+    assert_eq!(actual.out, "435");
 }
 
 #[test]
 fn exclusive_range_with_open_left() {
     let actual = nu!("
-        echo ..<31 | math sum
+        echo ..31 | math sum
         ");
 
     assert_eq!(actual.out, "465");
@@ -730,7 +730,7 @@ fn exclusive_range_with_open_left() {
 #[test]
 fn range_with_open_right() {
     let actual = nu!("
-        echo 5.. | first 10 | math sum
+        echo 5..= | first 10 | math sum
         ");
 
     assert_eq!(actual.out, "95");
@@ -739,7 +739,7 @@ fn range_with_open_right() {
 #[test]
 fn exclusive_range_with_open_right() {
     let actual = nu!("
-        echo 5..< | first 10 | math sum
+        echo 5.. | first 10 | math sum
         ");
 
     assert_eq!(actual.out, "95");
@@ -821,7 +821,7 @@ fn filesize_math7() {
 #[test]
 fn exclusive_range_with_mixed_types() {
     let actual = nu!("
-        echo 1..<10.5 | math sum
+        echo 1..10.5 | math sum
         ");
 
     assert_eq!(actual.out, "55");

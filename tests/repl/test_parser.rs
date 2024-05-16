@@ -91,7 +91,7 @@ fn range_iteration1() -> TestResult {
 
 #[test]
 fn range_iteration2() -> TestResult {
-    run_test("4..1 | each { |y| $y + 100 } | get 3", "101")
+    run_test("4..0 | each { |y| $y + 100 } | get 3", "101")
 }
 
 #[test]

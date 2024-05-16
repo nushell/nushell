@@ -12,7 +12,7 @@ fn int_in_dec_range() -> TestResult {
 
 #[test]
 fn int_in_exclusive_range() -> TestResult {
-    run_test(r#"3 in 0..<3"#, "false")
+    run_test(r#"3 in 0..3"#, "false")
 }
 
 #[test]
@@ -27,10 +27,10 @@ fn float_not_in_inc_range() -> TestResult {
 
 #[test]
 fn range_and_reduction() -> TestResult {
-    run_test(r#"1..6..36 | math sum"#, "148")
+    run_test(r#"1..6..36 | math sum"#, "112")
 }
 
 #[test]
 fn zip_ranges() -> TestResult {
-    run_test(r#"1..3 | zip 4..6 | get 2.1"#, "6")
+    run_test(r#"1..3 | zip 4..6 | get 1.1"#, "5")
 }
