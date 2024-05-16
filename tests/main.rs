@@ -11,5 +11,6 @@ mod path;
 mod plugin_persistence;
 #[cfg(feature = "plugin")]
 mod plugins;
+mod repl;
 mod scope;
 mod shell;

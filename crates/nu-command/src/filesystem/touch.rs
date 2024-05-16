@@ -117,7 +117,7 @@ impl Command for Touch {
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
 
-        for (index, glob) in files.into_iter().enumerate() {
+        for glob in files {
             let path = expand_path_with(glob.item.as_ref(), &cwd, glob.item.is_expand());
 
             // If --no-create is passed and the file/dir does not exist there's nothing to do
@@ -135,10 +135,7 @@ impl Command for Touch {
                 {
                     return Err(ShellError::CreateNotPossible {
                         msg: format!("Failed to create file: {err}"),
-                        span: call
-                            .positional_nth(index)
-                            .expect("already checked positional")
-                            .span,
+                        span: glob.span,
                     });
                 };
             }
@@ -148,10 +145,7 @@ impl Command for Touch {
                 {
                     return Err(ShellError::ChangeModifiedTimeNotPossible {
                         msg: format!("Failed to change the modified time: {err}"),
-                        span: call
-                            .positional_nth(index)
-                            .expect("already checked positional")
-                            .span,
+                        span: glob.span,
                     });
                 };
             }
@@ -161,10 +155,7 @@ impl Command for Touch {
                 {
                     return Err(ShellError::ChangeAccessTimeNotPossible {
                         msg: format!("Failed to change the access time: {err}"),
-                        span: call
-                            .positional_nth(index)
-                            .expect("already checked positional")
-                            .span,
+                        span: glob.span,
                     });
                 };
             }

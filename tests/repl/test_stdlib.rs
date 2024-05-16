@@ -1,4 +1,4 @@
-use crate::tests::{fail_test, run_test_std, TestResult};
+use crate::repl::tests::{fail_test, run_test_std, TestResult};
 
 #[test]
 fn library_loaded() -> TestResult {

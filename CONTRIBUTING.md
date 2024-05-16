@@ -55,7 +55,6 @@ It is good practice to cover your changes with a test. Also, try to think about 
 
 Tests can be found in different places:
 * `/tests`
-* `src/tests`
 * command examples
 * crate-specific tests
 
