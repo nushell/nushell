@@ -125,7 +125,7 @@ pub mod test {
 
         assert!(tmp_file.exists());
 
-        let value = pipeline_data.into_value(Span::test_data());
+        let value = pipeline_data.into_value(Span::test_data())?;
         let list = value.as_list()?;
         assert_eq!(list.len(), 1);
         let msg = list.first().expect("should have a value").as_str()?;

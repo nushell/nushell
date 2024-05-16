@@ -155,26 +155,18 @@ fn string_helper(
     }
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-    let config = engine_state.get_config().clone();
-    let args = Arguments {
-        decimals_value,
-        cell_paths,
-        config,
-    };
 
-    match input {
-        PipelineData::ExternalStream { stdout: None, .. } => {
-            Ok(Value::string(String::new(), head).into_pipeline_data())
-        }
-        PipelineData::ExternalStream {
-            stdout: Some(stream),
-            ..
-        } => {
-            // TODO: in the future, we may want this to stream out, converting each to bytes
-            let output = stream.into_string()?;
-            Ok(Value::string(output.item, head).into_pipeline_data())
-        }
-        _ => operate(action, args, input, head, engine_state.ctrlc.clone()),
+    if let PipelineData::ByteStream(stream, ..) = input {
+        // TODO: in the future, we may want this to stream out, converting each to bytes
+        Ok(Value::string(stream.into_string()?, head).into_pipeline_data())
+    } else {
+        let config = engine_state.get_config().clone();
+        let args = Arguments {
+            decimals_value,
+            cell_paths,
+            config,
+        };
+        operate(action, args, input, head, engine_state.ctrlc.clone())
     }
 }
 

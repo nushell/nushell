@@ -1,8 +1,8 @@
 use super::util::get_rest_for_glob_pattern;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, get_eval_block};
-use nu_protocol::{BufferedReader, DataSource, NuGlob, PipelineMetadata, RawStream};
-use std::{io::BufReader, path::Path};
+use nu_protocol::{ByteStream, DataSource, NuGlob, PipelineMetadata};
+use std::path::Path;
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
@@ -143,23 +143,13 @@ impl Command for Open {
                         }
                     };
 
-                    let buf_reader = BufReader::new(file);
-
-                    let file_contents = PipelineData::ExternalStream {
-                        stdout: Some(RawStream::new(
-                            Box::new(BufferedReader::new(buf_reader)),
-                            ctrlc.clone(),
-                            call_span,
-                            None,
-                        )),
-                        stderr: None,
-                        exit_code: None,
-                        span: call_span,
-                        metadata: Some(PipelineMetadata {
+                    let stream = PipelineData::ByteStream(
+                        ByteStream::file(file, call_span, ctrlc.clone()),
+                        Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
                         }),
-                        trim_end_newline: false,
-                    };
+                    );
+
                     let exts_opt: Option<Vec<String>> = if raw {
                         None
                     } else {
@@ -184,9 +174,9 @@ impl Command for Open {
                             let decl = engine_state.get_decl(converter_id);
                             let command_output = if let Some(block_id) = decl.block_id() {
                                 let block = engine_state.get_block(block_id);
-                                eval_block(engine_state, stack, block, file_contents)
+                                eval_block(engine_state, stack, block, stream)
                             } else {
-                                decl.run(engine_state, stack, &Call::new(call_span), file_contents)
+                                decl.run(engine_state, stack, &Call::new(call_span), stream)
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{
@@ -198,7 +188,7 @@ impl Command for Open {
                                 }
                                 })?);
                         }
-                        None => output.push(file_contents),
+                        None => output.push(stream),
                     }
                 }
             }

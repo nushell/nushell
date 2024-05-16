@@ -4,10 +4,9 @@ use super::{EngineInterfaceManager, ReceivedPluginCall};
 use nu_plugin_core::{interface_test_util::TestCase, Interface, InterfaceManager};
 use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value, TestCustomValue},
-    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall,
-    ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallResponse,
-    PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, RawStreamInfo,
-    StreamData,
+    ByteStreamInfo, CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse,
+    EvaluatedCall, ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallResponse,
+    PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
 };
 use nu_protocol::{
     engine::Closure, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
@@ -158,16 +157,9 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
     test.add(invalid_input());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ExternalStream(ExternalStreamInfo {
+        PipelineDataHeader::ByteStream(ByteStreamInfo {
+            id: 0,
             span: Span::test_data(),
-            stdout: Some(RawStreamInfo {
-                id: 0,
-                is_binary: false,
-                known_size: None,
-            }),
-            stderr: None,
-            exit_code: None,
-            trim_end_newline: false,
         }),
         None,
     )?;
@@ -1046,7 +1038,7 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
             true,
             false,
         )?
-        .into_value(Span::test_data());
+        .into_value(Span::test_data())?;
 
     assert_eq!(Value::test_int(2), result);
 

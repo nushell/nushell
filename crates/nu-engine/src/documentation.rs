@@ -53,7 +53,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
-            if let Ok(s) = result.coerce_into_string() {
+            if let Ok(s) = result.and_then(Value::coerce_into_string) {
                 return s; // successfully highlighted string
             }
         }
@@ -280,7 +280,7 @@ fn get_documentation(
             ) {
                 Ok(output) => {
                     let result = output.into_value(Span::unknown());
-                    match result.coerce_into_string() {
+                    match result.and_then(Value::coerce_into_string) {
                         Ok(s) => {
                             let _ = write!(long_desc, "\n  > {s}\n");
                         }

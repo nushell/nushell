@@ -542,7 +542,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let shell_integration_osc633 = config.shell_integration_osc633;
     let shell_integration_reset_application_mode = config.shell_integration_reset_application_mode;
 
-    let mut stack = Stack::unwrap_unique(stack_arc);
+    // TODO: we may clone the stack, this can lead to major performance issues
+    // so we should avoid it or making stack cheaper to clone.
+    let mut stack = Arc::unwrap_or_clone(stack_arc);
 
     perf(
         "line_editor setup",
@@ -870,7 +872,7 @@ fn parse_operation(
     let tokens = lex(s.as_bytes(), 0, &[], &[], false);
     // Check if this is a single call to a directory, if so auto-cd
     #[allow(deprecated)]
-    let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
+    let cwd = nu_engine::env::current_dir_str(engine_state, stack).unwrap_or_default();
     let mut orig = s.clone();
     if orig.starts_with('`') {
         orig = trim_quotes_str(&orig).to_string()
@@ -927,7 +929,10 @@ fn do_auto_cd(
 
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
-    stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
+    if let Err(err) = stack.set_cwd(&path) {
+        report_error_new(engine_state, &err);
+        return;
+    };
     let cwd = Value::string(cwd, span);
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
@@ -1478,4 +1483,137 @@ fn are_session_ids_in_sync() {
         i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
         engine_state.history_session_id
     );
+}
+
+#[cfg(test)]
+mod test_auto_cd {
+    use super::{do_auto_cd, parse_operation, ReplOperation};
+    use nu_protocol::engine::{EngineState, Stack};
+    use std::path::Path;
+    use tempfile::tempdir;
+
+    /// Create a symlink. Works on both Unix and Windows.
+    #[cfg(any(unix, windows))]
+    fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(original, link)
+        }
+        #[cfg(windows)]
+        {
+            if original.as_ref().is_dir() {
+                std::os::windows::fs::symlink_dir(original, link)
+            } else {
+                std::os::windows::fs::symlink_file(original, link)
+            }
+        }
+    }
+
+    /// Run one test case on the auto-cd feature. PWD is initially set to
+    /// `before`, and after `input` is parsed and evaluated, PWD should be
+    /// changed to `after`.
+    #[track_caller]
+    fn check(before: impl AsRef<Path>, input: &str, after: impl AsRef<Path>) {
+        // Setup EngineState and Stack.
+        let mut engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.set_cwd(before).unwrap();
+
+        // Parse the input. It must be an auto-cd operation.
+        let op = parse_operation(input.to_string(), &engine_state, &stack).unwrap();
+        let ReplOperation::AutoCd { cwd, target, span } = op else {
+            panic!("'{}' was not parsed into an auto-cd operation", input)
+        };
+
+        // Perform the auto-cd operation.
+        do_auto_cd(target, cwd, &mut stack, &mut engine_state, span);
+        let updated_cwd = engine_state.cwd(Some(&stack)).unwrap();
+
+        // Check that `updated_cwd` and `after` point to the same place. They
+        // don't have to be byte-wise equal (on Windows, the 8.3 filename
+        // conversion messes things up),
+        let updated_cwd = std::fs::canonicalize(updated_cwd).unwrap();
+        let after = std::fs::canonicalize(after).unwrap();
+        assert_eq!(updated_cwd, after);
+    }
+
+    #[test]
+    fn auto_cd_root() {
+        let tempdir = tempdir().unwrap();
+        let root = if cfg!(windows) { r"C:\" } else { "/" };
+        check(&tempdir, root, root);
+    }
+
+    #[test]
+    fn auto_cd_tilde() {
+        let tempdir = tempdir().unwrap();
+        let home = nu_path::home_dir().unwrap();
+        check(&tempdir, "~", home);
+    }
+
+    #[test]
+    fn auto_cd_dot() {
+        let tempdir = tempdir().unwrap();
+        check(&tempdir, ".", &tempdir);
+    }
+
+    #[test]
+    fn auto_cd_double_dot() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+        check(dir, "..", &tempdir);
+    }
+
+    #[test]
+    fn auto_cd_triple_dot() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo").join("bar");
+        std::fs::create_dir_all(&dir).unwrap();
+        check(dir, "...", &tempdir);
+    }
+
+    #[test]
+    fn auto_cd_relative() {
+        let tempdir = tempdir().unwrap();
+        let foo = tempdir.path().join("foo");
+        let bar = tempdir.path().join("bar");
+        std::fs::create_dir_all(&foo).unwrap();
+        std::fs::create_dir_all(&bar).unwrap();
+
+        let input = if cfg!(windows) { r"..\bar" } else { "../bar" };
+        check(foo, input, bar);
+    }
+
+    #[test]
+    fn auto_cd_trailing_slash() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let input = if cfg!(windows) { r"foo\" } else { "foo/" };
+        check(&tempdir, input, dir);
+    }
+
+    #[test]
+    fn auto_cd_symlink() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+        let link = tempdir.path().join("link");
+        symlink(&dir, &link).unwrap();
+
+        let input = if cfg!(windows) { r".\link" } else { "./link" };
+        check(&tempdir, input, link);
+    }
+
+    #[test]
+    #[should_panic(expected = "was not parsed into an auto-cd operation")]
+    fn auto_cd_nonexistent_directory() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo");
+
+        let input = if cfg!(windows) { r"foo\" } else { "foo/" };
+        check(&tempdir, input, dir);
+    }
 }

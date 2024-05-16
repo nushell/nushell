@@ -31,6 +31,10 @@ impl Command for Compact {
         "Creates a table with non-empty rows."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["empty", "remove"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

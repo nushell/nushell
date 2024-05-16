@@ -486,7 +486,7 @@ fn parse_short_flags(
                 && matches!(
                     sig.get_positional(positional_idx),
                     Some(PositionalArg {
-                        shape: SyntaxShape::Int | SyntaxShape::Number,
+                        shape: SyntaxShape::Int | SyntaxShape::Number | SyntaxShape::Float,
                         ..
                     })
                 )

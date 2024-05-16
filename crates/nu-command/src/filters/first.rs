@@ -170,11 +170,11 @@ fn first_helper(
                 ))
             }
         }
-        PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, binary or range".into(),
-            wrong_type: "raw data".into(),
+            wrong_type: "byte stream".into(),
             dst_span: head,
-            src_span: span,
+            src_span: stream.span(),
         }),
         PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, binary or range".into(),

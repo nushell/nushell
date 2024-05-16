@@ -172,7 +172,7 @@ macro_rules! lazy_expr_command {
                 call: &Call,
                 input: PipelineData,
             ) -> Result<PipelineData, ShellError> {
-                let value = input.into_value(call.head);
+                let value = input.into_value(call.head)?;
                 if NuDataFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value(value)?;
                     let lazy = NuLazyFrame::new(
@@ -271,7 +271,7 @@ macro_rules! lazy_expr_command {
                 call: &Call,
                 input: PipelineData,
             ) -> Result<PipelineData, ShellError> {
-                let value = input.into_value(call.head);
+                let value = input.into_value(call.head)?;
                 if NuDataFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value(value)?;
                     let lazy = NuLazyFrame::new(

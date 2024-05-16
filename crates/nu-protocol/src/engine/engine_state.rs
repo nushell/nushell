@@ -921,13 +921,12 @@ impl EngineState {
     /// directory on the stack that have yet to be merged into the engine state.
     pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
         // Helper function to create a simple generic error.
-        // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
-        fn error(msg: &str) -> Result<PathBuf, ShellError> {
+        fn error(msg: &str, cwd: impl AsRef<Path>) -> Result<PathBuf, ShellError> {
             Err(ShellError::GenericError {
                 error: msg.into(),
-                msg: "".into(),
+                msg: format!("$env.PWD = {}", cwd.as_ref().display()),
                 span: None,
-                help: None,
+                help: Some("Use `cd` to reset $env.PWD into a good state".into()),
                 inner: vec![],
             })
         }
@@ -957,21 +956,21 @@ impl EngineState {
                 // Technically, a root path counts as "having trailing slashes", but
                 // for the purpose of PWD, a root path is acceptable.
                 if !is_root(&path) && has_trailing_slash(&path) {
-                    error("$env.PWD contains trailing slashes")
+                    error("$env.PWD contains trailing slashes", path)
                 } else if !path.is_absolute() {
-                    error("$env.PWD is not an absolute path")
+                    error("$env.PWD is not an absolute path", path)
                 } else if !path.exists() {
-                    error("$env.PWD points to a non-existent directory")
+                    error("$env.PWD points to a non-existent directory", path)
                 } else if !path.is_dir() {
-                    error("$env.PWD points to a non-directory")
+                    error("$env.PWD points to a non-directory", path)
                 } else {
                     Ok(path)
                 }
             } else {
-                error("$env.PWD is not a string")
+                error("$env.PWD is not a string", format!("{pwd:?}"))
             }
         } else {
-            error("$env.PWD not found")
+            error("$env.PWD not found", "")
         }
     }
 

@@ -59,32 +59,12 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
                 Ok(input
                     .into_iter()
-                    .filter_map(move |value| match closure.run_with_value(value.clone()) {
-                        Ok(pred) => pred.into_value(head).is_true().then_some(value),
-                        Err(err) => {
-                            let span = value.span();
-                            let err = chain_error_with_input(err, value.is_error(), span);
-                            Some(Value::error(err, span))
-                        }
-                    })
-                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
-            }
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                ..
-            } => {
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(stream
-                    .into_iter()
                     .filter_map(move |value| {
-                        let value = match value {
-                            Ok(value) => value,
-                            Err(err) => return Some(Value::error(err, head)),
-                        };
-
-                        match closure.run_with_value(value.clone()) {
-                            Ok(pred) => pred.into_value(head).is_true().then_some(value),
+                        match closure
+                            .run_with_value(value.clone())
+                            .and_then(|data| data.into_value(head))
+                        {
+                            Ok(cond) => cond.is_true().then_some(value),
                             Err(err) => {
                                 let span = value.span();
                                 let err = chain_error_with_input(err, value.is_error(), span);
@@ -94,14 +74,43 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     })
                     .into_pipeline_data(head, engine_state.ctrlc.clone()))
             }
+            PipelineData::ByteStream(stream, ..) => {
+                if let Some(chunks) = stream.chunks() {
+                    let mut closure = ClosureEval::new(engine_state, stack, closure);
+                    Ok(chunks
+                        .into_iter()
+                        .filter_map(move |value| {
+                            let value = match value {
+                                Ok(value) => value,
+                                Err(err) => return Some(Value::error(err, head)),
+                            };
+
+                            match closure
+                                .run_with_value(value.clone())
+                                .and_then(|data| data.into_value(head))
+                            {
+                                Ok(cond) => cond.is_true().then_some(value),
+                                Err(err) => {
+                                    let span = value.span();
+                                    let err = chain_error_with_input(err, value.is_error(), span);
+                                    Some(Value::error(err, span))
+                                }
+                            }
+                        })
+                        .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                } else {
+                    Ok(PipelineData::Empty)
+                }
+            }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(value, ..) => {
                 let result = ClosureEvalOnce::new(engine_state, stack, closure)
-                    .run_with_value(value.clone());
+                    .run_with_value(value.clone())
+                    .and_then(|data| data.into_value(head));
 
                 Ok(match result {
-                    Ok(pred) => pred.into_value(head).is_true().then_some(value),
+                    Ok(cond) => cond.is_true().then_some(value),
                     Err(err) => {
                         let span = value.span();
                         let err = chain_error_with_input(err, value.is_error(), span);
