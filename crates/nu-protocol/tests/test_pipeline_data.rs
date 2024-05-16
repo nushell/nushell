@@ -11,5 +11,5 @@ fn test_convert_pipeline_data_to_value() {
     let new_span = Span::new(5, 6);
     let converted_value = pipeline_data.into_value(new_span);
 
-    assert_eq!(converted_value, Value::int(value_val, new_span));
+    assert_eq!(converted_value, Ok(Value::int(value_val, new_span)));
 }

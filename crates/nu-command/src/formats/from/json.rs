@@ -59,7 +59,7 @@ impl Command for FromJson {
         let (string_input, span, metadata) = input.collect_string_strict(span)?;
 
         if string_input.is_empty() {
-            return Ok(PipelineData::new_with_metadata(metadata, span));
+            return Ok(Value::nothing(span).into_pipeline_data());
         }
 
         let strict = call.has_flag(engine_state, stack, "strict")?;

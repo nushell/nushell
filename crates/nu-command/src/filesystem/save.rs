@@ -5,12 +5,15 @@ use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Expr, Expression},
-    DataSource, OutDest, PipelineMetadata, RawStream,
+    byte_stream::copy_with_interrupt,
+    process::ChildPipe,
+    ByteStreamSource, DataSource, OutDest, PipelineMetadata,
 };
 use std::{
     fs::File,
-    io::Write,
+    io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
+    sync::{atomic::AtomicBool, Arc},
     thread,
 };
 
@@ -104,12 +107,7 @@ impl Command for Save {
             });
 
         match input {
-            PipelineData::ExternalStream {
-                stdout,
-                stderr,
-                metadata,
-                ..
-            } => {
+            PipelineData::ByteStream(stream, metadata) => {
                 check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
 
                 let (file, stderr_file) = get_files(
@@ -121,40 +119,97 @@ impl Command for Save {
                     force,
                 )?;
 
-                match (stdout, stderr) {
-                    (Some(stdout), stderr) => {
-                        // delegate a thread to redirect stderr to result.
-                        let handler = stderr
-                            .map(|stderr| match stderr_file {
-                                Some(stderr_file) => thread::Builder::new()
-                                    .name("stderr redirector".to_string())
-                                    .spawn(move || {
-                                        stream_to_file(stderr, stderr_file, span, progress)
-                                    }),
-                                None => thread::Builder::new()
-                                    .name("stderr redirector".to_string())
-                                    .spawn(move || stderr.drain()),
-                            })
-                            .transpose()
-                            .err_span(span)?;
+                let size = stream.known_size();
+                let ctrlc = engine_state.ctrlc.clone();
 
-                        let res = stream_to_file(stdout, file, span, progress);
-                        if let Some(h) = handler {
-                            h.join().map_err(|err| ShellError::ExternalCommand {
-                                label: "Fail to receive external commands stderr message"
-                                    .to_string(),
-                                help: format!("{err:?}"),
-                                span,
-                            })??;
-                        }
-                        res?;
+                match stream.into_source() {
+                    ByteStreamSource::Read(read) => {
+                        stream_to_file(read, size, ctrlc, file, span, progress)?;
                     }
-                    (None, Some(stderr)) => match stderr_file {
-                        Some(stderr_file) => stream_to_file(stderr, stderr_file, span, progress)?,
-                        None => stderr.drain()?,
-                    },
-                    (None, None) => {}
-                };
+                    ByteStreamSource::File(source) => {
+                        stream_to_file(source, size, ctrlc, file, span, progress)?;
+                    }
+                    ByteStreamSource::Child(mut child) => {
+                        fn write_or_consume_stderr(
+                            stderr: ChildPipe,
+                            file: Option<File>,
+                            span: Span,
+                            ctrlc: Option<Arc<AtomicBool>>,
+                            progress: bool,
+                        ) -> Result<(), ShellError> {
+                            if let Some(file) = file {
+                                match stderr {
+                                    ChildPipe::Pipe(pipe) => {
+                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                    }
+                                    ChildPipe::Tee(tee) => {
+                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                    }
+                                }?
+                            } else {
+                                match stderr {
+                                    ChildPipe::Pipe(mut pipe) => {
+                                        io::copy(&mut pipe, &mut io::sink())
+                                    }
+                                    ChildPipe::Tee(mut tee) => io::copy(&mut tee, &mut io::sink()),
+                                }
+                                .err_span(span)?;
+                            }
+                            Ok(())
+                        }
+
+                        match (child.stdout.take(), child.stderr.take()) {
+                            (Some(stdout), stderr) => {
+                                // delegate a thread to redirect stderr to result.
+                                let handler = stderr
+                                    .map(|stderr| {
+                                        let ctrlc = ctrlc.clone();
+                                        thread::Builder::new().name("stderr saver".into()).spawn(
+                                            move || {
+                                                write_or_consume_stderr(
+                                                    stderr,
+                                                    stderr_file,
+                                                    span,
+                                                    ctrlc,
+                                                    progress,
+                                                )
+                                            },
+                                        )
+                                    })
+                                    .transpose()
+                                    .err_span(span)?;
+
+                                let res = match stdout {
+                                    ChildPipe::Pipe(pipe) => {
+                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                    }
+                                    ChildPipe::Tee(tee) => {
+                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                    }
+                                };
+                                if let Some(h) = handler {
+                                    h.join().map_err(|err| ShellError::ExternalCommand {
+                                        label: "Fail to receive external commands stderr message"
+                                            .to_string(),
+                                        help: format!("{err:?}"),
+                                        span,
+                                    })??;
+                                }
+                                res?;
+                            }
+                            (None, Some(stderr)) => {
+                                write_or_consume_stderr(
+                                    stderr,
+                                    stderr_file,
+                                    span,
+                                    ctrlc,
+                                    progress,
+                                )?;
+                            }
+                            (None, None) => {}
+                        };
+                    }
+                }
 
                 Ok(PipelineData::Empty)
             }
@@ -302,8 +357,7 @@ fn input_to_bytes(
 ) -> Result<Vec<u8>, ShellError> {
     let ext = if raw {
         None
-    // if is extern stream , in other words , not value
-    } else if let PipelineData::ExternalStream { .. } = input {
+    } else if let PipelineData::ByteStream(..) = input {
         None
     } else if let PipelineData::Value(Value::String { .. }, ..) = input {
         None
@@ -318,7 +372,7 @@ fn input_to_bytes(
         input
     };
 
-    value_to_bytes(input.into_value(span))
+    value_to_bytes(input.into_value(span)?)
 }
 
 /// Convert given data into content of file of specified extension if
@@ -448,84 +502,54 @@ fn get_files(
 }
 
 fn stream_to_file(
-    mut stream: RawStream,
+    mut source: impl Read,
+    known_size: Option<u64>,
+    ctrlc: Option<Arc<AtomicBool>>,
     mut file: File,
     span: Span,
     progress: bool,
 ) -> Result<(), ShellError> {
-    // https://github.com/nushell/nushell/pull/9377 contains the reason
-    // for not using BufWriter<File>
-    let writer = &mut file;
+    // https://github.com/nushell/nushell/pull/9377 contains the reason for not using `BufWriter`
+    if progress {
+        let mut bytes_processed = 0;
 
-    let mut bytes_processed: u64 = 0;
-    let bytes_processed_p = &mut bytes_processed;
-    let file_total_size = stream.known_size;
-    let mut process_failed = false;
-    let process_failed_p = &mut process_failed;
+        let mut bar = progress_bar::NuProgressBar::new(known_size);
 
-    // Create the progress bar
-    // It looks a bit messy but I am doing it this way to avoid
-    // creating the bar when is not needed
-    let (mut bar_opt, bar_opt_clone) = if progress {
-        let tmp_bar = progress_bar::NuProgressBar::new(file_total_size);
-        let tmp_bar_clone = tmp_bar.clone();
+        // TODO: reduce the number of progress bar updates?
 
-        (Some(tmp_bar), Some(tmp_bar_clone))
-    } else {
-        (None, None)
-    };
+        let mut reader = BufReader::new(source);
 
-    stream.try_for_each(move |result| {
-        let buf = match result {
-            Ok(v) => match v {
-                Value::String { val, .. } => val.into_bytes(),
-                Value::Binary { val, .. } => val,
-                // Propagate errors by explicitly matching them before the final case.
-                Value::Error { error, .. } => return Err(*error),
-                other => {
-                    return Err(ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "string or binary".into(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: span,
-                        src_span: other.span(),
-                    });
+        let res = loop {
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                bar.abandoned_msg("# Cancelled #".to_owned());
+                return Ok(());
+            }
+
+            match reader.fill_buf() {
+                Ok(&[]) => break Ok(()),
+                Ok(buf) => {
+                    file.write_all(buf).err_span(span)?;
+                    let len = buf.len();
+                    reader.consume(len);
+                    bytes_processed += len as u64;
+                    bar.update_bar(bytes_processed);
                 }
-            },
-            Err(err) => {
-                *process_failed_p = true;
-                return Err(err);
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => break Err(e),
             }
         };
 
-        // If the `progress` flag is set then
-        if progress {
-            // Update the total amount of bytes that has been saved and then print the progress bar
-            *bytes_processed_p += buf.len() as u64;
-            if let Some(bar) = &mut bar_opt {
-                bar.update_bar(*bytes_processed_p);
-            }
-        }
-
-        if let Err(err) = writer.write_all(&buf) {
-            *process_failed_p = true;
-            return Err(ShellError::IOError {
-                msg: err.to_string(),
-            });
-        }
-        Ok(())
-    })?;
-
-    // If the `progress` flag is set then
-    if progress {
         // If the process failed, stop the progress bar with an error message.
-        if process_failed {
-            if let Some(bar) = bar_opt_clone {
-                bar.abandoned_msg("# Error while saving #".to_owned());
-            }
+        if let Err(err) = res {
+            let _ = file.flush();
+            bar.abandoned_msg("# Error while saving #".to_owned());
+            Err(err.into_spanned(span).into())
+        } else {
+            file.flush().err_span(span)?;
+            Ok(())
         }
+    } else {
+        copy_with_interrupt(&mut source, &mut file, span, ctrlc.as_deref())?;
+        Ok(())
     }
-
-    file.flush()?;
-
-    Ok(())
 }

@@ -55,10 +55,11 @@ impl Command for Items {
                                 let result = closure
                                     .add_arg(Value::string(col, span))
                                     .add_arg(val)
-                                    .run_with_input(PipelineData::Empty);
+                                    .run_with_input(PipelineData::Empty)
+                                    .and_then(|data| data.into_value(head));
 
                                 match result {
-                                    Ok(data) => Some(data.into_value(head)),
+                                    Ok(value) => Some(value),
                                     Err(ShellError::Break { .. }) => None,
                                     Err(err) => {
                                         let err = chain_error_with_input(err, false, span);
@@ -77,20 +78,18 @@ impl Command for Items {
                     }),
                 }
             }
-            PipelineData::ListStream(..) => Err(ShellError::OnlySupportsThisInputType {
+            PipelineData::ListStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
                 wrong_type: "stream".into(),
-                dst_span: head,
-                src_span: head,
+                dst_span: call.head,
+                src_span: stream.span(),
             }),
-            PipelineData::ExternalStream { span, .. } => {
-                Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "record".into(),
-                    wrong_type: "raw data".into(),
-                    dst_span: head,
-                    src_span: span,
-                })
-            }
+            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "record".into(),
+                wrong_type: "byte stream".into(),
+                dst_span: call.head,
+                src_span: stream.span(),
+            }),
         }
         .map(|data| data.set_metadata(metadata))
     }

@@ -78,14 +78,12 @@ impl Command for Take {
                 stream.modify(|iter| iter.take(rows_desired)),
                 metadata,
             )),
-            PipelineData::ExternalStream { span, .. } => {
-                Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "list, binary or range".into(),
-                    wrong_type: "raw data".into(),
-                    dst_span: head,
-                    src_span: span,
-                })
-            }
+            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "list, binary or range".into(),
+                wrong_type: "byte stream".into(),
+                dst_span: head,
+                src_span: stream.span(),
+            }),
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: "null".into(),

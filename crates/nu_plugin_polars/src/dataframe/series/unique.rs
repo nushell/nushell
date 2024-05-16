@@ -134,7 +134,7 @@ impl PluginCommand for Unique {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let df = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         command_lazy(plugin, engine, call, df).map_err(LabeledError::from)
     }

@@ -43,7 +43,7 @@ impl Command for Collect {
             stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
 
         let metadata = input.metadata();
-        let input = input.into_value(call.head);
+        let input = input.into_value(call.head)?;
 
         let mut saved_positional = None;
         if let Some(var) = block.signature.get_positional(0) {

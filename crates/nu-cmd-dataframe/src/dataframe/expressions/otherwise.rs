@@ -91,7 +91,7 @@ impl Command for ExprOtherwise {
         let otherwise_predicate: Value = call.req(engine_state, stack, 0)?;
         let otherwise_predicate = NuExpression::try_from_value(otherwise_predicate)?;
 
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let complete: NuExpression = match NuWhen::try_from_value(value)? {
             NuWhen::Then(then) => then.otherwise(otherwise_predicate.into_polars()).into(),
             NuWhen::ChainedThen(chained_when) => chained_when

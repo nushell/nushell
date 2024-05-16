@@ -31,6 +31,10 @@ serde = { workspace = true, default-features = false }
 serde_json = { workspace = true, optional = true }
 thiserror = "1.0"
 typetag = "0.2"
+os_pipe = { workspace = true, features = ["io_safety"] }
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true, default-features = false, features = ["signal"] }
 
 [features]
 plugin = [

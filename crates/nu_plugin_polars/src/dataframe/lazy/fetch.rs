@@ -67,7 +67,7 @@ impl PluginCommand for LazyFetch {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let rows: i64 = call.req(0)?;
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
 
         let eager: NuDataFrame = lazy

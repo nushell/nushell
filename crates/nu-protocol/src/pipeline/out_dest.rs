@@ -5,17 +5,17 @@ use std::{fs::File, io, process::Stdio, sync::Arc};
 pub enum OutDest {
     /// Redirect the stdout and/or stderr of one command as the input for the next command in the pipeline.
     ///
-    /// The output pipe will be available as the `stdout` of `PipelineData::ExternalStream`.
+    /// The output pipe will be available as the `stdout` of [`ChildProcess`](crate::process::ChildProcess).
     ///
     /// If stdout and stderr are both set to `Pipe`,
-    /// then they will combined into the `stdout` of `PipelineData::ExternalStream`.
+    /// then they will combined into the `stdout` of [`ChildProcess`](crate::process::ChildProcess).
     Pipe,
     /// Capture output to later be collected into a [`Value`](crate::Value), `Vec`, or used in some other way.
     ///
-    /// The output stream(s) will be available in the `stdout` or `stderr` of `PipelineData::ExternalStream`.
+    /// The output stream(s) will be available in the `stdout` or `stderr` of [`ChildProcess`](crate::process::ChildProcess).
     ///
     /// This is similar to `Pipe` but will never combine stdout and stderr
-    /// or place an external command's stderr into `stdout` of `PipelineData::ExternalStream`.
+    /// or place an external command's stderr into `stdout` of [`ChildProcess`](crate::process::ChildProcess).
     Capture,
     /// Ignore output.
     ///

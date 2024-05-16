@@ -82,20 +82,12 @@ fn glob_helper(
     let head = call.head;
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-    let args = Arguments { cell_paths };
-    match input {
-        PipelineData::ExternalStream { stdout: None, .. } => {
-            Ok(Value::glob(String::new(), false, head).into_pipeline_data())
-        }
-        PipelineData::ExternalStream {
-            stdout: Some(stream),
-            ..
-        } => {
-            // TODO: in the future, we may want this to stream out, converting each to bytes
-            let output = stream.into_string()?;
-            Ok(Value::glob(output.item, false, head).into_pipeline_data())
-        }
-        _ => operate(action, args, input, head, engine_state.ctrlc.clone()),
+    if let PipelineData::ByteStream(stream, ..) = input {
+        // TODO: in the future, we may want this to stream out, converting each to bytes
+        Ok(Value::glob(stream.into_string()?, false, head).into_pipeline_data())
+    } else {
+        let args = Arguments { cell_paths };
+        operate(action, args, input, head, engine_state.ctrlc.clone())
     }
 }
 

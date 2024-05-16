@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use nu_engine::command_prelude::*;
 
-use super::msgpack::{read_msgpack, Opts, ReadRawStream};
+use super::msgpack::{read_msgpack, Opts};
 
 const BUFFER_SIZE: usize = 65536;
 
@@ -50,15 +50,21 @@ impl Command for FromMsgpackz {
                 read_msgpack(reader, opts)
             }
             // Deserialize from a raw stream directly without having to collect it
-            PipelineData::ExternalStream {
-                stdout: Some(raw_stream),
-                ..
-            } => {
-                let reader = brotli::Decompressor::new(ReadRawStream::new(raw_stream), BUFFER_SIZE);
-                read_msgpack(reader, opts)
+            PipelineData::ByteStream(stream, ..) => {
+                let span = stream.span();
+                if let Some(reader) = stream.reader() {
+                    let reader = brotli::Decompressor::new(reader, BUFFER_SIZE);
+                    read_msgpack(reader, opts)
+                } else {
+                    Err(ShellError::PipelineMismatch {
+                        exp_input_type: "binary or byte stream".into(),
+                        dst_span: call.head,
+                        src_span: span,
+                    })
+                }
             }
             _ => Err(ShellError::PipelineMismatch {
-                exp_input_type: "binary".into(),
+                exp_input_type: "binary or byte stream".into(),
                 dst_span: call.head,
                 src_span: span,
             }),
