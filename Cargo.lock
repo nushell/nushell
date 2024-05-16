@@ -2782,7 +2782,6 @@ dependencies = [
  "nix",
  "nu-cli",
  "nu-cmd-base",
- "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
  "nu-cmd-plugin",
@@ -2868,29 +2867,6 @@ dependencies = [
  "nu-parser",
  "nu-path",
  "nu-protocol",
-]
-
-[[package]]
-name = "nu-cmd-dataframe"
-version = "0.93.1"
-dependencies = [
- "chrono",
- "chrono-tz 0.8.6",
- "fancy-regex",
- "indexmap",
- "nu-cmd-lang",
- "nu-engine",
- "nu-parser",
- "nu-protocol",
- "num",
- "polars",
- "polars-arrow",
- "polars-io",
- "polars-ops",
- "polars-plan",
- "polars-utils",
- "serde",
- "sqlparser 0.45.0",
 ]
 
 [[package]]
