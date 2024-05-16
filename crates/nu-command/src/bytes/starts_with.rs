@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use std::io::{self, BufRead};
 
 struct Arguments {
     pattern: Vec<u8>,
@@ -53,20 +54,46 @@ impl Command for BytesStartsWith {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let pattern: Vec<u8> = call.req(engine_state, stack, 0)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let arg = Arguments {
-            pattern,
-            cell_paths,
-        };
-        operate(
-            starts_with,
-            arg,
-            input,
-            call.head,
-            engine_state.ctrlc.clone(),
-        )
+
+        if let PipelineData::ByteStream(stream, ..) = input {
+            let stream_span = stream.span();
+            if pattern.is_empty() {
+                return Ok(Value::bool(true, head).into_pipeline_data());
+            }
+            let Some(mut reader) = stream.reader() else {
+                return Ok(Value::bool(false, head).into_pipeline_data());
+            };
+            let mut pattern = &pattern[..];
+            let starts_with = loop {
+                let buf = match reader.fill_buf() {
+                    Ok(&[]) => break false,
+                    Ok(buf) => buf,
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(e) => return Err(e.into_spanned(stream_span).into()),
+                };
+                let len = buf.len();
+                if len >= pattern.len() {
+                    break buf.starts_with(pattern);
+                }
+                let (pat, remaining) = pattern.split_at(len);
+                if buf != pat {
+                    break false;
+                }
+                reader.consume(len);
+                pattern = remaining;
+            };
+            Ok(Value::bool(starts_with, head).into_pipeline_data())
+        } else {
+            let arg = Arguments {
+                pattern,
+                cell_paths,
+            };
+            operate(starts_with, arg, input, head, engine_state.ctrlc.clone())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
