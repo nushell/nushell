@@ -62,7 +62,7 @@ impl Command for BytesEndsWith {
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
         if let PipelineData::ByteStream(stream, ..) = input {
-            let stream_span = stream.span();
+            let span = stream.span();
             if pattern.is_empty() {
                 return Ok(Value::bool(true, head).into_pipeline_data());
             }
@@ -76,16 +76,21 @@ impl Command for BytesEndsWith {
                     Ok(&[]) => break,
                     Ok(buf) => buf,
                     Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-                    Err(e) => return Err(e.into_spanned(stream_span).into()),
+                    Err(e) => return Err(e.into_spanned(span).into()),
                 };
                 let len = buf.len();
                 if len >= cap {
                     end.clear();
                     end.extend(&buf[(len - cap)..])
                 } else {
-                    let len = len + end.len();
-                    if len > cap {
-                        end.drain(..(len - cap));
+                    let new_len = len + end.len();
+                    if new_len > cap {
+                        // The `drain` below will panic if `(new_len - cap) > end.len()`.
+                        // But this cannot happen since we know `len < cap` (as checked above):
+                        //   (len + end.len() - cap) > end.len()
+                        //   => (len - cap) > 0
+                        //   => len > cap
+                        end.drain(..(new_len - cap));
                     }
                     end.extend(buf);
                 }
