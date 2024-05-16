@@ -1,5 +1,9 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
+use std::{
+    collections::VecDeque,
+    io::{self, BufRead},
+};
 
 struct Arguments {
     pattern: Vec<u8>,
@@ -52,14 +56,49 @@ impl Command for BytesEndsWith {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let pattern: Vec<u8> = call.req(engine_state, stack, 0)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let arg = Arguments {
-            pattern,
-            cell_paths,
-        };
-        operate(ends_with, arg, input, call.head, engine_state.ctrlc.clone())
+
+        if let PipelineData::ByteStream(stream, ..) = input {
+            let stream_span = stream.span();
+            if pattern.is_empty() {
+                return Ok(Value::bool(true, head).into_pipeline_data());
+            }
+            let Some(mut reader) = stream.reader() else {
+                return Ok(Value::bool(false, head).into_pipeline_data());
+            };
+            let cap = pattern.len();
+            let mut end = VecDeque::<u8>::with_capacity(cap);
+            loop {
+                let buf = match reader.fill_buf() {
+                    Ok(&[]) => break,
+                    Ok(buf) => buf,
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(e) => return Err(e.into_spanned(stream_span).into()),
+                };
+                let len = buf.len();
+                if len >= cap {
+                    end.clear();
+                    end.extend(&buf[(len - cap)..])
+                } else {
+                    let len = len + end.len();
+                    if len > cap {
+                        end.drain(..(len - cap));
+                    }
+                    end.extend(buf);
+                }
+                reader.consume(len);
+            }
+            Ok(Value::bool(end == pattern, head).into_pipeline_data())
+        } else {
+            let arg = Arguments {
+                pattern,
+                cell_paths,
+            };
+            operate(ends_with, arg, input, head, engine_state.ctrlc.clone())
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
