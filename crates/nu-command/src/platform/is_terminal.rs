@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::span;
 use std::io::IsTerminal as _;
 
 #[derive(Clone)]
@@ -57,12 +56,9 @@ impl Command for IsTerminal {
                 });
             }
             _ => {
-                let spans: Vec<_> = call.arguments.iter().map(|arg| arg.span()).collect();
-                let span = span(&spans);
-
                 return Err(ShellError::IncompatibleParametersSingle {
                     msg: "Only one stream may be checked".into(),
-                    span,
+                    span: Span::merge_many(call.arguments.iter().map(|arg| arg.span())),
                 });
             }
         };
