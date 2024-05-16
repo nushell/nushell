@@ -1,7 +1,7 @@
 use super::{operations::Axis, NuDataFrame};
 use nu_protocol::{
     ast::{Boolean, Comparison, Math, Operator},
-    span, ShellError, Span, Spanned, Value,
+    ShellError, Span, Spanned, Value,
 };
 use num::Zero;
 use polars::prelude::{
@@ -17,9 +17,10 @@ pub(super) fn between_dataframes(
     right: &Value,
     rhs: &NuDataFrame,
 ) -> Result<NuDataFrame, ShellError> {
-    let operation_span = span(&[left.span(), right.span()]);
     match operator.item {
-        Operator::Math(Math::Plus) => lhs.append_df(rhs, Axis::Row, operation_span),
+        Operator::Math(Math::Plus) => {
+            lhs.append_df(rhs, Axis::Row, Span::merge(left.span(), right.span()))
+        }
         _ => Err(ShellError::OperatorMismatch {
             op_span: operator.span,
             lhs_ty: left.get_type().to_string(),
@@ -37,7 +38,7 @@ pub(super) fn compute_between_series(
     right: &Value,
     rhs: &Series,
 ) -> Result<NuDataFrame, ShellError> {
-    let operation_span = span(&[left.span(), right.span()]);
+    let operation_span = Span::merge(left.span(), right.span());
     match operator.item {
         Operator::Math(Math::Plus) => {
             let mut res = lhs + rhs;

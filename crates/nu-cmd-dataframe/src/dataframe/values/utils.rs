@@ -1,4 +1,4 @@
-use nu_protocol::{span as span_join, ShellError, Span, Spanned, Value};
+use nu_protocol::{ShellError, Span, Spanned, Value};
 
 // Default value used when selecting rows from dataframe
 pub const DEFAULT_ROWS: usize = 5;
@@ -27,7 +27,7 @@ pub(crate) fn convert_columns(
             let span = value.span();
             match value {
                 Value::String { val, .. } => {
-                    col_span = span_join(&[col_span, span]);
+                    col_span = col_span.merge(span);
                     Ok(Spanned { item: val, span })
                 }
                 _ => Err(ShellError::GenericError {
@@ -68,7 +68,7 @@ pub(crate) fn convert_columns_string(
             let span = value.span();
             match value {
                 Value::String { val, .. } => {
-                    col_span = span_join(&[col_span, span]);
+                    col_span = col_span.merge(span);
                     Ok(val)
                 }
                 _ => Err(ShellError::GenericError {
