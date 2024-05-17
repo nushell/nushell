@@ -76,7 +76,7 @@ is particularly large, this can cause high memory usage."#
                 engine_state,
                 &mut stack_captures,
                 block,
-                input.into_pipeline_data(),
+                input.into_pipeline_data_with_metadata(metadata),
             );
 
             if call.has_flag(engine_state, stack, "keep-env")? {
