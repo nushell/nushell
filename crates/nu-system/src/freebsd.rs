@@ -43,9 +43,6 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
     Ok(procs_b
         .into_iter()
         .map(|proc| {
-            if proc.ki_pid == 11 {
-                log::debug!("{proc:?}");
-            }
             // Try to find the previous version of the process
             let mut prev_proc = None;
             while let Some(peek) = a_iter.peek() {
@@ -93,9 +90,6 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
                 mem_resident: proc.ki_rssize.max(0) as u64 * pagesize,
                 mem_virtual: proc.ki_size.max(0) as u64,
             };
-            if info.pid == 11 {
-                log::debug!("{info:?}");
-            }
             Ok(info)
         })
         // Remove errors from the list - probably just processes that are gone now
