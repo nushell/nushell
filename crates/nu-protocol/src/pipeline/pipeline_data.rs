@@ -543,16 +543,15 @@ impl PipelineData {
             if let Some(decl_id) = engine_state.table_decl_id {
                 let command = engine_state.get_decl(decl_id);
                 if command.block_id().is_some() {
-                    self.write_all_and_flush(engine_state, no_newline, to_stderr)?;
+                    self.write_all_and_flush(engine_state, no_newline, to_stderr)
                 } else {
                     let call = Call::new(Span::new(0, 0));
                     let table = command.run(engine_state, stack, &call, self)?;
-                    table.write_all_and_flush(engine_state, no_newline, to_stderr)?;
+                    table.write_all_and_flush(engine_state, no_newline, to_stderr)
                 }
             } else {
-                self.write_all_and_flush(engine_state, no_newline, to_stderr)?;
+                self.write_all_and_flush(engine_state, no_newline, to_stderr)
             }
-            Ok(None)
         }
     }
 
@@ -561,27 +560,32 @@ impl PipelineData {
         engine_state: &EngineState,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<(), ShellError> {
-        let config = engine_state.get_config();
-        for item in self {
-            let mut out = if let Value::Error { error, .. } = item {
-                return Err(*error);
-            } else {
-                item.to_expanded_string("\n", config)
-            };
+    ) -> Result<Option<ExitStatus>, ShellError> {
+        if let PipelineData::ByteStream(stream, ..) = self {
+            // Copy ByteStreams directly
+            stream.print(to_stderr)
+        } else {
+            let config = engine_state.get_config();
+            for item in self {
+                let mut out = if let Value::Error { error, .. } = item {
+                    return Err(*error);
+                } else {
+                    item.to_expanded_string("\n", config)
+                };
 
-            if !no_newline {
-                out.push('\n');
+                if !no_newline {
+                    out.push('\n');
+                }
+
+                if to_stderr {
+                    stderr_write_all_and_flush(out)?
+                } else {
+                    stdout_write_all_and_flush(out)?
+                }
             }
 
-            if to_stderr {
-                stderr_write_all_and_flush(out)?
-            } else {
-                stdout_write_all_and_flush(out)?
-            }
+            Ok(None)
         }
-
-        Ok(())
     }
 }
 
