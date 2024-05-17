@@ -59,7 +59,7 @@ fn long_stream_binary() {
 fn long_stream_binary_overflow() {
     // .. ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
     let actual = nu!(r#"
-            nu --testbin repeater (0x[01]) 32768 | bytes starts-with (0..32768 | each {|| 0x[01] } | bytes collect)
+            nu --testbin repeater (0x[01]) 32768 | bytes starts-with (0..=32768 | each {|| 0x[01] } | bytes collect)
         "#);
 
     assert_eq!(actual.out, "false");
