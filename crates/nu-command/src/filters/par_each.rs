@@ -142,17 +142,16 @@ impl Command for ParEach {
                             .map(move |(index, value)| {
                                 let span = value.span();
                                 let is_error = value.is_error();
-                                let result =
+                                let value =
                                     ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                                        .run_with_value(value);
-
-                                let value = match result {
-                                    Ok(data) => data.into_value(span),
-                                    Err(err) => Value::error(
-                                        chain_error_with_input(err, is_error, span),
-                                        span,
-                                    ),
-                                };
+                                        .run_with_value(value)
+                                        .and_then(|data| data.into_value(span))
+                                        .unwrap_or_else(|err| {
+                                            Value::error(
+                                                chain_error_with_input(err, is_error, span),
+                                                span,
+                                            )
+                                        });
 
                                 (index, value)
                             })
@@ -169,17 +168,16 @@ impl Command for ParEach {
                             .map(move |(index, value)| {
                                 let span = value.span();
                                 let is_error = value.is_error();
-                                let result =
+                                let value =
                                     ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                                        .run_with_value(value);
-
-                                let value = match result {
-                                    Ok(data) => data.into_value(span),
-                                    Err(err) => Value::error(
-                                        chain_error_with_input(err, is_error, span),
-                                        span,
-                                    ),
-                                };
+                                        .run_with_value(value)
+                                        .and_then(|data| data.into_value(span))
+                                        .unwrap_or_else(|err| {
+                                            Value::error(
+                                                chain_error_with_input(err, is_error, span),
+                                                span,
+                                            )
+                                        });
 
                                 (index, value)
                             })
@@ -202,40 +200,12 @@ impl Command for ParEach {
                     .map(move |(index, value)| {
                         let span = value.span();
                         let is_error = value.is_error();
-                        let result = ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                            .run_with_value(value);
-
-                        let value = match result {
-                            Ok(data) => data.into_value(head),
-                            Err(err) => {
-                                Value::error(chain_error_with_input(err, is_error, span), span)
-                            }
-                        };
-
-                        (index, value)
-                    })
-                    .collect::<Vec<_>>();
-
-                apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
-            })),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                ..
-            } => Ok(create_pool(max_threads)?.install(|| {
-                let vec = stream
-                    .enumerate()
-                    .par_bridge()
-                    .map(move |(index, value)| {
-                        let value = match value {
-                            Ok(value) => value,
-                            Err(err) => return (index, Value::error(err, head)),
-                        };
-
                         let value = ClosureEvalOnce::new(engine_state, stack, closure.clone())
                             .run_with_value(value)
-                            .map(|data| data.into_value(head))
-                            .unwrap_or_else(|err| Value::error(err, head));
+                            .and_then(|data| data.into_value(head))
+                            .unwrap_or_else(|err| {
+                                Value::error(chain_error_with_input(err, is_error, span), span)
+                            });
 
                         (index, value)
                     })
@@ -243,6 +213,34 @@ impl Command for ParEach {
 
                 apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
             })),
+            PipelineData::ByteStream(stream, ..) => {
+                if let Some(chunks) = stream.chunks() {
+                    Ok(create_pool(max_threads)?.install(|| {
+                        let vec = chunks
+                            .enumerate()
+                            .par_bridge()
+                            .map(move |(index, value)| {
+                                let value = match value {
+                                    Ok(value) => value,
+                                    Err(err) => return (index, Value::error(err, head)),
+                                };
+
+                                let value =
+                                    ClosureEvalOnce::new(engine_state, stack, closure.clone())
+                                        .run_with_value(value)
+                                        .and_then(|data| data.into_value(head))
+                                        .unwrap_or_else(|err| Value::error(err, head));
+
+                                (index, value)
+                            })
+                            .collect::<Vec<_>>();
+
+                        apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
+                    }))
+                } else {
+                    Ok(PipelineData::empty())
+                }
+            }
         }
         .and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.ctrlc.clone()))
         .map(|data| data.set_metadata(metadata))

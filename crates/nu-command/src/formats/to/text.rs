@@ -1,6 +1,12 @@
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{format_duration, format_filesize_from_conf, Config, RawStream, ValueIterator};
+use nu_protocol::{format_duration, format_filesize_from_conf, ByteStream, Config};
+
+const LINE_ENDING: &str = if cfg!(target_os = "windows") {
+    "\r\n"
+} else {
+    "\n"
+};
 
 #[derive(Clone)]
 pub struct ToText;
@@ -28,39 +34,28 @@ impl Command for ToText {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let config = engine_state.get_config();
-
-        let line_ending = if cfg!(target_os = "windows") {
-            "\r\n"
-        } else {
-            "\n"
-        };
         let input = input.try_expand_range()?;
 
-        if let PipelineData::ListStream(stream, _) = input {
-            Ok(PipelineData::ExternalStream {
-                stdout: Some(RawStream::new(
-                    Box::new(ListStreamIterator {
-                        stream: stream.into_inner(),
-                        separator: line_ending.into(),
-                        config: config.clone(),
-                    }),
-                    engine_state.ctrlc.clone(),
-                    span,
-                    None,
-                )),
-                stderr: None,
-                exit_code: None,
-                span,
-                metadata: None,
-                trim_end_newline: false,
-            })
-        } else {
-            // FIXME: don't collect! stream the output wherever possible!
-            // Even if the data is collected when it arrives at `to text`, we should be able to stream it out
-            let collected_input = local_into_string(input.into_value(span), line_ending, config);
-
-            Ok(Value::string(collected_input, span).into_pipeline_data())
+        match input {
+            PipelineData::Empty => Ok(Value::string(String::new(), span).into_pipeline_data()),
+            PipelineData::Value(value, ..) => {
+                let str = local_into_string(value, LINE_ENDING, engine_state.get_config());
+                Ok(Value::string(str, span).into_pipeline_data())
+            }
+            PipelineData::ListStream(stream, meta) => {
+                let span = stream.span();
+                let config = engine_state.get_config().clone();
+                let iter = stream.into_inner().map(move |value| {
+                    let mut str = local_into_string(value, LINE_ENDING, &config);
+                    str.push_str(LINE_ENDING);
+                    str
+                });
+                Ok(PipelineData::ByteStream(
+                    ByteStream::from_iter(iter, span, engine_state.ctrlc.clone()),
+                    meta,
+                ))
+            }
+            PipelineData::ByteStream(stream, meta) => Ok(PipelineData::ByteStream(stream, meta)),
         }
     }
 
@@ -82,26 +77,6 @@ impl Command for ToText {
                 result: None,
             },
         ]
-    }
-}
-
-struct ListStreamIterator {
-    stream: ValueIterator,
-    separator: String,
-    config: Config,
-}
-
-impl Iterator for ListStreamIterator {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if let Some(item) = self.stream.next() {
-            let mut string = local_into_string(item, &self.separator, &self.config);
-            string.push_str(&self.separator);
-            Some(Ok(string.as_bytes().to_vec()))
-        } else {
-            None
-        }
     }
 }
 

@@ -50,7 +50,7 @@ impl PluginCommand for LazyExplode {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
-                            "id".to_string(), 
+                            "id".to_string(),
                             vec![
                                 Value::test_int(1),
                                 Value::test_int(1),
@@ -58,7 +58,7 @@ impl PluginCommand for LazyExplode {
                                 Value::test_int(2),
                             ]),
                         Column::new(
-                            "name".to_string(), 
+                            "name".to_string(),
                             vec![
                                 Value::test_string("Mercy"),
                                 Value::test_string("Mercy"),
@@ -66,7 +66,7 @@ impl PluginCommand for LazyExplode {
                                 Value::test_string("Bob"),
                             ]),
                         Column::new(
-                            "hobbies".to_string(), 
+                            "hobbies".to_string(),
                             vec![
                                 Value::test_string("Cycling"),
                                 Value::test_string("Knitting"),
@@ -84,7 +84,7 @@ impl PluginCommand for LazyExplode {
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
-                            "hobbies".to_string(), 
+                            "hobbies".to_string(),
                             vec![
                                 Value::test_string("Cycling"),
                                 Value::test_string("Knitting"),
@@ -116,8 +116,7 @@ pub(crate) fn explode(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(call.head);
-
+    let value = input.into_value(call.head)?;
     match PolarsPluginObject::try_from_value(plugin, &value)? {
         PolarsPluginObject::NuDataFrame(df) => {
             let lazy = df.lazy();

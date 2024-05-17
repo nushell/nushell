@@ -129,7 +129,9 @@ with 'transpose' first."#
                                 }
                                 Some(Value::list(vals, span))
                             }
-                            Ok(data) => Some(data.into_value(head)),
+                            Ok(data) => Some(data.into_value(head).unwrap_or_else(|err| {
+                                Value::error(chain_error_with_input(err, is_error, span), span)
+                            })),
                             Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
                             Err(ShellError::Break { .. }) => None,
                             Err(error) => {
@@ -140,37 +142,39 @@ with 'transpose' first."#
                     })
                     .into_pipeline_data(head, engine_state.ctrlc.clone()))
             }
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                ..
-            } => {
-                let mut closure = ClosureEval::new(engine_state, stack, closure);
-                Ok(stream
-                    .into_iter()
-                    .map_while(move |value| {
-                        let value = match value {
-                            Ok(value) => value,
-                            Err(ShellError::Continue { span }) => {
-                                return Some(Value::nothing(span))
-                            }
-                            Err(ShellError::Break { .. }) => return None,
-                            Err(err) => return Some(Value::error(err, head)),
-                        };
+            PipelineData::ByteStream(stream, ..) => {
+                if let Some(chunks) = stream.chunks() {
+                    let mut closure = ClosureEval::new(engine_state, stack, closure);
+                    Ok(chunks
+                        .map_while(move |value| {
+                            let value = match value {
+                                Ok(value) => value,
+                                Err(ShellError::Continue { span }) => {
+                                    return Some(Value::nothing(span))
+                                }
+                                Err(ShellError::Break { .. }) => return None,
+                                Err(err) => return Some(Value::error(err, head)),
+                            };
 
-                        let span = value.span();
-                        let is_error = value.is_error();
-                        match closure.run_with_value(value) {
-                            Ok(data) => Some(data.into_value(head)),
-                            Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
-                            Err(ShellError::Break { .. }) => None,
-                            Err(error) => {
-                                let error = chain_error_with_input(error, is_error, span);
-                                Some(Value::error(error, span))
+                            let span = value.span();
+                            let is_error = value.is_error();
+                            match closure
+                                .run_with_value(value)
+                                .and_then(|data| data.into_value(head))
+                            {
+                                Ok(value) => Some(value),
+                                Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
+                                Err(ShellError::Break { .. }) => None,
+                                Err(error) => {
+                                    let error = chain_error_with_input(error, is_error, span);
+                                    Some(Value::error(error, span))
+                                }
                             }
-                        }
-                    })
-                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                        })
+                        .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                } else {
+                    Ok(PipelineData::Empty)
+                }
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).

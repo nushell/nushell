@@ -1,6 +1,6 @@
 use std::{
     io,
-    process::{Child, Command},
+    process::{Child, Command, ExitStatus},
     sync::{atomic::AtomicU32, Arc},
 };
 
@@ -71,6 +71,10 @@ impl ForegroundChild {
                 pipeline_state: None,
             })
         }
+    }
+
+    pub fn wait(&mut self) -> io::Result<ExitStatus> {
+        self.as_mut().wait()
     }
 }
 

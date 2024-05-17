@@ -42,7 +42,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        parse(input.into_value(call.head), call.head, engine_state)
+        parse(input.into_value(call.head)?, call.head, engine_state)
     }
 
     fn examples(&self) -> Vec<Example> {

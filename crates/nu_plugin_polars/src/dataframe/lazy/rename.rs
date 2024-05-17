@@ -120,7 +120,7 @@ impl PluginCommand for RenameDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         command_lazy(plugin, engine, call, lazy).map_err(LabeledError::from)
     }

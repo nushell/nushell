@@ -80,7 +80,8 @@ pub fn test_dataframe_example(engine_state: &mut Box<EngineState>, example: &Exa
     let result =
         eval_block::<WithoutDebug>(engine_state, &mut stack, &block, PipelineData::empty())
             .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", example.example, err))
-            .into_value(Span::test_data());
+            .into_value(Span::test_data())
+            .expect("ok value");
 
     println!("input: {}", example.example);
     println!("result: {result:?}");

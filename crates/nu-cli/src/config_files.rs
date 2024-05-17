@@ -306,14 +306,15 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
     let mut engine_state = engine_state.clone();
     let mut stack = Stack::new();
 
-    if !eval_source(
+    if eval_source(
         &mut engine_state,
         &mut stack,
         &old_contents,
         &old_plugin_file_path.to_string_lossy(),
         PipelineData::Empty,
         false,
-    ) {
+    ) != 0
+    {
         return false;
     }
 

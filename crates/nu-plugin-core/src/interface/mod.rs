@@ -1,15 +1,10 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
-use nu_plugin_protocol::{
-    ExternalStreamInfo, ListStreamInfo, PipelineDataHeader, RawStreamInfo, StreamMessage,
-};
-use nu_protocol::{ListStream, PipelineData, RawStream, ShellError};
+use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
+use nu_protocol::{ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError};
 use std::{
-    io::Write,
-    sync::{
-        atomic::{AtomicBool, Ordering::Relaxed},
-        Arc, Mutex,
-    },
+    io::{Read, Write},
+    sync::{atomic::AtomicBool, Arc, Mutex},
     thread,
 };
 
@@ -185,31 +180,10 @@ pub trait InterfaceManager {
                 let reader = handle.read_stream(info.id, self.get_interface())?;
                 ListStream::new(reader, info.span, ctrlc.cloned()).into()
             }
-            PipelineDataHeader::ExternalStream(info) => {
+            PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
-                let span = info.span;
-                let new_raw_stream = |raw_info: RawStreamInfo| {
-                    let reader = handle.read_stream(raw_info.id, self.get_interface())?;
-                    let mut stream =
-                        RawStream::new(Box::new(reader), ctrlc.cloned(), span, raw_info.known_size);
-                    stream.is_binary = raw_info.is_binary;
-                    Ok::<_, ShellError>(stream)
-                };
-                PipelineData::ExternalStream {
-                    stdout: info.stdout.map(new_raw_stream).transpose()?,
-                    stderr: info.stderr.map(new_raw_stream).transpose()?,
-                    exit_code: info
-                        .exit_code
-                        .map(|list_info| {
-                            handle
-                                .read_stream(list_info.id, self.get_interface())
-                                .map(|reader| ListStream::new(reader, info.span, ctrlc.cloned()))
-                        })
-                        .transpose()?,
-                    span: info.span,
-                    metadata: None,
-                    trim_end_newline: info.trim_end_newline,
-                }
+                let reader = handle.read_stream(info.id, self.get_interface())?;
+                ByteStream::from_result_iter(reader, info.span, ctrlc.cloned()).into()
             }
         })
     }
@@ -271,11 +245,11 @@ pub trait Interface: Clone + Send {
             Ok::<_, ShellError>((id, writer))
         };
         match self.prepare_pipeline_data(data, context)? {
-            PipelineData::Value(value, _) => {
+            PipelineData::Value(value, ..) => {
                 Ok((PipelineDataHeader::Value(value), PipelineDataWriter::None))
             }
             PipelineData::Empty => Ok((PipelineDataHeader::Empty, PipelineDataWriter::None)),
-            PipelineData::ListStream(stream, _) => {
+            PipelineData::ListStream(stream, ..) => {
                 let (id, writer) = new_stream(LIST_STREAM_HIGH_PRESSURE)?;
                 Ok((
                     PipelineDataHeader::ListStream(ListStreamInfo {
@@ -285,50 +259,15 @@ pub trait Interface: Clone + Send {
                     PipelineDataWriter::ListStream(writer, stream),
                 ))
             }
-            PipelineData::ExternalStream {
-                stdout,
-                stderr,
-                exit_code,
-                span,
-                metadata: _,
-                trim_end_newline,
-            } => {
-                // Create the writers and stream ids
-                let stdout_stream = stdout
-                    .is_some()
-                    .then(|| new_stream(RAW_STREAM_HIGH_PRESSURE))
-                    .transpose()?;
-                let stderr_stream = stderr
-                    .is_some()
-                    .then(|| new_stream(RAW_STREAM_HIGH_PRESSURE))
-                    .transpose()?;
-                let exit_code_stream = exit_code
-                    .is_some()
-                    .then(|| new_stream(LIST_STREAM_HIGH_PRESSURE))
-                    .transpose()?;
-                // Generate the header, with the stream ids
-                let header = PipelineDataHeader::ExternalStream(ExternalStreamInfo {
-                    span,
-                    stdout: stdout
-                        .as_ref()
-                        .zip(stdout_stream.as_ref())
-                        .map(|(stream, (id, _))| RawStreamInfo::new(*id, stream)),
-                    stderr: stderr
-                        .as_ref()
-                        .zip(stderr_stream.as_ref())
-                        .map(|(stream, (id, _))| RawStreamInfo::new(*id, stream)),
-                    exit_code: exit_code_stream
-                        .as_ref()
-                        .map(|&(id, _)| ListStreamInfo { id, span }),
-                    trim_end_newline,
-                });
-                // Collect the writers
-                let writer = PipelineDataWriter::ExternalStream {
-                    stdout: stdout_stream.map(|(_, writer)| writer).zip(stdout),
-                    stderr: stderr_stream.map(|(_, writer)| writer).zip(stderr),
-                    exit_code: exit_code_stream.map(|(_, writer)| writer).zip(exit_code),
-                };
-                Ok((header, writer))
+            PipelineData::ByteStream(stream, ..) => {
+                let span = stream.span();
+                if let Some(reader) = stream.reader() {
+                    let (id, writer) = new_stream(RAW_STREAM_HIGH_PRESSURE)?;
+                    let header = PipelineDataHeader::ByteStream(ByteStreamInfo { id, span });
+                    Ok((header, PipelineDataWriter::ByteStream(writer, reader)))
+                } else {
+                    Ok((PipelineDataHeader::Empty, PipelineDataWriter::None))
+                }
             }
         }
     }
@@ -355,11 +294,7 @@ pub enum PipelineDataWriter<W: WriteStreamMessage> {
     #[default]
     None,
     ListStream(StreamWriter<W>, ListStream),
-    ExternalStream {
-        stdout: Option<(StreamWriter<W>, RawStream)>,
-        stderr: Option<(StreamWriter<W>, RawStream)>,
-        exit_code: Option<(StreamWriter<W>, ListStream)>,
-    },
+    ByteStream(StreamWriter<W>, Reader),
 }
 
 impl<W> PipelineDataWriter<W>
@@ -376,49 +311,16 @@ where
                 writer.write_all(stream)?;
                 Ok(())
             }
-            // Write all three possible streams of an ExternalStream on separate threads.
-            PipelineDataWriter::ExternalStream {
-                stdout,
-                stderr,
-                exit_code,
-            } => {
-                thread::scope(|scope| {
-                    let stderr_thread = stderr
-                        .map(|(mut writer, stream)| {
-                            thread::Builder::new()
-                                .name("plugin stderr writer".into())
-                                .spawn_scoped(scope, move || {
-                                    writer.write_all(raw_stream_iter(stream))
-                                })
-                        })
-                        .transpose()?;
-                    let exit_code_thread = exit_code
-                        .map(|(mut writer, stream)| {
-                            thread::Builder::new()
-                                .name("plugin exit_code writer".into())
-                                .spawn_scoped(scope, move || writer.write_all(stream))
-                        })
-                        .transpose()?;
-                    // Optimize for stdout: if only stdout is present, don't spawn any other
-                    // threads.
-                    if let Some((mut writer, stream)) = stdout {
-                        writer.write_all(raw_stream_iter(stream))?;
-                    }
-                    let panicked = |thread_name: &str| {
-                        Err(ShellError::NushellFailed {
-                            msg: format!(
-                                "{thread_name} thread panicked in PipelineDataWriter::write"
-                            ),
-                        })
-                    };
-                    stderr_thread
-                        .map(|t| t.join().unwrap_or_else(|_| panicked("stderr")))
-                        .transpose()?;
-                    exit_code_thread
-                        .map(|t| t.join().unwrap_or_else(|_| panicked("exit_code")))
-                        .transpose()?;
-                    Ok(())
-                })
+            // Write a byte stream.
+            PipelineDataWriter::ByteStream(mut writer, mut reader) => {
+                let span = reader.span();
+                let buf = &mut [0; 8192];
+                writer.write_all(std::iter::from_fn(move || match reader.read(buf) {
+                    Ok(0) => None,
+                    Ok(len) => Some(Ok(buf[..len].to_vec())),
+                    Err(err) => Some(Err(ShellError::from(err.into_spanned(span)))),
+                }))?;
+                Ok(())
             }
         }
     }
@@ -445,12 +347,4 @@ where
             )),
         }
     }
-}
-
-/// Custom iterator for [`RawStream`] that respects ctrlc, but still has binary chunks
-fn raw_stream_iter(stream: RawStream) -> impl Iterator<Item = Result<Vec<u8>, ShellError>> {
-    let ctrlc = stream.ctrlc;
-    stream
-        .stream
-        .take_while(move |_| ctrlc.as_ref().map(|b| !b.load(Relaxed)).unwrap_or(true))
 }

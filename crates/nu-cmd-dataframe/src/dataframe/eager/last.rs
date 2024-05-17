@@ -61,7 +61,7 @@ impl Command for LastDF {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         if NuDataFrame::can_downcast(&value) {
             let df = NuDataFrame::try_from_value(value)?;
             command(engine_state, stack, call, df)

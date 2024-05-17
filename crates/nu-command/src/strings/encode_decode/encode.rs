@@ -81,13 +81,10 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
 
         match input {
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                ..
-            } => {
+            PipelineData::ByteStream(stream, ..) => {
+                let span = stream.span();
                 let s = stream.into_string()?;
-                super::encoding::encode(head, encoding, &s.item, s.span, ignore_errors)
+                super::encoding::encode(head, encoding, &s, span, ignore_errors)
                     .map(|val| val.into_pipeline_data())
             }
             PipelineData::Value(v, ..) => {
