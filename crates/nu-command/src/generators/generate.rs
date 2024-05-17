@@ -158,14 +158,16 @@ used as the next argument to the closure, otherwise generation stops.
                 }
 
                 Ok(other) => {
-                    let val = other.into_value(head);
-                    let error = ShellError::GenericError {
-                        error: "Invalid block return".into(),
-                        msg: format!("Expected record, found {}", val.get_type()),
-                        span: Some(val.span()),
-                        help: None,
-                        inner: vec![],
-                    };
+                    let error = other
+                        .into_value(head)
+                        .map(|val| ShellError::GenericError {
+                            error: "Invalid block return".into(),
+                            msg: format!("Expected record, found {}", val.get_type()),
+                            span: Some(val.span()),
+                            help: None,
+                            inner: vec![],
+                        })
+                        .unwrap_or_else(|err| err);
 
                     (Some(Value::error(error, head)), None)
                 }

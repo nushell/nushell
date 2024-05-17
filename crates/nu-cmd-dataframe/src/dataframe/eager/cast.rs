@@ -79,7 +79,7 @@ impl Command for CastDF {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         if NuLazyFrame::can_downcast(&value) {
             let (dtype, column_nm) = df_args(engine_state, stack, call)?;
             let df = NuLazyFrame::try_from_value(value)?;

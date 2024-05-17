@@ -519,7 +519,7 @@ impl NuDataFrame {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
+        let value = input.into_value(span)?;
         Self::try_from_value_coerce(plugin, &value, span)
     }
 }

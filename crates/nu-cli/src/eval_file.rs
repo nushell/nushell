@@ -96,7 +96,7 @@ pub fn evaluate_file(
     engine_state.merge_delta(working_set.delta)?;
 
     // Check if the file contains a main command.
-    if engine_state.find_decl(b"main", &[]).is_some() {
+    let exit_code = if engine_state.find_decl(b"main", &[]).is_some() {
         // Evaluate the file, but don't run main yet.
         let pipeline =
             match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
@@ -109,26 +109,29 @@ pub fn evaluate_file(
             };
 
         // Print the pipeline output of the last command of the file.
-        let exit_code = pipeline.print(engine_state, stack, true, false)?;
-        if exit_code != 0 {
-            std::process::exit(exit_code as i32);
+        if let Some(status) = pipeline.print(engine_state, stack, true, false)? {
+            if status.code() != 0 {
+                std::process::exit(status.code())
+            }
         }
 
         // Invoke the main command with arguments.
         // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.
         let args = format!("main {}", args.join(" "));
-        if !eval_source(
+        eval_source(
             engine_state,
             stack,
             args.as_bytes(),
             "<commandline>",
             input,
             true,
-        ) {
-            std::process::exit(1);
-        }
-    } else if !eval_source(engine_state, stack, &file, file_path_str, input, true) {
-        std::process::exit(1);
+        )
+    } else {
+        eval_source(engine_state, stack, &file, file_path_str, input, true)
+    };
+
+    if exit_code != 0 {
+        std::process::exit(exit_code)
     }
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());

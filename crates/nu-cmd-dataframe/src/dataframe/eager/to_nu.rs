@@ -76,7 +76,7 @@ impl Command for ToNu {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         if NuDataFrame::can_downcast(&value) {
             dataframe_command(engine_state, stack, call, value)
         } else {

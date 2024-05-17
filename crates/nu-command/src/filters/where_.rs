@@ -57,9 +57,14 @@ not supported."#
         let metadata = input.metadata();
         Ok(input
             .into_iter_strict(head)?
-            .filter_map(move |value| match closure.run_with_value(value.clone()) {
-                Ok(data) => data.into_value(head).is_true().then_some(value),
-                Err(err) => Some(Value::error(err, head)),
+            .filter_map(move |value| {
+                match closure
+                    .run_with_value(value.clone())
+                    .and_then(|data| data.into_value(head))
+                {
+                    Ok(cond) => cond.is_true().then_some(value),
+                    Err(err) => Some(Value::error(err, head)),
+                }
             })
             .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
     }

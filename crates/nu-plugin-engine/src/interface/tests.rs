@@ -9,10 +9,10 @@ use crate::{
 use nu_plugin_core::{interface_test_util::TestCase, Interface, InterfaceManager};
 use nu_plugin_protocol::{
     test_util::{expected_test_custom_value, test_plugin_custom_value},
-    CallInfo, CustomValueOp, EngineCall, EngineCallResponse, EvaluatedCall, ExternalStreamInfo,
+    ByteStreamInfo, CallInfo, CustomValueOp, EngineCall, EngineCallResponse, EvaluatedCall,
     ListStreamInfo, PipelineDataHeader, PluginCall, PluginCallId, PluginCallResponse,
-    PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, RawStreamInfo,
-    StreamData, StreamMessage,
+    PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
+    StreamMessage,
 };
 use nu_protocol::{
     ast::{Math, Operator},
@@ -154,16 +154,9 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
     test.add(invalid_output());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ExternalStream(ExternalStreamInfo {
+        PipelineDataHeader::ByteStream(ByteStreamInfo {
+            id: 0,
             span: Span::test_data(),
-            stdout: Some(RawStreamInfo {
-                id: 0,
-                is_binary: false,
-                known_size: None,
-            }),
-            stderr: None,
-            exit_code: None,
-            trim_end_newline: false,
         }),
         None,
     )?;
@@ -378,7 +371,7 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
         fake_plugin_call(&mut manager, n);
     }
 
-    // Check list streams, external streams
+    // Check list streams, byte streams
     manager.consume(PluginOutput::CallResponse(
         0,
         PluginCallResponse::PipelineData(PipelineDataHeader::ListStream(ListStreamInfo {
@@ -388,23 +381,9 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
     ))?;
     manager.consume(PluginOutput::CallResponse(
         1,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ExternalStream(ExternalStreamInfo {
+        PluginCallResponse::PipelineData(PipelineDataHeader::ByteStream(ByteStreamInfo {
+            id: 1,
             span: Span::test_data(),
-            stdout: Some(RawStreamInfo {
-                id: 1,
-                is_binary: false,
-                known_size: None,
-            }),
-            stderr: Some(RawStreamInfo {
-                id: 2,
-                is_binary: false,
-                known_size: None,
-            }),
-            exit_code: Some(ListStreamInfo {
-                id: 3,
-                span: Span::test_data(),
-            }),
-            trim_end_newline: false,
         })),
     ))?;
 
@@ -423,22 +402,20 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
         "plugin_call_input_streams[0] should be Some(0)"
     );
 
-    // ExternalStream should have three
+    // ByteStream should have one
     if let Some(sub) = manager.plugin_call_states.get(&1) {
         assert_eq!(
-            3, sub.remaining_streams_to_read,
-            "ExternalStream remaining_streams_to_read should be 3"
+            1, sub.remaining_streams_to_read,
+            "ByteStream remaining_streams_to_read should be 1"
         );
     } else {
-        panic!("failed to find subscription for ExternalStream (1), maybe it was removed");
+        panic!("failed to find subscription for ByteStream (1), maybe it was removed");
     }
-    for n in [1, 2, 3] {
-        assert_eq!(
-            Some(&1),
-            manager.plugin_call_input_streams.get(&n),
-            "plugin_call_input_streams[{n}] should be Some(1)"
-        );
-    }
+    assert_eq!(
+        Some(&1),
+        manager.plugin_call_input_streams.get(&1),
+        "plugin_call_input_streams[1] should be Some(1)"
+    );
 
     Ok(())
 }
@@ -1087,7 +1064,7 @@ fn interface_run() -> Result<(), ShellError> {
 
     assert_eq!(
         Value::test_int(number),
-        result.into_value(Span::test_data())
+        result.into_value(Span::test_data())?,
     );
     assert!(test.has_unconsumed_write());
     Ok(())
@@ -1136,7 +1113,7 @@ fn interface_prepare_pipeline_data_accepts_normal_values() -> Result<(), ShellEr
         match interface.prepare_pipeline_data(PipelineData::Value(value.clone(), None), &state) {
             Ok(data) => assert_eq!(
                 value.get_type(),
-                data.into_value(Span::test_data()).get_type()
+                data.into_value(Span::test_data())?.get_type(),
             ),
             Err(err) => panic!("failed to accept {value:?}: {err}"),
         }

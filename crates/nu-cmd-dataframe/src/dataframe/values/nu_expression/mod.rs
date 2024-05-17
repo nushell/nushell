@@ -84,7 +84,7 @@ impl NuExpression {
     }
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
+        let value = input.into_value(span)?;
         Self::try_from_value(value)
     }
 

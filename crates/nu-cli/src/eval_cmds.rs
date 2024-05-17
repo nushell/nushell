@@ -1,5 +1,4 @@
 use log::info;
-use miette::Result;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_protocol::{
@@ -59,9 +58,10 @@ pub fn evaluate_commands(
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 
-    let exit_code = pipeline.print(engine_state, stack, no_newline, false)?;
-    if exit_code != 0 {
-        std::process::exit(exit_code as i32);
+    if let Some(status) = pipeline.print(engine_state, stack, no_newline, false)? {
+        if status.code() != 0 {
+            std::process::exit(status.code())
+        }
     }
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());

@@ -6,8 +6,6 @@ use std::fmt;
 
 pub struct NuProgressBar {
     pub pb: ProgressBar,
-    bytes_processed: u64,
-    total_bytes: Option<u64>,
 }
 
 impl NuProgressBar {
@@ -40,8 +38,6 @@ impl NuProgressBar {
 
         NuProgressBar {
             pb: new_progress_bar,
-            total_bytes: None,
-            bytes_processed: 0,
         }
     }
 
@@ -56,13 +52,5 @@ impl NuProgressBar {
 
     pub fn abandoned_msg(&self, msg: String) {
         self.pb.abandon_with_message(msg);
-    }
-
-    pub fn clone(&self) -> NuProgressBar {
-        NuProgressBar {
-            pb: self.pb.clone(),
-            bytes_processed: self.bytes_processed,
-            total_bytes: self.total_bytes,
-        }
     }
 }

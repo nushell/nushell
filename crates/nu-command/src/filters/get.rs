@@ -81,7 +81,7 @@ If multiple cell paths are given, this will produce a list of values."#
 
             let paths = std::iter::once(cell_path).chain(rest);
 
-            let input = input.into_value(span);
+            let input = input.into_value(span)?;
 
             for path in paths {
                 let val = input.clone().follow_cell_path(&path.members, !sensitive);
@@ -115,7 +115,7 @@ If multiple cell paths are given, this will produce a list of values."#
             },
             Example {
                 description:
-                    "Extract the name of the 3rd record in a list (same as `ls | $in.name`)",
+                    "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`)",
                 example: "ls | get name.2",
                 result: None,
             },

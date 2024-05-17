@@ -784,10 +784,7 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
                 None => {
                     return Err(ShellError::TypeMismatch {
                         err_message: String::from("Unknown ansi code"),
-                        span: call
-                            .positional_nth(0)
-                            .expect("Unexpected missing argument")
-                            .span,
+                        span: code.span(),
                     })
                 }
             }

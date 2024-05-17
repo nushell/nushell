@@ -100,7 +100,7 @@ impl Command for LazyExplode {
 }
 
 pub(crate) fn explode(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(call.head);
+    let value = input.into_value(call.head)?;
     if NuDataFrame::can_downcast(&value) {
         let df = NuLazyFrame::try_from_value(value)?;
         let columns: Vec<String> = call

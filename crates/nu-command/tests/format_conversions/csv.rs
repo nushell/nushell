@@ -183,6 +183,7 @@ fn from_csv_text_with_tab_separator_to_table() {
 }
 
 #[test]
+#[ignore = "csv crate has a bug when the last line is a comment: https://github.com/BurntSushi/rust-csv/issues/363"]
 fn from_csv_text_with_comments_to_table() {
     Playground::setup("filter_from_csv_test_5", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(

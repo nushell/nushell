@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     values::{CustomValueSupport, NuDataFrame, PolarsPluginCustomValue},
-    PolarsPlugin,
+    Cacheable, PolarsPlugin,
 };
 
 use super::NuLazyFrame;
@@ -76,11 +76,49 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
         _engine: &EngineInterface,
         other_value: Value,
     ) -> Result<Option<Ordering>, ShellError> {
-        // to compare, we need to convert to NuDataframe
-        let df = NuLazyFrame::try_from_custom_value(plugin, self)?;
-        let df = df.collect(other_value.span())?;
+        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(Span::unknown())?;
         let other = NuDataFrame::try_from_value_coerce(plugin, &other_value, other_value.span())?;
-        let res = df.is_equal(&other);
+        let res = eager.is_equal(&other);
         Ok(res)
+    }
+
+    fn custom_value_operation(
+        &self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        lhs_span: Span,
+        operator: nu_protocol::Spanned<nu_protocol::ast::Operator>,
+        right: Value,
+    ) -> Result<Value, ShellError> {
+        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(Span::unknown())?;
+        Ok(eager
+            .compute_with_value(plugin, lhs_span, operator.item, operator.span, &right)?
+            .cache(plugin, engine, lhs_span)?
+            .into_value(lhs_span))
+    }
+
+    fn custom_value_follow_path_int(
+        &self,
+        plugin: &PolarsPlugin,
+        _engine: &EngineInterface,
+        _self_span: Span,
+        index: nu_protocol::Spanned<usize>,
+    ) -> Result<Value, ShellError> {
+        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(Span::unknown())?;
+        eager.get_value(index.item, index.span)
+    }
+
+    fn custom_value_follow_path_string(
+        &self,
+        plugin: &PolarsPlugin,
+        engine: &EngineInterface,
+        self_span: Span,
+        column_name: nu_protocol::Spanned<String>,
+    ) -> Result<Value, ShellError> {
+        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(Span::unknown())?;
+        let column = eager.column(&column_name.item, self_span)?;
+        Ok(column
+            .cache(plugin, engine, self_span)?
+            .into_value(self_span))
     }
 }

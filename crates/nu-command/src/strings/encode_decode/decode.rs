@@ -57,16 +57,12 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
         let encoding: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
 
         match input {
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                span: input_span,
-                ..
-            } => {
-                let bytes: Vec<u8> = stream.into_bytes()?.item;
+            PipelineData::ByteStream(stream, ..) => {
+                let span = stream.span();
+                let bytes = stream.into_bytes()?;
                 match encoding {
                     Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
-                    None => super::encoding::detect_encoding_name(head, input_span, &bytes)
+                    None => super::encoding::detect_encoding_name(head, span, &bytes)
                         .map(|encoding| encoding.decode(&bytes).0.into_owned())
                         .map(|s| Value::string(s, head)),
                 }

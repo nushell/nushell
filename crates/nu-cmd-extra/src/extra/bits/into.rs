@@ -118,22 +118,12 @@ fn into_bits(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    match input {
-        PipelineData::ExternalStream { stdout: None, .. } => {
-            Ok(Value::binary(vec![], head).into_pipeline_data())
-        }
-        PipelineData::ExternalStream {
-            stdout: Some(stream),
-            ..
-        } => {
-            // TODO: in the future, we may want this to stream out, converting each to bytes
-            let output = stream.into_bytes()?;
-            Ok(Value::binary(output.item, head).into_pipeline_data())
-        }
-        _ => {
-            let args = Arguments { cell_paths };
-            operate(action, args, input, call.head, engine_state.ctrlc.clone())
-        }
+    if let PipelineData::ByteStream(stream, ..) = input {
+        // TODO: in the future, we may want this to stream out, converting each to bytes
+        Ok(Value::binary(stream.into_bytes()?, head).into_pipeline_data())
+    } else {
+        let args = Arguments { cell_paths };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 }
 
