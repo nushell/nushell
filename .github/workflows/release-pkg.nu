@@ -13,7 +13,7 @@
 # checkout the release you want to publish
 # 1. git checkout 0.86.0
 # unset CARGO_TARGET_DIR if set (I have to do this in the parent shell to get it to work)
-# 2. $env.CARGO_TARGET_DIR = ""
+# 2. $env:CARGO_TARGET_DIR = ""
 # 2. hide-env CARGO_TARGET_DIR
 # 3. $env.TARGET = 'x86_64-pc-windows-msvc'
 # 5. $env.GITHUB_WORKSPACE = 'D:\nushell'
