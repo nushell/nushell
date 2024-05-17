@@ -84,41 +84,30 @@ jobs:
         include:
         - target: aarch64-apple-darwin
           os: macos-latest
-          target_rustflags: ''
         - target: x86_64-apple-darwin
           os: macos-latest
-          target_rustflags: ''
         - target: x86_64-pc-windows-msvc
           extra: 'bin'
           os: windows-latest
-          target_rustflags: ''
         - target: x86_64-pc-windows-msvc
           extra: msi
           os: windows-latest
-          target_rustflags: ''
         - target: aarch64-pc-windows-msvc
           extra: 'bin'
           os: windows-latest
-          target_rustflags: ''
         - target: aarch64-pc-windows-msvc
           extra: msi
           os: windows-latest
-          target_rustflags: ''
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-20.04
-          target_rustflags: ''
         - target: x86_64-unknown-linux-musl
           os: ubuntu-20.04
-          target_rustflags: ''
         - target: aarch64-unknown-linux-gnu
           os: ubuntu-20.04
-          target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-20.04
-          target_rustflags: ''
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
-          target_rustflags: ''
 
     runs-on: ${{matrix.os}}
 
@@ -147,12 +136,10 @@ jobs:
       id: nu
       run: nu .github/workflows/release-pkg.nu
       env:
-        RELEASE_TYPE: standard
         OS: ${{ matrix.os }}
         REF: ${{ github.ref }}
         TARGET: ${{ matrix.target }}
         _EXTRA_: ${{ matrix.extra }}
-        TARGET_RUSTFLAGS: ${{ matrix.target_rustflags }}
 
     - name: Create an Issue for Release Failure
       if: ${{ failure() }}
