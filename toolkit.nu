@@ -525,9 +525,7 @@ export def "benchmark-and-log-result" [] {
 export def 'release-pkg windows' [
     --artifacts-dir="artifacts" # Where to copy the final msi and zip files to
 ] {
-    $env.RUSTFLAGS = ""
     $env.CARGO_TARGET_DIR = ""
-    hide-env RUSTFLAGS
     hide-env CARGO_TARGET_DIR
     $env.OS = "windows-latest"
     $env.GITHUB_WORKSPACE = ("." | path expand)
