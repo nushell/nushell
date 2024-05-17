@@ -1,7 +1,6 @@
 mod from;
 
 use nu_plugin::{Plugin, PluginCommand};
-use nu_protocol::PluginMetadata;
 
 pub use from::eml::FromEml;
 pub use from::ics::FromIcs;
@@ -11,6 +10,10 @@ pub use from::vcf::FromVcf;
 pub struct FromCmds;
 
 impl Plugin for FromCmds {
+    fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![
             Box::new(FromEml),
@@ -18,9 +21,5 @@ impl Plugin for FromCmds {
             Box::new(FromIni),
             Box::new(FromVcf),
         ]
-    }
-
-    fn metadata(&self) -> PluginMetadata {
-        PluginMetadata::new().with_version(env!("CARGO_PKG_VERSION"))
     }
 }

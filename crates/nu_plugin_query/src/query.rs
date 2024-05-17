@@ -1,6 +1,6 @@
 use crate::{query_json::QueryJson, query_web::QueryWeb, query_xml::QueryXml};
 use nu_plugin::{EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
-use nu_protocol::{Category, LabeledError, PluginMetadata, Signature, Value};
+use nu_protocol::{Category, LabeledError, Signature, Value};
 
 #[derive(Default)]
 pub struct Query;
@@ -16,6 +16,10 @@ impl Query {
 }
 
 impl Plugin for Query {
+    fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![
             Box::new(QueryCommand),
@@ -23,10 +27,6 @@ impl Plugin for Query {
             Box::new(QueryXml),
             Box::new(QueryWeb),
         ]
-    }
-
-    fn metadata(&self) -> PluginMetadata {
-        PluginMetadata::new().with_version(env!("CARGO_PKG_VERSION"))
     }
 }
 

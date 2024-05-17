@@ -8,7 +8,7 @@ use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 mod cache;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{ast::Operator, CustomValue, LabeledError, PluginMetadata, Spanned, Value};
+use nu_protocol::{ast::Operator, CustomValue, LabeledError, Spanned, Value};
 
 use crate::{
     eager::eager_commands, expressions::expr_commands, lazy::lazy_commands,
@@ -35,6 +35,10 @@ pub struct PolarsPlugin {
 }
 
 impl Plugin for PolarsPlugin {
+    fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         let mut commands: Vec<Box<dyn PluginCommand<Plugin = Self>>> = vec![Box::new(PolarsCmd)];
         commands.append(&mut eager_commands());
@@ -43,10 +47,6 @@ impl Plugin for PolarsPlugin {
         commands.append(&mut series_commands());
         commands.append(&mut cache_commands());
         commands
-    }
-
-    fn metadata(&self) -> PluginMetadata {
-        PluginMetadata::new().with_version(env!("CARGO_PKG_VERSION"))
     }
 
     fn custom_value_dropped(
