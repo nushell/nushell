@@ -1,12 +1,9 @@
-use libc::{
-    sysctl, CTL_HW, CTL_KERN, KERN_FSCALE, KERN_PROC2, KERN_PROC_ALL, KERN_PROC_ARGS,
-    KERN_PROC_ARGV,
-};
+use libc::{sysctl, CTL_HW, CTL_KERN, KERN_PROC2, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV};
 use std::{
     io,
     mem::{self, MaybeUninit},
     ptr,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 pub struct ProcessInfo {
@@ -20,40 +17,66 @@ pub struct ProcessInfo {
     pub mem_virtual: u64,  // in bytes
 }
 
-pub fn collect_proc(_interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
-    let pagesize = get_pagesize().expect("failed to get system page size (hw.pagesize)") as u64;
-    let fscale =
-        get_fscale().expect("failed to get the kernel floating point scale (kern.fscale)") as f64;
+pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
+    compare_procs(interval).unwrap_or_else(|err| {
+        log::warn!("Failed to get processes: {}", err);
+        vec![]
+    })
+}
 
-    match get_procs() {
-        Ok(mut procs) => {
-            // Sort the procs by pid before using them
-            procs.sort_by_key(|p| p.p_pid);
-            procs
-                .into_iter()
-                .map(|proc| {
-                    Ok(ProcessInfo {
-                        pid: proc.p_pid,
-                        ppid: proc.p_ppid,
-                        argv: get_proc_args(proc.p_pid, KERN_PROC_ARGV)?,
-                        stat: proc.p_realstat,
-                        lwp_stat: proc.p_stat,
-                        // FIXME: this percentage seems to be averaged over a pretty long period,
-                        // so this should be replaced by the same logic the other systems do
-                        percent_cpu: 100.0 * proc.p_pctcpu as f64 / fscale,
-                        mem_resident: proc.p_vm_rssize.max(0) as u64 * pagesize,
-                        mem_virtual: proc.p_vm_msize.max(0) as u64 * pagesize,
-                    })
-                })
-                // Remove errors from the list - probably just processes that are gone now
-                .flat_map(|result: io::Result<_>| result.ok())
-                .collect()
-        }
-        Err(err) => {
-            log::warn!("Failed to get processes: {}", err);
-            vec![]
-        }
-    }
+fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
+    let pagesize = get_pagesize()? as u64;
+
+    // Compare two full snapshots of all of the processes over the interval
+    let now = Instant::now();
+    let procs_a = get_procs()?;
+    std::thread::sleep(interval);
+    let true_interval = Instant::now().saturating_duration_since(now);
+    let true_interval_sec = true_interval.as_secs_f64();
+    let procs_b = get_procs()?;
+
+    let mut a_iter = procs_a.into_iter().peekable();
+    Ok(procs_b
+        .into_iter()
+        .map(|proc| {
+            // Try to find the previous version of the process
+            let mut prev_proc = None;
+            while let Some(peek) = a_iter.peek() {
+                if peek.p_pid < proc.p_pid {
+                    continue;
+                } else {
+                    if peek.p_pid == proc.p_pid {
+                        prev_proc = Some(a_iter.next().expect("a_iter.next() was None"));
+                    }
+                    break;
+                }
+            }
+
+            // The percentage CPU is the ratio of how much runtime occurred for the process out of
+            // the true measured interval that occurred.
+            let percent_cpu = if let Some(prev_proc) = prev_proc {
+                let prev_rtime =
+                    prev_proc.p_rtime_sec as f64 + prev_proc.p_rtime_usec as f64 / 1_000_000.0;
+                let rtime = proc.p_rtime_sec as f64 + proc.p_rtime_usec as f64 / 1_000_000.0;
+                100. * (rtime - prev_rtime).max(0.) / true_interval_sec
+            } else {
+                0.0
+            };
+
+            Ok(ProcessInfo {
+                pid: proc.p_pid,
+                ppid: proc.p_ppid,
+                argv: get_proc_args(proc.p_pid, KERN_PROC_ARGV)?,
+                stat: proc.p_realstat,
+                lwp_stat: proc.p_stat,
+                percent_cpu,
+                mem_resident: proc.p_vm_rssize.max(0) as u64 * pagesize,
+                mem_virtual: proc.p_vm_msize.max(0) as u64 * pagesize,
+            })
+        })
+        // Remove errors from the list - probably just processes that are gone now
+        .flat_map(|result: io::Result<_>| result.ok())
+        .collect())
 }
 
 fn check(err: libc::c_int) -> std::io::Result<()> {
@@ -113,6 +136,9 @@ fn get_procs() -> io::Result<Vec<libc::kinfo_proc2>> {
         // data_len was changed to, since that should now all be properly initialized data.
         let true_len = data_len.div_ceil(STRUCT_SIZE);
         vec.set_len(true_len);
+
+        // Sort the procs by pid before using them
+        vec.sort_by_key(|p| p.p_pid);
         Ok(vec)
     }
 }
@@ -173,10 +199,6 @@ fn get_pagesize() -> io::Result<libc::c_int> {
     // not in libc for some reason
     const HW_PAGESIZE: i32 = 7;
     unsafe { get_ctl(&[CTL_HW, HW_PAGESIZE]) }
-}
-
-fn get_fscale() -> io::Result<libc::c_int> {
-    unsafe { get_ctl(&[CTL_KERN, KERN_FSCALE]) }
 }
 
 impl ProcessInfo {
@@ -248,9 +270,5 @@ impl ProcessInfo {
     /// Virtual memory size in bytes
     pub fn virtual_size(&self) -> u64 {
         self.mem_virtual
-    }
-
-    pub fn cwd(&self) -> String {
-        "".into()
     }
 }
