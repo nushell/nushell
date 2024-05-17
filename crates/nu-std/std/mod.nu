@@ -232,7 +232,7 @@ export def repeat [
         return []
     }
 
-    1..$n | each { $item }
+    1..=$n | each { $item }
 }
 
 # return a null device file.

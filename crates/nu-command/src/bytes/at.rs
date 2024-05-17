@@ -90,7 +90,7 @@ impl Command for BytesAt {
         vec![
             Example {
                 description: "Get a subbytes `0x[10 01]` from the bytes `0x[33 44 55 10 01 13]`",
-                example: " 0x[33 44 55 10 01 13] | bytes at 3..<4",
+                example: " 0x[33 44 55 10 01 13] | bytes at 3..4",
                 result: Some(Value::test_binary(vec![0x10])),
             },
             Example {
@@ -107,7 +107,7 @@ impl Command for BytesAt {
             },
             Example {
                 description: "Get the characters from the beginning until ending index",
-                example: " 0x[33 44 55 10 01 13] | bytes at ..<4",
+                example: " 0x[33 44 55 10 01 13] | bytes at ..4",
                 result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10])),
             },
             Example {

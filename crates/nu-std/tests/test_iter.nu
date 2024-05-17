@@ -33,7 +33,7 @@ def iter_intersperse [] {
     let res = ([a b c d e] | iter intersperse 5)
     assert equal $res [a 5 b 5 c 5 d 5 e]
 
-    let res = (1..4 | iter intersperse 0)
+    let res = (1..=4 | iter intersperse 0)
     assert equal $res [1 0 2 0 3 0 4]
 
     let res = (4 | iter intersperse 1)

@@ -164,8 +164,8 @@ def dirs_goto [] {
     
     let exp_dir = [$c.base_path $c.path_a $c.path_b]
     
-    for $cur_pos in 0..<($env.DIRS_LIST | length) {
-        for $other_pos in 0..<($env.DIRS_LIST | length) {
+    for $cur_pos in 0..($env.DIRS_LIST | length) {
+        for $other_pos in 0..($env.DIRS_LIST | length) {
             dirs goto $cur_pos
             assert equal $env.PWD ($exp_dir | get $cur_pos) "initial position as expected"
 
