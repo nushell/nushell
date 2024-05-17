@@ -279,6 +279,14 @@ impl Stack {
         }
     }
 
+    pub fn set_last_exit_code(&mut self, error: &ShellError) {
+        let code = error.exit_code_spanned();
+        self.add_env_var(
+            "LAST_EXIT_CODE".into(),
+            Value::int(code.item.into(), code.span),
+        );
+    }
+
     pub fn last_overlay_name(&self) -> Result<String, ShellError> {
         self.active_overlays
             .last()

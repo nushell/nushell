@@ -210,17 +210,21 @@ pub fn eval_source(
     let start_time = std::time::Instant::now();
 
     let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
-        Ok(code) => code.unwrap_or(0),
+        Ok(failed) => {
+            let code = i32::from(failed);
+            stack.add_env_var(
+                "LAST_EXIT_CODE".into(),
+                Value::int(code.into(), Span::unknown()),
+            );
+            code
+        }
         Err(err) => {
             report_error_new(engine_state, &err);
-            1
+            let code = err.exit_code();
+            stack.set_last_exit_code(&err);
+            code
         }
     };
-
-    stack.add_env_var(
-        "LAST_EXIT_CODE".to_string(),
-        Value::int(exit_code.into(), Span::unknown()),
-    );
 
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
@@ -244,7 +248,7 @@ fn evaluate_source(
     fname: &str,
     input: PipelineData,
     allow_return: bool,
-) -> Result<Option<i32>, ShellError> {
+) -> Result<bool, ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
@@ -259,7 +263,12 @@ fn evaluate_source(
 
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
-            return Ok(Some(1));
+            return Ok(true);
+        }
+
+        if let Some(err) = working_set.compile_errors.first() {
+            report_error(&working_set, err);
+            // Not a fatal error, for now
         }
 
         if let Some(err) = working_set.compile_errors.first() {
@@ -278,25 +287,23 @@ fn evaluate_source(
         eval_block::<WithoutDebug>(engine_state, stack, &block, input)
     }?;
 
-    let status = if let PipelineData::ByteStream(..) = pipeline {
-        pipeline.print(engine_state, stack, false, false)?
+    if let PipelineData::ByteStream(..) = pipeline {
+        pipeline.print(engine_state, stack, false, false)
+    } else if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
+        let pipeline = eval_hook(
+            engine_state,
+            stack,
+            Some(pipeline),
+            vec![],
+            &hook,
+            "display_output",
+        )?;
+        pipeline.print(engine_state, stack, false, false)
     } else {
-        if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
-            let pipeline = eval_hook(
-                engine_state,
-                stack,
-                Some(pipeline),
-                vec![],
-                &hook,
-                "display_output",
-            )?;
-            pipeline.print(engine_state, stack, false, false)
-        } else {
-            pipeline.print(engine_state, stack, true, false)
-        }?
-    };
+        pipeline.print(engine_state, stack, true, false)
+    }?;
 
-    Ok(status.map(|status| status.code()))
+    Ok(false)
 }
 
 #[cfg(test)]

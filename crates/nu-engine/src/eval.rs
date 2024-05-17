@@ -250,7 +250,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
     stack: &mut Stack,
     expr: &Expression,
     mut input: PipelineData,
-) -> Result<(PipelineData, bool), ShellError> {
+) -> Result<PipelineData, ShellError> {
     match &expr.expr {
         Expr::Call(call) => {
             input = eval_call::<D>(engine_state, stack, call, input)?;
@@ -298,16 +298,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
         }
     };
 
-    // If input an external command,
-    // then `might_consume_external_result` will consume `stderr` if `stdout` is `None`.
-    // This should not happen if the user wants to capture stderr.
-    if !matches!(stack.stdout(), OutDest::Pipe | OutDest::Capture)
-        && matches!(stack.stderr(), OutDest::Capture)
-    {
-        Ok((input, false))
-    } else {
-        input.check_external_failed()
-    }
+    Ok(input)
 }
 
 fn eval_redirection<D: DebugContext>(
@@ -401,9 +392,8 @@ fn eval_element_with_input_inner<D: DebugContext>(
     stack: &mut Stack,
     element: &PipelineElement,
     input: PipelineData,
-) -> Result<(PipelineData, bool), ShellError> {
-    let (data, failed) =
-        eval_expression_with_input::<D>(engine_state, stack, &element.expr, input)?;
+) -> Result<PipelineData, ShellError> {
+    let data = eval_expression_with_input::<D>(engine_state, stack, &element.expr, input)?;
 
     if let Some(redirection) = element.redirection.as_ref() {
         let is_external = if let PipelineData::ByteStream(stream, ..) = &data {
@@ -473,7 +463,7 @@ fn eval_element_with_input_inner<D: DebugContext>(
         PipelineData::Empty => PipelineData::Empty,
     };
 
-    Ok((data, failed))
+    Ok(data)
 }
 
 fn eval_element_with_input<D: DebugContext>(
@@ -481,20 +471,11 @@ fn eval_element_with_input<D: DebugContext>(
     stack: &mut Stack,
     element: &PipelineElement,
     input: PipelineData,
-) -> Result<(PipelineData, bool), ShellError> {
+) -> Result<PipelineData, ShellError> {
     D::enter_element(engine_state, element);
-    match eval_element_with_input_inner::<D>(engine_state, stack, element, input) {
-        Ok((data, failed)) => {
-            let res = Ok(data);
-            D::leave_element(engine_state, element, &res);
-            res.map(|data| (data, failed))
-        }
-        Err(err) => {
-            let res = Err(err);
-            D::leave_element(engine_state, element, &res);
-            res.map(|data| (data, false))
-        }
-    }
+    let result = eval_element_with_input_inner::<D>(engine_state, stack, element, input);
+    D::leave_element(engine_state, element, &result);
+    result
 }
 
 pub fn eval_block_with_early_return<D: DebugContext>(
@@ -542,14 +523,7 @@ pub fn eval_block<D: DebugContext>(
                 (next_out.or(Some(OutDest::Pipe)), next_err),
             )?;
             let stack = &mut stack.push_redirection(stdout, stderr);
-            let (output, failed) =
-                eval_element_with_input::<D>(engine_state, stack, element, input)?;
-            if failed {
-                // External command failed.
-                // Don't return `Err(ShellError)`, so nushell won't show an extra error message.
-                return Ok(output);
-            }
-            input = output;
+            input = eval_element_with_input::<D>(engine_state, stack, element, input)?;
         }
 
         if last_pipeline {
@@ -560,13 +534,7 @@ pub fn eval_block<D: DebugContext>(
                 (stack.pipe_stdout().cloned(), stack.pipe_stderr().cloned()),
             )?;
             let stack = &mut stack.push_redirection(stdout, stderr);
-            let (output, failed) = eval_element_with_input::<D>(engine_state, stack, last, input)?;
-            if failed {
-                // External command failed.
-                // Don't return `Err(ShellError)`, so nushell won't show an extra error message.
-                return Ok(output);
-            }
-            input = output;
+            input = eval_element_with_input::<D>(engine_state, stack, last, input)?;
         } else {
             let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
@@ -575,32 +543,20 @@ pub fn eval_block<D: DebugContext>(
                 (None, None),
             )?;
             let stack = &mut stack.push_redirection(stdout, stderr);
-            let (output, failed) = eval_element_with_input::<D>(engine_state, stack, last, input)?;
-            if failed {
-                // External command failed.
-                // Don't return `Err(ShellError)`, so nushell won't show an extra error message.
-                return Ok(output);
-            }
-            input = PipelineData::Empty;
-            match output {
+            match eval_element_with_input::<D>(engine_state, stack, last, input)? {
                 PipelineData::ByteStream(stream, ..) => {
                     let span = stream.span();
-                    let status = stream.drain()?;
-                    if let Some(status) = status {
-                        stack.add_env_var(
-                            "LAST_EXIT_CODE".into(),
-                            Value::int(status.code().into(), span),
-                        );
-                        if status.code() != 0 {
-                            break;
-                        }
+                    if let Err(err) = stream.drain() {
+                        stack.set_last_exit_code(&err);
+                        return Err(err);
+                    } else {
+                        stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, span));
                     }
                 }
-                PipelineData::ListStream(stream, ..) => {
-                    stream.drain()?;
-                }
+                PipelineData::ListStream(stream, ..) => stream.drain()?,
                 PipelineData::Value(..) | PipelineData::Empty => {}
             }
+            input = PipelineData::Empty;
         }
     }
 
@@ -639,8 +595,7 @@ pub fn eval_collect<D: DebugContext>(
         expr,
         // We still have to pass it as input
         input.into_pipeline_data_with_metadata(metadata),
-    )
-    .map(|(result, _failed)| result);
+    );
 
     stack.remove_var(var_id);
 

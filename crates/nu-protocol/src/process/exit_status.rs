@@ -1,3 +1,4 @@
+use crate::{ShellError, Span};
 use std::process;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,6 +17,39 @@ impl ExitStatus {
             ExitStatus::Exited(code) => code,
             #[cfg(unix)]
             ExitStatus::Signaled { signal, .. } => -signal,
+        }
+    }
+
+    pub fn check_ok(self, span: Span) -> Result<(), ShellError> {
+        match self {
+            ExitStatus::Exited(0) => Ok(()),
+            ExitStatus::Exited(exit_code) => Err(ShellError::NonZeroExitCode { exit_code, span }),
+            #[cfg(unix)]
+            ExitStatus::Signaled {
+                signal,
+                core_dumped,
+            } => {
+                use nix::sys::signal::Signal;
+
+                let signal_name = Signal::try_from(signal)
+                    .map(Signal::as_str)
+                    .unwrap_or("unknown signal")
+                    .into();
+
+                Err(if core_dumped {
+                    ShellError::ProcessCoreDumped {
+                        signal_name,
+                        signal,
+                        span,
+                    }
+                } else {
+                    ShellError::ProcessSignaled {
+                        signal_name,
+                        signal,
+                        span,
+                    }
+                })
+            }
         }
     }
 }

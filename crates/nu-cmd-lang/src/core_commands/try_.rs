@@ -62,29 +62,16 @@ impl Command for Try {
         let eval_block = get_eval_block(engine_state);
 
         match eval_block(engine_state, stack, try_block, input) {
-            Err(error) => {
-                let error = intercept_block_control(error)?;
-                let err_record = err_to_record(error, call.head);
-                handle_catch(err_record, catch_block, engine_state, stack, eval_block)
-            }
-            Ok(PipelineData::Value(Value::Error { error, .. }, ..)) => {
-                let error = intercept_block_control(*error)?;
-                let err_record = err_to_record(error, call.head);
-                handle_catch(err_record, catch_block, engine_state, stack, eval_block)
-            }
-            // external command may fail to run
-            Ok(pipeline) => {
-                let (pipeline, external_failed) = pipeline.check_external_failed()?;
-                if external_failed {
-                    let status = pipeline.drain()?;
-                    let code = status.map(|status| status.code()).unwrap_or(0);
-                    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(code.into(), call.head));
-                    let err_value = Value::nothing(call.head);
-                    handle_catch(err_value, catch_block, engine_state, stack, eval_block)
-                } else {
-                    Ok(pipeline)
-                }
-            }
+            Err(err) => run_catch(err, call.head, catch_block, engine_state, stack, eval_block),
+            Ok(PipelineData::Value(Value::Error { error, .. }, ..)) => run_catch(
+                *error,
+                call.head,
+                catch_block,
+                engine_state,
+                stack,
+                eval_block,
+            ),
+            Ok(pipeline) => Ok(pipeline),
         }
     }
 
@@ -109,28 +96,32 @@ impl Command for Try {
     }
 }
 
-fn handle_catch(
-    err_value: Value,
-    catch_block: Option<Closure>,
+fn run_catch(
+    error: ShellError,
+    span: Span,
+    catch: Option<Closure>,
     engine_state: &EngineState,
     stack: &mut Stack,
-    eval_block_fn: EvalBlockFn,
+    eval_block: EvalBlockFn,
 ) -> Result<PipelineData, ShellError> {
-    if let Some(catch_block) = catch_block {
-        let catch_block = engine_state.get_block(catch_block.block_id);
+    let error = intercept_block_control(error)?;
+
+    if let Some(catch) = catch {
+        let error = err_to_record(error, span);
+        let block = engine_state.get_block(catch.block_id);
         // Put the error value in the positional closure var
-        if let Some(var) = catch_block.signature.get_positional(0) {
+        if let Some(var) = block.signature.get_positional(0) {
             if let Some(var_id) = &var.var_id {
-                stack.add_var(*var_id, err_value.clone());
+                stack.add_var(*var_id, error.clone());
             }
         }
 
-        eval_block_fn(
+        eval_block(
             engine_state,
             stack,
-            catch_block,
+            block,
             // Make the error accessible with $in, too
-            err_value.into_pipeline_data(),
+            error.into_pipeline_data(),
         )
     } else {
         Ok(PipelineData::empty())

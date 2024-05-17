@@ -187,8 +187,7 @@ impl ChildProcess {
             Vec::new()
         };
 
-        // TODO: check exit_status
-        self.exit_status.wait(self.span)?;
+        self.exit_status.wait(self.span)?.check_ok(self.span)?;
 
         Ok(bytes)
     }

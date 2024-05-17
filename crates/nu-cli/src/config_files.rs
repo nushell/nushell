@@ -214,7 +214,8 @@ pub fn eval_config_contents(
             let prev_file = engine_state.file.take();
             engine_state.file = Some(config_path.clone());
 
-            eval_source(
+            // TODO: ignore this error?
+            let _ = eval_source(
                 engine_state,
                 stack,
                 &contents,

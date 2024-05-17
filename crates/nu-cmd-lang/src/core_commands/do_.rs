@@ -1,7 +1,7 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
 use nu_protocol::{
     engine::Closure,
-    process::{ChildPipe, ChildProcess, ExitStatus},
+    process::{ChildPipe, ChildProcess},
     ByteStream, ByteStreamSource, OutDest,
 };
 use std::{
@@ -147,13 +147,7 @@ impl Command for Do {
                             None
                         };
 
-                        if child.wait()? != ExitStatus::Exited(0) {
-                            return Err(ShellError::ExternalCommand {
-                                label: "External command failed".to_string(),
-                                help: stderr_msg,
-                                span,
-                            });
-                        }
+                        child.wait()?.check_ok(span)?;
 
                         let mut child = ChildProcess::from_raw(None, None, None, span);
                         if let Some(stdout) = stdout {
