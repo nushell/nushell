@@ -291,36 +291,38 @@ impl PipelineData {
         F: FnMut(Value) -> Value + 'static + Send,
     {
         match self {
-            PipelineData::Value(value, ..) => {
+            PipelineData::Value(value, metadata) => {
                 let span = value.span();
-                match value {
+                let pipeline = match value {
                     Value::List { vals, .. } => {
-                        Ok(vals.into_iter().map(f).into_pipeline_data(span, ctrlc))
+                        vals.into_iter().map(f).into_pipeline_data(span, ctrlc)
                     }
-                    Value::Range { val, .. } => Ok(val
+                    Value::Range { val, .. } => val
                         .into_range_iter(span, ctrlc.clone())
                         .map(f)
-                        .into_pipeline_data(span, ctrlc)),
+                        .into_pipeline_data(span, ctrlc),
                     value => match f(value) {
-                        Value::Error { error, .. } => Err(*error),
-                        v => Ok(v.into_pipeline_data()),
+                        Value::Error { error, .. } => return Err(*error),
+                        v => v.into_pipeline_data(),
                     },
-                }
+                };
+                Ok(pipeline.set_metadata(metadata))
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::ListStream(stream, ..) => {
-                Ok(PipelineData::ListStream(stream.map(f), None))
+            PipelineData::ListStream(stream, metadata) => {
+                Ok(PipelineData::ListStream(stream.map(f), metadata))
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineData::ByteStream(stream, metadata) => {
                 // TODO: is this behavior desired / correct ?
                 let span = stream.span();
-                match String::from_utf8(stream.into_bytes()?) {
+                let value = match String::from_utf8(stream.into_bytes()?) {
                     Ok(mut str) => {
                         str.truncate(str.trim_end_matches(LINE_ENDING_PATTERN).len());
-                        Ok(f(Value::string(str, span)).into_pipeline_data())
+                        f(Value::string(str, span))
                     }
-                    Err(err) => Ok(f(Value::binary(err.into_bytes(), span)).into_pipeline_data()),
-                }
+                    Err(err) => f(Value::binary(err.into_bytes(), span)),
+                };
+                Ok(value.into_pipeline_data_with_metadata(metadata))
             }
         }
     }
@@ -339,36 +341,37 @@ impl PipelineData {
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(value, ..) => {
+            PipelineData::Value(value, metadata) => {
                 let span = value.span();
-                match value {
+                let pipeline = match value {
                     Value::List { vals, .. } => {
-                        Ok(vals.into_iter().flat_map(f).into_pipeline_data(span, ctrlc))
+                        vals.into_iter().flat_map(f).into_pipeline_data(span, ctrlc)
                     }
-                    Value::Range { val, .. } => Ok(val
+                    Value::Range { val, .. } => val
                         .into_range_iter(span, ctrlc.clone())
                         .flat_map(f)
-                        .into_pipeline_data(span, ctrlc)),
-                    value => Ok(f(value).into_iter().into_pipeline_data(span, ctrlc)),
-                }
+                        .into_pipeline_data(span, ctrlc),
+                    value => f(value).into_iter().into_pipeline_data(span, ctrlc),
+                };
+                Ok(pipeline.set_metadata(metadata))
             }
-            PipelineData::ListStream(stream, ..) => {
-                Ok(stream.modify(|iter| iter.flat_map(f)).into())
-            }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+                stream.modify(|iter| iter.flat_map(f)),
+                metadata,
+            )),
+            PipelineData::ByteStream(stream, metadata) => {
                 // TODO: is this behavior desired / correct ?
                 let span = stream.span();
-                match String::from_utf8(stream.into_bytes()?) {
+                let iter = match String::from_utf8(stream.into_bytes()?) {
                     Ok(mut str) => {
                         str.truncate(str.trim_end_matches(LINE_ENDING_PATTERN).len());
-                        Ok(f(Value::string(str, span))
-                            .into_iter()
-                            .into_pipeline_data(span, ctrlc))
+                        f(Value::string(str, span))
                     }
-                    Err(err) => Ok(f(Value::binary(err.into_bytes(), span))
-                        .into_iter()
-                        .into_pipeline_data(span, ctrlc)),
-                }
+                    Err(err) => f(Value::binary(err.into_bytes(), span)),
+                };
+                Ok(iter
+                    .into_iter()
+                    .into_pipeline_data_with_metadata(span, ctrlc, metadata))
             }
         }
     }
@@ -384,27 +387,31 @@ impl PipelineData {
     {
         match self {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(value, ..) => {
+            PipelineData::Value(value, metadata) => {
                 let span = value.span();
-                match value {
+                let pipeline = match value {
                     Value::List { vals, .. } => {
-                        Ok(vals.into_iter().filter(f).into_pipeline_data(span, ctrlc))
+                        vals.into_iter().filter(f).into_pipeline_data(span, ctrlc)
                     }
-                    Value::Range { val, .. } => Ok(val
+                    Value::Range { val, .. } => val
                         .into_range_iter(span, ctrlc.clone())
                         .filter(f)
-                        .into_pipeline_data(span, ctrlc)),
+                        .into_pipeline_data(span, ctrlc),
                     value => {
                         if f(&value) {
-                            Ok(value.into_pipeline_data())
+                            value.into_pipeline_data()
                         } else {
-                            Ok(Value::nothing(span).into_pipeline_data())
+                            Value::nothing(span).into_pipeline_data()
                         }
                     }
-                }
+                };
+                Ok(pipeline.set_metadata(metadata))
             }
-            PipelineData::ListStream(stream, ..) => Ok(stream.modify(|iter| iter.filter(f)).into()),
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+                stream.modify(|iter| iter.filter(f)),
+                metadata,
+            )),
+            PipelineData::ByteStream(stream, metadata) => {
                 // TODO: is this behavior desired / correct ?
                 let span = stream.span();
                 let value = match String::from_utf8(stream.into_bytes()?) {
@@ -414,11 +421,12 @@ impl PipelineData {
                     }
                     Err(err) => Value::binary(err.into_bytes(), span),
                 };
-                if f(&value) {
-                    Ok(value.into_pipeline_data())
+                let value = if f(&value) {
+                    value
                 } else {
-                    Ok(Value::nothing(span).into_pipeline_data())
-                }
+                    Value::nothing(span)
+                };
+                Ok(value.into_pipeline_data_with_metadata(metadata))
             }
         }
     }
