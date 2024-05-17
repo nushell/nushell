@@ -53,6 +53,11 @@ print { version: $version, bin: $bin, os: $os, target: $target, src: $src, dist:
 
 # $env
 
+# WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
+# This will clear the RUSTFLAGS environment variable so that the `rustflags` specified in
+# .cargo/config.toml are used. https://doc.rust-lang.org/cargo/reference/config.html#buildrustflags
+$env.RUSTFLAGS = ''
+
 let USE_UBUNTU = $os starts-with ubuntu
 
 print $'(char nl)Packaging ($bin) v($version) for ($target) in ($src)...'; hr-line -b
