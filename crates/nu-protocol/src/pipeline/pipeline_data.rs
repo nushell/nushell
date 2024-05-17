@@ -532,7 +532,7 @@ impl PipelineData {
     ) -> Result<Option<ExitStatus>, ShellError> {
         match self {
             // Print byte streams directly as long as they aren't binary.
-            PipelineData::ByteStream(stream, ..) if stream.r#type() != ByteStreamType::Binary => {
+            PipelineData::ByteStream(stream, ..) if stream.type_() != ByteStreamType::Binary => {
                 stream.print(to_stderr)
             }
             _ => {

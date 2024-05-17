@@ -112,7 +112,8 @@ pub struct ListStreamInfo {
 pub struct ByteStreamInfo {
     pub id: StreamId,
     pub span: Span,
-    pub r#type: ByteStreamType,
+    #[serde(rename = "type")]
+    pub type_: ByteStreamType,
 }
 
 /// Calls that a plugin can execute. The type parameter determines the input type.

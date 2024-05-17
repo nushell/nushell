@@ -208,7 +208,7 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
     let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
         id: 12,
         span: test_span,
-        r#type: ByteStreamType::Unknown,
+        type_: ByteStreamType::Unknown,
     });
 
     let pipe = manager.read_pipeline_data(header, None)?;

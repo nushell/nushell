@@ -366,7 +366,7 @@ fn handle_table_command(
     let span = input.data.span().unwrap_or(input.call.head);
     match input.data {
         // Binary streams should behave as if they really are `binary` data, and printed as hex
-        PipelineData::ByteStream(stream, _) if stream.r#type() == ByteStreamType::Binary => Ok(
+        PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
             PipelineData::ByteStream(pretty_hex_stream(stream, input.call.head), None),
         ),
         PipelineData::ByteStream(..) => Ok(input.data),

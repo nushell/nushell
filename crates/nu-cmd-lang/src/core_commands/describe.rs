@@ -163,7 +163,7 @@ fn run(
 
     let description = match input {
         PipelineData::ByteStream(stream, ..) => {
-            let r#type = match stream.r#type() {
+            let type_ = match stream.type_() {
                 ByteStreamType::Binary => "binary (stream)",
                 ByteStreamType::String => "string (stream)",
                 ByteStreamType::Unknown => "byte stream",
@@ -178,14 +178,14 @@ fn run(
 
                 Value::record(
                     record! {
-                        "type" => Value::string(r#type, head),
+                        "type" => Value::string(type_, head),
                         "origin" => Value::string(origin, head),
                         "metadata" => metadata_to_value(metadata, head),
                     },
                     head,
                 )
             } else {
-                Value::string(r#type, head)
+                Value::string(type_, head)
             };
 
             if !options.no_collect {

@@ -142,7 +142,7 @@ pub struct ByteStream {
     stream: ByteStreamSource,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
-    r#type: ByteStreamType,
+    type_: ByteStreamType,
     known_size: Option<u64>,
 }
 
@@ -152,13 +152,13 @@ impl ByteStream {
         stream: ByteStreamSource,
         span: Span,
         interrupt: Option<Arc<AtomicBool>>,
-        r#type: ByteStreamType,
+        type_: ByteStreamType,
     ) -> Self {
         Self {
             stream,
             span,
             ctrlc: interrupt,
-            r#type,
+            type_,
             known_size: None,
         }
     }
@@ -168,13 +168,13 @@ impl ByteStream {
         reader: impl Read + Send + 'static,
         span: Span,
         interrupt: Option<Arc<AtomicBool>>,
-        r#type: ByteStreamType,
+        type_: ByteStreamType,
     ) -> Self {
         Self::new(
             ByteStreamSource::Read(Box::new(reader)),
             span,
             interrupt,
-            r#type,
+            type_,
         )
     }
 
@@ -238,7 +238,7 @@ impl ByteStream {
     pub fn from_fn(
         span: Span,
         interrupt: Option<Arc<AtomicBool>>,
-        r#type: ByteStreamType,
+        type_: ByteStreamType,
         generator: impl FnMut(&mut Vec<u8>) -> Result<bool, ShellError> + Send + 'static,
     ) -> Self {
         Self::read(
@@ -248,12 +248,12 @@ impl ByteStream {
             },
             span,
             interrupt,
-            r#type,
+            type_,
         )
     }
 
-    pub fn with_type(mut self, r#type: ByteStreamType) -> Self {
-        self.r#type = r#type;
+    pub fn with_type(mut self, type_: ByteStreamType) -> Self {
+        self.type_ = type_;
         self
     }
 
@@ -264,7 +264,7 @@ impl ByteStream {
         iter: I,
         span: Span,
         interrupt: Option<Arc<AtomicBool>>,
-        r#type: ByteStreamType,
+        type_: ByteStreamType,
     ) -> Self
     where
         I: IntoIterator,
@@ -273,7 +273,7 @@ impl ByteStream {
     {
         let iter = iter.into_iter();
         let cursor = Some(Cursor::new(I::Item::default()));
-        Self::read(ReadIterator { iter, cursor }, span, interrupt, r#type)
+        Self::read(ReadIterator { iter, cursor }, span, interrupt, type_)
     }
 
     /// Create a new [`ByteStream`] from an [`Iterator`] of [`Result`] bytes slices.
@@ -283,7 +283,7 @@ impl ByteStream {
         iter: I,
         span: Span,
         interrupt: Option<Arc<AtomicBool>>,
-        r#type: ByteStreamType,
+        type_: ByteStreamType,
     ) -> Self
     where
         I: IntoIterator<Item = Result<T, ShellError>>,
@@ -292,7 +292,7 @@ impl ByteStream {
     {
         let iter = iter.into_iter();
         let cursor = Some(Cursor::new(T::default()));
-        Self::read(ReadResultIterator { iter, cursor }, span, interrupt, r#type)
+        Self::read(ReadResultIterator { iter, cursor }, span, interrupt, type_)
     }
 
     /// Set the known size, in number of bytes, of the [`ByteStream`].
@@ -317,8 +317,8 @@ impl ByteStream {
     }
 
     /// Returns the [`ByteStreamType`] associated with the [`ByteStream`].
-    pub fn r#type(&self) -> ByteStreamType {
-        self.r#type
+    pub fn type_(&self) -> ByteStreamType {
+        self.type_
     }
 
     /// Returns the known size, in number of bytes, of the [`ByteStream`].
@@ -451,11 +451,11 @@ impl ByteStream {
     /// The trailing new line (`\n` or `\r\n`), if any, is removed from the [`String`] prior to
     /// being returned, if this is a stream coming from an external process.
     ///
-    /// If the [type](.r#type()) is specified as `Binary`, this operation always fails, even if the
+    /// If the [type](.type_()) is specified as `Binary`, this operation always fails, even if the
     /// data would have been valid UTF-8.
     pub fn into_string(self) -> Result<String, ShellError> {
         let span = self.span;
-        if self.r#type != ByteStreamType::Binary {
+        if self.type_ != ByteStreamType::Binary {
             let trim = matches!(self.stream, ByteStreamSource::Child(..));
             let bytes = self.into_bytes()?;
             let mut string = String::from_utf8(bytes).map_err(|err| ShellError::NonUtf8Custom {
@@ -489,7 +489,7 @@ impl ByteStream {
     pub fn into_value(self) -> Result<Value, ShellError> {
         let span = self.span;
         let trim = matches!(self.stream, ByteStreamSource::Child(..));
-        let value = match self.r#type {
+        let value = match self.type_ {
             // If the type is specified, then the stream should always become that type:
             ByteStreamType::Binary => Value::binary(self.into_bytes()?, span),
             ByteStreamType::String => Value::string(self.into_string()?, span),

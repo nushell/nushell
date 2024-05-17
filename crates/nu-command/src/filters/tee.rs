@@ -104,12 +104,12 @@ use it in your pipeline."#
         if let PipelineData::ByteStream(stream, metadata) = input {
             let span = stream.span();
             let ctrlc = engine_state.ctrlc.clone();
-            let r#type = stream.r#type();
+            let type_ = stream.type_();
 
             let info = StreamInfo {
                 span,
                 ctrlc: ctrlc.clone(),
-                r#type,
+                type_,
                 metadata: metadata.clone(),
             };
 
@@ -123,7 +123,7 @@ use it in your pipeline."#
                     let tee = IoTee::new(read, tee_thread);
 
                     Ok(PipelineData::ByteStream(
-                        ByteStream::read(tee, span, ctrlc, r#type),
+                        ByteStream::read(tee, span, ctrlc, type_),
                         metadata,
                     ))
                 }
@@ -136,7 +136,7 @@ use it in your pipeline."#
                     let tee = IoTee::new(file, tee_thread);
 
                     Ok(PipelineData::ByteStream(
-                        ByteStream::read(tee, span, ctrlc, r#type),
+                        ByteStream::read(tee, span, ctrlc, type_),
                         metadata,
                     ))
                 }
@@ -387,7 +387,7 @@ fn spawn_tee(
         .name("tee".into())
         .spawn(move || {
             // We don't use ctrlc here because we assume it already has it on the other side
-            let stream = ByteStream::from_iter(receiver.into_iter(), info.span, None, info.r#type);
+            let stream = ByteStream::from_iter(receiver.into_iter(), info.span, None, info.type_);
             eval_block(PipelineData::ByteStream(stream, info.metadata))
         })
         .err_span(info.span)?;
@@ -399,7 +399,7 @@ fn spawn_tee(
 struct StreamInfo {
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
-    r#type: ByteStreamType,
+    type_: ByteStreamType,
     metadata: Option<PipelineMetadata>,
 }
 

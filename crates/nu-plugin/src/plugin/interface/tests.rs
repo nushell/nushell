@@ -160,7 +160,7 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
         PipelineDataHeader::ByteStream(ByteStreamInfo {
             id: 0,
             span: Span::test_data(),
-            r#type: ByteStreamType::Unknown,
+            type_: ByteStreamType::Unknown,
         }),
         None,
     )?;

@@ -18,7 +18,7 @@ pub struct Values<R: Read> {
     error: bool,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
-    r#type: ByteStreamType,
+    type_: ByteStreamType,
 }
 
 impl<R: Read> Values<R> {
@@ -26,7 +26,7 @@ impl<R: Read> Values<R> {
         reader: R,
         span: Span,
         ctrlc: Option<Arc<AtomicBool>>,
-        r#type: ByteStreamType,
+        type_: ByteStreamType,
     ) -> Self {
         Self {
             reader: BufReader::new(reader),
@@ -34,7 +34,7 @@ impl<R: Read> Values<R> {
             error: false,
             span,
             ctrlc,
-            r#type,
+            type_,
         }
     }
 
@@ -116,7 +116,7 @@ impl<R: Read> Iterator for Values<R> {
         if self.error || nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
             None
         } else {
-            match self.r#type {
+            match self.type_ {
                 // Binary should always be binary
                 ByteStreamType::Binary => {
                     let buf = match self.reader.fill_buf().err_span(self.span) {
@@ -151,7 +151,7 @@ impl<R: Read> Iterator for Values<R> {
                         Ok(string) => Some(Ok(Value::string(string, self.span))),
                         Err((buf, _)) if !buf.is_empty() => {
                             // Switch to binary mode
-                            self.r#type = ByteStreamType::Binary;
+                            self.type_ = ByteStreamType::Binary;
                             Some(Ok(Value::binary(buf, self.span)))
                         }
                         Err((_, err)) => {

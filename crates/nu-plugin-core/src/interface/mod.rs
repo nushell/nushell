@@ -183,7 +183,7 @@ pub trait InterfaceManager {
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ByteStream::from_result_iter(reader, info.span, ctrlc.cloned(), info.r#type).into()
+                ByteStream::from_result_iter(reader, info.span, ctrlc.cloned(), info.type_).into()
             }
         })
     }
@@ -261,11 +261,10 @@ pub trait Interface: Clone + Send {
             }
             PipelineData::ByteStream(stream, ..) => {
                 let span = stream.span();
-                let r#type = stream.r#type();
+                let type_ = stream.type_();
                 if let Some(reader) = stream.reader() {
                     let (id, writer) = new_stream(RAW_STREAM_HIGH_PRESSURE)?;
-                    let header =
-                        PipelineDataHeader::ByteStream(ByteStreamInfo { id, span, r#type });
+                    let header = PipelineDataHeader::ByteStream(ByteStreamInfo { id, span, type_ });
                     Ok((header, PipelineDataWriter::ByteStream(writer, reader)))
                 } else {
                     Ok((PipelineDataHeader::Empty, PipelineDataWriter::None))
