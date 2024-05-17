@@ -228,7 +228,7 @@ impl PluginCommand for LazyJoin {
         let suffix: Option<String> = call.get_flag("suffix")?;
         let suffix = suffix.unwrap_or_else(|| "_x".into());
 
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         let lazy = lazy.to_polars();
 

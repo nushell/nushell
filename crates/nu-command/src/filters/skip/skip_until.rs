@@ -85,7 +85,8 @@ impl Command for SkipUntil {
             .skip_while(move |value| {
                 closure
                     .run_with_value(value.clone())
-                    .map(|data| data.into_value(head).is_false())
+                    .and_then(|data| data.into_value(head))
+                    .map(|cond| cond.is_false())
                     .unwrap_or(false)
             })
             .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))

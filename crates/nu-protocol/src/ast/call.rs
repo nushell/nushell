@@ -154,28 +154,8 @@ impl Call {
             })
     }
 
-    pub fn positional_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
-        self.arguments
-            .iter_mut()
-            .take_while(|arg| match arg {
-                Argument::Spread(_) => false, // Don't include positional arguments given to rest parameter
-                _ => true,
-            })
-            .filter_map(|arg| match arg {
-                Argument::Named(_) => None,
-                Argument::Positional(positional) => Some(positional),
-                Argument::Unknown(unknown) => Some(unknown),
-                Argument::Spread(_) => None,
-            })
-    }
-
     pub fn positional_nth(&self, i: usize) -> Option<&Expression> {
         self.positional_iter().nth(i)
-    }
-
-    // TODO this method is never used. Delete?
-    pub fn positional_nth_mut(&mut self, i: usize) -> Option<&mut Expression> {
-        self.positional_iter_mut().nth(i)
     }
 
     pub fn positional_len(&self) -> usize {

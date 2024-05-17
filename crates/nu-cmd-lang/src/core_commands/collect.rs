@@ -46,7 +46,7 @@ is particularly large, this can cause high memory usage."#
         let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
 
         let metadata = input.metadata();
-        let input = input.into_value(call.head);
+        let input = input.into_value(call.head)?;
         let result;
 
         if let Some(closure) = closure {

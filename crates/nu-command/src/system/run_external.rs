@@ -1,16 +1,16 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_protocol::{ast::Expr, did_you_mean, ListStream, NuGlob, OutDest, RawStream};
+use nu_protocol::{ast::Expr, did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
 use std::{
     collections::HashMap,
-    io::{BufRead, BufReader, Read, Write},
+    io::Write,
     path::{Path, PathBuf},
     process::{Command as CommandSys, Stdio},
-    sync::{mpsc, Arc},
+    sync::Arc,
     thread,
 };
 
@@ -163,89 +163,124 @@ impl ExternalCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = self.name.span;
 
-        #[allow(unused_mut)]
-        let (cmd, mut reader) = self.create_process(&input, false, head)?;
-
-        #[cfg(all(not(unix), not(windows)))] // are there any systems like this?
-        let child = ForegroundChild::spawn(cmd);
-
         #[cfg(windows)]
-        let child = match ForegroundChild::spawn(cmd) {
-            Ok(child) => Ok(child),
-            Err(err) => {
-                // Running external commands on Windows has 2 points of complication:
-                // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
-                // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
+        let (child, reader, input) = {
+            // We may need to run `create_process` again, so we have to clone the underlying
+            // file or pipe in `input` here first.
+            let (input_consumed, stdin) = match &input {
+                PipelineData::ByteStream(stream, ..) => match stream.source() {
+                    nu_protocol::ByteStreamSource::Read(_) => (false, Stdio::piped()),
+                    nu_protocol::ByteStreamSource::File(file) => {
+                        (true, file.try_clone().err_span(head)?.into())
+                    }
+                    nu_protocol::ByteStreamSource::Child(child) => {
+                        if let Some(nu_protocol::process::ChildPipe::Pipe(pipe)) = &child.stdout {
+                            (true, pipe.try_clone().err_span(head)?.into())
+                        } else {
+                            (false, Stdio::piped())
+                        }
+                    }
+                },
+                PipelineData::Empty => (false, Stdio::inherit()),
+                _ => (false, Stdio::piped()),
+            };
 
-                // To support these situations, we have a fallback path that gets run if a command
-                // fails to be run as a normal executable:
-                // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
-                // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
+            let mut input = input;
+            let (cmd, mut reader) = self.create_process(stdin, false, head)?;
+            let child = match ForegroundChild::spawn(cmd) {
+                Ok(child) => {
+                    if input_consumed {
+                        input = PipelineData::Empty;
+                    }
+                    Ok(child)
+                }
+                Err(err) => {
+                    // Running external commands on Windows has 2 points of complication:
+                    // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
+                    // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
 
-                // set the default value, maybe we'll override it later
-                let mut child = Err(err);
+                    // To support these situations, we have a fallback path that gets run if a command
+                    // fails to be run as a normal executable:
+                    // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
+                    // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
 
-                // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
-                // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
-                const CMD_INTERNAL_COMMANDS: [&str; 9] = [
-                    "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
-                ];
-                let command_name = &self.name.item;
-                let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
-                    .iter()
-                    .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
+                    // set the default value, maybe we'll override it later
+                    let mut child = Err(err);
 
-                if looks_like_cmd_internal {
-                    let (cmd, new_reader) = self.create_process(&input, true, head)?;
-                    reader = new_reader;
-                    child = ForegroundChild::spawn(cmd);
-                } else {
-                    #[cfg(feature = "which-support")]
-                    {
-                        // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
-                        // TODO: clean this up with an if-let chain once those are stable
-                        if let Ok(path) =
-                            nu_engine::env::path_str(engine_state, stack, self.name.span)
+                    // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
+                    // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
+                    const CMD_INTERNAL_COMMANDS: [&str; 9] = [
+                        "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
+                    ];
+                    let command_name = &self.name.item;
+                    let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
+                        .iter()
+                        .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
+
+                    let (data, stdin) = extract_stdio(input);
+                    input = data;
+
+                    if looks_like_cmd_internal {
+                        let (cmd, new_reader) = self.create_process(stdin, true, head)?;
+                        reader = new_reader;
+                        child = ForegroundChild::spawn(cmd);
+                    } else {
+                        #[cfg(feature = "which-support")]
                         {
-                            if let Some(cwd) = self.env_vars.get("PWD") {
-                                // append cwd to PATH so `which-rs` looks in the cwd too.
-                                // this approximates what cmd.exe does.
-                                let path_with_cwd = format!("{};{}", cwd, path);
-                                if let Ok(which_path) =
-                                    which::which_in(&self.name.item, Some(path_with_cwd), cwd)
-                                {
-                                    if let Some(file_name) = which_path.file_name() {
-                                        if !file_name.to_string_lossy().eq_ignore_case(command_name)
-                                        {
-                                            // which-rs found an executable file with a slightly different name
-                                            // than the one the user tried. Let's try running it
-                                            let mut new_command = self.clone();
-                                            new_command.name = Spanned {
-                                                item: file_name.to_string_lossy().to_string(),
-                                                span: self.name.span,
-                                            };
-                                            let (cmd, new_reader) =
-                                                new_command.create_process(&input, true, head)?;
-                                            reader = new_reader;
-                                            child = ForegroundChild::spawn(cmd);
+                            // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
+                            // TODO: clean this up with an if-let chain once those are stable
+                            if let Ok(path) =
+                                nu_engine::env::path_str(engine_state, stack, self.name.span)
+                            {
+                                if let Some(cwd) = self.env_vars.get("PWD") {
+                                    // append cwd to PATH so `which-rs` looks in the cwd too.
+                                    // this approximates what cmd.exe does.
+                                    let path_with_cwd = format!("{};{}", cwd, path);
+                                    if let Ok(which_path) =
+                                        which::which_in(&self.name.item, Some(path_with_cwd), cwd)
+                                    {
+                                        if let Some(file_name) = which_path.file_name() {
+                                            if !file_name
+                                                .to_string_lossy()
+                                                .eq_ignore_case(command_name)
+                                            {
+                                                // which-rs found an executable file with a slightly different name
+                                                // than the one the user tried. Let's try running it
+                                                let mut new_command = self.clone();
+                                                new_command.name = Spanned {
+                                                    item: file_name.to_string_lossy().to_string(),
+                                                    span: self.name.span,
+                                                };
+                                                let (cmd, new_reader) = new_command
+                                                    .create_process(stdin, true, head)?;
+                                                reader = new_reader;
+                                                child = ForegroundChild::spawn(cmd);
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                child
-            }
+                    child
+                }
+            };
+
+            (child, reader, input)
         };
 
         #[cfg(unix)]
-        let child = ForegroundChild::spawn(
-            cmd,
-            engine_state.is_interactive,
-            &engine_state.pipeline_externals_state,
-        );
+        let (child, reader, input) = {
+            let (input, stdin) = extract_stdio(input);
+            let (cmd, reader) = self.create_process(stdin, false, head)?;
+            let child = ForegroundChild::spawn(
+                cmd,
+                engine_state.is_interactive,
+                &engine_state.pipeline_externals_state,
+            );
+            (child, reader, input)
+        };
 
         match child {
             Err(err) => {
@@ -381,9 +416,8 @@ impl ExternalCommand {
                             .name("external stdin worker".to_string())
                             .spawn(move || {
                                 let input = match input {
-                                    input @ PipelineData::Value(Value::Binary { .. }, ..) => {
-                                        Ok(input)
-                                    }
+                                    input @ PipelineData::ByteStream(..) => input,
+                                    input @ PipelineData::Value(Value::Binary { .. }, ..) => input,
                                     input => {
                                         let stack = &mut stack.start_capture();
                                         // Attempt to render the input as a table before piping it to the external.
@@ -397,143 +431,39 @@ impl ExternalCommand {
                                             stack,
                                             &Call::new(head),
                                             input,
-                                        )
+                                        )?
                                     }
                                 };
 
-                                if let Ok(input) = input {
+                                if let PipelineData::ByteStream(stream, ..) = input {
+                                    stream.write_to(&mut stdin_write)?;
+                                } else {
                                     for value in input.into_iter() {
-                                        let buf = match value {
-                                            Value::String { val, .. } => val.into_bytes(),
-                                            Value::Binary { val, .. } => val,
-                                            _ => return Err(()),
-                                        };
-                                        if stdin_write.write(&buf).is_err() {
-                                            return Ok(());
-                                        }
+                                        let buf = value.coerce_into_binary()?;
+                                        stdin_write.write_all(&buf)?;
                                     }
                                 }
 
-                                Ok(())
+                                Ok::<_, ShellError>(())
                             })
                             .err_span(head)?;
                     }
                 }
 
-                #[cfg(unix)]
-                let commandname = self.name.item.clone();
-                let span = self.name.span;
-                let (exit_code_tx, exit_code_rx) = mpsc::channel();
+                let child =
+                    ChildProcess::new(child, reader, matches!(self.err, OutDest::Pipe), head)?;
 
-                let (stdout, stderr) = if let Some(combined) = reader {
-                    (
-                        Some(RawStream::new(
-                            Box::new(ByteLines::new(combined)),
-                            engine_state.ctrlc.clone(),
-                            head,
-                            None,
-                        )),
-                        None,
-                    )
-                } else {
-                    let stdout = child.as_mut().stdout.take().map(|out| {
-                        RawStream::new(
-                            Box::new(ByteLines::new(out)),
-                            engine_state.ctrlc.clone(),
-                            head,
-                            None,
-                        )
-                    });
-
-                    let stderr = child.as_mut().stderr.take().map(|err| {
-                        RawStream::new(
-                            Box::new(ByteLines::new(err)),
-                            engine_state.ctrlc.clone(),
-                            head,
-                            None,
-                        )
-                    });
-
-                    if matches!(self.err, OutDest::Pipe) {
-                        (stderr, stdout)
-                    } else {
-                        (stdout, stderr)
-                    }
-                };
-
-                // Create a thread to wait for an exit code.
-                thread::Builder::new()
-                    .name("exit code waiter".into())
-                    .spawn(move || match child.as_mut().wait() {
-                        Err(err) => Err(ShellError::ExternalCommand {
-                            label: "External command exited with error".into(),
-                            help: err.to_string(),
-                            span,
-                        }),
-                        Ok(x) => {
-                            #[cfg(unix)]
-                            {
-                                use nix::sys::signal::Signal;
-                                use nu_ansi_term::{Color, Style};
-                                use std::os::unix::process::ExitStatusExt;
-
-                                if x.core_dumped() {
-                                    let cause = x
-                                        .signal()
-                                        .and_then(|sig| {
-                                            Signal::try_from(sig).ok().map(Signal::as_str)
-                                        })
-                                        .unwrap_or("Something went wrong");
-
-                                    let style = Style::new().bold().on(Color::Red);
-                                    let message = format!(
-                                        "{cause}: child process '{commandname}' core dumped"
-                                    );
-                                    eprintln!("{}", style.paint(&message));
-                                    let _ = exit_code_tx.send(Value::error(
-                                        ShellError::ExternalCommand {
-                                            label: "core dumped".into(),
-                                            help: message,
-                                            span: head,
-                                        },
-                                        head,
-                                    ));
-                                    return Ok(());
-                                }
-                            }
-                            if let Some(code) = x.code() {
-                                let _ = exit_code_tx.send(Value::int(code as i64, head));
-                            } else if x.success() {
-                                let _ = exit_code_tx.send(Value::int(0, head));
-                            } else {
-                                let _ = exit_code_tx.send(Value::int(-1, head));
-                            }
-                            Ok(())
-                        }
-                    })
-                    .err_span(head)?;
-
-                let exit_code = Some(ListStream::new(
-                    ValueReceiver::new(exit_code_rx),
-                    head,
+                Ok(PipelineData::ByteStream(
+                    ByteStream::child(child, head),
                     None,
-                ));
-
-                Ok(PipelineData::ExternalStream {
-                    stdout,
-                    stderr,
-                    exit_code,
-                    span: head,
-                    metadata: None,
-                    trim_end_newline: true,
-                })
+                ))
             }
         }
     }
 
     pub fn create_process(
         &self,
-        input: &PipelineData,
+        stdin: Stdio,
         use_cmd: bool,
         span: Span,
     ) -> Result<(CommandSys, Option<PipeReader>), ShellError> {
@@ -578,11 +508,7 @@ impl ExternalCommand {
             None
         };
 
-        // If there is an input from the pipeline. The stdin from the process
-        // is piped so it can be used to send the input information
-        if !input.is_nothing() {
-            process.stdin(Stdio::piped());
-        }
+        process.stdin(stdin);
 
         Ok((process, reader))
     }
@@ -764,51 +690,14 @@ fn remove_quotes(input: String) -> String {
     }
 }
 
-struct ByteLines<R: Read>(BufReader<R>);
-
-impl<R: Read> ByteLines<R> {
-    fn new(read: R) -> Self {
-        Self(BufReader::new(read))
-    }
-}
-
-impl<R: Read> Iterator for ByteLines<R> {
-    type Item = Result<Vec<u8>, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut buf = Vec::new();
-        // `read_until` will never stop reading unless `\n` or EOF is encountered,
-        // so let's limit the number of bytes using `take` as the Rust docs suggest.
-        let capacity = self.0.capacity() as u64;
-        let mut reader = (&mut self.0).take(capacity);
-        match reader.read_until(b'\n', &mut buf) {
-            Ok(0) => None,
-            Ok(_) => Some(Ok(buf)),
-            Err(e) => Some(Err(e.into())),
-        }
-    }
-}
-
-// Receiver used for the ListStream
-// It implements iterator so it can be used as a ListStream
-struct ValueReceiver {
-    rx: mpsc::Receiver<Value>,
-}
-
-impl ValueReceiver {
-    pub fn new(rx: mpsc::Receiver<Value>) -> Self {
-        Self { rx }
-    }
-}
-
-impl Iterator for ValueReceiver {
-    type Item = Value;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.rx.recv() {
-            Ok(v) => Some(v),
-            Err(_) => None,
-        }
+fn extract_stdio(pipeline: PipelineData) -> (PipelineData, Stdio) {
+    match pipeline {
+        PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
+            Ok(pipe) => (PipelineData::Empty, pipe),
+            Err(stream) => (PipelineData::ByteStream(stream, metadata), Stdio::piped()),
+        },
+        PipelineData::Empty => (PipelineData::Empty, Stdio::inherit()),
+        data => (data, Stdio::piped()),
     }
 }
 

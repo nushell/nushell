@@ -69,7 +69,7 @@ impl PluginCommand for LazyFillNull {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let fill: Value = call.req(0)?;
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => cmd_lazy(plugin, engine, call, df.lazy(), fill),

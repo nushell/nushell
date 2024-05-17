@@ -20,7 +20,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Record, Value,
+    Record, Span, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 use std::{borrow::Cow, collections::HashMap};
@@ -180,7 +180,11 @@ impl<'a> RecordView<'a> {
             Orientation::Left => (column, row),
         };
 
-        layer.records[row][column].clone()
+        if layer.records.len() > row && layer.records[row].len() > column {
+            layer.records[row][column].clone()
+        } else {
+            Value::nothing(Span::unknown())
+        }
     }
 
     fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableW<'a> {

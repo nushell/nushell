@@ -158,7 +158,7 @@ impl Debugger for Profiler {
         &mut self,
         _engine_state: &EngineState,
         element: &PipelineElement,
-        result: &Result<(PipelineData, bool), ShellError>,
+        result: &Result<PipelineData, ShellError>,
     ) {
         if self.depth > self.max_depth {
             return;
@@ -167,12 +167,10 @@ impl Debugger for Profiler {
         let element_span = element.expr.span;
 
         let out_opt = self.collect_values.then(|| match result {
-            Ok((pipeline_data, _not_sure_what_this_is)) => match pipeline_data {
+            Ok(pipeline_data) => match pipeline_data {
                 PipelineData::Value(val, ..) => val.clone(),
                 PipelineData::ListStream(..) => Value::string("list stream", element_span),
-                PipelineData::ExternalStream { .. } => {
-                    Value::string("external stream", element_span)
-                }
+                PipelineData::ByteStream(..) => Value::string("byte stream", element_span),
                 _ => Value::nothing(element_span),
             },
             Err(e) => Value::error(e.clone(), element_span),

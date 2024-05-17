@@ -1,6 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::RawStream;
-use std::collections::VecDeque;
 
 #[derive(Clone)]
 pub struct Lines;
@@ -33,23 +31,33 @@ impl Command for Lines {
 
         let span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::Value(Value::String { val, .. }, ..) => {
-                let lines = if skip_empty {
-                    val.lines()
-                        .filter_map(|s| {
-                            if s.trim().is_empty() {
-                                None
-                            } else {
-                                Some(Value::string(s, span))
-                            }
-                        })
-                        .collect()
-                } else {
-                    val.lines().map(|s| Value::string(s, span)).collect()
-                };
+            PipelineData::Value(value, ..) => match value {
+                Value::String { val, .. } => {
+                    let lines = if skip_empty {
+                        val.lines()
+                            .filter_map(|s| {
+                                if s.trim().is_empty() {
+                                    None
+                                } else {
+                                    Some(Value::string(s, span))
+                                }
+                            })
+                            .collect()
+                    } else {
+                        val.lines().map(|s| Value::string(s, span)).collect()
+                    };
 
-                Ok(Value::list(lines, span).into_pipeline_data())
-            }
+                    Ok(Value::list(lines, span).into_pipeline_data())
+                }
+                // Propagate existing errors
+                Value::Error { error, .. } => Err(*error),
+                value => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string or byte stream".into(),
+                    wrong_type: value.get_type().to_string(),
+                    dst_span: head,
+                    src_span: value.span(),
+                }),
+            },
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, metadata) => {
                 let stream = stream.modify(|iter| {
@@ -76,27 +84,18 @@ impl Command for Lines {
 
                 Ok(PipelineData::ListStream(stream, metadata))
             }
-            PipelineData::Value(val, ..) => {
-                match val {
-                    // Propagate existing errors
-                    Value::Error { error, .. } => Err(*error),
-                    _ => Err(ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "string or raw data".into(),
-                        wrong_type: val.get_type().to_string(),
-                        dst_span: head,
-                        src_span: val.span(),
-                    }),
+            PipelineData::ByteStream(stream, ..) => {
+                if let Some(lines) = stream.lines() {
+                    Ok(lines
+                        .map(move |line| match line {
+                            Ok(line) => Value::string(line, head),
+                            Err(err) => Value::error(err, head),
+                        })
+                        .into_pipeline_data(head, ctrlc))
+                } else {
+                    Ok(PipelineData::empty())
                 }
             }
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                metadata,
-                ..
-            } => Ok(RawStreamLinesAdapter::new(stream, head, skip_empty)
-                .map(move |x| x.unwrap_or_else(|err| Value::error(err, head)))
-                .into_pipeline_data(head, ctrlc)
-                .set_metadata(metadata)),
         }
     }
 
@@ -109,108 +108,6 @@ impl Command for Lines {
                 Span::test_data(),
             )),
         }]
-    }
-}
-
-#[derive(Debug)]
-struct RawStreamLinesAdapter {
-    inner: RawStream,
-    inner_complete: bool,
-    skip_empty: bool,
-    span: Span,
-    incomplete_line: String,
-    queue: VecDeque<String>,
-}
-
-impl Iterator for RawStreamLinesAdapter {
-    type Item = Result<Value, ShellError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            if let Some(s) = self.queue.pop_front() {
-                if self.skip_empty && s.trim().is_empty() {
-                    continue;
-                }
-                return Some(Ok(Value::string(s, self.span)));
-            } else {
-                // inner is complete, feed out remaining state
-                if self.inner_complete {
-                    return if self.incomplete_line.is_empty() {
-                        None
-                    } else {
-                        Some(Ok(Value::string(
-                            std::mem::take(&mut self.incomplete_line),
-                            self.span,
-                        )))
-                    };
-                }
-
-                // pull more data from inner
-                if let Some(result) = self.inner.next() {
-                    match result {
-                        Ok(v) => {
-                            let span = v.span();
-                            match v {
-                                // TODO: Value::Binary support required?
-                                Value::String { val, .. } => {
-                                    self.span = span;
-
-                                    let mut lines = val.lines();
-
-                                    // handle incomplete line from previous
-                                    if !self.incomplete_line.is_empty() {
-                                        if let Some(first) = lines.next() {
-                                            self.incomplete_line.push_str(first);
-                                            self.queue.push_back(std::mem::take(
-                                                &mut self.incomplete_line,
-                                            ));
-                                        }
-                                    }
-
-                                    // save completed lines
-                                    self.queue.extend(lines.map(String::from));
-
-                                    if !val.ends_with('\n') {
-                                        // incomplete line, save for next time
-                                        // if `val` and `incomplete_line` were empty,
-                                        // then pop will return none
-                                        if let Some(s) = self.queue.pop_back() {
-                                            self.incomplete_line = s;
-                                        }
-                                    }
-                                }
-                                // Propagate errors by explicitly matching them before the final case.
-                                Value::Error { error, .. } => return Some(Err(*error)),
-                                other => {
-                                    return Some(Err(ShellError::OnlySupportsThisInputType {
-                                        exp_input_type: "string".into(),
-                                        wrong_type: other.get_type().to_string(),
-                                        dst_span: self.span,
-                                        src_span: other.span(),
-                                    }));
-                                }
-                            }
-                        }
-                        Err(err) => return Some(Err(err)),
-                    }
-                } else {
-                    self.inner_complete = true;
-                }
-            }
-        }
-    }
-}
-
-impl RawStreamLinesAdapter {
-    pub fn new(inner: RawStream, span: Span, skip_empty: bool) -> Self {
-        Self {
-            inner,
-            span,
-            skip_empty,
-            incomplete_line: String::new(),
-            queue: VecDeque::new(),
-            inner_complete: false,
-        }
     }
 }
 

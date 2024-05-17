@@ -97,7 +97,7 @@ impl PluginCommand for FirstDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         if NuLazyFrame::can_downcast(&value) || NuDataFrame::can_downcast(&value) {
             let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
             command(plugin, engine, call, lazy).map_err(LabeledError::from)

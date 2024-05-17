@@ -114,8 +114,7 @@ impl PluginCommand for ExprIsIn {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head);
-
+        let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
             PolarsPluginObject::NuLazyFrame(lazy) => {

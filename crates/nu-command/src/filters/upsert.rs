@@ -218,7 +218,7 @@ fn upsert(
                     if let Value::Closure { val, .. } = replacement {
                         ClosureEvalOnce::new(engine_state, stack, *val)
                             .run_with_value(value)?
-                            .into_value(head)
+                            .into_value(head)?
                     } else {
                         replacement
                     }
@@ -285,8 +285,8 @@ fn upsert(
             type_name: "empty pipeline".to_string(),
             span: head,
         }),
-        PipelineData::ExternalStream { .. } => Err(ShellError::IncompatiblePathAccess {
-            type_name: "external stream".to_string(),
+        PipelineData::ByteStream(..) => Err(ShellError::IncompatiblePathAccess {
+            type_name: "byte stream".to_string(),
             span: head,
         }),
     }
@@ -311,7 +311,11 @@ fn upsert_value_by_closure(
         .map(IntoPipelineData::into_pipeline_data)
         .unwrap_or(PipelineData::Empty);
 
-    let new_value = closure.add_arg(arg).run_with_input(input)?.into_value(span);
+    let new_value = closure
+        .add_arg(arg)
+        .run_with_input(input)?
+        .into_value(span)?;
+
     value.upsert_data_at_cell_path(cell_path, new_value)
 }
 
@@ -334,7 +338,11 @@ fn upsert_single_value_by_closure(
         .map(IntoPipelineData::into_pipeline_data)
         .unwrap_or(PipelineData::Empty);
 
-    let new_value = closure.add_arg(arg).run_with_input(input)?.into_value(span);
+    let new_value = closure
+        .add_arg(arg)
+        .run_with_input(input)?
+        .into_value(span)?;
+
     value.upsert_data_at_cell_path(cell_path, new_value)
 }
 
