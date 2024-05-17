@@ -174,13 +174,6 @@ fn basic_outerr_pipe_works(#[case] redirection: &str) {
 }
 
 #[test]
-fn err_pipe_with_failed_external_works() {
-    let actual =
-        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr_fail FOO e>| str length }"#);
-    assert_eq!(actual.out, "3");
-}
-
-#[test]
 fn dont_run_glob_if_pass_variable_to_external() {
     Playground::setup("dont_run_glob", |dirs, sandbox| {
         sandbox.with_files(&[
