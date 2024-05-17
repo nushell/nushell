@@ -639,6 +639,47 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// An external command exited with a non-zero exit status.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the external command's error message.
+    #[error("External command had a non-zero exit code")]
+    #[diagnostic(code(nu::shell::non_zero_exit_code))]
+    NonZeroExitCode {
+        exit_code: i32,
+        #[label("exited with code {exit_code}")]
+        span: Span,
+    },
+
+    /// A child process exited due to a signal.
+    ///
+    /// ## Resolution
+    ///
+    /// Check why the signal was sent or triggered.
+    #[error("Child process was terminated by a signal")]
+    #[diagnostic(code(nu::shell::process_terminated_by_signal))]
+    ProcessSignaled {
+        signal_name: String,
+        signal: i32,
+        #[label("terminated due to {signal_name} {signal}")]
+        span: Span,
+    },
+
+    /// A child process core dumped.
+    ///
+    /// ## Resolution
+    ///
+    /// Check why the core dumped was triggered.
+    #[error("Child process core dumped")]
+    #[diagnostic(code(nu::shell::process_core_dumped))]
+    ProcessCoreDumped {
+        signal_name: String,
+        signal: i32,
+        #[label("core dumped with {signal_name} {signal}")]
+        span: Span,
+    },
+
     /// An operation was attempted with an input unsupported for some reason.
     ///
     /// ## Resolution
@@ -1395,8 +1436,18 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     },
 }
 
-// TODO: Implement as From trait
 impl ShellError {
+    pub fn exit_code(&self) -> i32 {
+        match *self {
+            Self::NonZeroExitCode { exit_code, .. } => exit_code,
+            Self::ProcessSignaled { signal, .. } | Self::ProcessCoreDumped { signal, .. } => {
+                -signal
+            }
+            _ => 1,
+        }
+    }
+
+    // TODO: Implement as From trait
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
         let msg = format_error(working_set, &self);
         ParseError::LabeledError(
