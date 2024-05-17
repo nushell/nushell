@@ -6,6 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Debug)]
 pub struct ProcessInfo {
     pub pid: i32,
     pub ppid: i32,
