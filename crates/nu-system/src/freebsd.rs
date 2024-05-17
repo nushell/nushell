@@ -69,6 +69,13 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
                 0.0
             };
 
+            let name = read_cstr(&proc.ki_comm).to_string_lossy().into_owned();
+
+            // Skip over the "idle" processes, as they always end up on top when sorting by CPU
+            if name == "idle" {
+                return Err(io::ErrorKind::NotFound.into());
+            }
+
             // Demangle the thread name from the two embedded C strings
             let mut thread_name = vec![];
             thread_name.extend_from_slice(read_cstr(&proc.ki_tdname).to_bytes());
@@ -77,7 +84,7 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
             let info = ProcessInfo {
                 pid: proc.ki_pid,
                 ppid: proc.ki_ppid,
-                name: read_cstr(&proc.ki_comm).to_string_lossy().into_owned(),
+                name,
                 thread_name: String::from_utf8_lossy(&thread_name).into_owned(),
                 num_threads: proc.ki_numthreads,
                 argv: get_proc_args(proc.ki_pid)?,
