@@ -47,6 +47,7 @@ impl Command for Try {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
         let call = call.assert_ast_call()?;
@@ -61,16 +62,14 @@ impl Command for Try {
         let try_block = engine_state.get_block(try_block);
         let eval_block = get_eval_block(engine_state);
 
-        match eval_block(engine_state, stack, try_block, input) {
-            Err(err) => run_catch(err, call.head, catch_block, engine_state, stack, eval_block),
-            Ok(PipelineData::Value(Value::Error { error, .. }, ..)) => run_catch(
-                *error,
-                call.head,
-                catch_block,
-                engine_state,
-                stack,
-                eval_block,
-            ),
+        let result = eval_block(engine_state, stack, try_block, input)
+            .and_then(|pipeline| pipeline.write_to_out_dests(engine_state, stack));
+
+        match result {
+            Err(err) => run_catch(err, head, catch_block, engine_state, stack, eval_block),
+            Ok(PipelineData::Value(Value::Error { error, .. }, ..)) => {
+                run_catch(*error, head, catch_block, engine_state, stack, eval_block)
+            }
             Ok(pipeline) => Ok(pipeline),
         }
     }

@@ -145,10 +145,10 @@ impl PipelineData {
         stack: &mut Stack,
     ) -> Result<PipelineData, ShellError> {
         match (self, stack.stdout()) {
+            (data, OutDest::Pipe | OutDest::Capture) => return Ok(data),
             (PipelineData::ByteStream(stream, ..), stdout) => {
                 stream.write_to_out_dests(stdout, stack.stderr())?;
             }
-            (data, OutDest::Pipe | OutDest::Capture) => return Ok(data),
             (PipelineData::Empty, ..) => {}
             (PipelineData::Value(..), OutDest::Null) => {}
             (PipelineData::ListStream(stream, ..), OutDest::Null) => {
