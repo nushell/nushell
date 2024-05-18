@@ -452,7 +452,7 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
             Ok(true)
         } else {
             // Read up to `cfg.width` bytes
-            read_buf.truncate(0);
+            read_buf.clear();
             (&mut reader)
                 .take(cfg.width as u64)
                 .read_to_end(&mut read_buf)
