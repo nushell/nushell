@@ -279,7 +279,7 @@ impl LanguageServer {
 
         match id {
             Id::Declaration(decl_id) => {
-                if let Some(block_id) = working_set.get_decl(decl_id).get_block_id() {
+                if let Some(block_id) = working_set.get_decl(decl_id).block_id() {
                     let block = working_set.get_block(block_id);
                     if let Some(span) = &block.span {
                         for cached_file in working_set.files() {

@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Let;
@@ -30,8 +31,8 @@ impl Command for Let {
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn search_terms(&self) -> Vec<&str> {

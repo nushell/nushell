@@ -43,7 +43,7 @@ impl Command for PluginCommand {
                 &PluginCommand.examples(),
                 engine_state,
                 stack,
-                self.is_parser_keyword(),
+                self.is_keyword(),
             ),
             call.head,
         )

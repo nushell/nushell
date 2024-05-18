@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_full_help};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Overlay;
@@ -25,8 +26,8 @@ impl Command for Overlay {
   You must use one of the following subcommands. Using this command as-is will only produce this help message."#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -42,7 +43,7 @@ impl Command for Overlay {
                 &[],
                 engine_state,
                 stack,
-                self.is_parser_keyword(),
+                self.is_keyword(),
             ),
             call.head,
         )

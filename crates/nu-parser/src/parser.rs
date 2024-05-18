@@ -4177,20 +4177,6 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
 
     if let Some(signature) = signature {
         output.signature = signature.0;
-    } else if let Some(last) = working_set.delta.scope.last() {
-        // FIXME: this only supports the top $it. Is this sufficient?
-
-        if let Some(var_id) = last.get_var(b"$it") {
-            let mut signature = Signature::new("");
-            signature.required_positional.push(PositionalArg {
-                var_id: Some(*var_id),
-                name: "$it".into(),
-                desc: String::new(),
-                shape: SyntaxShape::Any,
-                default_value: None,
-            });
-            output.signature = Box::new(signature);
-        }
     }
 
     output.span = Some(span);
@@ -4518,20 +4504,6 @@ pub fn parse_closure_expression(
 
     if let Some(signature) = signature {
         output.signature = signature.0;
-    } else if let Some(last) = working_set.delta.scope.last() {
-        // FIXME: this only supports the top $it. Is this sufficient?
-
-        if let Some(var_id) = last.get_var(b"$it") {
-            let mut signature = Signature::new("");
-            signature.required_positional.push(PositionalArg {
-                var_id: Some(*var_id),
-                name: "$it".into(),
-                desc: String::new(),
-                shape: SyntaxShape::Any,
-                default_value: None,
-            });
-            output.signature = Box::new(signature);
-        }
     }
 
     output.span = Some(span);
@@ -5994,7 +5966,7 @@ pub fn discover_captures_in_expr(
         Expr::Bool(_) => {}
         Expr::Call(call) => {
             let decl = working_set.get_decl(call.decl_id);
-            if let Some(block_id) = decl.get_block_id() {
+            if let Some(block_id) = decl.block_id() {
                 match seen_blocks.get(&block_id) {
                     Some(capture_list) => {
                         // Push captures onto the outer closure that aren't created by that outer closure

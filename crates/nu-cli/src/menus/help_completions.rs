@@ -18,7 +18,7 @@ impl NuHelpCompleter {
         //Vec<(Signature, Vec<Example>, bool, bool)> {
         let mut commands = full_commands
             .iter()
-            .filter(|(sig, _, _, _, _)| {
+            .filter(|(sig, _, _)| {
                 sig.name.to_folded_case().contains(&folded_line)
                     || sig.usage.to_folded_case().contains(&folded_line)
                     || sig
@@ -29,7 +29,7 @@ impl NuHelpCompleter {
             })
             .collect::<Vec<_>>();
 
-        commands.sort_by(|(a, _, _, _, _), (b, _, _, _, _)| {
+        commands.sort_by(|(a, _, _), (b, _, _)| {
             let a_distance = levenshtein_distance(line, &a.name);
             let b_distance = levenshtein_distance(line, &b.name);
             a_distance.cmp(&b_distance)
@@ -37,7 +37,7 @@ impl NuHelpCompleter {
 
         commands
             .into_iter()
-            .map(|(sig, examples, _, _, _)| {
+            .map(|(sig, examples, _)| {
                 let mut long_desc = String::new();
 
                 let usage = &sig.usage;
