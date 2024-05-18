@@ -32,9 +32,9 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
     let now = Instant::now();
     let procs_a = get_procs()?;
     std::thread::sleep(interval);
+    let procs_b = get_procs()?;
     let true_interval = Instant::now().saturating_duration_since(now);
     let true_interval_sec = true_interval.as_secs_f64();
-    let procs_b = get_procs()?;
 
     let mut a_iter = procs_a.into_iter().peekable();
     Ok(procs_b
@@ -44,6 +44,7 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
             let mut prev_proc = None;
             while let Some(peek) = a_iter.peek() {
                 if peek.p_pid < proc.p_pid {
+                    a_iter.next();
                     continue;
                 } else {
                     if peek.p_pid == proc.p_pid {
