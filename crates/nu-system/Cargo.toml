@@ -16,6 +16,7 @@ bench = false
 libc = { workspace = true }
 log = { workspace = true }
 sysinfo = { workspace = true }
+itertools = { workspace = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 nix = { workspace = true, default-features = false, features = ["fs", "term", "process", "signal"] }

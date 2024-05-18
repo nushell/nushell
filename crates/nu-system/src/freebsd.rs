@@ -1,4 +1,7 @@
-use libc::{sysctl, CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ALL, KERN_PROC_ARGS};
+use itertools::{EitherOrBoth, Itertools};
+use libc::{
+    kinfo_proc, sysctl, CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ALL, KERN_PROC_ARGS, TDF_IDLETD,
+};
 use std::{
     ffi::CStr,
     io,
@@ -12,8 +15,6 @@ pub struct ProcessInfo {
     pub pid: i32,
     pub ppid: i32,
     pub name: String,
-    pub thread_name: String,
-    pub num_threads: i32,
     pub argv: Vec<u8>,
     pub stat: i8,
     pub percent_cpu: f64,
@@ -35,55 +36,68 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
     let now = Instant::now();
     let procs_a = get_procs()?;
     std::thread::sleep(interval);
+    let procs_b = get_procs()?;
     let true_interval = Instant::now().saturating_duration_since(now);
     let true_interval_sec = true_interval.as_secs_f64();
-    let procs_b = get_procs()?;
 
-    let mut a_iter = procs_a.into_iter().peekable();
-    Ok(procs_b
+    // Group all of the threads in each process together
+    let a_grouped = procs_a.into_iter().group_by(|proc| proc.ki_pid);
+    let b_grouped = procs_b.into_iter().group_by(|proc| proc.ki_pid);
+
+    // Join the processes between the two snapshots
+    Ok(a_grouped
         .into_iter()
-        .map(|proc| {
-            // Try to find the previous version of the process
-            let mut prev_proc = None;
-            while let Some(peek) = a_iter.peek() {
-                if peek.ki_pid < proc.ki_pid {
-                    continue;
-                } else {
-                    if peek.ki_pid == proc.ki_pid {
-                        prev_proc = Some(a_iter.next().expect("a_iter.next() was None"));
-                    }
-                    break;
-                }
-            }
-
-            // The percentage CPU is the ratio of how much runtime occurred for the process out of
-            // the true measured interval that occurred.
-            let percent_cpu = if let Some(prev_proc) = prev_proc {
-                let prev_rtime = prev_proc.ki_runtime as f64 / 1_000_000.0;
-                let rtime = proc.ki_runtime as f64 / 1_000_000.0;
-                100. * (rtime - prev_rtime).max(0.) / true_interval_sec
-            } else {
-                0.0
+        .merge_join_by(b_grouped.into_iter(), |(pid_a, _), (pid_b, _)| {
+            pid_a.cmp(pid_b)
+        })
+        .map(|threads| {
+            // Join the threads between the two snapshots for the process
+            let mut threads = {
+                let (left, right) = threads.left_and_right();
+                left.into_iter()
+                    .flat_map(|(_, threads)| threads)
+                    .merge_join_by(
+                        right.into_iter().flat_map(|(_, threads)| threads),
+                        |thread_a, thread_b| thread_a.ki_tid.cmp(&thread_b.ki_tid),
+                    )
+                    .peekable()
             };
 
-            let name = read_cstr(&proc.ki_comm).to_string_lossy().into_owned();
+            // Pick the later process entry of the first thread to use for basic process information
+            let proc = match threads.peek().ok_or(io::ErrorKind::NotFound)? {
+                EitherOrBoth::Both(_, b) => b,
+                EitherOrBoth::Left(a) => a,
+                EitherOrBoth::Right(b) => b,
+            }
+            .clone();
 
-            // Skip over the "idle" processes, as they always end up on top when sorting by CPU
-            if name == "idle" {
+            // Skip over the idle process. It always appears with high CPU usage when the
+            // system is idle
+            if proc.ki_tdflags as u64 & TDF_IDLETD as u64 != 0 {
                 return Err(io::ErrorKind::NotFound.into());
             }
 
-            // Demangle the thread name from the two embedded C strings
-            let mut thread_name = vec![];
-            thread_name.extend_from_slice(read_cstr(&proc.ki_tdname).to_bytes());
-            thread_name.extend_from_slice(read_cstr(&proc.ki_moretdname).to_bytes());
+            // Aggregate all of the threads that exist in both snapshots and sum their runtime.
+            let (runtime_a, runtime_b) =
+                threads
+                    .flat_map(|t| t.both())
+                    .fold((0., 0.), |(runtime_a, runtime_b), (a, b)| {
+                        let runtime_in_seconds =
+                            |proc: &kinfo_proc| proc.ki_runtime as f64 /* µsec */ / 1_000_000.0;
+                        (
+                            runtime_a + runtime_in_seconds(&a),
+                            runtime_b + runtime_in_seconds(&b),
+                        )
+                    });
+
+            // The percentage CPU is the ratio of how much runtime occurred for the process out of
+            // the true measured interval that occurred.
+            let percent_cpu = 100. * (runtime_b - runtime_a).max(0.) / true_interval_sec;
 
             let info = ProcessInfo {
                 pid: proc.ki_pid,
                 ppid: proc.ki_ppid,
-                name,
-                thread_name: String::from_utf8_lossy(&thread_name).into_owned(),
-                num_threads: proc.ki_numthreads,
+                name: read_cstr(&proc.ki_comm).to_string_lossy().into_owned(),
                 argv: get_proc_args(proc.ki_pid)?,
                 stat: proc.ki_stat,
                 percent_cpu,
@@ -155,8 +169,8 @@ fn get_procs() -> io::Result<Vec<libc::kinfo_proc>> {
         let true_len = data_len.div_ceil(STRUCT_SIZE);
         vec.set_len(true_len);
 
-        // Sort the procs by pid before using them
-        vec.sort_by_key(|p| p.ki_pid);
+        // Sort the procs by pid and then tid before using them
+        vec.sort_by_key(|p| (p.ki_pid, p.ki_tid));
         Ok(vec)
     }
 }
@@ -242,9 +256,6 @@ impl ProcessInfo {
 
         if !argv_name.is_empty() {
             argv_name
-        } else if self.num_threads > 1 && !self.thread_name.is_empty() {
-            // Try using the command name & thread name instead.
-            format!("{}/{}", self.name, self.thread_name)
         } else {
             // Just use the command name alone.
             self.name.clone()
