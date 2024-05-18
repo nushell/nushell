@@ -114,20 +114,31 @@ impl From<ByteStreamType> for Type {
 /// - [`from_iter`](ByteStream::from_iter): takes an [`Iterator`] whose items implement `AsRef<[u8]>`.
 /// - [`from_result_iter`](ByteStream::from_result_iter): same as [`from_iter`](ByteStream::from_iter),
 ///   but each item is a `Result<T, ShellError>`.
+/// - [`from_fn`](ByteStream::from_fn): uses a generator function to fill a buffer whenever it is
+///   empty. This has high performance because it doesn't need to allocate for each chunk of data,
+///   and can just reuse the same buffer.
+///
+/// Byte streams have a [type](.type_()) which is used to preserve type compatibility when they
+/// are the result of an internal command. It is important that this be set to the correct value.
+/// [`Unknown`](ByteStreamType::Unknown) is used only for external sources where the type can not
+/// be inherently determined, and having it automatically act as a string or binary depending on
+/// whether it parses as UTF-8 or not is desirable.
 ///
 /// The data of a [`ByteStream`] can be accessed using one of the following methods:
 /// - [`reader`](ByteStream::reader): returns a [`Read`]-able type to get the raw bytes in the stream.
 /// - [`lines`](ByteStream::lines): splits the bytes on lines and returns an [`Iterator`]
 ///   where each item is a `Result<String, ShellError>`.
-/// - [`chunks`](ByteStream::chunks): returns an [`Iterator`] of [`Value`]s where each value is either a string or binary.
+/// - [`chunks`](ByteStream::chunks): returns an [`Iterator`] of [`Value`]s where each value is,
+///   either a string or binary.
 ///   Try not to use this method if possible. Rather, please use [`reader`](ByteStream::reader)
 ///   (or [`lines`](ByteStream::lines) if it matches the situation).
 ///
 /// Additionally, there are few methods to collect a [`Bytestream`] into memory:
 /// - [`into_bytes`](ByteStream::into_bytes): collects all bytes into a [`Vec<u8>`].
 /// - [`into_string`](ByteStream::into_string): collects all bytes into a [`String`], erroring if utf-8 decoding failed.
-/// - [`into_value`](ByteStream::into_value): collects all bytes into a string [`Value`].
-///   If utf-8 decoding failed, then a binary [`Value`] is returned instead.
+/// - [`into_value`](ByteStream::into_value): collects all bytes into a value typed appropriately
+///   for the [type](.type_()) of this stream. If the type is [`Unknown`](ByteStreamType::Unknown),
+///   it will produce a string value if the data is valid UTF-8, or a binary value otherwise.
 ///
 /// There are also a few other methods to consume all the data of a [`Bytestream`]:
 /// - [`drain`](ByteStream::drain): consumes all bytes and outputs nothing.
@@ -360,8 +371,10 @@ impl ByteStream {
     /// Convert the [`ByteStream`] into a [`Chunks`] iterator where each element is a `Result<Value, ShellError>`.
     ///
     /// Each call to [`next`](Iterator::next) reads the currently available data from the byte stream source,
-    /// up to a maximum size. If the chunk of bytes, or an expected portion of it, succeeds utf-8 decoding,
-    /// then it is returned as a [`Value::String`]. Otherwise, it is turned into a [`Value::Binary`].
+    /// up to a maximum size. The values are typed according to the [type](.type_()) of the
+    /// stream, and if that type is [`Unknown`](ByteStreamType::Unknown), string values will be
+    /// produced as long as the stream continues to parse as valid UTF-8, but binary values will
+    /// be produced instead of the stream fails to parse as UTF-8 instead at any point.
     /// Any and all newlines are kept intact in each chunk.
     ///
     /// Where possible, prefer [`reader`](ByteStream::reader) or [`lines`](ByteStream::lines) over this method.
@@ -372,12 +385,7 @@ impl ByteStream {
     /// then the stream is considered empty and `None` will be returned.
     pub fn chunks(self) -> Option<Chunks> {
         let reader = self.stream.reader()?;
-        Some(Chunks {
-            reader: BufReader::new(reader),
-            span: self.span,
-            ctrlc: self.ctrlc,
-            leftover: Vec::new(),
-        })
+        Some(Chunks::new(reader, self.span, self.ctrlc, self.type_))
     }
 
     /// Convert the [`ByteStream`] into its inner [`ByteStreamSource`].
@@ -778,16 +786,105 @@ impl Iterator for Lines {
     }
 }
 
+/// Turn a readable stream into [`Value`]s.
+///
+/// The `Value` type depends on the type of the stream ([`ByteStreamType`]). If `Unknown`, the
+/// stream will return strings as long as UTF-8 parsing succeeds, but will start returning binary
+/// if it fails.
 pub struct Chunks {
     reader: BufReader<SourceReader>,
+    pos: u64,
+    error: bool,
     span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
-    leftover: Vec<u8>,
+    type_: ByteStreamType,
 }
 
 impl Chunks {
+    fn new(
+        reader: SourceReader,
+        span: Span,
+        ctrlc: Option<Arc<AtomicBool>>,
+        type_: ByteStreamType,
+    ) -> Self {
+        Self {
+            reader: BufReader::new(reader),
+            pos: 0,
+            error: false,
+            span,
+            ctrlc,
+            type_,
+        }
+    }
+
     pub fn span(&self) -> Span {
         self.span
+    }
+
+    fn next_string(&mut self) -> Result<Option<String>, (Vec<u8>, ShellError)> {
+        // Get some data from the reader
+        let buf = self
+            .reader
+            .fill_buf()
+            .err_span(self.span)
+            .map_err(|err| (vec![], ShellError::from(err)))?;
+
+        // If empty, this is EOF
+        if buf.is_empty() {
+            return Ok(None);
+        }
+
+        let mut buf = buf.to_vec();
+        let mut consumed = 0;
+
+        // If the buf length is under 4 bytes, it could be invalid, so try to get more
+        if buf.len() < 4 {
+            consumed += buf.len();
+            self.reader.consume(buf.len());
+            match self.reader.fill_buf().err_span(self.span) {
+                Ok(more_bytes) => buf.extend_from_slice(more_bytes),
+                Err(err) => return Err((buf, err.into())),
+            }
+        }
+
+        // Try to parse utf-8 and decide what to do
+        match String::from_utf8(buf) {
+            Ok(string) => {
+                self.reader.consume(string.len() - consumed);
+                self.pos += string.len() as u64;
+                Ok(Some(string))
+            }
+            Err(err) if err.utf8_error().error_len().is_none() => {
+                // There is some valid data at the beginning, and this is just incomplete, so just
+                // consume that and return it
+                let valid_up_to = err.utf8_error().valid_up_to();
+                if valid_up_to > consumed {
+                    self.reader.consume(valid_up_to - consumed);
+                }
+                let mut buf = err.into_bytes();
+                buf.truncate(valid_up_to);
+                buf.shrink_to_fit();
+                let string = String::from_utf8(buf)
+                    .expect("failed to parse utf-8 even after correcting error");
+                self.pos += string.len() as u64;
+                Ok(Some(string))
+            }
+            Err(err) => {
+                // There is an error at the beginning and we have no hope of parsing further.
+                let shell_error = ShellError::NonUtf8Custom {
+                    msg: format!("invalid utf-8 sequence starting at index {}", self.pos),
+                    span: self.span,
+                };
+                let buf = err.into_bytes();
+                // We are consuming the entire buf though, because we're returning it in case it
+                // will be cast to binary
+                if buf.len() > consumed {
+                    self.reader.consume(buf.len() - consumed);
+                }
+                self.pos += buf.len() as u64;
+                Err((buf, shell_error))
+            }
+        }
     }
 }
 
@@ -795,37 +892,51 @@ impl Iterator for Chunks {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+        if self.error || nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
             None
         } else {
-            loop {
-                match self.reader.fill_buf() {
-                    Ok(buf) => {
-                        self.leftover.extend_from_slice(buf);
+            match self.type_ {
+                // Binary should always be binary
+                ByteStreamType::Binary => {
+                    let buf = match self.reader.fill_buf().err_span(self.span) {
+                        Ok(buf) => buf,
+                        Err(err) => {
+                            self.error = true;
+                            return Some(Err(err.into()));
+                        }
+                    };
+                    if !buf.is_empty() {
                         let len = buf.len();
+                        let value = Value::binary(buf, self.span);
                         self.reader.consume(len);
-                        break;
-                    }
-                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
-                    Err(err) => return Some(Err(err.into_spanned(self.span).into())),
-                };
-            }
-
-            if self.leftover.is_empty() {
-                return None;
-            }
-
-            match String::from_utf8(std::mem::take(&mut self.leftover)) {
-                Ok(str) => Some(Ok(Value::string(str, self.span))),
-                Err(err) => {
-                    if err.utf8_error().error_len().is_some() {
-                        Some(Ok(Value::binary(err.into_bytes(), self.span)))
+                        self.pos += len as u64;
+                        Some(Ok(value))
                     } else {
-                        let i = err.utf8_error().valid_up_to();
-                        let mut bytes = err.into_bytes();
-                        self.leftover = bytes.split_off(i);
-                        let str = String::from_utf8(bytes).expect("valid utf8");
-                        Some(Ok(Value::string(str, self.span)))
+                        None
+                    }
+                }
+                // String produces an error if UTF-8 can't be parsed
+                ByteStreamType::String => match self.next_string().transpose()? {
+                    Ok(string) => Some(Ok(Value::string(string, self.span))),
+                    Err((_, err)) => {
+                        self.error = true;
+                        Some(Err(err))
+                    }
+                },
+                // For Unknown, we try to create strings, but we switch to binary mode if we
+                // fail
+                ByteStreamType::Unknown => {
+                    match self.next_string().transpose()? {
+                        Ok(string) => Some(Ok(Value::string(string, self.span))),
+                        Err((buf, _)) if !buf.is_empty() => {
+                            // Switch to binary mode
+                            self.type_ = ByteStreamType::Binary;
+                            Some(Ok(Value::binary(buf, self.span)))
+                        }
+                        Err((_, err)) => {
+                            self.error = true;
+                            Some(Err(err))
+                        }
                     }
                 }
             }
@@ -992,7 +1103,7 @@ where
 mod tests {
     use super::*;
 
-    fn test_chunks<T>(data: Vec<T>) -> Chunks
+    fn test_chunks<T>(data: Vec<T>, type_: ByteStreamType) -> Chunks
     where
         T: AsRef<[u8]> + Default + Send + 'static,
     {
@@ -1000,46 +1111,89 @@ mod tests {
             iter: data.into_iter(),
             cursor: Some(Cursor::new(T::default())),
         };
-        Chunks {
-            reader: BufReader::new(SourceReader::Read(Box::new(reader))),
-            span: Span::test_data(),
-            ctrlc: None,
-            leftover: Vec::new(),
-        }
+        Chunks::new(
+            SourceReader::Read(Box::new(reader)),
+            Span::test_data(),
+            None,
+            type_,
+        )
     }
 
     #[test]
-    fn chunks_read_string() {
-        let data = vec!["Nushell", "が好きです"];
-        let chunks = test_chunks(data.clone());
-        let actual = chunks.collect::<Result<Vec<_>, _>>().unwrap();
-        let expected = data.into_iter().map(Value::test_string).collect::<Vec<_>>();
-        assert_eq!(expected, actual);
-    }
+    fn chunks_read_binary_passthrough() {
+        let bins = vec![&[0, 1][..], &[2, 3][..]];
+        let iter = test_chunks(bins.clone(), ByteStreamType::Binary);
 
-    #[test]
-    fn chunks_read_string_split_utf8() {
-        let expected = "Nushell最高!";
-        let chunks = test_chunks(vec![&b"Nushell\xe6"[..], b"\x9c\x80\xe9", b"\xab\x98!"]);
-
-        let actual = chunks
+        let bins_values: Vec<Value> = bins
             .into_iter()
-            .map(|value| value.and_then(Value::into_string))
-            .collect::<Result<String, _>>()
-            .unwrap();
-
-        assert_eq!(expected, actual);
+            .map(|bin| Value::binary(bin, Span::test_data()))
+            .collect();
+        assert_eq!(
+            bins_values,
+            iter.collect::<Result<Vec<Value>, _>>().expect("error")
+        );
     }
 
     #[test]
-    fn chunks_returns_string_or_binary() {
-        let chunks = test_chunks(vec![b"Nushell".as_slice(), b"\x9c\x80\xe9abcd", b"efgh"]);
-        let actual = chunks.collect::<Result<Vec<_>, _>>().unwrap();
-        let expected = vec![
-            Value::test_string("Nushell"),
-            Value::test_binary(b"\x9c\x80\xe9abcd"),
-            Value::test_string("efgh"),
-        ];
-        assert_eq!(actual, expected)
+    fn chunks_read_string_clean() {
+        let strs = vec!["Nushell", "が好きです"];
+        let iter = test_chunks(strs.clone(), ByteStreamType::String);
+
+        let strs_values: Vec<Value> = strs
+            .into_iter()
+            .map(|string| Value::string(string, Span::test_data()))
+            .collect();
+        assert_eq!(
+            strs_values,
+            iter.collect::<Result<Vec<Value>, _>>().expect("error")
+        );
+    }
+
+    #[test]
+    fn chunks_read_string_split_boundary() {
+        let real = "Nushell最高!";
+        let chunks = vec![&b"Nushell\xe6"[..], &b"\x9c\x80\xe9"[..], &b"\xab\x98!"[..]];
+        let iter = test_chunks(chunks.clone(), ByteStreamType::String);
+
+        let mut string = String::new();
+        for value in iter {
+            let chunk_string = value.expect("error").into_string().expect("not a string");
+            string.push_str(&chunk_string);
+        }
+        assert_eq!(real, string);
+    }
+
+    #[test]
+    fn chunks_read_string_utf8_error() {
+        let chunks = vec![&b"Nushell\xe6"[..], &b"\x9c\x80\xe9"[..], &b"\xab"[..]];
+        let iter = test_chunks(chunks, ByteStreamType::String);
+
+        let mut string = String::new();
+        for value in iter {
+            match value {
+                Ok(value) => string.push_str(&value.into_string().expect("not a string")),
+                Err(err) => {
+                    println!("string so far: {:?}", string);
+                    println!("got error: {err:?}");
+                    assert!(!string.is_empty());
+                    assert!(matches!(err, ShellError::NonUtf8Custom { .. }));
+                    return;
+                }
+            }
+        }
+        panic!("no error");
+    }
+
+    #[test]
+    fn chunks_read_unknown_fallback() {
+        let chunks = vec![&b"Nushell"[..], &b"\x9c\x80\xe9abcd"[..], &b"efgh"[..]];
+        let mut iter = test_chunks(chunks, ByteStreamType::Unknown);
+
+        let mut get = || iter.next().expect("end of iter").expect("error");
+
+        assert_eq!(Value::test_string("Nushell"), get());
+        assert_eq!(Value::test_binary(b"\x9c\x80\xe9abcd"), get());
+        // Once it's in binary mode it won't go back
+        assert_eq!(Value::test_binary(b"efgh"), get());
     }
 }
