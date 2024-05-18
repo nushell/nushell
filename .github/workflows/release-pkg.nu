@@ -16,6 +16,7 @@
 # 2. $env:CARGO_TARGET_DIR = ""
 # 2. hide-env CARGO_TARGET_DIR
 # 3. $env.TARGET = 'x86_64-pc-windows-msvc'
+# 4. $env.TARGET_RUSTFLAGS = ''
 # 5. $env.GITHUB_WORKSPACE = 'D:\nushell'
 # 6. $env.GITHUB_OUTPUT = 'D:\nushell\output\out.txt'
 # 7. $env.OS = 'windows-latest'
@@ -52,11 +53,6 @@ print $'Debugging info:'
 print { version: $version, bin: $bin, os: $os, target: $target, src: $src, dist: $dist }; hr-line -b
 
 # $env
-
-# WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
-# This will clear the RUSTFLAGS environment variable so that the `rustflags` specified in
-# .cargo/config.toml are used. https://doc.rust-lang.org/cargo/reference/config.html#buildrustflags
-$env.RUSTFLAGS = ''
 
 let USE_UBUNTU = $os starts-with ubuntu
 
