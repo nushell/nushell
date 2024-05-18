@@ -245,11 +245,15 @@ impl Command for Save {
                 Ok(PipelineData::empty())
             }
             input => {
-                check_saving_to_source_file(
-                    input.metadata().as_ref(),
-                    &path,
-                    stderr_path.as_ref(),
-                )?;
+                // It's not necessary to check if we are saving to the same file if this is a
+                // collected value, and not a stream
+                if !matches!(input, PipelineData::Value(..) | PipelineData::Empty) {
+                    check_saving_to_source_file(
+                        input.metadata().as_ref(),
+                        &path,
+                        stderr_path.as_ref(),
+                    )?;
+                }
 
                 let bytes =
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
@@ -318,7 +322,9 @@ fn saving_to_source_file_error(dest: &Spanned<PathBuf>) -> ShellError {
             dest.item.display()
         ),
         span: Some(dest.span),
-        help: Some("You should use `collect` to run your save command (see `help collect`). Or, you can put the file data in a variable and then pass the variable to `save`.".into()),
+        help: Some(
+            "insert a `collect` command in the pipeline before `save` (see `help collect`).".into(),
+        ),
         inner: vec![],
     }
 }

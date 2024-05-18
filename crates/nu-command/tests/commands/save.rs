@@ -84,7 +84,7 @@ fn save_append_will_not_overwrite_content() {
 }
 
 #[test]
-fn save_stderr_and_stdout_to_afame_file() {
+fn save_stderr_and_stdout_to_same_file() {
     Playground::setup("save_test_5", |dirs, sandbox| {
         sandbox.with_files(&[]);
 
@@ -422,5 +422,44 @@ fn save_with_custom_converter() {
 
         let actual = file_contents(file);
         assert_eq!(actual, r#"{"a":1,"b":2}"#);
+    })
+}
+
+#[test]
+fn save_same_file_with_collect() {
+    Playground::setup("save_test_20", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline("
+                echo 'world'
+                | save hello;
+                open hello
+                | prepend 'hello'
+                | collect
+                | save --force hello;
+                open hello
+            ")
+        );
+        assert!(actual.status.success());
+        assert_eq!("helloworld", actual.out);
+    })
+}
+
+#[test]
+fn save_same_file_with_collect_and_filter() {
+    Playground::setup("save_test_21", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline("
+                echo 'world'
+                | save hello;
+                open hello
+                | prepend 'hello'
+                | collect
+                | filter { true }
+                | save --force hello;
+                open hello
+            ")
+        );
+        assert!(actual.status.success());
+        assert_eq!("helloworld", actual.out);
     })
 }
