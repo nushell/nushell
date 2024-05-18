@@ -1,3 +1,4 @@
+use itertools::{EitherOrBoth, Itertools};
 use libc::{sysctl, CTL_HW, CTL_KERN, KERN_PROC2, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV};
 use std::{
     io,
@@ -36,23 +37,18 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
     let true_interval = Instant::now().saturating_duration_since(now);
     let true_interval_sec = true_interval.as_secs_f64();
 
-    let mut a_iter = procs_a.into_iter().peekable();
-    Ok(procs_b
+    // Join the processes between the two snapshots
+    Ok(procs_a
         .into_iter()
+        .merge_join_by(procs_b.into_iter(), |a, b| a.p_pid.cmp(&b.p_pid))
         .map(|proc| {
-            // Try to find the previous version of the process
-            let mut prev_proc = None;
-            while let Some(peek) = a_iter.peek() {
-                if peek.p_pid < proc.p_pid {
-                    a_iter.next();
-                    continue;
-                } else {
-                    if peek.p_pid == proc.p_pid {
-                        prev_proc = Some(a_iter.next().expect("a_iter.next() was None"));
-                    }
-                    break;
-                }
-            }
+            // Take both snapshotted processes if we can, but if not then just keep the one that
+            // exists and set prev_proc to None
+            let (prev_proc, proc) = match proc {
+                EitherOrBoth::Both(a, b) => (Some(a), b),
+                EitherOrBoth::Left(a) => (None, a),
+                EitherOrBoth::Right(b) => (None, b),
+            };
 
             // The percentage CPU is the ratio of how much runtime occurred for the process out of
             // the true measured interval that occurred.
