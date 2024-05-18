@@ -145,7 +145,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Valu
     match find_id(&mut working_set, file_path, &file, location) {
         Some((Id::Declaration(decl_id), ..)) => {
             let result = working_set.get_decl(decl_id);
-            if let Some(block_id) = result.get_block_id() {
+            if let Some(block_id) = result.block_id() {
                 let block = working_set.get_block(block_id);
                 if let Some(span) = &block.span {
                     for file in working_set.files() {

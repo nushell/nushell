@@ -550,7 +550,7 @@ impl PipelineData {
             // to create the table value that will be printed in the terminal
             if let Some(decl_id) = engine_state.table_decl_id {
                 let command = engine_state.get_decl(decl_id);
-                if command.get_block_id().is_some() {
+                if command.block_id().is_some() {
                     self.write_all_and_flush(engine_state, no_newline, to_stderr)
                 } else {
                     let call = Call::new(Span::new(0, 0));

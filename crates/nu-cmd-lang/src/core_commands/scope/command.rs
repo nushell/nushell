@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_full_help};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Scope;
@@ -19,8 +20,8 @@ impl Command for Scope {
         "Commands for getting info about what is in scope."
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -36,7 +37,7 @@ impl Command for Scope {
                 &[],
                 engine_state,
                 stack,
-                self.is_parser_keyword(),
+                self.is_keyword(),
             ),
             call.head,
         )

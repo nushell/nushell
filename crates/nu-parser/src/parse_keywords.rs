@@ -1020,7 +1020,7 @@ pub fn parse_alias(
                 } => {
                     let cmd = working_set.get_decl(rhs_call.decl_id);
 
-                    if cmd.is_parser_keyword()
+                    if cmd.is_keyword()
                         && !ALIASABLE_PARSER_KEYWORDS.contains(&cmd.name().as_bytes())
                     {
                         working_set.error(ParseError::CantAliasKeyword(

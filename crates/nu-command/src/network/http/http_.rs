@@ -41,7 +41,7 @@ impl Command for Http {
                 &Http.examples(),
                 engine_state,
                 stack,
-                self.is_parser_keyword(),
+                self.is_keyword(),
             ),
             call.head,
         )

@@ -1,6 +1,6 @@
 use crate::{
     ast::Call,
-    engine::{Command, EngineState, Stack},
+    engine::{Command, CommandType, EngineState, Stack},
     BlockId, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
 };
 use serde::{Deserialize, Serialize};
@@ -703,7 +703,11 @@ impl Command for BlockCommand {
         })
     }
 
-    fn get_block_id(&self) -> Option<BlockId> {
+    fn command_type(&self) -> CommandType {
+        CommandType::Custom
+    }
+
+    fn block_id(&self) -> Option<BlockId> {
         Some(self.block_id)
     }
 }
