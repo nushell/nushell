@@ -537,6 +537,7 @@ impl ExternalCommand {
             .to_string();
 
         let mut process = std::process::Command::new(head);
+        process.env_clear();
 
         for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
             trim_expand_and_apply_arg(&mut process, arg, arg_keep_raw, cwd);
