@@ -982,7 +982,7 @@ where
         // Straightforward implementation on top of BufRead
         let slice = self.fill_buf()?;
         let len = buf.len().min(slice.len());
-        buf[0..len].copy_from_slice(&slice[0..len]);
+        buf[..len].copy_from_slice(&slice[..len]);
         self.consume(len);
         Ok(len)
     }
