@@ -437,7 +437,7 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
     ByteStream::from_fn(span, None, ByteStreamType::String, move |buffer| {
         // Turn the buffer into a String we can write to
         let mut write_buf = std::mem::take(buffer);
-        write_buf.truncate(0);
+        write_buf.clear();
         // SAFETY: we just truncated it empty
         let mut write_buf = unsafe { String::from_utf8_unchecked(write_buf) };
 
