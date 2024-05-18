@@ -179,11 +179,9 @@ impl NuDataFrame {
 
                     conversion::insert_record(&mut column_values, record, &maybe_schema)?
                 }
-                Value::Record { val: record, .. } => conversion::insert_record(
-                    &mut column_values,
-                    record.into_owned(),
-                    &maybe_schema,
-                )?,
+                Value::Record { val, .. } => {
+                    conversion::insert_record(&mut column_values, val, &maybe_schema)?
+                }
                 _ => {
                     let key = "0".to_string();
                     conversion::insert_value(value, key, &mut column_values, &maybe_schema)?

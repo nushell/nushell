@@ -39,7 +39,7 @@ impl PluginGcConfigs {
                 self.plugins = HashMap::new();
             }
 
-            val.to_mut().retain_mut(|key, value| {
+            val.retain_mut(|key, value| {
                 let span = value.span();
                 match key {
                     "default" => {
@@ -88,7 +88,7 @@ fn process_plugins(
         // Remove any plugin configs that aren't in the value
         plugins.retain(|key, _| val.contains(key));
 
-        val.to_mut().retain_mut(|key, value| {
+        val.retain_mut(|key, value| {
             if matches!(value, Value::Record { .. }) {
                 plugins.entry(key.to_owned()).or_default().process(
                     &join_path(path, &[key]),
@@ -150,7 +150,7 @@ impl PluginGcConfig {
                 self.stop_after = PluginGcConfig::default().stop_after;
             }
 
-            val.to_mut().retain_mut(|key, value| {
+            val.retain_mut(|key, value| {
                 let span = value.span();
                 match key {
                     "enabled" => process_bool_config(value, errors, &mut self.enabled),

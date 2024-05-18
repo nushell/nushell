@@ -124,7 +124,7 @@ fn drop_cols(
                     ..
                 } => {
                     let len = record.len().saturating_sub(columns);
-                    record.to_mut().truncate(len);
+                    record.truncate(len);
                     Ok(v.into_pipeline_data_with_metadata(metadata))
                 }
                 // Propagate errors
@@ -145,7 +145,9 @@ fn drop_cols(
 fn drop_cols_set(val: &mut Value, head: Span, drop: usize) -> Result<HashSet<String>, ShellError> {
     if let Value::Record { val: record, .. } = val {
         let len = record.len().saturating_sub(drop);
-        Ok(record.to_mut().drain(len..).map(|(col, _)| col).collect())
+        let set = record.columns().skip(len).cloned().collect();
+        record.truncate(len);
+        Ok(set)
     } else {
         Err(unsupported_value_error(val, head))
     }
@@ -157,7 +159,7 @@ fn drop_record_cols(
     drop_cols: &HashSet<String>,
 ) -> Result<(), ShellError> {
     if let Value::Record { val, .. } = val {
-        val.to_mut().retain(|col, _| !drop_cols.contains(col));
+        val.retain(|col, _| !drop_cols.contains(col));
         Ok(())
     } else {
         Err(unsupported_value_error(val, head))

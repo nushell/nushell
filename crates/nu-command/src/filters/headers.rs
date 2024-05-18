@@ -149,7 +149,6 @@ fn replace_headers(
             if let Value::Record { val: record, .. } = value {
                 Ok(Value::record(
                     record
-                        .into_owned()
                         .into_iter()
                         .filter_map(|(col, val)| {
                             old_headers
