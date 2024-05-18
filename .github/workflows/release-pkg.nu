@@ -16,27 +16,26 @@
 # 2. $env:CARGO_TARGET_DIR = ""
 # 2. hide-env CARGO_TARGET_DIR
 # 3. $env.TARGET = 'x86_64-pc-windows-msvc'
-# 4. $env.TARGET_RUSTFLAGS = ''
-# 5. $env.GITHUB_WORKSPACE = 'D:\nushell'
-# 6. $env.GITHUB_OUTPUT = 'D:\nushell\output\out.txt'
-# 7. $env.OS = 'windows-latest'
+# 4. $env.GITHUB_WORKSPACE = 'D:\nushell'
+# 5. $env.GITHUB_OUTPUT = 'D:\nushell\output\out.txt'
+# 6. $env.OS = 'windows-latest'
 # make sure 7z.exe is in your path https://www.7-zip.org/download.html
-# 9. $env.Path = ($env.Path | append 'c:\apps\7-zip')
+# 7. $env.Path = ($env.Path | append 'c:\apps\7-zip')
 # make sure aria2c.exe is in your path https://github.com/aria2/aria2
-# 10. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
+# 8. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
 # make sure you have the wixtools installed https://wixtoolset.org/
-# 11. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
+# 9. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
 # You need to run the release-pkg twice. The first pass, with _EXTRA_ as 'bin', makes the output
 # folder and builds everything. The second pass, that generates the msi file, with _EXTRA_ as 'msi'
-# 12. $env._EXTRA_ = 'bin'
-# 13. source .github\workflows\release-pkg.nu
-# 14. cd ..
-# 15. $env._EXTRA_ = 'msi'
-# 16. source .github\workflows\release-pkg.nu
+# 10. $env._EXTRA_ = 'bin'
+# 11. source .github\workflows\release-pkg.nu
+# 12. cd ..
+# 13. $env._EXTRA_ = 'msi'
+# 14. source .github\workflows\release-pkg.nu
 # After msi is generated, you have to update winget-pkgs repo, you'll need to patch the release
 # by deleting the existing msi and uploading this new msi. Then you'll need to update the hash
 # on the winget-pkgs PR. To generate the hash, run this command
-# 17. open target\wix\nu-0.74.0-x86_64-pc-windows-msvc.msi | hash sha256
+# 15. open target\wix\nu-0.74.0-x86_64-pc-windows-msvc.msi | hash sha256
 # Then, just take the output and put it in the winget-pkgs PR for the hash on the msi
 
 
