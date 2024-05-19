@@ -1070,7 +1070,7 @@ where
         while self.buffer.fill_buf()?.is_empty() {
             // Reset the cursor to the beginning and truncate
             self.buffer.set_position(0);
-            self.buffer.get_mut().truncate(0);
+            self.buffer.get_mut().clear();
             // Ask the generator to generate data
             if !(self.generator)(self.buffer.get_mut())? {
                 // End of stream
