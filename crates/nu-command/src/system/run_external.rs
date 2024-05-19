@@ -832,6 +832,39 @@ fn remove_inner_quotes(arg: impl Into<String>) -> String {
     }
 }
 
+/// Write `PipelineData` into `writer`. If `PipelineData` is not binary, it is
+/// first rendered using the `table` command.
+///
+/// Note: Avoid using this function when piping data from an external command to
+/// another external command, because it copies data unnecessarily. Instead,
+/// extract the pipe from the `PipelineData::ByteStream` of the first command
+/// and hand it to the second command directly.
+fn write_pipeline_data(data: PipelineData, mut writer: impl Write) -> Result<(), ShellError> {
+    if let PipelineData::ByteStream(stream, ..) = data {
+        stream.write_to(&mut writer)?;
+    } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
+        writer.write_all(&val)?;
+    } else {
+        let mut engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.start_capture();
+
+        // Turn off color as we pass data through
+        Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
+
+        // Invoke the `table` command.
+        let output =
+            crate::Table.run(&engine_state, &mut stack, &Call::new(Span::unknown()), data)?;
+
+        // Write the output.
+        for value in output {
+            let bytes = value.coerce_into_binary()?;
+            writer.write_all(&bytes)?;
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -931,5 +964,36 @@ mod test {
         let actual = remove_inner_quotes(r#"--option "value""#);
         let expected = r#"--option "value""#;
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_write_pipeline_data() {
+        let mut buf = vec![];
+        let input = PipelineData::Empty;
+        write_pipeline_data(input, &mut buf).unwrap();
+        assert_eq!(buf, b"");
+
+        let mut buf = vec![];
+        let input = PipelineData::Value(Value::string("foo", Span::unknown()), None);
+        write_pipeline_data(input, &mut buf).unwrap();
+        assert_eq!(buf, b"foo");
+
+        let mut buf = vec![];
+        let input = PipelineData::Value(Value::binary(b"foo", Span::unknown()), None);
+        write_pipeline_data(input, &mut buf).unwrap();
+        assert_eq!(buf, b"foo");
+
+        let mut buf = vec![];
+        let input = PipelineData::ByteStream(
+            ByteStream::read(
+                b"foo".as_slice(),
+                Span::unknown(),
+                None,
+                ByteStreamType::Unknown,
+            ),
+            None,
+        );
+        write_pipeline_data(input, &mut buf).unwrap();
+        assert_eq!(buf, b"foo");
     }
 }
