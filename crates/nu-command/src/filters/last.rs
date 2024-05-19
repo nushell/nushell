@@ -160,12 +160,48 @@ impl Command for Last {
                     }),
                 }
             }
-            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, binary or range".into(),
-                wrong_type: stream.type_().describe().into(),
-                dst_span: head,
-                src_span: stream.span(),
-            }),
+            PipelineData::ByteStream(stream, ..) => {
+                if stream.type_() == ByteStreamType::Binary {
+                    let span = stream.span();
+                    if let Some(mut reader) = stream.reader() {
+                        use std::io::Read;
+                        // Have to be a bit tricky here, but just consume into a VecDeque that we
+                        // shrink to fit each time
+                        const TAKE: u64 = 8192;
+                        let mut buf = VecDeque::with_capacity(rows + TAKE as usize);
+                        loop {
+                            let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
+                                .err_span(span)?;
+                            if buf.len() > rows {
+                                buf.drain(..(buf.len() - rows));
+                            }
+                            if taken < TAKE {
+                                // This must be EOF.
+                                if return_single_element {
+                                    if !buf.is_empty() {
+                                        return Ok(
+                                            Value::int(buf[0] as i64, head).into_pipeline_data()
+                                        );
+                                    } else {
+                                        return Err(ShellError::AccessEmptyContent { span: head });
+                                    }
+                                } else {
+                                    return Ok(Value::binary(buf, head).into_pipeline_data());
+                                }
+                            }
+                        }
+                    } else {
+                        Ok(PipelineData::Empty)
+                    }
+                } else {
+                    Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
+                        dst_span: head,
+                        src_span: stream.span(),
+                    })
+                }
+            }
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: "null".into(),

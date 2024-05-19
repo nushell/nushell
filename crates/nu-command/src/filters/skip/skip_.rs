@@ -12,6 +12,7 @@ impl Command for Skip {
         Signature::build(self.name())
             .input_output_types(vec![
                 (Type::table(), Type::table()),
+                (Type::Binary, Type::Binary),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
@@ -51,6 +52,11 @@ impl Command for Skip {
                     "editions" => Value::test_int(2021),
                 })])),
             },
+            Example {
+                description: "Skip 2 bytes of a binary value",
+                example: "0x[01 23 45 67] | skip 2",
+                result: Some(Value::test_binary(vec![0x45, 0x67])),
+            },
         ]
     }
     fn run(
@@ -87,12 +93,30 @@ impl Command for Skip {
         let ctrlc = engine_state.ctrlc.clone();
         let input_span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, binary or range".into(),
-                wrong_type: stream.type_().describe().into(),
-                dst_span: call.head,
-                src_span: stream.span(),
-            }),
+            PipelineData::ByteStream(stream, metadata) => {
+                if stream.type_() == ByteStreamType::Binary {
+                    let span = stream.span();
+                    if let Some(mut reader) = stream.reader() {
+                        use std::io::Read;
+                        // Copy the number of skipped bytes into the sink before proceeding
+                        std::io::copy(&mut (&mut reader).take(n as u64), &mut std::io::sink())
+                            .err_span(span)?;
+                        Ok(PipelineData::ByteStream(
+                            ByteStream::read(reader, call.head, None, ByteStreamType::Binary),
+                            metadata,
+                        ))
+                    } else {
+                        Ok(PipelineData::Empty)
+                    }
+                } else {
+                    Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
+                        dst_span: call.head,
+                        src_span: stream.span(),
+                    })
+                }
+            }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
