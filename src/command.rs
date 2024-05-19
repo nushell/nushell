@@ -2,7 +2,7 @@ use nu_engine::{command_prelude::*, get_full_help};
 use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_protocol::{
     ast::{Expr, Expression},
-    engine::{CommandType, StateWorkingSet},
+    engine::StateWorkingSet,
     report_error,
 };
 use nu_utils::stdout_write_all_and_flush;
@@ -456,9 +456,5 @@ impl Command for Nu {
                 result: None,
             },
         ]
-    }
-
-    fn command_type(&self) -> CommandType {
-        CommandType::Keyword
     }
 }
