@@ -403,8 +403,8 @@ struct StreamInfo {
     metadata: Option<PipelineMetadata>,
 }
 
-fn copy(mut src: impl Read, mut dest: impl Write, info: &StreamInfo) -> Result<(), ShellError> {
-    copy_with_interrupt(&mut src, &mut dest, info.span, info.ctrlc.as_deref())?;
+fn copy(src: impl Read, dest: impl Write, info: &StreamInfo) -> Result<(), ShellError> {
+    copy_with_interrupt(src, dest, info.span, info.ctrlc.as_deref())?;
     Ok(())
 }
 
@@ -416,8 +416,8 @@ fn copy_pipe(pipe: ChildPipe, dest: impl Write, info: &StreamInfo) -> Result<(),
 }
 
 fn copy_on_thread(
-    mut src: impl Read + Send + 'static,
-    mut dest: impl Write + Send + 'static,
+    src: impl Read + Send + 'static,
+    dest: impl Write + Send + 'static,
     info: &StreamInfo,
 ) -> Result<JoinHandle<Result<(), ShellError>>, ShellError> {
     let span = info.span;
@@ -425,7 +425,7 @@ fn copy_on_thread(
     thread::Builder::new()
         .name("stderr copier".into())
         .spawn(move || {
-            copy_with_interrupt(&mut src, &mut dest, span, ctrlc.as_deref())?;
+            copy_with_interrupt(src, dest, span, ctrlc.as_deref())?;
             Ok(())
         })
         .map_err(|e| e.into_spanned(span).into())

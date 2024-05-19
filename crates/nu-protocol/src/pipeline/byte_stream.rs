@@ -541,8 +541,8 @@ impl ByteStream {
     /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
     pub fn drain(self) -> Result<Option<ExitStatus>, ShellError> {
         match self.stream {
-            ByteStreamSource::Read(mut read) => {
-                copy_with_interrupt(&mut read, &mut io::sink(), self.span, self.ctrlc.as_deref())?;
+            ByteStreamSource::Read(read) => {
+                copy_with_interrupt(read, io::sink(), self.span, self.ctrlc.as_deref())?;
                 Ok(None)
             }
             ByteStreamSource::File(_) => Ok(None),
@@ -566,16 +566,16 @@ impl ByteStream {
     ///
     /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
     /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
-    pub fn write_to(self, dest: &mut impl Write) -> Result<Option<ExitStatus>, ShellError> {
+    pub fn write_to(self, dest: impl Write) -> Result<Option<ExitStatus>, ShellError> {
         let span = self.span;
         let ctrlc = self.ctrlc.as_deref();
         match self.stream {
-            ByteStreamSource::Read(mut read) => {
-                copy_with_interrupt(&mut read, dest, span, ctrlc)?;
+            ByteStreamSource::Read(read) => {
+                copy_with_interrupt(read, dest, span, ctrlc)?;
                 Ok(None)
             }
-            ByteStreamSource::File(mut file) => {
-                copy_with_interrupt(&mut file, dest, span, ctrlc)?;
+            ByteStreamSource::File(file) => {
+                copy_with_interrupt(file, dest, span, ctrlc)?;
                 Ok(None)
             }
             ByteStreamSource::Child(mut child) => {
@@ -586,11 +586,11 @@ impl ByteStream {
 
                 if let Some(stdout) = child.stdout.take() {
                     match stdout {
-                        ChildPipe::Pipe(mut pipe) => {
-                            copy_with_interrupt(&mut pipe, dest, span, ctrlc)?;
+                        ChildPipe::Pipe(pipe) => {
+                            copy_with_interrupt(pipe, dest, span, ctrlc)?;
                         }
-                        ChildPipe::Tee(mut tee) => {
-                            copy_with_interrupt(&mut tee, dest, span, ctrlc)?;
+                        ChildPipe::Tee(tee) => {
+                            copy_with_interrupt(tee, dest, span, ctrlc)?;
                         }
                     }
                 }
@@ -612,14 +612,14 @@ impl ByteStream {
                 write_to_out_dest(read, stdout, true, span, ctrlc)?;
                 Ok(None)
             }
-            ByteStreamSource::File(mut file) => {
+            ByteStreamSource::File(file) => {
                 match stdout {
                     OutDest::Pipe | OutDest::Capture | OutDest::Null => {}
                     OutDest::Inherit => {
-                        copy_with_interrupt(&mut file, &mut io::stdout(), span, ctrlc)?;
+                        copy_with_interrupt(file, io::stdout(), span, ctrlc)?;
                     }
                     OutDest::File(f) => {
-                        copy_with_interrupt(&mut file, &mut f.as_ref(), span, ctrlc)?;
+                        copy_with_interrupt(file, f.as_ref(), span, ctrlc)?;
                     }
                 }
                 Ok(None)
@@ -974,7 +974,7 @@ fn trim_end_newline(string: &mut String) {
 }
 
 fn write_to_out_dest(
-    mut read: impl Read,
+    read: impl Read,
     stream: &OutDest,
     stdout: bool,
     span: Span,
@@ -982,12 +982,10 @@ fn write_to_out_dest(
 ) -> Result<(), ShellError> {
     match stream {
         OutDest::Pipe | OutDest::Capture => return Ok(()),
-        OutDest::Null => copy_with_interrupt(&mut read, &mut io::sink(), span, ctrlc),
-        OutDest::Inherit if stdout => {
-            copy_with_interrupt(&mut read, &mut io::stdout(), span, ctrlc)
-        }
-        OutDest::Inherit => copy_with_interrupt(&mut read, &mut io::stderr(), span, ctrlc),
-        OutDest::File(file) => copy_with_interrupt(&mut read, &mut file.as_ref(), span, ctrlc),
+        OutDest::Null => copy_with_interrupt(read, io::sink(), span, ctrlc),
+        OutDest::Inherit if stdout => copy_with_interrupt(read, io::stdout(), span, ctrlc),
+        OutDest::Inherit => copy_with_interrupt(read, io::stderr(), span, ctrlc),
+        OutDest::File(file) => copy_with_interrupt(read, file.as_ref(), span, ctrlc),
     }?;
     Ok(())
 }
@@ -1004,22 +1002,18 @@ pub(crate) fn convert_file<T: From<OwnedHandle>>(file: impl Into<OwnedHandle>) -
 
 const DEFAULT_BUF_SIZE: usize = 8192;
 
-pub fn copy_with_interrupt<R: ?Sized, W: ?Sized>(
-    reader: &mut R,
-    writer: &mut W,
+pub fn copy_with_interrupt(
+    mut reader: impl Read,
+    mut writer: impl Write,
     span: Span,
     interrupt: Option<&AtomicBool>,
-) -> Result<u64, ShellError>
-where
-    R: Read,
-    W: Write,
-{
+) -> Result<u64, ShellError> {
     if let Some(interrupt) = interrupt {
         // #[cfg(any(target_os = "linux", target_os = "android"))]
         // {
         //     return crate::sys::kernel_copy::copy_spec(reader, writer);
         // }
-        match generic_copy(reader, writer, span, interrupt) {
+        match generic_copy(&mut reader, &mut writer, span, interrupt) {
             Ok(len) => {
                 writer.flush().err_span(span)?;
                 Ok(len)
@@ -1030,7 +1024,7 @@ where
             }
         }
     } else {
-        match io::copy(reader, writer) {
+        match io::copy(&mut reader, &mut writer) {
             Ok(n) => {
                 writer.flush().err_span(span)?;
                 Ok(n)
@@ -1044,16 +1038,12 @@ where
 }
 
 // Copied from [`std::io::copy`]
-fn generic_copy<R: ?Sized, W: ?Sized>(
-    reader: &mut R,
-    writer: &mut W,
+fn generic_copy(
+    mut reader: impl Read,
+    mut writer: impl Write,
     span: Span,
     interrupt: &AtomicBool,
-) -> Result<u64, ShellError>
-where
-    R: Read,
-    W: Write,
-{
+) -> Result<u64, ShellError> {
     let buf = &mut [0; DEFAULT_BUF_SIZE];
     let mut len = 0;
     loop {
