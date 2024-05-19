@@ -1,10 +1,16 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
-use nu_protocol::{ast::Expr, did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest};
+use nu_protocol::{
+    ast::{Expr, Expression},
+    did_you_mean,
+    process::ChildProcess,
+    ByteStream, NuGlob, OutDest,
+};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
+use regex::Regex;
 use std::{
     collections::HashMap,
     io::Write,
@@ -595,7 +601,7 @@ fn trim_expand_and_apply_arg(
         item: if keep_raw {
             trimmed_args
         } else {
-            remove_quotes(trimmed_args)
+            remove_quotes_old(trimmed_args)
         },
         span: arg.span,
     };
@@ -682,7 +688,7 @@ fn trim_enclosing_quotes(input: &str) -> (String, bool, bool) {
     }
 }
 
-fn remove_quotes(input: String) -> String {
+fn remove_quotes_old(input: String) -> String {
     let mut chars = input.chars();
 
     match (chars.next_back(), input.contains('=')) {
@@ -706,39 +712,224 @@ fn extract_stdio(pipeline: PipelineData) -> (PipelineData, Stdio) {
     }
 }
 
+/// Removes surrounding quotes from a string. Doesn't remove quotes from raw
+/// strings. Returns the original string if it doesn't have matching quotes.
+fn remove_quotes(s: &str) -> &str {
+    let quoted_by_double_quotes = s.len() >= 2 && s.starts_with('"') && s.ends_with('"');
+    let quoted_by_single_quotes = s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'');
+    let quoted_by_backticks = s.len() >= 2 && s.starts_with('`') && s.ends_with('`');
+    if quoted_by_double_quotes || quoted_by_single_quotes || quoted_by_backticks {
+        &s[1..s.len() - 1]
+    } else {
+        s
+    }
+}
+
+/// Evaluates an expression, coercing the values to strings.
+///
+/// Note: The parser currently has a special hack that retains surrounding
+/// quotes for string literals in `Expression`, so that we can decide whether
+/// the expression is considered a bare string. The hack doesn't affact string
+/// literals within lists or records. This function will remove the quotes
+/// before evaluating the expression.
+fn eval_argument(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    expr: &Expression,
+    spread: bool,
+) -> Result<Vec<String>, ShellError> {
+    // Remove quotes from string literals.
+    let mut expr = expr.clone();
+    if let Expr::String(s) = &expr.expr {
+        expr.expr = Expr::String(remove_quotes(s).into());
+    }
+
+    let eval = get_eval_expression(engine_state);
+    match eval(engine_state, stack, &expr)? {
+        Value::List { vals, .. } => {
+            if spread {
+                vals.into_iter().map(|val| val.coerce_string()).collect()
+            } else {
+                Err(ShellError::CannotPassListToExternal {
+                    arg: String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).into(),
+                    span: expr.span,
+                })
+            }
+        }
+        value => {
+            if spread {
+                Err(ShellError::CannotSpreadAsList { span: expr.span })
+            } else {
+                Ok(vec![value.coerce_string()?])
+            }
+        }
+    }
+}
+
+/// Returns whether an expression is considered a bare string.
+///
+/// Bare strings are defined as string literals that are either unquoted or
+/// quoted by backticks. Raw strings or string interpolations don't count.
+fn is_bare_string(expr: &Expression) -> bool {
+    let Expr::String(s) = &expr.expr else {
+        return false;
+    };
+    let quoted_by_double_quotes = s.len() >= 2 && s.starts_with('"') && s.ends_with('"');
+    let quoted_by_single_quotes = s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'');
+    !quoted_by_double_quotes && !quoted_by_single_quotes
+}
+
+/// Performs tilde expansion on `arg`. Returns the original string if `arg`
+/// doesn't start with tilde.
+fn expand_tilde(arg: &str) -> String {
+    nu_path::expand_tilde(arg).to_string_lossy().to_string()
+}
+
+/// Performs glob expansion on `arg`. If the expansion found no matches, returns
+/// the original string as the expansion result.
+///
+/// Note: This matches the default behavior of Bash, but is known to be
+/// error-prone. We might want to change this behavior in the future.
+fn expand_glob(arg: &str, cwd: &Path, span: Span) -> Result<Vec<String>, ShellError> {
+    let paths =
+        nu_glob::glob_with_parent(arg, nu_glob::MatchOptions::default(), cwd).map_err(|err| {
+            ShellError::InvalidGlobPattern {
+                msg: err.msg.to_string(),
+                span,
+            }
+        })?;
+
+    let mut result = vec![];
+    for path in paths {
+        let path = path.map_err(|err| ShellError::IOErrorSpanned {
+            msg: format!("{}: {:?}", err.path().display(), err.error()),
+            span,
+        })?;
+        // Strip PWD from the resulting paths if possible.
+        let path_stripped = path.strip_prefix(cwd).unwrap_or(&path);
+        let path_string = path_stripped.to_string_lossy().to_string();
+        result.push(path_string);
+    }
+
+    if result.is_empty() {
+        result.push(arg.to_string());
+    }
+
+    Ok(result)
+}
+
+/// Transforms `--option="value"` into `--option=value`. `value` can be quoted
+/// with double or single quotes. The original string should have an `=` sign,
+/// otherwise this function returns the original string. Does not resolve escape
+/// sequences within `value`. Only removes the first matching pair of quotes.
+fn remove_inner_quotes(arg: impl Into<String>) -> String {
+    let arg = arg.into();
+    let re = Regex::new(r#"^(?<option>.*?)=['"](?<value>.*)['"]$"#).expect("valid regex");
+    if let Some(caps) = re.captures(&arg) {
+        format!("{}={}", &caps["option"], &caps["value"])
+    } else {
+        arg
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_protocol::ast::ListItem;
 
     #[test]
-    fn remove_quotes_argument_with_equal_test() {
-        let input = r#"--file="my_file.txt""#.into();
-        let res = remove_quotes(input);
-
-        assert_eq!("--file=my_file.txt", res)
+    fn test_remove_quotes() {
+        assert_eq!(remove_quotes(r#""#), r#""#);
+        assert_eq!(remove_quotes(r#"'"#), r#"'"#);
+        assert_eq!(remove_quotes(r#"''"#), r#""#);
+        assert_eq!(remove_quotes(r#""foo""#), r#"foo"#);
+        assert_eq!(remove_quotes(r#"`foo '"' bar`"#), r#"foo '"' bar"#);
+        assert_eq!(remove_quotes(r#"'foo' bar"#), r#"'foo' bar"#);
+        assert_eq!(remove_quotes(r#"r#'foo'#"#), r#"r#'foo'#"#);
     }
 
     #[test]
-    fn argument_without_equal_test() {
-        let input = r#"--file "my_file.txt""#.into();
-        let res = remove_quotes(input);
+    fn test_eval_argument() {
+        fn expression(expr: Expr) -> Expression {
+            Expression {
+                expr: expr,
+                span: Span::unknown(),
+                ty: Type::Any,
+                custom_completion: None,
+            }
+        }
 
-        assert_eq!(r#"--file "my_file.txt""#, res)
+        fn eval(expr: Expr, spread: bool) -> Result<Vec<String>, ShellError> {
+            let engine_state = EngineState::new();
+            let mut stack = Stack::new();
+            eval_argument(&engine_state, &mut stack, &expression(expr), spread)
+        }
+
+        let actual = eval(Expr::String("".into()), false).unwrap();
+        let expected = &[""];
+        assert_eq!(actual, expected);
+
+        let actual = eval(Expr::String("'foo'".into()), false).unwrap();
+        let expected = &["foo"];
+        assert_eq!(actual, expected);
+
+        let actual = eval(Expr::RawString("'foo'".into()), false).unwrap();
+        let expected = &["'foo'"];
+        assert_eq!(actual, expected);
+
+        let actual = eval(Expr::List(vec![]), true).unwrap();
+        let expected: &[&str] = &[];
+        assert_eq!(actual, expected);
+
+        let actual = eval(
+            Expr::List(vec![
+                ListItem::Item(expression(Expr::String("'foo'".into()))),
+                ListItem::Item(expression(Expr::String("bar".into()))),
+            ]),
+            true,
+        )
+        .unwrap();
+        let expected = &["'foo'", "bar"];
+        assert_eq!(actual, expected);
+
+        eval(Expr::String("".into()), true).unwrap_err();
+        eval(Expr::List(vec![]), false).unwrap_err();
     }
 
     #[test]
-    fn remove_quotes_argument_with_single_quotes_test() {
-        let input = r#"--file='my_file.txt'"#.into();
-        let res = remove_quotes(input);
+    fn test_expand_glob() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let cwd = tempdir.path();
+        std::fs::File::create(cwd.join("a.txt")).unwrap();
+        std::fs::File::create(cwd.join("b.txt")).unwrap();
 
-        assert_eq!("--file=my_file.txt", res)
+        let actual = expand_glob("*.txt", cwd, Span::unknown()).unwrap();
+        let expected = &["a.txt", "b.txt"];
+        assert_eq!(actual, expected);
+
+        let actual = expand_glob("'*.txt'", cwd, Span::unknown()).unwrap();
+        let expected = &["'*.txt'"];
+        assert_eq!(actual, expected);
+
+        expand_glob("[*.txt", cwd, Span::unknown()).unwrap_err();
     }
 
     #[test]
-    fn argument_with_inner_quotes_test() {
-        let input = r#"sh -c 'echo a'"#.into();
-        let res = remove_quotes(input);
+    fn test_remove_inner_quotes() {
+        let actual = remove_inner_quotes(r#"--option=value"#);
+        let expected = r#"--option=value"#;
+        assert_eq!(actual, expected);
 
-        assert_eq!("sh -c 'echo a'", res)
+        let actual = remove_inner_quotes(r#"--option="value""#);
+        let expected = r#"--option=value"#;
+        assert_eq!(actual, expected);
+
+        let actual = remove_inner_quotes(r#"--option='value'"#);
+        let expected = r#"--option=value"#;
+        assert_eq!(actual, expected);
+
+        let actual = remove_inner_quotes(r#"--option "value""#);
+        let expected = r#"--option "value""#;
+        assert_eq!(actual, expected);
     }
 }

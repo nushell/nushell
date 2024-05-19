@@ -3012,6 +3012,7 @@ dependencies = [
  "sha2",
  "sysinfo",
  "tabled",
+ "tempfile",
  "terminal_size",
  "titlecase",
  "toml 0.8.12",

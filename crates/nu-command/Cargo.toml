@@ -146,3 +146,4 @@ quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }
 pretty_assertions = { workspace = true }
+tempfile = { workspace = true }
