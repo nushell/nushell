@@ -43,6 +43,14 @@ impl ByteStreamSource {
             }),
         }
     }
+
+    /// Source is a `Child` or `File`, rather than `Read`. Currently affects trimming
+    fn is_external(&self) -> bool {
+        matches!(
+            self,
+            ByteStreamSource::File(..) | ByteStreamSource::Child(..)
+        )
+    }
 }
 
 impl Debug for ByteStreamSource {
@@ -457,14 +465,14 @@ impl ByteStream {
     /// valid UTF-8.
     ///
     /// The trailing new line (`\n` or `\r\n`), if any, is removed from the [`String`] prior to
-    /// being returned, if this is a stream coming from an external process.
+    /// being returned, if this is a stream coming from an external process or file.
     ///
     /// If the [type](.type_()) is specified as `Binary`, this operation always fails, even if the
     /// data would have been valid UTF-8.
     pub fn into_string(self) -> Result<String, ShellError> {
         let span = self.span;
         if self.type_ != ByteStreamType::Binary {
-            let trim = matches!(self.stream, ByteStreamSource::Child(..));
+            let trim = self.stream.is_external();
             let bytes = self.into_bytes()?;
             let mut string = String::from_utf8(bytes).map_err(|err| ShellError::NonUtf8Custom {
                 span,
@@ -485,8 +493,8 @@ impl ByteStream {
     /// Collect all the bytes of the [`ByteStream`] into a [`Value`].
     ///
     /// If this is a `String` stream, the stream is decoded to UTF-8. If the stream came from an
-    /// external process, the trailing new line (`\n` or `\r\n`), if any, is removed from the
-    /// [`String`] prior to being returned.
+    /// external process or file, the trailing new line (`\n` or `\r\n`), if any, is removed from
+    /// the [`String`] prior to being returned.
     ///
     /// If this is a `Binary` stream, a [`Value::Binary`] is returned with any trailing new lines
     /// preserved.
@@ -496,7 +504,7 @@ impl ByteStream {
     /// behavior.
     pub fn into_value(self) -> Result<Value, ShellError> {
         let span = self.span;
-        let trim = matches!(self.stream, ByteStreamSource::Child(..));
+        let trim = self.stream.is_external();
         let value = match self.type_ {
             // If the type is specified, then the stream should always become that type:
             ByteStreamType::Binary => Value::binary(self.into_bytes()?, span),
