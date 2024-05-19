@@ -276,7 +276,7 @@ impl PipelineData {
                 span: head,
             }),
             PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
-                type_name: "byte stream".to_string(),
+                type_name: stream.type_().describe().to_owned(),
                 span: stream.span(),
             }),
         }

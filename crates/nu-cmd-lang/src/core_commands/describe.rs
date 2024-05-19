@@ -163,11 +163,7 @@ fn run(
 
     let description = match input {
         PipelineData::ByteStream(stream, ..) => {
-            let type_ = match stream.type_() {
-                ByteStreamType::Binary => "binary (stream)",
-                ByteStreamType::String => "string (stream)",
-                ByteStreamType::Unknown => "byte stream",
-            };
+            let type_ = stream.type_().describe();
 
             let description = if options.detailed {
                 let origin = match stream.source() {

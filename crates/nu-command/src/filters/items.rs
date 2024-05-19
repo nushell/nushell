@@ -86,7 +86,7 @@ impl Command for Items {
             }),
             PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
-                wrong_type: "byte stream".into(),
+                wrong_type: stream.type_().describe().into(),
                 dst_span: call.head,
                 src_span: stream.span(),
             }),

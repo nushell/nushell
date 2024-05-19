@@ -104,6 +104,18 @@ pub enum ByteStreamType {
     Unknown,
 }
 
+impl ByteStreamType {
+    /// Returns the string that describes the byte stream type - i.e., the same as what `describe`
+    /// produces. This can be used in type mismatch error messages.
+    pub fn describe(self) -> &'static str {
+        match self {
+            ByteStreamType::Binary => "binary (stream)",
+            ByteStreamType::String => "string (stream)",
+            ByteStreamType::Unknown => "byte stream",
+        }
+    }
+}
+
 impl From<ByteStreamType> for Type {
     fn from(value: ByteStreamType) -> Self {
         match value {

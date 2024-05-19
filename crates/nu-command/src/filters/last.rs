@@ -162,7 +162,7 @@ impl Command for Last {
             }
             PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
-                wrong_type: "byte stream".into(),
+                wrong_type: stream.type_().describe().into(),
                 dst_span: head,
                 src_span: stream.span(),
             }),

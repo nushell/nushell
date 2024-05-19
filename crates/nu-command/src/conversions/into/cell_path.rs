@@ -103,7 +103,7 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
         }
         PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, int".into(),
-            wrong_type: "byte stream".into(),
+            wrong_type: stream.type_().describe().into(),
             dst_span: head,
             src_span: stream.span(),
         }),
