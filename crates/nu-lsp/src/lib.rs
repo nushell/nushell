@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_types::{
     request::{Completion, GotoDefinition, HoverRequest, Request},

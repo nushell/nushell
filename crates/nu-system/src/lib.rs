@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod foreground;
 #[cfg(any(target_os = "android", target_os = "linux"))]
 mod linux;
