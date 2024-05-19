@@ -7,12 +7,30 @@ use crate::{
     ShellError, Span, Spanned, Value,
 };
 
+/// Parsed command arguments
+///
+/// Primarily for internal commands
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
+    /// A positional argument (that is not [`Argument::Spread`])
+    ///
+    /// ```nushell
+    /// my_cmd positional
+    /// ```
     Positional(Expression),
+    /// A named/flag argument that can optionally receive a [`Value`] as an [`Expression`]
+    ///
+    /// The optional second `Spanned<String>` refers to the short-flag version if used
+    /// ```nushell
+    /// my_cmd --flag
+    /// my_cmd -f
+    /// my_cmd --flag-with-value <expr>
+    /// ```
     Named((Spanned<String>, Option<Spanned<String>>, Option<Expression>)),
-    Unknown(Expression), // unknown argument used in "fall-through" signatures
-    Spread(Expression),  // a list spread to fill in rest arguments
+    /// unknown argument used in "fall-through" signatures
+    Unknown(Expression),
+    /// a list spread to fill in rest arguments
+    Spread(Expression),
 }
 
 impl Argument {
@@ -47,12 +65,24 @@ impl Argument {
     }
 }
 
+/// Argument passed to an external command
+///
+/// Here the parsing rules slightly differ to directly pass strings to the external process
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ExternalArgument {
+    /// Expression that needs to be evaluated to turn into an external process argument
     Regular(Expression),
+    /// Occurence of a `...` spread operator that needs to be expanded
     Spread(Expression),
 }
 
+/// Parsed call of a `Command`
+///
+/// As we also implement some internal keywords in terms of the `Command` trait, this type stores the passed arguments as [`Expression`].
+/// Some of its methods lazily evaluate those to [`Value`] while others return the underlying
+/// [`Expression`].
+///
+/// For further utilities check the `nu_engine::CallExt` trait that extends [`Call`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Call {
     /// identifier of the declaration to call
