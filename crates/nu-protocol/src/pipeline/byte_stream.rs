@@ -136,7 +136,7 @@ impl From<ByteStreamType> for Type {
 /// - [`reader`](ByteStream::reader): returns a [`Read`]-able type to get the raw bytes in the stream.
 /// - [`lines`](ByteStream::lines): splits the bytes on lines and returns an [`Iterator`]
 ///   where each item is a `Result<String, ShellError>`.
-/// - [`chunks`](ByteStream::chunks): returns an [`Iterator`] of [`Value`]s where each value is,
+/// - [`chunks`](ByteStream::chunks): returns an [`Iterator`] of [`Value`]s where each value is
 ///   either a string or binary.
 ///   Try not to use this method if possible. Rather, please use [`reader`](ByteStream::reader)
 ///   (or [`lines`](ByteStream::lines) if it matches the situation).
