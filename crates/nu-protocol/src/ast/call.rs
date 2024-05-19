@@ -72,7 +72,7 @@ impl Argument {
 pub enum ExternalArgument {
     /// Expression that needs to be evaluated to turn into an external process argument
     Regular(Expression),
-    /// Occurence of a `...` spread operator that needs to be expanded
+    /// Occurrence of a `...` spread operator that needs to be expanded
     Spread(Expression),
 }
 

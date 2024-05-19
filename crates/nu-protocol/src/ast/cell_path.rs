@@ -3,7 +3,7 @@ use crate::Span;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
-/// One level of acces of a [`CellPath`]
+/// One level of access of a [`CellPath`]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PathMember {
     /// Accessing a member by string (i.e. columns of a table or [`Record`](crate::Record))
