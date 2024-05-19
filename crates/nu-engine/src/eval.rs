@@ -27,12 +27,8 @@ pub fn eval_call<D: DebugContext>(
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
-        let mut signature = engine_state.get_signature(decl);
-        signature.usage = decl.usage().to_string();
-        signature.extra_usage = decl.extra_usage().to_string();
-
-        let full_help = get_full_help(decl, engine_state, caller_stack);
-        Ok(Value::string(full_help, call.head).into_pipeline_data())
+        let help = get_full_help(decl, engine_state, caller_stack);
+        Ok(Value::string(help, call.head).into_pipeline_data())
     } else if let Some(block_id) = decl.block_id() {
         let block = engine_state.get_block(block_id);
 
