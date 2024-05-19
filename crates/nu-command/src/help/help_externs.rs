@@ -1,6 +1,7 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
 use nu_engine::{command_prelude::*, get_full_help, scope::ScopeData};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct HelpExterns;
@@ -110,9 +111,15 @@ pub fn help_externs(
         let output = engine_state
             .get_signatures_with_examples(false)
             .iter()
-            .filter(|(signature, _, _, _, _)| signature.name == name)
-            .map(|(signature, examples, _, _, is_parser_keyword)| {
-                get_full_help(signature, examples, engine_state, stack, *is_parser_keyword)
+            .filter(|(signature, _, _)| signature.name == name)
+            .map(|(signature, examples, cmd_type)| {
+                get_full_help(
+                    signature,
+                    examples,
+                    engine_state,
+                    stack,
+                    cmd_type == &CommandType::Keyword,
+                )
             })
             .collect::<Vec<String>>();
 

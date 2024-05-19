@@ -35,7 +35,7 @@ impl Command for Format {
                 &Format.examples(),
                 engine_state,
                 stack,
-                self.is_parser_keyword(),
+                self.is_keyword(),
             ),
             call.head,
         )

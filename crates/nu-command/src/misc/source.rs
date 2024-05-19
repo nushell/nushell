@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_protocol::engine::CommandType;
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -29,8 +30,8 @@ impl Command for Source {
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(

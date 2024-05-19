@@ -1,5 +1,8 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::{Argument, Expr, Expression};
+use nu_protocol::{
+    ast::{Argument, Expr, Expression},
+    engine::CommandType,
+};
 
 #[derive(Clone)]
 pub struct KnownExternal {
@@ -22,12 +25,8 @@ impl Command for KnownExternal {
         &self.usage
     }
 
-    fn is_known_external(&self) -> bool {
-        true
-    }
-
-    fn is_builtin(&self) -> bool {
-        false
+    fn command_type(&self) -> CommandType {
+        CommandType::External
     }
 
     fn run(

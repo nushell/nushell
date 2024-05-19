@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_plugin_protocol::{CallInfo, EvaluatedCall};
-use nu_protocol::{PluginIdentity, PluginSignature};
+use nu_protocol::{engine::CommandType, PluginIdentity, PluginSignature};
 use std::sync::Arc;
 
 use crate::{GetPlugin, PluginExecutionCommandContext, PluginSource};
@@ -116,8 +116,8 @@ impl Command for PluginDeclaration {
         )
     }
 
-    fn is_plugin(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Plugin
     }
 
     fn plugin_identity(&self) -> Option<&PluginIdentity> {

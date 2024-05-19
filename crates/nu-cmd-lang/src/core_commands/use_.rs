@@ -1,7 +1,10 @@
 use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
-use nu_protocol::ast::{Expr, Expression};
+use nu_protocol::{
+    ast::{Expr, Expression},
+    engine::CommandType,
+};
 
 #[derive(Clone)]
 pub struct Use;
@@ -40,8 +43,8 @@ This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
