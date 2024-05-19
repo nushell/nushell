@@ -166,6 +166,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             target_os = "linux",
             target_os = "freebsd",
             target_os = "netbsd",
+            target_os = "openbsd",
             target_os = "macos",
             target_os = "windows"
         ))]

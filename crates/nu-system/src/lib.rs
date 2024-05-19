@@ -6,7 +6,7 @@ mod freebsd;
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(target_os = "netbsd")]
+#[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
 mod netbsd;
 pub mod os_info;
 #[cfg(target_os = "windows")]
@@ -22,7 +22,7 @@ pub use self::freebsd::*;
 pub use self::linux::*;
 #[cfg(target_os = "macos")]
 pub use self::macos::*;
-#[cfg(target_os = "netbsd")]
+#[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
 pub use self::netbsd::*;
 #[cfg(target_os = "windows")]
 pub use self::windows::*;

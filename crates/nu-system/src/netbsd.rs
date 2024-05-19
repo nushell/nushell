@@ -1,5 +1,7 @@
+//! This is used for both NetBSD and OpenBSD, because they are fairly similar.
+
 use itertools::{EitherOrBoth, Itertools};
-use libc::{sysctl, CTL_HW, CTL_KERN, KERN_PROC2, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV};
+use libc::{sysctl, CTL_HW, CTL_KERN, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV};
 use std::{
     io,
     mem::{self, MaybeUninit},
@@ -7,13 +9,17 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(target_os = "netbsd")]
+type KInfoProc = libc::kinfo_proc2;
+#[cfg(target_os = "openbsd")]
+type KInfoProc = libc::kinfo_proc;
+
 #[derive(Debug)]
 pub struct ProcessInfo {
     pub pid: i32,
     pub ppid: i32,
     pub argv: Vec<u8>,
-    pub stat: u64,
-    pub lwp_stat: i8,
+    pub stat: i8,
     pub percent_cpu: f64,
     pub mem_resident: u64, // in bytes
     pub mem_virtual: u64,  // in bytes
@@ -65,11 +71,13 @@ fn compare_procs(interval: Duration) -> io::Result<Vec<ProcessInfo>> {
                 pid: proc.p_pid,
                 ppid: proc.p_ppid,
                 argv: get_proc_args(proc.p_pid, KERN_PROC_ARGV)?,
-                stat: proc.p_realstat,
-                lwp_stat: proc.p_stat,
+                stat: proc.p_stat,
                 percent_cpu,
                 mem_resident: proc.p_vm_rssize.max(0) as u64 * pagesize,
+                #[cfg(target_os = "netbsd")]
                 mem_virtual: proc.p_vm_msize.max(0) as u64 * pagesize,
+                #[cfg(target_os = "openbsd")]
+                mem_virtual: proc.p_vm_map_size.max(0) as u64 * pagesize,
             })
         })
         // Remove errors from the list - probably just processes that are gone now
@@ -85,13 +93,40 @@ fn check(err: libc::c_int) -> std::io::Result<()> {
     }
 }
 
-fn get_procs() -> io::Result<Vec<libc::kinfo_proc2>> {
+/// Call `sysctl()` in read mode (i.e. the last two arguments are NULL and zero)
+unsafe fn sysctl_get(
+    name: *const i32,
+    name_len: u32,
+    data: *mut libc::c_void,
+    data_len: *mut usize,
+) -> i32 {
+    sysctl(
+        name,
+        name_len,
+        data,
+        data_len,
+        // NetBSD and OpenBSD differ in mutability for this pointer, but it's null anyway
+        #[cfg(target_os = "netbsd")]
+        ptr::null(),
+        #[cfg(target_os = "openbsd")]
+        ptr::null_mut(),
+        0,
+    )
+}
+
+fn get_procs() -> io::Result<Vec<KInfoProc>> {
     // To understand what's going on here, see the sysctl(3) and sysctl(7) manpages for NetBSD.
     unsafe {
-        const STRUCT_SIZE: usize = mem::size_of::<libc::kinfo_proc2>();
+        const STRUCT_SIZE: usize = mem::size_of::<KInfoProc>();
+
+        #[cfg(target_os = "netbsd")]
+        const TGT_KERN_PROC: i32 = libc::KERN_PROC2;
+        #[cfg(target_os = "openbsd")]
+        const TGT_KERN_PROC: i32 = libc::KERN_PROC;
+
         let mut ctl_name = [
             CTL_KERN,
-            KERN_PROC2,
+            TGT_KERN_PROC,
             KERN_PROC_ALL,
             0,
             STRUCT_SIZE as i32,
@@ -101,33 +136,29 @@ fn get_procs() -> io::Result<Vec<libc::kinfo_proc2>> {
         // First, try to figure out how large a buffer we need to allocate
         // (calling with NULL just tells us that)
         let mut data_len = 0;
-        check(sysctl(
+        check(sysctl_get(
             ctl_name.as_ptr(),
             ctl_name.len() as u32,
             ptr::null_mut(),
             &mut data_len,
-            ptr::null(),
-            0,
         ))?;
 
         // data_len will be set in bytes, so divide by the size of the structure
         let expected_len = data_len.div_ceil(STRUCT_SIZE);
 
         // Now allocate the Vec and set data_len to the real number of bytes allocated
-        let mut vec: Vec<libc::kinfo_proc2> = Vec::with_capacity(expected_len);
+        let mut vec: Vec<KInfoProc> = Vec::with_capacity(expected_len);
         data_len = vec.capacity() * STRUCT_SIZE;
 
         // We are also supposed to set ctl_name[5] to the number of structures we want
         ctl_name[5] = expected_len.try_into().expect("expected_len too big");
 
         // Call sysctl() again to put the result in the vec
-        check(sysctl(
+        check(sysctl_get(
             ctl_name.as_ptr(),
             ctl_name.len() as u32,
             vec.as_mut_ptr() as *mut libc::c_void,
             &mut data_len,
-            ptr::null(),
-            0,
         ))?;
 
         // If that was ok, we can set the actual length of the vec to whatever
@@ -148,13 +179,11 @@ fn get_proc_args(pid: i32, what: i32) -> io::Result<Vec<u8>> {
         // First, try to figure out how large a buffer we need to allocate
         // (calling with NULL just tells us that)
         let mut data_len = 0;
-        check(sysctl(
+        check(sysctl_get(
             ctl_name.as_ptr(),
             ctl_name.len() as u32,
             ptr::null_mut(),
             &mut data_len,
-            ptr::null(),
-            0,
         ))?;
 
         // Now allocate the Vec and set data_len to the real number of bytes allocated
@@ -162,18 +191,58 @@ fn get_proc_args(pid: i32, what: i32) -> io::Result<Vec<u8>> {
         data_len = vec.capacity();
 
         // Call sysctl() again to put the result in the vec
-        check(sysctl(
+        check(sysctl_get(
             ctl_name.as_ptr(),
             ctl_name.len() as u32,
             vec.as_mut_ptr() as *mut libc::c_void,
             &mut data_len,
-            ptr::null(),
-            0,
         ))?;
 
         // If that was ok, we can set the actual length of the vec to whatever
         // data_len was changed to, since that should now all be properly initialized data.
         vec.set_len(data_len);
+
+        // On OpenBSD we have to do an extra step, because it fills the buffer with pointers to the
+        // strings first, even though the strings are within the buffer as well.
+        #[cfg(target_os = "openbsd")]
+        let vec = {
+            use std::ffi::CStr;
+
+            // Set up some bounds checking. We assume there will be some pointers at the base until
+            // we reach NULL, but we want to make sure we only ever read data within the range of
+            // min_ptr..max_ptr.
+            let ptrs = vec.as_ptr() as *const *const u8;
+            let min_ptr = vec.as_ptr() as *const u8;
+            let max_ptr = vec.as_ptr().add(vec.len()) as *const u8;
+            let max_index: isize = (vec.len() / mem::size_of::<*const u8>())
+                .try_into()
+                .expect("too big for isize");
+
+            let mut new_vec = Vec::with_capacity(vec.len());
+            for index in 0..max_index {
+                let ptr = ptrs.offset(index);
+                if *ptr == ptr::null() {
+                    break;
+                } else {
+                    // Make sure it's within the bounds of the buffer
+                    assert!(
+                        *ptr >= min_ptr && *ptr < max_ptr,
+                        "pointer out of bounds of the buffer returned by sysctl()"
+                    );
+                    // Also bounds-check the C strings, to make sure we don't overrun the buffer
+                    new_vec.extend(
+                        CStr::from_bytes_until_nul(std::slice::from_raw_parts(
+                            *ptr,
+                            max_ptr.offset_from(*ptr) as usize,
+                        ))
+                        .expect("invalid C string")
+                        .to_bytes_with_nul(),
+                    );
+                }
+            }
+            new_vec
+        };
+
         Ok(vec)
     }
 }
@@ -182,13 +251,11 @@ fn get_proc_args(pid: i32, what: i32) -> io::Result<Vec<u8>> {
 unsafe fn get_ctl<T>(ctl_name: &[i32]) -> io::Result<T> {
     let mut value: MaybeUninit<T> = MaybeUninit::uninit();
     let mut value_len = mem::size_of_val(&value);
-    check(sysctl(
+    check(sysctl_get(
         ctl_name.as_ptr(),
         ctl_name.len() as u32,
         value.as_mut_ptr() as *mut libc::c_void,
         &mut value_len,
-        ptr::null(),
-        0,
     ))?;
     Ok(value.assume_init())
 }
@@ -233,23 +300,20 @@ impl ProcessInfo {
 
     /// Get the status of the process
     pub fn status(&self) -> String {
-        // see sys/proc.h, sys/lwp.h
+        // see sys/proc.h (OpenBSD), sys/lwp.h (NetBSD)
+        // the names given here are the NetBSD ones, starting with LS*, but the OpenBSD ones are
+        // the same, just starting with S* instead
         match self.stat {
-            1 /* SIDL */ => "",
-            2 /* SACTIVE */ => match self.lwp_stat {
-                1 /* LSIDL */ => "",
-                2 /* LSRUN */ => "Waiting",
-                3 /* LSSLEEP */ => "Sleeping",
-                4 /* LSSTOP */ => "Stopped",
-                5 /* LSZOMB */ => "Zombie",
-                7 /* LSONPROC */ => "Running",
-                8 /* LSSUSPENDED */ => "Suspended",
-                _ => "Unknown",
-            },
-            3 /* SDYING */ => "Dying",
-            4 /* SSTOP */ => "Stopped",
-            5 /* SZOMB */ => "Zombie",
-            6 /* SDEAD */ => "Dead",
+            1 /* LSIDL */ => "",
+            2 /* LSRUN */ => "Waiting",
+            3 /* LSSLEEP */ => "Sleeping",
+            4 /* LSSTOP */ => "Stopped",
+            5 /* LSZOMB */ => "Zombie",
+            #[cfg(target_os = "openbsd")] // removed in NetBSD
+            6 /* LSDEAD */ => "Dead",
+            7 /* LSONPROC */ => "Running",
+            #[cfg(target_os = "netbsd")] // doesn't exist in OpenBSD
+            8 /* LSSUSPENDED */ => "Suspended",
             _ => "Unknown",
         }
         .into()
