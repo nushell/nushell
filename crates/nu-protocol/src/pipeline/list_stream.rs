@@ -1,3 +1,7 @@
+//! Module managing the streaming of individual [`Value`]s as a [`ListStream`] between pipeline
+//! elements
+//!
+//! For more general infos regarding our pipelining model refer to [`PipelineData`]
 use crate::{Config, PipelineData, ShellError, Span, Value};
 use std::{
     fmt::Debug,

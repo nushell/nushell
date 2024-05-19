@@ -1,3 +1,7 @@
+//! Implementation of const-evaluation
+//!
+//! This enables you to assign `const`-constants and execute parse-time code dependent on this.
+//! e.g. `source $my_const`
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},

@@ -2,6 +2,7 @@ use super::Expression;
 use crate::{Span, VarId};
 use serde::{Deserialize, Serialize};
 
+/// AST Node for match arm with optional match guard
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchPattern {
     pub pattern: Pattern,
@@ -15,16 +16,26 @@ impl MatchPattern {
     }
 }
 
+/// AST Node for pattern matching rules
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Pattern {
+    /// Destructuring of records
     Record(Vec<(String, MatchPattern)>),
+    /// List destructuring
     List(Vec<MatchPattern>),
+    /// Matching against a literal
     Value(Expression),
+    /// binding to a variable
     Variable(VarId),
+    /// the `pattern1 \ pattern2` or-pattern
     Or(Vec<MatchPattern>),
-    Rest(VarId), // the ..$foo pattern
-    IgnoreRest,  // the .. pattern
-    IgnoreValue, // the _ pattern
+    /// the `..$foo` pattern
+    Rest(VarId),
+    /// the `..` pattern
+    IgnoreRest,
+    /// the `_` pattern
+    IgnoreValue,
+    /// Failed parsing of a pattern
     Garbage,
 }
 

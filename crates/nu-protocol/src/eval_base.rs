@@ -1,3 +1,4 @@
+//! Foundational [`Eval`] trait allowing dispatch between const-eval and regular evaluation
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,

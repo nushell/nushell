@@ -1,3 +1,4 @@
+//! Module containing the internal representation of user configuration
 use self::completer::*;
 use self::helper::*;
 use self::hooks::*;
