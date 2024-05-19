@@ -1,3 +1,6 @@
+//! This module manages the step of turning error types into printed error messages
+//!
+//! Relies on the `miette` crate for pretty layout
 use crate::{
     engine::{EngineState, StateWorkingSet},
     ErrorStyle,

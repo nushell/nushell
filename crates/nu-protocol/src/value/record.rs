@@ -1,3 +1,4 @@
+//! Our insertion ordered map-type [`Record`]
 use std::{iter::FusedIterator, ops::RangeBounds};
 
 use crate::{ShellError, Span, Value};
