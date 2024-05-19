@@ -1,6 +1,6 @@
 Implementation of the Nushell language server.
 
-See https://microsoft.github.io/language-server-protocol/
+See [the Language Server Protocol specification](https://microsoft.github.io/language-server-protocol/)
 
 ## Internal Nushell crate
 
