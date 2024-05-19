@@ -63,6 +63,8 @@ impl Command for StrJoin {
                     Value::Error { error, .. } => {
                         return Err(*error);
                     }
+                    // Hmm, not sure what we actually want.
+                    // `to_expanded_string` formats dates as human readable which feels funny.
                     Value::Date { val, .. } => write!(buffer, "{val:?}")?,
                     value => write!(buffer, "{}", value.to_expanded_string("\n", &config))?,
                 }
