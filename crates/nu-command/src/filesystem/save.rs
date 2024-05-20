@@ -245,11 +245,15 @@ impl Command for Save {
                 Ok(PipelineData::empty())
             }
             input => {
-                check_saving_to_source_file(
-                    input.metadata().as_ref(),
-                    &path,
-                    stderr_path.as_ref(),
-                )?;
+                // It's not necessary to check if we are saving to the same file if this is a
+                // collected value, and not a stream
+                if !matches!(input, PipelineData::Value(..) | PipelineData::Empty) {
+                    check_saving_to_source_file(
+                        input.metadata().as_ref(),
+                        &path,
+                        stderr_path.as_ref(),
+                    )?;
+                }
 
                 let bytes =
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
@@ -318,7 +322,9 @@ fn saving_to_source_file_error(dest: &Spanned<PathBuf>) -> ShellError {
             dest.item.display()
         ),
         span: Some(dest.span),
-        help: Some("You should use `collect` to run your save command (see `help collect`). Or, you can put the file data in a variable and then pass the variable to `save`.".into()),
+        help: Some(
+            "insert a `collect` command in the pipeline before `save` (see `help collect`).".into(),
+        ),
         inner: vec![],
     }
 }
@@ -387,7 +393,7 @@ fn convert_to_extension(
 ) -> Result<PipelineData, ShellError> {
     if let Some(decl_id) = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]) {
         let decl = engine_state.get_decl(decl_id);
-        if let Some(block_id) = decl.get_block_id() {
+        if let Some(block_id) = decl.block_id() {
             let block = engine_state.get_block(block_id);
             let eval_block = get_eval_block(engine_state);
             eval_block(engine_state, stack, block, input)
@@ -502,7 +508,7 @@ fn get_files(
 }
 
 fn stream_to_file(
-    mut source: impl Read,
+    source: impl Read,
     known_size: Option<u64>,
     ctrlc: Option<Arc<AtomicBool>>,
     mut file: File,
@@ -549,7 +555,7 @@ fn stream_to_file(
             Ok(())
         }
     } else {
-        copy_with_interrupt(&mut source, &mut file, span, ctrlc.as_deref())?;
+        copy_with_interrupt(source, file, span, ctrlc.as_deref())?;
         Ok(())
     }
 }

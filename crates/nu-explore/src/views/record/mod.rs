@@ -71,26 +71,14 @@ impl<'a> RecordView<'a> {
     }
 
     pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
-        self.theme.table.padding_column_left = left;
-        self.theme.table.padding_column_right = right;
-    }
-
-    pub fn set_padding_index(&mut self, (left, right): (usize, usize)) {
-        self.theme.table.padding_index_left = left;
-        self.theme.table.padding_index_right = right;
+        self.theme.table.column_padding_left = left;
+        self.theme.table.column_padding_right = right;
     }
 
     pub fn get_padding_column(&self) -> (usize, usize) {
         (
-            self.theme.table.padding_column_left,
-            self.theme.table.padding_column_right,
-        )
-    }
-
-    pub fn get_padding_index(&self) -> (usize, usize) {
-        (
-            self.theme.table.padding_index_left,
-            self.theme.table.padding_index_right,
+            self.theme.table.column_padding_left,
+            self.theme.table.column_padding_right,
         )
     }
 
@@ -853,10 +841,8 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.table.show_header = config_get_bool(config, "show_head", true);
     theme.table.show_index = config_get_bool(config, "show_index", false);
 
-    theme.table.padding_index_left = config_get_usize(config, "padding_index_left", 2);
-    theme.table.padding_index_right = config_get_usize(config, "padding_index_right", 1);
-    theme.table.padding_column_left = config_get_usize(config, "padding_column_left", 2);
-    theme.table.padding_column_right = config_get_usize(config, "padding_column_right", 2);
+    theme.table.column_padding_left = config_get_usize(config, "column_padding_left", 1);
+    theme.table.column_padding_right = config_get_usize(config, "column_padding_right", 1);
 
     theme
 }

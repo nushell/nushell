@@ -416,6 +416,7 @@ impl ExternalCommand {
                             .name("external stdin worker".to_string())
                             .spawn(move || {
                                 let input = match input {
+                                    // Don't touch binary input or byte streams
                                     input @ PipelineData::ByteStream(..) => input,
                                     input @ PipelineData::Value(Value::Binary { .. }, ..) => input,
                                     input => {
@@ -530,6 +531,9 @@ impl ExternalCommand {
     }
 
     /// Spawn a command without shelling out to an external shell
+    ///
+    /// Note that this function will not set the cwd or environment variables.
+    /// It only creates the command and adds arguments.
     pub fn spawn_simple_command(&self, cwd: &str) -> Result<std::process::Command, ShellError> {
         let (head, _, _) = trim_enclosing_quotes(&self.name.item);
         let head = nu_path::expand_to_real_path(head)
@@ -537,6 +541,7 @@ impl ExternalCommand {
             .to_string();
 
         let mut process = std::process::Command::new(head);
+        process.env_clear();
 
         for (arg, arg_keep_raw) in self.args.iter().zip(self.arg_keep_raw.iter()) {
             trim_expand_and_apply_arg(&mut process, arg, arg_keep_raw, cwd);

@@ -4,7 +4,7 @@ description = "Nushell dataframe plugin commands based on polars."
 edition = "2021"
 license = "MIT"
 name = "nu_plugin_polars"
-repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-dataframe"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
 version = "0.93.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

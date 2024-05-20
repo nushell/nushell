@@ -1,8 +1,8 @@
-use crate::{ast::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
-
 use super::{EngineState, Stack, StateWorkingSet};
+use crate::{ast::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
+use std::fmt::Display;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandType {
     Builtin,
     Custom,
@@ -10,7 +10,20 @@ pub enum CommandType {
     External,
     Alias,
     Plugin,
-    Other,
+}
+
+impl Display for CommandType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            CommandType::Builtin => "built-in",
+            CommandType::Custom => "custom",
+            CommandType::Keyword => "keyword",
+            CommandType::External => "external",
+            CommandType::Alias => "alias",
+            CommandType::Plugin => "plugin",
+        };
+        write!(f, "{str}")
+    }
 }
 
 pub trait Command: Send + Sync + CommandClone {
@@ -49,34 +62,14 @@ pub trait Command: Send + Sync + CommandClone {
         Vec::new()
     }
 
-    // This is a built-in command
-    fn is_builtin(&self) -> bool {
-        true
+    // Related terms to help with command search
+    fn search_terms(&self) -> Vec<&str> {
+        vec![]
     }
 
-    // This is a signature for a known external command
-    fn is_known_external(&self) -> bool {
+    // Whether can run in const evaluation in the parser
+    fn is_const(&self) -> bool {
         false
-    }
-
-    // This is an alias of another command
-    fn is_alias(&self) -> bool {
-        false
-    }
-
-    // Return reference to the command as Alias
-    fn as_alias(&self) -> Option<&Alias> {
-        None
-    }
-
-    // This is an enhanced method to determine if a command is custom command or not
-    // since extern "foo" [] and def "foo" [] behaves differently
-    fn is_custom_command(&self) -> bool {
-        if self.get_block_id().is_some() {
-            true
-        } else {
-            self.is_known_external()
-        }
     }
 
     // Is a sub command
@@ -84,14 +77,14 @@ pub trait Command: Send + Sync + CommandClone {
         self.name().contains(' ')
     }
 
-    // Is a parser keyword (source, def, etc.)
-    fn is_parser_keyword(&self) -> bool {
-        false
+    // If command is a block i.e. def blah [] { }, get the block id
+    fn block_id(&self) -> Option<BlockId> {
+        None
     }
 
-    /// Is a plugin command
-    fn is_plugin(&self) -> bool {
-        false
+    // Return reference to the command as Alias
+    fn as_alias(&self) -> Option<&Alias> {
+        None
     }
 
     /// The identity of the plugin, if this is a plugin command
@@ -100,38 +93,32 @@ pub trait Command: Send + Sync + CommandClone {
         None
     }
 
-    // Whether can run in const evaluation in the parser
-    fn is_const(&self) -> bool {
-        false
-    }
-
-    // If command is a block i.e. def blah [] { }, get the block id
-    fn get_block_id(&self) -> Option<BlockId> {
-        None
-    }
-
-    // Related terms to help with command search
-    fn search_terms(&self) -> Vec<&str> {
-        vec![]
-    }
-
     fn command_type(&self) -> CommandType {
-        match (
-            self.is_builtin(),
-            self.is_custom_command(),
-            self.is_parser_keyword(),
-            self.is_known_external(),
-            self.is_alias(),
-            self.is_plugin(),
-        ) {
-            (true, false, false, false, false, false) => CommandType::Builtin,
-            (true, true, false, false, false, false) => CommandType::Custom,
-            (true, false, true, false, false, false) => CommandType::Keyword,
-            (false, true, false, true, false, false) => CommandType::External,
-            (_, _, _, _, true, _) => CommandType::Alias,
-            (true, false, false, false, false, true) => CommandType::Plugin,
-            _ => CommandType::Other,
-        }
+        CommandType::Builtin
+    }
+
+    fn is_builtin(&self) -> bool {
+        self.command_type() == CommandType::Builtin
+    }
+
+    fn is_custom(&self) -> bool {
+        self.command_type() == CommandType::Custom
+    }
+
+    fn is_keyword(&self) -> bool {
+        self.command_type() == CommandType::Keyword
+    }
+
+    fn is_known_external(&self) -> bool {
+        self.command_type() == CommandType::External
+    }
+
+    fn is_alias(&self) -> bool {
+        self.command_type() == CommandType::Alias
+    }
+
+    fn is_plugin(&self) -> bool {
+        self.command_type() == CommandType::Plugin
     }
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {

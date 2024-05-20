@@ -22,8 +22,8 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginMetadata,
-    PluginSignature, ShellError, Span, Spanned, Value,
+    ast::Operator, engine::Closure, ByteStreamType, Config, LabeledError, PipelineData,
+    PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -112,6 +112,8 @@ pub struct ListStreamInfo {
 pub struct ByteStreamInfo {
     pub id: StreamId,
     pub span: Span,
+    #[serde(rename = "type")]
+    pub type_: ByteStreamType,
 }
 
 /// Calls that a plugin can execute. The type parameter determines the input type.

@@ -17,8 +17,8 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     ast::{Math, Operator},
     engine::Closure,
-    CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData, PluginMetadata,
-    PluginSignature, ShellError, Span, Spanned, Value,
+    ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
+    PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -157,6 +157,7 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
         PipelineDataHeader::ByteStream(ByteStreamInfo {
             id: 0,
             span: Span::test_data(),
+            type_: ByteStreamType::Unknown,
         }),
         None,
     )?;
@@ -384,6 +385,7 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
         PluginCallResponse::PipelineData(PipelineDataHeader::ByteStream(ByteStreamInfo {
             id: 1,
             span: Span::test_data(),
+            type_: ByteStreamType::Unknown,
         })),
     ))?;
 
