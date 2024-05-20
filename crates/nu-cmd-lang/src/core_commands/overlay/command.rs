@@ -37,16 +37,6 @@ impl Command for Overlay {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(
-            get_full_help(
-                &Overlay.signature(),
-                &[],
-                engine_state,
-                stack,
-                self.is_keyword(),
-            ),
-            call.head,
-        )
-        .into_pipeline_data())
+        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
 }

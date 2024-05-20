@@ -54,8 +54,7 @@ fn in_and_if_else() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    let expected_length = "70";
-    run_test(r#"each --help | lines | length"#, expected_length)
+    run_test(r#"each --help | lines | length"#, "72")
 }
 
 #[test]
@@ -65,12 +64,12 @@ fn scope_variable() -> TestResult {
         "int",
     )
 }
+
 #[rstest]
 #[case("a", "<> nothing")]
 #[case("b", "<1.23> float")]
 #[case("flag1", "<> nothing")]
 #[case("flag2", "<4.56> float")]
-
 fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestResult {
     run_test(
         &format!(

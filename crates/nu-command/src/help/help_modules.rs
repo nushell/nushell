@@ -149,6 +149,7 @@ pub fn help_modules(
         if !module.decls.is_empty() || module.main.is_some() {
             let commands: Vec<(Vec<u8>, DeclId)> = engine_state
                 .get_decls_sorted(false)
+                .into_iter()
                 .filter(|(_, id)| !engine_state.get_decl(*id).is_alias())
                 .collect();
 
@@ -186,6 +187,7 @@ pub fn help_modules(
         if !module.decls.is_empty() {
             let aliases: Vec<(Vec<u8>, DeclId)> = engine_state
                 .get_decls_sorted(false)
+                .into_iter()
                 .filter(|(_, id)| engine_state.get_decl(*id).is_alias())
                 .collect();
 

@@ -1,7 +1,6 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
 use nu_engine::{command_prelude::*, get_full_help};
-use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct HelpCommands;
@@ -89,18 +88,13 @@ pub fn help_commands(
         }
 
         let output = engine_state
-            .get_signatures_with_examples(false)
-            .iter()
-            .filter(|(signature, _, _)| signature.name == name)
-            .map(|(signature, examples, cmd_type)| {
-                get_full_help(
-                    signature,
-                    examples,
-                    engine_state,
-                    stack,
-                    cmd_type == &CommandType::Keyword,
-                )
+            .get_decls_sorted(false)
+            .into_iter()
+            .filter_map(|(_, decl_id)| {
+                let decl = engine_state.get_decl(decl_id);
+                (decl.name() == name).then_some(decl)
             })
+            .map(|cmd| get_full_help(cmd, engine_state, stack))
             .collect::<Vec<String>>();
 
         if !output.is_empty() {

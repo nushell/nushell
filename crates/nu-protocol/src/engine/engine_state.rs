@@ -7,7 +7,7 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    BlockId, Category, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
+    BlockId, Category, Config, DeclId, FileId, HistoryConfig, Module, ModuleId, OverlayId,
     ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
@@ -766,10 +766,7 @@ impl EngineState {
     }
 
     /// Get all commands within scope, sorted by the commands' names
-    pub fn get_decls_sorted(
-        &self,
-        include_hidden: bool,
-    ) -> impl Iterator<Item = (Vec<u8>, DeclId)> {
+    pub fn get_decls_sorted(&self, include_hidden: bool) -> Vec<(Vec<u8>, DeclId)> {
         let mut decls_map = HashMap::new();
 
         for overlay_frame in self.active_overlays(&[]) {
@@ -790,7 +787,7 @@ impl EngineState {
         let mut decls: Vec<(Vec<u8>, DeclId)> = decls_map.into_iter().collect();
 
         decls.sort_by(|a, b| a.0.cmp(&b.0));
-        decls.into_iter()
+        decls
     }
 
     pub fn get_signature(&self, decl: &dyn Command) -> Signature {
@@ -804,26 +801,11 @@ impl EngineState {
     /// Get signatures of all commands within scope.
     pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
         self.get_decls_sorted(include_hidden)
+            .into_iter()
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
 
                 self.get_signature(decl).update_from_command(decl)
-            })
-            .collect()
-    }
-
-    /// Get signatures of all commands within scope.
-    ///
-    /// In addition to signatures, it returns each command's examples and type.
-    pub fn get_signatures_with_examples(
-        &self,
-        include_hidden: bool,
-    ) -> Vec<(Signature, Vec<Example>, CommandType)> {
-        self.get_decls_sorted(include_hidden)
-            .map(|(_, id)| {
-                let decl = self.get_decl(id);
-                let signature = self.get_signature(decl).update_from_command(decl);
-                (signature, decl.examples(), decl.command_type())
             })
             .collect()
     }
