@@ -617,8 +617,8 @@ fn create_column(data: &[Vec<NuText>], col: usize) -> Vec<NuText> {
     column
 }
 
-// Starting at cell [x, y]: paint `width` characters of `c` (left to right), move 1 row down, repeat
-// Repeat this `height` times
+/// Starting at cell [x, y]: paint `width` characters of `c` (left to right), move 1 row down, repeat
+/// Repeat this `height` times
 fn repeat_vertical(
     buf: &mut ratatui::buffer::Buffer,
     x: u16,
