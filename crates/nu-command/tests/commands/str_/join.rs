@@ -23,6 +23,18 @@ fn test_2() {
 }
 
 #[test]
+fn test_stream() {
+    let actual = nu!("[a b c d] | filter {true} | str join .");
+    assert_eq!(actual.out, "a.b.c.d");
+}
+
+#[test]
+fn test_stream_type() {
+    let actual = nu!("[a b c d] | filter {true} | str join . | describe -n");
+    assert_eq!(actual.out, "string (stream)");
+}
+
+#[test]
 fn construct_a_path() {
     let actual = nu!(pipeline(
         r#"

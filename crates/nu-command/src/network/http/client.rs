@@ -117,10 +117,20 @@ pub fn response_to_buffer(
         _ => None,
     };
 
+    // Try to guess whether the response is definitely intended to binary or definitely intended to
+    // be UTF-8 text. Otherwise specify `None` and just guess. This doesn't have to be thorough.
+    let content_type_lowercase = response.header("content-type").map(|s| s.to_lowercase());
+    let response_type = match content_type_lowercase.as_deref() {
+        Some("application/octet-stream") => ByteStreamType::Binary,
+        Some(h) if h.contains("charset=utf-8") => ByteStreamType::String,
+        _ => ByteStreamType::Unknown,
+    };
+
     let reader = response.into_reader();
 
     PipelineData::ByteStream(
-        ByteStream::read(reader, span, engine_state.ctrlc.clone()).with_known_size(buffer_size),
+        ByteStream::read(reader, span, engine_state.ctrlc.clone(), response_type)
+            .with_known_size(buffer_size),
         None,
     )
 }

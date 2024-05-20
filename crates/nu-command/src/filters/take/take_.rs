@@ -78,12 +78,32 @@ impl Command for Take {
                 stream.modify(|iter| iter.take(rows_desired)),
                 metadata,
             )),
-            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, binary or range".into(),
-                wrong_type: "byte stream".into(),
-                dst_span: head,
-                src_span: stream.span(),
-            }),
+            PipelineData::ByteStream(stream, metadata) => {
+                if stream.type_() == ByteStreamType::Binary {
+                    if let Some(reader) = stream.reader() {
+                        use std::io::Read;
+                        // Just take 'rows' bytes off the stream, mimicking the binary behavior
+                        Ok(PipelineData::ByteStream(
+                            ByteStream::read(
+                                reader.take(rows_desired as u64),
+                                head,
+                                None,
+                                ByteStreamType::Binary,
+                            ),
+                            metadata,
+                        ))
+                    } else {
+                        Ok(PipelineData::Empty)
+                    }
+                } else {
+                    Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
+                        dst_span: head,
+                        src_span: stream.span(),
+                    })
+                }
+            }
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: "null".into(),

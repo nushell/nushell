@@ -1,5 +1,5 @@
-mod collect;
 mod into_string;
+mod join;
 
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;

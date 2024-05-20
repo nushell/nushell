@@ -416,6 +416,7 @@ impl ExternalCommand {
                             .name("external stdin worker".to_string())
                             .spawn(move || {
                                 let input = match input {
+                                    // Don't touch binary input or byte streams
                                     input @ PipelineData::ByteStream(..) => input,
                                     input @ PipelineData::Value(Value::Binary { .. }, ..) => input,
                                     input => {
