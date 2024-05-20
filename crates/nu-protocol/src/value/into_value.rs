@@ -1,14 +1,14 @@
 use crate::{ShellError, Span, Value};
 
 /// A trait for converting a value into a `Value`.
-/// 
+///
 /// This conversion is infallible, for fallible conversions use [`TryIntoValue`].
 pub trait IntoValue: Sized {
     /// Converts the given value to a `Value`.
     fn into_value(self, span: Span) -> Value;
 
     /// Converts the given value to a `Value` with an unknown `Span`.
-    /// 
+    ///
     /// Internally this simply calls [`Span::unknown`] for the `span`.
     fn into_value_unknown(self) -> Value {
         Self::into_value(self, Span::unknown())
@@ -118,6 +118,18 @@ where
     }
 }
 
+impl<T> IntoValue for Option<T>
+where
+    T: IntoValue,
+{
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            Some(v) => v.into_value(span),
+            None => Value::nothing(span),
+        }
+    }
+}
+
 // Nu Types
 
 impl IntoValue for Value {
@@ -128,10 +140,10 @@ impl IntoValue for Value {
 
 // TODO: use this type for all the `into_value` methods that types implement but return a Result
 /// A trait for trying to convert a value into a `Value`.
-/// 
-/// Types like streams may fail while collecting the `Value`, 
+///
+/// Types like streams may fail while collecting the `Value`,
 /// for these types it is useful to implement a fallible variant.
-/// 
+///
 /// This conversion is fallible, for infallible conversions use [`IntoValue`].
 /// All types that implement `IntoValue` will automatically implement this trait.
 pub trait TryIntoValue: Sized {
@@ -140,7 +152,7 @@ pub trait TryIntoValue: Sized {
     fn try_into_value(self, span: Span) -> Result<Value, ShellError>;
 
     /// Tries to convert the given value to a `Value` with an unknown `Span`.
-    /// 
+    ///
     /// Internally this simply calls [`Span::unknown`] for the `span`.
     fn try_into_value_unknown(self) -> Result<Value, ShellError> {
         Self::try_into_value(self, Span::unknown())

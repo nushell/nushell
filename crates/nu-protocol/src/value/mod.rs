@@ -6,6 +6,8 @@ mod from_value;
 mod glob;
 mod into_value;
 mod range;
+#[cfg(all(test, feature = "derive"))]
+mod test_derive;
 
 pub mod record;
 pub use custom_value::CustomValue;

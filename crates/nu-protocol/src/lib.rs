@@ -31,6 +31,8 @@ pub use example::*;
 pub use id::*;
 pub use lev_distance::levenshtein_distance;
 pub use module::*;
+#[cfg(feature = "derive")]
+pub use nu_derive_value::*;
 pub use pipeline::*;
 #[cfg(feature = "plugin")]
 pub use plugin::*;
@@ -39,5 +41,3 @@ pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
 pub use value::*;
-#[cfg(feature = "derive")]
-pub use nu_derive_value::*;
