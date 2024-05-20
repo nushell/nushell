@@ -28,7 +28,6 @@ miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false }
-serde_json = { workspace = true, optional = true }
 thiserror = "1.0"
 typetag = "0.2"
 os_pipe = { workspace = true, features = ["io_safety"] }
@@ -40,7 +39,6 @@ nix = { workspace = true, default-features = false, features = ["signal"] }
 plugin = [
   "brotli",
   "rmp-serde",
-  "serde_json",
 ]
 
 [dev-dependencies]
