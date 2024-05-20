@@ -508,7 +508,7 @@ fn get_files(
 }
 
 fn stream_to_file(
-    mut source: impl Read,
+    source: impl Read,
     known_size: Option<u64>,
     ctrlc: Option<Arc<AtomicBool>>,
     mut file: File,
@@ -555,7 +555,7 @@ fn stream_to_file(
             Ok(())
         }
     } else {
-        copy_with_interrupt(&mut source, &mut file, span, ctrlc.as_deref())?;
+        copy_with_interrupt(source, file, span, ctrlc.as_deref())?;
         Ok(())
     }
 }
