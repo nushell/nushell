@@ -47,8 +47,127 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let command = create_external_command(engine_state, stack, call)?;
-        command.run_with_input(engine_state, stack, input, false)
+        let cwd = engine_state.cwd(Some(stack))?;
+
+        // Find the absolute path to the executable. On Windows, set the
+        // executable to "cmd.exe" if it's is a CMD internal command. If the
+        // command is not found, display a helpful error message.
+        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let executable = if cfg!(windows) && is_cmd_internal_commmand(&name.item) {
+            PathBuf::from("cmd.exe")
+        } else {
+            let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
+            let Some(executable) = which(&name.item, &paths, &cwd) else {
+                return Err(command_not_found(
+                    &name.item,
+                    call.head,
+                    engine_state,
+                    stack,
+                ));
+            };
+            executable
+        };
+
+        // Create the command.
+        let mut command = std::process::Command::new(executable);
+
+        // Configure PWD.
+        command.current_dir(cwd);
+
+        // Configure environment variables.
+        let envs = env_to_strings(engine_state, stack)?;
+        command.env_clear();
+        command.envs(envs);
+
+        // Configure args.
+        let args = eval_arguments_from_call(engine_state, stack, call)?;
+        if cfg!(windows) && is_cmd_internal_commmand(&name.item) {
+            // The /D flag disables execution of AutoRun commands from registry.
+            // The /C flag followed by a command name instructs CMD to execute
+            // that command and quit.
+            command.args(["/D", "/C", &name.item]);
+            // Check for special characters in `args` and reject them.
+            for arg in &args {
+                if has_cmd_special_character(&arg.item) {
+                    return Err(ShellError::ExternalCommand {
+                        label: "Special characters are not allowed in CMD builtins".into(),
+                        help: r#"These characters are special in CMD: / \ < > " | & ^"#.into(),
+                        span: arg.span,
+                    });
+                }
+            }
+        }
+        command.args(args.into_iter().map(|s| s.item));
+
+        // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
+        // we'll setup a pipe that merge two streams into one.
+        let stdout = stack.stdout();
+        let stderr = stack.stderr();
+        let merged_stream = if matches!(stdout, OutDest::Pipe) && matches!(stderr, OutDest::Pipe) {
+            let (reader, writer) = os_pipe::pipe()?;
+            command.stdout(writer.try_clone()?);
+            command.stderr(writer);
+            Some(reader)
+        } else {
+            command.stdout(Stdio::try_from(stdout)?);
+            command.stderr(Stdio::try_from(stderr)?);
+            None
+        };
+
+        // Configure stdin. We'll try connecting input to the child process
+        // directly. If that's not possible, we'll setup a pipe and spawn a
+        // thread to copy data into the child process.
+        let data_to_copy_into_stdin = match input {
+            PipelineData::ByteStream(stream, metadata) => match stream.into_stdio() {
+                Ok(stdin) => {
+                    command.stdin(stdin);
+                    None
+                }
+                Err(stream) => {
+                    command.stdin(Stdio::piped());
+                    Some(PipelineData::ByteStream(stream, metadata))
+                }
+            },
+            PipelineData::Empty => {
+                command.stdin(Stdio::inherit());
+                None
+            }
+            value => {
+                command.stdin(Stdio::piped());
+                Some(value)
+            }
+        };
+
+        // Spawn the child process. On Unix, also put the child process to
+        // foreground if we're in an interactive session.
+        #[cfg(windows)]
+        let mut child = ForegroundChild::spawn(command)?;
+        #[cfg(unix)]
+        let mut child = ForegroundChild::spawn(
+            command,
+            engine_state.is_interactive,
+            &engine_state.pipeline_externals_state,
+        )?;
+
+        // If we need to copy data into the child process, do it now.
+        if let Some(data) = data_to_copy_into_stdin {
+            let stdin = child.as_mut().stdin.take().expect("stdin is piped");
+            thread::spawn(move || {
+                let _ = write_pipeline_data(data, stdin);
+            });
+        }
+
+        // Wrap the output into a `PipelineData::ByteStream`.
+        let child = ChildProcess::new(
+            child,
+            merged_stream,
+            matches!(stderr, OutDest::Pipe),
+            call.head,
+        )?;
+        Ok(PipelineData::ByteStream(
+            ByteStream::child(child, call.head),
+            None,
+        ))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -725,6 +844,34 @@ fn remove_quotes(s: &str) -> &str {
     }
 }
 
+/// Evaluate all arguments from a call, performing expansions when necessary.
+pub fn eval_arguments_from_call(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Vec<Spanned<String>>, ShellError> {
+    let cwd = engine_state.cwd(Some(stack))?;
+    let mut args: Vec<Spanned<String>> = vec![];
+    for (expr, spread) in call.rest_iter(1) {
+        if is_bare_string(expr) {
+            // If `expr` is a bare string, perform tilde-expansion,
+            // glob-expansion, and inner-quotes-removal, in that order.
+            for arg in eval_argument(engine_state, stack, expr, spread)? {
+                let tilde_expanded = expand_tilde(&arg);
+                for glob_expanded in expand_glob(&tilde_expanded, &cwd, expr.span)? {
+                    let inner_quotes_removed = remove_inner_quotes(glob_expanded);
+                    args.push(inner_quotes_removed.into_spanned(expr.span));
+                }
+            }
+        } else {
+            for arg in eval_argument(engine_state, stack, expr, spread)? {
+                args.push(arg.into_spanned(expr.span));
+            }
+        }
+    }
+    Ok(args)
+}
+
 /// Evaluates an expression, coercing the values to strings.
 ///
 /// Note: The parser currently has a special hack that retains surrounding
@@ -866,7 +1013,7 @@ fn write_pipeline_data(data: PipelineData, mut writer: impl Write) -> Result<(),
 }
 
 /// Returns a helpful error message given an invalid command name,
-fn command_not_found(
+pub fn command_not_found(
     name: &str,
     span: Span,
     engine_state: &EngineState,
@@ -986,6 +1133,34 @@ fn command_not_found(
         help: "".into(),
         span,
     }
+}
+
+/// Searches for the absolute path of an executable by name.
+///
+/// This is a wrapper around `which::which_in()` except that, on Windows, it
+/// also searches the current directory before any PATH entries.
+///
+/// Implementation note: the `which.rs` crate always uses PATHEXT from the
+/// environment. As such, changing PATHEXT within Nushell doesn't work without
+/// updating the actual environment of the Nushell process.
+pub fn which(name: &str, paths: &str, cwd: &Path) -> Option<PathBuf> {
+    #[cfg(windows)]
+    let paths = format!("{};{}", cwd.display(), paths);
+    which::which_in(name, Some(paths), cwd).ok()
+}
+
+/// Returns true if `name` is a (somewhat useful) CMD internal command.
+fn is_cmd_internal_commmand(name: &str) -> bool {
+    const COMMANDS: &[&str] = &[
+        "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
+    ];
+    COMMANDS.iter().any(|cmd| cmd.eq_ignore_ascii_case(name))
+}
+
+/// Returns true if a string contains CMD special characters.
+fn has_cmd_special_character(s: &str) -> bool {
+    const SPECIAL_CHARS: &[char] = &['/', '\\', '<', '>', '"', '|', '&', '^'];
+    SPECIAL_CHARS.iter().any(|c| s.contains(*c))
 }
 
 #[cfg(test)]
