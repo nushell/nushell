@@ -12,6 +12,9 @@ use crate::{
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 
+// Padding between segments in the hex view
+const SEGMENT_PADDING: u16 = 1;
+
 #[derive(Debug, Clone)]
 pub struct BinaryWidget<'a> {
     data: &'a [u8],
@@ -70,42 +73,24 @@ impl BinarySettings {
 #[derive(Debug, Default, Clone)]
 pub struct BinaryStyle {
     color_index: Option<NuStyle>,
-    indent_index: Indent,
-    indent_data: Indent,
-    indent_ascii: Indent,
-    indent_segment: usize,
+    column_padding_left: u16,
+    column_padding_right: u16,
     show_split: bool,
 }
 
 impl BinaryStyle {
     pub fn new(
         color_index: Option<NuStyle>,
-        indent_index: Indent,
-        indent_data: Indent,
-        indent_ascii: Indent,
-        indent_segment: usize,
+        column_padding_left: u16,
+        column_padding_right: u16,
         show_split: bool,
     ) -> Self {
         Self {
             color_index,
-            indent_index,
-            indent_data,
-            indent_ascii,
-            indent_segment,
+            column_padding_left,
+            column_padding_right,
             show_split,
         }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Indent {
-    left: u16,
-    right: u16,
-}
-
-impl Indent {
-    pub fn new(left: u16, right: u16) -> Self {
-        Self { left, right }
     }
 }
 
@@ -153,9 +138,9 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
         let line = &w.data[start_index..];
 
         if show_index {
-            x += render_space(buf, x, y, 1, w.style.indent_index.left);
+            x += render_space(buf, x, y, 1, w.style.column_padding_left);
             x += render_hex_usize(buf, x, y, address, index_width, get_index_style(&w));
-            x += render_space(buf, x, y, 1, w.style.indent_index.right);
+            x += render_space(buf, x, y, 1, w.style.column_padding_right);
         }
 
         if show_split {
@@ -163,9 +148,9 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
         }
 
         if show_data {
-            x += render_space(buf, x, y, 1, w.style.indent_data.left);
+            x += render_space(buf, x, y, 1, w.style.column_padding_left);
             x += render_data_line(buf, x, y, line, &w);
-            x += render_space(buf, x, y, 1, w.style.indent_data.right);
+            x += render_space(buf, x, y, 1, w.style.column_padding_right);
         }
 
         if show_split {
@@ -173,9 +158,9 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
         }
 
         if show_ascii {
-            x += render_space(buf, x, y, 1, w.style.indent_ascii.left);
+            x += render_space(buf, x, y, 1, w.style.column_padding_left);
             x += render_ascii_line(buf, x, y, line, &w);
-            render_space(buf, x, y, 1, w.style.indent_ascii.right);
+            render_space(buf, x, y, 1, w.style.column_padding_right);
         }
     }
 
@@ -193,9 +178,9 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
             let y = line;
 
             if show_index {
-                x += render_space(buf, x, y, 1, w.style.indent_index.left);
+                x += render_space(buf, x, y, 1, w.style.column_padding_left);
                 x += render_hex_usize(buf, x, y, address, index_width, get_index_style(&w));
-                x += render_space(buf, x, y, 1, w.style.indent_index.right);
+                x += render_space(buf, x, y, 1, w.style.column_padding_right);
             }
 
             if show_split {
@@ -203,9 +188,9 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
             }
 
             if show_data {
-                x += render_space(buf, x, y, 1, w.style.indent_data.left);
+                x += render_space(buf, x, y, 1, w.style.column_padding_left);
                 x += render_space(buf, x, y, 1, data_line_size);
-                x += render_space(buf, x, y, 1, w.style.indent_data.right);
+                x += render_space(buf, x, y, 1, w.style.column_padding_right);
             }
 
             if show_split {
@@ -213,9 +198,9 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
             }
 
             if show_ascii {
-                x += render_space(buf, x, y, 1, w.style.indent_ascii.left);
+                x += render_space(buf, x, y, 1, w.style.column_padding_left);
                 x += render_space(buf, x, y, 1, ascii_line_size);
-                render_space(buf, x, y, 1, w.style.indent_ascii.right);
+                render_space(buf, x, y, 1, w.style.column_padding_right);
             }
         }
     }
@@ -232,13 +217,13 @@ fn render_data_line(buf: &mut Buffer, x: u16, y: u16, line: &[u8], w: &BinaryWid
 
     while count != count_max && count * segment_size < line.len() {
         let data = &line[count * segment_size..];
-        size += render_space(buf, x + size, y, 1, w.style.indent_segment as u16);
+        size += render_space(buf, x + size, y, 1, SEGMENT_PADDING);
         size += render_segment(buf, x + size, y, data, w);
         count += 1;
     }
 
     while count != count_max {
-        size += render_space(buf, x + size, y, 1, w.style.indent_segment as u16);
+        size += render_space(buf, x + size, y, 1, SEGMENT_PADDING);
         size += render_space(buf, x + size, y, 1, w.opts.segment_size as u16 * 2);
         count += 1;
     }
@@ -398,7 +383,7 @@ fn get_widget_width(w: &BinaryWidget) -> usize {
     let index_size = usize_to_hex(max_index, 0).len();
     let index_size = index_size.max(MIN_INDEX_SIZE);
 
-    let data_split_size = w.opts.count_segments.saturating_sub(1) * w.style.indent_segment;
+    let data_split_size = w.opts.count_segments.saturating_sub(1) * (SEGMENT_PADDING as usize);
     let data_size = line_size + data_split_size;
 
     let ascii_size = w.opts.count_segments * w.opts.segment_size;
@@ -406,17 +391,17 @@ fn get_widget_width(w: &BinaryWidget) -> usize {
     let split = w.style.show_split as usize;
     #[allow(clippy::identity_op)]
     let min_width = 0
-        + w.style.indent_index.left as usize
+        + w.style.column_padding_left as usize
         + index_size
-        + w.style.indent_index.right as usize
+        + w.style.column_padding_right as usize
         + split
-        + w.style.indent_data.left as usize
+        + w.style.column_padding_left as usize
         + data_size
-        + w.style.indent_data.right as usize
+        + w.style.column_padding_right as usize
         + split
-        + w.style.indent_ascii.left as usize
+        + w.style.column_padding_left as usize
         + ascii_size
-        + w.style.indent_ascii.right as usize;
+        + w.style.column_padding_right as usize;
 
     min_width
 }
