@@ -12,7 +12,7 @@ use crate::{
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
 
-// Padding between segments in the hex view
+/// Padding between segments in the hex view
 const SEGMENT_PADDING: u16 = 1;
 
 #[derive(Debug, Clone)]
