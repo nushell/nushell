@@ -197,7 +197,7 @@ crossterm = { workspace = true }
 ctrlc = { workspace = true }
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
-mimalloc = { version = "0.1.37", default-features = false, optional = true }
+mimalloc = { version = "0.1.42", default-features = false, optional = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"
