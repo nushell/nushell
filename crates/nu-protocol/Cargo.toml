@@ -16,6 +16,7 @@ bench = false
 nu-utils = { path = "../nu-utils", version = "0.93.1" }
 nu-path = { path = "../nu-path", version = "0.93.1" }
 nu-system = { path = "../nu-system", version = "0.93.1" }
+nu-derive-value = { path = "../nu-derive-value", version = "0.93.1", optional = true }
 
 brotli = { workspace = true, optional = true }
 byte-unit = { version = "5.1", features = [ "serde" ] }
@@ -41,6 +42,10 @@ plugin = [
   "brotli",
   "rmp-serde",
   "serde_json",
+]
+
+derive = [
+  "nu-derive-value"
 ]
 
 [dev-dependencies]

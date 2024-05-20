@@ -3062,6 +3062,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-derive-value"
+version = "0.93.1"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.60",
+]
+
+[[package]]
 name = "nu-engine"
 version = "0.93.1"
 dependencies = [
@@ -3255,6 +3265,7 @@ dependencies = [
  "lru",
  "miette",
  "nix",
+ "nu-derive-value",
  "nu-path",
  "nu-system",
  "nu-test-support",
@@ -4537,6 +4548,7 @@ dependencies = [
  "proc-macro-error-attr",
  "proc-macro2",
  "quote",
+ "syn 1.0.109",
  "version_check",
 ]
 

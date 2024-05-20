@@ -40,6 +40,7 @@ members = [
   "crates/nu-lsp",
   "crates/nu-pretty-hex",
   "crates/nu-protocol",
+  "crates/nu-derive-value",
   "crates/nu-plugin",
   "crates/nu-plugin-core",
   "crates/nu-plugin-engine",
@@ -124,11 +125,14 @@ pathdiff = "0.2"
 percent-encoding = "2"
 pretty_assertions = "1.4"
 print-positions = "0.6"
+proc-macro-error = "1.0"
+proc-macro2 = "1.0"
 procfs = "0.16.0"
 pwd = "1.3"
 quick-xml = "0.31.0"
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
+quote = "1.0"
 rand = "0.8"
 ratatui = "0.26"
 rayon = "1.10"
@@ -148,6 +152,7 @@ serde_urlencoded = "0.7.1"
 serde_yaml = "0.9"
 sha2 = "0.10"
 strip-ansi-escapes = "0.2.0"
+syn = "2.0"
 sysinfo = "0.30"
 tabled = { version = "0.14.0", default-features = false }
 tempfile = "3.10"

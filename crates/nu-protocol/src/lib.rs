@@ -39,3 +39,5 @@ pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
 pub use value::*;
+#[cfg(feature = "derive")]
+pub use nu_derive_value::*;

@@ -1,0 +1,17 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Macros implementation of #[derive(FromValue, IntoValue)]"
+edition = "2021"
+license = "MIT"
+name = "nu-derive-value"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-derive-value"
+version = "0.93.1"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = { workspace = true }
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro-error = { workspace = true }
