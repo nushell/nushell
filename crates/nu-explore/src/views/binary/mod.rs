@@ -107,7 +107,7 @@ fn create_binary_widget(v: &BinaryView) -> BinaryWidget<'_> {
     let data = &v.data[index..];
 
     let mut w = BinaryWidget::new(data, v.settings.opts, v.settings.style.clone());
-    w.set_index_offset(index);
+    w.set_row_offset(index);
 
     w
 }
@@ -186,7 +186,6 @@ fn settings_from_config(config: &ConfigMap) -> Settings {
         opts: BinarySettings::new(
             config_get_usize(config, "segment_size", 2),
             config_get_usize(config, "count_segments", 8),
-            0,
         ),
         style: BinaryStyle::new(
             colors.get("color_index").cloned(),

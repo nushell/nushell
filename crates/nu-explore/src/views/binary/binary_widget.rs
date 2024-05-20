@@ -20,11 +20,17 @@ pub struct BinaryWidget<'a> {
     data: &'a [u8],
     opts: BinarySettings,
     style: BinaryStyle,
+    row_offset: usize,
 }
 
 impl<'a> BinaryWidget<'a> {
     pub fn new(data: &'a [u8], opts: BinarySettings, style: BinaryStyle) -> Self {
-        Self { data, opts, style }
+        Self {
+            data,
+            opts,
+            style,
+            row_offset: 0,
+        }
     }
 
     pub fn count_lines(&self) -> usize {
@@ -35,8 +41,8 @@ impl<'a> BinaryWidget<'a> {
         self.opts.count_segments * self.opts.segment_size
     }
 
-    pub fn set_index_offset(&mut self, offset: usize) {
-        self.opts.index_offset = offset;
+    pub fn set_row_offset(&mut self, offset: usize) {
+        self.row_offset = offset;
     }
 }
 
@@ -44,15 +50,13 @@ impl<'a> BinaryWidget<'a> {
 pub struct BinarySettings {
     segment_size: usize,
     count_segments: usize,
-    index_offset: usize,
 }
 
 impl BinarySettings {
-    pub fn new(segment_size: usize, count_segments: usize, index_offset: usize) -> Self {
+    pub fn new(segment_size: usize, count_segments: usize) -> Self {
         Self {
             segment_size,
             count_segments,
-            index_offset,
         }
     }
 }
@@ -101,7 +105,7 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
     for line in 0..area.height {
         let data_line_length = w.opts.count_segments * w.opts.segment_size;
         let start_index = line as usize * data_line_length;
-        let address = w.opts.index_offset + start_index;
+        let address = w.row_offset + start_index;
 
         if start_index > w.data.len() {
             last_line = Some(line);
@@ -140,7 +144,7 @@ fn render_hexdump(area: Rect, buf: &mut Buffer, w: BinaryWidget) {
         for line in last_line..area.height {
             let data_line_length = w.opts.count_segments * w.opts.segment_size;
             let start_index = line as usize * data_line_length;
-            let address = w.opts.index_offset + start_index;
+            let address = w.row_offset + start_index;
 
             let mut x = 0;
             let y = line;
@@ -333,7 +337,7 @@ fn repeat_vertical(
 fn get_max_index_size(w: &BinaryWidget) -> usize {
     let line_size = w.opts.count_segments * (w.opts.segment_size * 2);
     let count_lines = w.data.len() / line_size;
-    let max_index = w.opts.index_offset + count_lines * line_size;
+    let max_index = w.row_offset + count_lines * line_size;
     usize_to_hex(max_index, 0).len()
 }
 
@@ -343,7 +347,7 @@ fn get_widget_width(w: &BinaryWidget) -> usize {
     let line_size = w.opts.count_segments * (w.opts.segment_size * 2);
     let count_lines = w.data.len() / line_size;
 
-    let max_index = w.opts.index_offset + count_lines * line_size;
+    let max_index = w.row_offset + count_lines * line_size;
     let index_size = usize_to_hex(max_index, 0).len();
     let index_size = index_size.max(MIN_INDEX_SIZE);
 
