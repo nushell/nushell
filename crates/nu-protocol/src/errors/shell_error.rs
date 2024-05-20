@@ -1042,19 +1042,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// A custom value could not be converted to a Dataframe.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure conversion to a Dataframe is possible for this value or convert it to a type that does, first.
-    #[error("Casting error")]
-    #[diagnostic(code(nu::shell::downcast_not_possible))]
-    DowncastNotPossible {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// The value given for this configuration is not supported.
     ///
     /// ## Resolution
