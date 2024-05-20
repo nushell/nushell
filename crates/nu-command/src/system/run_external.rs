@@ -865,6 +865,129 @@ fn write_pipeline_data(data: PipelineData, mut writer: impl Write) -> Result<(),
     Ok(())
 }
 
+/// Returns a helpful error message given an invalid command name,
+fn command_not_found(
+    name: &str,
+    span: Span,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> ShellError {
+    // Run the `command_not_found` hook if there is one.
+    if let Some(hook) = &engine_state.config.hooks.command_not_found {
+        let mut stack = stack.start_capture();
+        // Set a special environment variable to avoid infinite loops when the
+        // `command_not_found` hook triggers itself.
+        let canary = "ENTERED_COMMAND_NOT_FOUND";
+        if stack.has_env_var(engine_state, canary) {
+            return ShellError::ExternalCommand {
+                label: format!(
+                    "Command {name} not found while running the `command_not_found` hook"
+                ),
+                help: "Make sure the `command_not_found` hook itself does not use unknown commands"
+                    .into(),
+                span,
+            };
+        }
+        stack.add_env_var(canary.into(), Value::bool(true, Span::unknown()));
+
+        let output = eval_hook(
+            &mut engine_state.clone(),
+            &mut stack,
+            None,
+            vec![("cmd_name".into(), Value::string(name, span))],
+            hook,
+            "command_not_found",
+        );
+
+        // Remove the special environment variable that we just set.
+        stack.remove_env_var(engine_state, canary);
+
+        match output {
+            Ok(PipelineData::Value(Value::String { val, .. }, ..)) => {
+                return ShellError::ExternalCommand {
+                    label: format!("Command `{name}` not found"),
+                    help: val,
+                    span,
+                };
+            }
+            Err(err) => {
+                return err;
+            }
+            _ => {
+                // The hook did not return a string, so ignore it.
+            }
+        }
+    }
+
+    // If the name is one of the removed commands, recommend a replacement.
+    if let Some(replacement) = crate::removed_commands().get(&name.to_lowercase()) {
+        return ShellError::RemovedCommand {
+            removed: name.to_lowercase(),
+            replacement: replacement.clone(),
+            span,
+        };
+    }
+
+    // The command might be from another module. Try to find it.
+    if let Some(module) = engine_state.which_module_has_decl(name.as_bytes(), &[]) {
+        let module = String::from_utf8_lossy(module);
+        // Is the command already imported?
+        let full_name = format!("{module} {name}");
+        if engine_state.find_decl(full_name.as_bytes(), &[]).is_some() {
+            return ShellError::ExternalCommand {
+                label: format!("Command `{name}` not found"),
+                help: format!("Did you mean `{full_name}`?"),
+                span,
+            };
+        } else {
+            return ShellError::ExternalCommand {
+                label: format!("Command `{name}` not found"),
+                help: format!("A command with that name exists in module `{module}`. Try importing it with `use`"),
+                span,
+            };
+        }
+    }
+
+    // Try to match the name with the search terms of existing commands.
+    let signatures = engine_state.get_signatures(false);
+    if let Some(sig) = signatures.iter().find(|sig| {
+        sig.search_terms
+            .iter()
+            .any(|term| term.to_folded_case() == name.to_folded_case())
+    }) {
+        return ShellError::ExternalCommand {
+            label: format!("Command `{name}` not found"),
+            help: format!("Did you mean `{}`?", sig.name),
+            span,
+        };
+    }
+
+    // Try a fuzzy search on the names of all existing commands.
+    if let Some(cmd) = did_you_mean(signatures.iter().map(|sig| &sig.name), name) {
+        // The user is invoking an external command with the same name as a
+        // built-in command. Remind them of this.
+        if cmd == name {
+            return ShellError::ExternalCommand {
+                label: format!("Command `{name}` not found"),
+                help: "There is a built-in command with the same name".into(),
+                span,
+            };
+        }
+        return ShellError::ExternalCommand {
+            label: format!("Command `{name}` not found"),
+            help: format!("Did you mean `{cmd}`?"),
+            span,
+        };
+    }
+
+    // We found nothing useful. Give up and return a generic error message.
+    ShellError::ExternalCommand {
+        label: format!("Command `{name}` not found"),
+        help: "".into(),
+        span,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
