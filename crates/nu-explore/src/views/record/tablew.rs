@@ -157,7 +157,7 @@ impl<'a> TableW<'a> {
                 padding_index_r,
             );
 
-            width += render_vertical(
+            width += render_vertical_line_with_split(
                 buf,
                 width,
                 data_y,
@@ -248,7 +248,7 @@ impl<'a> TableW<'a> {
         }
 
         if width < area.width {
-            width += render_vertical(
+            width += render_vertical_line_with_split(
                 buf,
                 width,
                 data_y,
@@ -296,7 +296,7 @@ impl<'a> TableW<'a> {
                 padding_index_r,
             );
 
-            left_w += render_vertical(
+            left_w += render_vertical_line_with_split(
                 buf,
                 area.x + left_w,
                 area.y,
@@ -328,7 +328,7 @@ impl<'a> TableW<'a> {
 
             if !show_index {
                 let x = area.x + left_w;
-                left_w += render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
+                left_w += render_vertical_line_with_split(buf, x, area.y, area.height, false, false, splitline_s);
             }
 
             let x = area.x + left_w;
@@ -345,7 +345,7 @@ impl<'a> TableW<'a> {
                     .push(text, layout_x, area.y + i as u16, columns_width as u16, 1);
             }
 
-            left_w += render_vertical(
+            left_w += render_vertical_line_with_split(
                 buf,
                 area.x + left_w,
                 area.y,
@@ -561,7 +561,7 @@ fn render_index(
     width
 }
 
-fn render_vertical(
+fn render_vertical_line_with_split(
     buf: &mut Buffer,
     x: u16,
     y: u16,
@@ -570,7 +570,7 @@ fn render_vertical(
     bottom_slit: bool,
     style: NuStyle,
 ) -> u16 {
-    render_vertical_split(buf, x, y, height, style);
+    render_vertical_line(buf, x, y, height, style);
 
     if top_slit && y > 0 {
         render_top_connector(buf, x, y - 1, style);
@@ -583,7 +583,7 @@ fn render_vertical(
     1
 }
 
-fn render_vertical_split(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuStyle) {
+fn render_vertical_line(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuStyle) {
     let style = TextStyle {
         alignment: Alignment::Left,
         color_style: Some(style),
@@ -615,10 +615,12 @@ fn create_column(data: &[Vec<NuText>], col: usize) -> Vec<NuText> {
     column
 }
 
+// Starting at cell [x, y]: paint `width` characters of `c` (left to right), move 1 row down, repeat
+// Repeat this `height` times
 fn repeat_vertical(
     buf: &mut ratatui::buffer::Buffer,
-    x_offset: u16,
-    y_offset: u16,
+    x: u16,
+    y: u16,
     width: u16,
     height: u16,
     c: char,
@@ -631,7 +633,7 @@ fn repeat_vertical(
     let span = Span::styled(text, style);
 
     for row in 0..height {
-        buf.set_span(x_offset, y_offset + row, &span, width);
+        buf.set_span(x, y + row, &span, width);
     }
 }
 
