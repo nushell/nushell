@@ -475,9 +475,6 @@ fn command_open_with_filecompletion() {
     let target_dir = "open custom_completion.";
     let suggestions = completer.complete(target_dir, target_dir.len());
 
-    #[cfg(windows)]
-    let expected_paths: Vec<String> = vec!["custom_completion.nu".to_string()];
-    #[cfg(not(windows))]
     let expected_paths: Vec<String> = vec!["custom_completion.nu".to_string()];
 
     match_suggestions(expected_paths, suggestions)
