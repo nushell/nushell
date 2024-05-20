@@ -41,10 +41,8 @@ pub struct TableStyle {
     pub shift_line_style: NuStyle,
     pub show_index: bool,
     pub show_header: bool,
-    pub padding_index_left: usize,
-    pub padding_index_right: usize,
-    pub padding_column_left: usize,
-    pub padding_column_right: usize,
+    pub column_padding_left: usize,
+    pub column_padding_right: usize,
 }
 
 impl<'a> TableW<'a> {
@@ -103,10 +101,8 @@ impl StatefulWidget for TableW<'_> {
 // todo: refactoring these to methods as they have quite a bit in common.
 impl<'a> TableW<'a> {
     fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWState) {
-        let padding_cell_l = self.style.padding_column_left as u16;
-        let padding_cell_r = self.style.padding_column_right as u16;
-        let padding_index_l = self.style.padding_index_left as u16;
-        let padding_index_r = self.style.padding_index_right as u16;
+        let padding_l = self.style.column_padding_left as u16;
+        let padding_r = self.style.column_padding_right as u16;
 
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
@@ -153,11 +149,11 @@ impl<'a> TableW<'a> {
                 area,
                 self.style_computer,
                 self.index_row,
-                padding_index_l,
-                padding_index_r,
+                padding_l,
+                padding_r,
             );
 
-            width += render_vertical(
+            width += render_vertical_line_with_split(
                 buf,
                 width,
                 data_y,
@@ -193,7 +189,7 @@ impl<'a> TableW<'a> {
                 let is_last = col + 1 == self.columns.len();
                 let space = area.width - width;
 
-                let pad = padding_cell_l + padding_cell_r;
+                let pad = padding_l + padding_r;
                 let head = show_head.then_some(&mut head);
                 let (w, ok, shift) =
                     truncate_column_width(space, 1, use_space, pad, is_last, &mut column, head);
@@ -216,20 +212,20 @@ impl<'a> TableW<'a> {
                 }
 
                 let mut w = width;
-                w += render_space(buf, w, head_y, 1, padding_cell_l);
+                w += render_space(buf, w, head_y, 1, padding_l);
                 w += render_column(buf, w, head_y, use_space, &header);
-                w += render_space(buf, w, head_y, 1, padding_cell_r);
+                w += render_space(buf, w, head_y, 1, padding_r);
 
-                let x = w - padding_cell_r - use_space;
+                let x = w - padding_r - use_space;
                 state.layout.push(&header[0].0, x, head_y, use_space, 1);
             }
 
-            width += render_space(buf, width, data_y, data_height, padding_cell_l);
+            width += render_space(buf, width, data_y, data_height, padding_l);
             width += render_column(buf, width, data_y, use_space, &column);
-            width += render_space(buf, width, data_y, data_height, padding_cell_r);
+            width += render_space(buf, width, data_y, data_height, padding_r);
 
             for (row, (text, _)) in column.iter().enumerate() {
-                let x = width - padding_cell_r - use_space;
+                let x = width - padding_r - use_space;
                 let y = data_y + row as u16;
                 state.layout.push(text, x, y, use_space, 1);
             }
@@ -242,13 +238,13 @@ impl<'a> TableW<'a> {
         }
 
         if do_render_shift_column && show_head {
-            width += render_space(buf, width, data_y, data_height, padding_cell_l);
+            width += render_space(buf, width, data_y, data_height, padding_l);
             width += render_shift_column(buf, width, head_y, 1, shift_column_s);
-            width += render_space(buf, width, data_y, data_height, padding_cell_r);
+            width += render_space(buf, width, data_y, data_height, padding_r);
         }
 
         if width < area.width {
-            width += render_vertical(
+            width += render_vertical_line_with_split(
                 buf,
                 width,
                 data_y,
@@ -273,10 +269,8 @@ impl<'a> TableW<'a> {
             return;
         }
 
-        let padding_cell_l = self.style.padding_column_left as u16;
-        let padding_cell_r = self.style.padding_column_right as u16;
-        let padding_index_l = self.style.padding_index_left as u16;
-        let padding_index_r = self.style.padding_index_right as u16;
+        let padding_l = self.style.column_padding_left as u16;
+        let padding_r = self.style.column_padding_right as u16;
 
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
@@ -292,11 +286,11 @@ impl<'a> TableW<'a> {
                 area,
                 self.style_computer,
                 self.index_row,
-                padding_index_l,
-                padding_index_r,
+                padding_l,
+                padding_r,
             );
 
-            left_w += render_vertical(
+            left_w += render_vertical_line_with_split(
                 buf,
                 area.x + left_w,
                 area.y,
@@ -316,7 +310,7 @@ impl<'a> TableW<'a> {
             let columns_width = columns.iter().map(|s| string_width(s)).max().unwrap_or(0);
 
             let will_use_space =
-                padding_cell_l as usize + padding_cell_r as usize + columns_width + left_w as usize;
+                padding_l as usize + padding_r as usize + columns_width + left_w as usize;
             if will_use_space > area.width as usize {
                 return;
             }
@@ -328,24 +322,32 @@ impl<'a> TableW<'a> {
 
             if !show_index {
                 let x = area.x + left_w;
-                left_w += render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
+                left_w += render_vertical_line_with_split(
+                    buf,
+                    x,
+                    area.y,
+                    area.height,
+                    false,
+                    false,
+                    splitline_s,
+                );
             }
 
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, 1, padding_cell_l);
+            left_w += render_space(buf, x, area.y, 1, padding_l);
             let x = area.x + left_w;
             left_w += render_column(buf, x, area.y, columns_width as u16, &columns);
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, 1, padding_cell_r);
+            left_w += render_space(buf, x, area.y, 1, padding_r);
 
-            let layout_x = left_w - padding_cell_r - columns_width as u16;
+            let layout_x = left_w - padding_r - columns_width as u16;
             for (i, (text, _)) in columns.iter().enumerate() {
                 state
                     .layout
                     .push(text, layout_x, area.y + i as u16, columns_width as u16, 1);
             }
 
-            left_w += render_vertical(
+            left_w += render_vertical_line_with_split(
                 buf,
                 area.x + left_w,
                 area.y,
@@ -372,7 +374,7 @@ impl<'a> TableW<'a> {
             let column_width = column_width as u16;
             let available = area.width - left_w;
             let is_last = col + 1 == self.data.len();
-            let pad = padding_cell_l + padding_cell_r;
+            let pad = padding_l + padding_r;
             let (column_width, ok, shift) =
                 truncate_column_width(available, 1, column_width, pad, is_last, &mut column, None);
 
@@ -385,15 +387,15 @@ impl<'a> TableW<'a> {
             }
 
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, area.height, padding_cell_l);
+            left_w += render_space(buf, x, area.y, area.height, padding_l);
             let x = area.x + left_w;
             left_w += render_column(buf, x, area.y, column_width, &column);
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
+            left_w += render_space(buf, x, area.y, area.height, padding_r);
 
             {
                 for (row, (text, _)) in column.iter().enumerate() {
-                    let x = left_w - padding_cell_r - column_width;
+                    let x = left_w - padding_r - column_width;
                     let y = area.y + row as u16;
                     state.layout.push(text, x, y, column_width, 1);
                 }
@@ -408,11 +410,11 @@ impl<'a> TableW<'a> {
 
         if do_render_shift_column {
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, area.height, padding_cell_l);
+            left_w += render_space(buf, x, area.y, area.height, padding_l);
             let x = area.x + left_w;
             left_w += render_shift_column(buf, x, area.y, area.height, shift_column_s);
             let x = area.x + left_w;
-            left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
+            left_w += render_space(buf, x, area.y, area.height, padding_r);
         }
 
         _ = left_w;
@@ -561,7 +563,7 @@ fn render_index(
     width
 }
 
-fn render_vertical(
+fn render_vertical_line_with_split(
     buf: &mut Buffer,
     x: u16,
     y: u16,
@@ -570,7 +572,7 @@ fn render_vertical(
     bottom_slit: bool,
     style: NuStyle,
 ) -> u16 {
-    render_vertical_split(buf, x, y, height, style);
+    render_vertical_line(buf, x, y, height, style);
 
     if top_slit && y > 0 {
         render_top_connector(buf, x, y - 1, style);
@@ -583,7 +585,7 @@ fn render_vertical(
     1
 }
 
-fn render_vertical_split(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuStyle) {
+fn render_vertical_line(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuStyle) {
     let style = TextStyle {
         alignment: Alignment::Left,
         color_style: Some(style),
@@ -615,10 +617,12 @@ fn create_column(data: &[Vec<NuText>], col: usize) -> Vec<NuText> {
     column
 }
 
+/// Starting at cell [x, y]: paint `width` characters of `c` (left to right), move 1 row down, repeat
+/// Repeat this `height` times
 fn repeat_vertical(
     buf: &mut ratatui::buffer::Buffer,
-    x_offset: u16,
-    y_offset: u16,
+    x: u16,
+    y: u16,
     width: u16,
     height: u16,
     c: char,
@@ -631,7 +635,7 @@ fn repeat_vertical(
     let span = Span::styled(text, style);
 
     for row in 0..height {
-        buf.set_span(x_offset, y_offset + row, &span, width);
+        buf.set_span(x, y + row, &span, width);
     }
 }
 
