@@ -6,7 +6,14 @@ use crate::{
 use chrono::{DateTime, FixedOffset};
 use std::path::PathBuf;
 
+/// A trait for loading a value from a `Value`.
 pub trait FromValue: Sized {
+    // TODO: instead of ShellError, maybe we could have a FromValueError that implements Into<ShellError>
+    /// Loads a value from a `Value`.
+    /// 
+    /// Just like [`FromStr`](std::str::FromStr), this operation may fail 
+    /// because the raw `Value` is able to represent more values than the 
+    /// expected value here.
     fn from_value(v: Value) -> Result<Self, ShellError>;
 }
 

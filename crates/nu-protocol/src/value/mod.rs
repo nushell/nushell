@@ -4,6 +4,7 @@ mod filesize;
 mod from;
 mod from_value;
 mod glob;
+mod into_value;
 mod range;
 
 pub mod record;
@@ -12,6 +13,7 @@ pub use duration::*;
 pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
+pub use into_value::{IntoValue, TryIntoValue};
 pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
