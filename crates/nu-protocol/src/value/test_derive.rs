@@ -5,50 +5,49 @@ use crate::{record, IntoValue, Record, Value};
 // the derive macro fully qualifies paths to "nu_protocol"
 use crate as nu_protocol;
 
-#[derive(IntoValue)]
-struct Primitives {
-    p_array: [u8; 4],
-    p_bool: bool,
-    p_char: char,
-    p_f32: f32,
-    p_f64: f64,
-    p_i8: i8,
-    p_i16: i16,
-    p_i32: i32,
-    p_i64: i64,
-    p_isize: isize,
-    p_str: &'static str,
-    p_u8: u8,
-    p_u16: u16,
-    p_u32: u32,
-    p_u64: u64,
-    p_usize: usize,
-    p_unit: (),
-    p_tuple: (u32, bool),
+macro_rules! make_type {
+    (
+        $(#[$meta:meta])*
+        struct $name:ident {
+            $($field:ident : $t:ty = $val:expr),* $(,)?
+        }
+    ) => {
+        $(#[$meta])*
+        struct $name {
+            $($field: $t,)*
+        }
+
+        impl $name {
+            fn make() -> Self {
+                Self {
+                    $($field: $val,)*
+                }
+            }
+        }
+    };
 }
 
-impl Primitives {
-    fn make() -> Primitives {
-        Primitives {
-            p_array: [12, 34, 56, 78],
-            p_bool: true,
-            p_char: 'A',
-            p_f32: 123.456,
-            p_f64: 789.1011,
-            p_i8: -12,
-            p_i16: -1234,
-            p_i32: -123456,
-            p_i64: -1234567890,
-            p_isize: 1024,
-            p_str: "Hello, world!",
-            p_u8: 255,
-            p_u16: 65535,
-            p_u32: 4294967295,
-            p_u64: 8446744073709551615,
-            p_usize: 4096,
-            p_unit: (),
-            p_tuple: (123456789, false),
-        }
+make_type! {
+    #[derive(IntoValue)]
+    struct Primitives {
+        p_array: [u8; 4] = [12, 34, 56, 78],
+        p_bool: bool = true,
+        p_char: char = 'A',
+        p_f32: f32 = 123.456,
+        p_f64: f64 = 789.1011,
+        p_i8: i8 = -12,
+        p_i16: i16 = -1234,
+        p_i32: i32 = -123456,
+        p_i64: i64 = -1234567890,
+        p_isize: isize = 1024,
+        p_str: &'static str = "Hello, world!",
+        p_u8: u8 = 255,
+        p_u16: u16 = 65535,
+        p_u32: u32 = 4294967295,
+        p_u64: u64 = 8446744073709551615,
+        p_usize: usize = 4096,
+        p_unit: () = (),
+        p_tuple: (u32, bool) = (123456789, false),
     }
 }
 
@@ -106,22 +105,13 @@ fn primitives_into_value() {
     assert!(record.is_empty());
 }
 
-#[derive(IntoValue)]
-struct StdValues {
-    some: Option<usize>,
-    none: Option<usize>,
-    vec: Vec<usize>,
-    string: String,
-}
-
-impl StdValues {
-    fn make() -> Self {
-        StdValues {
-            some: Some(123),
-            none: None,
-            vec: vec![1, 2],
-            string: "Hello std!".to_string(),
-        }
+make_type! {
+    #[derive(IntoValue)]
+    struct StdValues {
+        some: Option<usize> = Some(123),
+        none: Option<usize> = None,
+        vec: Vec<usize> = vec![1, 2],
+        string: String = "Hello std!".to_string(),
     }
 }
 
@@ -137,11 +127,13 @@ fn std_values_into_value() {
     assert_eq!(actual, expected);
 }
 
-#[derive(IntoValue)]
-struct Outer {
-    a: InnerA,
-    b: InnerB,
-    c: u8,
+make_type! {
+    #[derive(IntoValue)]
+    struct Outer {
+        a: InnerA = InnerA { d: true },
+        b: InnerB = InnerB { e: 123.456, f: () },
+        c: u8 = 69,
+    }
 }
 
 #[derive(IntoValue)]
@@ -153,16 +145,6 @@ struct InnerA {
 struct InnerB {
     e: f64,
     f: (),
-}
-
-impl Outer {
-    fn make() -> Self {
-        Outer {
-            a: InnerA { d: true },
-            b: InnerB { e: 123.456, f: () },
-            c: 69,
-        }
-    }
 }
 
 #[test]
