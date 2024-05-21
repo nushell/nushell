@@ -19,7 +19,7 @@ use crate::{
     util::create_map,
 };
 
-use self::binary_widget::{BinarySettings, BinaryStyle, BinaryWidget, Indent};
+use self::binary_widget::{BinarySettings, BinaryStyle, BinaryWidget};
 
 use super::{cursor::XYCursor, Layout, View, ViewConfig};
 
@@ -193,19 +193,8 @@ fn settings_from_config(config: &ConfigMap) -> Settings {
         ),
         style: BinaryStyle::new(
             colors.get("color_index").cloned(),
-            Indent::new(
-                config_get_usize(config, "padding_index_left", 2) as u16,
-                config_get_usize(config, "padding_index_right", 2) as u16,
-            ),
-            Indent::new(
-                config_get_usize(config, "padding_data_left", 2) as u16,
-                config_get_usize(config, "padding_data_right", 2) as u16,
-            ),
-            Indent::new(
-                config_get_usize(config, "padding_ascii_left", 2) as u16,
-                config_get_usize(config, "padding_ascii_right", 2) as u16,
-            ),
-            config_get_usize(config, "padding_segment", 1),
+            config_get_usize(config, "column_padding_left", 1) as u16,
+            config_get_usize(config, "column_padding_right", 1) as u16,
             config_get_bool(config, "split", false),
         ),
     }

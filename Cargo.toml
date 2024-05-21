@@ -32,7 +32,6 @@ members = [
   "crates/nu-cmd-extra",
   "crates/nu-cmd-lang",
   "crates/nu-cmd-plugin",
-  "crates/nu-cmd-dataframe",
   "crates/nu-command",
   "crates/nu-color-config",
   "crates/nu-explore",
@@ -185,9 +184,6 @@ nu-cli = { path = "./crates/nu-cli", version = "0.93.1" }
 nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.93.1" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.93.1" }
 nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.93.1", optional = true }
-nu-cmd-dataframe = { path = "./crates/nu-cmd-dataframe", version = "0.93.1", features = [
-  "dataframe",
-], optional = true }
 nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.93.1" }
 nu-command = { path = "./crates/nu-command", version = "0.93.1" }
 nu-engine = { path = "./crates/nu-engine", version = "0.93.1" }
@@ -207,7 +203,7 @@ crossterm = { workspace = true }
 ctrlc = { workspace = true }
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
-mimalloc = { version = "0.1.37", default-features = false, optional = true }
+mimalloc = { version = "0.1.42", default-features = false, optional = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"
@@ -276,9 +272,6 @@ system-clipboard = [
 # Stable (Default)
 which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
-
-# Dataframe feature for nushell
-dataframe = ["dep:nu-cmd-dataframe", "nu-cmd-lang/dataframe"]
 
 # SQLite commands for nushell
 sqlite = ["nu-command/sqlite", "nu-cmd-lang/sqlite"]
