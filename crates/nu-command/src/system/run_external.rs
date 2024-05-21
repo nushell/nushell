@@ -10,7 +10,6 @@ use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use regex::Regex;
 use std::{
-    borrow::Cow,
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
@@ -533,7 +532,7 @@ fn has_cmd_special_character(s: &str) -> bool {
 /// Escape an argument for CMD internal commands. The result can be safely
 /// passed to `raw_arg()`.
 #[cfg(windows)]
-fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError> {
+fn escape_cmd_argument(arg: &Spanned<String>) -> Result<std::borrow::Cow<'_, str>, ShellError> {
     let Spanned { item: arg, span } = arg;
     if arg.contains('"') {
         // If `arg` is already quoted by double quotes, confirm there's no
@@ -542,7 +541,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
             && arg.starts_with('"')
             && arg.ends_with('"')
         {
-            Ok(Cow::Borrowed(arg))
+            Ok(std::borrow::Cow::Borrowed(arg))
         } else {
             Err(ShellError::ExternalCommand {
                 label: "Arguments to CMD internal commands cannot contain embedded double quotes"
@@ -553,9 +552,9 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
         }
     } else if arg.contains(' ') || has_cmd_special_character(arg) {
         // If `arg` contains space or special characters, quote the entire argument by double quotes.
-        Ok(Cow::Owned(format!("\"{arg}\"")))
+        Ok(std::borrow::Cow::Owned(format!("\"{arg}\"")))
     } else {
-        Ok(Cow::Borrowed(arg))
+        Ok(std::borrow::Cow::Borrowed(arg))
     }
 }
 
