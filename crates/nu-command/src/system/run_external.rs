@@ -10,7 +10,9 @@ use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use regex::Regex;
 use std::{
+    borrow::Cow,
     io::Write,
+    os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::Stdio,
     sync::Arc,
@@ -83,18 +85,12 @@ impl Command for External {
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
             command.args(["/D", "/C", &name.item]);
-            // Check for special characters in `args` and reject them.
             for arg in &args {
-                if has_cmd_special_character(&arg.item) {
-                    return Err(ShellError::ExternalCommand {
-                        label: "Special characters are not allowed in CMD builtins".into(),
-                        help: r#"These characters are special in CMD: / \ < > " | & ^"#.into(),
-                        span: arg.span,
-                    });
-                }
+                command.raw_arg(escape_cmd_argument(arg)?.as_ref());
             }
+        } else {
+            command.args(args.into_iter().map(|s| s.item));
         }
-        command.args(args.into_iter().map(|s| s.item));
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
         // we'll setup a pipe that merge two streams into one.
@@ -516,8 +512,36 @@ fn is_cmd_internal_command(name: &str) -> bool {
 
 /// Returns true if a string contains CMD special characters.
 fn has_cmd_special_character(s: &str) -> bool {
-    const SPECIAL_CHARS: &[char] = &['/', '\\', '<', '>', '"', '|', '&', '^'];
+    const SPECIAL_CHARS: &[char] = &['<', '>', '&', '|', '^'];
     SPECIAL_CHARS.iter().any(|c| s.contains(*c))
+}
+
+/// Escape an argument for CMD internal commands. The result can be safely
+/// passed to `raw_arg()`.
+fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError> {
+    let Spanned { item: arg, span } = arg;
+    if arg.contains('"') {
+        // If `arg` is already quoted by double quotes, confirm there's no
+        // embedded double quotes, then leave it as is.
+        if arg.chars().filter(|c| *c == '"').count() == 2
+            && arg.chars().next() == Some('"')
+            && arg.chars().next_back() == Some('"')
+        {
+            Ok(Cow::Borrowed(arg))
+        } else {
+            Err(ShellError::ExternalCommand {
+                label: "Arguments to CMD internal commands cannot contain embedded double quotes"
+                    .into(),
+                help: "CMD doesn't support escaping double quotes inside double quotes".into(),
+                span: *span,
+            })
+        }
+    } else if arg.contains(' ') || has_cmd_special_character(arg) {
+        // If `arg` contains space or special characters, quote the entire argument by double quotes.
+        Ok(Cow::Owned(format!("\"{arg}\"")))
+    } else {
+        Ok(Cow::Borrowed(arg))
+    }
 }
 
 #[cfg(test)]
