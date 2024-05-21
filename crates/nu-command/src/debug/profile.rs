@@ -28,6 +28,7 @@ impl Command for DebugProfile {
                 Some('v'),
             )
             .switch("expr", "Collect expression types", Some('x'))
+            .switch("lines", "Collect line numbers", Some('l'))
             .named(
                 "max-depth",
                 SyntaxShape::Int,
@@ -90,6 +91,7 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
         let collect_expanded_source = call.has_flag(engine_state, stack, "expanded-source")?;
         let collect_values = call.has_flag(engine_state, stack, "values")?;
         let collect_exprs = call.has_flag(engine_state, stack, "expr")?;
+        let collect_lines = call.has_flag(engine_state, stack, "lines")?;
         let max_depth = call
             .get_flag(engine_state, stack, "max-depth")?
             .unwrap_or(2);
@@ -101,6 +103,7 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             collect_expanded_source,
             collect_values,
             collect_exprs,
+            collect_lines,
             call.span(),
         );
 

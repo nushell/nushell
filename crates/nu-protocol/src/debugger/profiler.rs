@@ -9,6 +9,7 @@ use crate::{
     engine::EngineState,
     record, PipelineData, ShellError, Span, Value,
 };
+use std::io::BufRead;
 use std::time::Instant;
 
 #[derive(Debug, Clone, Copy)]
@@ -50,11 +51,13 @@ pub struct Profiler {
     collect_expanded_source: bool,
     collect_values: bool,
     collect_exprs: bool,
+    collect_lines: bool,
     elements: Vec<ElementInfo>,
     element_stack: Vec<ElementId>,
 }
 
 impl Profiler {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         max_depth: i64,
         collect_spans: bool,
@@ -62,6 +65,7 @@ impl Profiler {
         collect_expanded_source: bool,
         collect_values: bool,
         collect_exprs: bool,
+        collect_lines: bool,
         span: Span,
     ) -> Self {
         let first = ElementInfo {
@@ -82,6 +86,7 @@ impl Profiler {
             collect_expanded_source,
             collect_values,
             collect_exprs,
+            collect_lines,
             elements: vec![first],
             element_stack: vec![ElementId(0)],
         }
@@ -262,6 +267,23 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
     }
 }
 
+// Find a file name and a line number (indexed from 1) of a span
+fn find_file_of_span(engine_state: &EngineState, span: Span) -> Option<(&str, usize)> {
+    for file in engine_state.files() {
+        if file.covered_span.start < span.start && file.covered_span.end > span.start {
+            // count the number of lines between file start and the searched span start
+            let chunk =
+                engine_state.get_span_contents(Span::new(file.covered_span.start, span.start));
+            let nlines = chunk.lines().count();
+            let line_num = if nlines <= 1 { 1 } else { nlines + 1 };
+
+            return Some((&file.name, line_num));
+        }
+    }
+
+    None
+}
+
 fn collect_data(
     engine_state: &EngineState,
     profiler: &Profiler,
@@ -276,6 +298,16 @@ fn collect_data(
         "id" => Value::int(element_id.0 as i64, profiler_span),
         "parent_id" => Value::int(parent_id.0 as i64, profiler_span),
     };
+
+    if profiler.collect_lines {
+        if let Some((fname, line_num)) = find_file_of_span(engine_state, element.element_span) {
+            row.push("file", Value::string(fname, profiler_span));
+            row.push("line_num", Value::int(line_num as i64, profiler_span));
+        } else {
+            row.push("file", Value::nothing(profiler_span));
+            row.push("line_num", Value::nothing(profiler_span));
+        }
+    }
 
     if profiler.collect_spans {
         let span_start = i64::try_from(element.element_span.start)
