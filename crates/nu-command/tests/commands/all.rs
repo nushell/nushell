@@ -55,7 +55,7 @@ fn checks_if_all_returns_error_with_invalid_command() {
         "#
     ));
 
-    assert!(actual.err.contains("can't run executable") || actual.err.contains("did you mean"));
+    assert!(actual.err.contains("nu::shell::external_command"));
 }
 
 #[test]

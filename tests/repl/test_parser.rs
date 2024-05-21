@@ -647,7 +647,7 @@ fn duration_with_underscores_2() -> TestResult {
 
 #[test]
 fn duration_with_underscores_3() -> TestResult {
-    fail_test("1_000_d_ay", "executable was not found")
+    fail_test("1_000_d_ay", "Command `1_000_d_ay` not found")
 }
 
 #[test]
@@ -667,7 +667,7 @@ fn filesize_with_underscores_2() -> TestResult {
 
 #[test]
 fn filesize_with_underscores_3() -> TestResult {
-    fail_test("42m_b", "executable was not found")
+    fail_test("42m_b", "Command `42m_b` not found")
 }
 
 #[test]

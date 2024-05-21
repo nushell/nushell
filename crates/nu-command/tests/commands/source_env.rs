@@ -283,13 +283,13 @@ fn source_env_is_scoped() {
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
-        assert!(actual.err.contains("executable was not found"));
+        assert!(actual.err.contains("nu::shell::external_command"));
 
         let inp = &[r#"source-env spam.nu"#, r#"nor-similar-to-this"#];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
-        assert!(actual.err.contains("executable was not found"));
+        assert!(actual.err.contains("nu::shell::external_command"));
     })
 }
 

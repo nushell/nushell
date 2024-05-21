@@ -989,7 +989,7 @@ fn hide_alias_hides_alias() {
         "
     ));
 
-    assert!(actual.err.contains("did you mean 'all'?"));
+    assert!(actual.err.contains("Command `ll` not found"));
 }
 
 mod parse {
@@ -1035,7 +1035,7 @@ mod parse {
     fn ensure_backticks_are_bareword_command() {
         let actual = nu!("`8abc123`");
 
-        assert!(actual.err.contains("was not found"),);
+        assert!(actual.err.contains("Command `8abc123` not found"),);
     }
 }
 
@@ -1146,5 +1146,5 @@ fn command_not_found_error_shows_not_found_2() {
             export def --wrapped my-foo [...rest] { foo };
             my-foo
         "#);
-    assert!(actual.err.contains("did you mean"));
+    assert!(actual.err.contains("Command `foo` not found"));
 }

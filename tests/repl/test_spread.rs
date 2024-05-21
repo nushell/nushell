@@ -193,7 +193,7 @@ fn disallow_implicit_spread_for_externals() -> TestResult {
 fn respect_shape() -> TestResult {
     fail_test(
         "def foo [...rest] { ...$rest }; foo bar baz",
-        "executable was not found",
+        "Command `...$rest` not found",
     )
     .unwrap();
     fail_test("module foo { ...$bar }", "expected_keyword").unwrap();
