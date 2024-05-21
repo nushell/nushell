@@ -50,7 +50,7 @@ impl Command for External {
         // executable to "cmd.exe" if it's is a CMD internal command. If the
         // command is not found, display a helpful error message.
         let name: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let executable = if cfg!(windows) && is_cmd_internal_commmand(&name.item) {
+        let executable = if cfg!(windows) && is_cmd_internal_command(&name.item) {
             PathBuf::from("cmd.exe")
         } else {
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
@@ -78,7 +78,7 @@ impl Command for External {
 
         // Configure args.
         let args = eval_arguments_from_call(engine_state, stack, call)?;
-        if cfg!(windows) && is_cmd_internal_commmand(&name.item) {
+        if cfg!(windows) && is_cmd_internal_command(&name.item) {
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
@@ -233,7 +233,7 @@ pub fn eval_arguments_from_call(
 ///
 /// Note: The parser currently has a special hack that retains surrounding
 /// quotes for string literals in `Expression`, so that we can decide whether
-/// the expression is considered a bare string. The hack doesn't affact string
+/// the expression is considered a bare string. The hack doesn't affect string
 /// literals within lists or records. This function will remove the quotes
 /// before evaluating the expression.
 fn eval_argument(
@@ -507,7 +507,7 @@ pub fn which(name: &str, paths: &str, cwd: &Path) -> Option<PathBuf> {
 }
 
 /// Returns true if `name` is a (somewhat useful) CMD internal command.
-fn is_cmd_internal_commmand(name: &str) -> bool {
+fn is_cmd_internal_command(name: &str) -> bool {
     const COMMANDS: &[&str] = &[
         "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
     ];
