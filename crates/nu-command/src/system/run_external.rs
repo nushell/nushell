@@ -149,8 +149,10 @@ impl Command for External {
         // If we need to copy data into the child process, do it now.
         if let Some(data) = data_to_copy_into_stdin {
             let stdin = child.as_mut().stdin.take().expect("stdin is piped");
+            let engine_state = engine_state.clone();
+            let stack = stack.clone();
             thread::spawn(move || {
-                let _ = write_pipeline_data(data, stdin);
+                let _ = write_pipeline_data(engine_state, stack, data, stdin);
             });
         }
 
@@ -345,14 +347,17 @@ fn remove_inner_quotes(arg: impl Into<String>) -> String {
 /// another external command, because it copies data unnecessarily. Instead,
 /// extract the pipe from the `PipelineData::ByteStream` of the first command
 /// and hand it to the second command directly.
-fn write_pipeline_data(data: PipelineData, mut writer: impl Write) -> Result<(), ShellError> {
+fn write_pipeline_data(
+    mut engine_state: EngineState,
+    mut stack: Stack,
+    data: PipelineData,
+    mut writer: impl Write,
+) -> Result<(), ShellError> {
     if let PipelineData::ByteStream(stream, ..) = data {
         stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
         writer.write_all(&val)?;
     } else {
-        let mut engine_state = EngineState::new();
-        let mut stack = Stack::new();
         stack.start_capture();
 
         // Turn off color as we pass data through
@@ -655,19 +660,22 @@ mod test {
 
     #[test]
     fn test_write_pipeline_data() {
+        let engine_state = EngineState::new();
+        let stack = Stack::new();
+
         let mut buf = vec![];
         let input = PipelineData::Empty;
-        write_pipeline_data(input, &mut buf).unwrap();
+        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"");
 
         let mut buf = vec![];
         let input = PipelineData::Value(Value::string("foo", Span::unknown()), None);
-        write_pipeline_data(input, &mut buf).unwrap();
+        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
         let input = PipelineData::Value(Value::binary(b"foo", Span::unknown()), None);
-        write_pipeline_data(input, &mut buf).unwrap();
+        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
@@ -680,7 +688,7 @@ mod test {
             ),
             None,
         );
-        write_pipeline_data(input, &mut buf).unwrap();
+        write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
     }
 }
