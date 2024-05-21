@@ -183,10 +183,7 @@ fn explain_spread_args() -> TestResult {
 
 #[test]
 fn disallow_implicit_spread_for_externals() -> TestResult {
-    fail_test(
-        r#"nu --testbin cococo [1 2]"#,
-        "Lists are not automatically spread",
-    )
+    fail_test(r#"^echo [1 2]"#, "Lists are not automatically spread")
 }
 
 #[test]
