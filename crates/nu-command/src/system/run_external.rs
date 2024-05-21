@@ -12,7 +12,6 @@ use regex::Regex;
 use std::{
     borrow::Cow,
     io::Write,
-    os::windows::process::CommandExt,
     path::{Path, PathBuf},
     process::Stdio,
     sync::Arc,
@@ -80,7 +79,10 @@ impl Command for External {
 
         // Configure args.
         let args = eval_arguments_from_call(engine_state, stack, call)?;
-        if cfg!(windows) && is_cmd_internal_command(&name.item) {
+        #[cfg(windows)]
+        if is_cmd_internal_command(&name.item) {
+            use std::os::windows::process::CommandExt;
+
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
@@ -91,6 +93,8 @@ impl Command for External {
         } else {
             command.args(args.into_iter().map(|s| s.item));
         }
+        #[cfg(not(windows))]
+        command.args(args.into_iter().map(|s| s.item));
 
         // Configure stdout and stderr. If both are set to `OutDest::Pipe`,
         // we'll setup a pipe that merge two streams into one.
