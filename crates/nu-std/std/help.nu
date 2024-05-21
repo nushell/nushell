@@ -93,6 +93,18 @@ def "nu-complete list-commands" [] {
     scope commands | select name usage | rename value description
 }
 
+def "nu-complete main-help" [] {
+    [
+        { value: "commands", description: "Show help on Nushell commands." }
+        { value: "aliases", description: "Show help on Nushell aliases." }
+        { value: "modules", description: "Show help on Nushell modules." }
+        { value: "externs", description: "Show help on Nushell externs." }
+        { value: "operators", description: "Show help on Nushell operators." }
+        { value: "escapes", description: "Show help on Nushell string escapes." }
+    ]
+    | append (nu-complete list-commands)
+}
+
 def "nu-complete list-externs" [] {
     scope commands | where is_extern | select name usage | rename value description
 }
@@ -720,7 +732,7 @@ def pretty-cmd [] {
 #   search for string in command names, usage and search terms
 #   > help --find char
 export def main [
-    ...item: string  # the name of the help item to get help on
+    ...item: string@"nu-complete main-help"  # the name of the help item to get help on
     --find (-f): string  # string to find in help items names and usage
 ] {
     if ($item | is-empty) and ($find | is-empty) {
