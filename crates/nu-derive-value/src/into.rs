@@ -1,7 +1,7 @@
+use convert_case::{Case, Casing};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote, ToTokens};
 use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident, Index};
-use convert_case::{Casing, Case};
 
 pub fn derive_into_value(input: TokenStream2) -> syn::Result<TokenStream2> {
     let input: DeriveInput = syn::parse2(input)?;
@@ -115,9 +115,10 @@ fn fields_to_record(
             }
         }
         Fields::Unnamed(fields) => {
-            let items = fields.unnamed.iter().zip(accessor).map(
-                |(_, accessor)| quote!(nu_protocol::IntoValue::into_value(#accessor, span)),
-            );
+            let items =
+                fields.unnamed.iter().zip(accessor).map(
+                    |(_, accessor)| quote!(nu_protocol::IntoValue::into_value(#accessor, span)),
+                );
             quote!(nu_protocol::Value::list(vec![#(#items),*], span))
         }
         _ => todo!(),
