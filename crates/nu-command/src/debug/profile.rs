@@ -121,14 +121,11 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
 
         let result = ClosureEvalOnce::new(engine_state, stack, closure).run_with_input(input);
 
-        // TODO: See eval_source()
-        match result {
-            Ok(pipeline_data) => {
-                let _ = pipeline_data.into_value(call.span());
-                // pipeline_data.print(engine_state, caller_stack, true, false)
-            }
-            Err(_e) => (), // TODO: Report error
-        }
+        // Return potential errors
+        let pipeline_data = result?;
+
+        // Collect the output
+        let _ = pipeline_data.into_value(call.span());
 
         Ok(engine_state
             .deactivate_debugger()
