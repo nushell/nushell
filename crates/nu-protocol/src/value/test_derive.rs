@@ -180,3 +180,23 @@ fn nested_into_value() {
     });
     assert_eq!(nested, expected);
 }
+
+#[derive(IntoValue)]
+struct TupleStruct(usize, String, f64);
+
+impl TupleStruct {
+    fn make() -> Self {
+        TupleStruct(420, "Hello, tuple!".to_string(), 33.33)
+    }
+}
+
+#[test]
+fn tuple_struct_into_value() {
+    let tuple = TupleStruct::make().into_value_unknown();
+    let expected = Value::test_list(vec![
+        Value::test_int(420),
+        Value::test_string("Hello, tuple!"),
+        Value::test_float(33.33),
+    ]);
+    assert_eq!(tuple, expected);
+}

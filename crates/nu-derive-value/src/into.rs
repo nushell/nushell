@@ -1,6 +1,7 @@
 use proc_macro2::TokenStream as TokenStream2;
-use quote::quote;
-use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident};
+use quote::{format_ident, quote, ToTokens};
+use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident, Index};
+use convert_case::{Casing, Case};
 
 pub fn derive_into_value(input: TokenStream2) -> syn::Result<TokenStream2> {
     let input: DeriveInput = syn::parse2(input)?;
@@ -8,37 +9,117 @@ pub fn derive_into_value(input: TokenStream2) -> syn::Result<TokenStream2> {
         Data::Struct(data_struct) => {
             Ok(struct_into_value(input.ident, data_struct, input.generics))
         }
-        Data::Enum(data_enum) => Ok(enum_into_value(data_enum)),
+        Data::Enum(data_enum) => Ok(enum_into_value(input.ident, data_enum, input.generics)),
         Data::Union(_) => todo!("throw some error"),
     }
 }
 
 fn struct_into_value(ident: Ident, data: DataStruct, generics: Generics) -> TokenStream2 {
-    let fields: Vec<TokenStream2> = match data.fields {
-        Fields::Named(fields) => fields
-            .named
-            .into_iter()
-            .map(|field| {
-                let ident = field.ident.expect("named fields have an ident");
-                let field = ident.to_string();
-                quote!(#field => nu_protocol::IntoValue::into_value(self.#ident, span))
-            })
-            .collect(),
+    let record = match &data.fields {
+        Fields::Named(fields) => {
+            let accessor = fields
+                .named
+                .iter()
+                .map(|field| field.ident.clone().expect("named has idents"))
+                .map(|ident| quote!(self.#ident));
+            fields_to_record(&data.fields, accessor)
+        }
+        Fields::Unnamed(fields) => {
+            let accessor = fields
+                .unnamed
+                .iter()
+                .enumerate()
+                .map(|(n, _)| Index::from(n))
+                .map(|index| quote!(self.#index));
+            fields_to_record(&data.fields, accessor)
+        }
         _ => todo!(),
     };
-
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
         impl #impl_generics nu_protocol::IntoValue for #ident #ty_generics #where_clause {
             fn into_value(self, span: nu_protocol::Span) -> nu_protocol::Value {
-                nu_protocol::Value::record(nu_protocol::record! {
-                    #(#fields),*
-                }, span)
+                #record
             }
         }
     }
 }
 
-fn enum_into_value(input: DataEnum) -> TokenStream2 {
-    todo!()
+fn enum_into_value(ident: Ident, data: DataEnum, generics: Generics) -> TokenStream2 {
+    let arms: Vec<TokenStream2> = data.variants.into_iter().map(|variant| {
+        let ident = variant.ident;
+        let ident_s = format!("{ident}").as_str().to_case(Case::Snake);
+        match &variant.fields {
+            Fields::Named(fields) => {
+                let accessor = fields.named.iter().map(|field| field.ident.clone().expect("named fields have an ident"));
+                let fields: Vec<Ident> = accessor.clone().collect();
+                let content = fields_to_record(&variant.fields, accessor);
+                quote! {
+                    Self::#ident {#(#fields),*} => nu_protocol::Value::record(nu_protocol::record! {
+                        "$type" => nu_protocol::Value::string(#ident_s, span),
+                        "$content" => #content
+                    }, span)
+                }
+            }
+            Fields::Unnamed(fields) => {
+                let accessor = fields.unnamed.iter().enumerate().map(|(n, _)| format_ident!("v{n}"));
+                let fields: Vec<Ident> = accessor.clone().collect();
+                let content = fields_to_record(&variant.fields, accessor);
+                quote! {
+                    Self::#ident(#(#fields),*) => nu_protocol::Value::record(nu_protocol::record! {
+                        "$type" => nu_protocol::Value::string(#ident_s, span),
+                        "$content" => #content
+                    }, span)
+                }
+            }
+            Fields::Unit => quote! {
+                Self::#ident => nu_protocol::Value::record(nu_protocol::record! {
+                    "$type" => nu_protocol::Value::string(#ident_s, span)
+                }, span)
+            }
+        }
+    }).collect();
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    quote! {
+        impl #impl_generics nu_protocol::IntoValue for #ident #ty_generics #where_clause {
+            fn into_value(self, span: nu_protocol::Span) -> nu_protocol::Value {
+                match self {
+                    #(#arms),*
+                }
+            }
+        }
+    }
+}
+
+fn fields_to_record(
+    fields: &Fields,
+    accessor: impl Iterator<Item = impl ToTokens>,
+) -> TokenStream2 {
+    match fields {
+        Fields::Named(fields) => {
+            let items: Vec<TokenStream2> = fields
+                .named
+                .iter()
+                .zip(accessor)
+                .map(|(field, accessor)| {
+                    let ident = field.ident.clone().expect("named fields have an ident");
+                    let field = ident.to_string();
+                    quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span))
+                })
+                .collect();
+            quote! {
+                nu_protocol::Value::record(nu_protocol::record! {
+                    #(#items),*
+                }, span)
+            }
+        }
+        Fields::Unnamed(fields) => {
+            let items = fields.unnamed.iter().zip(accessor).map(
+                |(_, accessor)| quote!(nu_protocol::IntoValue::into_value(#accessor, span)),
+            );
+            quote!(nu_protocol::Value::list(vec![#(#items),*], span))
+        }
+        _ => todo!(),
+    }
 }
