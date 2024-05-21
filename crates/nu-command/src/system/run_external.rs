@@ -248,7 +248,7 @@ fn eval_argument(
     match eval(engine_state, stack, &expr)? {
         Value::List { vals, .. } => {
             if spread {
-                vals.into_iter().map(|val| val.coerce_string()).collect()
+                vals.into_iter().map(|val| val.coerce_into_string()).collect()
             } else {
                 Err(ShellError::CannotPassListToExternal {
                     arg: String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).into(),
@@ -260,7 +260,7 @@ fn eval_argument(
             if spread {
                 Err(ShellError::CannotSpreadAsList { span: expr.span })
             } else {
-                Ok(vec![value.coerce_string()?])
+                Ok(vec![value.coerce_into_string()?])
             }
         }
     }
@@ -341,7 +341,7 @@ fn remove_inner_quotes(arg: impl Into<String>) -> String {
 /// and hand it to the second command directly.
 fn write_pipeline_data(data: PipelineData, mut writer: impl Write) -> Result<(), ShellError> {
     if let PipelineData::ByteStream(stream, ..) = data {
-        stream.write_to(&mut writer)?;
+        stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
         writer.write_all(&val)?;
     } else {
@@ -524,8 +524,8 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
         // If `arg` is already quoted by double quotes, confirm there's no
         // embedded double quotes, then leave it as is.
         if arg.chars().filter(|c| *c == '"').count() == 2
-            && arg.chars().next() == Some('"')
-            && arg.chars().next_back() == Some('"')
+            && arg.starts_with('"')
+            && arg.ends_with('"')
         {
             Ok(Cow::Borrowed(arg))
         } else {
