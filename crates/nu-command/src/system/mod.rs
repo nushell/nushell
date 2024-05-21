@@ -29,9 +29,7 @@ pub use nu_check::NuCheck;
 pub use ps::Ps;
 #[cfg(windows)]
 pub use registry_query::RegistryQuery;
-pub use run_external::{
-    command_not_found, eval_arguments_from_call, which, External, ExternalCommand,
-};
+pub use run_external::{command_not_found, eval_arguments_from_call, which, External};
 pub use sys::*;
 pub use uname::UName;
 pub use which_::Which;
