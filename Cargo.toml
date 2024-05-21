@@ -76,6 +76,7 @@ chardetng = "0.1.17"
 chrono = { default-features = false, version = "0.4.34" }
 chrono-humanize = "0.2.3"
 chrono-tz = "0.8"
+convert_case = "0.6"
 crossbeam-channel = "0.5.8"
 crossterm = "0.27"
 csv = "1.3"
