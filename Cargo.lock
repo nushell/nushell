@@ -2846,7 +2846,6 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "once_cell",
- "pathdiff",
  "percent-encoding",
  "reedline",
  "rstest",
