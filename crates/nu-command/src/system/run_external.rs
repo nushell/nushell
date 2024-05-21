@@ -524,6 +524,7 @@ fn is_cmd_internal_command(name: &str) -> bool {
 }
 
 /// Returns true if a string contains CMD special characters.
+#[cfg(windows)]
 fn has_cmd_special_character(s: &str) -> bool {
     const SPECIAL_CHARS: &[char] = &['<', '>', '&', '|', '^'];
     SPECIAL_CHARS.iter().any(|c| s.contains(*c))
@@ -531,6 +532,7 @@ fn has_cmd_special_character(s: &str) -> bool {
 
 /// Escape an argument for CMD internal commands. The result can be safely
 /// passed to `raw_arg()`.
+#[cfg(windows)]
 fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError> {
     let Spanned { item: arg, span } = arg;
     if arg.contains('"') {
