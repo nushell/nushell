@@ -540,7 +540,7 @@ mod test {
     fn test_eval_argument() {
         fn expression(expr: Expr) -> Expression {
             Expression {
-                expr: expr,
+                expr,
                 span: Span::unknown(),
                 ty: Type::Any,
                 custom_completion: None,
