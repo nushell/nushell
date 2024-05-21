@@ -6,7 +6,7 @@ mod from_value;
 mod glob;
 mod into_value;
 mod range;
-#[cfg(all(test, feature = "derive"))]
+#[cfg(test)]
 mod test_derive;
 
 pub mod record;
