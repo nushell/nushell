@@ -248,7 +248,9 @@ fn eval_argument(
     match eval(engine_state, stack, &expr)? {
         Value::List { vals, .. } => {
             if spread {
-                vals.into_iter().map(|val| val.coerce_into_string()).collect()
+                vals.into_iter()
+                    .map(|val| val.coerce_into_string())
+                    .collect()
             } else {
                 Err(ShellError::CannotPassListToExternal {
                     arg: String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).into(),
@@ -483,26 +485,28 @@ pub fn command_not_found(
     // We found nothing useful. Give up and return a generic error message.
     ShellError::ExternalCommand {
         label: format!("Command `{name}` not found"),
-        help: "".into(),
+        help: format!("`{name}` is neither a Nushell built-in or a known external command"),
         span,
     }
 }
 
-/// Searches for the absolute path of an executable by name.
+/// Searches for the absolute path of an executable by name. `.bat` and `.cmd`
+/// files are recognized as executables on Windows.
 ///
 /// This is a wrapper around `which::which_in()` except that, on Windows, it
 /// also searches the current directory before any PATH entries.
 ///
-/// Implementation note: the `which.rs` crate always uses PATHEXT from the
-/// environment. As such, changing PATHEXT within Nushell doesn't work without
-/// updating the actual environment of the Nushell process.
+/// Note: the `which.rs` crate always uses PATHEXT from the environment. As
+/// such, changing PATHEXT within Nushell doesn't work without updating the
+/// actual environment of the Nushell process.
 pub fn which(name: &str, paths: &str, cwd: &Path) -> Option<PathBuf> {
     #[cfg(windows)]
     let paths = format!("{};{}", cwd.display(), paths);
     which::which_in(name, Some(paths), cwd).ok()
 }
 
-/// Returns true if `name` is a (somewhat useful) CMD internal command.
+/// Returns true if `name` is a (somewhat useful) CMD internal command. The full
+/// list can be found at https://ss64.com/nt/syntax-internal.html
 fn is_cmd_internal_command(name: &str) -> bool {
     const COMMANDS: &[&str] = &[
         "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
