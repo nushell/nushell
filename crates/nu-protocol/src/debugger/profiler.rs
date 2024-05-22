@@ -310,7 +310,7 @@ fn collect_data(
     if profiler.collect_lines {
         if let Some((fname, line_num)) = find_file_of_span(engine_state, element.element_span) {
             row.push("file", Value::string(fname, profiler_span));
-            row.push("line_num", Value::int(line_num as i64, profiler_span));
+            row.push("line", Value::int(line_num as i64, profiler_span));
         } else {
             row.push("file", Value::nothing(profiler_span));
             row.push("line", Value::nothing(profiler_span));
