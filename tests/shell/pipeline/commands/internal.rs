@@ -989,7 +989,9 @@ fn hide_alias_hides_alias() {
         "
     ));
 
-    assert!(actual.err.contains("Did you mean `all`?"));
+    assert!(
+        actual.err.contains("Command `ll` not found") && actual.err.contains("Did you mean `all`?")
+    );
 }
 
 mod parse {
@@ -1146,5 +1148,8 @@ fn command_not_found_error_shows_not_found_2() {
             export def --wrapped my-foo [...rest] { foo };
             my-foo
         "#);
-    assert!(actual.err.contains("Command `foo` not found"));
+    assert!(
+        actual.err.contains("Command `foo` not found")
+            && actual.err.contains("Did you mean `for`?")
+    );
 }

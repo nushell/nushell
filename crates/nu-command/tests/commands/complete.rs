@@ -24,7 +24,7 @@ fn basic_exit_code() {
 #[test]
 fn error() {
     let actual = nu!("not-found | complete");
-    assert!(actual.err.contains("nu::shell::external_command"));
+    assert!(actual.err.contains("Command `not-found` not found"));
 }
 
 #[test]
