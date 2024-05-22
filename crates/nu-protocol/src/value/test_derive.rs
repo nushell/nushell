@@ -229,18 +229,18 @@ fn enum_into_value() {
     let enums = Enum::make().into_value_unknown();
     let expected = Value::test_list(vec![
         Value::test_record(record! {
-            "$type" => Value::test_string("unit")
+            "type" => Value::test_string("unit")
         }),
         Value::test_record(record! {
-            "$type" => Value::test_string("tuple"),
-            "$content" => Value::test_list(vec![
+            "type" => Value::test_string("tuple"),
+            "content" => Value::test_list(vec![
                 Value::test_int(12),
                 Value::test_string("Tuple variant")
             ])
         }),
         Value::test_record(record! {
-            "$type" => Value::test_string("struct"),
-            "$content" => Value::test_record(record! {
+            "type" => Value::test_string("struct"),
+            "content" => Value::test_record(record! {
                 "a" => Value::test_int(34),
                 "b" => Value::test_string("Struct variant")
             })

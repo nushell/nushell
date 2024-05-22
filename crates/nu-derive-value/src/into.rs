@@ -76,8 +76,8 @@ fn enum_into_value(ident: Ident, data: DataEnum, generics: Generics) -> TokenStr
                 let content = fields_to_record(&variant.fields, accessor);
                 quote! {
                     Self::#ident {#(#fields),*} => nu_protocol::Value::record(nu_protocol::record! {
-                        "$type" => nu_protocol::Value::string(#ident_s, span),
-                        "$content" => #content
+                        "type" => nu_protocol::Value::string(#ident_s, span),
+                        "content" => #content
                     }, span)
                 }
             }
@@ -87,14 +87,14 @@ fn enum_into_value(ident: Ident, data: DataEnum, generics: Generics) -> TokenStr
                 let content = fields_to_record(&variant.fields, accessor);
                 quote! {
                     Self::#ident(#(#fields),*) => nu_protocol::Value::record(nu_protocol::record! {
-                        "$type" => nu_protocol::Value::string(#ident_s, span),
-                        "$content" => #content
+                        "type" => nu_protocol::Value::string(#ident_s, span),
+                        "content" => #content
                     }, span)
                 }
             }
             Fields::Unit => quote! {
                 Self::#ident => nu_protocol::Value::record(nu_protocol::record! {
-                    "$type" => nu_protocol::Value::string(#ident_s, span)
+                    "type" => nu_protocol::Value::string(#ident_s, span)
                 }, span)
             }
         }
