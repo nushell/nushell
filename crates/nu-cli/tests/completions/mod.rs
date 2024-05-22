@@ -18,11 +18,11 @@ use support::{
 #[fixture]
 fn completer() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
     let record = "def tst [--mod -s] {}";
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -31,12 +31,12 @@ fn completer() -> NuCompleter {
 #[fixture]
 fn completer_strings() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
     let record = r#"def animals [] { ["cat", "dog", "eel" ] }
     def my-command [animal: string@animals] { print $animal }"#;
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -45,7 +45,7 @@ fn completer_strings() -> NuCompleter {
 #[fixture]
 fn extern_completer() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
     let record = r#"
@@ -56,7 +56,7 @@ fn extern_completer() -> NuCompleter {
             -b: string@animals
         ]
     "#;
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -65,7 +65,7 @@ fn extern_completer() -> NuCompleter {
 #[fixture]
 fn custom_completer() -> NuCompleter {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
     let record = r#"
@@ -79,7 +79,7 @@ fn custom_completer() -> NuCompleter {
             completer: $external_completer
         }
     "#;
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -751,11 +751,11 @@ fn folder_with_directorycompletions() {
 #[test]
 fn variables_completions() {
     // Create a new engine
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
     let record = "let actor = { name: 'Tom Hardy', age: 44 }";
-    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -858,11 +858,11 @@ fn variables_completions() {
 
 #[test]
 fn alias_of_command_and_flags() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ll = ls -l"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -877,11 +877,11 @@ fn alias_of_command_and_flags() {
 
 #[test]
 fn alias_of_basic_command() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ll = ls "#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -896,14 +896,14 @@ fn alias_of_basic_command() {
 
 #[test]
 fn alias_of_another_alias() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ll = ls -la"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir.clone()).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
     // Create the second alias
     let alias = r#"alias lf = ll -f"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -920,7 +920,7 @@ fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
     let completer = format!("$env.config.completions.external.completer = {completer}");
 
     // Create a new engine
-    let (dir, _, mut engine_state, mut stack) = new_engine();
+    let (_, _, mut engine_state, mut stack) = new_engine();
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(&engine_state);
         let block = parse(&mut working_set, None, completer.as_bytes(), false);
@@ -936,7 +936,7 @@ fn run_external_completion(completer: &str, input: &str) -> Vec<Suggestion> {
     );
 
     // Merge environment into the permanent state
-    assert!(engine_state.merge_env(&mut stack, &dir).is_ok());
+    assert!(engine_state.merge_env(&mut stack).is_ok());
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine_state), Arc::new(stack));
@@ -1114,11 +1114,11 @@ fn custom_completer_triggers_cursor_after_word(mut custom_completer: NuCompleter
 #[ignore = "was reverted, still needs fixing"]
 #[rstest]
 fn alias_offset_bug_7648() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -1133,11 +1133,11 @@ fn alias_offset_bug_7648() {
 #[ignore = "was reverted, still needs fixing"]
 #[rstest]
 fn alias_offset_bug_7754() {
-    let (dir, _, mut engine, mut stack) = new_engine();
+    let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
     let alias = r#"alias ll = ls -l"#;
-    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+    assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 

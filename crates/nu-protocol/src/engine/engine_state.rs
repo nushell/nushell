@@ -277,11 +277,7 @@ impl EngineState {
     }
 
     /// Merge the environment from the runtime Stack into the engine state
-    pub fn merge_env(
-        &mut self,
-        stack: &mut Stack,
-        cwd: impl AsRef<Path>,
-    ) -> Result<(), ShellError> {
+    pub fn merge_env(&mut self, stack: &mut Stack) -> Result<(), ShellError> {
         let mut config_updated = false;
 
         for mut scope in stack.env_vars.drain(..) {
@@ -310,9 +306,6 @@ impl EngineState {
                 }
             }
         }
-
-        // TODO: better error
-        std::env::set_current_dir(cwd)?;
 
         if config_updated {
             // Make plugin GC config changes take effect immediately.
