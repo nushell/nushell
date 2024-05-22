@@ -25,8 +25,7 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_error_new, ByteStream, PipelineData, RegisteredPlugin, ShellError,
-    Span, Value,
+    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -371,7 +370,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
         use nu_plugin_engine::{GetPlugin, PluginDeclaration};
-        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity};
+        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity, RegisteredPlugin};
 
         // Load any plugins specified with --plugins
         start_time = std::time::Instant::now();
