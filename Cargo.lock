@@ -3264,6 +3264,7 @@ name = "nu-system"
 version = "0.93.1"
 dependencies = [
  "chrono",
+ "itertools 0.12.1",
  "libc",
  "libproc",
  "log",

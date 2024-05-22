@@ -5,6 +5,8 @@ mod nu_check;
     target_os = "android",
     target_os = "linux",
     target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
     target_os = "macos",
     target_os = "windows"
 ))]
@@ -23,6 +25,8 @@ pub use nu_check::NuCheck;
     target_os = "android",
     target_os = "linux",
     target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
     target_os = "macos",
     target_os = "windows"
 ))]
