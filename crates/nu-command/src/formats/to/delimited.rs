@@ -103,7 +103,6 @@ pub fn to_delimited_data(
         PipelineData::Empty => (),
     }
 
-    // We generate the header row first.
     let mut is_header = !noheaders;
 
     // Determine the columns we'll use. This is necessary even if we don't write the header row,
@@ -134,7 +133,8 @@ pub fn to_delimited_data(
             .from_writer(buffer);
 
         if is_header {
-            // Write the header row
+            // Unless we are configured not to write a header, we write the header row now, once,
+            // before everything else.
             wtr.write_record(&columns)
                 .map_err(|err| make_csv_error(err, format_name, head))?;
             is_header = false;
