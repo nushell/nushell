@@ -150,9 +150,12 @@ impl Command for External {
             let stdin = child.as_mut().stdin.take().expect("stdin is piped");
             let engine_state = engine_state.clone();
             let stack = stack.clone();
-            thread::spawn(move || {
-                let _ = write_pipeline_data(engine_state, stack, data, stdin);
-            });
+            thread::Builder::new()
+                .name("external stdin worker".into())
+                .spawn(move || {
+                    let _ = write_pipeline_data(engine_state, stack, data, stdin);
+                })
+                .err_span(call.head)?;
         }
 
         // Wrap the output into a `PipelineData::ByteStream`.
