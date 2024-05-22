@@ -182,3 +182,13 @@ fn tuple_struct_into_value() {
     ]);
     assert_eq!(tuple, expected);
 }
+
+#[derive(IntoValue)]
+struct Unit;
+
+#[test]
+fn unit_into_value() {
+    let unit = Unit.into_value_unknown();
+    let expected = Value::test_nothing();
+    assert_eq!(unit, expected);
+}
