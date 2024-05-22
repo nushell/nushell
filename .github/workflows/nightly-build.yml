@@ -27,7 +27,7 @@ jobs:
     # if: github.repository == 'nushell/nightly'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.5
+        uses: actions/checkout@v4.1.6
         if: github.repository == 'nushell/nightly'
         with:
           ref: main
@@ -112,7 +112,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.5
+    - uses: actions/checkout@v4.1.6
       with:
         ref: main
         fetch-depth: 0
@@ -181,7 +181,7 @@ jobs:
       - name: Waiting for Release
         run: sleep 1800
 
-      - uses: actions/checkout@v4.1.5
+      - uses: actions/checkout@v4.1.6
         with:
           ref: main
 
