@@ -4,6 +4,9 @@ use proc_macro_error::proc_macro_error;
 
 mod into;
 
+/// Derive macro generating an impl of the trait `IntoValue`.
+/// 
+/// For further information, see the docs on the trait itself.
 #[proc_macro_derive(IntoValue)]
 #[proc_macro_error]
 pub fn derive_into_value(input: TokenStream) -> TokenStream {
