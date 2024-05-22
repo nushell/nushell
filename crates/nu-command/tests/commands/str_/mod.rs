@@ -269,7 +269,7 @@ fn substring_errors_if_start_index_is_greater_than_end_index() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring 6..5 fortune.teller.phone
+                 | str substring 6..4 fortune.teller.phone
              "#
         ));
 
@@ -342,7 +342,7 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring ..2 package.name
+                 | str substring ..1 package.name
                  | get package.name
              "#
         ));
