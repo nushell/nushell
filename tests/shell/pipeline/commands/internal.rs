@@ -989,7 +989,7 @@ fn hide_alias_hides_alias() {
         "
     ));
 
-    assert!(actual.err.contains("Command `ll` not found"));
+    assert!(actual.err.contains("Did you mean `all`?"));
 }
 
 mod parse {
