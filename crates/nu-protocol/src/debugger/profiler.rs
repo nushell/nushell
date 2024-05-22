@@ -305,7 +305,7 @@ fn collect_data(
             row.push("line_num", Value::int(line_num as i64, profiler_span));
         } else {
             row.push("file", Value::nothing(profiler_span));
-            row.push("line_num", Value::nothing(profiler_span));
+            row.push("line", Value::nothing(profiler_span));
         }
     }
 
