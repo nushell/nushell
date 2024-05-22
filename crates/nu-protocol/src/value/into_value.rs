@@ -1,4 +1,6 @@
-use crate::{ShellError, Span, Value};
+use std::collections::HashMap;
+
+use crate::{Record, ShellError, Span, Value};
 
 /// A trait for converting a value into a `Value`.
 ///
@@ -127,6 +129,19 @@ where
             Some(v) => v.into_value(span),
             None => Value::nothing(span),
         }
+    }
+}
+
+impl<V> IntoValue for HashMap<String, V> where V: IntoValue {
+    fn into_value(self, span: Span) -> Value {
+        let mut record = Record::new();
+        for (k, v) in self.into_iter() {
+            // Using `push` is fine as a hashmaps have unique keys.
+            // To ensure this uniqueness, we only allow hashmaps with strings as 
+            // keys and not keys which implement `Into<String>` or `ToString`.
+            record.push(k, v.into_value(span));
+        }
+        Value::record(record, span)
     }
 }
 

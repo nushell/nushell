@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::{record, IntoValue, Record, Value};
 
 // make nu_protocol available in this namespace, consumers of this crate will
@@ -112,6 +113,11 @@ make_type! {
         none: Option<usize> = None,
         vec: Vec<usize> = vec![1, 2],
         string: String = "Hello std!".to_string(),
+        hashmap: HashMap<String, Value> = HashMap::from([
+            ("int".to_string(), Value::test_int(123)),
+            ("str".to_string(), Value::test_string("some value")),
+            ("bool".to_string(), Value::test_bool(true))
+        ]),
     }
 }
 
@@ -122,7 +128,12 @@ fn std_values_into_value() {
         "some" => Value::test_int(123),
         "none" => Value::test_nothing(),
         "vec" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
-        "string" => Value::test_string("Hello std!")
+        "string" => Value::test_string("Hello std!"),
+        "hashmap" => Value::test_record(record! {
+            "int" => Value::test_int(123),
+            "str" => Value::test_string("some value"),
+            "bool" => Value::test_bool(true)
+        }),
     });
     assert_eq!(actual, expected);
 }
