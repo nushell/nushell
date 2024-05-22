@@ -8,7 +8,10 @@ mod into;
 #[proc_macro_error]
 pub fn derive_into_value(input: TokenStream) -> TokenStream {
     let input = TokenStream2::from(input);
-    let output = into::derive_into_value(input).unwrap();
+    let output = match into::derive_into_value(input) {
+        Ok(output) => output,
+        Err(e) => e.into().abort(),
+    };
     TokenStream::from(output)
 }
 

@@ -1,16 +1,36 @@
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_error::{Diagnostic, Level};
 use quote::{format_ident, quote, ToTokens};
 use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident, Index};
 
-pub fn derive_into_value(input: TokenStream2) -> syn::Result<TokenStream2> {
-    let input: DeriveInput = syn::parse2(input)?;
+enum DeriveError {
+    Syn(syn::parse::Error),
+    Unsupported,
+}
+
+impl From<DeriveError> for Diagnostic {
+    fn from(value: DeriveError) -> Self {
+        match value {
+            DeriveError::Syn(e) => Diagnostic::spanned(e.span(), Level::Error, e.to_string()),
+            DeriveError::Unsupported => Diagnostic::new(
+                Level::Error,
+                "`IntoValue` cannot be derived from unions".to_string(),
+            )
+            .help("consider refactoring to a struct or enum".to_string())
+            .note("if you really need a union, consider opening an issue on Github".to_string()),
+        }
+    }
+}
+
+pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, impl Into<Diagnostic>> {
+    let input: DeriveInput = syn::parse2(input).map_err(DeriveError::Syn)?;
     match input.data {
         Data::Struct(data_struct) => {
             Ok(struct_into_value(input.ident, data_struct, input.generics))
         }
         Data::Enum(data_enum) => Ok(enum_into_value(input.ident, data_enum, input.generics)),
-        Data::Union(_) => todo!("throw some error"),
+        Data::Union(_) => Err(DeriveError::Unsupported),
     }
 }
 
@@ -33,7 +53,7 @@ fn struct_into_value(ident: Ident, data: DataStruct, generics: Generics) -> Toke
                 .map(|index| quote!(self.#index));
             fields_to_record(&data.fields, accessor)
         }
-        _ => todo!(),
+        Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
@@ -121,6 +141,6 @@ fn fields_to_record(
                 );
             quote!(nu_protocol::Value::list(vec![#(#items),*], span))
         }
-        _ => todo!(),
+        Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
     }
 }
