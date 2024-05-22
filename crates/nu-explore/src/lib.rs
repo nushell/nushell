@@ -35,13 +35,16 @@ fn run_pager(
     let commands = create_command_registry();
 
     let is_record = matches!(input, PipelineData::Value(Value::Record { .. }, ..));
-    let is_binary = matches!(input, PipelineData::Value(Value::Binary { .. }, ..));
+    let is_binary = matches!(
+        input,
+        PipelineData::Value(Value::Binary { .. }, ..) | PipelineData::ByteStream(..)
+    );
 
     if is_binary {
         p.show_message("For help type :help");
 
-        let view = binary_view(input);
-        return p.run(engine_state, stack, ctrlc, view, commands);
+        let view = binary_view(input)?;
+        return p.run(engine_state, stack, ctrlc, Some(view), commands);
     }
 
     let (columns, data) = collect_pipeline(input)?;
@@ -88,15 +91,16 @@ fn help_view() -> Option<Page> {
     Some(Page::new(HelpCmd::view(), false))
 }
 
-fn binary_view(input: PipelineData) -> Option<Page> {
+fn binary_view(input: PipelineData) -> Result<Page> {
     let data = match input {
         PipelineData::Value(Value::Binary { val, .. }, _) => val,
+        PipelineData::ByteStream(bs, _) => bs.into_bytes()?,
         _ => unreachable!("checked beforehand"),
     };
 
     let view = BinaryView::new(data);
 
-    Some(Page::new(view, true))
+    Ok(Page::new(view, true))
 }
 
 fn create_command_registry() -> CommandRegistry {

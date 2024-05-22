@@ -393,7 +393,7 @@ fn convert_to_extension(
 ) -> Result<PipelineData, ShellError> {
     if let Some(decl_id) = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]) {
         let decl = engine_state.get_decl(decl_id);
-        if let Some(block_id) = decl.get_block_id() {
+        if let Some(block_id) = decl.block_id() {
             let block = engine_state.get_block(block_id);
             let eval_block = get_eval_block(engine_state);
             eval_block(engine_state, stack, block, input)
@@ -508,7 +508,7 @@ fn get_files(
 }
 
 fn stream_to_file(
-    mut source: impl Read,
+    source: impl Read,
     known_size: Option<u64>,
     ctrlc: Option<Arc<AtomicBool>>,
     mut file: File,
@@ -555,7 +555,7 @@ fn stream_to_file(
             Ok(())
         }
     } else {
-        copy_with_interrupt(&mut source, &mut file, span, ctrlc.as_deref())?;
+        copy_with_interrupt(source, file, span, ctrlc.as_deref())?;
         Ok(())
     }
 }

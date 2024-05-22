@@ -55,7 +55,7 @@ impl Command for ViewSource {
                         }
                     }
                     // gets vector of positionals.
-                    else if let Some(block_id) = decl.get_block_id() {
+                    else if let Some(block_id) = decl.block_id() {
                         let block = engine_state.get_block(block_id);
                         if let Some(block_span) = block.span {
                             let contents = engine_state.get_span_contents(block_span);

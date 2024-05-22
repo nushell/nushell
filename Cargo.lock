@@ -377,7 +377,7 @@ dependencies = [
  "bitflags 2.5.0",
  "cexpr",
  "clang-sys",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "lazy_static",
  "lazycell",
  "proc-macro2",
@@ -2326,9 +2326,9 @@ checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
 name = "libmimalloc-sys"
-version = "0.1.37"
+version = "0.1.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81eb4061c0582dedea1cbc7aff2240300dd6982e0239d1c99e65c1dbf4a30ba7"
+checksum = "0e7bb23d733dfcc8af652a78b7bf232f0e967710d044732185e561e47c0336b6"
 dependencies = [
  "cc",
  "libc",
@@ -2582,9 +2582,9 @@ dependencies = [
 
 [[package]]
 name = "mimalloc"
-version = "0.1.41"
+version = "0.1.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f41a2280ded0da56c8cf898babb86e8f10651a34adcfff190ae9a1159c6908d"
+checksum = "e9186d86b79b52f4a77af65604b51225e8db1d6ee7e3f41aec1e40829c71a176"
 dependencies = [
  "libmimalloc-sys",
 ]
@@ -2782,7 +2782,6 @@ dependencies = [
  "nix",
  "nu-cli",
  "nu-cmd-base",
- "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
  "nu-cmd-plugin",
@@ -2847,7 +2846,6 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "once_cell",
- "pathdiff",
  "percent-encoding",
  "reedline",
  "rstest",
@@ -2868,29 +2866,6 @@ dependencies = [
  "nu-parser",
  "nu-path",
  "nu-protocol",
-]
-
-[[package]]
-name = "nu-cmd-dataframe"
-version = "0.93.1"
-dependencies = [
- "chrono",
- "chrono-tz 0.8.6",
- "fancy-regex",
- "indexmap",
- "nu-cmd-lang",
- "nu-engine",
- "nu-parser",
- "nu-protocol",
- "num",
- "polars",
- "polars-arrow",
- "polars-io",
- "polars-ops",
- "polars-plan",
- "polars-utils",
- "serde",
- "sqlparser 0.45.0",
 ]
 
 [[package]]
@@ -5427,9 +5402,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "0.27.1"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7960cbd6ba74691bb15e7ebf97f7136bd02d1115f5695a58c1f31d5645750128"
+checksum = "1d75516bdaee8f640543ad1f6e292448c23ce57143f812c3736ab4b0874383df"
 dependencies = [
  "const_format",
  "is_debug",

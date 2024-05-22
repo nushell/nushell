@@ -238,22 +238,6 @@ fn parses_xml() {
     assert_eq!(actual.out, "https://www.jntrnr.com/off-to-new-adventures/")
 }
 
-#[cfg(feature = "dataframe")]
-#[test]
-fn parses_arrow_ipc() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        "
-            dfr open caco3_plastics.arrow
-            | dfr into-nu
-            | first
-            | get origin
-        "
-    ));
-
-    assert_eq!(actual.out, "SPAIN")
-}
-
 #[test]
 fn errors_if_file_not_found() {
     let actual = nu!(

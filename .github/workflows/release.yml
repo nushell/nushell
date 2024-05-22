@@ -34,46 +34,35 @@ jobs:
         include:
         - target: aarch64-apple-darwin
           os: macos-latest
-          target_rustflags: ''
         - target: x86_64-apple-darwin
           os: macos-latest
-          target_rustflags: ''
         - target: x86_64-pc-windows-msvc
           extra: 'bin'
           os: windows-latest
-          target_rustflags: ''
         - target: x86_64-pc-windows-msvc
           extra: msi
           os: windows-latest
-          target_rustflags: ''
         - target: aarch64-pc-windows-msvc
           extra: 'bin'
           os: windows-latest
-          target_rustflags: ''
         - target: aarch64-pc-windows-msvc
           extra: msi
           os: windows-latest
-          target_rustflags: ''
         - target: x86_64-unknown-linux-gnu
           os: ubuntu-20.04
-          target_rustflags: ''
         - target: x86_64-unknown-linux-musl
           os: ubuntu-20.04
-          target_rustflags: ''
         - target: aarch64-unknown-linux-gnu
           os: ubuntu-20.04
-          target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-20.04
-          target_rustflags: ''
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
-          target_rustflags: ''
 
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.5
+    - uses: actions/checkout@v4.1.6
 
     - name: Update Rust Toolchain Target
       run: |
@@ -81,7 +70,7 @@ jobs:
 
     - name: Setup Rust toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-      # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
+      # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
       with:
         cache: false
         rustflags: ''
@@ -95,102 +84,10 @@ jobs:
       id: nu
       run: nu .github/workflows/release-pkg.nu
       env:
-        RELEASE_TYPE: standard
         OS: ${{ matrix.os }}
         REF: ${{ github.ref }}
         TARGET: ${{ matrix.target }}
         _EXTRA_: ${{ matrix.extra }}
-        TARGET_RUSTFLAGS: ${{ matrix.target_rustflags }}
-
-    # REF: https://github.com/marketplace/actions/gh-release
-    - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.5
-      if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      with:
-        draft: true
-        files: ${{ steps.nu.outputs.archive }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  full:
-    name: Full
-
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-        - aarch64-apple-darwin
-        - x86_64-apple-darwin
-        - x86_64-pc-windows-msvc
-        - aarch64-pc-windows-msvc
-        - x86_64-unknown-linux-gnu
-        - x86_64-unknown-linux-musl
-        - aarch64-unknown-linux-gnu
-        extra: ['bin']
-        include:
-        - target: aarch64-apple-darwin
-          os: macos-latest
-          target_rustflags: '--features=dataframe'
-        - target: x86_64-apple-darwin
-          os: macos-latest
-          target_rustflags: '--features=dataframe'
-        - target: x86_64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
-          target_rustflags: '--features=dataframe'
-        - target: x86_64-pc-windows-msvc
-          extra: msi
-          os: windows-latest
-          target_rustflags: '--features=dataframe'
-        - target: aarch64-pc-windows-msvc
-          extra: 'bin'
-          os: windows-latest
-          target_rustflags: '--features=dataframe'
-        - target: aarch64-pc-windows-msvc
-          extra: msi
-          os: windows-latest
-          target_rustflags: '--features=dataframe'
-        - target: x86_64-unknown-linux-gnu
-          os: ubuntu-20.04
-          target_rustflags: '--features=dataframe'
-        - target: x86_64-unknown-linux-musl
-          os: ubuntu-20.04
-          target_rustflags: '--features=dataframe'
-        - target: aarch64-unknown-linux-gnu
-          os: ubuntu-20.04
-          target_rustflags: '--features=dataframe'
-
-    runs-on: ${{matrix.os}}
-
-    steps:
-    - uses: actions/checkout@v4.1.5
-
-    - name: Update Rust Toolchain Target
-      run: |
-        echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
-
-    - name: Setup Rust toolchain
-      uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-      # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
-      with:
-        cache: false
-        rustflags: ''
-
-    - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.10
-      with:
-        version: 0.93.0
-
-    - name: Release Nu Binary
-      id: nu
-      run: nu .github/workflows/release-pkg.nu
-      env:
-        RELEASE_TYPE: full
-        OS: ${{ matrix.os }}
-        REF: ${{ github.ref }}
-        TARGET: ${{ matrix.target }}
-        _EXTRA_: ${{ matrix.extra }}
-        TARGET_RUSTFLAGS: ${{ matrix.target_rustflags }}
 
     # REF: https://github.com/marketplace/actions/gh-release
     - name: Publish Archive

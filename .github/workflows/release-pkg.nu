@@ -9,7 +9,6 @@
 # Instructions for manually creating an MSI for Winget Releases when they fail
 # Added 2022-11-29 when Windows packaging wouldn't work
 # Updated again on 2023-02-23 because msis are still failing validation
-# Update on 2023-10-18 to use RELEASE_TYPE env var to determine if full or not
 # To run this manual for windows here are the steps I take
 # checkout the release you want to publish
 # 1. git checkout 0.86.0
@@ -17,28 +16,26 @@
 # 2. $env:CARGO_TARGET_DIR = ""
 # 2. hide-env CARGO_TARGET_DIR
 # 3. $env.TARGET = 'x86_64-pc-windows-msvc'
-# 4. $env.TARGET_RUSTFLAGS = ''
-# 5. $env.GITHUB_WORKSPACE = 'D:\nushell'
-# 6. $env.GITHUB_OUTPUT = 'D:\nushell\output\out.txt'
-# 7. $env.OS = 'windows-latest'
-# 8. $env.RELEASE_TYPE = '' # There is full and '' for normal releases
+# 4. $env.GITHUB_WORKSPACE = 'D:\nushell'
+# 5. $env.GITHUB_OUTPUT = 'D:\nushell\output\out.txt'
+# 6. $env.OS = 'windows-latest'
 # make sure 7z.exe is in your path https://www.7-zip.org/download.html
-# 9. $env.Path = ($env.Path | append 'c:\apps\7-zip')
+# 7. $env.Path = ($env.Path | append 'c:\apps\7-zip')
 # make sure aria2c.exe is in your path https://github.com/aria2/aria2
-# 10. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
+# 8. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
 # make sure you have the wixtools installed https://wixtoolset.org/
-# 11. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
+# 9. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
 # You need to run the release-pkg twice. The first pass, with _EXTRA_ as 'bin', makes the output
 # folder and builds everything. The second pass, that generates the msi file, with _EXTRA_ as 'msi'
-# 12. $env._EXTRA_ = 'bin'
-# 13. source .github\workflows\release-pkg.nu
-# 14. cd ..
-# 15. $env._EXTRA_ = 'msi'
-# 16. source .github\workflows\release-pkg.nu
+# 10. $env._EXTRA_ = 'bin'
+# 11. source .github\workflows\release-pkg.nu
+# 12. cd ..
+# 13. $env._EXTRA_ = 'msi'
+# 14. source .github\workflows\release-pkg.nu
 # After msi is generated, you have to update winget-pkgs repo, you'll need to patch the release
 # by deleting the existing msi and uploading this new msi. Then you'll need to update the hash
 # on the winget-pkgs PR. To generate the hash, run this command
-# 17. open target\wix\nu-0.74.0-x86_64-pc-windows-msvc.msi | hash sha256
+# 15. open target\wix\nu-0.74.0-x86_64-pc-windows-msvc.msi | hash sha256
 # Then, just take the output and put it in the winget-pkgs PR for the hash on the msi
 
 
@@ -48,31 +45,15 @@ let os = $env.OS
 let target = $env.TARGET
 # Repo source dir like `/home/runner/work/nushell/nushell`
 let src = $env.GITHUB_WORKSPACE
-let flags = $env.TARGET_RUSTFLAGS
 let dist = $'($env.GITHUB_WORKSPACE)/output'
 let version = (open Cargo.toml | get package.version)
 
 print $'Debugging info:'
-print { version: $version, bin: $bin, os: $os, releaseType: $env.RELEASE_TYPE, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line -b
-
-# Rename the full release name so that we won't break the existing scripts for standard release downloading, such as:
-# curl -s https://api.github.com/repos/chmln/sd/releases/latest | grep browser_download_url | cut -d '"' -f 4 | grep x86_64-unknown-linux-musl
-const FULL_RLS_NAMING = {
-    x86_64-apple-darwin: 'x86_64-darwin-full',
-    aarch64-apple-darwin: 'aarch64-darwin-full',
-    x86_64-unknown-linux-gnu: 'x86_64-linux-gnu-full',
-    x86_64-pc-windows-msvc: 'x86_64-windows-msvc-full',
-    x86_64-unknown-linux-musl: 'x86_64-linux-musl-full',
-    aarch64-unknown-linux-gnu: 'aarch64-linux-gnu-full',
-    aarch64-pc-windows-msvc: 'aarch64-windows-msvc-full',
-    riscv64gc-unknown-linux-gnu: 'riscv64-linux-gnu-full',
-    armv7-unknown-linux-gnueabihf: 'armv7-linux-gnueabihf-full',
-}
+print { version: $version, bin: $bin, os: $os, target: $target, src: $src, dist: $dist }; hr-line -b
 
 # $env
 
 let USE_UBUNTU = $os starts-with ubuntu
-let FULL_NAME = $FULL_RLS_NAMING | get -i $target | default 'unknown-target-full'
 
 print $'(char nl)Packaging ($bin) v($version) for ($target) in ($src)...'; hr-line -b
 if not ('Cargo.lock' | path exists) { cargo generate-lockfile }
@@ -91,23 +72,23 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
         'aarch64-unknown-linux-gnu' => {
             sudo apt-get install gcc-aarch64-linux-gnu -y
             $env.CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER = 'aarch64-linux-gnu-gcc'
-            cargo-build-nu $flags
+            cargo-build-nu
         }
         'riscv64gc-unknown-linux-gnu' => {
             sudo apt-get install gcc-riscv64-linux-gnu -y
             $env.CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER = 'riscv64-linux-gnu-gcc'
-            cargo-build-nu $flags
+            cargo-build-nu
         }
         'armv7-unknown-linux-gnueabihf' => {
             sudo apt-get install pkg-config gcc-arm-linux-gnueabihf -y
             $env.CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
-            cargo-build-nu $flags
+            cargo-build-nu
         }
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
             if $USE_UBUNTU { sudo apt install musl-tools -y }
-            cargo-build-nu $flags
+            cargo-build-nu
         }
     }
 }
@@ -116,7 +97,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
 # Build for Windows without static-link-openssl feature
 # ----------------------------------------------------------------------------
 if $os in ['windows-latest'] {
-    cargo-build-nu $flags
+    cargo-build-nu
 }
 
 # ----------------------------------------------------------------------------
@@ -162,7 +143,7 @@ cd $dist; print $'(char nl)Creating release archive...'; hr-line
 if $os in ['macos-latest'] or $USE_UBUNTU {
 
     let files = (ls | get name)
-    let dest = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }
+    let dest = $'($bin)-($version)-($target)'
     let archive = $'($dist)/($dest).tar.gz'
 
     mkdir $dest
@@ -177,7 +158,7 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
 
 } else if $os == 'windows-latest' {
 
-    let releaseStem = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }
+    let releaseStem = $'($bin)-($version)-($target)'
 
     print $'(char nl)Download less related stuffs...'; hr-line
     aria2c https://github.com/jftuga/less-Windows/releases/download/less-v608/less.exe -o less.exe
@@ -214,19 +195,11 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
     }
 }
 
-def 'cargo-build-nu' [ options: string ] {
-    if ($options | str trim | is-empty) {
-        if $os == 'windows-latest' {
-            cargo build --release --all --target $target
-        } else {
-            cargo build --release --all --target $target --features=static-link-openssl
-        }
+def 'cargo-build-nu' [] {
+    if $os == 'windows-latest' {
+        cargo build --release --all --target $target
     } else {
-        if $os == 'windows-latest' {
-            cargo build --release --all --target $target $options
-        } else {
-            cargo build --release --all --target $target --features=static-link-openssl $options
-        }
+        cargo build --release --all --target $target --features=static-link-openssl
     }
 }
 
