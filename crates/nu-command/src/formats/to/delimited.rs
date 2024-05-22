@@ -103,8 +103,6 @@ pub fn to_delimited_data(
         PipelineData::Empty => (),
     }
 
-    let mut is_header = !noheaders;
-
     // Determine the columns we'll use. This is necessary even if we don't write the header row,
     // because we need to write consistent columns.
     let columns = match columns {
@@ -126,6 +124,9 @@ pub fn to_delimited_data(
     // Generate a byte stream of all of the values in the pipeline iterator, with a non-strict
     // iterator so we can still accept plain records.
     let mut iter = input.into_iter();
+
+    // If we're configured to generate a header, we generate it first, then set this false
+    let mut is_header = !noheaders;
 
     let stream = ByteStream::from_fn(head, None, ByteStreamType::String, move |buffer| {
         let mut wtr = WriterBuilder::new()
