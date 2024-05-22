@@ -275,7 +275,15 @@ fn find_file_of_span(engine_state: &EngineState, span: Span) -> Option<(&str, us
             let chunk =
                 engine_state.get_span_contents(Span::new(file.covered_span.start, span.start));
             let nlines = chunk.lines().count();
-            let line_num = if nlines <= 1 { 1 } else { nlines + 1 };
+            // account for leading part of current line being counted as a separate line
+            let line_num = if chunk.last() == Some(&b'\n') {
+                nlines + 1
+            } else {
+                nlines
+            };
+
+            // first line has no previous line, clamp up to `1`
+            let line_num = usize::max(line_num, 1);
 
             return Some((&file.name, line_num));
         }
