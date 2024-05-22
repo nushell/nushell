@@ -270,7 +270,7 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
 // Find a file name and a line number (indexed from 1) of a span
 fn find_file_of_span(engine_state: &EngineState, span: Span) -> Option<(&str, usize)> {
     for file in engine_state.files() {
-        if file.covered_span.start < span.start && file.covered_span.end > span.start {
+        if file.covered_span.contains_span(span) {
             // count the number of lines between file start and the searched span start
             let chunk =
                 engine_state.get_span_contents(Span::new(file.covered_span.start, span.start));
