@@ -293,7 +293,7 @@ fn source_env_is_scoped() {
 
         assert!(actual
             .err
-            .contains("Command `no-name-similar-to-this` not found"));
+            .contains("Command `nor-similar-to-this` not found"));
     })
 }
 
