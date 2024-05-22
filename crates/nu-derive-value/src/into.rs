@@ -123,7 +123,7 @@ fn fields_to_record(
                 .iter()
                 .zip(accessor)
                 .map(|(field, accessor)| {
-                    let ident = field.ident.clone().expect("named fields have an ident");
+                    let ident = field.ident.clone().expect("named has idents");
                     let field = ident.to_string();
                     quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span))
                 })
