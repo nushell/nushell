@@ -207,6 +207,7 @@ impl<T> NuMatcher<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn sort_by(&mut self, _sort_by: SortBy) {
         todo!()
     }

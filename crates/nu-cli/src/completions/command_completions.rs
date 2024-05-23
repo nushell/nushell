@@ -99,12 +99,11 @@ impl CommandCompletion {
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);
-        let partial = String::from_utf8_lossy(partial);
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 
         // Items are (command_name, is_external)
-        let mut matcher = NuMatcher::from_str(options, partial, false);
+        let mut matcher = NuMatcher::from_u8(options, partial, false);
 
         let all_internal_commands = working_set.find_commands_by_predicate(|_| true, true);
 

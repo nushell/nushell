@@ -40,7 +40,7 @@ impl Completer for VariableCompletion {
         };
         let sublevels_count = self.var_context.1.len();
 
-        let mut matcher = NuMatcher::from_str(options, String::from_utf8_lossy(&prefix), false);
+        let mut matcher = NuMatcher::from_u8(options, prefix, false);
 
         // Completions for the given variable
         if !var_str.is_empty() {
