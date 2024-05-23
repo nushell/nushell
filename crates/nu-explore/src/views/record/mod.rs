@@ -1,6 +1,6 @@
 mod table_widget;
 
-use self::table_widget::{TableStyle, TableWidgetState, TableWidget};
+use self::table_widget::{TableStyle, TableWidget, TableWidgetState};
 use super::{
     cursor::XYCursor,
     util::{make_styled_string, nu_style_to_tui},
