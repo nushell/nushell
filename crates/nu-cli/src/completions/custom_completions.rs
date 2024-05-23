@@ -11,6 +11,8 @@ use nu_protocol::{
 };
 use std::collections::HashMap;
 
+use super::completion_options::NuMatcher;
+
 pub struct CustomCompletion {
     stack: Stack,
     decl_id: usize,
@@ -140,12 +142,11 @@ fn filter(
     items: Vec<SemanticSuggestion>,
     options: &CompletionOptions,
 ) -> Vec<SemanticSuggestion> {
-    options.match_algorithm.filter_u8(
-        items
-            .into_iter()
-            .map(|it| (it.suggestion.value.as_bytes().to_owned(), it))
-            .collect(),
-        prefix,
-        options.case_sensitive,
-    )
+    let mut matcher = NuMatcher::new(options, String::from_utf8_lossy(prefix));
+
+    for it in items {
+        matcher.add_match(it.suggestion.value.to_owned(), it);
+    }
+
+    return matcher.get_results();
 }

@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::{completion_options::NuMatcher, Completer, CompletionOptions};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::{Stack, StateWorkingSet},
@@ -37,14 +37,14 @@ impl Completer for FlagCompletion {
 
             let prefix = String::from_utf8_lossy(&prefix);
 
-            let mut all_suggestions = vec![];
+            let mut matcher = NuMatcher::new(options, prefix);
 
             for named in &sig.named {
                 let flag_desc = &named.desc;
                 if let Some(short) = named.short {
                     let named = format!("-{}", short);
 
-                    all_suggestions.push((
+                    matcher.add_match(
                         named.to_string(),
                         SemanticSuggestion {
                             suggestion: Suggestion {
@@ -61,7 +61,7 @@ impl Completer for FlagCompletion {
                             // TODO????
                             kind: None,
                         },
-                    ));
+                    );
                 }
 
                 if named.long.is_empty() {
@@ -70,7 +70,7 @@ impl Completer for FlagCompletion {
 
                 let named = format!("--{}", named.long);
 
-                all_suggestions.push((
+                matcher.add_match(
                     named.to_string(),
                     SemanticSuggestion {
                         suggestion: Suggestion {
@@ -87,14 +87,10 @@ impl Completer for FlagCompletion {
                         // TODO????
                         kind: None,
                     },
-                ));
+                );
             }
 
-            return options.match_algorithm.filter_str(
-                all_suggestions,
-                &prefix,
-                options.case_sensitive,
-            );
+            return matcher.get_results();
         }
 
         vec![]

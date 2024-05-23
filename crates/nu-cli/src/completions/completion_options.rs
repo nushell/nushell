@@ -67,18 +67,20 @@ impl MatchAlgorithm {
                     .collect()
             }
             MatchAlgorithm::Fuzzy => {
-                let items = items
-                    .into_iter()
-                    .map(|(haystack, item)| {
-                        (String::from_utf8_lossy(haystack.as_ref()).to_string(), item)
-                    });
+                let items = items.into_iter().map(|(haystack, item)| {
+                    (String::from_utf8_lossy(haystack.as_ref()).to_string(), item)
+                });
                 todo!()
             }
         }
     }
 }
 
-pub enum MatcherState<T> {
+pub struct NuMatcher<T> {
+    state: State<T>,
+}
+
+enum State<T> {
     Prefix {
         needle: String,
         items: Vec<T>,
@@ -90,26 +92,28 @@ pub enum MatcherState<T> {
     },
 }
 
-impl<T> MatcherState<T> {
-    fn new(alg: MatchAlgorithm, needle: &str, case_sensitive: bool) -> MatcherState<T> {
-        let needle = trim_quotes_str(needle);
-        match alg {
+impl<T> NuMatcher<T> {
+    pub fn new(options: &CompletionOptions, needle: impl AsRef<str>) -> NuMatcher<T> {
+        let needle = trim_quotes_str(needle.as_ref());
+        match options.match_algorithm {
             MatchAlgorithm::Prefix => {
-                let needle = if case_sensitive {
+                let needle = if options.case_sensitive {
                     Cow::Borrowed(needle)
                 } else {
                     Cow::Owned(needle.to_folded_case())
                 };
-                MatcherState::Prefix {
-                    needle: needle.to_string(),
-                    items: Vec::new(),
+                NuMatcher {
+                    state: State::Prefix {
+                        needle: needle.to_string(),
+                        items: Vec::new(),
+                    },
                 }
             }
             MatchAlgorithm::Fuzzy => {
                 let matcher = Matcher::new(Config::DEFAULT);
                 let pat = Pattern::new(
                     needle,
-                    if case_sensitive {
+                    if options.case_sensitive {
                         CaseMatching::Respect
                     } else {
                         CaseMatching::Ignore
@@ -117,18 +121,20 @@ impl<T> MatcherState<T> {
                     Normalization::Smart,
                     AtomKind::Fuzzy,
                 );
-                MatcherState::Nucleo {
-                    matcher,
-                    pat,
-                    items: Vec::new(),
+                NuMatcher {
+                    state: State::Nucleo {
+                        matcher,
+                        pat,
+                        items: Vec::new(),
+                    },
                 }
             }
         }
     }
 
-    fn add_match(&mut self, haystack: impl AsRef<str>, item: T) -> bool {
-        match self {
-            MatcherState::Prefix { needle, mut items } => {
+    pub fn add_match(&mut self, haystack: impl AsRef<str>, item: T) -> bool {
+        match self.state {
+            State::Prefix { needle, mut items } => {
                 if trim_quotes_str(haystack.as_ref()).starts_with(needle.as_str()) {
                     items.push(item);
                     true
@@ -136,7 +142,7 @@ impl<T> MatcherState<T> {
                     false
                 }
             }
-            MatcherState::Nucleo {
+            State::Nucleo {
                 mut matcher,
                 pat,
                 mut items,
@@ -162,14 +168,14 @@ impl<T> MatcherState<T> {
         }
     }
 
-    fn sort_by(&mut self, sort_by: SortBy) {
+    pub fn sort_by(&mut self, sort_by: SortBy) {
         todo!()
     }
 
-    fn get_results(self) -> Vec<T> {
-        match self {
-            MatcherState::Prefix { items, .. } => items,
-            MatcherState::Nucleo { items, .. } => {
+    pub fn get_results(self) -> Vec<T> {
+        match self.state {
+            State::Prefix { items, .. } => items,
+            State::Nucleo { items, .. } => {
                 let (results, _): (Vec<_>, Vec<_>) =
                     self.get_results_with_inds().into_iter().unzip();
                 results
@@ -177,19 +183,20 @@ impl<T> MatcherState<T> {
         }
     }
 
-    fn get_results_with_inds(self) -> Vec<(T, Vec<usize>)> {
-        match self {
-            MatcherState::Prefix { needle, items } => items
+    pub fn get_results_with_inds(self) -> Vec<(T, Vec<usize>)> {
+        match self.state {
+            State::Prefix { needle, items } => items
                 .into_iter()
                 .map(|item| (item, (0..needle.len()).collect()))
                 .collect(),
-            MatcherState::Nucleo {
+            State::Nucleo {
                 matcher,
                 pat,
                 items,
-            } => {
-                items.into_iter().map(|(_, items, indices)| (items, indices)).collect()
-            }
+            } => items
+                .into_iter()
+                .map(|(_, items, indices)| (items, indices))
+                .collect(),
         }
     }
 }
