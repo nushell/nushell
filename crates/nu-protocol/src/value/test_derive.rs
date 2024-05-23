@@ -1,5 +1,5 @@
+use crate::{record, FromValue, IntoValue, Record, Value};
 use std::collections::HashMap;
-use crate::{record, IntoValue, Record, Value};
 
 // make nu_protocol available in this namespace, consumers of this crate will
 // have this without such an export

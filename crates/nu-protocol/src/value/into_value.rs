@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use crate::{Record, ShellError, Span, Value};
 
-/// A trait for converting a value into a `Value`.
+/// A trait for converting a value into a [`Value`].
 ///
 /// This conversion is infallible, for fallible conversions use [`TryIntoValue`].
 pub trait IntoValue: Sized {
-    /// Converts the given value to a `Value`.
+    /// Converts the given value to a [`Value`].
     fn into_value(self, span: Span) -> Value;
 
-    /// Converts the given value to a `Value` with an unknown `Span`.
+    /// Converts the given value to a [`Value`] with an unknown [`Span`].
     ///
     /// Internally this simply calls [`Span::unknown`] for the `span`.
     fn into_value_unknown(self) -> Value {
@@ -132,12 +132,15 @@ where
     }
 }
 
-impl<V> IntoValue for HashMap<String, V> where V: IntoValue {
+impl<V> IntoValue for HashMap<String, V>
+where
+    V: IntoValue,
+{
     fn into_value(self, span: Span) -> Value {
         let mut record = Record::new();
         for (k, v) in self.into_iter() {
             // Using `push` is fine as a hashmaps have unique keys.
-            // To ensure this uniqueness, we only allow hashmaps with strings as 
+            // To ensure this uniqueness, we only allow hashmaps with strings as
             // keys and not keys which implement `Into<String>` or `ToString`.
             record.push(k, v.into_value(span));
         }
