@@ -8,8 +8,8 @@ use nu_protocol::{
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
-use regex::Regex;
 use std::{
+    borrow::Cow,
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
@@ -220,8 +220,8 @@ pub fn eval_arguments_from_call(
             for arg in eval_argument(engine_state, stack, expr, spread)? {
                 let tilde_expanded = expand_tilde(&arg);
                 for glob_expanded in expand_glob(&tilde_expanded, &cwd, expr.span)? {
-                    let inner_quotes_removed = remove_inner_quotes(glob_expanded);
-                    args.push(inner_quotes_removed.into_spanned(expr.span));
+                    let inner_quotes_removed = remove_inner_quotes(&glob_expanded);
+                    args.push(inner_quotes_removed.into_owned().into_spanned(expr.span));
                 }
             }
         } else {
@@ -329,17 +329,24 @@ fn expand_glob(arg: &str, cwd: &Path, span: Span) -> Result<Vec<String>, ShellEr
 }
 
 /// Transforms `--option="value"` into `--option=value`. `value` can be quoted
-/// with double or single quotes. The original string should have an `=` sign,
-/// otherwise this function returns the original string. Does not resolve escape
-/// sequences within `value`. Only removes the first matching pair of quotes.
-fn remove_inner_quotes(arg: impl Into<String>) -> String {
-    let arg = arg.into();
-    let re = Regex::new(r#"^(?<option>.*?)=['"](?<value>.*)['"]$"#).expect("valid regex");
-    if let Some(caps) = re.captures(&arg) {
-        format!("{}={}", &caps["option"], &caps["value"])
-    } else {
-        arg
+/// with double quotes, single quotes, or backticks. Only removes the outermost
+/// pair of quotes after the equal sign.
+fn remove_inner_quotes(arg: &str) -> Cow<'_, str> {
+    // Check that `arg` is a long option.
+    if !arg.starts_with("--") {
+        return Cow::Borrowed(arg);
     }
+    // Split `arg` on the first `=`.
+    let Some((option, value)) = arg.split_once('=') else {
+        return Cow::Borrowed(arg);
+    };
+    // Check that `option` doesn't contain quotes.
+    if option.contains('"') || option.contains('\'') || option.contains('`') {
+        return Cow::Borrowed(arg);
+    }
+    // Remove the outermost pair of quotes from `value`.
+    let value = remove_quotes(value);
+    Cow::Owned(format!("{option}={value}"))
 }
 
 /// Write `PipelineData` into `writer`. If `PipelineData` is not binary, it is
@@ -535,7 +542,7 @@ fn has_cmd_special_character(s: &str) -> bool {
 /// Escape an argument for CMD internal commands. The result can be safely
 /// passed to `raw_arg()`.
 #[cfg(windows)]
-fn escape_cmd_argument(arg: &Spanned<String>) -> Result<std::borrow::Cow<'_, str>, ShellError> {
+fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError> {
     let Spanned { item: arg, span } = arg;
     if arg.contains('"') {
         // If `arg` is already quoted by double quotes, confirm there's no
@@ -544,7 +551,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<std::borrow::Cow<'_, str
             && arg.starts_with('"')
             && arg.ends_with('"')
         {
-            Ok(std::borrow::Cow::Borrowed(arg))
+            Ok(Cow::Borrowed(arg))
         } else {
             Err(ShellError::ExternalCommand {
                 label: "Arguments to CMD internal commands cannot contain embedded double quotes"
@@ -555,9 +562,9 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<std::borrow::Cow<'_, str
         }
     } else if arg.contains(' ') || has_cmd_special_character(arg) {
         // If `arg` contains space or special characters, quote the entire argument by double quotes.
-        Ok(std::borrow::Cow::Owned(format!("\"{arg}\"")))
+        Ok(Cow::Owned(format!("\"{arg}\"")))
     } else {
-        Ok(std::borrow::Cow::Borrowed(arg))
+        Ok(Cow::Borrowed(arg))
     }
 }
 
