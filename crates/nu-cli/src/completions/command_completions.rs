@@ -60,7 +60,7 @@ impl CommandCompletion {
                                     && is_executable::is_executable(item.path())
                                 {
                                     executables.insert(name);
-                                    matcher.add_match(name, (name, true));
+                                    matcher.add_str(name, (name, true));
                                 }
                             }
                         }
@@ -82,12 +82,12 @@ impl CommandCompletion {
         let partial = String::from_utf8_lossy(partial);
 
         // Items are (command_name, is_external)
-        let mut matcher = NuMatcher::new(options, partial);
+        let mut matcher = NuMatcher::from_str(options, partial, false);
 
         let matched_commands = working_set.find_commands_by_predicate(
             |command: &[u8]| {
                 let name = String::from_utf8_lossy(command);
-                matcher.add_match(name, (name.to_string(), false))
+                matcher.add_str(name, (name.to_string(), false))
             },
             true,
         );

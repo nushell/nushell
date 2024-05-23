@@ -142,10 +142,10 @@ fn filter(
     items: Vec<SemanticSuggestion>,
     options: &CompletionOptions,
 ) -> Vec<SemanticSuggestion> {
-    let mut matcher = NuMatcher::new(options, String::from_utf8_lossy(prefix));
+    let mut matcher = NuMatcher::from_str(options, String::from_utf8_lossy(prefix));
 
     for it in items {
-        matcher.add_match(it.suggestion.value.to_owned(), it);
+        matcher.add_str(it.suggestion.value.to_owned(), it);
     }
 
     return matcher.get_results();

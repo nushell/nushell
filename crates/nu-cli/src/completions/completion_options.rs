@@ -31,49 +31,17 @@ pub enum MatchAlgorithm {
 }
 
 impl MatchAlgorithm {
-    /// Keeps only items that match the given `needle`
-    ///
-    /// # Arguments
-    ///
-    /// * `items` - A list of haystacks and their corresponding items
-    /// * `needle` - The text to search for
-    /// * `case_sensitive` - true to respect case, false to ignore it
-    ///
-    /// # Returns
-    ///
-    /// A list of matching items, as well as the indices in their haystacks that matched
-    pub fn filter_u8<T>(
-        &self,
-        items: Vec<(impl AsRef<[u8]>, T)>,
-        needle: &[u8],
-        case_sensitive: bool,
-    ) -> Vec<T> {
-        match *self {
-            MatchAlgorithm::Prefix => {
-                let needle = if case_sensitive {
-                    Cow::Borrowed(needle)
-                } else {
-                    Cow::Owned(needle.to_ascii_lowercase())
-                };
-                items
-                    .into_iter()
-                    .filter_map(|(haystack, item)| {
-                        if haystack.as_ref().starts_with(&needle) {
-                            Some(item)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
-            }
-            MatchAlgorithm::Fuzzy => {
-                let items = items.into_iter().map(|(haystack, item)| {
-                    (String::from_utf8_lossy(haystack.as_ref()).to_string(), item)
-                });
-                todo!()
-            }
-        }
-    }
+    // / Keeps only items that match the given `needle`
+    // /
+    // / # Arguments
+    // /
+    // / * `items` - A list of haystacks and their corresponding items
+    // / * `needle` - The text to search for
+    // / * `case_sensitive` - true to respect case, false to ignore it
+    // /
+    // / # Returns
+    // /
+    // / A list of matching items, as well as the indices in their haystacks that matched
 }
 
 pub struct NuMatcher<T> {
@@ -82,7 +50,8 @@ pub struct NuMatcher<T> {
 
 enum State<T> {
     Prefix {
-        needle: String,
+        needle: Vec<u8>,
+        case_sensitive: bool,
         items: Vec<T>,
     },
     Nucleo {
@@ -93,7 +62,7 @@ enum State<T> {
 }
 
 impl<T> NuMatcher<T> {
-    pub fn new(
+    pub fn from_str(
         options: &CompletionOptions,
         needle: impl AsRef<str>,
         match_paths: bool,
@@ -108,7 +77,8 @@ impl<T> NuMatcher<T> {
                 };
                 NuMatcher {
                     state: State::Prefix {
-                        needle: needle.to_string(),
+                        needle: needle.as_bytes().to_vec(),
+                        case_sensitive: options.case_sensitive,
                         items: Vec::new(),
                     },
                 }
@@ -140,10 +110,47 @@ impl<T> NuMatcher<T> {
         }
     }
 
-    pub fn add_match(&mut self, haystack: impl AsRef<str>, item: T) -> bool {
+    pub fn from_u8(
+        options: &CompletionOptions,
+        needle: impl AsRef<[u8]>,
+        match_paths: bool,
+    ) -> NuMatcher<T> {
+        let needle = needle.as_ref();
+        match options.match_algorithm {
+            MatchAlgorithm::Prefix => {
+                let needle = if options.case_sensitive {
+                    needle.to_owned()
+                } else {
+                    needle.to_ascii_lowercase()
+                };
+                NuMatcher {
+                    state: State::Prefix {
+                        needle,
+                        case_sensitive: options.case_sensitive,
+                        items: Vec::new(),
+                    },
+                }
+            }
+            MatchAlgorithm::Fuzzy => {
+                Self::from_str(options, String::from_utf8_lossy(needle), match_paths)
+            }
+        }
+    }
+
+    pub fn add_str(&mut self, haystack: impl AsRef<str>, item: T) -> bool {
         match self.state {
-            State::Prefix { needle, mut items } => {
-                if trim_quotes_str(haystack.as_ref()).starts_with(needle.as_str()) {
+            State::Prefix {
+                needle,
+                case_sensitive,
+                mut items,
+            } => {
+                let haystack = trim_quotes_str(haystack.as_ref());
+                let haystack = if case_sensitive {
+                    haystack
+                } else {
+                    haystack.to_folded_case().as_ref()
+                };
+                if haystack.as_bytes().starts_with(&needle) {
                     items.push(item);
                     true
                 } else {
@@ -176,6 +183,30 @@ impl<T> NuMatcher<T> {
         }
     }
 
+    pub fn add_u8(&mut self, haystack: impl AsRef<[u8]>, item: T) -> bool {
+        let haystack = haystack.as_ref();
+        match self.state {
+            State::Prefix {
+                needle,
+                case_sensitive,
+                mut items,
+            } => {
+                let haystack = if case_sensitive {
+                    haystack
+                } else {
+                    haystack.to_ascii_lowercase().as_ref()
+                };
+                if haystack.starts_with(&needle) {
+                    items.push(item);
+                    true
+                } else {
+                    false
+                }
+            }
+            State::Nucleo { .. } => self.add_str(String::from_utf8_lossy(haystack), item),
+        }
+    }
+
     pub fn sort_by(&mut self, sort_by: SortBy) {
         todo!()
     }
@@ -193,7 +224,7 @@ impl<T> NuMatcher<T> {
 
     pub fn get_results_with_inds(self) -> Vec<(T, Vec<usize>)> {
         match self.state {
-            State::Prefix { needle, items } => items
+            State::Prefix { needle, items, .. } => items
                 .into_iter()
                 .map(|item| (item, (0..needle.len()).collect()))
                 .collect(),
@@ -274,10 +305,10 @@ mod test {
         // assert!(algorithm.matches_str("example text", "examp"));
         // assert!(!algorithm.matches_str("example text", "text"));
 
-        assert_eq!(
-            vec![0],
-            algorithm.filter_u8(vec![(&[1, 2, 3], 0)], &[], false)
-        );
+        // assert_eq!(
+        //     vec![0],
+        //     algorithm.filter_u8(vec![(&[1, 2, 3], 0)], &[], false)
+        // );
 
         // assert!(algorithm.matches_u8(&[1, 2, 3], &[]));
         // assert!(algorithm.matches_u8(&[1, 2, 3], &[1, 2]));
