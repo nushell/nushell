@@ -242,6 +242,7 @@ pub fn nu_repl() {
     let mut top_stack = Arc::new(Stack::new());
 
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    engine_state.add_env_var("PATH".into(), Value::test_string(""));
 
     let mut last_output = String::new();
 
