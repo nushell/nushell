@@ -515,10 +515,34 @@ def build-command-page [command: record] {
             $"- (ansi cyan)does not create(ansi reset) a scope."
         }
     ) | append (
+        if ($command.type == "built-in") {
+            $"- (ansi cyan)is(ansi reset) a built-in command."
+        } else {
+            $"- (ansi cyan)is not(ansi reset) a built-in command."
+        }
+    ) | append (
         if ($command.is_sub) {
             $"- (ansi cyan)is(ansi reset) a subcommand."
         } else {
             $"- (ansi cyan)is not(ansi reset) a subcommand."
+        }
+    ) | append (
+        if ($command.type == "plugin") {
+            $"- (ansi cyan)is part(ansi reset) of a plugin."
+        } else {
+            $"- (ansi cyan)is not part(ansi reset) of a plugin."
+        }
+    ) | append (
+        if ($command.type == "custom") {
+            $"- (ansi cyan)is(ansi reset) a custom command."
+        } else {
+            $"- (ansi cyan)is not(ansi reset) a custom command."
+        }
+    ) | append (
+        if ($command.type == "keyword") {
+            $"- (ansi cyan)is(ansi reset) a keyword."
+        } else {
+            $"- (ansi cyan)is not(ansi reset) a keyword."
         }
     ))
 
