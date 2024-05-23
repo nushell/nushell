@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{
     completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy},
     SuggestionKind,
@@ -36,7 +38,7 @@ impl CommandCompletion {
         prefix: &str,
         match_algorithm: MatchAlgorithm,
     ) -> Vec<String> {
-        let mut executables = vec![];
+        let mut executables = HashSet::new();
 
         // os agnostic way to get the PATH env var
         let paths = working_set.permanent_state.get_path_env_var();
@@ -48,27 +50,16 @@ impl CommandCompletion {
 
                     if let Ok(mut contents) = std::fs::read_dir(path.as_ref()) {
                         while let Some(Ok(item)) = contents.next() {
-                            if working_set
-                                .permanent_state
-                                .config
-                                .max_external_completion_results
-                                > executables.len() as i64
-                                && !executables.contains(
-                                    &item
-                                        .path()
-                                        .file_name()
-                                        .map(|x| x.to_string_lossy().to_string())
-                                        .unwrap_or_default(),
-                                )
-                                && matches!(
-                                    item.path().file_name().map(|x| match_algorithm
-                                        .matches_str(&x.to_string_lossy(), prefix)),
-                                    Some(true)
-                                )
-                                && is_executable::is_executable(item.path())
-                            {
-                                if let Ok(name) = item.file_name().into_string() {
-                                    executables.push(name);
+                            if let Ok(name) = item.file_name().into_string() {
+                                if working_set
+                                    .permanent_state
+                                    .config
+                                    .max_external_completion_results
+                                    > executables.len() as i64
+                                    && !executables.contains(&name)
+                                    && is_executable::is_executable(item.path())
+                                {
+                                    executables.insert(name);
                                 }
                             }
                         }
@@ -77,7 +68,14 @@ impl CommandCompletion {
             }
         }
 
-        executables
+        match_algorithm.filter_str(
+            executables
+                .into_iter()
+                .map(|name| (name.to_string(), name))
+                .collect(),
+            prefix,
+            true,
+        )
     }
 
     fn complete_commands(

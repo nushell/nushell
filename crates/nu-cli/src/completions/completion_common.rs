@@ -1,4 +1,4 @@
-use crate::completions::{matches, CompletionOptions};
+use crate::completions::CompletionOptions;
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::home_dir;

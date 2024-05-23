@@ -28,19 +28,6 @@ pub enum MatchAlgorithm {
 }
 
 impl MatchAlgorithm {
-    /// Returns whether the `needle` search text matches the given `haystack`.
-    pub fn matches_str(&self, haystack: &str, needle: &str) -> bool {
-        let haystack = trim_quotes_str(haystack);
-        let needle = trim_quotes_str(needle);
-        match *self {
-            MatchAlgorithm::Prefix => haystack.starts_with(needle),
-            MatchAlgorithm::Fuzzy => {
-                let matcher = SkimMatcherV2::default();
-                matcher.fuzzy_match(haystack, needle).is_some()
-            }
-        }
-    }
-
     /// Keeps only items that match the given `needle`
     ///
     /// # Arguments
@@ -58,6 +45,7 @@ impl MatchAlgorithm {
         needle: &str,
         case_sensitive: bool,
     ) -> Vec<(T, Vec<usize>)> {
+        let needle = trim_quotes_str(needle);
         match *self {
             MatchAlgorithm::Prefix => {
                 let needle = if case_sensitive {
@@ -68,7 +56,7 @@ impl MatchAlgorithm {
                 items
                     .into_iter()
                     .filter_map(|(haystack, item)| {
-                        if haystack.as_ref().starts_with(needle.as_ref()) {
+                        if trim_quotes_str(haystack.as_ref()).starts_with(needle.as_ref()) {
                             Some((item, (0..needle.len()).collect()))
                         } else {
                             None
@@ -148,7 +136,7 @@ pub fn filter_fuzzy<T>(
         .into_iter()
         .filter_map(|(haystack, item)| {
             matcher
-                .fuzzy_indices(haystack.as_ref(), needle)
+                .fuzzy_indices(trim_quotes_str(haystack.as_ref()), needle)
                 .map(|(_score, inds)| (item, inds))
         })
         .collect()
@@ -215,9 +203,9 @@ mod test {
     fn match_algorithm_prefix() {
         let algorithm = MatchAlgorithm::Prefix;
 
-        assert!(algorithm.matches_str("example text", ""));
-        assert!(algorithm.matches_str("example text", "examp"));
-        assert!(!algorithm.matches_str("example text", "text"));
+        // assert!(algorithm.matches_str("example text", ""));
+        // assert!(algorithm.matches_str("example text", "examp"));
+        // assert!(!algorithm.matches_str("example text", "text"));
 
         assert_eq!(
             vec![0],
@@ -233,11 +221,11 @@ mod test {
     fn match_algorithm_fuzzy() {
         let algorithm = MatchAlgorithm::Fuzzy;
 
-        assert!(algorithm.matches_str("example text", ""));
-        assert!(algorithm.matches_str("example text", "examp"));
-        assert!(algorithm.matches_str("example text", "ext"));
-        assert!(algorithm.matches_str("example text", "mplxt"));
-        assert!(!algorithm.matches_str("example text", "mpp"));
+        // assert!(algorithm.matches_str("example text", ""));
+        // assert!(algorithm.matches_str("example text", "examp"));
+        // assert!(algorithm.matches_str("example text", "ext"));
+        // assert!(algorithm.matches_str("example text", "mplxt"));
+        // assert!(!algorithm.matches_str("example text", "mpp"));
 
         // assert!(algorithm.matches_u8(&[1, 2, 3], &[]));
         // assert!(algorithm.matches_u8(&[1, 2, 3], &[1, 2]));
