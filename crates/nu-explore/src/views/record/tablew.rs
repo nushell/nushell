@@ -38,7 +38,6 @@ pub enum Orientation {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TableStyle {
     pub splitline_style: NuStyle,
-    pub shift_line_style: NuStyle,
     pub show_index: bool,
     pub show_header: bool,
     pub column_padding_left: usize,
@@ -108,7 +107,6 @@ impl<'a> TableW<'a> {
         let show_head = self.style.show_header;
 
         let splitline_s = self.style.splitline_style;
-        let shift_column_s = self.style.shift_line_style;
 
         let mut data_height = area.height;
         let mut data_y = area.y;
@@ -164,7 +162,8 @@ impl<'a> TableW<'a> {
             );
         }
 
-        let mut do_render_shift_column = false;
+        // if there is more data than we can show, add an ellipsis to the column headers to hint at that
+        let mut show_overflow_indicator = false;
         state.count_rows = data.len();
         state.count_columns = 0;
         state.data_height = data_height;
@@ -191,11 +190,11 @@ impl<'a> TableW<'a> {
 
                 let pad = padding_l + padding_r;
                 let head = show_head.then_some(&mut head);
-                let (w, ok, shift) =
+                let (w, ok, overflow) =
                     truncate_column_width(space, 1, use_space, pad, is_last, &mut column, head);
 
-                if shift {
-                    do_render_shift_column = true;
+                if overflow {
+                    show_overflow_indicator = true;
                 }
 
                 if w == 0 && !ok {
@@ -232,14 +231,14 @@ impl<'a> TableW<'a> {
 
             state.count_columns += 1;
 
-            if do_render_shift_column {
+            if show_overflow_indicator {
                 break;
             }
         }
 
-        if do_render_shift_column && show_head {
+        if show_overflow_indicator && show_head {
             width += render_space(buf, width, data_y, data_height, padding_l);
-            width += render_shift_column(buf, width, head_y, 1, shift_column_s);
+            width += render_overflow_column(buf, width, head_y, 1);
             width += render_space(buf, width, data_y, data_height, padding_r);
         }
 
@@ -275,7 +274,6 @@ impl<'a> TableW<'a> {
         let show_index = self.style.show_index;
         let show_head = self.style.show_header;
         let splitline_s = self.style.splitline_style;
-        let shift_column_s = self.style.shift_line_style;
 
         let mut left_w = 0;
 
@@ -358,7 +356,8 @@ impl<'a> TableW<'a> {
             );
         }
 
-        let mut do_render_shift_column = false;
+        // if there is more data than we can show, add an ellipsis to the column headers to hint at that
+        let mut show_overflow_indicator = false;
 
         state.count_rows = columns.len();
         state.count_columns = 0;
@@ -375,11 +374,11 @@ impl<'a> TableW<'a> {
             let available = area.width - left_w;
             let is_last = col + 1 == self.data.len();
             let pad = padding_l + padding_r;
-            let (column_width, ok, shift) =
+            let (column_width, ok, overflow) =
                 truncate_column_width(available, 1, column_width, pad, is_last, &mut column, None);
 
-            if shift {
-                do_render_shift_column = true;
+            if overflow {
+                show_overflow_indicator = true;
             }
 
             if column_width == 0 && !ok {
@@ -403,16 +402,16 @@ impl<'a> TableW<'a> {
                 state.count_columns += 1;
             }
 
-            if do_render_shift_column {
+            if show_overflow_indicator {
                 break;
             }
         }
 
-        if do_render_shift_column {
+        if show_overflow_indicator {
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, area.height, padding_l);
             let x = area.x + left_w;
-            left_w += render_shift_column(buf, x, area.y, area.height, shift_column_s);
+            left_w += render_overflow_column(buf, x, area.y, area.height);
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, area.height, padding_r);
         }
@@ -433,13 +432,13 @@ fn truncate_column_width(
 ) -> (u16, bool, bool) {
     let result = check_column_width(space, min, w, pad, is_last);
 
-    let (width, shift_column) = match result {
+    let (width, overflow) = match result {
         Some(result) => result,
         None => return (w, true, false),
     };
 
     if width == 0 {
-        return (0, false, shift_column);
+        return (0, false, overflow);
     }
 
     truncate_list(column, width as usize);
@@ -447,7 +446,7 @@ fn truncate_column_width(
         truncate_str(head, width as usize);
     }
 
-    (width, false, shift_column)
+    (width, false, overflow)
 }
 
 fn check_column_width(
@@ -652,10 +651,11 @@ fn truncate_list(list: &mut [NuText], width: usize) {
     }
 }
 
-fn render_shift_column(buf: &mut Buffer, x: u16, y: u16, height: u16, style: NuStyle) -> u16 {
+/// Render a column with an ellipsis in the header to indicate that there is more data than can be displayed
+fn render_overflow_column(buf: &mut Buffer, x: u16, y: u16, height: u16) -> u16 {
     let style = TextStyle {
         alignment: Alignment::Left,
-        color_style: Some(style),
+        color_style: None,
     };
 
     repeat_vertical(buf, x, y, 1, height, '…', style);
