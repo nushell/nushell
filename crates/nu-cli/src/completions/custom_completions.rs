@@ -145,7 +145,7 @@ fn filter(
     let mut matcher = NuMatcher::from_str(options, String::from_utf8_lossy(prefix), false);
 
     for it in items {
-        matcher.add_str(it.suggestion.value.to_owned(), it);
+        matcher.add_str(it.suggestion.value.clone(), it);
     }
 
     matcher.get_results()

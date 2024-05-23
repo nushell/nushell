@@ -97,7 +97,7 @@ impl Completer for VariableCompletion {
                     nu_protocol::Span::new(current_span.start, current_span.end),
                 ) {
                     for it in nested_suggestions(&nuval, &self.var_context.1, current_span) {
-                        matcher.add_str(it.suggestion.value.to_owned(), it);
+                        matcher.add_str(it.suggestion.value.clone(), it);
                     }
                     return matcher.get_results();
                 }
