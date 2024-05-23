@@ -18,7 +18,7 @@ use std::{
 };
 
 #[derive(Debug, Clone)]
-pub struct TableW<'a> {
+pub struct TableWidget<'a> {
     columns: Cow<'a, [String]>,
     data: Cow<'a, [Vec<NuText>]>,
     index_row: usize,
@@ -44,7 +44,7 @@ pub struct TableStyle {
     pub column_padding_right: usize,
 }
 
-impl<'a> TableW<'a> {
+impl<'a> TableWidget<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         columns: impl Into<Cow<'a, [String]>>,
@@ -68,15 +68,15 @@ impl<'a> TableW<'a> {
 }
 
 #[derive(Debug, Default)]
-pub struct TableWState {
+pub struct TableWidgetState {
     pub layout: Layout,
     pub count_rows: usize,
     pub count_columns: usize,
     pub data_height: u16,
 }
 
-impl StatefulWidget for TableW<'_> {
-    type State = TableWState;
+impl StatefulWidget for TableWidget<'_> {
+    type State = TableWidgetState;
 
     fn render(
         self,
@@ -98,8 +98,8 @@ impl StatefulWidget for TableW<'_> {
 }
 
 // todo: refactoring these to methods as they have quite a bit in common.
-impl<'a> TableW<'a> {
-    fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWState) {
+impl<'a> TableWidget<'a> {
+    fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
         let padding_l = self.style.column_padding_left as u16;
         let padding_r = self.style.column_padding_right as u16;
 
@@ -263,7 +263,7 @@ impl<'a> TableW<'a> {
         }
     }
 
-    fn render_table_vertical(self, area: Rect, buf: &mut Buffer, state: &mut TableWState) {
+    fn render_table_vertical(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
         if area.width == 0 || area.height == 0 {
             return;
         }

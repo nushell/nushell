@@ -8,12 +8,12 @@ use ratatui::{
     widgets::Widget,
 };
 
-pub struct ColoredTextW<'a> {
+pub struct ColoredTextWidget<'a> {
     text: &'a str,
     col: usize,
 }
 
-impl<'a> ColoredTextW<'a> {
+impl<'a> ColoredTextWidget<'a> {
     pub fn new(text: &'a str, col: usize) -> Self {
         Self { text, col }
     }
@@ -25,7 +25,7 @@ impl<'a> ColoredTextW<'a> {
     }
 }
 
-impl Widget for ColoredTextW<'_> {
+impl Widget for ColoredTextWidget<'_> {
     fn render(self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
         let text = cut_string(self.text, self.col, area.width as usize);
 

@@ -1,4 +1,4 @@
-use super::{coloredtextw::ColoredTextW, cursor::XYCursor, Layout, View, ViewConfig};
+use super::{colored_text_widget::ColoredTextWidget, cursor::XYCursor, Layout, View, ViewConfig};
 use crate::{
     nu_common::{NuSpan, NuText},
     pager::{report::Report, Frame, Transition, ViewInfo},
@@ -43,7 +43,7 @@ impl View for Preview {
 
         let lines = &self.lines[self.cursor.row_starts_at()..];
         for (i, line) in lines.iter().enumerate().take(area.height as usize) {
-            let text = ColoredTextW::new(line, self.cursor.column());
+            let text = ColoredTextWidget::new(line, self.cursor.column());
             let s = text.what(area);
 
             let area = Rect::new(area.x, area.y + i as u16, area.width, 1);
