@@ -107,7 +107,7 @@ fn create_binary_widget(v: &BinaryView) -> BinaryWidget<'_> {
     let data = &v.data[index..];
 
     let mut w = BinaryWidget::new(data, v.settings.opts, v.settings.style.clone());
-    w.set_index_offset(index);
+    w.set_row_offset(index);
 
     w
 }
@@ -184,27 +184,15 @@ fn settings_from_config(config: &ConfigMap) -> Settings {
 
     Settings {
         opts: BinarySettings::new(
-            !config_get_bool(config, "show_index", true),
-            !config_get_bool(config, "show_ascii", true),
-            !config_get_bool(config, "show_data", true),
             config_get_usize(config, "segment_size", 2),
             config_get_usize(config, "count_segments", 8),
-            0,
         ),
         style: BinaryStyle::new(
             colors.get("color_index").cloned(),
             config_get_usize(config, "column_padding_left", 1) as u16,
             config_get_usize(config, "column_padding_right", 1) as u16,
-            config_get_bool(config, "split", false),
         ),
     }
-}
-
-fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
-    config
-        .get(key)
-        .and_then(|v| v.as_bool().ok())
-        .unwrap_or(default)
 }
 
 fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
