@@ -93,7 +93,11 @@ enum State<T> {
 }
 
 impl<T> NuMatcher<T> {
-    pub fn new(options: &CompletionOptions, needle: impl AsRef<str>) -> NuMatcher<T> {
+    pub fn new(
+        options: &CompletionOptions,
+        needle: impl AsRef<str>,
+        match_paths: bool,
+    ) -> NuMatcher<T> {
         let needle = trim_quotes_str(needle.as_ref());
         match options.match_algorithm {
             MatchAlgorithm::Prefix => {
@@ -110,7 +114,11 @@ impl<T> NuMatcher<T> {
                 }
             }
             MatchAlgorithm::Fuzzy => {
-                let matcher = Matcher::new(Config::DEFAULT);
+                let matcher = Matcher::new(if match_paths {
+                    Config::DEFAULT.match_paths()
+                } else {
+                    Config::DEFAULT
+                });
                 let pat = Pattern::new(
                     needle,
                     if options.case_sensitive {

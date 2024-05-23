@@ -11,6 +11,8 @@ use std::path::{
     is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
 };
 
+use super::completion_options::NuMatcher;
+
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
     parts: Vec<String>,
@@ -25,8 +27,6 @@ fn complete_rec(
     dir: bool,
     isdir: bool,
 ) -> Vec<PathBuiltFromString> {
-    let mut completions = vec![];
-
     if let Some((&base, rest)) = partial.split_first() {
         if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
             let mut built = built.clone();
@@ -42,10 +42,11 @@ fn complete_rec(
     }
 
     let Ok(result) = built_path.read_dir() else {
-        return completions;
+        return Vec::new();
     };
 
-    for entry in result.filter_map(|e| e.ok()) {
+    // todo return early if dir is true?
+    let entries = result.filter_map(|e| e.ok()).filter_map(|entry| {
         let entry_name = entry.file_name().to_string_lossy().into_owned();
         let entry_isdir = entry.path().is_dir();
         let mut built = built.clone();
@@ -53,24 +54,32 @@ fn complete_rec(
         built.isdir = entry_isdir;
 
         if !dir || entry_isdir {
-            match partial.split_first() {
-                Some((base, rest)) => {
-                    if matches(base, &entry_name, options) {
-                        if !rest.is_empty() || isdir {
-                            completions
-                                .extend(complete_rec(rest, &built, cwd, options, dir, isdir));
-                        } else {
-                            completions.push(built);
-                        }
-                    }
-                }
-                None => {
-                    completions.push(built);
-                }
-            }
+            Some((entry_name, built))
+        } else {
+            None
         }
+    });
+
+    if let Some((base, rest)) = partial.split_first() {
+        let mut matcher = NuMatcher::new(options, base, false);
+
+        for (entry_name, built) in entries {
+            matcher.add_match(entry_name, built);
+        }
+
+        let results = matcher.get_results();
+
+        if !rest.is_empty() || isdir {
+            results
+                .into_iter()
+                .flat_map(|built| complete_rec(rest, &built, cwd, options, dir, isdir))
+                .collect()
+        } else {
+            results
+        }
+    } else {
+        entries.map(|(_, built)| built).collect()
     }
-    completions
 }
 
 #[derive(Debug)]
