@@ -24,7 +24,7 @@ pub struct TableW<'a> {
     index_row: usize,
     index_column: usize,
     style: TableStyle,
-    head_position: Orientation,
+    header_position: Orientation,
     style_computer: &'a StyleComputer<'a>,
 }
 
@@ -54,7 +54,7 @@ impl<'a> TableW<'a> {
         index_row: usize,
         index_column: usize,
         style: TableStyle,
-        head_position: Orientation,
+        header_position: Orientation,
     ) -> Self {
         Self {
             columns: columns.into(),
@@ -63,7 +63,7 @@ impl<'a> TableW<'a> {
             index_row,
             index_column,
             style,
-            head_position,
+            header_position,
         }
     }
 }
@@ -89,7 +89,7 @@ impl StatefulWidget for TableW<'_> {
             return;
         }
 
-        let is_horizontal = matches!(self.head_position, Orientation::Top);
+        let is_horizontal = matches!(self.header_position, Orientation::Top);
         if is_horizontal {
             self.render_table_horizontal(area, buf, state);
         } else {
