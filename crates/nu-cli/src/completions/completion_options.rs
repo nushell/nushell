@@ -292,40 +292,84 @@ impl Default for CompletionOptions {
 
 #[cfg(test)]
 mod test {
-    use super::MatchAlgorithm;
+    use super::{CompletionOptions, MatchAlgorithm, NuMatcher};
+
+    fn test_match_str(options: &CompletionOptions, haystack: &str, needle: &str) {
+        let mut matcher = NuMatcher::from_str(options, needle, false);
+        matcher.add_str(haystack, haystack);
+        assert_eq!(vec![haystack], matcher.get_results());
+    }
+
+    fn test_not_match_str(options: &CompletionOptions, haystack: &str, needle: &str) {
+        let mut matcher = NuMatcher::from_str(options, needle, false);
+        matcher.add_str(haystack, haystack);
+        assert_ne!(vec![haystack], matcher.get_results());
+    }
+
+    fn test_match_u8(options: &CompletionOptions, haystack: &[u8], needle: &[u8]) {
+        let mut matcher = NuMatcher::from_u8(options, needle, false);
+        matcher.add_u8(haystack, haystack);
+        assert_eq!(vec![haystack], matcher.get_results());
+    }
+
+    fn test_not_match_u8(options: &CompletionOptions, haystack: &[u8], needle: &[u8]) {
+        let mut matcher = NuMatcher::from_u8(options, needle, false);
+        matcher.add_u8(haystack, haystack);
+        assert_ne!(vec![haystack], matcher.get_results());
+    }
 
     #[test]
     fn match_algorithm_prefix() {
-        let algorithm = MatchAlgorithm::Prefix;
+        let options = CompletionOptions {
+            match_algorithm: MatchAlgorithm::Prefix,
+            case_sensitive: true,
+            positional: false,
+        };
 
-        // assert!(algorithm.matches_str("example text", ""));
-        // assert!(algorithm.matches_str("example text", "examp"));
-        // assert!(!algorithm.matches_str("example text", "text"));
+        test_match_str(&options, "example text", "");
+        test_match_str(&options, "example text", "examp");
+        test_not_match_str(&options, "example text", "text");
 
-        // assert_eq!(
-        //     vec![0],
-        //     algorithm.filter_u8(vec![(&[1, 2, 3], 0)], &[], false)
-        // );
-
-        // assert!(algorithm.matches_u8(&[1, 2, 3], &[]));
-        // assert!(algorithm.matches_u8(&[1, 2, 3], &[1, 2]));
-        // assert!(!algorithm.matches_u8(&[1, 2, 3], &[2, 3]));
+        test_match_u8(&options, &[1, 2, 3], &[]);
+        test_match_u8(&options, &[1, 2, 3], &[1, 2]);
+        test_not_match_u8(&options, &[1, 2, 3], &[2, 3]);
     }
 
     #[test]
     fn match_algorithm_fuzzy() {
-        let algorithm = MatchAlgorithm::Fuzzy;
+        let options = CompletionOptions {
+            match_algorithm: MatchAlgorithm::Fuzzy,
+            case_sensitive: true,
+            positional: false,
+        };
 
-        // assert!(algorithm.matches_str("example text", ""));
-        // assert!(algorithm.matches_str("example text", "examp"));
-        // assert!(algorithm.matches_str("example text", "ext"));
-        // assert!(algorithm.matches_str("example text", "mplxt"));
-        // assert!(!algorithm.matches_str("example text", "mpp"));
+        test_match_str(&options, "example text", "");
+        test_match_str(&options, "example text", "examp");
+        test_match_str(&options, "example text", "ext");
+        test_match_str(&options, "example text", "mplxt");
+        test_not_match_str(&options, "example text", "mpp");
 
-        // assert!(algorithm.matches_u8(&[1, 2, 3], &[]));
-        // assert!(algorithm.matches_u8(&[1, 2, 3], &[1, 2]));
-        // assert!(algorithm.matches_u8(&[1, 2, 3], &[2, 3]));
-        // assert!(algorithm.matches_u8(&[1, 2, 3], &[1, 3]));
-        // assert!(!algorithm.matches_u8(&[1, 2, 3], &[2, 2]));
+        test_match_u8(&options, &[1, 2, 3], &[]);
+        test_match_u8(&options, &[1, 2, 3], &[1, 2]);
+        test_match_u8(&options, &[1, 2, 3], &[2, 3]);
+        test_match_u8(&options, &[1, 2, 3], &[1, 3]);
+        test_not_match_u8(&options, &[1, 2, 3], &[2, 2]);
+    }
+
+    #[test]
+    fn match_algorithm_fuzzy_order() {
+        let options = CompletionOptions {
+            match_algorithm: MatchAlgorithm::Fuzzy,
+            case_sensitive: true,
+            positional: false,
+        };
+
+        // Taken from the nucleo-matcher crate's examples
+        // todo more thorough tests
+        let mut matcher = NuMatcher::from_str(&options, "foo bar", true);
+        matcher.add_str("foo/bar", "foo/bar");
+        matcher.add_str("bar/foo", "bar/foo");
+        matcher.add_str("foobar", "foobar");
+        assert_eq!(vec!["foo/bar", "bar/foo", "foobar"], matcher.get_results());
     }
 }
