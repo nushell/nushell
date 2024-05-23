@@ -8,8 +8,10 @@ use ratatui::{
     widgets::Widget,
 };
 
+/// A widget that represents a single line of text with ANSI styles.
 pub struct ColoredTextWidget<'a> {
     text: &'a str,
+    /// Column to start rendering from
     col: usize,
 }
 
@@ -18,8 +20,9 @@ impl<'a> ColoredTextWidget<'a> {
         Self { text, col }
     }
 
-    pub fn what(&self, area: Rect) -> String {
-        cut_string(self.text, self.col, area.width as usize)
+    /// Return a window of the text that fits into the given width, with ANSI styles stripped.
+    pub fn get_plain_text(&self, max_width: usize) -> String {
+        cut_string(self.text, self.col, max_width)
             .ansi_strip()
             .into_owned()
     }
