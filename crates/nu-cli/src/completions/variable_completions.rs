@@ -61,7 +61,7 @@ impl Completer for VariableCompletion {
 
                     if let Some(val) = env_vars.get(&target_var_str) {
                         for it in nested_suggestions(val, &nested_levels, current_span) {
-                            matcher.add_str(it.suggestion.value.to_owned(), it);
+                            matcher.add_str(it.suggestion.value.clone(), it);
                         }
                         return matcher.get_results();
                     }
@@ -69,7 +69,7 @@ impl Completer for VariableCompletion {
                     // No nesting provided, return all env vars
                     for (var_name, value) in env_vars {
                         matcher.add_str(
-                            var_name.to_owned(),
+                            var_name.clone(),
                             SemanticSuggestion {
                                 suggestion: Suggestion {
                                     value: var_name,
@@ -111,7 +111,7 @@ impl Completer for VariableCompletion {
                 // If the value exists and it's of type Record
                 if let Ok(value) = var {
                     for it in nested_suggestions(&value, &self.var_context.1, current_span) {
-                        matcher.add_str(it.suggestion.value.to_owned(), it);
+                        matcher.add_str(it.suggestion.value.clone(), it);
                     }
                     return matcher.get_results();
                 }

@@ -35,8 +35,9 @@ impl CommandCompletion {
     fn external_command_completion(
         &self,
         working_set: &StateWorkingSet,
-        prefix: &str,
-        matcher: &mut NuMatcher<(String, bool)>,
+        sugg_span: reedline::Span,
+        matched_internal: HashSet<String>,
+        matcher: &mut NuMatcher<SemanticSuggestion>,
     ) {
         let mut executables = HashSet::new();
 
@@ -59,8 +60,27 @@ impl CommandCompletion {
                                     && !executables.contains(&name)
                                     && is_executable::is_executable(item.path())
                                 {
-                                    executables.insert(name);
-                                    matcher.add_str(name, (name, true));
+                                    executables.insert(name.clone());
+                                    let name = if matched_internal.contains(&name) {
+                                        format!("^{}", name)
+                                    } else {
+                                        name.to_string()
+                                    };
+                                    matcher.add_str(
+                                        name.clone(),
+                                        SemanticSuggestion {
+                                            suggestion: Suggestion {
+                                                value: name,
+                                                description: None,
+                                                style: None,
+                                                extra: None,
+                                                span: sugg_span,
+                                                append_whitespace: true,
+                                            },
+                                            // TODO there was a todo comment here, bring it back
+                                            kind: None,
+                                        },
+                                    );
                                 }
                             }
                         }
@@ -81,55 +101,43 @@ impl CommandCompletion {
         let partial = working_set.get_span_contents(span);
         let partial = String::from_utf8_lossy(partial);
 
+        let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
+
         // Items are (command_name, is_external)
         let mut matcher = NuMatcher::from_str(options, partial, false);
 
-        let matched_commands = working_set.find_commands_by_predicate(
-            |command: &[u8]| {
-                let name = String::from_utf8_lossy(command);
-                matcher.add_str(name, (name.to_string(), false))
-            },
-            true,
-        );
+        let all_internal_commands = working_set.find_commands_by_predicate(|_| true, true);
 
-        if find_externals {
-            self.external_command_completion(working_set, partial.as_ref(), &mut matcher);
+        let mut matched_internal = HashSet::new();
+
+        for (name, usage, typ) in all_internal_commands {
+            let name = String::from_utf8_lossy(&name);
+            let sugg = SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: name.to_string(),
+                    description: usage,
+                    style: None,
+                    extra: None,
+                    span: sugg_span,
+                    append_whitespace: true,
+                },
+                kind: Some(SuggestionKind::Command(typ)),
+            };
+            if matcher.add_u8(name.as_ref(), sugg) {
+                matched_internal.insert(name.to_string());
+            }
         }
 
-        matcher
-            .get_results()
-            .into_iter()
-            .map(|(command_name, is_external)| {
-                let internal = matched_commands
-                    .iter()
-                    .find(|(n, _, _)| command_name == String::from_utf8_lossy(n));
-                let (name, usage, kind) = if let Some((_, usage, typ)) = internal {
-                    if is_external {
-                        (format!("^{}", command_name), None, None)
-                    } else {
-                        (
-                            command_name,
-                            usage.to_owned(),
-                            Some(SuggestionKind::Command(*typ)),
-                        )
-                    }
-                } else {
-                    debug_assert!(is_external, "matched_commands should've contained command");
-                    (command_name, None, None)
-                };
-                SemanticSuggestion {
-                    suggestion: Suggestion {
-                        value: name,
-                        description: usage,
-                        style: None,
-                        extra: None,
-                        span: reedline::Span::new(span.start - offset, span.end - offset),
-                        append_whitespace: true,
-                    },
-                    kind,
-                }
-            })
-            .collect::<Vec<_>>()
+        if find_externals {
+            self.external_command_completion(
+                working_set,
+                sugg_span,
+                matched_internal,
+                &mut matcher,
+            );
+        }
+
+        matcher.get_results()
     }
 }
 

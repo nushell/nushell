@@ -138,19 +138,19 @@ impl<T> NuMatcher<T> {
     }
 
     pub fn add_str(&mut self, haystack: impl AsRef<str>, item: T) -> bool {
-        match self.state {
+        match &mut self.state {
             State::Prefix {
                 needle,
                 case_sensitive,
-                mut items,
+                items,
             } => {
                 let haystack = trim_quotes_str(haystack.as_ref());
-                let haystack = if case_sensitive {
-                    haystack
+                let haystack = if *case_sensitive {
+                    Cow::Borrowed(haystack)
                 } else {
-                    haystack.to_folded_case().as_ref()
+                    Cow::Owned(haystack.to_folded_case())
                 };
-                if haystack.as_bytes().starts_with(&needle) {
+                if haystack.as_bytes().starts_with(needle) {
                     items.push(item);
                     true
                 } else {
@@ -158,15 +158,15 @@ impl<T> NuMatcher<T> {
                 }
             }
             State::Nucleo {
-                mut matcher,
+                matcher,
                 pat,
-                mut items,
+                items,
             } => {
                 let mut haystack_buf = Vec::new();
                 let haystack = Utf32Str::new(trim_quotes_str(haystack.as_ref()), &mut haystack_buf);
                 // todo find out why nucleo uses u32 instead of usize for indices
                 let mut indices = Vec::new();
-                match pat.indices(haystack, &mut matcher, &mut indices) {
+                match pat.indices(haystack, matcher, &mut indices) {
                     Some(score) => {
                         indices.sort_unstable();
                         indices.dedup();
@@ -185,18 +185,18 @@ impl<T> NuMatcher<T> {
 
     pub fn add_u8(&mut self, haystack: impl AsRef<[u8]>, item: T) -> bool {
         let haystack = haystack.as_ref();
-        match self.state {
+        match &mut self.state {
             State::Prefix {
                 needle,
                 case_sensitive,
-                mut items,
+                items,
             } => {
-                let haystack = if case_sensitive {
-                    haystack
+                let haystack = if *case_sensitive {
+                    Cow::Borrowed(haystack)
                 } else {
-                    haystack.to_ascii_lowercase().as_ref()
+                    Cow::Owned(haystack.to_ascii_lowercase())
                 };
-                if haystack.starts_with(&needle) {
+                if haystack.starts_with(needle) {
                     items.push(item);
                     true
                 } else {
@@ -207,14 +207,14 @@ impl<T> NuMatcher<T> {
         }
     }
 
-    pub fn sort_by(&mut self, sort_by: SortBy) {
+    pub fn sort_by(&mut self, _sort_by: SortBy) {
         todo!()
     }
 
     pub fn get_results(self) -> Vec<T> {
         match self.state {
             State::Prefix { items, .. } => items,
-            State::Nucleo { items, .. } => {
+            State::Nucleo { .. } => {
                 let (results, _): (Vec<_>, Vec<_>) =
                     self.get_results_with_inds().into_iter().unzip();
                 results
@@ -228,11 +228,7 @@ impl<T> NuMatcher<T> {
                 .into_iter()
                 .map(|item| (item, (0..needle.len()).collect()))
                 .collect(),
-            State::Nucleo {
-                matcher,
-                pat,
-                items,
-            } => items
+            State::Nucleo { items, .. } => items
                 .into_iter()
                 .map(|(_, items, indices)| (items, indices))
                 .collect(),

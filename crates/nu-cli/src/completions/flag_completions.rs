@@ -37,7 +37,7 @@ impl Completer for FlagCompletion {
 
             let prefix = String::from_utf8_lossy(&prefix);
 
-            let mut matcher = NuMatcher::from_str(options, prefix);
+            let mut matcher = NuMatcher::from_str(options, prefix, false);
 
             for named in &sig.named {
                 let flag_desc = &named.desc;
@@ -45,7 +45,7 @@ impl Completer for FlagCompletion {
                     let named = format!("-{}", short);
 
                     matcher.add_str(
-                        named.to_string(),
+                        named.clone(),
                         SemanticSuggestion {
                             suggestion: Suggestion {
                                 value: named,
@@ -71,7 +71,7 @@ impl Completer for FlagCompletion {
                 let named = format!("--{}", named.long);
 
                 matcher.add_str(
-                    named.to_string(),
+                    named.clone(),
                     SemanticSuggestion {
                         suggestion: Suggestion {
                             value: named,
