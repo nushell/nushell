@@ -515,34 +515,10 @@ def build-command-page [command: record] {
             $"- (ansi cyan)does not create(ansi reset) a scope."
         }
     ) | append (
-        if ($command.is_builtin) {
-            $"- (ansi cyan)is(ansi reset) a built-in command."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a built-in command."
-        }
-    ) | append (
         if ($command.is_sub) {
             $"- (ansi cyan)is(ansi reset) a subcommand."
         } else {
             $"- (ansi cyan)is not(ansi reset) a subcommand."
-        }
-    ) | append (
-        if ($command.is_plugin) {
-            $"- (ansi cyan)is part(ansi reset) of a plugin."
-        } else {
-            $"- (ansi cyan)is not part(ansi reset) of a plugin."
-        }
-    ) | append (
-        if ($command.is_custom) {
-            $"- (ansi cyan)is(ansi reset) a custom command."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a custom command."
-        }
-    ) | append (
-        if ($command.is_keyword) {
-            $"- (ansi cyan)is(ansi reset) a keyword."
-        } else {
-            $"- (ansi cyan)is not(ansi reset) a keyword."
         }
     ))
 
@@ -689,7 +665,7 @@ export def commands [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
-    let commands = (scope commands | where not is_extern | reject is_extern | sort-by name)
+    let commands = (scope commands | sort-by name)
 
     if not ($find | is-empty) {
         # TODO: impl find for external commands
