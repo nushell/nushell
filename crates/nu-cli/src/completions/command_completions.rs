@@ -89,31 +89,41 @@ impl CommandCompletion {
         match_algorithm: MatchAlgorithm,
     ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);
+        let partial = String::from_utf8_lossy(partial);
 
-        let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
+        let all_commands = working_set.find_commands_by_predicate(|_| true, true);
 
-        let mut results = working_set
-            .find_commands_by_predicate(filter_predicate, true)
+        // todo should complete_commands accept a CompletionOptions object so that
+        // case insensitiveness can be controlled here?
+        let mut matches = match_algorithm
+            .filter_str(
+                all_commands
+                    .into_iter()
+                    .map(|(name, usage, typ)| {
+                        let name = String::from_utf8_lossy(&name).to_string();
+                        (name.to_string(), (name, usage, typ))
+                    })
+                    .collect(),
+                partial.as_ref(),
+                true,
+            )
             .into_iter()
-            .map(move |x| SemanticSuggestion {
+            .map(move |(name, usage, typ)| SemanticSuggestion {
                 suggestion: Suggestion {
-                    value: String::from_utf8_lossy(&x.0).to_string(),
-                    description: x.1,
+                    value: name,
+                    description: usage,
                     style: None,
                     extra: None,
                     span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
                 },
-                kind: Some(SuggestionKind::Command(x.2)),
+                kind: Some(SuggestionKind::Command(typ)),
             })
             .collect::<Vec<_>>();
 
-        let partial = working_set.get_span_contents(span);
-        let partial = String::from_utf8_lossy(partial).to_string();
-
         if find_externals {
             let results_external = self
-                .external_command_completion(working_set, &partial, match_algorithm)
+                .external_command_completion(working_set, partial.as_ref(), match_algorithm)
                 .into_iter()
                 .map(move |x| SemanticSuggestion {
                     suggestion: Suggestion {
@@ -128,12 +138,12 @@ impl CommandCompletion {
                     kind: None,
                 });
 
-            let results_strings: Vec<String> =
-                results.iter().map(|x| x.suggestion.value.clone()).collect();
+            let matches_strings: Vec<String> =
+                matches.iter().map(|x| x.suggestion.value.clone()).collect();
 
             for external in results_external {
-                if results_strings.contains(&external.suggestion.value) {
-                    results.push(SemanticSuggestion {
+                if matches_strings.contains(&external.suggestion.value) {
+                    matches.push(SemanticSuggestion {
                         suggestion: Suggestion {
                             value: format!("^{}", external.suggestion.value),
                             description: None,
@@ -145,14 +155,12 @@ impl CommandCompletion {
                         kind: external.kind,
                     })
                 } else {
-                    results.push(external)
+                    matches.push(external)
                 }
             }
-
-            results
-        } else {
-            results
         }
+
+        matches
     }
 }
 

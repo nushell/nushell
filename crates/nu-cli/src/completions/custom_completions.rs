@@ -9,7 +9,6 @@ use nu_protocol::{
     engine::{Stack, StateWorkingSet},
     PipelineData, Span, Type, Value,
 };
-use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;
 
 pub struct CustomCompletion {
@@ -141,28 +140,12 @@ fn filter(
     items: Vec<SemanticSuggestion>,
     options: &CompletionOptions,
 ) -> Vec<SemanticSuggestion> {
-    items
-        .into_iter()
-        .filter(|it| match options.match_algorithm {
-            MatchAlgorithm::Prefix => match (options.case_sensitive, options.positional) {
-                (true, true) => it.suggestion.value.as_bytes().starts_with(prefix),
-                (true, false) => it
-                    .suggestion
-                    .value
-                    .contains(std::str::from_utf8(prefix).unwrap_or("")),
-                (false, positional) => {
-                    let value = it.suggestion.value.to_folded_case();
-                    let prefix = std::str::from_utf8(prefix).unwrap_or("").to_folded_case();
-                    if positional {
-                        value.starts_with(&prefix)
-                    } else {
-                        value.contains(&prefix)
-                    }
-                }
-            },
-            MatchAlgorithm::Fuzzy => options
-                .match_algorithm
-                .matches_u8(it.suggestion.value.as_bytes(), prefix),
-        })
-        .collect()
+    options.match_algorithm.filter_u8(
+        items
+            .into_iter()
+            .map(|it| (it.suggestion.value.as_bytes().to_owned(), it))
+            .collect(),
+        prefix,
+        options.case_sensitive,
+    )
 }
