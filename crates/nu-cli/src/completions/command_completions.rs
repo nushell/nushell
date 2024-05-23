@@ -77,7 +77,7 @@ impl CommandCompletion {
                                                 span: sugg_span,
                                                 append_whitespace: true,
                                             },
-                                            // TODO there was a todo comment here, bring it back
+                                            // TODO: is there a way to create a test?
                                             kind: None,
                                         },
                                     );
