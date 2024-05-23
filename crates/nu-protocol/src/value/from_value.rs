@@ -39,43 +39,12 @@ pub trait FromValue: Sized {
     }
 }
 
-impl FromValue for Value {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        Ok(v)
-    }
+// Primitive Types
 
-    fn expected_type() -> Type {
-        Type::Any
-    }
-}
-
-impl<T> FromValue for Spanned<T>
-where
-    T: FromValue,
-{
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        let span = v.span();
-        Ok(Spanned {
-            item: T::from_value(v)?,
-            span,
-        })
-    }
-
-    fn expected_type() -> Type {
-        T::expected_type()
-    }
-}
-
-impl<T> FromValue for Vec<T>
-where
-    T: FromValue,
-{
+impl FromValue for bool {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::List { vals, .. } => vals
-                .into_iter()
-                .map(T::from_value)
-                .collect::<Result<Vec<T>, ShellError>>(),
+            Value::Bool { val, .. } => Ok(val),
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),
@@ -86,23 +55,26 @@ where
     }
 
     fn expected_type() -> Type {
-        Type::List(Box::new(T::expected_type()))
+        Type::Bool
     }
 }
 
-impl<T> FromValue for Option<T>
-where
-    T: FromValue,
-{
+impl FromValue for f64 {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Nothing { .. } => Ok(None),
-            v => T::from_value(v).map(Option::Some),
+            Value::Float { val, .. } => Ok(val),
+            Value::Int { val, .. } => Ok(val as f64),
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
         }
     }
 
     fn expected_type() -> Type {
-        T::expected_type()
+        Type::Float
     }
 }
 
@@ -124,25 +96,6 @@ impl FromValue for i64 {
 
     fn expected_type() -> Type {
         Type::Int
-    }
-}
-
-impl FromValue for f64 {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v {
-            Value::Float { val, .. } => Ok(val),
-            Value::Int { val, .. } => Ok(val as f64),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-
-    fn expected_type() -> Type {
-        Type::Float
     }
 }
 
@@ -186,6 +139,26 @@ impl FromValue for usize {
     }
 }
 
+// Other std Types
+
+impl FromValue for PathBuf {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::String { val, .. } => Ok(val.into()),
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::String
+    }
+}
+
 impl FromValue for String {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
@@ -206,23 +179,14 @@ impl FromValue for String {
     }
 }
 
-impl FromValue for NuGlob {
+// This impl is different from Vec<T> as it reads from Value::Binary and 
+// Value::String instead of Value::List.
+// This also denies implementing FromValue for u8.
+impl FromValue for Vec<u8> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
-        // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(NuGlob::Expand(val.to_string())),
-            Value::String { val, .. } => Ok(NuGlob::DoNotExpand(val)),
-            Value::Glob {
-                val,
-                no_expand: quoted,
-                ..
-            } => {
-                if quoted {
-                    Ok(NuGlob::DoNotExpand(val))
-                } else {
-                    Ok(NuGlob::Expand(val))
-                }
-            }
+            Value::Binary { val, .. } => Ok(val),
+            Value::String { val, .. } => Ok(val.into_bytes()),
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),
@@ -233,7 +197,61 @@ impl FromValue for NuGlob {
     }
 
     fn expected_type() -> Type {
-        Type::String
+        Type::Binary
+    }
+}
+
+// Blanket std Implementations
+
+impl<T> FromValue for Option<T>
+where
+    T: FromValue,
+{
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Nothing { .. } => Ok(None),
+            v => T::from_value(v).map(Option::Some),
+        }
+    }
+
+    fn expected_type() -> Type {
+        T::expected_type()
+    }
+}
+
+impl<T> FromValue for Vec<T>
+where
+    T: FromValue,
+{
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::List { vals, .. } => vals
+                .into_iter()
+                .map(T::from_value)
+                .collect::<Result<Vec<T>, ShellError>>(),
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::List(Box::new(T::expected_type()))
+    }
+}
+
+// Nu Types
+
+impl FromValue for Value {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        Ok(v)
+    }
+
+    fn expected_type() -> Type {
+        Type::Any
     }
 }
 
@@ -276,10 +294,10 @@ impl FromValue for CellPath {
     }
 }
 
-impl FromValue for bool {
+impl FromValue for Closure {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Bool { val, .. } => Ok(val),
+            Value::Closure { val, .. } => Ok(*val),
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),
@@ -287,10 +305,6 @@ impl FromValue for bool {
                 help: None,
             }),
         }
-    }
-
-    fn expected_type() -> Type {
-        Type::Bool
     }
 }
 
@@ -312,6 +326,37 @@ impl FromValue for DateTime<FixedOffset> {
     }
 }
 
+impl FromValue for NuGlob {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        // FIXME: we may want to fail a little nicer here
+        match v {
+            Value::CellPath { val, .. } => Ok(NuGlob::Expand(val.to_string())),
+            Value::String { val, .. } => Ok(NuGlob::DoNotExpand(val)),
+            Value::Glob {
+                val,
+                no_expand: quoted,
+                ..
+            } => {
+                if quoted {
+                    Ok(NuGlob::DoNotExpand(val))
+                } else {
+                    Ok(NuGlob::Expand(val))
+                }
+            }
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::String
+    }
+}
+
 impl FromValue for Range {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
@@ -330,44 +375,6 @@ impl FromValue for Range {
     }
 }
 
-// this impl is special, as it loads from String or Binary
-impl FromValue for Vec<u8> {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v {
-            Value::Binary { val, .. } => Ok(val),
-            Value::String { val, .. } => Ok(val.into_bytes()),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-
-    fn expected_type() -> Type {
-        Type::Binary
-    }
-}
-
-impl FromValue for PathBuf {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v {
-            Value::String { val, .. } => Ok(val.into()),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-
-    fn expected_type() -> Type {
-        Type::String
-    }
-}
-
 impl FromValue for Record {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
@@ -380,23 +387,24 @@ impl FromValue for Record {
             }),
         }
     }
-
-    fn expected_type() -> Type {
-        Type::Custom("Record".to_string().into_boxed_str())
-    }
 }
 
-impl FromValue for Closure {
+// Blanket Nu Implementations
+
+impl<T> FromValue for Spanned<T>
+where
+    T: FromValue,
+{
     fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v {
-            Value::Closure { val, .. } => Ok(*val),
-            v => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
+        let span = v.span();
+        Ok(Spanned {
+            item: T::from_value(v)?,
+            span,
+        })
+    }
+
+    fn expected_type() -> Type {
+        T::expected_type()
     }
 }
 
