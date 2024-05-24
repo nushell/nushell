@@ -99,7 +99,7 @@ impl CommandCompletion {
         span: Span,
         offset: usize,
         find_externals: bool,
-        options: &MatcherOptions,
+        options: MatcherOptions,
     ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);
 
@@ -155,7 +155,7 @@ impl Completer for CommandCompletion {
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
         let matcher_options = MatcherOptions {
-            completion_options: options,
+            completion_options: options.clone(),
             sort_by: self.get_sort_by(),
             match_paths: false,
         };
@@ -184,7 +184,7 @@ impl Completer for CommandCompletion {
                 Span::new(last.0.start, pos),
                 offset,
                 false,
-                &matcher_options,
+                matcher_options.clone(),
             )
         } else {
             vec![]
@@ -210,7 +210,7 @@ impl Completer for CommandCompletion {
                 span,
                 offset,
                 config.enable_external_completion,
-                &matcher_options,
+                matcher_options,
             )
         } else {
             vec![]

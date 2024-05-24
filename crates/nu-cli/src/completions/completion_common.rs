@@ -22,7 +22,7 @@ fn complete_rec(
     partial: &[&str],
     built: &PathBuiltFromString,
     cwd: &Path,
-    options: &MatcherOptions,
+    options: MatcherOptions,
     dir: bool,
     isdir: bool,
 ) -> Vec<PathBuiltFromString> {
@@ -60,7 +60,7 @@ fn complete_rec(
     });
 
     if let Some((base, rest)) = partial.split_first() {
-        let mut matcher = NuMatcher::from_str(base, options);
+        let mut matcher = NuMatcher::from_str(base, options.clone());
 
         for (entry_name, built) in entries {
             matcher.add_str(entry_name, built);
@@ -71,7 +71,7 @@ fn complete_rec(
         if !rest.is_empty() || isdir {
             results
                 .into_iter()
-                .flat_map(|built| complete_rec(rest, &built, cwd, options, dir, isdir))
+                .flat_map(|built| complete_rec(rest, &built, cwd, options.clone(), dir, isdir))
                 .collect()
         } else {
             results
@@ -123,7 +123,7 @@ pub fn complete_item(
     span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
-    options: &MatcherOptions,
+    options: MatcherOptions,
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {

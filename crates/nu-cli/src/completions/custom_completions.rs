@@ -128,10 +128,8 @@ impl Completer for CustomCompletion {
         filter(
             &prefix,
             suggestions,
-            &MatcherOptions {
-                completion_options: custom_completion_options
-                    .as_ref()
-                    .unwrap_or(completion_options),
+            MatcherOptions {
+                completion_options: custom_completion_options.unwrap_or(completion_options.clone()),
                 sort_by: self.get_sort_by(),
                 match_paths: false,
             },
@@ -146,7 +144,7 @@ impl Completer for CustomCompletion {
 fn filter(
     prefix: &[u8],
     items: Vec<SemanticSuggestion>,
-    options: &MatcherOptions,
+    options: MatcherOptions,
 ) -> Vec<SemanticSuggestion> {
     let mut matcher = NuMatcher::from_u8(prefix, options);
 

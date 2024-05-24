@@ -42,8 +42,8 @@ impl Completer for VariableCompletion {
 
         let mut matcher = NuMatcher::from_u8(
             prefix,
-            &MatcherOptions {
-                completion_options: options,
+            MatcherOptions {
+                completion_options: options.clone(),
                 sort_by: self.get_sort_by(),
                 match_paths: false,
             },

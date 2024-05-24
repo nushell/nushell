@@ -44,8 +44,8 @@ impl Completer for FileCompletion {
             span,
             &prefix,
             &working_set.permanent_state.current_work_dir(),
-            &MatcherOptions {
-                completion_options: options,
+            MatcherOptions {
+                completion_options: options.clone(),
                 sort_by: self.get_sort_by(),
                 match_paths: true,
             },
@@ -129,7 +129,7 @@ pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
-    options: &MatcherOptions,
+    options: MatcherOptions,
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {

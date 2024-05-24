@@ -1,7 +1,7 @@
 use crate::completions::{CompletionOptions, SortBy};
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
-    levenshtein_distance, Span,
+    Span,
 };
 use reedline::Suggestion;
 
@@ -24,26 +24,8 @@ pub trait Completer {
         SortBy::Ascending
     }
 
-    fn sort(&self, items: Vec<SemanticSuggestion>, prefix: Vec<u8>) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(&prefix).to_string();
-        let mut filtered_items = items;
-
-        // Sort items
-        match self.get_sort_by() {
-            SortBy::LevenshteinDistance => {
-                filtered_items.sort_by(|a, b| {
-                    let a_distance = levenshtein_distance(&prefix_str, &a.suggestion.value);
-                    let b_distance = levenshtein_distance(&prefix_str, &b.suggestion.value);
-                    a_distance.cmp(&b_distance)
-                });
-            }
-            SortBy::Ascending => {
-                filtered_items.sort_by(|a, b| a.suggestion.value.cmp(&b.suggestion.value));
-            }
-            SortBy::None => {}
-        };
-
-        filtered_items
+    fn sort(&self, items: Vec<SemanticSuggestion>, _prefix: Vec<u8>) -> Vec<SemanticSuggestion> {
+        items
     }
 }
 

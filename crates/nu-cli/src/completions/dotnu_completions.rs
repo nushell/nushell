@@ -94,8 +94,8 @@ impl Completer for DotNuCompletion {
                     span,
                     &partial,
                     &search_dir,
-                    &MatcherOptions {
-                        completion_options: options,
+                    MatcherOptions {
+                        completion_options: options.clone(),
                         sort_by: self.get_sort_by(),
                         match_paths: true,
                     },
