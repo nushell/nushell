@@ -40,7 +40,8 @@ impl Completer for VariableCompletion {
         };
         let sublevels_count = self.var_context.1.len();
 
-        let mut matcher = NuMatcher::from_u8(
+        let prefix = String::from_utf8_lossy(&prefix);
+        let mut matcher = NuMatcher::from_str(
             prefix,
             MatcherOptions {
                 completion_options: options.clone(),
@@ -150,12 +151,13 @@ impl Completer for VariableCompletion {
         // Working set scope vars
         for scope_frame in working_set.delta.scope.iter().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                for v in &overlay_frame.vars {
-                    matcher.add_u8(
-                        v.0,
+                for (name, id) in &overlay_frame.vars {
+                    let name = String::from_utf8_lossy(name);
+                    matcher.add_str(
+                        name.clone(),
                         SemanticSuggestion {
                             suggestion: Suggestion {
-                                value: String::from_utf8_lossy(v.0).to_string(),
+                                value: name.to_string(),
                                 description: None,
                                 style: None,
                                 extra: None,
@@ -163,7 +165,7 @@ impl Completer for VariableCompletion {
                                 append_whitespace: false,
                             },
                             kind: Some(SuggestionKind::Type(
-                                working_set.get_variable(*v.1).ty.clone(),
+                                working_set.get_variable(*id).ty.clone(),
                             )),
                         },
                     );
@@ -178,12 +180,13 @@ impl Completer for VariableCompletion {
             .active_overlays(&removed_overlays)
             .rev()
         {
-            for v in &overlay_frame.vars {
-                matcher.add_u8(
-                    v.0,
+            for (name, id) in &overlay_frame.vars {
+                let name = String::from_utf8_lossy(name);
+                matcher.add_str(
+                    name.clone(),
                     SemanticSuggestion {
                         suggestion: Suggestion {
-                            value: String::from_utf8_lossy(v.0).to_string(),
+                            value: name.to_string(),
                             description: None,
                             style: None,
                             extra: None,
@@ -191,7 +194,7 @@ impl Completer for VariableCompletion {
                             append_whitespace: false,
                         },
                         kind: Some(SuggestionKind::Type(
-                            working_set.get_variable(*v.1).ty.clone(),
+                            working_set.get_variable(*id).ty.clone(),
                         )),
                     },
                 );

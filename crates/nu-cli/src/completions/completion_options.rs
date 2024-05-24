@@ -118,25 +118,6 @@ impl<T> NuMatcher<T> {
         }
     }
 
-    pub fn from_u8(needle: impl AsRef<[u8]>, options: MatcherOptions) -> NuMatcher<T> {
-        let needle = String::from_utf8_lossy(needle.as_ref());
-        match options.completion_options.match_algorithm {
-            MatchAlgorithm::Prefix => {
-                let needle = if options.completion_options.case_sensitive {
-                    needle.to_string()
-                } else {
-                    needle.to_folded_case()
-                };
-                NuMatcher {
-                    options,
-                    needle,
-                    state: State::Prefix { items: Vec::new() },
-                }
-            }
-            MatchAlgorithm::Fuzzy => Self::from_str(needle, options),
-        }
-    }
-
     pub fn add_str(&mut self, haystack: impl AsRef<str>, item: T) -> bool {
         let haystack = haystack.as_ref();
 
@@ -213,44 +194,6 @@ impl<T> NuMatcher<T> {
                     None => false,
                 }
             }
-        }
-    }
-
-    pub fn add_u8(&mut self, haystack: impl AsRef<[u8]>, item: T) -> bool {
-        let haystack = haystack.as_ref();
-        match &mut self.state {
-            State::Prefix { items } => {
-                let haystack = if self.options.completion_options.case_sensitive {
-                    haystack.to_vec()
-                } else {
-                    haystack.to_ascii_lowercase()
-                };
-                if haystack.starts_with(self.needle.as_bytes()) {
-                    let haystack = String::from_utf8_lossy(&haystack).to_string();
-                    match self.options.sort_by {
-                        SortBy::None => items.push((haystack, item)),
-                        _ => {
-                            let ind = match items.binary_search_by(|(other, _)| {
-                                cmp(
-                                    &self.needle,
-                                    &self.options,
-                                    other.as_str(),
-                                    haystack.as_str(),
-                                )
-                            }) {
-                                Ok(i) => i,
-                                Err(i) => i,
-                            };
-                            items.insert(ind, (haystack, item));
-                        }
-                    }
-
-                    true
-                } else {
-                    false
-                }
-            }
-            State::Nucleo { .. } => self.add_str(String::from_utf8_lossy(haystack), item),
         }
     }
 
@@ -361,18 +304,6 @@ mod test {
         assert_ne!(vec![haystack], matcher.get_results());
     }
 
-    fn test_match_u8(options: &MatcherOptions, haystack: &[u8], needle: &[u8]) {
-        let mut matcher = NuMatcher::from_u8(needle, options.clone());
-        matcher.add_u8(haystack, haystack);
-        assert_eq!(vec![haystack], matcher.get_results());
-    }
-
-    fn test_not_match_u8(options: &MatcherOptions, haystack: &[u8], needle: &[u8]) {
-        let mut matcher = NuMatcher::from_u8(needle, options.clone());
-        matcher.add_u8(haystack, haystack);
-        assert_ne!(vec![haystack], matcher.get_results());
-    }
-
     #[test]
     fn match_algorithm_prefix() {
         let options = MatcherOptions {
@@ -388,10 +319,6 @@ mod test {
         test_match_str(&options, "example text", "");
         test_match_str(&options, "example text", "examp");
         test_not_match_str(&options, "example text", "text");
-
-        test_match_u8(&options, &[1, 2, 3], &[]);
-        test_match_u8(&options, &[1, 2, 3], &[1, 2]);
-        test_not_match_u8(&options, &[1, 2, 3], &[2, 3]);
     }
 
     #[test]
@@ -411,12 +338,6 @@ mod test {
         test_match_str(&options, "example text", "ext");
         test_match_str(&options, "example text", "mplxt");
         test_not_match_str(&options, "example text", "mpp");
-
-        test_match_u8(&options, &[1, 2, 3], &[]);
-        test_match_u8(&options, &[1, 2, 3], &[1, 2]);
-        test_match_u8(&options, &[1, 2, 3], &[2, 3]);
-        test_match_u8(&options, &[1, 2, 3], &[1, 3]);
-        test_not_match_u8(&options, &[1, 2, 3], &[2, 2]);
     }
 
     #[test]

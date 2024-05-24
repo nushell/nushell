@@ -102,11 +102,11 @@ impl CommandCompletion {
         options: MatcherOptions,
     ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);
+        let partial = String::from_utf8_lossy(partial);
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 
-        // Items are (command_name, is_external)
-        let mut matcher = NuMatcher::from_u8(partial, options);
+        let mut matcher = NuMatcher::from_str(partial, options);
 
         let all_internal_commands = working_set.find_commands_by_predicate(|_| true, true);
 
@@ -125,7 +125,7 @@ impl CommandCompletion {
                 },
                 kind: Some(SuggestionKind::Command(typ)),
             };
-            if matcher.add_u8(name.as_ref(), sugg) {
+            if matcher.add_str(&name, sugg) {
                 matched_internal.insert(name.to_string());
             }
         }

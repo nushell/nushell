@@ -38,7 +38,8 @@ impl Completer for FlagCompletion {
             let decl = working_set.get_decl(call.decl_id);
             let sig = decl.signature();
 
-            let mut matcher = NuMatcher::from_u8(
+            let prefix = String::from_utf8_lossy(&prefix);
+            let mut matcher = NuMatcher::from_str(
                 prefix,
                 MatcherOptions {
                     completion_options: options.clone(),

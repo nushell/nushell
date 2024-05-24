@@ -146,7 +146,8 @@ fn filter(
     items: Vec<SemanticSuggestion>,
     options: MatcherOptions,
 ) -> Vec<SemanticSuggestion> {
-    let mut matcher = NuMatcher::from_u8(prefix, options);
+    let prefix = String::from_utf8_lossy(prefix);
+    let mut matcher = NuMatcher::from_str(prefix, options);
 
     for it in items {
         matcher.add_str(it.suggestion.value.clone(), it);
