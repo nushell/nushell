@@ -1,4 +1,7 @@
-use crate::completions::{completion_options::NuMatcher, Completer, CompletionOptions};
+use crate::completions::{
+    completion_options::{MatcherOptions, NuMatcher},
+    Completer, CompletionOptions,
+};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::{Stack, StateWorkingSet},
@@ -35,7 +38,14 @@ impl Completer for FlagCompletion {
             let decl = working_set.get_decl(call.decl_id);
             let sig = decl.signature();
 
-            let mut matcher = NuMatcher::from_u8(prefix, options, self.get_sort_by());
+            let mut matcher = NuMatcher::from_u8(
+                prefix,
+                &MatcherOptions {
+                    completion_options: options,
+                    sort_by: self.get_sort_by(),
+                    match_paths: false,
+                },
+            );
 
             for named in &sig.named {
                 let flag_desc = &named.desc;

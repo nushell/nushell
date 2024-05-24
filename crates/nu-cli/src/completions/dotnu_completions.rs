@@ -6,7 +6,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::{is_separator, Path, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
 
-use super::SemanticSuggestion;
+use super::{completion_options::MatcherOptions, SemanticSuggestion};
 
 #[derive(Clone, Default)]
 pub struct DotNuCompletion {}
@@ -94,8 +94,11 @@ impl Completer for DotNuCompletion {
                     span,
                     &partial,
                     &search_dir,
-                    options,
-                    self.get_sort_by(),
+                    &MatcherOptions {
+                        completion_options: options,
+                        sort_by: self.get_sort_by(),
+                        match_paths: true,
+                    },
                     working_set.permanent_state,
                     stack,
                 );

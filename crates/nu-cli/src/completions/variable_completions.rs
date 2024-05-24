@@ -7,7 +7,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::str;
 
-use super::completion_options::NuMatcher;
+use super::completion_options::{MatcherOptions, NuMatcher};
 
 #[derive(Clone)]
 pub struct VariableCompletion {
@@ -40,7 +40,14 @@ impl Completer for VariableCompletion {
         };
         let sublevels_count = self.var_context.1.len();
 
-        let mut matcher = NuMatcher::from_u8(prefix, options, self.get_sort_by());
+        let mut matcher = NuMatcher::from_u8(
+            prefix,
+            &MatcherOptions {
+                completion_options: options,
+                sort_by: self.get_sort_by(),
+                match_paths: false,
+            },
+        );
 
         // Completions for the given variable
         if !var_str.is_empty() {

@@ -11,7 +11,10 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 
-use super::{completion_options::NuMatcher, SemanticSuggestion};
+use super::{
+    completion_options::{MatcherOptions, NuMatcher},
+    SemanticSuggestion,
+};
 
 pub struct CommandCompletion {
     flattened: Vec<(Span, FlatShape)>,
@@ -96,15 +99,14 @@ impl CommandCompletion {
         span: Span,
         offset: usize,
         find_externals: bool,
-        options: &CompletionOptions,
-        sort_by: SortBy,
+        options: &MatcherOptions,
     ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 
         // Items are (command_name, is_external)
-        let mut matcher = NuMatcher::from_u8(partial, options, sort_by);
+        let mut matcher = NuMatcher::from_u8(partial, options);
 
         let all_internal_commands = working_set.find_commands_by_predicate(|_| true, true);
 
@@ -152,6 +154,12 @@ impl Completer for CommandCompletion {
         pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
+        let matcher_options = MatcherOptions {
+            completion_options: options,
+            sort_by: self.get_sort_by(),
+            match_paths: false,
+        };
+
         let last = self
             .flattened
             .iter()
@@ -176,8 +184,7 @@ impl Completer for CommandCompletion {
                 Span::new(last.0.start, pos),
                 offset,
                 false,
-                options,
-                self.get_sort_by(),
+                &matcher_options,
             )
         } else {
             vec![]
@@ -203,8 +210,7 @@ impl Completer for CommandCompletion {
                 span,
                 offset,
                 config.enable_external_completion,
-                options,
-                self.get_sort_by(),
+                &matcher_options,
             )
         } else {
             vec![]

@@ -1,4 +1,3 @@
-use crate::completions::CompletionOptions;
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::home_dir;
@@ -11,7 +10,7 @@ use std::path::{
     is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
 };
 
-use super::{completion_options::NuMatcher, SortBy};
+use super::completion_options::{MatcherOptions, NuMatcher};
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -23,17 +22,16 @@ fn complete_rec(
     partial: &[&str],
     built: &PathBuiltFromString,
     cwd: &Path,
-    options: &CompletionOptions,
+    options: &MatcherOptions,
     dir: bool,
     isdir: bool,
-    sort_by: SortBy,
 ) -> Vec<PathBuiltFromString> {
     if let Some((&base, rest)) = partial.split_first() {
         if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
             let mut built = built.clone();
             built.parts.push(base.to_string());
             built.isdir = true;
-            return complete_rec(rest, &built, cwd, options, dir, isdir, sort_by);
+            return complete_rec(rest, &built, cwd, options, dir, isdir);
         }
     }
 
@@ -62,7 +60,7 @@ fn complete_rec(
     });
 
     if let Some((base, rest)) = partial.split_first() {
-        let mut matcher = NuMatcher::from_str(base, options, sort_by);
+        let mut matcher = NuMatcher::from_str(base, options);
 
         for (entry_name, built) in entries {
             matcher.add_str(entry_name, built);
@@ -73,7 +71,7 @@ fn complete_rec(
         if !rest.is_empty() || isdir {
             results
                 .into_iter()
-                .flat_map(|built| complete_rec(rest, &built, cwd, options, dir, isdir, sort_by))
+                .flat_map(|built| complete_rec(rest, &built, cwd, options, dir, isdir))
                 .collect()
         } else {
             results
@@ -125,8 +123,7 @@ pub fn complete_item(
     span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
-    options: &CompletionOptions,
-    sort_by: SortBy,
+    options: &MatcherOptions,
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
@@ -191,7 +188,6 @@ pub fn complete_item(
         options,
         want_directory,
         isdir,
-        sort_by,
     )
     .into_iter()
     .map(|p| {

@@ -11,7 +11,7 @@ use nu_protocol::{
 };
 use std::collections::HashMap;
 
-use super::completion_options::NuMatcher;
+use super::completion_options::{MatcherOptions, NuMatcher};
 
 pub struct CustomCompletion {
     stack: Stack,
@@ -125,16 +125,17 @@ impl Completer for CustomCompletion {
             })
             .unwrap_or_default();
 
-        if let Some(custom_completion_options) = custom_completion_options {
-            filter(
-                &prefix,
-                suggestions,
-                &custom_completion_options,
-                self.get_sort_by(),
-            )
-        } else {
-            filter(&prefix, suggestions, completion_options, self.get_sort_by())
-        }
+        filter(
+            &prefix,
+            suggestions,
+            &MatcherOptions {
+                completion_options: custom_completion_options
+                    .as_ref()
+                    .unwrap_or(completion_options),
+                sort_by: self.get_sort_by(),
+                match_paths: false,
+            },
+        )
     }
 
     fn get_sort_by(&self) -> SortBy {
@@ -145,10 +146,9 @@ impl Completer for CustomCompletion {
 fn filter(
     prefix: &[u8],
     items: Vec<SemanticSuggestion>,
-    options: &CompletionOptions,
-    sort_by: SortBy,
+    options: &MatcherOptions,
 ) -> Vec<SemanticSuggestion> {
-    let mut matcher = NuMatcher::from_u8(prefix, options, sort_by);
+    let mut matcher = NuMatcher::from_u8(prefix, options);
 
     for it in items {
         matcher.add_str(it.suggestion.value.clone(), it);

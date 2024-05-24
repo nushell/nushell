@@ -10,7 +10,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::{Path, MAIN_SEPARATOR as SEP};
 
-use super::SemanticSuggestion;
+use super::{completion_options::MatcherOptions, SemanticSuggestion};
 
 #[derive(Clone, Default)]
 pub struct FileCompletion {}
@@ -44,8 +44,11 @@ impl Completer for FileCompletion {
             span,
             &prefix,
             &working_set.permanent_state.current_work_dir(),
-            options,
-            self.get_sort_by(),
+            &MatcherOptions {
+                completion_options: options,
+                sort_by: self.get_sort_by(),
+                match_paths: true,
+            },
             working_set.permanent_state,
             stack,
         )
@@ -126,19 +129,9 @@ pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
-    options: &CompletionOptions,
-    sort_by: SortBy,
+    options: &MatcherOptions,
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    complete_item(
-        false,
-        span,
-        partial,
-        cwd,
-        options,
-        sort_by,
-        engine_state,
-        stack,
-    )
+    complete_item(false, span, partial, cwd, options, engine_state, stack)
 }
