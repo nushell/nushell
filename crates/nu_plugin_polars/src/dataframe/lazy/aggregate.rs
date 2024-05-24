@@ -80,7 +80,7 @@ impl PluginCommand for LazyAggregate {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | polars into-df
+    | polars into-lazy
     | polars group-by a
     | polars agg [
         (polars col b | polars min | polars as "b_min")
@@ -147,7 +147,7 @@ impl PluginCommand for LazyAggregate {
         }
 
         let polars = group_by.to_polars();
-        let lazy = NuLazyFrame::new(polars.agg(&expressions));
+        let lazy = NuLazyFrame::new(false, polars.agg(&expressions));
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
     }
