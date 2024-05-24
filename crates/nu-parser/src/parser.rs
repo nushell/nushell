@@ -788,6 +788,7 @@ pub fn parse_internal_call(
     let signature = decl.signature();
     let output = signature.get_output_type();
 
+    // storing the var ID for later due to borrowing issues
     let lib_dirs_var_id = if decl.is_builtin() {
         // attach_parser_info_builtin(working_set, decl.name())
         // attach_parser_info_builtin(working_set, decl.name(), &mut call);
