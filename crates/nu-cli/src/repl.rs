@@ -15,7 +15,10 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{error, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
-use nu_cmd_base::{hook::eval_hook, util::get_editor};
+use nu_cmd_base::{
+    hook::eval_hook,
+    util::{get_editor, get_guaranteed_cwd},
+};
 use nu_color_config::StyleComputer;
 #[allow(deprecated)]
 use nu_engine::{convert_env_values, current_dir_str, env_to_strings};
@@ -115,7 +118,8 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
-        engine_state.merge_env(&mut unique_stack)?;
+        let cwd = get_guaranteed_cwd(engine_state, &unique_stack);
+        engine_state.merge_env(&mut unique_stack, cwd)?;
     }
 
     let hostname = System::host_name();
@@ -277,10 +281,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         hostname,
     } = ctx;
 
+    let cwd = get_guaranteed_cwd(engine_state, &stack);
+
     let mut start_time = std::time::Instant::now();
     // Before doing anything, merge the environment from the previous REPL iteration into the
     // permanent state.
-    if let Err(err) = engine_state.merge_env(&mut stack) {
+    if let Err(err) = engine_state.merge_env(&mut stack, cwd) {
         report_error_new(engine_state, &err);
     }
     perf(
