@@ -176,7 +176,7 @@ impl<T> NuMatcher<T> {
                         let ind =
                             match items.binary_search_by(|(other_score, other_haystack, _, _)| {
                                 match self.options.sort_by {
-                                    SortBy::None => other_score.cmp(&score),
+                                    SortBy::None => score.cmp(other_score),
                                     _ => cmp(
                                         &self.needle,
                                         &self.options,
@@ -358,6 +358,6 @@ mod test {
         matcher.add_str("foo/bar", "foo/bar");
         matcher.add_str("bar/foo", "bar/foo");
         matcher.add_str("foobar", "foobar");
-        assert_eq!(vec!["foo/bar", "bar/foo", "foobar"], matcher.get_results());
+        assert_eq!(vec!["bar/foo", "foo/bar", "foobar"], matcher.get_results());
     }
 }
