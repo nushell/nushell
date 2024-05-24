@@ -94,11 +94,7 @@ impl Completer for DotNuCompletion {
                     span,
                     &partial,
                     &search_dir,
-                    MatcherOptions {
-                        completion_options: options.clone(),
-                        sort_by: self.get_sort_by(),
-                        match_paths: true,
-                    },
+                    MatcherOptions::new(options).sort_by(self.get_sort_by()),
                     working_set.permanent_state,
                     stack,
                 );

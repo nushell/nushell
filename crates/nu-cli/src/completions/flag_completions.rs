@@ -39,13 +39,9 @@ impl Completer for FlagCompletion {
             let sig = decl.signature();
 
             let prefix = String::from_utf8_lossy(&prefix);
-            let mut matcher = NuMatcher::from_str(
+            let mut matcher = NuMatcher::new(
                 prefix,
-                MatcherOptions {
-                    completion_options: options.clone(),
-                    sort_by: self.get_sort_by(),
-                    match_paths: false,
-                },
+                MatcherOptions::new(options).sort_by(self.get_sort_by()),
             );
 
             for named in &sig.named {
@@ -53,7 +49,7 @@ impl Completer for FlagCompletion {
                 if let Some(short) = named.short {
                     let named = format!("-{}", short);
 
-                    matcher.add_str(
+                    matcher.add(
                         named.clone(),
                         SemanticSuggestion {
                             suggestion: Suggestion {
@@ -79,7 +75,7 @@ impl Completer for FlagCompletion {
 
                 let named = format!("--{}", named.long);
 
-                matcher.add_str(
+                matcher.add(
                     named.clone(),
                     SemanticSuggestion {
                         suggestion: Suggestion {

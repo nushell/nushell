@@ -60,10 +60,10 @@ fn complete_rec(
     });
 
     if let Some((base, rest)) = partial.split_first() {
-        let mut matcher = NuMatcher::from_str(base, options.clone());
+        let mut matcher = NuMatcher::new(base, options.clone());
 
         for (entry_name, built) in entries {
-            matcher.add_str(entry_name, built);
+            matcher.add(entry_name, built);
         }
 
         let results = matcher.get_results();

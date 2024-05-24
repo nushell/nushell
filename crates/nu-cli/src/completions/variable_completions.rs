@@ -41,13 +41,9 @@ impl Completer for VariableCompletion {
         let sublevels_count = self.var_context.1.len();
 
         let prefix = String::from_utf8_lossy(&prefix);
-        let mut matcher = NuMatcher::from_str(
+        let mut matcher = NuMatcher::new(
             prefix,
-            MatcherOptions {
-                completion_options: options.clone(),
-                sort_by: self.get_sort_by(),
-                match_paths: false,
-            },
+            MatcherOptions::new(options).sort_by(self.get_sort_by()),
         );
 
         // Completions for the given variable
@@ -69,14 +65,14 @@ impl Completer for VariableCompletion {
 
                     if let Some(val) = env_vars.get(&target_var_str) {
                         for it in nested_suggestions(val, &nested_levels, current_span) {
-                            matcher.add_str(it.suggestion.value.clone(), it);
+                            matcher.add(it.suggestion.value.clone(), it);
                         }
                         return matcher.get_results();
                     }
                 } else {
                     // No nesting provided, return all env vars
                     for (var_name, value) in env_vars {
-                        matcher.add_str(
+                        matcher.add(
                             var_name.clone(),
                             SemanticSuggestion {
                                 suggestion: Suggestion {
@@ -105,7 +101,7 @@ impl Completer for VariableCompletion {
                     nu_protocol::Span::new(current_span.start, current_span.end),
                 ) {
                     for it in nested_suggestions(&nuval, &self.var_context.1, current_span) {
-                        matcher.add_str(it.suggestion.value.clone(), it);
+                        matcher.add(it.suggestion.value.clone(), it);
                     }
                     return matcher.get_results();
                 }
@@ -119,7 +115,7 @@ impl Completer for VariableCompletion {
                 // If the value exists and it's of type Record
                 if let Ok(value) = var {
                     for it in nested_suggestions(&value, &self.var_context.1, current_span) {
-                        matcher.add_str(it.suggestion.value.clone(), it);
+                        matcher.add(it.suggestion.value.clone(), it);
                     }
                     return matcher.get_results();
                 }
@@ -128,7 +124,7 @@ impl Completer for VariableCompletion {
 
         // Variable completion (e.g: $en<tab> to complete $env)
         for builtin in builtins {
-            matcher.add_str(
+            matcher.add(
                 builtin,
                 SemanticSuggestion {
                     suggestion: Suggestion {
@@ -153,7 +149,7 @@ impl Completer for VariableCompletion {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 for (name, id) in &overlay_frame.vars {
                     let name = String::from_utf8_lossy(name);
-                    matcher.add_str(
+                    matcher.add(
                         name.clone(),
                         SemanticSuggestion {
                             suggestion: Suggestion {
@@ -182,7 +178,7 @@ impl Completer for VariableCompletion {
         {
             for (name, id) in &overlay_frame.vars {
                 let name = String::from_utf8_lossy(name);
-                matcher.add_str(
+                matcher.add(
                     name.clone(),
                     SemanticSuggestion {
                         suggestion: Suggestion {

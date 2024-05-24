@@ -128,11 +128,12 @@ impl Completer for CustomCompletion {
         filter(
             &prefix,
             suggestions,
-            MatcherOptions {
-                completion_options: custom_completion_options.unwrap_or(completion_options.clone()),
-                sort_by: self.get_sort_by(),
-                match_paths: false,
-            },
+            MatcherOptions::new(
+                custom_completion_options
+                    .as_ref()
+                    .unwrap_or(completion_options),
+            )
+            .sort_by(self.get_sort_by()),
         )
     }
 
@@ -147,10 +148,10 @@ fn filter(
     options: MatcherOptions,
 ) -> Vec<SemanticSuggestion> {
     let prefix = String::from_utf8_lossy(prefix);
-    let mut matcher = NuMatcher::from_str(prefix, options);
+    let mut matcher = NuMatcher::new(prefix, options);
 
     for it in items {
-        matcher.add_str(it.suggestion.value.clone(), it);
+        matcher.add(it.suggestion.value.clone(), it);
     }
 
     matcher.get_results()

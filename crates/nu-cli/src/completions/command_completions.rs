@@ -69,7 +69,7 @@ impl CommandCompletion {
                                     } else {
                                         name.to_string()
                                     };
-                                    matcher.add_str(
+                                    matcher.add(
                                         name.clone(),
                                         SemanticSuggestion {
                                             suggestion: Suggestion {
@@ -106,7 +106,7 @@ impl CommandCompletion {
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 
-        let mut matcher = NuMatcher::from_str(partial, options);
+        let mut matcher = NuMatcher::new(partial, options);
 
         let all_internal_commands = working_set.find_commands_by_predicate(|_| true, true);
 
@@ -125,7 +125,7 @@ impl CommandCompletion {
                 },
                 kind: Some(SuggestionKind::Command(typ)),
             };
-            if matcher.add_str(&name, sugg) {
+            if matcher.add(&name, sugg) {
                 matched_internal.insert(name.to_string());
             }
         }
@@ -154,11 +154,7 @@ impl Completer for CommandCompletion {
         pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let matcher_options = MatcherOptions {
-            completion_options: options.clone(),
-            sort_by: self.get_sort_by(),
-            match_paths: false,
-        };
+        let matcher_options = MatcherOptions::new(options).sort_by(self.get_sort_by());
 
         let last = self
             .flattened

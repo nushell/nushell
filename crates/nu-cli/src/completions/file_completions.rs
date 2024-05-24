@@ -44,11 +44,9 @@ impl Completer for FileCompletion {
             span,
             &prefix,
             &working_set.permanent_state.current_work_dir(),
-            MatcherOptions {
-                completion_options: options.clone(),
-                sort_by: self.get_sort_by(),
-                match_paths: true,
-            },
+            MatcherOptions::new(options)
+                .sort_by(self.get_sort_by())
+                .match_paths(true),
             working_set.permanent_state,
             stack,
         )
