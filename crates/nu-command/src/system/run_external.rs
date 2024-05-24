@@ -643,7 +643,9 @@ mod test {
         let expected = &["'*.txt'"];
         assert_eq!(actual, expected);
 
-        expand_glob("[*.txt", cwd, Span::unknown()).unwrap_err();
+        let actual = expand_glob("[*.txt", cwd, Span::unknown()).unwrap();
+        let expected = &["[*.txt"];
+        assert_eq!(actual, expected);
     }
 
     #[test]
