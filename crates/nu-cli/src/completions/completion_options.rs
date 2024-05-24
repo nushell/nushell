@@ -137,8 +137,8 @@ impl<T> NuMatcher<T> {
                                 cmp(
                                     &self.needle,
                                     &self.options,
-                                    haystack.as_str(),
                                     other.as_str(),
+                                    haystack.as_str(),
                                 )
                             }) {
                                 Ok(i) => i,
@@ -180,8 +180,8 @@ impl<T> NuMatcher<T> {
                                     _ => cmp(
                                         &self.needle,
                                         &self.options,
-                                        haystack,
                                         other_haystack.as_str(),
+                                        haystack,
                                     ),
                                 }
                             }) {
