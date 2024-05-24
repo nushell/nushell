@@ -23,10 +23,6 @@ pub trait Completer {
     fn get_sort_by(&self) -> SortBy {
         SortBy::Ascending
     }
-
-    fn sort(&self, items: Vec<SemanticSuggestion>, _prefix: Vec<u8>) -> Vec<SemanticSuggestion> {
-        items
-    }
 }
 
 #[derive(Debug, Default, PartialEq)]
