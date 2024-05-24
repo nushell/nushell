@@ -1,4 +1,7 @@
-use std::io::{BufRead, Cursor};
+use std::{
+    io::{BufRead, Cursor},
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use nu_engine::command_prelude::*;
 use nu_protocol::ListStream;
@@ -77,7 +80,7 @@ impl Command for FromJson {
             match input {
                 PipelineData::Value(Value::String { val, .. }, metadata) => {
                     Ok(PipelineData::ListStream(
-                        read_json_lines(Cursor::new(val), span, strict),
+                        read_json_lines(Cursor::new(val), span, strict, engine_state.ctrlc.clone()),
                         metadata,
                     ))
                 }
@@ -86,7 +89,7 @@ impl Command for FromJson {
                 {
                     if let Some(reader) = stream.reader() {
                         Ok(PipelineData::ListStream(
-                            read_json_lines(reader, span, strict),
+                            read_json_lines(reader, span, strict, None),
                             metadata,
                         ))
                     } else {
@@ -120,7 +123,12 @@ impl Command for FromJson {
 }
 
 /// Create a stream of values from a reader that produces line-delimited JSON
-fn read_json_lines(input: impl BufRead + Send + 'static, span: Span, strict: bool) -> ListStream {
+fn read_json_lines(
+    input: impl BufRead + Send + 'static,
+    span: Span,
+    strict: bool,
+    interrupt: Option<Arc<AtomicBool>>,
+) -> ListStream {
     let iter = input
         .lines()
         .filter(|line| line.as_ref().is_ok_and(|line| !line.trim().is_empty()) || line.is_err())
@@ -134,7 +142,7 @@ fn read_json_lines(input: impl BufRead + Send + 'static, span: Span, strict: boo
         })
         .map(move |result| result.unwrap_or_else(|err| Value::error(err, span)));
 
-    ListStream::new(iter, span, None)
+    ListStream::new(iter, span, interrupt)
 }
 
 fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
