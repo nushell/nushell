@@ -1600,7 +1600,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
         sharp_cnt
     } else {
         working_set.error(ParseError::Expected("r#", span));
-        return garbage(span);
+        return garbage(working_set, span);
     };
     let expect_postfix_sharp_cnt = prefix_sharp_cnt;
     // check the length of whole raw string.
@@ -1608,7 +1608,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     // 1(r) + prefix_sharp_cnt + 1(') + 1(') + postfix_sharp characters
     if bytes.len() < prefix_sharp_cnt + expect_postfix_sharp_cnt + 3 {
         working_set.error(ParseError::Unclosed('\''.into(), span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     // check for unbalanced # and single quotes.
@@ -1619,14 +1619,14 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
             "postfix #".to_string(),
             span,
         ));
-        return garbage(span);
+        return garbage(working_set, span);
     }
     // check for unblanaced single quotes.
     if bytes[1 + prefix_sharp_cnt] != b'\''
         || bytes[bytes.len() - expect_postfix_sharp_cnt - 1] != b'\''
     {
         working_set.error(ParseError::Unclosed('\''.into(), span));
-        return garbage(span);
+        return garbage(working_set, span);
     }
 
     let bytes = &bytes[prefix_sharp_cnt + 1 + 1..bytes.len() - 1 - prefix_sharp_cnt];
@@ -1634,7 +1634,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
         Expression::new(working_set, Expr::RawString(token), span, Type::String)
     } else {
         working_set.error(ParseError::Expected("utf8 raw-string", span));
-        garbage(span)
+        garbage(working_set, span)
     }
 }
 
