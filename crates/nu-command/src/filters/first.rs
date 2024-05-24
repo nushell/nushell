@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use std::io::Read;
 
 #[derive(Clone)]
 pub struct First;
@@ -171,10 +172,9 @@ fn first_helper(
             }
         }
         PipelineData::ByteStream(stream, metadata) => {
-            if stream.type_() == ByteStreamType::Binary {
+            if stream.type_().maybe_binary() {
                 let span = stream.span();
                 if let Some(mut reader) = stream.reader() {
-                    use std::io::Read;
                     if return_single_element {
                         // Take a single byte
                         let mut byte = [0u8];

@@ -114,6 +114,14 @@ impl ByteStreamType {
             ByteStreamType::Unknown => "byte stream",
         }
     }
+
+    pub fn maybe_binary(self) -> bool {
+        matches!(self, ByteStreamType::Binary | ByteStreamType::Unknown)
+    }
+
+    pub fn maybe_string(self) -> bool {
+        matches!(self, ByteStreamType::String | ByteStreamType::Unknown)
+    }
 }
 
 impl From<ByteStreamType> for Type {

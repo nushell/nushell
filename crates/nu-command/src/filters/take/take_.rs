@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use std::io::Read;
 
 #[derive(Clone)]
 pub struct Take;
@@ -79,9 +80,8 @@ impl Command for Take {
                 metadata,
             )),
             PipelineData::ByteStream(stream, metadata) => {
-                if stream.type_() == ByteStreamType::Binary {
+                if stream.type_().maybe_binary() {
                     if let Some(reader) = stream.reader() {
-                        use std::io::Read;
                         // Just take 'rows' bytes off the stream, mimicking the binary behavior
                         Ok(PipelineData::ByteStream(
                             ByteStream::read(
