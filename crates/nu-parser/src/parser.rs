@@ -722,9 +722,9 @@ pub fn parse_multispan_value(
 
             Expression::new(
                 working_set,
-                Expr::Keyword(Box::new(keyword)),
+                Expr::Keyword(Box::new(keyword.clone())),
                 arg_span,
-                keyword.expr.ty.clone(),
+                keyword.expr.ty,
             )
         }
         _ => {
