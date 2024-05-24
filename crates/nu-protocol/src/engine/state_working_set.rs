@@ -1025,9 +1025,10 @@ impl<'a> StateWorkingSet<'a> {
         if span_id.0 < num_permanent_spans {
             self.permanent_state.get_span(span_id)
         } else {
-            *self.delta
+            *self
+                .delta
                 .spans
-                .get(&span_id.0 - &num_permanent_spans)
+                .get(span_id.0 - num_permanent_spans)
                 .expect("internal error: missing span")
         }
     }

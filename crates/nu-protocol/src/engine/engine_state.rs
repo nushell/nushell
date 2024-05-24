@@ -1037,7 +1037,10 @@ impl EngineState {
 
     /// Get existing span
     pub fn get_span(&self, span_id: SpanId) -> Span {
-        *self.spans.get(span_id.0).expect("internal error: missing span")
+        *self
+            .spans
+            .get(span_id.0)
+            .expect("internal error: missing span")
     }
 
     /// Find ID of a span (should be avoided if possible)
