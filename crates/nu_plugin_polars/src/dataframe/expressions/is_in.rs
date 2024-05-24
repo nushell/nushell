@@ -180,7 +180,8 @@ fn command_df(
 
     res.rename("is_in");
 
-    let new_df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
+    let mut new_df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
+    new_df.from_lazy = df.from_lazy;
     new_df.to_pipeline_data(plugin, engine, call.head)
 }
 

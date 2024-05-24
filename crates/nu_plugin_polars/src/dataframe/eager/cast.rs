@@ -4,6 +4,7 @@ use crate::{
     PolarsPlugin,
 };
 
+use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
@@ -66,7 +67,7 @@ impl PluginCommand for CastDF {
             Example {
                 description: "Cast a column in a lazy dataframe to a different dtype",
                 example:
-                    "[[a b]; [1 2] [3 4]] |  polars into-df | polars cast u8 a | polars schema",
+                    "[[a b]; [1 2] [3 4]] | polars into-df | polars into-lazy | polars cast u8 a | polars schema",
                 result: Some(Value::record(
                     record! {
                         "a" => Value::string("u8", Span::test_data()),
@@ -98,7 +99,7 @@ impl PluginCommand for CastDF {
             }
             PolarsPluginObject::NuDataFrame(df) => {
                 let (dtype, column_nm) = df_args(call)?;
-                command_lazy(plugin, engine, call, column_nm, dtype, df.lazy())
+                command_eager(plugin, engine, call, column_nm, dtype, df)
             }
             PolarsPluginObject::NuExpression(expr) => {
                 let dtype: String = call.req(0)?;
@@ -143,8 +144,49 @@ fn command_lazy(
 ) -> Result<PipelineData, ShellError> {
     let column = col(&column_nm).cast(dtype);
     let lazy = lazy.to_polars().with_columns(&[column]);
-    let lazy = NuLazyFrame::new(lazy);
+    let lazy = NuLazyFrame::new(false, lazy);
     lazy.to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_eager(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    column_nm: String,
+    dtype: DataType,
+    nu_df: NuDataFrame,
+) -> Result<PipelineData, ShellError> {
+    let mut df = (*nu_df.df).clone();
+    let column = df
+        .column(&column_nm)
+        .map_err(|e| ShellError::GenericError {
+            error: format!("{e}"),
+            msg: "".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        })?;
+
+    let casted = column.cast(&dtype).map_err(|e| ShellError::GenericError {
+        error: format!("{e}"),
+        msg: "".into(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
+    })?;
+
+    let _ = df
+        .with_column(casted)
+        .map_err(|e| ShellError::GenericError {
+            error: format!("{e}"),
+            msg: "".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        })?;
+
+    let df = NuDataFrame::new(false, df);
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

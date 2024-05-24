@@ -1,6 +1,6 @@
 use crate::{
     dataframe::{utils::extract_strings, values::NuLazyFrame},
-    values::CustomValueSupport,
+    values::{cant_convert_err, CustomValueSupport, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 
@@ -11,7 +11,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::UniqueKeepStrategy;
+use polars::prelude::{IntoSeries, UniqueKeepStrategy};
 
 #[derive(Clone)]
 pub struct Unique;
@@ -68,7 +68,7 @@ impl PluginCommand for Unique {
             },
             Example {
                 description: "Returns unique values in a subset of lazyframe columns",
-                example: "[[a b c]; [1 2 1] [2 2 2] [3 2 1]] | polars into-df | polars unique --subset [b c] | polars collect",
+                example: "[[a b c]; [1 2 1] [2 2 2] [3 2 1]] | polars into-lazy | polars unique --subset [b c] | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -94,7 +94,7 @@ impl PluginCommand for Unique {
             Example {
                 description: "Returns unique values in a subset of lazyframe columns",
                 example: r#"[[a b c]; [1 2 1] [2 2 2] [3 2 1]]
-    | polars into-df
+    | polars into-lazy
     | polars unique --subset [b c] --last
     | polars collect"#,
                 result: Some(
@@ -135,9 +135,40 @@ impl PluginCommand for Unique {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head)?;
-        let df = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
-        command_lazy(plugin, engine, call, df).map_err(LabeledError::from)
+
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
+            PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
+            _ => Err(cant_convert_err(
+                &value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyGroupBy,
+                ],
+            )),
+        }
+        .map_err(LabeledError::from)
     }
+}
+
+fn command_eager(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    df: NuDataFrame,
+) -> Result<PipelineData, ShellError> {
+    let series = df.as_series(call.head)?;
+
+    let res = series.unique().map_err(|e| ShellError::GenericError {
+        error: "Error calculating unique values".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: Some("The str-slice command can only be used with string columns".into()),
+        inner: vec![],
+    })?;
+
+    let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
+    df.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_lazy(

@@ -48,7 +48,7 @@ impl PluginCommand for FirstDF {
         vec![
             Example {
                 description: "Return the first row of a dataframe",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first | polars collect",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -63,7 +63,7 @@ impl PluginCommand for FirstDF {
             },
             Example {
                 description: "Return the first two rows of a dataframe",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first 2 | polars collect",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars first 2",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![
@@ -98,12 +98,13 @@ impl PluginCommand for FirstDF {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head)?;
-        if NuLazyFrame::can_downcast(&value) || NuDataFrame::can_downcast(&value) {
-            let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
-            command(plugin, engine, call, lazy).map_err(LabeledError::from)
+        if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
+            let df = NuDataFrame::try_from_value_coerce(plugin, &value, call.head)?;
+            command(plugin, engine, call, df).map_err(|e| e.into())
         } else {
             let expr = NuExpression::try_from_value(plugin, &value)?;
             let expr: NuExpression = expr.into_polars().first().into();
+
             expr.to_pipeline_data(plugin, engine, call.head)
                 .map_err(LabeledError::from)
         }
@@ -114,13 +115,13 @@ fn command(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    df: NuLazyFrame,
+    df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.opt(0)?;
     let rows = rows.unwrap_or(1);
 
-    let res = df.to_polars().slice(0, rows as u32);
-    let res: NuLazyFrame = res.into();
+    let res = df.as_ref().head(Some(rows));
+    let res = NuDataFrame::new(false, res);
 
     res.to_pipeline_data(plugin, engine, call.head)
 }
