@@ -77,7 +77,7 @@ impl Command for FromJson {
             match input {
                 PipelineData::Value(Value::String { val, .. }, metadata) => {
                     Ok(PipelineData::ListStream(
-                        read_json_lines(Cursor::new(val.into_bytes()), span, strict),
+                        read_json_lines(Cursor::new(val), span, strict),
                         metadata,
                     ))
                 }
