@@ -2,21 +2,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Range, ShellError, Span, Value,
 };
-use std::{ops::Bound, path::PathBuf};
-
-pub fn get_init_cwd() -> PathBuf {
-    std::env::current_dir().unwrap_or_else(|_| {
-        std::env::var("PWD")
-            .map(Into::into)
-            .unwrap_or_else(|_| nu_path::home_dir().unwrap_or_default())
-    })
-}
-
-pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
-    engine_state
-        .cwd(Some(stack))
-        .unwrap_or(crate::util::get_init_cwd())
-}
+use std::ops::Bound;
 
 type MakeRangeError = fn(&str, Span) -> ShellError;
 

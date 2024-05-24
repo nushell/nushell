@@ -1,4 +1,3 @@
-use nu_cmd_base::util::get_init_cwd;
 use nu_engine::command_prelude::*;
 use nu_utils::filesystem::{have_permission, PermissionResult};
 
@@ -41,9 +40,11 @@ impl Command for Cd {
         let physical = call.has_flag(engine_state, stack, "physical")?;
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
 
-        // If getting PWD failed, default to the initial directory. This way, the
-        // user can use `cd` to recover PWD to a good state.
-        let cwd = engine_state.cwd(Some(stack)).unwrap_or(get_init_cwd());
+        // If getting PWD failed, default to the home directory. The user can
+        // use `cd` to reset PWD to a good state.
+        let cwd = engine_state
+            .cwd(Some(stack))
+            .unwrap_or(nu_path::home_dir().unwrap_or_default());
 
         let path_val = {
             if let Some(path) = path_val {

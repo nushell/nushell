@@ -58,9 +58,8 @@ impl Command for Start {
             open_path(url.as_str(), engine_state, stack, path.span)?;
         } else {
             // try to distinguish between file not found and opening url without prefix
-            if let Ok(canon_path) =
-                canonicalize_with(path_no_whitespace, std::env::current_dir()?.as_path())
-            {
+            let cwd = engine_state.cwd(Some(stack))?;
+            if let Ok(canon_path) = canonicalize_with(path_no_whitespace, cwd) {
                 open_path(canon_path, engine_state, stack, path.span)?;
             } else {
                 // open crate does not allow opening URL without prefix
