@@ -290,25 +290,28 @@ impl Default for CompletionOptions {
 
 #[cfg(test)]
 mod test {
+    use rstest::rstest;
+
     use super::{CompletionOptions, MatchAlgorithm, MatcherOptions, NuMatcher, SortBy};
 
-    fn test_match_str(options: &MatcherOptions, haystack: &str, needle: &str) {
-        let mut matcher = NuMatcher::from_str(needle, options.clone());
-        matcher.add_str(haystack, haystack);
-        assert_eq!(vec![haystack], matcher.get_results());
-    }
-
-    fn test_not_match_str(options: &MatcherOptions, haystack: &str, needle: &str) {
-        let mut matcher = NuMatcher::from_str(needle, options.clone());
-        matcher.add_str(haystack, haystack);
-        assert_ne!(vec![haystack], matcher.get_results());
-    }
-
-    #[test]
-    fn match_algorithm_prefix() {
+    #[rstest]
+    #[case(MatchAlgorithm::Prefix, "example text", "", true)]
+    #[case(MatchAlgorithm::Prefix, "example text", "examp", true)]
+    #[case(MatchAlgorithm::Prefix, "example text", "text", false)]
+    #[case(MatchAlgorithm::Fuzzy, "example text", "", true)]
+    #[case(MatchAlgorithm::Fuzzy, "example text", "examp", true)]
+    #[case(MatchAlgorithm::Fuzzy, "example text", "ext", true)]
+    #[case(MatchAlgorithm::Fuzzy, "example text", "mplxt", true)]
+    #[case(MatchAlgorithm::Fuzzy, "example text", "mpp", false)]
+    fn match_algorithm_simple(
+        #[case] match_algorithm: MatchAlgorithm,
+        #[case] haystack: &str,
+        #[case] needle: &str,
+        #[case] should_match: bool,
+    ) {
         let options = MatcherOptions {
             completion_options: CompletionOptions {
-                match_algorithm: MatchAlgorithm::Prefix,
+                match_algorithm,
                 case_sensitive: true,
                 positional: false,
             },
@@ -316,28 +319,13 @@ mod test {
             match_paths: false,
         };
 
-        test_match_str(&options, "example text", "");
-        test_match_str(&options, "example text", "examp");
-        test_not_match_str(&options, "example text", "text");
-    }
-
-    #[test]
-    fn match_algorithm_fuzzy() {
-        let options = MatcherOptions {
-            completion_options: CompletionOptions {
-                match_algorithm: MatchAlgorithm::Fuzzy,
-                case_sensitive: true,
-                positional: false,
-            },
-            sort_by: SortBy::None,
-            match_paths: false,
-        };
-
-        test_match_str(&options, "example text", "");
-        test_match_str(&options, "example text", "examp");
-        test_match_str(&options, "example text", "ext");
-        test_match_str(&options, "example text", "mplxt");
-        test_not_match_str(&options, "example text", "mpp");
+        let mut matcher = NuMatcher::from_str(needle, options);
+        matcher.add_str(haystack, haystack);
+        if should_match {
+            assert_eq!(vec![haystack], matcher.get_results());
+        } else {
+            assert_ne!(vec![haystack], matcher.get_results());
+        }
     }
 
     #[test]
