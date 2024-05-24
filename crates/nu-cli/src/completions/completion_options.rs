@@ -227,7 +227,7 @@ fn cmp(needle: &str, options: &MatcherOptions, a: &str, b: &str) -> Ordering {
                 a.cmp(b)
             }
         }
-        SortBy::None => Ordering::Equal,
+        SortBy::None => Ordering::Less,
     }
 }
 

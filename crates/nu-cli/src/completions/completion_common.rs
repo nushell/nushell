@@ -77,7 +77,12 @@ fn complete_rec(
             results
         }
     } else {
-        entries.map(|(_, built)| built).collect()
+        // We could directly return the entries, but then they wouldn't be sorted
+        let mut matcher = NuMatcher::new("", options.clone());
+        for (entry_name, built) in entries {
+            matcher.add(entry_name, built);
+        }
+        matcher.get_results()
     }
 }
 
