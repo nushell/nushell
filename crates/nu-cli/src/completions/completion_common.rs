@@ -11,7 +11,7 @@ use std::path::{
     is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
 };
 
-use super::completion_options::NuMatcher;
+use super::{completion_options::NuMatcher, SortBy};
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -26,13 +26,14 @@ fn complete_rec(
     options: &CompletionOptions,
     dir: bool,
     isdir: bool,
+    sort_by: SortBy,
 ) -> Vec<PathBuiltFromString> {
     if let Some((&base, rest)) = partial.split_first() {
         if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
             let mut built = built.clone();
             built.parts.push(base.to_string());
             built.isdir = true;
-            return complete_rec(rest, &built, cwd, options, dir, isdir);
+            return complete_rec(rest, &built, cwd, options, dir, isdir, sort_by);
         }
     }
 
@@ -61,7 +62,7 @@ fn complete_rec(
     });
 
     if let Some((base, rest)) = partial.split_first() {
-        let mut matcher = NuMatcher::from_str(options, base, false);
+        let mut matcher = NuMatcher::from_str(base, options, sort_by);
 
         for (entry_name, built) in entries {
             matcher.add_str(entry_name, built);
@@ -72,7 +73,7 @@ fn complete_rec(
         if !rest.is_empty() || isdir {
             results
                 .into_iter()
-                .flat_map(|built| complete_rec(rest, &built, cwd, options, dir, isdir))
+                .flat_map(|built| complete_rec(rest, &built, cwd, options, dir, isdir, sort_by))
                 .collect()
         } else {
             results
@@ -125,6 +126,7 @@ pub fn complete_item(
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
+    sort_by: SortBy,
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
@@ -189,6 +191,7 @@ pub fn complete_item(
         options,
         want_directory,
         isdir,
+        sort_by,
     )
     .into_iter()
     .map(|p| {

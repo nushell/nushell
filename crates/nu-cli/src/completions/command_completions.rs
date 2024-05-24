@@ -97,13 +97,14 @@ impl CommandCompletion {
         offset: usize,
         find_externals: bool,
         options: &CompletionOptions,
+        sort_by: SortBy,
     ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);
 
         let sugg_span = reedline::Span::new(span.start - offset, span.end - offset);
 
         // Items are (command_name, is_external)
-        let mut matcher = NuMatcher::from_u8(options, partial, false);
+        let mut matcher = NuMatcher::from_u8(partial, options, sort_by);
 
         let all_internal_commands = working_set.find_commands_by_predicate(|_| true, true);
 
@@ -176,6 +177,7 @@ impl Completer for CommandCompletion {
                 offset,
                 false,
                 options,
+                self.get_sort_by(),
             )
         } else {
             vec![]
@@ -202,6 +204,7 @@ impl Completer for CommandCompletion {
                 offset,
                 config.enable_external_completion,
                 options,
+                self.get_sort_by(),
             )
         } else {
             vec![]

@@ -46,6 +46,7 @@ impl MatchAlgorithm {
 
 pub struct NuMatcher<T> {
     state: State<T>,
+    sort_by: SortBy,
 }
 
 enum State<T> {
@@ -63,32 +64,26 @@ enum State<T> {
 
 impl<T> NuMatcher<T> {
     pub fn from_str(
-        options: &CompletionOptions,
         needle: impl AsRef<str>,
-        match_paths: bool,
+        options: &CompletionOptions,
+        sort_by: SortBy,
     ) -> NuMatcher<T> {
         let needle = trim_quotes_str(needle.as_ref());
-        match options.match_algorithm {
+        let state = match options.match_algorithm {
             MatchAlgorithm::Prefix => {
                 let needle = if options.case_sensitive {
                     Cow::Borrowed(needle)
                 } else {
                     Cow::Owned(needle.to_folded_case())
                 };
-                NuMatcher {
-                    state: State::Prefix {
-                        needle: needle.as_bytes().to_vec(),
-                        case_sensitive: options.case_sensitive,
-                        items: Vec::new(),
-                    },
+                State::Prefix {
+                    needle: needle.as_bytes().to_vec(),
+                    case_sensitive: options.case_sensitive,
+                    items: Vec::new(),
                 }
             }
             MatchAlgorithm::Fuzzy => {
-                let matcher = Matcher::new(if match_paths {
-                    Config::DEFAULT.match_paths()
-                } else {
-                    Config::DEFAULT
-                });
+                let matcher = Matcher::new(Config::DEFAULT);
                 let pat = Pattern::new(
                     needle,
                     if options.case_sensitive {
@@ -99,21 +94,20 @@ impl<T> NuMatcher<T> {
                     Normalization::Smart,
                     AtomKind::Fuzzy,
                 );
-                NuMatcher {
-                    state: State::Nucleo {
-                        matcher,
-                        pat,
-                        items: Vec::new(),
-                    },
+                State::Nucleo {
+                    matcher,
+                    pat,
+                    items: Vec::new(),
                 }
             }
-        }
+        };
+        NuMatcher { state, sort_by }
     }
 
     pub fn from_u8(
-        options: &CompletionOptions,
         needle: impl AsRef<[u8]>,
-        match_paths: bool,
+        options: &CompletionOptions,
+        sort_by: SortBy,
     ) -> NuMatcher<T> {
         let needle = needle.as_ref();
         match options.match_algorithm {
@@ -129,10 +123,11 @@ impl<T> NuMatcher<T> {
                         case_sensitive: options.case_sensitive,
                         items: Vec::new(),
                     },
+                    sort_by,
                 }
             }
             MatchAlgorithm::Fuzzy => {
-                Self::from_str(options, String::from_utf8_lossy(needle), match_paths)
+                Self::from_str(String::from_utf8_lossy(needle), options, sort_by)
             }
         }
     }
@@ -205,11 +200,6 @@ impl<T> NuMatcher<T> {
             }
             State::Nucleo { .. } => self.add_str(String::from_utf8_lossy(haystack), item),
         }
-    }
-
-    #[allow(dead_code)]
-    pub fn sort_by(&mut self, _sort_by: SortBy) {
-        todo!()
     }
 
     pub fn get_results(self) -> Vec<T> {
@@ -292,28 +282,28 @@ impl Default for CompletionOptions {
 
 #[cfg(test)]
 mod test {
-    use super::{CompletionOptions, MatchAlgorithm, NuMatcher};
+    use super::{CompletionOptions, MatchAlgorithm, NuMatcher, SortBy};
 
     fn test_match_str(options: &CompletionOptions, haystack: &str, needle: &str) {
-        let mut matcher = NuMatcher::from_str(options, needle, false);
+        let mut matcher = NuMatcher::from_str(needle, options, SortBy::None);
         matcher.add_str(haystack, haystack);
         assert_eq!(vec![haystack], matcher.get_results());
     }
 
     fn test_not_match_str(options: &CompletionOptions, haystack: &str, needle: &str) {
-        let mut matcher = NuMatcher::from_str(options, needle, false);
+        let mut matcher = NuMatcher::from_str(needle, options, SortBy::None);
         matcher.add_str(haystack, haystack);
         assert_ne!(vec![haystack], matcher.get_results());
     }
 
     fn test_match_u8(options: &CompletionOptions, haystack: &[u8], needle: &[u8]) {
-        let mut matcher = NuMatcher::from_u8(options, needle, false);
+        let mut matcher = NuMatcher::from_u8(needle, options, SortBy::None);
         matcher.add_u8(haystack, haystack);
         assert_eq!(vec![haystack], matcher.get_results());
     }
 
     fn test_not_match_u8(options: &CompletionOptions, haystack: &[u8], needle: &[u8]) {
-        let mut matcher = NuMatcher::from_u8(options, needle, false);
+        let mut matcher = NuMatcher::from_u8(needle, options, SortBy::None);
         matcher.add_u8(haystack, haystack);
         assert_ne!(vec![haystack], matcher.get_results());
     }
@@ -357,7 +347,7 @@ mod test {
     }
 
     #[test]
-    fn match_algorithm_fuzzy_order() {
+    fn match_algorithm_fuzzy_sort_score() {
         let options = CompletionOptions {
             match_algorithm: MatchAlgorithm::Fuzzy,
             case_sensitive: true,
@@ -366,7 +356,7 @@ mod test {
 
         // Taken from the nucleo-matcher crate's examples
         // todo more thorough tests
-        let mut matcher = NuMatcher::from_str(&options, "foo bar", true);
+        let mut matcher = NuMatcher::from_str("foo bar", &options, SortBy::None);
         matcher.add_str("foo/bar", "foo/bar");
         matcher.add_str("bar/foo", "bar/foo");
         matcher.add_str("foobar", "foobar");

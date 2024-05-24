@@ -45,6 +45,7 @@ impl Completer for FileCompletion {
             &prefix,
             &working_set.permanent_state.current_work_dir(),
             options,
+            self.get_sort_by(),
             working_set.permanent_state,
             stack,
         )
@@ -126,8 +127,18 @@ pub fn file_path_completion(
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
+    sort_by: SortBy,
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    complete_item(false, span, partial, cwd, options, engine_state, stack)
+    complete_item(
+        false,
+        span,
+        partial,
+        cwd,
+        options,
+        sort_by,
+        engine_state,
+        stack,
+    )
 }

@@ -95,6 +95,7 @@ impl Completer for DotNuCompletion {
                     &partial,
                     &search_dir,
                     options,
+                    self.get_sort_by(),
                     working_set.permanent_state,
                     stack,
                 );
