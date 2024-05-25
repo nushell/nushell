@@ -198,6 +198,10 @@ macro_rules! impl_from_value_for_int {
                     },
                 })
             }
+
+            fn expected_type() -> Type {
+                i64::expected_type()
+            }
         }
     };
 }
