@@ -46,7 +46,7 @@ macro_rules! lazy_command {
             ) -> Result<PipelineData, LabeledError> {
                 let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)
                     .map_err(LabeledError::from)?;
-                let lazy = NuLazyFrame::new(lazy.to_polars().$func());
+                let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().$func());
                 lazy.to_pipeline_data(plugin, engine, call.head)
                     .map_err(LabeledError::from)
             }

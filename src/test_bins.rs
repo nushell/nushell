@@ -251,9 +251,13 @@ pub fn nu_repl() {
     for (i, line) in source_lines.iter().enumerate() {
         let mut stack = Stack::with_parent(top_stack.clone());
 
+        let cwd = engine_state
+            .cwd(Some(&stack))
+            .unwrap_or_else(|err| outcome_err(&engine_state, &err));
+
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
-        if let Err(err) = engine_state.merge_env(&mut stack) {
+        if let Err(err) = engine_state.merge_env(&mut stack, &cwd) {
             outcome_err(&engine_state, &err);
         }
 

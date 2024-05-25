@@ -295,19 +295,15 @@ fn expand_tilde(arg: &str) -> String {
     nu_path::expand_tilde(arg).to_string_lossy().to_string()
 }
 
-/// Performs glob expansion on `arg`. If the expansion found no matches, returns
-/// the original string as the expansion result.
+/// Performs glob expansion on `arg`. If the expansion found no matches or the pattern
+/// is not a valid glob, then this returns the original string as the expansion result.
 ///
 /// Note: This matches the default behavior of Bash, but is known to be
 /// error-prone. We might want to change this behavior in the future.
 fn expand_glob(arg: &str, cwd: &Path, span: Span) -> Result<Vec<String>, ShellError> {
-    let paths =
-        nu_glob::glob_with_parent(arg, nu_glob::MatchOptions::default(), cwd).map_err(|err| {
-            ShellError::InvalidGlobPattern {
-                msg: err.msg.to_string(),
-                span,
-            }
-        })?;
+    let Ok(paths) = nu_glob::glob_with_parent(arg, nu_glob::MatchOptions::default(), cwd) else {
+        return Ok(vec![arg.into()]);
+    };
 
     let mut result = vec![];
     for path in paths {
@@ -660,7 +656,9 @@ mod test {
         let expected = &["."];
         assert_eq!(actual, expected);
 
-        expand_glob("[*.txt", cwd, Span::unknown()).unwrap_err();
+        let actual = expand_glob("[*.txt", cwd, Span::unknown()).unwrap();
+        let expected = &["[*.txt"];
+        assert_eq!(actual, expected);
     }
 
     #[test]

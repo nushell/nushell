@@ -34,7 +34,6 @@ polars-arrow = { version = "0.39"}
 polars-ops = { version = "0.39"}
 polars-plan = { version = "0.39", features = ["regex"]}
 polars-utils = { version = "0.39"}
-polars-lazy = { version = "0.39"}
 typetag = "0.2"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 
