@@ -491,7 +491,7 @@ impl ByteStream {
     /// data would have been valid UTF-8.
     pub fn into_string(self) -> Result<String, ShellError> {
         let span = self.span;
-        if self.type_ != ByteStreamType::Binary {
+        if self.type_.maybe_string() {
             let trim = self.stream.is_external();
             let bytes = self.into_bytes()?;
             let mut string = String::from_utf8(bytes).map_err(|err| ShellError::NonUtf8Custom {

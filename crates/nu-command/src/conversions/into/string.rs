@@ -160,7 +160,7 @@ fn string_helper(
         // Just set the type - that should be good enough. There is no guarantee that the data
         // within a string stream is actually valid UTF-8. But refuse to do it if it was already set
         // to binary
-        if stream.type_() != ByteStreamType::Binary {
+        if stream.type_().maybe_string() {
             Ok(PipelineData::ByteStream(
                 stream.with_type(ByteStreamType::String),
                 metadata,
