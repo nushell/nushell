@@ -26,6 +26,7 @@ chrono = { workspace = true, features = ["std", "unstable-locales"], default-fea
 chrono-tz = "0.9"
 fancy-regex = { workspace = true }
 indexmap = { version = "2.2" }
+mimalloc = { version = "0.1.42" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.45"}
