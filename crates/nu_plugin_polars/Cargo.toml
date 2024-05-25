@@ -29,7 +29,7 @@ indexmap = { version = "2.2" }
 mimalloc = { version = "0.1.42" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
-sqlparser = { version = "0.45"}
+sqlparser = { version = "0.46"}
 polars-io = { version = "0.39", features = ["avro"]}
 polars-arrow = { version = "0.39"}
 polars-ops = { version = "0.39"}

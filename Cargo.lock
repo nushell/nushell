@@ -3404,7 +3404,7 @@ dependencies = [
  "polars-plan",
  "polars-utils",
  "serde",
- "sqlparser 0.45.0",
+ "sqlparser 0.46.0",
  "tempfile",
  "typetag",
  "uuid",
@@ -5561,9 +5561,9 @@ dependencies = [
 
 [[package]]
 name = "sqlparser"
-version = "0.45.0"
+version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7bbffee862a796d67959a89859d6b1046bb5016d63e23835ad0da182777bbe0"
+checksum = "11a81a8cad9befe4cf1b9d2d4b9c6841c76f0882a3fec00d95133953c13b3d3d"
 dependencies = [
  "log",
 ]
