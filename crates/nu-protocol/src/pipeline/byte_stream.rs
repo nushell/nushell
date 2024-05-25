@@ -115,10 +115,12 @@ impl ByteStreamType {
         }
     }
 
+    /// Returns true if the type is `Binary` or `Unknown`
     pub fn maybe_binary(self) -> bool {
         matches!(self, ByteStreamType::Binary | ByteStreamType::Unknown)
     }
 
+    /// Returns true if the type is `String` or `Unknown`
     pub fn maybe_string(self) -> bool {
         matches!(self, ByteStreamType::String | ByteStreamType::Unknown)
     }
