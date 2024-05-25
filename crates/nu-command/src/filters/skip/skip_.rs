@@ -95,7 +95,7 @@ impl Command for Skip {
         let input_span = input.span().unwrap_or(call.head);
         match input {
             PipelineData::ByteStream(stream, metadata) => {
-                if stream.type_().maybe_binary() {
+                if stream.type_().is_binary_coercible() {
                     let span = stream.span();
                     if let Some(mut reader) = stream.reader() {
                         // Copy the number of skipped bytes into the sink before proceeding

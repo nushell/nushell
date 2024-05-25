@@ -80,7 +80,7 @@ impl Command for Take {
                 metadata,
             )),
             PipelineData::ByteStream(stream, metadata) => {
-                if stream.type_().maybe_binary() {
+                if stream.type_().is_binary_coercible() {
                     if let Some(reader) = stream.reader() {
                         // Just take 'rows' bytes off the stream, mimicking the binary behavior
                         Ok(PipelineData::ByteStream(

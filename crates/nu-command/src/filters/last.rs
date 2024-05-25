@@ -160,7 +160,7 @@ impl Command for Last {
                 }
             }
             PipelineData::ByteStream(stream, ..) => {
-                if stream.type_().maybe_binary() {
+                if stream.type_().is_binary_coercible() {
                     let span = stream.span();
                     if let Some(mut reader) = stream.reader() {
                         // Have to be a bit tricky here, but just consume into a VecDeque that we
