@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use std::io::{self, Read};
 
 #[derive(Clone)]
 pub struct Skip;
@@ -94,12 +95,11 @@ impl Command for Skip {
         let input_span = input.span().unwrap_or(call.head);
         match input {
             PipelineData::ByteStream(stream, metadata) => {
-                if stream.type_() == ByteStreamType::Binary {
+                if stream.type_().is_binary_coercible() {
                     let span = stream.span();
                     if let Some(mut reader) = stream.reader() {
-                        use std::io::Read;
                         // Copy the number of skipped bytes into the sink before proceeding
-                        std::io::copy(&mut (&mut reader).take(n as u64), &mut std::io::sink())
+                        io::copy(&mut (&mut reader).take(n as u64), &mut io::sink())
                             .err_span(span)?;
                         Ok(PipelineData::ByteStream(
                             ByteStream::read(reader, call.head, None, ByteStreamType::Binary),

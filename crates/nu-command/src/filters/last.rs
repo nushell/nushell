@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
-
-use std::collections::VecDeque;
+use std::{collections::VecDeque, io::Read};
 
 #[derive(Clone)]
 pub struct Last;
@@ -161,10 +160,9 @@ impl Command for Last {
                 }
             }
             PipelineData::ByteStream(stream, ..) => {
-                if stream.type_() == ByteStreamType::Binary {
+                if stream.type_().is_binary_coercible() {
                     let span = stream.span();
                     if let Some(mut reader) = stream.reader() {
-                        use std::io::Read;
                         // Have to be a bit tricky here, but just consume into a VecDeque that we
                         // shrink to fit each time
                         const TAKE: u64 = 8192;
