@@ -137,6 +137,11 @@ fn variables_customcompletion_subcommands_with_customcompletion_2(
 
 #[test]
 fn dotnu_completions() {
+    #[cfg(windows)]
+    let expected = vec!["custom_completion.nu", "directory_completion\\"];
+    #[cfg(not(windows))]
+    let expected = vec!["custom_completion.nu", "directory_completion/"];
+
     // Create a new engine
     let (_, _, engine, stack) = new_engine();
 
@@ -147,34 +152,37 @@ fn dotnu_completions() {
     let completion_str = "source-env ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(2, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
-    #[cfg(windows)]
-    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
-    #[cfg(not(windows))]
-    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+    assert_eq!(
+        expected,
+        suggestions
+            .into_iter()
+            .map(|it| it.value)
+            .collect::<Vec<_>>()
+    );
 
     // Test use completion
     let completion_str = "use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(2, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
-    #[cfg(windows)]
-    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
-    #[cfg(not(windows))]
-    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+    assert_eq!(
+        expected,
+        suggestions
+            .into_iter()
+            .map(|it| it.value)
+            .collect::<Vec<_>>()
+    );
 
     // Test overlay use completion
     let completion_str = "overlay use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(2, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
-    #[cfg(windows)]
-    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
-    #[cfg(not(windows))]
-    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+    assert_eq!(
+        expected,
+        suggestions
+            .into_iter()
+            .map(|it| it.value)
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]

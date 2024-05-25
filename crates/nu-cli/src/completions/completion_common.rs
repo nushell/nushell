@@ -44,7 +44,6 @@ fn complete_rec(
         return Vec::new();
     };
 
-    // todo return early if dir is true?
     let entries = result.filter_map(|e| e.ok()).filter_map(|entry| {
         let entry_name = entry.file_name().to_string_lossy().into_owned();
         let entry_isdir = entry.path().is_dir();

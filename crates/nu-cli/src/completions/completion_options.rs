@@ -170,7 +170,12 @@ impl<T> NuMatcher<T> {
                         let ind =
                             match items.binary_search_by(|(other_score, other_haystack, _, _)| {
                                 match self.options.sort_by {
-                                    SortBy::None => score.cmp(other_score),
+                                    SortBy::None => {
+                                        // Use alphabetical order if same score
+                                        score
+                                            .cmp(other_score)
+                                            .then(other_haystack.as_str().cmp(haystack))
+                                    }
                                     _ => cmp(
                                         &self.needle,
                                         &self.options,
