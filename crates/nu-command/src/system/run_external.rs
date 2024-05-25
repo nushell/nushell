@@ -316,12 +316,12 @@ fn expand_glob(arg: &str, cwd: &Path, span: Span) -> Result<Vec<String>, ShellEr
             span,
         })?;
         // Strip PWD from the resulting paths if possible.
-        let path_stripped = if let Ok(reminder) = path.strip_prefix(cwd) {
+        let path_stripped = if let Ok(remainder) = path.strip_prefix(cwd) {
             // If stripping PWD results in an empty path, return `.` instead.
-            if reminder.components().next().is_none() {
+            if remainder.components().next().is_none() {
                 Path::new(".")
             } else {
-                reminder
+                remainder
             }
         } else {
             &path
