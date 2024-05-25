@@ -79,7 +79,7 @@ macro_rules! tuple_into_value {
     }
 }
 
-// the singular tuple needs to implemented manually because the macro somehow breaks otherwise
+// The singular tuple needs to implemented manually because the macro somehow breaks otherwise.
 impl<T0> IntoValue for (T0,)
 where
     T0: IntoValue,
@@ -90,7 +90,7 @@ where
     }
 }
 
-// tuples in std are implemented for up to 12 elements, so we do it here too
+// Tuples in std are implemented for up to 12 elements, so we do it here too.
 tuple_into_value!(T0:0, T1:1);
 tuple_into_value!(T0:0, T1:1, T2:2);
 tuple_into_value!(T0:0, T1:1, T2:2, T3:3);
