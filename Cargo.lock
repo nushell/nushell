@@ -3387,6 +3387,7 @@ dependencies = [
  "chrono-tz 0.9.0",
  "fancy-regex",
  "indexmap",
+ "mimalloc",
  "nu-cmd-lang",
  "nu-command",
  "nu-engine",
