@@ -727,6 +727,45 @@ fn test_redirection_with_letmut(#[case] phase: &[u8]) {
     ));
 }
 
+#[rstest]
+#[case(b"o>")]
+#[case(b"o>>")]
+#[case(b"e>")]
+#[case(b"e>>")]
+#[case(b"o+e>")]
+#[case(b"o+e>>")]
+#[case(b"e>|")]
+#[case(b"o+e>|")]
+#[case(b"|o>")]
+#[case(b"|o>>")]
+#[case(b"|e>")]
+#[case(b"|e>>")]
+#[case(b"|o+e>")]
+#[case(b"|o+e>>")]
+#[case(b"|e>|")]
+#[case(b"|o+e>|")]
+#[case(b"e> file")]
+#[case(b"e>> file")]
+#[case(b"o> file")]
+#[case(b"o>> file")]
+#[case(b"o+e> file")]
+#[case(b"o+e>> file")]
+#[case(b"|e> file")]
+#[case(b"|e>> file")]
+#[case(b"|o> file")]
+#[case(b"|o>> file")]
+#[case(b"|o+e> file")]
+#[case(b"|o+e>> file")]
+fn test_redirecting_nothing(#[case] text: &[u8]) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let _ = parse(&mut working_set, None, text, true);
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::UnexpectedRedirection { .. })
+    ));
+}
+
 #[test]
 fn test_nothing_comparison_neq() {
     let engine_state = EngineState::new();
