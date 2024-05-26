@@ -104,7 +104,7 @@ impl Completer for DotNuCompletion {
                 } else {
                     // Lib dirs, so we filter only the .nu files or directory modules
                     if path.ends_with(SEP) {
-                        Path::new(&search_dir).join(&path).join("mod.nu").exists()
+                        Path::new(&search_dir).join(path).join("mod.nu").exists()
                     } else {
                         path.ends_with(".nu")
                     }
