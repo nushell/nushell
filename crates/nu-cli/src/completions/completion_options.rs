@@ -218,20 +218,19 @@ impl<T> NuMatcher<T> {
 }
 
 fn cmp(needle: &str, options: &MatcherOptions, a: &str, b: &str) -> Ordering {
+    let alpha_ordering = if options.match_paths {
+        a.trim_end_matches(MAIN_SEPARATOR)
+            .cmp(b.trim_end_matches(MAIN_SEPARATOR))
+    } else {
+        a.cmp(b)
+    };
     match options.sort_by {
         SortBy::LevenshteinDistance => {
             let a_distance = levenshtein_distance(needle, a);
             let b_distance = levenshtein_distance(needle, b);
-            a_distance.cmp(&b_distance)
+            a_distance.cmp(&b_distance).then(alpha_ordering)
         }
-        SortBy::Ascending => {
-            if options.match_paths {
-                a.trim_end_matches(MAIN_SEPARATOR)
-                    .cmp(b.trim_end_matches(MAIN_SEPARATOR))
-            } else {
-                a.cmp(b)
-            }
-        }
+        SortBy::Ascending => alpha_ordering,
         SortBy::None => Ordering::Less,
     }
 }

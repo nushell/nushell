@@ -12,51 +12,65 @@ use std::path::{
 
 use super::completion_options::{MatcherOptions, NuMatcher};
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct PathBuiltFromString {
+    cwd: PathBuf,
     parts: Vec<String>,
     isdir: bool,
 }
 
 fn complete_rec(
     partial: &[&str],
-    built: &PathBuiltFromString,
-    cwd: &Path,
+    builts: &[PathBuiltFromString],
     options: MatcherOptions,
     dir: bool,
     isdir: bool,
 ) -> Vec<PathBuiltFromString> {
     if let Some((&base, rest)) = partial.split_first() {
         if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
-            let mut built = built.clone();
-            built.parts.push(base.to_string());
-            built.isdir = true;
-            return complete_rec(rest, &built, cwd, options, dir, isdir);
+            let builts: Vec<_> = builts
+                .iter()
+                .map(|built| {
+                    let mut built = built.clone();
+                    built.parts.push(base.to_string());
+                    built.isdir = true;
+                    built
+                })
+                .collect();
+            return complete_rec(rest, &builts, options, dir, isdir);
         }
     }
 
-    let mut built_path = cwd.to_path_buf();
-    for part in &built.parts {
-        built_path.push(part);
-    }
+    let entries: Vec<_> = builts
+        .iter()
+        .flat_map(|built| {
+            let mut built_path = built.cwd.clone();
+            for part in &built.parts {
+                built_path.push(part);
+            }
 
-    let Ok(result) = built_path.read_dir() else {
-        return Vec::new();
-    };
+            let Ok(result) = built_path.read_dir() else {
+                return Vec::new();
+            };
 
-    let entries = result.filter_map(|e| e.ok()).filter_map(|entry| {
-        let entry_name = entry.file_name().to_string_lossy().into_owned();
-        let entry_isdir = entry.path().is_dir();
-        let mut built = built.clone();
-        built.parts.push(entry_name.clone());
-        built.isdir = entry_isdir;
+            result
+                .filter_map(|e| e.ok())
+                .filter_map(|entry| {
+                    let entry_name = entry.file_name().to_string_lossy().into_owned();
+                    let entry_isdir = entry.path().is_dir();
+                    let mut built = built.clone();
+                    built.parts.push(entry_name.clone());
+                    built.isdir = entry_isdir;
 
-        if !dir || entry_isdir {
-            Some((entry_name, built))
-        } else {
-            None
-        }
-    });
+                    if !dir || entry_isdir {
+                        Some((entry_name, built))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+        .collect();
 
     if let Some((base, rest)) = partial.split_first() {
         let mut matcher = NuMatcher::new(base, options.clone());
@@ -70,7 +84,7 @@ fn complete_rec(
         if !rest.is_empty() || isdir {
             results
                 .into_iter()
-                .flat_map(|built| complete_rec(rest, &built, cwd, options.clone(), dir, isdir))
+                .flat_map(|built| complete_rec(rest, &[built], options.clone(), dir, isdir))
                 .collect()
         } else {
             results
@@ -93,7 +107,7 @@ enum OriginalCwd {
 }
 
 impl OriginalCwd {
-    fn apply(&self, mut p: PathBuiltFromString) -> String {
+    fn apply(&self, p: &mut PathBuiltFromString) -> String {
         match self {
             Self::None => {}
             Self::Home => p.parts.insert(0, "~".to_string()),
@@ -122,18 +136,19 @@ fn surround_remove(partial: &str) -> String {
     partial.to_string()
 }
 
+/// Returns (span, cwd, path suggestion, style)
 pub fn complete_item(
     want_directory: bool,
     span: nu_protocol::Span,
     partial: &str,
-    cwd: &str,
+    cwds: &[impl AsRef<str>],
     options: MatcherOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
+) -> Vec<(nu_protocol::Span, PathBuf, String, Option<Style>)> {
     let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
-    let cwd_pathbuf = Path::new(cwd).to_path_buf();
+    let cwd_pathbufs: Vec<_> = cwds.iter().map(|cwd| PathBuf::from(cwd.as_ref())).collect();
     let ls_colors = (engine_state.config.use_ls_colors_completions
         && engine_state.config.use_ansi_coloring)
         .then(|| {
@@ -144,7 +159,7 @@ pub fn complete_item(
             get_ls_colors(ls_colors_env_str)
         });
 
-    let mut cwd = cwd_pathbuf.clone();
+    let mut cwds = cwd_pathbufs.clone();
     let mut prefix_len = 0;
     let mut original_cwd = OriginalCwd::None;
 
@@ -156,7 +171,7 @@ pub fn complete_item(
             if let Some(Component::RootDir) = components.peek().cloned() {
                 components.next();
             };
-            cwd = [c, Component::RootDir].iter().collect();
+            cwds = vec![[c, Component::RootDir].iter().collect()];
             prefix_len = c.as_os_str().len();
             original_cwd = OriginalCwd::Prefix(c.as_os_str().to_string_lossy().into_owned());
         }
@@ -164,13 +179,13 @@ pub fn complete_item(
             components.next();
             // This is kind of a hack. When joining an empty string with the rest,
             // we add the slash automagically
-            cwd = PathBuf::from(c.as_os_str());
+            cwds = vec![PathBuf::from(c.as_os_str())];
             prefix_len = 1;
             original_cwd = OriginalCwd::Prefix(String::new());
         }
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
             components.next();
-            cwd = home_dir().unwrap_or(cwd_pathbuf);
+            cwds = home_dir().map(|dir| vec![dir]).unwrap_or(cwd_pathbufs);
             prefix_len = 1;
             original_cwd = OriginalCwd::Home;
         }
@@ -187,21 +202,27 @@ pub fn complete_item(
 
     complete_rec(
         partial.as_slice(),
-        &PathBuiltFromString::default(),
-        &cwd,
+        &cwds
+            .into_iter()
+            .map(|cwd| PathBuiltFromString {
+                cwd,
+                parts: Vec::new(),
+                isdir: false,
+            })
+            .collect::<Vec<_>>(),
         options,
         want_directory,
         isdir,
     )
     .into_iter()
-    .map(|p| {
-        let path = original_cwd.apply(p);
+    .map(|mut p| {
+        let path = original_cwd.apply(&mut p);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(&path, std::fs::symlink_metadata(&path).ok().as_ref())
                 .map(lscolors::Style::to_nu_ansi_term_style)
                 .unwrap_or_default()
         });
-        (span, escape_path(path, want_directory), style)
+        (span, p.cwd, escape_path(path, want_directory), style)
     })
     .collect()
 }
