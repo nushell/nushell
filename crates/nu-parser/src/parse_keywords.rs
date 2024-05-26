@@ -3819,7 +3819,7 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
             .positional_nth(0)
             .map(|expr| {
                 eval_constant(working_set, expr)
-                    .and_then(Spanned::<String>::from_value)
+                    .and_then(|v| Spanned::<String>::from_value(v, call.head))
                     .map_err(|err| err.wrap(working_set, call.head))
             })
             .expect("required positional should have been checked")?;
@@ -3832,7 +3832,7 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
                     .as_ref()
                     .expect("--plugin-config arg should have been checked already");
                 eval_constant(working_set, expr)
-                    .and_then(Spanned::<String>::from_value)
+                    .and_then(|v| Spanned::<String>::from_value(v, call.head))
                     .map_err(|err| err.wrap(working_set, call.head))
             })
             .transpose()?;

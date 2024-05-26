@@ -98,7 +98,7 @@ impl CallExt for Call {
         if let Some(expr) = self.get_flag_expr(name) {
             let stack = &mut stack.use_call_arg_out_dest();
             let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            FromValue::from_value(result).map(Some)
+            FromValue::from_value(result, self.head).map(Some)
         } else {
             Ok(None)
         }
@@ -116,7 +116,7 @@ impl CallExt for Call {
         for result in self.rest_iter_flattened(starting_pos, |expr| {
             eval_expression::<WithoutDebug>(engine_state, stack, expr)
         })? {
-            output.push(FromValue::from_value(result)?);
+            output.push(FromValue::from_value(result, self.head)?);
         }
 
         Ok(output)
@@ -131,7 +131,7 @@ impl CallExt for Call {
         if let Some(expr) = self.positional_nth(pos) {
             let stack = &mut stack.use_call_arg_out_dest();
             let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            FromValue::from_value(result).map(Some)
+            FromValue::from_value(result, self.head).map(Some)
         } else {
             Ok(None)
         }
@@ -144,7 +144,7 @@ impl CallExt for Call {
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
             let result = eval_constant(working_set, expr)?;
-            FromValue::from_value(result).map(Some)
+            FromValue::from_value(result, self.head).map(Some)
         } else {
             Ok(None)
         }
@@ -159,7 +159,7 @@ impl CallExt for Call {
         if let Some(expr) = self.positional_nth(pos) {
             let stack = &mut stack.use_call_arg_out_dest();
             let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            FromValue::from_value(result)
+            FromValue::from_value(result, self.head)
         } else if self.positional_len() == 0 {
             Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
@@ -179,7 +179,7 @@ impl CallExt for Call {
         if let Some(expr) = self.get_parser_info(name) {
             let stack = &mut stack.use_call_arg_out_dest();
             let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            FromValue::from_value(result)
+            FromValue::from_value(result, self.head)
         } else if self.parser_info.is_empty() {
             Err(ShellError::AccessEmptyContent { span: self.head })
         } else {

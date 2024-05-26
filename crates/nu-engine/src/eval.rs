@@ -313,7 +313,8 @@ fn eval_redirection<D: DebugContext>(
             #[allow(deprecated)]
             let cwd = current_dir(engine_state, stack)?;
             let value = eval_expression::<D>(engine_state, stack, expr)?;
-            let path = Spanned::<PathBuf>::from_value(value)?.item;
+            // PathBuf's impl doesn't use call_span.
+            let path = Spanned::<PathBuf>::from_value(value, Span::unknown())?.item;
             let path = expand_path_with(path, cwd, true);
 
             let mut options = OpenOptions::new();
