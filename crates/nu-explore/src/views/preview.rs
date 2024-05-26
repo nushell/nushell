@@ -1,4 +1,6 @@
-use super::{colored_text_widget::ColoredTextWidget, cursor::XYCursor, Layout, View, ViewConfig};
+use super::{
+    colored_text_widget::ColoredTextWidget, cursor::WindowCursor2D, Layout, View, ViewConfig,
+};
 use crate::{
     nu_common::{NuSpan, NuText},
     pager::{report::Report, Frame, Transition, ViewInfo},
@@ -17,7 +19,7 @@ use std::cmp::max;
 pub struct Preview {
     underlying_value: Option<Value>,
     lines: Vec<String>,
-    cursor: XYCursor,
+    cursor: WindowCursor2D,
 }
 
 impl Preview {
@@ -26,8 +28,9 @@ impl Preview {
             .lines()
             .map(|line| line.replace('\t', "    ")) // tui: doesn't support TAB
             .collect();
-        let cursor = XYCursor::new(lines.len(), usize::MAX);
 
+        // TODO: refactor so this is fallible and returns a Result instead of panicking
+        let cursor = WindowCursor2D::new(lines.len(), usize::MAX).expect("Failed to create cursor");
         Self {
             lines,
             cursor,
@@ -38,8 +41,9 @@ impl Preview {
 
 impl View for Preview {
     fn draw(&mut self, f: &mut Frame, area: Rect, _: ViewConfig<'_>, layout: &mut Layout) {
-        self.cursor
-            .set_window(area.height as usize, area.width as usize);
+        let _ = self
+            .cursor
+            .set_window_size(area.height as usize, area.width as usize);
 
         let lines = &self.lines[self.cursor.row_starts_at()..];
         for (i, line) in lines.iter().enumerate().take(area.height as usize) {
@@ -128,7 +132,7 @@ impl View for Preview {
         //
         // todo: improve somehow?
 
-        self.cursor.set_position(row, 0);
+        self.cursor.set_start_position(row, 0);
         true
     }
 

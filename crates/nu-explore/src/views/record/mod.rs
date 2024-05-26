@@ -2,7 +2,7 @@ mod table_widget;
 
 use self::table_widget::{TableStyle, TableWidget, TableWidgetState};
 use super::{
-    cursor::XYCursor,
+    cursor::WindowCursor2D,
     util::{make_styled_string, nu_style_to_tui},
     Layout, View, ViewConfig,
 };
@@ -140,7 +140,10 @@ impl<'a> RecordView<'a> {
 
     pub fn get_current_window(&self) -> (usize, usize) {
         let layer = self.get_layer_last();
-        (layer.cursor.row_window(), layer.cursor.column_window())
+        (
+            layer.cursor.row_window_position(),
+            layer.cursor.column_window_position(),
+        )
     }
 
     pub fn get_current_offset(&self) -> (usize, usize) {
@@ -199,11 +202,17 @@ impl<'a> RecordView<'a> {
     fn update_cursors(&mut self, rows: usize, columns: usize) {
         match self.get_layer_last().orientation {
             Orientation::Top => {
-                self.get_layer_last_mut().cursor.set_window(rows, columns);
+                let _ = self
+                    .get_layer_last_mut()
+                    .cursor
+                    .set_window_size(rows, columns);
             }
 
             Orientation::Left => {
-                self.get_layer_last_mut().cursor.set_window(rows, columns);
+                let _ = self
+                    .get_layer_last_mut()
+                    .cursor
+                    .set_window_size(rows, columns);
             }
         }
     }
@@ -308,7 +317,9 @@ impl View for RecordView<'_> {
 
             for (column, _) in cells.iter().enumerate() {
                 if i == pos {
-                    self.get_layer_last_mut().cursor.set_position(row, column);
+                    self.get_layer_last_mut()
+                        .cursor
+                        .set_start_position(row, column);
                     return true;
                 }
 
@@ -374,7 +385,7 @@ pub struct RecordLayer<'a> {
     orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
-    cursor: XYCursor,
+    cursor: WindowCursor2D,
 }
 
 impl<'a> RecordLayer<'a> {
@@ -384,7 +395,10 @@ impl<'a> RecordLayer<'a> {
     ) -> Self {
         let columns = columns.into();
         let records = records.into();
-        let cursor = XYCursor::new(records.len(), columns.len());
+
+        // TODO: refactor so this is fallible and returns a Result instead of panicking
+        let cursor =
+            WindowCursor2D::new(records.len(), columns.len()).expect("Failed to create cursor");
 
         Self {
             columns,
@@ -420,7 +434,9 @@ impl<'a> RecordLayer<'a> {
     }
 
     fn reset_cursor(&mut self) {
-        self.cursor = XYCursor::new(self.count_rows(), self.count_columns());
+        // TODO: refactor so this is fallible and returns a Result instead of panicking
+        self.cursor = WindowCursor2D::new(self.count_rows(), self.count_columns())
+            .expect("Failed to create cursor");
     }
 }
 
@@ -634,7 +650,7 @@ fn tail_data(state: &mut RecordView<'_>, page_size: usize) {
     let layer = state.get_layer_last_mut();
     let count_rows = layer.records.len();
     if count_rows > page_size {
-        layer.cursor.set_position(count_rows - page_size, 0);
+        layer.cursor.set_start_position(count_rows - page_size, 0);
     }
 }
 
@@ -731,7 +747,7 @@ fn build_table_as_record(v: &RecordView) -> Value {
     Value::record(record, NuSpan::unknown())
 }
 
-fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
+fn report_cursor_position(mode: UIMode, cursor: WindowCursor2D) -> String {
     if mode == UIMode::Cursor {
         let row = cursor.row();
         let column = cursor.column();
@@ -743,7 +759,7 @@ fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
     }
 }
 
-fn report_row_position(cursor: XYCursor) -> String {
+fn report_row_position(cursor: WindowCursor2D) -> String {
     if cursor.row_starts_at() == 0 {
         String::from("Top")
     } else {
