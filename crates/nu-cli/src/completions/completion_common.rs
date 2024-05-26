@@ -19,16 +19,23 @@ pub struct PathBuiltFromString {
     isdir: bool,
 }
 
+/// Recursively find files matching the search string
+///
+/// # Arguments
+///
+/// * `partial` - Remaining components of the partial text the user's typed
+/// * `built_paths` - Directories matching the previous components of `partial`
+/// * `isdir` - Is the user looking for a directory? (true if partial text ended in a slash)
 fn complete_rec(
     partial: &[&str],
-    builts: &[PathBuiltFromString],
+    built_paths: &[PathBuiltFromString],
     options: MatcherOptions,
-    dir: bool,
+    want_dir: bool,
     isdir: bool,
 ) -> Vec<PathBuiltFromString> {
     if let Some((&base, rest)) = partial.split_first() {
         if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
-            let builts: Vec<_> = builts
+            let builts: Vec<_> = built_paths
                 .iter()
                 .map(|built| {
                     let mut built = built.clone();
@@ -37,11 +44,11 @@ fn complete_rec(
                     built
                 })
                 .collect();
-            return complete_rec(rest, &builts, options, dir, isdir);
+            return complete_rec(rest, &builts, options, want_dir, isdir);
         }
     }
 
-    let entries: Vec<_> = builts
+    let entries: Vec<_> = built_paths
         .iter()
         .flat_map(|built| {
             let mut built_path = built.cwd.clone();
@@ -62,7 +69,7 @@ fn complete_rec(
                     built.parts.push(entry_name.clone());
                     built.isdir = entry_isdir;
 
-                    if !dir || entry_isdir {
+                    if !want_dir || entry_isdir {
                         Some((entry_name, built))
                     } else {
                         None
@@ -84,7 +91,7 @@ fn complete_rec(
         if !rest.is_empty() || isdir {
             results
                 .into_iter()
-                .flat_map(|built| complete_rec(rest, &[built], options.clone(), dir, isdir))
+                .flat_map(|built| complete_rec(rest, &[built], options.clone(), want_dir, isdir))
                 .collect()
         } else {
             results
@@ -136,6 +143,9 @@ fn surround_remove(partial: &str) -> String {
     partial.to_string()
 }
 
+/// Looks inside a set of directories (given by `cwds`) to find files matching
+/// `partial` (text the user typed in)
+///
 /// Returns (span, cwd, path suggestion, style)
 pub fn complete_item(
     want_directory: bool,
