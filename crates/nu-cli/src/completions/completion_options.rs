@@ -5,7 +5,7 @@ use nucleo_matcher::{
     pattern::{AtomKind, CaseMatching, Normalization, Pattern},
     Config, Matcher, Utf32Str,
 };
-use std::{cmp::Ordering, fmt::Display, path::MAIN_SEPARATOR};
+use std::{borrow::Cow, cmp::Ordering, fmt::Display, path::MAIN_SEPARATOR};
 
 #[derive(Copy, Clone)]
 pub enum SortBy {
@@ -117,13 +117,13 @@ impl<T> NuMatcher<T> {
 
         match &mut self.state {
             State::Prefix { items } => {
-                let haystack = trim_quotes_str(haystack);
-                let haystack = if self.options.case_sensitive {
-                    haystack.to_owned()
+                let haystack = trim_quotes_str(haystack).to_owned();
+                let haystack_lowercased = if self.options.case_sensitive {
+                    Cow::Borrowed(&haystack)
                 } else {
-                    haystack.to_folded_case()
+                    Cow::Owned(haystack.to_folded_case())
                 };
-                if haystack.starts_with(self.needle.as_str()) {
+                if haystack_lowercased.starts_with(self.needle.as_str()) {
                     match self.options.sort_by {
                         SortBy::None => items.push((haystack, item)),
                         _ => {

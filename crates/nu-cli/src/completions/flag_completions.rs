@@ -95,7 +95,7 @@ impl Completer for FlagCompletion {
                 );
             }
 
-            panic!("{:?}", matcher.get_results());
+            return matcher.get_results();
         }
 
         vec![]
