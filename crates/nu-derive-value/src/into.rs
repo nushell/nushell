@@ -40,7 +40,7 @@ fn struct_into_value(ident: Ident, data: DataStruct, generics: Generics) -> Toke
             let accessor = fields
                 .named
                 .iter()
-                .map(|field| field.ident.clone().expect("named has idents"))
+                .map(|field| field.ident.as_ref().expect("named has idents"))
                 .map(|ident| quote!(self.#ident));
             fields_to_record(&data.fields, accessor)
         }
@@ -123,7 +123,7 @@ fn fields_to_record(
                 .iter()
                 .zip(accessor)
                 .map(|(field, accessor)| {
-                    let ident = field.ident.clone().expect("named has idents");
+                    let ident = field.ident.as_ref().expect("named has idents");
                     let field = ident.to_string();
                     quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span))
                 })
