@@ -68,3 +68,10 @@ fn into_negative_filesize() {
 
     assert!(actual.out.contains("-1 B"));
 }
+
+#[test]
+fn into_positive_filesize() {
+    let actual = nu!("'+1' | into filesize");
+
+    assert!(actual.out.contains("1 B"));
+}

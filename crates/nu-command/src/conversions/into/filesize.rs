@@ -159,7 +159,11 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             }),
         }
     } else {
-        match clean_string.parse::<bytesize::ByteSize>() {
+        match clean_string
+            .strip_prefix('+')
+            .unwrap_or(clean_string)
+            .parse::<bytesize::ByteSize>()
+        {
             Ok(n) => Ok(n.0 as i64),
             Err(_) => Err(ShellError::CantConvert {
                 to_type: "int".into(),
