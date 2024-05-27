@@ -86,8 +86,8 @@ impl PluginCommand for MimeGuess {
 
     fn run(
         &self,
-        plugin: &Self::Plugin,
-        engine: &nu_plugin::EngineInterface,
+        _plugin: &Self::Plugin,
+        _engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
         input: nu_protocol::PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::LabeledError> {
@@ -131,7 +131,8 @@ impl PluginCommand for MimeGuess {
                     }
                 });
 
-                let ctrlc = compile_error!("can't figure out how to get ctrlc in plugin yet");
+                // The plugin engine should handle ctrlc automatically
+                let ctrlc = None;
 
                 Ok(mime_records_iter.into_pipeline_data(call.head, ctrlc))
             }
