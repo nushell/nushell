@@ -57,6 +57,7 @@ fn struct_into_value(ident: Ident, data: DataStruct, generics: Generics) -> Toke
     };
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
+        #[automatically_derived]
         impl #impl_generics nu_protocol::IntoValue for #ident #ty_generics #where_clause {
             fn into_value(self, span: nu_protocol::Span) -> nu_protocol::Value {
                 #record
