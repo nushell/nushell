@@ -1,4 +1,4 @@
-use crate::{record, FromValue, IntoValue, Record, Value};
+use crate::{record, FromValue, IntoValue, Record, Span, Value};
 use std::collections::HashMap;
 
 // make nu_protocol available in this namespace, consumers of this crate will
@@ -29,9 +29,9 @@ macro_rules! make_type {
 }
 
 make_type! {
-    #[derive(IntoValue)]
+    #[derive(IntoValue, FromValue, Debug, PartialEq)]
     struct Primitives {
-        p_array: [u8; 4] = [12, 34, 56, 78],
+        p_array: [u16; 4] = [12, 34, 56, 78],
         p_bool: bool = true,
         p_char: char = 'A',
         p_f32: f32 = 123.456,
@@ -41,8 +41,7 @@ make_type! {
         p_i32: i32 = -123456,
         p_i64: i64 = -1234567890,
         p_isize: isize = 1024,
-        p_str: &'static str = "Hello, world!",
-        p_u8: u8 = 255,
+        p_str: String = "Hello, world!".to_string(),
         p_u16: u16 = 65535,
         p_u32: u32 = 4294967295,
         p_u64: u64 = 8446744073709551615,
@@ -82,7 +81,6 @@ fn primitives_into_value() {
     assert_record_field(&mut record, "p_i64", Value::test_int(-1234567890));
     assert_record_field(&mut record, "p_isize", Value::test_int(1024));
     assert_record_field(&mut record, "p_str", Value::test_string("Hello, world!"));
-    assert_record_field(&mut record, "p_u8", Value::test_int(255));
     assert_record_field(&mut record, "p_u16", Value::test_int(65535));
     assert_record_field(&mut record, "p_u32", Value::test_int(4294967295));
     assert_record_field(&mut record, "p_u64", Value::test_int(8446744073709551615));
@@ -104,6 +102,39 @@ fn primitives_into_value() {
     assert_eq!(p_f32 as f32, 123.456);
 
     assert!(record.is_empty());
+}
+
+fn primitives_from_value() {
+    let value = Value::test_record(record! {
+        "p_array" => Value::test_list(vec![
+            Value::test_int(12),
+            Value::test_int(34),
+            Value::test_int(56),
+            Value::test_int(78),
+        ]),
+        "p_bool" => Value::test_bool(true),
+        "p_char" => Value::test_string('A'),
+        "p_f32" => Value::test_float(123.456),
+        "p_f64" => Value::test_float(789.1011),
+        "p_i8" => Value::test_int(-12),
+        "p_i16" => Value::test_int(-1234),
+        "p_i32" => Value::test_int(-123456),
+        "p_i64" => Value::test_int(-123456790),
+        "p_isize" => Value::test_int(1024),
+        "p_str" => Value::test_string("Hello, world!"),
+        "p_u16" => Value::test_int(65535),
+        "p_u32" => Value::test_int(4294967295),
+        "p_u64" => Value::test_int(8446744073709551615),
+        "p_usize" => Value::test_int(4096),
+        "p_unit" => Value::test_nothing(),
+        "p_tuple" => Value::test_list(vec![
+            Value::test_int(123456789),
+            Value::test_bool(false)
+        ]),
+    });
+    let expected = Primitives::make();
+    let actual = Primitives::from_value(value, Span::unknown()).unwrap();
+    assert_eq!(expected, actual);
 }
 
 make_type! {
