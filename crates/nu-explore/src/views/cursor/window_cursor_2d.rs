@@ -4,7 +4,6 @@ use anyhow::Result;
 /// `WindowCursor2D` manages a 2-dimensional "window" onto a grid of cells.
 /// For example, consider a 3x3 grid of cells:
 ///
-/// ```
 /// +---+---+---+
 /// | a | b | c |
 /// |---|---|---|
@@ -12,24 +11,24 @@ use anyhow::Result;
 /// |---|---|---|
 /// | g | h | i |
 /// +---+---+---+
-/// ```
+///
 /// A `WindowCursor2D` can be used to track the currently visible section of this grid.
 /// For example, a 2x2 window onto this grid could initially show the top left 2x2 section:
-/// ```
+///
 /// +---+---+
 /// | a | b |
 /// |---|---|
 /// | d | e |
 /// +---+---+
-/// ```
+///
 /// Moving the window down 1 row:
-/// ```
+///
 /// +---+---+
 /// | d | e |
 /// |---|---|
 /// | g | h |
 /// +---+---+
-/// ```
+///
 #[derive(Debug, Default, Clone, Copy)]
 pub struct WindowCursor2D {
     x: WindowCursor,
