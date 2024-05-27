@@ -55,7 +55,6 @@ primitive_into_value!(i16 as i64, int);
 primitive_into_value!(i32 as i64, int);
 primitive_into_value!(i64, int);
 primitive_into_value!(isize as i64, int);
-primitive_into_value!(&str, string);
 primitive_into_value!(u8 as i64, int);
 primitive_into_value!(u16 as i64, int);
 primitive_into_value!(u32 as i64, int);
