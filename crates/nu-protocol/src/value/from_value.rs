@@ -38,7 +38,9 @@ pub trait FromValue: Sized {
     /// It is advised to call this method in `from_value` to ensure that
     /// expected type in the error is consistent.
     ///
-    /// The derived implementation returns a [`Type::Record`].
+    /// Unlike the default implementation, derived implementations explicitly
+    /// reveal the concrete type, such as [`Type::Record`] or [`Type::List`],
+    /// instead of an opaque type.
     fn expected_type() -> Type {
         Type::Custom(
             any::type_name::<Self>()
