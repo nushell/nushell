@@ -225,8 +225,8 @@ fn update(
             type_name: "empty pipeline".to_string(),
             span: head,
         }),
-        PipelineData::ExternalStream { .. } => Err(ShellError::IncompatiblePathAccess {
-            type_name: "external stream".to_string(),
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
+            type_name: stream.type_().describe().into(),
             span: head,
         }),
     }
@@ -250,7 +250,7 @@ fn update_value_by_closure(
     let new_value = closure
         .add_arg(arg.clone())
         .run_with_input(value_at_path.into_pipeline_data())?
-        .into_value(span);
+        .into_value(span)?;
 
     value.update_data_at_cell_path(cell_path, new_value)
 }
@@ -273,7 +273,7 @@ fn update_single_value_by_closure(
     let new_value = closure
         .add_arg(arg.clone())
         .run_with_input(value_at_path.into_pipeline_data())?
-        .into_value(span);
+        .into_value(span)?;
 
     value.update_data_at_cell_path(cell_path, new_value)
 }

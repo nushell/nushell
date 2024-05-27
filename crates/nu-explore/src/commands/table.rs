@@ -25,8 +25,6 @@ struct TableSettings {
     selected_column_s: Option<Style>,
     padding_column_left: Option<usize>,
     padding_column_right: Option<usize>,
-    padding_index_left: Option<usize>,
-    padding_index_right: Option<usize>,
     turn_on_cursor_mode: bool,
 }
 
@@ -100,16 +98,6 @@ impl ViewCommand for TableCmd {
         if let Some(p) = self.settings.padding_column_right {
             let c = view.get_padding_column();
             view.set_padding_column((c.0, p))
-        }
-
-        if let Some(p) = self.settings.padding_index_left {
-            let c = view.get_padding_index();
-            view.set_padding_index((p, c.1))
-        }
-
-        if let Some(p) = self.settings.padding_index_right {
-            let c = view.get_padding_index();
-            view.set_padding_index((c.0, p))
         }
 
         if self.settings.turn_on_cursor_mode {

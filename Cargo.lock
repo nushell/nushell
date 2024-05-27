@@ -2034,9 +2034,9 @@ dependencies = [
 
 [[package]]
 name = "interprocess"
-version = "2.0.1"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c7fb8583fab9503654385e2bafda123376445a77027a1b106dd7e44cf51122f"
+checksum = "7b4d0250d41da118226e55b3d50ca3f0d9e0a0f6829b92f543ac0054aeea1572"
 dependencies = [
  "libc",
  "recvmsg",
@@ -2326,9 +2326,9 @@ checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
 
 [[package]]
 name = "libmimalloc-sys"
-version = "0.1.37"
+version = "0.1.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81eb4061c0582dedea1cbc7aff2240300dd6982e0239d1c99e65c1dbf4a30ba7"
+checksum = "0e7bb23d733dfcc8af652a78b7bf232f0e967710d044732185e561e47c0336b6"
 dependencies = [
  "cc",
  "libc",
@@ -2582,9 +2582,9 @@ dependencies = [
 
 [[package]]
 name = "mimalloc"
-version = "0.1.41"
+version = "0.1.42"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f41a2280ded0da56c8cf898babb86e8f10651a34adcfff190ae9a1159c6908d"
+checksum = "e9186d86b79b52f4a77af65604b51225e8db1d6ee7e3f41aec1e40829c71a176"
 dependencies = [
  "libmimalloc-sys",
 ]
@@ -2782,7 +2782,6 @@ dependencies = [
  "nix",
  "nu-cli",
  "nu-cmd-base",
- "nu-cmd-dataframe",
  "nu-cmd-extra",
  "nu-cmd-lang",
  "nu-cmd-plugin",
@@ -2847,7 +2846,6 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "once_cell",
- "pathdiff",
  "percent-encoding",
  "reedline",
  "rstest",
@@ -2868,29 +2866,6 @@ dependencies = [
  "nu-parser",
  "nu-path",
  "nu-protocol",
-]
-
-[[package]]
-name = "nu-cmd-dataframe"
-version = "0.93.1"
-dependencies = [
- "chrono",
- "chrono-tz 0.8.6",
- "fancy-regex",
- "indexmap",
- "nu-cmd-lang",
- "nu-engine",
- "nu-parser",
- "nu-protocol",
- "num",
- "polars",
- "polars-arrow",
- "polars-io",
- "polars-ops",
- "polars-plan",
- "polars-utils",
- "serde",
- "sqlparser 0.45.0",
 ]
 
 [[package]]
@@ -3037,6 +3012,7 @@ dependencies = [
  "sha2",
  "sysinfo",
  "tabled",
+ "tempfile",
  "terminal_size",
  "titlecase",
  "toml 0.8.12",
@@ -3254,11 +3230,13 @@ dependencies = [
  "indexmap",
  "lru",
  "miette",
+ "nix",
  "nu-path",
  "nu-system",
  "nu-test-support",
  "nu-utils",
  "num-format",
+ "os_pipe",
  "pretty_assertions",
  "rmp-serde",
  "rstest",
@@ -3287,6 +3265,7 @@ name = "nu-system"
 version = "0.93.1"
 dependencies = [
  "chrono",
+ "itertools 0.12.1",
  "libc",
  "libproc",
  "log",
@@ -3417,6 +3396,7 @@ dependencies = [
  "chrono-tz 0.9.0",
  "fancy-regex",
  "indexmap",
+ "mimalloc",
  "nu-cmd-lang",
  "nu-command",
  "nu-engine",
@@ -3429,7 +3409,6 @@ dependencies = [
  "polars",
  "polars-arrow",
  "polars-io",
- "polars-lazy",
  "polars-ops",
  "polars-plan",
  "polars-utils",
@@ -4850,8 +4829,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abf59e4c97b5049ba96b052cdb652368305a2eddcbce9bf1c16f9d003139eeea"
+source = "git+https://github.com/nushell/reedline?branch=main#a580ea56d4e5a889468b2969d2a1534379504ab6"
 dependencies = [
  "arboard",
  "chrono",
@@ -5065,9 +5043,9 @@ dependencies = [
 
 [[package]]
 name = "rust-embed"
-version = "8.3.0"
+version = "8.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb78f46d0066053d16d4ca7b898e9343bc3530f71c61d5ad84cd404ada068745"
+checksum = "19549741604902eb99a7ed0ee177a0663ee1eda51a29f71401f166e47e77806a"
 dependencies = [
  "rust-embed-impl",
  "rust-embed-utils",
@@ -5076,9 +5054,9 @@ dependencies = [
 
 [[package]]
 name = "rust-embed-impl"
-version = "8.3.0"
+version = "8.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b91ac2a3c6c0520a3fb3dd89321177c3c692937c4eb21893378219da10c44fc8"
+checksum = "cb9f96e283ec64401f30d3df8ee2aaeb2561f34c824381efa24a35f79bf40ee4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5089,9 +5067,9 @@ dependencies = [
 
 [[package]]
 name = "rust-embed-utils"
-version = "8.3.0"
+version = "8.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86f69089032567ffff4eada41c573fc43ff466c7db7c5688b2e7969584345581"
+checksum = "38c74a686185620830701348de757fd36bef4aa9680fd23c49fc539ddcc1af32"
 dependencies = [
  "sha2",
  "walkdir",
@@ -5434,9 +5412,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "0.27.1"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7960cbd6ba74691bb15e7ebf97f7136bd02d1115f5695a58c1f31d5645750128"
+checksum = "1d75516bdaee8f640543ad1f6e292448c23ce57143f812c3736ab4b0874383df"
 dependencies = [
  "const_format",
  "is_debug",

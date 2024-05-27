@@ -115,7 +115,7 @@ impl Command for Reduce {
                 .add_arg(value)
                 .add_arg(acc)
                 .run_with_input(PipelineData::Empty)?
-                .into_value(head);
+                .into_value(head)?;
         }
 
         Ok(acc.with_span(head).into_pipeline_data())

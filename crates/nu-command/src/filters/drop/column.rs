@@ -133,11 +133,11 @@ fn drop_cols(
             }
         }
         PipelineData::Empty => Ok(PipelineData::Empty),
-        PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "table or record".into(),
-            wrong_type: "raw data".into(),
+            wrong_type: stream.type_().describe().into(),
             dst_span: head,
-            src_span: span,
+            src_span: stream.span(),
         }),
     }
 }

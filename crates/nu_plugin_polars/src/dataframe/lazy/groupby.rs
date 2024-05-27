@@ -79,7 +79,7 @@ impl PluginCommand for ToLazyGroupBy {
             Example {
                 description: "Group by and perform an aggregation",
                 example: r#"[[a b]; [1 2] [1 4] [2 6] [2 4]]
-    | polars into-df
+    | polars into-lazy
     | polars group-by a
     | polars agg [
         (polars col b | polars min | polars as "b_min")
@@ -138,7 +138,7 @@ impl PluginCommand for ToLazyGroupBy {
             })?;
         }
 
-        let pipeline_value = input.into_value(call.head);
+        let pipeline_value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
         command(plugin, engine, call, lazy, expressions).map_err(LabeledError::from)
     }
@@ -152,7 +152,7 @@ fn command(
     expressions: Vec<Expr>,
 ) -> Result<PipelineData, ShellError> {
     let group_by = lazy.to_polars().group_by(expressions);
-    let group_by = NuLazyGroupBy::new(group_by, lazy.schema()?);
+    let group_by = NuLazyGroupBy::new(group_by, lazy.from_eager, lazy.schema()?);
     group_by.to_pipeline_data(plugin, engine, call.head)
 }
 

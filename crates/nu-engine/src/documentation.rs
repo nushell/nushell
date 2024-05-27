@@ -2,18 +2,16 @@ use crate::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
-    engine::{EngineState, Stack},
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
     Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
 pub fn get_full_help(
-    sig: &Signature,
-    examples: &[Example],
+    command: &dyn Command,
     engine_state: &EngineState,
     stack: &mut Stack,
-    is_parser_keyword: bool,
 ) -> String {
     let config = engine_state.get_config();
     let doc_config = DocumentationConfig {
@@ -23,14 +21,15 @@ pub fn get_full_help(
     };
 
     let stack = &mut stack.start_capture();
+    let signature = command.signature().update_from_command(command);
 
     get_documentation(
-        sig,
-        examples,
+        &signature,
+        &command.examples(),
         engine_state,
         stack,
         &doc_config,
-        is_parser_keyword,
+        command.is_keyword(),
     )
 }
 
@@ -53,7 +52,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
-            if let Ok(s) = result.coerce_into_string() {
+            if let Ok(s) = result.and_then(Value::coerce_into_string) {
                 return s; // successfully highlighted string
             }
         }
@@ -61,7 +60,6 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     code_string.to_string()
 }
 
-#[allow(clippy::cognitive_complexity)]
 fn get_documentation(
     sig: &Signature,
     examples: &[Example],
@@ -280,7 +278,7 @@ fn get_documentation(
             ) {
                 Ok(output) => {
                     let result = output.into_value(Span::unknown());
-                    match result.coerce_into_string() {
+                    match result.and_then(Value::coerce_into_string) {
                         Ok(s) => {
                             let _ = write!(long_desc, "\n  > {s}\n");
                         }

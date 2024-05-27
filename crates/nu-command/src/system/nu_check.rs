@@ -69,18 +69,8 @@ impl Command for NuCheck {
                     parse_script(&mut working_set, None, &contents, is_debug, call.head)
                 }
             }
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                ..
-            } => {
-                let mut contents = vec![];
-                let raw_stream: Vec<_> = stream.stream.collect();
-                for r in raw_stream {
-                    match r {
-                        Ok(v) => contents.extend(v),
-                        Err(error) => return Err(error),
-                    };
-                }
+            PipelineData::ByteStream(stream, ..) => {
+                let contents = stream.into_bytes()?;
 
                 if as_module {
                     parse_module(&mut working_set, None, &contents, is_debug, call.head)
@@ -160,7 +150,7 @@ impl Command for NuCheck {
                 result: None,
             },
             Example {
-                description: "Parse an external stream as script by showing error message",
+                description: "Parse a byte stream as script by showing error message",
                 example: "open foo.nu | nu-check --debug script.nu",
                 result: None,
             },

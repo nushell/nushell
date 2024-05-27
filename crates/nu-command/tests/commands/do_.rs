@@ -66,3 +66,10 @@ fn ignore_error_works_with_list_stream() {
     let actual = nu!(r#"do -i { ["a", null, "b"] | ansi strip }"#);
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn run_closure_with_it_using() {
+    let actual = nu!(r#"let x = {let it = 3; $it}; do $x"#);
+    assert!(actual.err.is_empty());
+    assert_eq!(actual.out, "3");
+}

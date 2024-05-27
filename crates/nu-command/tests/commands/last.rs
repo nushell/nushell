@@ -69,6 +69,20 @@ fn gets_last_byte() {
 }
 
 #[test]
+fn gets_last_bytes_from_stream() {
+    let actual = nu!("(1..10 | each { 0x[aa bb cc] } | bytes collect | last 2) == 0x[bb cc]");
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn gets_last_byte_from_stream() {
+    let actual = nu!("1..10 | each { 0x[aa bb cc] } | bytes collect | last");
+
+    assert_eq!(actual.out, "204");
+}
+
+#[test]
 fn last_errors_on_negative_index() {
     let actual = nu!("[1, 2, 3] | last -2");
 

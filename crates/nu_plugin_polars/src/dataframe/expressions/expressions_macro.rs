@@ -159,11 +159,12 @@ macro_rules! lazy_expr_command {
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let value = input.into_value(call.head);
+                let value = input.into_value(call.head)?;
                 if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
                         .map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
+                        lazy.from_eager,
                         lazy.to_polars()
                             .$func()
                             .map_err(|e| ShellError::GenericError {
@@ -239,11 +240,12 @@ macro_rules! lazy_expr_command {
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let value = input.into_value(call.head);
+                let value = input.into_value(call.head)?;
                 if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
                         .map_err(LabeledError::from)?;
                     let lazy = NuLazyFrame::new(
+                        lazy.from_eager,
                         lazy.to_polars()
                             .$func($ddof)
                             .map_err(|e| ShellError::GenericError {

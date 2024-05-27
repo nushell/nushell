@@ -101,11 +101,11 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
             let list: Vec<_> = stream.into_iter().collect();
             Ok(list_to_cell_path(&list, head)?.into_pipeline_data())
         }
-        PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, int".into(),
-            wrong_type: "raw data".into(),
+            wrong_type: stream.type_().describe().into(),
             dst_span: head,
-            src_span: span,
+            src_span: stream.span(),
         }),
         PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
     }

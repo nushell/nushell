@@ -38,7 +38,7 @@ impl PluginCommand for Summary {
             )
             .named(
                 "quantiles",
-                SyntaxShape::Table(vec![]),
+                SyntaxShape::List(Box::new(SyntaxShape::Float)),
                 "provide optional quantiles",
                 Some('q'),
             )
@@ -272,7 +272,7 @@ fn command(
         inner: vec![],
     })?;
 
-    let df = NuDataFrame::new(polars_df);
+    let df = NuDataFrame::new(df.from_lazy, polars_df);
 
     df.to_pipeline_data(plugin, engine, call.head)
 }

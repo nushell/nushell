@@ -108,7 +108,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
                     Value::Closure { val, .. } => {
                         ClosureEvalOnce::new(&self.engine_state, &self.stack, *val)
                             .run_with_input(PipelineData::Empty)
-                            .map(|data| data.into_value(span))
+                            .and_then(|data| data.into_value(span))
                             .unwrap_or_else(|err| Value::error(err, self.call.head))
                     }
                     _ => value.clone(),
@@ -139,14 +139,10 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
     fn get_help(&self) -> Result<Spanned<String>, ShellError> {
         let decl = self.engine_state.get_decl(self.call.decl_id);
 
-        Ok(get_full_help(
-            &decl.signature(),
-            &decl.examples(),
-            &self.engine_state,
-            &mut self.stack.clone(),
-            false,
+        Ok(
+            get_full_help(decl, &self.engine_state, &mut self.stack.clone())
+                .into_spanned(self.call.head),
         )
-        .into_spanned(self.call.head))
     }
 
     fn get_span_contents(&self, span: Span) -> Result<Spanned<Vec<u8>>, ShellError> {

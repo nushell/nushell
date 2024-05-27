@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Mut;
@@ -30,8 +31,8 @@ impl Command for Mut {
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -61,7 +62,7 @@ impl Command for Mut {
         let eval_block = get_eval_block(engine_state);
         let stack = &mut stack.start_capture();
         let pipeline_data = eval_block(engine_state, stack, block, input)?;
-        let value = pipeline_data.into_value(call.head);
+        let value = pipeline_data.into_value(call.head)?;
 
         // if given variable type is Glob, and our result is string
         // then nushell need to convert from Value::String to Value::Glob

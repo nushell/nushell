@@ -1,6 +1,6 @@
-mod tablew;
+mod table_widget;
 
-use self::tablew::{TableStyle, TableW, TableWState};
+use self::table_widget::{TableStyle, TableWidget, TableWidgetState};
 use super::{
     cursor::XYCursor,
     util::{make_styled_string, nu_style_to_tui},
@@ -20,12 +20,12 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Record, Value,
+    Record, Span, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 use std::{borrow::Cow, collections::HashMap};
 
-pub use self::tablew::Orientation;
+pub use self::table_widget::Orientation;
 
 #[derive(Debug, Clone)]
 pub struct RecordView<'a> {
@@ -71,26 +71,14 @@ impl<'a> RecordView<'a> {
     }
 
     pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
-        self.theme.table.padding_column_left = left;
-        self.theme.table.padding_column_right = right;
-    }
-
-    pub fn set_padding_index(&mut self, (left, right): (usize, usize)) {
-        self.theme.table.padding_index_left = left;
-        self.theme.table.padding_index_right = right;
+        self.theme.table.column_padding_left = left;
+        self.theme.table.column_padding_right = right;
     }
 
     pub fn get_padding_column(&self) -> (usize, usize) {
         (
-            self.theme.table.padding_column_left,
-            self.theme.table.padding_column_right,
-        )
-    }
-
-    pub fn get_padding_index(&self) -> (usize, usize) {
-        (
-            self.theme.table.padding_index_left,
-            self.theme.table.padding_index_right,
+            self.theme.table.column_padding_left,
+            self.theme.table.column_padding_right,
         )
     }
 
@@ -180,10 +168,14 @@ impl<'a> RecordView<'a> {
             Orientation::Left => (column, row),
         };
 
-        layer.records[row][column].clone()
+        if layer.records.len() > row && layer.records[row].len() > column {
+            layer.records[row][column].clone()
+        } else {
+            Value::nothing(Span::unknown())
+        }
     }
 
-    fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableW<'a> {
+    fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
         let layer = self.get_layer_last();
         let mut data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
 
@@ -193,7 +185,7 @@ impl<'a> RecordView<'a> {
         let style_computer = cfg.style_computer;
         let (row, column) = self.get_current_offset();
 
-        TableW::new(
+        TableWidget::new(
             headers,
             data,
             style_computer,
@@ -233,7 +225,7 @@ impl<'a> RecordView<'a> {
 
 impl View for RecordView<'_> {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
-        let mut table_layout = TableWState::default();
+        let mut table_layout = TableWidgetState::default();
         let table = self.create_tablew(cfg);
         f.render_stateful_widget(table, area, &mut table_layout);
 
@@ -849,10 +841,8 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.table.show_header = config_get_bool(config, "show_head", true);
     theme.table.show_index = config_get_bool(config, "show_index", false);
 
-    theme.table.padding_index_left = config_get_usize(config, "padding_index_left", 2);
-    theme.table.padding_index_right = config_get_usize(config, "padding_index_right", 1);
-    theme.table.padding_column_left = config_get_usize(config, "padding_column_left", 2);
-    theme.table.padding_column_right = config_get_usize(config, "padding_column_right", 2);
+    theme.table.column_padding_left = config_get_usize(config, "column_padding_left", 1);
+    theme.table.column_padding_right = config_get_usize(config, "column_padding_right", 1);
 
     theme
 }

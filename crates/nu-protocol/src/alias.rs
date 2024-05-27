@@ -1,6 +1,6 @@
 use crate::{
     ast::{Call, Expression},
-    engine::{Command, EngineState, Stack},
+    engine::{Command, CommandType, EngineState, Stack},
     PipelineData, ShellError, Signature,
 };
 
@@ -48,8 +48,8 @@ impl Command for Alias {
         })
     }
 
-    fn is_alias(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Alias
     }
 
     fn as_alias(&self) -> Option<&Alias> {

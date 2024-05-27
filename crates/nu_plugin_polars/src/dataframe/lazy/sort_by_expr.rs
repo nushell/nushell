@@ -145,9 +145,12 @@ impl PluginCommand for LazySortBy {
             maintain_order,
         };
 
-        let pipeline_value = input.into_value(call.head);
+        let pipeline_value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
-        let lazy = NuLazyFrame::new(lazy.to_polars().sort_by_exprs(&expressions, sort_options));
+        let lazy = NuLazyFrame::new(
+            lazy.from_eager,
+            lazy.to_polars().sort_by_exprs(&expressions, sort_options),
+        );
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
     }

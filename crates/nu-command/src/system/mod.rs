@@ -5,6 +5,8 @@ mod nu_check;
     target_os = "android",
     target_os = "linux",
     target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
     target_os = "macos",
     target_os = "windows"
 ))]
@@ -23,13 +25,15 @@ pub use nu_check::NuCheck;
     target_os = "android",
     target_os = "linux",
     target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
     target_os = "macos",
     target_os = "windows"
 ))]
 pub use ps::Ps;
 #[cfg(windows)]
 pub use registry_query::RegistryQuery;
-pub use run_external::{External, ExternalCommand};
+pub use run_external::{command_not_found, eval_arguments_from_call, which, External};
 pub use sys::*;
 pub use uname::UName;
 pub use which_::Which;

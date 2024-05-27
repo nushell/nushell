@@ -148,6 +148,8 @@ export def bench [
 
     let report = {
         mean: ($times | math avg | from ns)
+        min: ($times | math min | from ns)
+        max: ($times | math max | from ns)
         std: ($times | math stddev | from ns)
         times: ($times | each { from ns })
     }

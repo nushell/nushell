@@ -122,10 +122,9 @@ pub fn eval_block(
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
-    match nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input) {
-        Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),
-        Ok(result) => result.into_value(Span::test_data()),
-    }
+    nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
+        .and_then(|data| data.into_value(Span::test_data()))
+        .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", "TODO", err))
 }
 
 pub fn check_example_evaluates_to_expected_output(

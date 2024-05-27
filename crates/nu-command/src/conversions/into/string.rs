@@ -155,26 +155,32 @@ fn string_helper(
     }
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-    let config = engine_state.get_config().clone();
-    let args = Arguments {
-        decimals_value,
-        cell_paths,
-        config,
-    };
 
-    match input {
-        PipelineData::ExternalStream { stdout: None, .. } => {
-            Ok(Value::string(String::new(), head).into_pipeline_data())
+    if let PipelineData::ByteStream(stream, metadata) = input {
+        // Just set the type - that should be good enough. There is no guarantee that the data
+        // within a string stream is actually valid UTF-8. But refuse to do it if it was already set
+        // to binary
+        if stream.type_().is_string_coercible() {
+            Ok(PipelineData::ByteStream(
+                stream.with_type(ByteStreamType::String),
+                metadata,
+            ))
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: "binary".into(),
+                span: stream.span(),
+                help: Some("try using the `decode` command".into()),
+            })
         }
-        PipelineData::ExternalStream {
-            stdout: Some(stream),
-            ..
-        } => {
-            // TODO: in the future, we may want this to stream out, converting each to bytes
-            let output = stream.into_string()?;
-            Ok(Value::string(output.item, head).into_pipeline_data())
-        }
-        _ => operate(action, args, input, head, engine_state.ctrlc.clone()),
+    } else {
+        let config = engine_state.get_config().clone();
+        let args = Arguments {
+            decimals_value,
+            cell_paths,
+            config,
+        };
+        operate(action, args, input, head, engine_state.ctrlc.clone())
     }
 }
 

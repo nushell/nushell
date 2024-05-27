@@ -1,7 +1,6 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
 use nu_engine::{command_prelude::*, get_full_help, scope::ScopeData};
-use nu_protocol::span;
 
 #[derive(Clone)]
 pub struct HelpExterns;
@@ -109,12 +108,13 @@ pub fn help_externs(
         }
 
         let output = engine_state
-            .get_signatures_with_examples(false)
-            .iter()
-            .filter(|(signature, _, _, _, _)| signature.name == name)
-            .map(|(signature, examples, _, _, is_parser_keyword)| {
-                get_full_help(signature, examples, engine_state, stack, *is_parser_keyword)
+            .get_decls_sorted(false)
+            .into_iter()
+            .filter_map(|(_, decl_id)| {
+                let decl = engine_state.get_decl(decl_id);
+                (decl.name() == name).then_some(decl)
             })
+            .map(|cmd| get_full_help(cmd, engine_state, stack))
             .collect::<Vec<String>>();
 
         if !output.is_empty() {
@@ -124,7 +124,7 @@ pub fn help_externs(
             )
         } else {
             Err(ShellError::CommandNotFound {
-                span: span(&[rest[0].span, rest[rest.len() - 1].span]),
+                span: Span::merge_many(rest.iter().map(|s| s.span)),
             })
         }
     }

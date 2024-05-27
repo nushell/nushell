@@ -405,7 +405,7 @@ mod tests {
         let range = Range::new(
             Value::int(0, Span::test_data()),
             Value::int(1, Span::test_data()),
-            Value::int(3, Span::test_data()),
+            Value::int(2, Span::test_data()),
             RangeInclusion::Inclusive,
             Span::test_data(),
         )

@@ -29,7 +29,7 @@ impl Command for Inspect {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let input_metadata = input.metadata();
-        let input_val = input.into_value(call.head);
+        let input_val = input.into_value(call.head)?;
         if input_val.is_nothing() {
             return Err(ShellError::PipelineEmpty {
                 dst_span: call.head,

@@ -208,30 +208,21 @@ fn operate(
                 }
             })
             .into()),
-        PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::Empty),
-        PipelineData::ExternalStream {
-            stdout: Some(stream),
-            ..
-        } => {
-            // Collect all `stream` chunks into a single `chunk` to be able to deal with matches that
-            // extend across chunk boundaries.
-            // This is a stop-gap solution until the `regex` crate supports streaming or an alternative
-            // solution is found.
-            // See https://github.com/nushell/nushell/issues/9795
-            let str = stream.into_string()?.item;
+        PipelineData::ByteStream(stream, ..) => {
+            if let Some(lines) = stream.lines() {
+                let iter = ParseIter {
+                    captures: VecDeque::new(),
+                    regex,
+                    columns,
+                    iter: lines,
+                    span: head,
+                    ctrlc,
+                };
 
-            // let iter = stream.lines();
-
-            let iter = ParseIter {
-                captures: VecDeque::new(),
-                regex,
-                columns,
-                iter: std::iter::once(Ok(str)),
-                span: head,
-                ctrlc,
-            };
-
-            Ok(ListStream::new(iter, head, None).into())
+                Ok(ListStream::new(iter, head, None).into())
+            } else {
+                Ok(PipelineData::Empty)
+            }
         }
     }
 }
