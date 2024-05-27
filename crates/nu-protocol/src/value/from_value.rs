@@ -4,7 +4,7 @@ use crate::{
     NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
 };
 use chrono::{DateTime, FixedOffset};
-use std::{any, cmp::Ordering, path::PathBuf, str::FromStr};
+use std::{any, cmp::Ordering, collections::VecDeque, path::PathBuf, str::FromStr};
 
 /// A trait for loading a value from a [`Value`].
 pub trait FromValue: Sized {
@@ -277,6 +277,80 @@ impl_from_value_for_uint!(u64, i64::MAX); // u64::Max would be -1 as i64
 impl_from_value_for_uint!(usize, i64::MAX);
 #[cfg(target_pointer_width = "32")]
 impl_from_value_for_uint!(usize, usize::MAX);
+
+impl FromValue for () {
+    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+        match v {
+            Value::Nothing { .. } => Ok(()),
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::Nothing
+    }
+}
+
+macro_rules! tuple_from_value {
+    ($template:literal, $($t:ident:$n:tt),+) => {
+        impl<$($t),+> FromValue for ($($t,)+) where $($t: FromValue,)+ {
+            fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+                let span = v.span();
+                match v {
+                    Value::List { vals, .. } => {
+                        let mut deque = VecDeque::from(vals);
+
+                        Ok(($(
+                            {
+                                let v = deque.pop_front().ok_or_else(|| ShellError::CantFindColumn {
+                                    col_name: $n.to_string(),
+                                    span: call_span,
+                                    src_span: span
+                                })?;
+                                $t::from_value(v, call_span)?
+                            },
+                        )*))
+                    },
+                    v => Err(ShellError::CantConvert {
+                        to_type: Self::expected_type().to_string(),
+                        from_type: v.get_type().to_string(),
+                        span: v.span(),
+                        help: None,
+                    }),
+                }
+            }
+
+            fn expected_type() -> Type {
+                Type::Custom(
+                    format!(
+                        $template,
+                        $($t::expected_type()),*
+                    )
+                    .into_boxed_str(),
+                )
+            }
+        }
+    };
+}
+
+// Tuples in std are implemented for up to 12 elements, so we do it here too.
+tuple_from_value!("[{}]", T0:0);
+tuple_from_value!("[{}, {}]", T0:0, T1:1);
+tuple_from_value!("[{}, {}, {}]", T0:0, T1:1, T2:2);
+tuple_from_value!("[{}, {}, {}, {}]", T0:0, T1:1, T2:2, T3:3);
+tuple_from_value!("[{}, {}, {}, {}, {}]", T0:0, T1:1, T2:2, T3:3, T4:4);
+tuple_from_value!("[{}, {}, {}, {}, {}, {}]", T0:0, T1:1, T2:2, T3:3, T4:4, T5:5);
+tuple_from_value!("[{}, {}, {}, {}, {}, {}, {}]", T0:0, T1:1, T2:2, T3:3, T4:4, T5:5, T6:6);
+tuple_from_value!("[{}, {}, {}, {}, {}, {}, {}, {}]", T0:0, T1:1, T2:2, T3:3, T4:4, T5:5, T6:6, T7:7);
+tuple_from_value!("[{}, {}, {}, {}, {}, {}, {}, {}, {}]", T0:0, T1:1, T2:2, T3:3, T4:4, T5:5, T6:6, T7:7, T8:8);
+tuple_from_value!("[{}, {}, {}, {}, {}, {}, {}, {}, {}, {}]", T0:0, T1:1, T2:2, T3:3, T4:4, T5:5, T6:6, T7:7, T8:8, T9:9);
+tuple_from_value!("[{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}]", T0:0, T1:1, T2:2, T3:3, T4:4, T5:5, T6:6, T7:7, T8:8, T9:9, T10:10);
+tuple_from_value!("[{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}]", T0:0, T1:1, T2:2, T3:3, T4:4, T5:5, T6:6, T7:7, T8:8, T9:9, T10:10, T11:11);
 
 // Other std Types
 
