@@ -69,7 +69,7 @@ impl IntoValue for () {
 
 macro_rules! tuple_into_value {
     ($($t:ident:$n:tt),+) => {
-        impl<$($t),+> IntoValue for ($($t),+) where $($t: IntoValue,)+ {
+        impl<$($t),+> IntoValue for ($($t,)+) where $($t: IntoValue,)+ {
             fn into_value(self, span: Span) -> Value {
                 let vals = vec![$(self.$n.into_value(span)),+];
                 Value::list(vals, span)
@@ -78,18 +78,8 @@ macro_rules! tuple_into_value {
     }
 }
 
-// The singular tuple needs to implemented manually because the macro somehow breaks otherwise.
-impl<T0> IntoValue for (T0,)
-where
-    T0: IntoValue,
-{
-    fn into_value(self, span: Span) -> Value {
-        let vals = vec![self.0.into_value(span)];
-        Value::list(vals, span)
-    }
-}
-
 // Tuples in std are implemented for up to 12 elements, so we do it here too.
+tuple_into_value!(T0:0);
 tuple_into_value!(T0:0, T1:1);
 tuple_into_value!(T0:0, T1:1, T2:2);
 tuple_into_value!(T0:0, T1:1, T2:2, T3:3);
