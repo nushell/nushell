@@ -93,6 +93,13 @@ pub enum ParseError {
         #[label = "second redirection"] Span,
     ),
 
+    #[error("Unexpected redirection.")]
+    #[diagnostic(code(nu::parser::unexpected_redirection))]
+    UnexpectedRedirection {
+        #[label = "redirecting nothing"]
+        span: Span,
+    },
+
     #[error("{0} is not supported on values of type {3}")]
     #[diagnostic(code(nu::parser::unsupported_operation))]
     UnsupportedOperationLHS(
@@ -564,6 +571,7 @@ impl ParseError {
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::MultipleRedirections(_, _, s) => *s,
+            ParseError::UnexpectedRedirection { span } => *span,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
