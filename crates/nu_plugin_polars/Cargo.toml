@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu_plugin_polars"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
-version = "0.93.1"
+version = "0.94.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,9 +17,9 @@ bench = false
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.93.1" }
-nu-plugin = { path = "../nu-plugin", version = "0.93.1" }
-nu-path = { path = "../nu-path", version = "0.93.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.94.0" }
+nu-plugin = { path = "../nu-plugin", version = "0.94.0" }
+nu-path = { path = "../nu-path", version = "0.94.0" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
@@ -73,9 +73,9 @@ optional = false
 version = "0.39"
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.93.1" }
-nu-engine = { path = "../nu-engine", version = "0.93.1" }
-nu-parser = { path = "../nu-parser", version = "0.93.1" }
-nu-command = { path = "../nu-command", version = "0.93.1" }
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.93.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.94.0" }
+nu-engine = { path = "../nu-engine", version = "0.94.0" }
+nu-parser = { path = "../nu-parser", version = "0.94.0" }
+nu-command = { path = "../nu-command", version = "0.94.0" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.94.0" }
 tempfile.workspace = true

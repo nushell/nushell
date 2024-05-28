@@ -5,15 +5,15 @@ edition = "2021"
 license = "MIT"
 name = "nu-cmd-plugin"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-plugin"
-version = "0.93.1"
+version = "0.94.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.93.1" }
-nu-path = { path = "../nu-path", version = "0.93.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.93.1", features = ["plugin"] }
-nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.93.1" }
+nu-engine = { path = "../nu-engine", version = "0.94.0" }
+nu-path = { path = "../nu-path", version = "0.94.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.94.0", features = ["plugin"] }
+nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.94.0" }
 
 itertools = { workspace = true }
 
