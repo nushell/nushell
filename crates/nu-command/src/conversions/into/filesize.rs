@@ -152,12 +152,7 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     if let Some(stripped_negative_string) = clean_string.strip_prefix('-') {
         match stripped_negative_string.parse::<bytesize::ByteSize>() {
             Ok(n) => Ok(-(n.as_u64() as i64)),
-            Err(_) => Err(ShellError::CantConvert {
-                to_type: "int".into(),
-                from_type: "string".into(),
-                span,
-                help: None,
-            }),
+            Err(_) => Err(string_to_into_convert_error(span)),
         }
     } else if let Some(stripped_positive_string) = clean_string.strip_prefix('+') {
         match stripped_positive_string.parse::<bytesize::ByteSize>() {
@@ -169,23 +164,22 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
             {
                 Ok(n.0 as i64)
             }
-            _ => Err(ShellError::CantConvert {
-                to_type: "int".into(),
-                from_type: "string".into(),
-                span,
-                help: None,
-            }),
+            _ => Err(string_to_into_convert_error(span)),
         }
     } else {
         match clean_string.parse::<bytesize::ByteSize>() {
             Ok(n) => Ok(n.0 as i64),
-            Err(_) => Err(ShellError::CantConvert {
-                to_type: "int".into(),
-                from_type: "string".into(),
-                span,
-                help: None,
-            }),
+            Err(_) => Err(string_to_into_convert_error(span)),
         }
+    }
+}
+
+fn string_to_into_convert_error(span: Span) -> ShellError {
+    ShellError::CantConvert {
+        to_type: "int".into(),
+        from_type: "string".into(),
+        span,
+        help: None,
     }
 }
 
