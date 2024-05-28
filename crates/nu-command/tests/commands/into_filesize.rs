@@ -74,7 +74,6 @@ fn into_filesize_wrong_negative_str_filesize() {
     let actual = nu!("'--3kib' | into filesize");
 
     assert!(actual.err.contains("can't convert string to int"));
-
 }
 
 #[test]
