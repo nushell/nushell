@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 title: 'nushell: a new type of shell'
 message: >-
-  If you use this software in wish to cite it, 
+  If you use this software and wish to cite it, 
   you can use the metadata from this file.
 type: software
 authors:
