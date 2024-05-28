@@ -133,12 +133,16 @@ impl<'a> RecordView<'a> {
         layer.reset_cursor();
     }
 
+    /// Get the current position of the cursor in the table
+    /// Returns (row, column)
     pub fn get_current_position(&self) -> (usize, usize) {
         let layer = self.get_layer_last();
         (layer.cursor.row(), layer.cursor.column())
     }
 
-    pub fn get_current_window(&self) -> (usize, usize) {
+    /// Get the current position of the cursor in the window being shown
+    /// Returns (row, column)
+    pub fn get_current_position_in_window(&self) -> (usize, usize) {
         let layer = self.get_layer_last();
         (
             layer.cursor.row_window_position(),
@@ -146,7 +150,9 @@ impl<'a> RecordView<'a> {
         )
     }
 
-    pub fn get_current_offset(&self) -> (usize, usize) {
+    /// Get the origin ((0,0)) of the window being shown
+    /// Returns (row, column)
+    pub fn get_window_origin(&self) -> (usize, usize) {
         let layer = self.get_layer_last();
         (
             layer.cursor.row_starts_at(),
@@ -178,15 +184,17 @@ impl<'a> RecordView<'a> {
         }
     }
 
-    fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
+    /// Create a table widget.
+    /// WARNING: this is currently really slow on large data sets.
+    /// It creates a string representation of every cell in the table and looks at every row for lscolorize.
+    fn create_table_widget(&'a self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
         let layer = self.get_layer_last();
         let mut data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
-
         lscolorize(&layer.columns, &mut data, cfg.lscolors);
 
         let headers = layer.columns.as_ref();
         let style_computer = cfg.style_computer;
-        let (row, column) = self.get_current_offset();
+        let (row, column) = self.get_window_origin();
 
         TableWidget::new(
             headers,
@@ -235,7 +243,10 @@ impl<'a> RecordView<'a> {
 impl View for RecordView<'_> {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let mut table_layout = TableWidgetState::default();
-        let table = self.create_tablew(cfg);
+        // TODO: creating the table widget is O(N) where N is the number of cells in the grid.
+        // Way too slow to do on every draw call!
+        // To make explore work for larger data sets, this needs to be improved.
+        let table = self.create_table_widget(cfg);
         f.render_stateful_widget(table, area, &mut table_layout);
 
         *layout = table_layout.layout;
@@ -243,7 +254,7 @@ impl View for RecordView<'_> {
         self.update_cursors(table_layout.count_rows, table_layout.count_columns);
 
         if self.mode == UIMode::Cursor {
-            let (row, column) = self.get_current_window();
+            let (row, column) = self.get_current_position_in_window();
             let info = get_element_info(
                 layout,
                 row,
