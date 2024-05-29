@@ -1,10 +1,9 @@
 use filetime::FileTime;
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
+use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
 use nu_protocol::NuGlob;
 
-use std::{fs::OpenOptions, path::Path, time::SystemTime};
+use std::{fs::OpenOptions, time::SystemTime};
 
 use super::util::get_rest_for_glob_pattern;
 
@@ -69,6 +68,8 @@ impl Command for Touch {
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
         let files: Vec<Spanned<NuGlob>> = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
 
+        let cwd = engine_state.cwd(Some(stack))?;
+
         if files.is_empty() {
             return Err(ShellError::MissingParameter {
                 param_name: "requires file paths".to_string(),
@@ -86,7 +87,7 @@ impl Command for Touch {
         }
 
         if let Some(reference) = reference {
-            let reference_path = Path::new(&reference.item);
+            let reference_path = nu_path::expand_path_with(reference.item, &cwd, true);
             if !reference_path.exists() {
                 return Err(ShellError::FileNotFoundCustom {
                     msg: "Reference path not found".into(),
@@ -113,9 +114,6 @@ impl Command for Touch {
                     span: reference.span,
                 })?;
         }
-
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
 
         for glob in files {
             let path = expand_path_with(glob.item.as_ref(), &cwd, glob.item.is_expand());
