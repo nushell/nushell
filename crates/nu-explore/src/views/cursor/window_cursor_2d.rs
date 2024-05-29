@@ -143,7 +143,8 @@ impl WindowCursor2D {
     }
 
     pub fn next_column_i(&mut self) {
-        self.x.set_window_start_position(self.x.window_starts_at() + 1)
+        self.x
+            .set_window_start_position(self.x.window_starts_at() + 1)
     }
 
     pub fn prev_column_i(&mut self) {
@@ -151,11 +152,13 @@ impl WindowCursor2D {
             return;
         }
 
-        self.x.set_window_start_position(self.x.window_starts_at() - 1)
+        self.x
+            .set_window_start_position(self.x.window_starts_at() - 1)
     }
 
     pub fn next_row_i(&mut self) {
-        self.y.set_window_start_position(self.y.window_starts_at() + 1)
+        self.y
+            .set_window_start_position(self.y.window_starts_at() + 1)
     }
 
     pub fn prev_row_i(&mut self) {
@@ -163,6 +166,7 @@ impl WindowCursor2D {
             return;
         }
 
-        self.y.set_window_start_position(self.y.window_starts_at() - 1)
+        self.y
+            .set_window_start_position(self.y.window_starts_at() - 1)
     }
 }
