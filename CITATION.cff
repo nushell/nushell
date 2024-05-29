@@ -5,7 +5,7 @@ message: >-
   you can use the metadata from this file.
 type: software
 authors:
-  - family-names: The Nushell Project Developers
+  - name: "The Nushell Project Team"
 identifiers:
   - type: url
     value: 'https://github.com/nushell/nushell'
