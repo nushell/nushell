@@ -45,7 +45,7 @@ impl View for Preview {
             .cursor
             .set_window_size(area.height as usize, area.width as usize);
 
-        let lines = &self.lines[self.cursor.row_starts_at()..];
+        let lines = &self.lines[self.cursor.window_origin().row..];
         for (i, line) in lines.iter().enumerate().take(area.height as usize) {
             let text_widget = ColoredTextWidget::new(line, self.cursor.column());
             let plain_text = text_widget.get_plain_text(area.width as usize);
@@ -69,13 +69,13 @@ impl View for Preview {
         match key.code {
             KeyCode::Left => {
                 self.cursor
-                    .prev_column_by(max(1, self.cursor.column_window_size() / 2));
+                    .prev_column_by(max(1, self.cursor.window_width_in_columns() / 2));
 
                 Some(Transition::Ok)
             }
             KeyCode::Right => {
                 self.cursor
-                    .next_column_by(max(1, self.cursor.column_window_size() / 2));
+                    .next_column_by(max(1, self.cursor.window_width_in_columns() / 2));
 
                 Some(Transition::Ok)
             }
@@ -132,7 +132,7 @@ impl View for Preview {
         //
         // todo: improve somehow?
 
-        self.cursor.set_start_position(row, 0);
+        self.cursor.set_window_start_position(row, 0);
         true
     }
 
@@ -156,7 +156,7 @@ fn set_status_end(view: &Preview, info: &mut ViewInfo) {
 }
 
 fn set_status_top(view: &Preview, info: &mut ViewInfo) {
-    if view.cursor.row_starts_at() == 0 {
+    if view.cursor.window_origin().row == 0 {
         info.status = Some(Report::info("TOP"));
     } else {
         info.status = Some(Report::default());

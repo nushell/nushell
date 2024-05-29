@@ -17,6 +17,7 @@ use crate::{
         ConfigMap, Frame, Transition, ViewInfo,
     },
     util::create_map,
+    views::cursor::Position,
 };
 
 use self::binary_widget::{BinarySettings, BinaryStyle, BinaryWidget};
@@ -104,7 +105,7 @@ impl View for BinaryView {
 }
 
 fn create_binary_widget(v: &BinaryView) -> BinaryWidget<'_> {
-    let start_line = v.cursor.row_starts_at();
+    let start_line = v.cursor.window_origin().row;
     let count_elements =
         BinaryWidget::new(&[], v.settings.opts, Default::default()).count_elements();
     let index = start_line * count_elements;
@@ -221,7 +222,7 @@ fn report_mode_name() -> String {
 }
 
 fn report_row_position(cursor: WindowCursor2D) -> String {
-    if cursor.row_starts_at() == 0 {
+    if cursor.window_origin().row == 0 {
         return String::from("Top");
     }
 
@@ -238,9 +239,8 @@ fn report_row_position(cursor: WindowCursor2D) -> String {
 }
 
 fn report_cursor_position(cursor: WindowCursor2D) -> String {
-    let rows_seen = cursor.row_starts_at();
-    let columns_seen = cursor.column_starts_at();
-    format!("{rows_seen},{columns_seen}")
+    let Position { row, column } = cursor.window_origin();
+    format!("{row},{column}")
 }
 
 fn get_percentage(value: usize, max: usize) -> usize {

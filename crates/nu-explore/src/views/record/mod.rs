@@ -2,7 +2,7 @@ mod table_widget;
 
 use self::table_widget::{TableStyle, TableWidget, TableWidgetState};
 use super::{
-    cursor::WindowCursor2D,
+    cursor::{Position, WindowCursor2D},
     util::{make_styled_string, nu_style_to_tui},
     Layout, View, ViewConfig,
 };
@@ -133,31 +133,22 @@ impl<'a> RecordView<'a> {
         layer.reset_cursor();
     }
 
-    /// Get the current position of the cursor in the table
-    /// Returns (row, column)
-    pub fn get_current_position(&self) -> (usize, usize) {
+    /// Get the current position of the cursor in the table as a whole
+    pub fn get_cursor_position(&self) -> Position {
         let layer = self.get_layer_last();
-        (layer.cursor.row(), layer.cursor.column())
+        layer.cursor.position()
     }
 
     /// Get the current position of the cursor in the window being shown
-    /// Returns (row, column)
-    pub fn get_current_position_in_window(&self) -> (usize, usize) {
+    pub fn get_cursor_position_in_window(&self) -> Position {
         let layer = self.get_layer_last();
-        (
-            layer.cursor.row_window_position(),
-            layer.cursor.column_window_position(),
-        )
+        layer.cursor.window_relative_position()
     }
 
-    /// Get the origin ((0,0)) of the window being shown
-    /// Returns (row, column)
-    pub fn get_window_origin(&self) -> (usize, usize) {
+    /// Get the origin of the window being shown. (0,0), top left corner.
+    pub fn get_window_origin(&self) -> Position {
         let layer = self.get_layer_last();
-        (
-            layer.cursor.row_starts_at(),
-            layer.cursor.column_starts_at(),
-        )
+        layer.cursor.window_origin()
     }
 
     pub fn set_cursor_mode(&mut self) {
@@ -169,7 +160,7 @@ impl<'a> RecordView<'a> {
     }
 
     pub fn get_current_value(&self) -> Value {
-        let (row, column) = self.get_current_position();
+        let Position { row, column } = self.get_cursor_position();
         let layer = self.get_layer_last();
 
         let (row, column) = match layer.orientation {
@@ -194,7 +185,7 @@ impl<'a> RecordView<'a> {
 
         let headers = layer.columns.as_ref();
         let style_computer = cfg.style_computer;
-        let (row, column) = self.get_window_origin();
+        let Position { row, column } = self.get_window_origin();
 
         TableWidget::new(
             headers,
@@ -254,7 +245,7 @@ impl View for RecordView<'_> {
         self.update_cursors(table_layout.count_rows, table_layout.count_columns);
 
         if self.mode == UIMode::Cursor {
-            let (row, column) = self.get_current_position_in_window();
+            let Position { row, column } = self.get_cursor_position_in_window();
             let info = get_element_info(
                 layout,
                 row,
@@ -330,7 +321,7 @@ impl View for RecordView<'_> {
                 if i == pos {
                     self.get_layer_last_mut()
                         .cursor
-                        .set_start_position(row, column);
+                        .set_window_start_position(row, column);
                     return true;
                 }
 
@@ -661,7 +652,9 @@ fn tail_data(state: &mut RecordView<'_>, page_size: usize) {
     let layer = state.get_layer_last_mut();
     let count_rows = layer.records.len();
     if count_rows > page_size {
-        layer.cursor.set_start_position(count_rows - page_size, 0);
+        layer
+            .cursor
+            .set_window_start_position(count_rows - page_size, 0);
     }
 }
 
@@ -760,18 +753,16 @@ fn build_table_as_record(v: &RecordView) -> Value {
 
 fn report_cursor_position(mode: UIMode, cursor: WindowCursor2D) -> String {
     if mode == UIMode::Cursor {
-        let row = cursor.row();
-        let column = cursor.column();
+        let Position { row, column } = cursor.position();
         format!("{row},{column}")
     } else {
-        let rows_seen = cursor.row_starts_at();
-        let columns_seen = cursor.column_starts_at();
-        format!("{rows_seen},{columns_seen}")
+        let Position { row, column } = cursor.window_origin();
+        format!("{row},{column}")
     }
 }
 
 fn report_row_position(cursor: WindowCursor2D) -> String {
-    if cursor.row_starts_at() == 0 {
+    if cursor.window_origin().row == 0 {
         String::from("Top")
     } else {
         let percent_rows = get_percentage(cursor.row(), cursor.row_limit());

@@ -1,7 +1,7 @@
 use super::WindowCursor;
 use anyhow::Result;
 
-/// `WindowCursor2D` manages a 2-dimensional "window" onto a grid of cells.
+/// `WindowCursor2D` manages a 2-dimensional "window" onto a grid of cells, with a cursor that can point to a specific cell.
 /// For example, consider a 3x3 grid of cells:
 ///
 /// +---+---+---+
@@ -29,10 +29,16 @@ use anyhow::Result;
 /// | g | h |
 /// +---+---+
 ///
+/// Inside the window, the cursor can point to a specific cell.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct WindowCursor2D {
     x: WindowCursor,
     y: WindowCursor,
+}
+
+pub struct Position {
+    pub row: usize,
+    pub column: usize,
 }
 
 impl WindowCursor2D {
@@ -49,40 +55,48 @@ impl WindowCursor2D {
         Ok(())
     }
 
-    pub fn set_start_position(&mut self, row: usize, col: usize) {
+    pub fn set_window_start_position(&mut self, row: usize, col: usize) {
         self.x.set_window_start_position(col);
         self.y.set_window_start_position(row);
     }
 
+    /// The absolute position of the cursor in the grid (0-indexed, row only)
     pub fn row(&self) -> usize {
         self.y.absolute_position()
     }
 
+    /// The absolute position of the cursor in the grid (0-indexed, column only)
     pub fn column(&self) -> usize {
         self.x.absolute_position()
+    }
+
+    /// The absolute position of the cursor in the grid (0-indexed)
+    pub fn position(&self) -> Position {
+        Position {
+            row: self.row(),
+            column: self.column(),
+        }
     }
 
     pub fn row_limit(&self) -> usize {
         self.y.end()
     }
 
-    pub fn row_starts_at(&self) -> usize {
-        self.y.window_starts_at()
+    pub fn window_origin(&self) -> Position {
+        Position {
+            row: self.y.window_starts_at(),
+            column: self.x.window_starts_at(),
+        }
     }
 
-    pub fn column_starts_at(&self) -> usize {
-        self.x.window_starts_at()
+    pub fn window_relative_position(&self) -> Position {
+        Position {
+            row: self.y.window_relative_position(),
+            column: self.x.window_relative_position(),
+        }
     }
 
-    pub fn row_window_position(&self) -> usize {
-        self.y.window_relative_position()
-    }
-
-    pub fn column_window_position(&self) -> usize {
-        self.x.window_relative_position()
-    }
-
-    pub fn column_window_size(&self) -> usize {
+    pub fn window_width_in_columns(&self) -> usize {
         self.x.window_size()
     }
 
@@ -129,8 +143,7 @@ impl WindowCursor2D {
     }
 
     pub fn next_column_i(&mut self) {
-        self.x
-            .set_window_start_position(self.x.window_starts_at() + 1)
+        self.x.set_window_start_position(self.x.window_starts_at() + 1)
     }
 
     pub fn prev_column_i(&mut self) {
@@ -138,13 +151,11 @@ impl WindowCursor2D {
             return;
         }
 
-        self.x
-            .set_window_start_position(self.x.window_starts_at() - 1)
+        self.x.set_window_start_position(self.x.window_starts_at() - 1)
     }
 
     pub fn next_row_i(&mut self) {
-        self.y
-            .set_window_start_position(self.y.window_starts_at() + 1)
+        self.y.set_window_start_position(self.y.window_starts_at() + 1)
     }
 
     pub fn prev_row_i(&mut self) {
@@ -152,7 +163,6 @@ impl WindowCursor2D {
             return;
         }
 
-        self.y
-            .set_window_start_position(self.y.window_starts_at() - 1)
+        self.y.set_window_start_position(self.y.window_starts_at() - 1)
     }
 }
