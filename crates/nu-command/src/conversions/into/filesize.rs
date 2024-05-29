@@ -152,31 +152,26 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     if let Some(stripped_negative_string) = clean_string.strip_prefix('-') {
         match stripped_negative_string.parse::<bytesize::ByteSize>() {
             Ok(n) => Ok(-(n.as_u64() as i64)),
-            Err(_) => Err(string_to_into_convert_error(span)),
+            Err(_) => Err(string_convert_error(span)),
         }
     } else if let Some(stripped_positive_string) = clean_string.strip_prefix('+') {
         match stripped_positive_string.parse::<bytesize::ByteSize>() {
-            Ok(n)
-                if stripped_positive_string
-                    .chars()
-                    .next()
-                    .map_or(false, |c| c.is_digit(10)) =>
-            {
+            Ok(n) if stripped_positive_string.starts_with(|c: char| c.is_ascii_digit()) => {
                 Ok(n.0 as i64)
             }
-            _ => Err(string_to_into_convert_error(span)),
+            _ => Err(string_convert_error(span)),
         }
     } else {
         match clean_string.parse::<bytesize::ByteSize>() {
             Ok(n) => Ok(n.0 as i64),
-            Err(_) => Err(string_to_into_convert_error(span)),
+            Err(_) => Err(string_convert_error(span)),
         }
     }
 }
 
-fn string_to_into_convert_error(span: Span) -> ShellError {
+fn string_convert_error(span: Span) -> ShellError {
     ShellError::CantConvert {
-        to_type: "int".into(),
+        to_type: "filesize".into(),
         from_type: "string".into(),
         span,
         help: None,
