@@ -61,6 +61,16 @@ impl Command for Parse {
                 )),
             },
             Example {
+                description: "Parse each line of output of an external commmand",
+                example: "^cat .profile | lines | parse -r 'export (?<env>.*)=(?<val>.*)'",
+                result: None,
+            },
+            Example {
+                description: "Parse the output of an external commmand (multi-line)",
+                example: "^cat file.txt | collect | parse -r '(?ms)foo: (?<foo>\\w+).*bar: (?<bar>\\w+)'",
+                result: None,
+            },
+            Example {
                 description: "Parse a string using fancy-regex capture group pattern",
                 example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
                 result: Some(Value::test_list(
