@@ -46,15 +46,36 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
 
+        // Evaluate the command name in the same way the arguments are evaluated. Since this isn't
+        // a spread, it should return a one-element vec.
+        let name_expr = call
+            .positional_nth(0)
+            .ok_or_else(|| ShellError::MissingParameter {
+                param_name: "command".into(),
+                span: call.head,
+            })?;
+        let name = eval_argument(engine_state, stack, name_expr, false)?
+            .pop()
+            .expect("eval_argument returned zero-element vec")
+            .into_spanned(name_expr.span);
+
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's is a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
         let executable = if cfg!(windows) && is_cmd_internal_command(&name.item) {
             PathBuf::from("cmd.exe")
         } else {
+            // Expand tilde on the name if it's a bare string (#13000)
+            let expanded_name = if is_bare_string(name_expr) {
+                expand_tilde(&name.item)
+            } else {
+                name.item.clone()
+            };
+
+            // Determine the PATH to be used and then use `which` to find it - though this has no
+            // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(&name.item, &paths, &cwd) else {
+            let Some(executable) = which(&expanded_name, &paths, &cwd) else {
                 return Err(command_not_found(
                     &name.item,
                     call.head,
