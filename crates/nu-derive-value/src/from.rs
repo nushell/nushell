@@ -50,7 +50,7 @@ fn derive_struct_from_value(ident: Ident, data: DataStruct, generics: Generics) 
 }
 
 fn struct_from_value(data: &DataStruct, generics: &Generics) -> TokenStream2 {
-    let this = match &data.fields {
+    let body = match &data.fields {
         Fields::Named(fields) => {
             let fields = fields.named.iter().map(|field| {
                 let ident = field.ident.as_ref().expect("named has idents");
@@ -69,17 +69,44 @@ fn struct_from_value(data: &DataStruct, generics: &Generics) -> TokenStream2 {
                     )?
                 }
             });
-            quote!(Self {#(#fields),*})
+            quote! {
+                let span = v.span();
+                let mut record = v.into_record()?;
+                Ok(Self {#(#fields),*})
+            }
         }
-        Fields::Unnamed(fields) => todo!(),
+        Fields::Unnamed(fields) => {
+            let fields = fields.unnamed.iter().enumerate().map(|(i, field)| {
+                let ty = &field.ty;
+                quote! {{
+                    <#ty as nu_protocol::FromValue>::from_value(
+                        deque
+                            .pop_front()
+                            .ok_or_else(|| nu_protocol::CantFindColumn {
+                                col_name: std::string::ToString::to_string(&#i),
+                                span: call_span,
+                                src_span: span
+                            })?,
+                        call_span,
+                    )?
+                }}
+            });
+            quote! {
+                let span = v.span();
+                let list = v.into_list()?;
+                let mut deque: std::collections::Deque = std::convert::From::from(list);
+                Ok(Self(#(#fields),*))
+            }
+        }
         Fields::Unit => todo!(),
     };
 
     quote! {
-        fn from_value(v: nu_protocol::Value, call_span: nu_protocol::Span) -> std::result::Result<Self, nu_protocol::ShellError> {
-            let span = v.span();
-            let mut record = v.into_record()?;
-            Ok(#this)
+        fn from_value(
+            v: nu_protocol::Value,
+            call_span: nu_protocol::Span
+        ) -> std::result::Result<Self, nu_protocol::ShellError> {
+            #body
         }
     }
 }
