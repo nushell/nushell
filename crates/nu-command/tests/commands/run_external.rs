@@ -2,6 +2,7 @@
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+use std::path::Path;
 
 #[test]
 fn better_empty_redirection() {
@@ -332,4 +333,15 @@ fn redirect_combine() {
         // Lines are collapsed in the nu! macro
         assert_eq!(actual.out, "FooBar");
     });
+}
+
+#[test]
+fn command_name_can_contain_tilde() {
+    let home = nu_path::home_dir().unwrap();
+    let executable = nu_test_support::fs::executable_path();
+    let diff = pathdiff::diff_paths(executable, home).unwrap();
+    let name = Path::new("~").join(diff);
+
+    let actual = nu!(format!("{} --testbin cococo", name.display()));
+    assert_eq!(actual.out, "cococo");
 }
