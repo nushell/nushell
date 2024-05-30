@@ -104,10 +104,9 @@ If nothing is found, an empty string will be returned."#
 
 fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
     let path = nu_path::expand_path_with(path, &args.pwd, true);
-    match std::fs::symlink_metadata(path) {
-        Ok(metadata) => Value::string(get_file_type(&metadata), span),
-        Err(err) => Value::error(err.into(), span),
-    }
+    let meta = path.symlink_metadata();
+    let ty = meta.as_ref().map(get_file_type).unwrap_or("");
+    Value::string(ty, span)
 }
 
 fn get_file_type(md: &std::fs::Metadata) -> &str {
