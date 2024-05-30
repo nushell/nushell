@@ -61,12 +61,12 @@ impl Command for Parse {
                 )),
             },
             Example {
-                description: "Parse each line of output of an external commmand",
+                description: "Parse each line of output of an external command",
                 example: "^cat .profile | lines | parse -r 'export (?<env>.*)=(?<val>.*)'",
                 result: None,
             },
             Example {
-                description: "Parse the output of an external commmand (multi-line)",
+                description: "Parse the output of an external command (multi-line)",
                 example: "^cat file.txt | collect | parse -r '(?ms)foo: (?<foo>\\w+).*bar: (?<bar>\\w+)'",
                 result: None,
             },
