@@ -123,6 +123,7 @@ mod regex {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open nushell_git_log_oneline.txt
+                    | lines
                     | parse --regex "(?P<Hash>\\w+) (?P<Message>.+) \\(#(?P<PR>\\d+)\\)"
                     | get 1
                     | get PR
@@ -142,6 +143,7 @@ mod regex {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open nushell_git_log_oneline.txt
+                    | lines
                     | parse --regex "(\\w+) (.+) \\(#(\\d+)\\)"
                     | get 1
                     | get capture0
@@ -161,6 +163,7 @@ mod regex {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open nushell_git_log_oneline.txt
+                    | lines
                     | parse --regex "(?P<Hash>\\w+) (.+) \\(#(?P<PR>\\d+)\\)"
                     | get 1
                     | get capture1
@@ -180,6 +183,7 @@ mod regex {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open nushell_git_log_oneline.txt
+                    | lines
                     | parse --regex "(?P<Hash>\\w+ unfinished capture group"
                 "#
             ));
