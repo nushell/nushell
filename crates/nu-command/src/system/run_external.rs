@@ -565,12 +565,20 @@ fn has_cmd_special_character(s: &str) -> bool {
     SPECIAL_CHARS.iter().any(|c| s.contains(*c))
 }
 
-/// Escape an argument for CMD internal commands. The result can be safely
-/// passed to `raw_arg()`.
+/// Escape an argument for CMD internal commands. The result can be safely passed to `raw_arg()`.
 #[cfg(windows)]
 fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError> {
     let Spanned { item: arg, span } = arg;
-    if arg.contains('"') {
+    if arg.contains(['\r', '\n', '%']) {
+        // \r and \n trunacte the rest of the arguments and % can expand environment variables
+        Err(ShellError::ExternalCommand {
+            label:
+                "Arguments to CMD internal commands cannot contain new lines or percent signs '%'"
+                    .into(),
+            help: "some characters currently cannot be securly escaped".into(),
+            span: *span,
+        })
+    } else if arg.contains('"') {
         // If `arg` is already quoted by double quotes, confirm there's no
         // embedded double quotes, then leave it as is.
         if arg.chars().filter(|c| *c == '"').count() == 2
@@ -582,14 +590,14 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
             Err(ShellError::ExternalCommand {
                 label: "Arguments to CMD internal commands cannot contain embedded double quotes"
                     .into(),
-                help: "CMD doesn't support escaping double quotes inside double quotes".into(),
+                help: "this case currently cannot be securly handled".into(),
                 span: *span,
             })
         }
     } else if arg.contains(' ') || has_cmd_special_character(arg) {
-        // If `arg` contains space or special characters, quote the entire argument by double quotes.
         Ok(Cow::Owned(format!("\"{arg}\"")))
     } else {
+        // FIXME?: what if `arg.is_empty()`?
         Ok(Cow::Borrowed(arg))
     }
 }
