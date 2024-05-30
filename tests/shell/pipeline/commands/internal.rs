@@ -539,6 +539,15 @@ fn dynamic_closure_optional_arg() {
 fn dynamic_closure_rest_args() {
     let actual = nu!(r#"let closure = {|...args| $args | str join ""}; do $closure 1 2 3"#);
     assert_eq!(actual.out, "123");
+
+    let actual = nu!(
+        r#"let closure = {|required, ...args| $"($required), ($args | str join "")"}; do $closure 1 2 3"#
+    );
+    assert_eq!(actual.out, "1, 23");
+    let actual = nu!(
+        r#"let closure = {|required, optional?, ...args| $"($required), ($optional), ($args | str join "")"}; do $closure 1 2 3"#
+    );
+    assert_eq!(actual.out, "1, 2, 3");
 }
 
 #[cfg(feature = "which-support")]
