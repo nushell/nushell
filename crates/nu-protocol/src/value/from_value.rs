@@ -4,7 +4,13 @@ use crate::{
     NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
 };
 use chrono::{DateTime, FixedOffset};
-use std::{any, cmp::Ordering, collections::VecDeque, path::PathBuf, str::FromStr};
+use std::{
+    any,
+    cmp::Ordering,
+    collections::{HashMap, VecDeque},
+    path::PathBuf,
+    str::FromStr,
+};
 
 /// A trait for loading a value from a [`Value`].
 pub trait FromValue: Sized {
@@ -279,7 +285,7 @@ impl_from_value_for_uint!(usize, i64::MAX);
 impl_from_value_for_uint!(usize, usize::MAX);
 
 impl FromValue for () {
-    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
         match v {
             Value::Nothing { .. } => Ok(()),
             v => Err(ShellError::CantConvert {
@@ -429,6 +435,24 @@ where
 
     fn expected_type() -> Type {
         T::expected_type()
+    }
+}
+
+impl<V> FromValue for HashMap<String, V>
+where
+    V: FromValue,
+{
+    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+        let record = v.into_record()?;
+        let items: Result<Vec<(String, V)>, ShellError> = record
+            .into_iter()
+            .map(|(k, v)| Ok((k, V::from_value(v, call_span)?)))
+            .collect();
+        Ok(HashMap::from_iter(items?))
+    }
+
+    fn expected_type() -> Type {
+        Type::Record(vec![].into_boxed_slice())
     }
 }
 
