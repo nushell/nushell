@@ -298,9 +298,7 @@ fn bind_args_to(
     if let Some(rest_positional) = &signature.rest_positional {
         let mut rest_items = vec![];
 
-        for result in
-            val_iter.skip(signature.required_positional.len() + signature.optional_positional.len())
-        {
+        for result in val_iter {
             rest_items.push(result);
         }
 
