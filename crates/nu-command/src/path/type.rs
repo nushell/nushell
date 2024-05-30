@@ -1,7 +1,10 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::StateWorkingSet;
-use std::path::{Path, PathBuf};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
 struct Arguments {
     pwd: PathBuf,
@@ -36,7 +39,7 @@ impl Command for SubCommand {
 
     fn extra_usage(&self) -> &str {
         r#"This checks the file system to confirm the path's object type.
-If nothing is found, an empty string will be returned."#
+If nothing is found, null will be returned."#
     }
 
     fn is_const(&self) -> bool {
@@ -106,7 +109,8 @@ fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
     let path = nu_path::expand_path_with(path, &args.pwd, true);
     match std::fs::symlink_metadata(path) {
         Ok(metadata) => Value::string(get_file_type(&metadata), span),
-        Err(err) => Value::error(err.into(), span),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Value::nothing(span),
+        Err(err) => Value::error(err.into_spanned(span).into(), span),
     }
 }
 
