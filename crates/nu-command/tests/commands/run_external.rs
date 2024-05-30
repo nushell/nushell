@@ -345,3 +345,13 @@ fn command_name_can_contain_tilde() {
     let actual = nu!(format!("{} --testbin cococo", name.display()));
     assert_eq!(actual.out, "cococo");
 }
+
+#[test]
+fn command_name_can_use_string_interpolation() {
+    let executable_dir = nu_test_support::fs::binaries();
+    let actual = nu!(format!(
+        "let bin = 'nu'; ^$'{}/($bin)' --testbin cococo",
+        executable_dir.display()
+    ));
+    assert_eq!(actual.out, "cococo");
+}
