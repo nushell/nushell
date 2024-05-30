@@ -157,13 +157,13 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     } else if let Some(stripped_positive_string) = clean_string.strip_prefix('+') {
         match stripped_positive_string.parse::<bytesize::ByteSize>() {
             Ok(n) if stripped_positive_string.starts_with(|c: char| c.is_ascii_digit()) => {
-                Ok(n.0 as i64)
+                Ok(n.as_u64() as i64)
             }
             _ => Err(string_convert_error(span)),
         }
     } else {
         match clean_string.parse::<bytesize::ByteSize>() {
-            Ok(n) => Ok(n.0 as i64),
+            Ok(n) => Ok(n.as_u64() as i64),
             Err(_) => Err(string_convert_error(span)),
         }
     }
