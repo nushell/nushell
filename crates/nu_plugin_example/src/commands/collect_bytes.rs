@@ -1,6 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    ByteStream, Category, Example, LabeledError, PipelineData, Signature, Type, Value,
+    ByteStream, ByteStreamType, Category, Example, LabeledError, PipelineData, Signature, Type,
+    Value,
 };
 
 use crate::ExamplePlugin;
@@ -52,6 +53,7 @@ impl PluginCommand for CollectBytes {
                 input.into_iter().map(Value::coerce_into_binary),
                 call.head,
                 None,
+                ByteStreamType::Unknown,
             ),
             None,
         ))

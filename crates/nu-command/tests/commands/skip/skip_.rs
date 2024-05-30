@@ -1,13 +1,17 @@
 use nu_test_support::nu;
 
 #[test]
-fn binary_skip_will_raise_error() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "open sample_data.ods --raw | skip 2"
-    );
+fn skips_bytes() {
+    let actual = nu!("(0x[aa bb cc] | skip 2) == 0x[cc]");
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn skips_bytes_from_stream() {
+    let actual = nu!("([0 1] | each { 0x[aa bb cc] } | bytes collect | skip 2) == 0x[cc aa bb cc]");
+
+    assert_eq!(actual.out, "true");
 }
 
 #[test]

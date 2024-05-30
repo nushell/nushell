@@ -2,8 +2,8 @@ use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     process::{ChildPipe, ChildProcess, ExitStatus},
-    ByteStream, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range, ShellError, Span,
-    Value,
+    ByteStream, ByteStreamType, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range,
+    ShellError, Span, Type, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
@@ -99,6 +99,24 @@ impl PipelineData {
         }
     }
 
+    /// Get a type that is representative of the `PipelineData`.
+    ///
+    /// The type returned here makes no effort to collect a stream, so it may be a different type
+    /// than would be returned by [`Value::get_type()`] on the result of [`.into_value()`].
+    ///
+    /// Specifically, a `ListStream` results in [`list stream`](Type::ListStream) rather than
+    /// the fully complete [`list`](Type::List) type (which would require knowing the contents),
+    /// and a `ByteStream` with [unknown](crate::ByteStreamType::Unknown) type results in
+    /// [`any`](Type::Any) rather than [`string`](Type::String) or [`binary`](Type::Binary).
+    pub fn get_type(&self) -> Type {
+        match self {
+            PipelineData::Empty => Type::Nothing,
+            PipelineData::Value(value, _) => value.get_type(),
+            PipelineData::ListStream(_, _) => Type::ListStream,
+            PipelineData::ByteStream(stream, _) => stream.type_().into(),
+        }
+    }
+
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
         match self {
             PipelineData::Empty => Ok(Value::nothing(span)),
@@ -170,6 +188,8 @@ impl PipelineData {
     /// Try convert from self into iterator
     ///
     /// It returns Err if the `self` cannot be converted to an iterator.
+    ///
+    /// The `span` should be the span of the command or operation that would raise an error.
     pub fn into_iter_strict(self, span: Span) -> Result<PipelineIterator, ShellError> {
         Ok(PipelineIterator(match self {
             PipelineData::Value(value, ..) => {
@@ -274,7 +294,7 @@ impl PipelineData {
                 span: head,
             }),
             PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
-                type_name: "byte stream".to_string(),
+                type_name: stream.type_().describe().to_owned(),
                 span: stream.span(),
             }),
         }
@@ -313,16 +333,7 @@ impl PipelineData {
                 Ok(PipelineData::ListStream(stream.map(f), metadata))
             }
             PipelineData::ByteStream(stream, metadata) => {
-                // TODO: is this behavior desired / correct ?
-                let span = stream.span();
-                let value = match String::from_utf8(stream.into_bytes()?) {
-                    Ok(mut str) => {
-                        str.truncate(str.trim_end_matches(LINE_ENDING_PATTERN).len());
-                        f(Value::string(str, span))
-                    }
-                    Err(err) => f(Value::binary(err.into_bytes(), span)),
-                };
-                Ok(value.into_pipeline_data_with_metadata(metadata))
+                Ok(f(stream.into_value()?).into_pipeline_data_with_metadata(metadata))
             }
         }
     }
@@ -543,22 +554,26 @@ impl PipelineData {
         no_newline: bool,
         to_stderr: bool,
     ) -> Result<Option<ExitStatus>, ShellError> {
-        if let PipelineData::ByteStream(stream, ..) = self {
-            stream.print(to_stderr)
-        } else {
-            // If the table function is in the declarations, then we can use it
-            // to create the table value that will be printed in the terminal
-            if let Some(decl_id) = engine_state.table_decl_id {
-                let command = engine_state.get_decl(decl_id);
-                if command.get_block_id().is_some() {
-                    self.write_all_and_flush(engine_state, no_newline, to_stderr)
+        match self {
+            // Print byte streams directly as long as they aren't binary.
+            PipelineData::ByteStream(stream, ..) if stream.type_() != ByteStreamType::Binary => {
+                stream.print(to_stderr)
+            }
+            _ => {
+                // If the table function is in the declarations, then we can use it
+                // to create the table value that will be printed in the terminal
+                if let Some(decl_id) = engine_state.table_decl_id {
+                    let command = engine_state.get_decl(decl_id);
+                    if command.block_id().is_some() {
+                        self.write_all_and_flush(engine_state, no_newline, to_stderr)
+                    } else {
+                        let call = Call::new(Span::new(0, 0));
+                        let table = command.run(engine_state, stack, &call, self)?;
+                        table.write_all_and_flush(engine_state, no_newline, to_stderr)
+                    }
                 } else {
-                    let call = Call::new(Span::new(0, 0));
-                    let table = command.run(engine_state, stack, &call, self)?;
-                    table.write_all_and_flush(engine_state, no_newline, to_stderr)
+                    self.write_all_and_flush(engine_state, no_newline, to_stderr)
                 }
-            } else {
-                self.write_all_and_flush(engine_state, no_newline, to_stderr)
             }
         }
     }

@@ -278,13 +278,14 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         let arg = parse_expression(working_set, &[head_span]);
         Box::new(arg)
     } else {
-        let (contents, err) = unescape_unquote_string(&head_contents, head_span);
+        // Eval stage will unquote the string, so we don't bother with that here
+        let (contents, err) = unescape_string(&head_contents, head_span);
         if let Some(err) = err {
             working_set.error(err)
         }
 
         Box::new(Expression {
-            expr: Expr::String(contents),
+            expr: Expr::String(String::from_utf8_lossy(&contents).into_owned()),
             span: head_span,
             ty: Type::String,
             custom_completion: None,
@@ -5966,7 +5967,7 @@ pub fn discover_captures_in_expr(
         Expr::Bool(_) => {}
         Expr::Call(call) => {
             let decl = working_set.get_decl(call.decl_id);
-            if let Some(block_id) = decl.get_block_id() {
+            if let Some(block_id) = decl.block_id() {
                 match seen_blocks.get(&block_id) {
                     Some(capture_list) => {
                         // Push captures onto the outer closure that aren't created by that outer closure

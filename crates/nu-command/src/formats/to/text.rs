@@ -51,7 +51,12 @@ impl Command for ToText {
                     str
                 });
                 Ok(PipelineData::ByteStream(
-                    ByteStream::from_iter(iter, span, engine_state.ctrlc.clone()),
+                    ByteStream::from_iter(
+                        iter,
+                        span,
+                        engine_state.ctrlc.clone(),
+                        ByteStreamType::String,
+                    ),
                     meta,
                 ))
             }

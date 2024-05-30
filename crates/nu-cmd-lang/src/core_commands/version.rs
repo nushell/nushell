@@ -175,11 +175,6 @@ fn features_enabled() -> Vec<String> {
         names.push("sqlite".to_string());
     }
 
-    #[cfg(feature = "dataframe")]
-    {
-        names.push("dataframe".to_string());
-    }
-
     #[cfg(feature = "static-link-openssl")]
     {
         names.push("static-link-openssl".to_string());

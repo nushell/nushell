@@ -3,7 +3,7 @@ authors = ["The Nushell Project Developers", "procs creators"]
 description = "Nushell system querying"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-system"
 name = "nu-system"
-version = "0.93.1"
+version = "0.94.1"
 edition = "2021"
 license = "MIT"
 
@@ -16,6 +16,7 @@ bench = false
 libc = { workspace = true }
 log = { workspace = true }
 sysinfo = { workspace = true }
+itertools = { workspace = true }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 nix = { workspace = true, default-features = false, features = ["fs", "term", "process", "signal"] }

@@ -70,7 +70,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get part of a string. Note that the start is included but the end is excluded, and that the first character of a string is index 0."
+        "Get part of a string. Note that the first character of a string is index 0."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -108,12 +108,12 @@ impl Command for SubCommand {
             Example {
                 description:
                     "Get a substring \"nushell\" from the text \"good nushell\" using a range",
-                example: " 'good nushell' | str substring 5..12",
+                example: " 'good nushell' | str substring 5..11",
                 result: Some(Value::test_string("nushell")),
             },
             Example {
                 description: "Count indexes and split using grapheme clusters",
-                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..6",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..5",
                 result: Some(Value::test_string("ふが")),
             },
         ]

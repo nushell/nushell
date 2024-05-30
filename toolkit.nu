@@ -514,7 +514,7 @@ export def "benchmark-and-log-result" [] {
 
     cargo export $"target/($current_branch)" -- bench
     ^$"./target/($current_branch)/benchmarks" compare -o -s 50 --dump $res_path
-}    
+}
 
 # Build all Windows archives and MSIs for release manually
 #
@@ -536,25 +536,14 @@ export def 'release-pkg windows' [
     mkdir $artifacts_dir
     for target in ["aarch64" "x86_64"] {
         $env.TARGET = $target ++ "-pc-windows-msvc"
-        for release_type in ["" full] {
-            $env.RELEASE_TYPE = $release_type
-            $env.TARGET_RUSTFLAGS = if $release_type == "full" {
-                "--features=dataframe"
-            } else {
-                ""
-            }
-            let out_filename = if $release_type == "full" {
-                $target ++ "-windows-msvc-full"
-            } else {
-                $target ++ "-pc-windows-msvc"
-            }
-            rm -rf output
-            _EXTRA_=bin nu .github/workflows/release-pkg.nu
-            cp $"output/nu-($version)-($out_filename).zip" $artifacts_dir
-            rm -rf output
-            _EXTRA_=msi nu .github/workflows/release-pkg.nu
-            cp $"target/wix/nu-($version)-($out_filename).msi" $artifacts_dir
-        }
+
+        rm -rf output
+        _EXTRA_=bin nu .github/workflows/release-pkg.nu
+        cp $"output/nu-($version)-($target)-pc-windows-msvc.zip" $artifacts_dir
+
+        rm -rf output
+        _EXTRA_=msi nu .github/workflows/release-pkg.nu
+        cp $"target/wix/nu-($version)-($target)-pc-windows-msvc.msi" $artifacts_dir
     }
 }
 

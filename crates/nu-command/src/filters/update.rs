@@ -225,8 +225,8 @@ fn update(
             type_name: "empty pipeline".to_string(),
             span: head,
         }),
-        PipelineData::ByteStream(..) => Err(ShellError::IncompatiblePathAccess {
-            type_name: "byte stream".to_string(),
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
+            type_name: stream.type_().describe().into(),
             span: head,
         }),
     }
