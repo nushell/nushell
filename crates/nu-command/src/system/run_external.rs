@@ -54,7 +54,13 @@ impl Command for External {
             PathBuf::from("cmd.exe")
         } else {
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(&name.item, &paths, &cwd) else {
+            // As a special case, allow the command name to contain tilde or
+            // ndots regardless of whether it is a bare string. In particular,
+            // string interpolations are allowed (e.g. ^$"~/.cargo/bin/($bin)").
+            let expanded_name = nu_path::expand_to_real_path(&name.item)
+                .to_string_lossy()
+                .to_string();
+            let Some(executable) = which(&expanded_name, &paths, &cwd) else {
                 return Err(command_not_found(
                     &name.item,
                     call.head,
