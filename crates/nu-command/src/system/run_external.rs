@@ -575,7 +575,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
             label:
                 "Arguments to CMD internal commands cannot contain new lines or percent signs '%'"
                     .into(),
-            help: "some characters currently cannot be securly escaped".into(),
+            help: "some characters currently cannot be securely escaped".into(),
             span: *span,
         })
     } else if arg.contains('"') {
@@ -590,7 +590,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
             Err(ShellError::ExternalCommand {
                 label: "Arguments to CMD internal commands cannot contain embedded double quotes"
                     .into(),
-                help: "this case currently cannot be securly handled".into(),
+                help: "this case currently cannot be securely handled".into(),
                 span: *span,
             })
         }
