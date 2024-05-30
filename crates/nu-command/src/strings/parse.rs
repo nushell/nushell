@@ -208,22 +208,12 @@ fn operate(
                 }
             })
             .into()),
-        PipelineData::ByteStream(stream, ..) => {
-            if let Some(lines) = stream.lines() {
-                let iter = ParseIter {
-                    captures: VecDeque::new(),
-                    regex,
-                    columns,
-                    iter: lines,
-                    span: head,
-                    ctrlc,
-                };
-
-                Ok(ListStream::new(iter, head, None).into())
-            } else {
-                Ok(PipelineData::Empty)
-            }
-        }
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::UnsupportedInput {
+            msg: "`parse` does not support byte stream input. Use `lines` or `collect` right before this command.".into(),
+            input: "byte stream originates from here".into(),
+            msg_span: head,
+            input_span: stream.span(),
+        }),
     }
 }
 
