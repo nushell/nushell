@@ -104,6 +104,7 @@ fn primitives_into_value() {
     assert!(record.is_empty());
 }
 
+#[test]
 fn primitives_from_value() {
     let value = Value::test_record(record! {
         "p_array" => Value::test_list(vec![
@@ -119,7 +120,7 @@ fn primitives_from_value() {
         "p_i8" => Value::test_int(-12),
         "p_i16" => Value::test_int(-1234),
         "p_i32" => Value::test_int(-123456),
-        "p_i64" => Value::test_int(-123456790),
+        "p_i64" => Value::test_int(-1234567890),
         "p_isize" => Value::test_int(1024),
         "p_str" => Value::test_string("Hello, world!"),
         "p_u16" => Value::test_int(65535),
@@ -138,7 +139,7 @@ fn primitives_from_value() {
 }
 
 make_type! {
-    #[derive(IntoValue)]
+    #[derive(IntoValue, FromValue, Debug, PartialEq)]
     struct StdValues {
         some: Option<usize> = Some(123),
         none: Option<usize> = None,
@@ -166,6 +167,24 @@ fn std_values_into_value() {
             "bool" => Value::test_bool(true)
         }),
     });
+    assert_eq!(actual, expected);
+}
+
+#[test]
+fn std_values_from_value() {
+    let value = Value::test_record(record! {
+        "some" => Value::test_int(123),
+        "none" => Value::test_nothing(),
+        "vec" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
+        "string" => Value::test_string("Hello std!"),
+        "hashmap" => Value::test_record(record! {
+            "int" => Value::test_int(123),
+            "str" => Value::test_string("some value"),
+            "bool" => Value::test_bool(true)
+        })
+    });
+    let actual = StdValues::from_value(value, Span::unknown()).unwrap();
+    let expected = StdValues::make();
     assert_eq!(actual, expected);
 }
 
