@@ -39,7 +39,7 @@ impl Command for SubCommand {
 
     fn extra_usage(&self) -> &str {
         r#"This checks the file system to confirm the path's object type.
-If nothing is found, null will be returned."#
+If the path does not exist, null will be returned."#
     }
 
     fn is_const(&self) -> bool {
@@ -107,7 +107,7 @@ If nothing is found, null will be returned."#
 
 fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
     let path = nu_path::expand_path_with(path, &args.pwd, true);
-    match std::fs::symlink_metadata(path) {
+    match path.metadata() {
         Ok(metadata) => Value::string(get_file_type(&metadata), span),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Value::nothing(span),
         Err(err) => Value::error(err.into_spanned(span).into(), span),
