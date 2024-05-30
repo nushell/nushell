@@ -595,6 +595,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
             })
         }
     } else if arg.contains(' ') || has_cmd_special_character(arg) {
+        // If `arg` contains space or special characters, quote the entire argument by double quotes.
         Ok(Cow::Owned(format!("\"{arg}\"")))
     } else {
         // FIXME?: what if `arg.is_empty()`?
