@@ -269,38 +269,36 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                 let series_values: Result<Vec<_>, _> = column
                     .values
                     .iter()
-                    .map(|v| {
-                        match v {
-                            Value::Float { val, .. } => Ok(*val as f32),
-                            Value::Int { val, .. } => Ok(*val as f32),
-                            x => Err(ShellError::GenericError {
-                                error: "Error converting to f32".into(),
-                                msg: "".into(),
-                                span: None,
-                                help: Some(format!("Unexpected type: {x:?}")),
-                                inner: vec![],
-                            }),
-                                                    
-                        }
+                    .map(|v| match v {
+                        Value::Float { val, .. } => Ok(*val as f32),
+                        Value::Int { val, .. } => Ok(*val as f32),
+                        x => Err(ShellError::GenericError {
+                            error: "Error converting to f32".into(),
+                            msg: "".into(),
+                            span: None,
+                            help: Some(format!("Unexpected type: {x:?}")),
+                            inner: vec![],
+                        }),
                     })
                     .collect();
                 Ok(Series::new(name, series_values?))
             }
             DataType::Float64 => {
-                let series_values: Result<Vec<_>, _> =
-                    column.values.iter().map(|v| {
-                        match v {
-                            Value::Float { val, .. } => Ok(*val),
-                            Value::Int { val, .. } => Ok(*val as f64),
-                            x => Err(ShellError::GenericError {
-                                error: "Error converting to f64".into(),
-                                msg: "".into(),
-                                span: None,
-                                help: Some(format!("Unexpected type: {x:?}")),
-                                inner: vec![],
-                            }),
-                        }
-                    }).collect();
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| match v {
+                        Value::Float { val, .. } => Ok(*val),
+                        Value::Int { val, .. } => Ok(*val as f64),
+                        x => Err(ShellError::GenericError {
+                            error: "Error converting to f64".into(),
+                            msg: "".into(),
+                            span: None,
+                            help: Some(format!("Unexpected type: {x:?}")),
+                            inner: vec![],
+                        }),
+                    })
+                    .collect();
                 Ok(Series::new(name, series_values?))
             }
             DataType::UInt8 => {
