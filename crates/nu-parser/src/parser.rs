@@ -279,13 +279,13 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         Box::new(arg)
     } else {
         // Eval stage will unquote the string, so we don't bother with that here
-        let (contents, err) = unescape_string(&head_contents, head_span);
+        let (contents, err) = unescape_unquote_string(&head_contents, head_span);
         if let Some(err) = err {
             working_set.error(err)
         }
 
         Box::new(Expression {
-            expr: Expr::String(String::from_utf8_lossy(&contents).into_owned()),
+            expr: Expr::String(contents),
             span: head_span,
             ty: Type::String,
             custom_completion: None,
