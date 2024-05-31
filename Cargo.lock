@@ -57,6 +57,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "alacritty_terminal"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db5ad9e2d4c1f7e17fccec9493eeb4e9c1f00e1167519d3940272b708ed8a069"
+dependencies = [
+ "base64 0.22.1",
+ "bitflags 2.5.0",
+ "home",
+ "libc",
+ "log",
+ "miow",
+ "parking_lot",
+ "piper",
+ "polling",
+ "regex-automata",
+ "rustix-openpty",
+ "serde",
+ "signal-hook",
+ "unicode-width",
+ "vte 0.13.0",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -296,6 +320,12 @@ name = "atoi_simd"
 version = "0.15.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ae037714f313c1353189ead58ef9eec30a8e8dc101b2622d461418fd59e28a9"
+
+[[package]]
+name = "atomic-waker"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "autocfg"
@@ -889,6 +919,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "concurrent-queue"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "console"
 version = "0.15.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1128,6 +1167,12 @@ dependencies = [
  "nix",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "cursor-icon"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96a6ac251f4a2aca6b3f91340350eab87ae57c3f127ffeb585e92bd336717991"
 
 [[package]]
 name = "deranged"
@@ -2633,6 +2678,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "miow"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "359f76430b20a79f9e20e115b3428614e654f04fab314482fc0fda0ebd3c6044"
+dependencies = [
+ "windows-sys 0.48.0",
+]
+
+[[package]]
 name = "mockito"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2772,6 +2826,7 @@ dependencies = [
 name = "nu"
 version = "0.94.1"
 dependencies = [
+ "alacritty_terminal",
  "assert_cmd",
  "crossterm",
  "ctrlc",
@@ -3304,6 +3359,7 @@ dependencies = [
 name = "nu-test-support"
 version = "0.94.1"
 dependencies = [
+ "alacritty_terminal",
  "nu-glob",
  "nu-path",
  "nu-utils",
@@ -3982,6 +4038,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
+name = "piper"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "464db0c665917b13ebb5d453ccdec4add5658ee1adc7affc7677615356a8afaf"
+dependencies = [
+ "atomic-waker",
+ "fastrand",
+ "futures-io",
+]
+
+[[package]]
 name = "pkg-config"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4415,6 +4482,21 @@ dependencies = [
  "stacker",
  "sysinfo",
  "version_check",
+]
+
+[[package]]
+name = "polling"
+version = "3.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "645493cf344456ef24219d02a768cf1fb92ddf8c92161679ae3d91b91a637be3"
+dependencies = [
+ "cfg-if",
+ "concurrent-queue",
+ "hermit-abi",
+ "pin-project-lite",
+ "rustix",
+ "tracing",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5123,9 +5205,21 @@ checksum = "70dc5ec042f7a43c4a73241207cecc9873a06d45debb38b329f8541d85c2730f"
 dependencies = [
  "bitflags 2.5.0",
  "errno",
+ "itoa",
  "libc",
  "linux-raw-sys",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rustix-openpty"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a25c3aad9fc1424eb82c88087789a7d938e1829724f3e4043163baf0d13cfc12"
+dependencies = [
+ "errno",
+ "libc",
+ "rustix",
 ]
 
 [[package]]
@@ -6539,6 +6633,20 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5022b5fbf9407086c180e9557be968742d839e68346af7792b8592489732197"
 dependencies = [
+ "utf8parse",
+ "vte_generate_state_changes",
+]
+
+[[package]]
+name = "vte"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40eb22ae96f050e0c0d6f7ce43feeae26c348fc4dea56928ca81537cfaa6188b"
+dependencies = [
+ "bitflags 2.5.0",
+ "cursor-icon",
+ "log",
+ "serde",
  "utf8parse",
  "vte_generate_state_changes",
 ]

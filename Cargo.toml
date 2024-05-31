@@ -61,6 +61,7 @@ members = [
 ]
 
 [workspace.dependencies]
+alacritty_terminal = "0.24"
 alphanumeric-sort = "1.5"
 ansi-str = "0.8"
 anyhow = "1.0.82"
@@ -221,6 +222,7 @@ nix = { workspace = true, default-features = false, features = [
 nu-test-support = { path = "./crates/nu-test-support", version = "0.94.1" }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.94.1" }
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.94.1" }
+alacritty_terminal = { workspace = true }
 assert_cmd = "2.0"
 dirs-next = { workspace = true }
 tango-bench = "0.5"
