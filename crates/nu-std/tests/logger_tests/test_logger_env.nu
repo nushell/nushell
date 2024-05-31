@@ -1,39 +1,40 @@
 use std *
+use std log *
 
 #[test]
-def env_log_ansi [] {
-    assert equal $env.LOG_ANSI.CRITICAL (ansi red_bold)
-    assert equal $env.LOG_ANSI.ERROR (ansi red)
-    assert equal $env.LOG_ANSI.WARNING (ansi yellow)
-    assert equal $env.LOG_ANSI.INFO (ansi default)
-    assert equal $env.LOG_ANSI.DEBUG (ansi default_dimmed)
+def env_log-ansi [] {
+    assert equal (log-ansi).CRITICAL (ansi red_bold)
+    assert equal (log-ansi).ERROR (ansi red)
+    assert equal (log-ansi).WARNING (ansi yellow)
+    assert equal (log-ansi).INFO (ansi default)
+    assert equal (log-ansi).DEBUG (ansi default_dimmed)
 }
 
 #[test]
-def env_log_level [] {
-    assert equal $env.LOG_LEVEL.CRITICAL 50
-    assert equal $env.LOG_LEVEL.ERROR 40
-    assert equal $env.LOG_LEVEL.WARNING 30
-    assert equal $env.LOG_LEVEL.INFO 20
-    assert equal $env.LOG_LEVEL.DEBUG 10
+def env_log-level [] {
+    assert equal (log-level).CRITICAL 50
+    assert equal (log-level).ERROR 40
+    assert equal (log-level).WARNING 30
+    assert equal (log-level).INFO 20
+    assert equal (log-level).DEBUG 10
 }
 
 #[test]
-def env_log_prefix [] {
-    assert equal $env.LOG_PREFIX.CRITICAL "CRT"
-    assert equal $env.LOG_PREFIX.ERROR "ERR"
-    assert equal $env.LOG_PREFIX.WARNING "WRN"
-    assert equal $env.LOG_PREFIX.INFO "INF"
-    assert equal $env.LOG_PREFIX.DEBUG "DBG"
+def env_log-prefix [] {
+    assert equal (log-prefix).CRITICAL "CRT"
+    assert equal (log-prefix).ERROR "ERR"
+    assert equal (log-prefix).WARNING "WRN"
+    assert equal (log-prefix).INFO "INF"
+    assert equal (log-prefix).DEBUG "DBG"
 }
 
 #[test]
-def env_log_short_prefix [] {
-    assert equal $env.LOG_SHORT_PREFIX.CRITICAL "C"
-    assert equal $env.LOG_SHORT_PREFIX.ERROR "E"
-    assert equal $env.LOG_SHORT_PREFIX.WARNING "W"
-    assert equal $env.LOG_SHORT_PREFIX.INFO "I"
-    assert equal $env.LOG_SHORT_PREFIX.DEBUG "D"
+def env_log-short-prefix [] {
+    assert equal (log-short-prefix).CRITICAL "C"
+    assert equal (log-short-prefix).ERROR "E"
+    assert equal (log-short-prefix).WARNING "W"
+    assert equal (log-short-prefix).INFO "I"
+    assert equal (log-short-prefix).DEBUG "D"
 }
 
 #[test]

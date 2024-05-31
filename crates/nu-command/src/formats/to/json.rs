@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct ToJson;
@@ -45,22 +40,23 @@ impl Command for ToJson {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
-        let use_tabs = call.has_flag(engine_state, stack, "tabs")?;
+        let use_tabs = call.get_flag(engine_state, stack, "tabs")?;
+        let indent = call.get_flag(engine_state, stack, "indent")?;
 
         let span = call.head;
         // allow ranges to expand and turn into array
         let input = input.try_expand_range()?;
-        let value = input.into_value(span);
+        let value = input.into_value(span)?;
         let json_value = value_to_json_value(&value)?;
 
         let json_result = if raw {
             nu_json::to_string_raw(&json_value)
-        } else if use_tabs {
-            let tab_count: usize = call.get_flag(engine_state, stack, "tabs")?.unwrap_or(1);
+        } else if let Some(tab_count) = use_tabs {
             nu_json::to_string_with_tab_indentation(&json_value, tab_count)
-        } else {
-            let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
+        } else if let Some(indent) = indent {
             nu_json::to_string_with_indent(&json_value, indent)
+        } else {
+            nu_json::to_string(&json_value)
         };
 
         match json_result {
@@ -115,7 +111,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
         Value::Int { val, .. } => nu_json::Value::I64(*val),
         Value::Nothing { .. } => nu_json::Value::Null,
         Value::String { val, .. } => nu_json::Value::String(val.to_string()),
-        Value::QuotedString { val, .. } => nu_json::Value::String(val.to_string()),
+        Value::Glob { val, .. } => nu_json::Value::String(val.to_string()),
         Value::CellPath { val, .. } => nu_json::Value::Array(
             val.members
                 .iter()
@@ -128,22 +124,18 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
 
         Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
         Value::Error { error, .. } => return Err(*error.clone()),
-        Value::Closure { .. } | Value::Block { .. } | Value::Range { .. } => nu_json::Value::Null,
+        Value::Closure { .. } | Value::Range { .. } => nu_json::Value::Null,
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }
         Value::Record { val, .. } => {
             let mut m = nu_json::Map::new();
-            for (k, v) in val {
+            for (k, v) in &**val {
                 m.insert(k.clone(), value_to_json_value(v)?);
             }
             nu_json::Value::Object(m)
         }
-        Value::LazyRecord { val, .. } => {
-            let collected = val.collect()?;
-            value_to_json_value(&collected)?
-        }
-        Value::CustomValue { val, .. } => {
+        Value::Custom { val, .. } => {
             let collected = val.to_base_value(span)?;
             value_to_json_value(&collected)?
         }

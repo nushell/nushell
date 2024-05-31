@@ -873,7 +873,7 @@ fn overlay_use_do_cd() {
     Playground::setup("overlay_use_do_cd", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
                 "
                     export-env { cd test1/test2 }
@@ -896,7 +896,7 @@ fn overlay_use_do_cd_file_relative() {
     Playground::setup("overlay_use_do_cd_file_relative", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
                 "
                     export-env { cd ($env.FILE_PWD | path join '..') }
@@ -919,7 +919,7 @@ fn overlay_use_dont_cd_overlay() {
     Playground::setup("overlay_use_dont_cd_overlay", |dirs, sandbox| {
         sandbox
             .mkdir("test1/test2")
-            .with_files(vec![FileWithContentToBeTrimmed(
+            .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
                 "
                     export-env {

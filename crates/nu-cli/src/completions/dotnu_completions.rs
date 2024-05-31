@@ -1,35 +1,33 @@
 use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
+    engine::{Stack, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
-use std::{
-    path::{is_separator, Path, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
-    sync::Arc,
-};
+use std::path::{is_separator, Path, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
 
-#[derive(Clone)]
-pub struct DotNuCompletion {
-    engine_state: Arc<EngineState>,
-}
+use super::SemanticSuggestion;
+
+#[derive(Clone, Default)]
+pub struct DotNuCompletion {}
 
 impl DotNuCompletion {
-    pub fn new(engine_state: Arc<EngineState>) -> Self {
-        Self { engine_state }
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
 impl Completer for DotNuCompletion {
     fn fetch(
         &mut self,
-        _: &StateWorkingSet,
+        working_set: &StateWorkingSet,
+        stack: &Stack,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
-        _: usize,
+        _pos: usize,
         options: &CompletionOptions,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         let prefix_str = String::from_utf8_lossy(&prefix).replace('`', "");
         let mut search_dirs: Vec<String> = vec![];
 
@@ -43,26 +41,25 @@ impl Completer for DotNuCompletion {
         let mut is_current_folder = false;
 
         // Fetch the lib dirs
-        let lib_dirs: Vec<String> =
-            if let Some(lib_dirs) = self.engine_state.get_env_var("NU_LIB_DIRS") {
-                lib_dirs
-                    .as_list()
-                    .into_iter()
-                    .flat_map(|it| {
-                        it.iter().map(|x| {
-                            x.as_path()
-                                .expect("internal error: failed to convert lib path")
-                        })
+        let lib_dirs: Vec<String> = if let Some(lib_dirs) = working_set.get_env_var("NU_LIB_DIRS") {
+            lib_dirs
+                .as_list()
+                .into_iter()
+                .flat_map(|it| {
+                    it.iter().map(|x| {
+                        x.to_path()
+                            .expect("internal error: failed to convert lib path")
                     })
-                    .map(|it| {
-                        it.into_os_string()
-                            .into_string()
-                            .expect("internal error: failed to convert OS path")
-                    })
-                    .collect()
-            } else {
-                vec![]
-            };
+                })
+                .map(|it| {
+                    it.into_os_string()
+                        .into_string()
+                        .expect("internal error: failed to convert OS path")
+                })
+                .collect()
+        } else {
+            vec![]
+        };
 
         // Check if the base_dir is a folder
         // rsplit_once removes the separator
@@ -78,7 +75,8 @@ impl Completer for DotNuCompletion {
             partial = base_dir_partial;
         } else {
             // Fetch the current folder
-            let current_folder = self.engine_state.current_work_dir();
+            #[allow(deprecated)]
+            let current_folder = working_set.permanent_state.current_work_dir();
             is_current_folder = true;
 
             // Add the current folder and the lib dirs into the
@@ -89,10 +87,17 @@ impl Completer for DotNuCompletion {
 
         // Fetch the files filtering the ones that ends with .nu
         // and transform them into suggestions
-        let output: Vec<Suggestion> = search_dirs
+        let output: Vec<SemanticSuggestion> = search_dirs
             .into_iter()
             .flat_map(|search_dir| {
-                let completions = file_path_completion(span, &partial, &search_dir, options);
+                let completions = file_path_completion(
+                    span,
+                    &partial,
+                    &search_dir,
+                    options,
+                    working_set.permanent_state,
+                    stack,
+                );
                 completions
                     .into_iter()
                     .filter(move |it| {
@@ -108,16 +113,20 @@ impl Completer for DotNuCompletion {
                             }
                         }
                     })
-                    .map(move |x| Suggestion {
-                        value: x.1,
-                        description: None,
-                        style: None,
-                        extra: None,
-                        span: reedline::Span {
-                            start: x.0.start - offset,
-                            end: x.0.end - offset,
+                    .map(move |x| SemanticSuggestion {
+                        suggestion: Suggestion {
+                            value: x.1,
+                            description: None,
+                            style: x.2,
+                            extra: None,
+                            span: reedline::Span {
+                                start: x.0.start - offset,
+                                end: x.0.end - offset,
+                            },
+                            append_whitespace: true,
                         },
-                        append_whitespace: true,
+                        // TODO????
+                        kind: None,
                     })
             })
             .collect();

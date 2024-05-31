@@ -5,8 +5,6 @@ mod join;
 mod parse;
 mod url_;
 
-use url::{self};
-
 pub use self::parse::SubCommand as UrlParse;
 pub use build_query::SubCommand as UrlBuildQuery;
 pub use decode::SubCommand as UrlDecode;

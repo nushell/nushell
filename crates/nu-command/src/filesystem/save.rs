@@ -1,18 +1,21 @@
-use nu_engine::current_dir;
-use nu_engine::CallExt;
-use nu_path::expand_path_with;
-use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, DataSource, Example, PipelineData, PipelineMetadata, RawStream, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
-use std::fs::File;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::thread;
-
 use crate::progress_bar;
+use nu_engine::get_eval_block;
+#[allow(deprecated)]
+use nu_engine::{command_prelude::*, current_dir};
+use nu_path::expand_path_with;
+use nu_protocol::{
+    ast::{Expr, Expression},
+    byte_stream::copy_with_interrupt,
+    process::ChildPipe,
+    ByteStreamSource, DataSource, OutDest, PipelineMetadata,
+};
+use std::{
+    fs::File,
+    io::{self, BufRead, BufReader, Read, Write},
+    path::{Path, PathBuf},
+    sync::{atomic::AtomicBool, Arc},
+    thread,
+};
 
 #[derive(Clone)]
 pub struct Save;
@@ -87,32 +90,26 @@ impl Command for Save {
         };
 
         let span = call.head;
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
 
         let path_arg = call.req::<Spanned<PathBuf>>(engine_state, stack, 0)?;
         let path = Spanned {
-            item: expand_path_with(path_arg.item, &cwd),
+            item: expand_path_with(path_arg.item, &cwd, true),
             span: path_arg.span,
         };
 
         let stderr_path = call
             .get_flag::<Spanned<PathBuf>>(engine_state, stack, "stderr")?
             .map(|arg| Spanned {
-                item: expand_path_with(arg.item, cwd),
+                item: expand_path_with(arg.item, cwd, true),
                 span: arg.span,
             });
 
         match input {
-            PipelineData::ExternalStream { stdout: None, .. } => {
-                // Open files to possibly truncate them
-                let _ = get_files(&path, stderr_path.as_ref(), append, false, false, force)?;
-                Ok(PipelineData::empty())
-            }
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                stderr,
-                ..
-            } => {
+            PipelineData::ByteStream(stream, metadata) => {
+                check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
+
                 let (file, stderr_file) = get_files(
                     &path,
                     stderr_path.as_ref(),
@@ -122,68 +119,108 @@ impl Command for Save {
                     force,
                 )?;
 
-                // delegate a thread to redirect stderr to result.
-                let handler = stderr.map(|stderr_stream| match stderr_file {
-                    Some(stderr_file) => thread::Builder::new()
-                        .name("stderr redirector".to_string())
-                        .spawn(move || stream_to_file(stderr_stream, stderr_file, span, progress))
-                        .expect("Failed to create thread"),
-                    None => thread::Builder::new()
-                        .name("stderr redirector".to_string())
-                        .spawn(move || {
-                            let _ = stderr_stream.into_bytes();
-                            Ok(PipelineData::empty())
-                        })
-                        .expect("Failed to create thread"),
-                });
+                let size = stream.known_size();
+                let ctrlc = engine_state.ctrlc.clone();
 
-                let res = stream_to_file(stream, file, span, progress);
-                if let Some(h) = handler {
-                    h.join().map_err(|err| ShellError::ExternalCommand {
-                        label: "Fail to receive external commands stderr message".to_string(),
-                        help: format!("{err:?}"),
-                        span,
-                    })??;
-                    res
-                } else {
-                    res
+                match stream.into_source() {
+                    ByteStreamSource::Read(read) => {
+                        stream_to_file(read, size, ctrlc, file, span, progress)?;
+                    }
+                    ByteStreamSource::File(source) => {
+                        stream_to_file(source, size, ctrlc, file, span, progress)?;
+                    }
+                    ByteStreamSource::Child(mut child) => {
+                        fn write_or_consume_stderr(
+                            stderr: ChildPipe,
+                            file: Option<File>,
+                            span: Span,
+                            ctrlc: Option<Arc<AtomicBool>>,
+                            progress: bool,
+                        ) -> Result<(), ShellError> {
+                            if let Some(file) = file {
+                                match stderr {
+                                    ChildPipe::Pipe(pipe) => {
+                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                    }
+                                    ChildPipe::Tee(tee) => {
+                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                    }
+                                }?
+                            } else {
+                                match stderr {
+                                    ChildPipe::Pipe(mut pipe) => {
+                                        io::copy(&mut pipe, &mut io::sink())
+                                    }
+                                    ChildPipe::Tee(mut tee) => io::copy(&mut tee, &mut io::sink()),
+                                }
+                                .err_span(span)?;
+                            }
+                            Ok(())
+                        }
+
+                        match (child.stdout.take(), child.stderr.take()) {
+                            (Some(stdout), stderr) => {
+                                // delegate a thread to redirect stderr to result.
+                                let handler = stderr
+                                    .map(|stderr| {
+                                        let ctrlc = ctrlc.clone();
+                                        thread::Builder::new().name("stderr saver".into()).spawn(
+                                            move || {
+                                                write_or_consume_stderr(
+                                                    stderr,
+                                                    stderr_file,
+                                                    span,
+                                                    ctrlc,
+                                                    progress,
+                                                )
+                                            },
+                                        )
+                                    })
+                                    .transpose()
+                                    .err_span(span)?;
+
+                                let res = match stdout {
+                                    ChildPipe::Pipe(pipe) => {
+                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                    }
+                                    ChildPipe::Tee(tee) => {
+                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                    }
+                                };
+                                if let Some(h) = handler {
+                                    h.join().map_err(|err| ShellError::ExternalCommand {
+                                        label: "Fail to receive external commands stderr message"
+                                            .to_string(),
+                                        help: format!("{err:?}"),
+                                        span,
+                                    })??;
+                                }
+                                res?;
+                            }
+                            (None, Some(stderr)) => {
+                                write_or_consume_stderr(
+                                    stderr,
+                                    stderr_file,
+                                    span,
+                                    ctrlc,
+                                    progress,
+                                )?;
+                            }
+                            (None, None) => {}
+                        };
+                    }
                 }
+
+                Ok(PipelineData::Empty)
             }
             PipelineData::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
-                if let Some(PipelineMetadata {
-                    data_source: DataSource::FilePath(input_path),
-                }) = pipeline_metadata
-                {
-                    if path.item == input_path {
-                        return Err(ShellError::GenericError {
-                            error: "pipeline input and output are same file".into(),
-                            msg: format!(
-                                "can't save output to '{}' while it's being reading",
-                                path.item.display()
-                            ),
-                            span: Some(path.span),
-                            help: Some("you should change output path".into()),
-                            inner: vec![],
-                        });
-                    }
-
-                    if let Some(ref err_path) = stderr_path {
-                        if err_path.item == input_path {
-                            return Err(ShellError::GenericError {
-                                error: "pipeline input and stderr are same file".into(),
-                                msg: format!(
-                                    "can't save stderr to '{}' while it's being reading",
-                                    err_path.item.display()
-                                ),
-                                span: Some(err_path.span),
-                                help: Some("you should change stderr path".into()),
-                                inner: vec![],
-                            });
-                        }
-                    }
-                }
+                check_saving_to_source_file(
+                    pipeline_metadata.as_ref(),
+                    &path,
+                    stderr_path.as_ref(),
+                )?;
 
                 let (mut file, _) = get_files(
                     &path,
@@ -208,6 +245,16 @@ impl Command for Save {
                 Ok(PipelineData::empty())
             }
             input => {
+                // It's not necessary to check if we are saving to the same file if this is a
+                // collected value, and not a stream
+                if !matches!(input, PipelineData::Value(..) | PipelineData::Empty) {
+                    check_saving_to_source_file(
+                        input.metadata().as_ref(),
+                        &path,
+                        stderr_path.as_ref(),
+                    )?;
+                }
+
                 let bytes =
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
@@ -261,6 +308,47 @@ impl Command for Save {
             },
         ]
     }
+
+    fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
+        (Some(OutDest::Capture), Some(OutDest::Capture))
+    }
+}
+
+fn saving_to_source_file_error(dest: &Spanned<PathBuf>) -> ShellError {
+    ShellError::GenericError {
+        error: "pipeline input and output are the same file".into(),
+        msg: format!(
+            "can't save output to '{}' while it's being read",
+            dest.item.display()
+        ),
+        span: Some(dest.span),
+        help: Some(
+            "insert a `collect` command in the pipeline before `save` (see `help collect`).".into(),
+        ),
+        inner: vec![],
+    }
+}
+
+fn check_saving_to_source_file(
+    metadata: Option<&PipelineMetadata>,
+    dest: &Spanned<PathBuf>,
+    stderr_dest: Option<&Spanned<PathBuf>>,
+) -> Result<(), ShellError> {
+    let Some(DataSource::FilePath(source)) = metadata.map(|meta| &meta.data_source) else {
+        return Ok(());
+    };
+
+    if &dest.item == source {
+        return Err(saving_to_source_file_error(dest));
+    }
+
+    if let Some(dest) = stderr_dest {
+        if &dest.item == source {
+            return Err(saving_to_source_file_error(dest));
+        }
+    }
+
+    Ok(())
 }
 
 /// Convert [`PipelineData`] bytes to write in file, possibly converting
@@ -275,8 +363,7 @@ fn input_to_bytes(
 ) -> Result<Vec<u8>, ShellError> {
     let ext = if raw {
         None
-    // if is extern stream , in other words , not value
-    } else if let PipelineData::ExternalStream { .. } = input {
+    } else if let PipelineData::ByteStream(..) = input {
         None
     } else if let PipelineData::Value(Value::String { .. }, ..) = input {
         None
@@ -285,12 +372,13 @@ fn input_to_bytes(
             .map(|name| name.to_string_lossy().to_string())
     };
 
-    if let Some(ext) = ext {
-        convert_to_extension(engine_state, &ext, stack, input, span)
+    let input = if let Some(ext) = ext {
+        convert_to_extension(engine_state, &ext, stack, input, span)?
     } else {
-        let value = input.into_value(span);
-        value_to_bytes(value)
-    }
+        input
+    };
+
+    value_to_bytes(input.into_value(span)?)
 }
 
 /// Convert given data into content of file of specified extension if
@@ -302,24 +390,19 @@ fn convert_to_extension(
     stack: &mut Stack,
     input: PipelineData,
     span: Span,
-) -> Result<Vec<u8>, ShellError> {
-    let converter = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]);
-
-    let output = match converter {
-        Some(converter_id) => {
-            let output = engine_state.get_decl(converter_id).run(
-                engine_state,
-                stack,
-                &Call::new(span),
-                input,
-            )?;
-
-            output.into_value(span)
+) -> Result<PipelineData, ShellError> {
+    if let Some(decl_id) = engine_state.find_decl(format!("to {extension}").as_bytes(), &[]) {
+        let decl = engine_state.get_decl(decl_id);
+        if let Some(block_id) = decl.block_id() {
+            let block = engine_state.get_block(block_id);
+            let eval_block = get_eval_block(engine_state);
+            eval_block(engine_state, stack, block, input)
+        } else {
+            decl.run(engine_state, stack, &Call::new(span), input)
         }
-        None => input.into_value(span),
-    };
-
-    value_to_bytes(output)
+    } else {
+        Ok(input)
+    }
 }
 
 /// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`] of bytes
@@ -332,7 +415,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         Value::List { vals, .. } => {
             let val = vals
                 .into_iter()
-                .map(|it| it.as_string())
+                .map(Value::coerce_into_string)
                 .collect::<Result<Vec<String>, ShellError>>()?
                 .join("\n")
                 + "\n";
@@ -341,7 +424,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error, .. } => Err(*error),
-        other => Ok(other.as_string()?.into_bytes()),
+        other => Ok(other.coerce_into_string()?.into_bytes()),
     }
 }
 
@@ -425,85 +508,54 @@ fn get_files(
 }
 
 fn stream_to_file(
-    mut stream: RawStream,
-    file: File,
+    source: impl Read,
+    known_size: Option<u64>,
+    ctrlc: Option<Arc<AtomicBool>>,
+    mut file: File,
     span: Span,
     progress: bool,
-) -> Result<PipelineData, ShellError> {
-    // https://github.com/nushell/nushell/pull/9377 contains the reason
-    // for not using BufWriter<File>
-    let mut writer = file;
-
-    let mut bytes_processed: u64 = 0;
-    let bytes_processed_p = &mut bytes_processed;
-    let file_total_size = stream.known_size;
-    let mut process_failed = false;
-    let process_failed_p = &mut process_failed;
-
-    // Create the progress bar
-    // It looks a bit messy but I am doing it this way to avoid
-    // creating the bar when is not needed
-    let (mut bar_opt, bar_opt_clone) = if progress {
-        let tmp_bar = progress_bar::NuProgressBar::new(file_total_size);
-        let tmp_bar_clone = tmp_bar.clone();
-
-        (Some(tmp_bar), Some(tmp_bar_clone))
-    } else {
-        (None, None)
-    };
-
-    let result = stream
-        .try_for_each(move |result| {
-            let buf = match result {
-                Ok(v) => match v {
-                    Value::String { val, .. } => val.into_bytes(),
-                    Value::Binary { val, .. } => val,
-                    // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error, .. } => return Err(*error),
-                    other => {
-                        return Err(ShellError::OnlySupportsThisInputType {
-                            exp_input_type: "string or binary".into(),
-                            wrong_type: other.get_type().to_string(),
-                            dst_span: span,
-                            src_span: other.span(),
-                        });
-                    }
-                },
-                Err(err) => {
-                    *process_failed_p = true;
-                    return Err(err);
-                }
-            };
-
-            // If the `progress` flag is set then
-            if progress {
-                // Update the total amount of bytes that has been saved and then print the progress bar
-                *bytes_processed_p += buf.len() as u64;
-                if let Some(bar) = &mut bar_opt {
-                    bar.update_bar(*bytes_processed_p);
-                }
-            }
-
-            if let Err(err) = writer.write(&buf) {
-                *process_failed_p = true;
-                return Err(ShellError::IOError {
-                    msg: err.to_string(),
-                });
-            }
-            Ok(())
-        })
-        .map(|_| PipelineData::empty());
-
-    // If the `progress` flag is set then
+) -> Result<(), ShellError> {
+    // https://github.com/nushell/nushell/pull/9377 contains the reason for not using `BufWriter`
     if progress {
-        // If the process failed, stop the progress bar with an error message.
-        if process_failed {
-            if let Some(bar) = bar_opt_clone {
-                bar.abandoned_msg("# Error while saving #".to_owned());
-            }
-        }
-    }
+        let mut bytes_processed = 0;
 
-    // And finally return the stream result.
-    result
+        let mut bar = progress_bar::NuProgressBar::new(known_size);
+
+        // TODO: reduce the number of progress bar updates?
+
+        let mut reader = BufReader::new(source);
+
+        let res = loop {
+            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+                bar.abandoned_msg("# Cancelled #".to_owned());
+                return Ok(());
+            }
+
+            match reader.fill_buf() {
+                Ok(&[]) => break Ok(()),
+                Ok(buf) => {
+                    file.write_all(buf).err_span(span)?;
+                    let len = buf.len();
+                    reader.consume(len);
+                    bytes_processed += len as u64;
+                    bar.update_bar(bytes_processed);
+                }
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => break Err(e),
+            }
+        };
+
+        // If the process failed, stop the progress bar with an error message.
+        if let Err(err) = res {
+            let _ = file.flush();
+            bar.abandoned_msg("# Error while saving #".to_owned());
+            Err(err.into_spanned(span).into())
+        } else {
+            file.flush().err_span(span)?;
+            Ok(())
+        }
+    } else {
+        copy_with_interrupt(source, file, span, ctrlc.as_deref())?;
+        Ok(())
+    }
 }

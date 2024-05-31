@@ -1,8 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -14,7 +10,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("url join")
-            .input_output_types(vec![(Type::Record(vec![]), Type::String)])
+            .input_output_types(vec![(Type::record(), Type::String)])
             .category(Category::Network)
     }
 
@@ -96,6 +92,7 @@ impl Command for SubCommand {
                 match value {
                     Value::Record { val, .. } => {
                         let url_components = val
+                            .into_owned()
                             .into_iter()
                             .try_fold(UrlComponents::new(), |url, (k, v)| {
                                 url.add_component(k, v, span, engine_state)
@@ -181,10 +178,11 @@ impl UrlComponents {
 
         if key == "params" {
             return match value {
-                Value::Record { ref val, .. } => {
+                Value::Record { val, .. } => {
                     let mut qs = val
-                        .iter()
-                        .map(|(k, v)| match v.as_string() {
+                        .into_owned()
+                        .into_iter()
+                        .map(|(k, v)| match v.coerce_into_string() {
                             Ok(val) => Ok(format!("{k}={val}")),
                             Err(err) => Err(err),
                         })
@@ -202,7 +200,7 @@ impl UrlComponents {
                             // if query is present it means that also query_span is set.
                             return Err(ShellError::IncompatibleParameters {
                                 left_message: format!("Mismatch, qs from params is: {qs}"),
-                                left_span: value.span(),
+                                left_span: value_span,
                                 right_message: format!("instead query is: {q}"),
                                 right_span: self.query_span.unwrap_or(Span::unknown()),
                             });
@@ -224,7 +222,7 @@ impl UrlComponents {
         }
 
         // apart from port and params all other keys are strings.
-        let s = value.as_string()?; // If value fails String conversion, just output this ShellError
+        let s = value.coerce_into_string()?; // If value fails String conversion, just output this ShellError
         if !Self::check_empty_string_ok(&key, &s, value_span)? {
             return Ok(self);
         }
@@ -259,7 +257,7 @@ impl UrlComponents {
                         // if query is present it means that also params_span is set.
                         return Err(ShellError::IncompatibleParameters {
                             left_message: format!("Mismatch, query param is: {s}"),
-                            left_span: value.span(),
+                            left_span: value_span,
                             right_message: format!("instead qs from params is: {q}"),
                             right_span: self.params_span.unwrap_or(Span::unknown()),
                         });
@@ -268,7 +266,7 @@ impl UrlComponents {
 
                 Ok(Self {
                     query: Some(format!("?{s}")),
-                    query_span: Some(value.span()),
+                    query_span: Some(value_span),
                     ..self
                 })
             }
@@ -317,13 +315,11 @@ impl UrlComponents {
     }
 
     pub fn to_url(&self, span: Span) -> Result<String, ShellError> {
-        let mut user_and_pwd: String = String::from("");
-
-        if let Some(usr) = &self.username {
-            if let Some(pwd) = &self.password {
-                user_and_pwd = format!("{usr}:{pwd}@");
-            }
-        }
+        let user_and_pwd = match (&self.username, &self.password) {
+            (Some(usr), Some(pwd)) => format!("{usr}:{pwd}@"),
+            (Some(usr), None) => format!("{usr}@"),
+            _ => String::from(""),
+        };
 
         let scheme_result = match &self.scheme {
             Some(s) => Ok(s),

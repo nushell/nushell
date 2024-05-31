@@ -1,9 +1,11 @@
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    PipelineData, ShellError, Value,
+    debugger::WithoutDebug,
+    engine::{EngineState, Redirection, Stack, StateWorkingSet},
+    OutDest, PipelineData, ShellError, Value,
 };
+use std::sync::Arc;
 
 pub fn run_command_with_value(
     command: &str,
@@ -87,8 +89,15 @@ fn eval_source2(
     //
     // So we LITERALLY ignore all expressions except the LAST.
     if block.len() > 1 {
-        block.pipelines.drain(..block.pipelines.len() - 1);
+        let range = ..block.pipelines.len() - 1;
+        // Note: `make_mut` will mutate `&mut block: &mut Arc<Block>`
+        // for the outer fn scope `eval_block`
+        Arc::make_mut(&mut block).pipelines.drain(range);
     }
 
-    eval_block(engine_state, stack, &block, input, true, true)
+    let stack = &mut stack.push_redirection(
+        Some(Redirection::Pipe(OutDest::Capture)),
+        Some(Redirection::Pipe(OutDest::Capture)),
+    );
+    eval_block::<WithoutDebug>(engine_state, stack, &block, input)
 }

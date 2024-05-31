@@ -1,11 +1,5 @@
 use itertools::Itertools;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Tutor;
@@ -415,15 +409,15 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
             //TODO: support no-color mode
             if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
                 let decl = engine_state.get_decl(highlighter);
-
-                if let Ok(output) = decl.run(
+                let result = decl.run(
                     engine_state,
                     stack,
                     &Call::new(span),
                     Value::string(item, Span::unknown()).into_pipeline_data(),
-                ) {
-                    let result = output.into_value(Span::unknown());
-                    match result.as_string() {
+                );
+
+                if let Ok(value) = result.and_then(|data| data.into_value(Span::unknown())) {
+                    match value.coerce_into_string() {
                         Ok(s) => {
                             build.push_str(&s);
                         }

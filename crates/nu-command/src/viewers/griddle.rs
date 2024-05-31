@@ -1,17 +1,13 @@
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
 use super::icons::icon_for_file;
 use lscolors::Style;
-use nu_engine::env_to_string;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::{command_prelude::*, env_to_string};
+use nu_protocol::Config;
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
+use std::path::Path;
 use terminal_size::{Height, Width};
+
 #[derive(Clone)]
 pub struct Griddle;
 
@@ -28,7 +24,7 @@ impl Command for Griddle {
         Signature::build("grid")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::String),
-                (Type::Record(vec![]), Type::String),
+                (Type::record(), Type::String),
             ])
             .named(
                 "width",
@@ -72,6 +68,7 @@ prints out the list properly."#
         };
         let use_grid_icons = config.use_grid_icons;
         let use_color: bool = color_param && config.use_ansi_coloring;
+        let cwd = engine_state.cwd(Some(stack))?;
 
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
@@ -86,6 +83,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
+                        &cwd,
                     )?)
                 } else {
                     Ok(PipelineData::empty())
@@ -103,6 +101,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
+                        &cwd,
                     )?)
                 } else {
                     // dbg!(data);
@@ -113,8 +112,8 @@ prints out the list properly."#
                 // dbg!("value::record");
                 let mut items = vec![];
 
-                for (i, (c, v)) in val.into_iter().enumerate() {
-                    items.push((i, c, v.into_string(", ", config)))
+                for (i, (c, v)) in val.into_owned().into_iter().enumerate() {
+                    items.push((i, c, v.to_expanded_string(", ", config)))
                 }
 
                 Ok(create_grid_output(
@@ -125,6 +124,7 @@ prints out the list properly."#
                     separator_param,
                     env_str,
                     use_grid_icons,
+                    &cwd,
                 )?)
             }
             x => {
@@ -166,6 +166,7 @@ prints out the list properly."#
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_grid_output(
     items: Vec<(usize, String, String)>,
     call: &Call,
@@ -174,6 +175,7 @@ fn create_grid_output(
     separator_param: Option<String>,
     env_str: Option<String>,
     use_grid_icons: bool,
+    cwd: &Path,
 ) -> Result<PipelineData, ShellError> {
     let ls_colors = get_ls_colors(env_str);
 
@@ -201,8 +203,8 @@ fn create_grid_output(
             if use_color {
                 if use_grid_icons {
                     let no_ansi = nu_utils::strip_ansi_unlikely(&value);
-                    let path = std::path::Path::new(no_ansi.as_ref());
-                    let icon = icon_for_file(path, call.head)?;
+                    let path = cwd.join(no_ansi.as_ref());
+                    let icon = icon_for_file(&path, call.head)?;
                     let ls_colors_style = ls_colors.style_for_path(path);
 
                     let icon_style = match ls_colors_style {
@@ -238,14 +240,17 @@ fn create_grid_output(
         }
     }
 
-    Ok(
-        if let Some(grid_display) = grid.fit_into_width(cols as usize) {
-            Value::string(grid_display.to_string(), call.head)
-        } else {
-            Value::string(format!("Couldn't fit grid into {cols} columns!"), call.head)
-        }
-        .into_pipeline_data(),
-    )
+    if let Some(grid_display) = grid.fit_into_width(cols as usize) {
+        Ok(Value::string(grid_display.to_string(), call.head).into_pipeline_data())
+    } else {
+        Err(ShellError::GenericError {
+            error: format!("Couldn't fit grid into {cols} columns"),
+            msg: "too few columns to fit the grid into".into(),
+            span: Some(call.head),
+            help: Some("try rerunning with a different --width".into()),
+            inner: Vec::new(),
+        })
+    }
 }
 
 #[allow(clippy::type_complexity)]
@@ -265,10 +270,14 @@ fn convert_to_list(
         let mut data = vec![];
 
         for (row_num, item) in iter.enumerate() {
+            if let Value::Error { error, .. } = item {
+                return Err(*error);
+            }
+
             let mut row = vec![row_num.to_string()];
 
             if headers.is_empty() {
-                row.push(item.nonerror_into_string(", ", config)?)
+                row.push(item.to_expanded_string(", ", config))
             } else {
                 for header in headers.iter().skip(1) {
                     let result = match &item {
@@ -277,7 +286,12 @@ fn convert_to_list(
                     };
 
                     match result {
-                        Some(value) => row.push(value.nonerror_into_string(", ", config)?),
+                        Some(value) => {
+                            if let Value::Error { error, .. } = item {
+                                return Err(*error);
+                            }
+                            row.push(value.to_expanded_string(", ", config));
+                        }
                         None => row.push(String::new()),
                     }
                 }

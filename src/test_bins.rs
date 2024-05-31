@@ -1,10 +1,17 @@
 use nu_cmd_base::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{CliError, PipelineData, Value};
+use nu_protocol::{
+    cli_error::CliError,
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
+    PipelineData, Value,
+};
 use nu_std::load_standard_library;
-use std::io::{self, BufRead, Read, Write};
+use std::{
+    io::{self, BufRead, Read, Write},
+    sync::Arc,
+};
 
 /// Echo's value of env keys from args
 /// Example: nu --testbin env_echo FOO BAR
@@ -14,6 +21,11 @@ pub fn echo_env(to_stdout: bool) {
     for arg in args {
         echo_one_env(&arg, to_stdout)
     }
+}
+
+pub fn echo_env_and_fail(to_stdout: bool) {
+    echo_env(to_stdout);
+    fail();
 }
 
 fn echo_one_env(arg: &str, to_stdout: bool) {
@@ -58,7 +70,7 @@ pub fn echo_env_mixed() {
 }
 
 /// Cross platform echo using println!()
-/// Example: nu --testbin echo a b c
+/// Example: nu --testbin cococo a b c
 /// a b c
 pub fn cococo() {
     let args: Vec<String> = args();
@@ -227,16 +239,20 @@ pub fn nu_repl() {
     let source_lines = args();
 
     let mut engine_state = get_engine_state();
-    let mut stack = Stack::new();
+    let mut top_stack = Arc::new(Stack::new());
 
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    engine_state.add_env_var("PATH".into(), Value::test_string(""));
 
     let mut last_output = String::new();
 
     load_standard_library(&mut engine_state).expect("Could not load the standard library.");
 
     for (i, line) in source_lines.iter().enumerate() {
-        let cwd = nu_engine::env::current_dir(&engine_state, &stack)
+        let mut stack = Stack::with_parent(top_stack.clone());
+
+        let cwd = engine_state
+            .cwd(Some(&stack))
             .unwrap_or_else(|err| outcome_err(&engine_state, &err));
 
         // Before doing anything, merge the environment from the previous REPL iteration into the
@@ -315,21 +331,25 @@ pub fn nu_repl() {
         let input = PipelineData::empty();
         let config = engine_state.get_config();
 
-        match eval_block(&engine_state, &mut stack, &block, input, false, false) {
-            Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
-                Ok(s) => last_output = s,
+        {
+            let stack = &mut stack.start_capture();
+            match eval_block::<WithoutDebug>(&engine_state, stack, &block, input) {
+                Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
+                    Ok(s) => last_output = s,
+                    Err(err) => outcome_err(&engine_state, &err),
+                },
                 Err(err) => outcome_err(&engine_state, &err),
-            },
-            Err(err) => outcome_err(&engine_state, &err),
+            }
         }
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
             let path = cwd
-                .as_string()
+                .coerce_str()
                 .unwrap_or_else(|err| outcome_err(&engine_state, &err));
-            let _ = std::env::set_current_dir(path);
+            let _ = std::env::set_current_dir(path.as_ref());
             engine_state.add_env_var("PWD".into(), cwd);
         }
+        top_stack = Arc::new(Stack::with_changes_from_child(top_stack, stack));
     }
 
     outcome_ok(last_output)

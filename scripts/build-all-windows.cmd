@@ -1,11 +1,11 @@
 @echo off
 echo -------------------------------------------------------------------
-echo Building nushell (nu.exe) with dataframes and all the plugins
+echo Building nushell (nu.exe) and all the plugins
 echo -------------------------------------------------------------------
 echo.
 
 echo Building nushell.exe
-cargo build --features=dataframe,extra --locked
+cargo build --locked
 echo.
 
 call :build crates\nu_plugin_example nu_plugin_example.exe

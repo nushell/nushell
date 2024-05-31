@@ -1,62 +1,93 @@
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{record, PluginExample, Record, ShellError, Value};
+use crate::FromCmds;
 
-pub const CMD_NAME: &str = "from ini";
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    record, Category, Example, LabeledError, Record, ShellError, Signature, Type, Value,
+};
 
-pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-    let span = input.span();
-    let input_string = input.as_string()?;
-    let head = call.head;
+pub struct FromIni;
 
-    let ini_config: Result<ini::Ini, ini::ParseError> = ini::Ini::load_from_str(&input_string);
-    match ini_config {
-        Ok(config) => {
-            let mut sections = Record::new();
+impl SimplePluginCommand for FromIni {
+    type Plugin = FromCmds;
 
-            for (section, properties) in config.iter() {
-                let mut section_record = Record::new();
+    fn name(&self) -> &str {
+        "from ini"
+    }
 
-                // section's key value pairs
-                for (key, value) in properties.iter() {
-                    section_record.push(key, Value::string(value, span));
-                }
+    fn usage(&self) -> &str {
+        "Parse text as .ini and create table."
+    }
 
-                let section_record = Value::record(section_record, span);
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .input_output_types(vec![(Type::String, Type::record())])
+            .category(Category::Formats)
+    }
 
-                // section
-                match section {
-                    Some(section_name) => {
-                        sections.push(section_name, section_record);
+    fn examples(&self) -> Vec<Example> {
+        examples()
+    }
+
+    fn run(
+        &self,
+        _plugin: &FromCmds,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
+        let span = input.span();
+        let input_string = input.coerce_str()?;
+        let head = call.head;
+
+        let ini_config: Result<ini::Ini, ini::ParseError> = ini::Ini::load_from_str(&input_string);
+        match ini_config {
+            Ok(config) => {
+                let mut sections = Record::new();
+
+                for (section, properties) in config.iter() {
+                    let mut section_record = Record::new();
+
+                    // section's key value pairs
+                    for (key, value) in properties.iter() {
+                        section_record.push(key, Value::string(value, span));
                     }
-                    None => {
-                        // Section (None) allows for key value pairs without a section
-                        if !properties.is_empty() {
-                            sections.push(String::new(), section_record);
+
+                    let section_record = Value::record(section_record, span);
+
+                    // section
+                    match section {
+                        Some(section_name) => {
+                            sections.push(section_name, section_record);
+                        }
+                        None => {
+                            // Section (None) allows for key value pairs without a section
+                            if !properties.is_empty() {
+                                sections.push(String::new(), section_record);
+                            }
                         }
                     }
                 }
-            }
 
-            // all sections with all its key value pairs
-            Ok(Value::record(sections, span))
+                // all sections with all its key value pairs
+                Ok(Value::record(sections, span))
+            }
+            Err(err) => Err(ShellError::UnsupportedInput {
+                msg: format!("Could not load ini: {err}"),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: span,
+            }
+            .into()),
         }
-        Err(err) => Err(ShellError::UnsupportedInput {
-            msg: format!("Could not load ini: {err}"),
-            input: "value originates from here".into(),
-            msg_span: head,
-            input_span: span,
-        }
-        .into()),
     }
 }
 
-pub fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
+pub fn examples() -> Vec<Example<'static>> {
+    vec![Example {
         example: "'[foo]
 a=1
-b=2' | from ini"
-            .into(),
-        description: "Converts ini formatted string to record".into(),
+b=2' | from ini",
+        description: "Converts ini formatted string to record",
         result: Some(Value::test_record(record! {
             "foo" => Value::test_record(record! {
                 "a" =>  Value::test_string("1"),
@@ -64,4 +95,11 @@ b=2' | from ini"
             }),
         })),
     }]
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromIni)
 }

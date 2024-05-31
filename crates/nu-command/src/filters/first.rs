@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use std::io::Read;
 
 #[derive(Clone)]
 pub struct First;
@@ -69,6 +64,11 @@ impl Command for First {
                 example: "0x[01 23 45] | first 2",
                 result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
             },
+            Example {
+                description: "Return the first item of a range",
+                example: "1..3 | first",
+                result: Some(Value::test_int(1)),
+            },
         ]
     }
 }
@@ -80,67 +80,71 @@ fn first_helper(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
+    let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+
     // FIXME: for backwards compatibility reasons, if `rows` is not specified we
     // return a single element and otherwise we return a single list. We should probably
     // remove `rows` so that `first` always returns a single element; getting a list of
     // the first N elements is covered by `take`
     let return_single_element = rows.is_none();
-    let rows_desired: usize = match rows {
-        Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue { span: head }),
-        Some(x) => x as usize,
-        None => 1,
+    let rows = if let Some(rows) = rows {
+        if rows.item < 0 {
+            return Err(ShellError::NeedsPositiveValue { span: rows.span });
+        } else {
+            rows.item as usize
+        }
+    } else {
+        1
     };
 
-    let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
 
     // early exit for `first 0`
-    if rows_desired == 0 {
-        return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
+    if rows == 0 {
+        return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
     }
 
     match input {
         PipelineData::Value(val, _) => {
             let span = val.span();
             match val {
-                Value::List { vals, .. } => {
+                Value::List { mut vals, .. } => {
                     if return_single_element {
-                        if vals.is_empty() {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                        if let Some(val) = vals.first_mut() {
+                            Ok(std::mem::take(val).into_pipeline_data())
                         } else {
-                            Ok(vals[0].clone().into_pipeline_data())
+                            Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
-                        Ok(vals
-                            .into_iter()
-                            .take(rows_desired)
-                            .into_pipeline_data_with_metadata(metadata, ctrlc))
+                        vals.truncate(rows);
+                        Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                     }
                 }
-                Value::Binary { val, .. } => {
+                Value::Binary { mut val, .. } => {
                     if return_single_element {
-                        if val.is_empty() {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                        if let Some(&val) = val.first() {
+                            Ok(Value::int(val.into(), span).into_pipeline_data())
                         } else {
-                            Ok(PipelineData::Value(
-                                Value::int(val[0] as i64, span),
-                                metadata,
-                            ))
+                            Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
-                        let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
-                        Ok(PipelineData::Value(Value::binary(slice, span), metadata))
+                        val.truncate(rows);
+                        Ok(Value::binary(val, span).into_pipeline_data_with_metadata(metadata))
                     }
                 }
                 Value::Range { val, .. } => {
+                    let ctrlc = engine_state.ctrlc.clone();
+                    let mut iter = val.into_range_iter(span, ctrlc.clone());
                     if return_single_element {
-                        Ok(val.from.into_pipeline_data())
+                        if let Some(v) = iter.next() {
+                            Ok(v.into_pipeline_data())
+                        } else {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        }
                     } else {
-                        Ok(val
-                            .into_range_iter(ctrlc.clone())?
-                            .take(rows_desired)
-                            .into_pipeline_data_with_metadata(metadata, ctrlc))
+                        Ok(iter
+                            .take(rows)
+                            .into_pipeline_data_with_metadata(span, ctrlc, metadata))
                     }
                 }
                 // Propagate errors by explicitly matching them before the final case.
@@ -153,25 +157,56 @@ fn first_helper(
                 }),
             }
         }
-        PipelineData::ListStream(mut ls, metadata) => {
+        PipelineData::ListStream(stream, metadata) => {
             if return_single_element {
-                if let Some(v) = ls.next() {
+                if let Some(v) = stream.into_iter().next() {
                     Ok(v.into_pipeline_data())
                 } else {
                     Err(ShellError::AccessEmptyContent { span: head })
                 }
             } else {
-                Ok(ls
-                    .take(rows_desired)
-                    .into_pipeline_data_with_metadata(metadata, ctrlc))
+                Ok(PipelineData::ListStream(
+                    stream.modify(|iter| iter.take(rows)),
+                    metadata,
+                ))
             }
         }
-        PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
-            exp_input_type: "list, binary or range".into(),
-            wrong_type: "raw data".into(),
-            dst_span: head,
-            src_span: span,
-        }),
+        PipelineData::ByteStream(stream, metadata) => {
+            if stream.type_().is_binary_coercible() {
+                let span = stream.span();
+                if let Some(mut reader) = stream.reader() {
+                    if return_single_element {
+                        // Take a single byte
+                        let mut byte = [0u8];
+                        if reader.read(&mut byte).err_span(span)? > 0 {
+                            Ok(Value::int(byte[0] as i64, head).into_pipeline_data())
+                        } else {
+                            Err(ShellError::AccessEmptyContent { span: head })
+                        }
+                    } else {
+                        // Just take 'rows' bytes off the stream, mimicking the binary behavior
+                        Ok(PipelineData::ByteStream(
+                            ByteStream::read(
+                                reader.take(rows as u64),
+                                head,
+                                None,
+                                ByteStreamType::Binary,
+                            ),
+                            metadata,
+                        ))
+                    }
+                } else {
+                    Ok(PipelineData::Empty)
+                }
+            } else {
+                Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "list, binary or range".into(),
+                    wrong_type: stream.type_().describe().into(),
+                    dst_span: head,
+                    src_span: stream.span(),
+                })
+            }
+        }
         PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, binary or range".into(),
             wrong_type: "null".into(),

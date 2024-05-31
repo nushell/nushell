@@ -1,18 +1,17 @@
-use nu_test_support::{nu, pipeline};
+use nu_test_support::nu;
 
 #[test]
-fn binary_skip() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            open sample_data.ods --raw |
-            skip 2 |
-            take 2 |
-            into int --endian big
-        "#
-    ));
+fn skips_bytes() {
+    let actual = nu!("(0x[aa bb cc] | skip 2) == 0x[cc]");
 
-    assert_eq!(actual.out, "772");
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn skips_bytes_from_stream() {
+    let actual = nu!("([0 1] | each { 0x[aa bb cc] } | bytes collect | skip 2) == 0x[cc aa bb cc]");
+
+    assert_eq!(actual.out, "true");
 }
 
 #[test]

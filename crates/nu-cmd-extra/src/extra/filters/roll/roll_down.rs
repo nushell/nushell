@@ -1,12 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
-    Type, Value,
-};
-
 use super::{vertical_rotate_value, VerticalDirection};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct RollDown;
@@ -23,7 +16,7 @@ impl Command for RollDown {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             // TODO: It also operates on List
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .named("by", SyntaxShape::Int, "Number of rows to roll", Some('b'))
             .category(Category::Filters)
     }
@@ -63,7 +56,7 @@ impl Command for RollDown {
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
         let metadata = input.metadata();
 
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let rotated_value = vertical_rotate_value(value, by, VerticalDirection::Down)?;
 
         Ok(rotated_value.into_pipeline_data().set_metadata(metadata))

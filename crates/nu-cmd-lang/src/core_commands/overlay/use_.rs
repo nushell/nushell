@@ -1,10 +1,8 @@
-use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env, CallExt};
-use nu_parser::trim_quotes_str;
-use nu_protocol::ast::{Call, Expr};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+use nu_engine::{
+    command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
+use nu_parser::trim_quotes_str;
+use nu_protocol::{ast::Expr, engine::CommandType};
 
 use std::path::Path;
 
@@ -52,8 +50,8 @@ impl Command for OverlayUse {
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -124,7 +122,9 @@ impl Command for OverlayUse {
                 )?;
 
                 let block = engine_state.get_block(block_id);
-                let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+                let mut callee_stack = caller_stack
+                    .gather_captures(engine_state, &block.captures)
+                    .reset_pipes();
 
                 if let Some(path) = &maybe_path {
                     // Set the currently evaluated directory, if the argument is a valid path
@@ -141,14 +141,8 @@ impl Command for OverlayUse {
                     callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
-                let _ = eval_block(
-                    engine_state,
-                    &mut callee_stack,
-                    block,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                );
+                let eval_block = get_eval_block(engine_state);
+                let _ = eval_block(engine_state, &mut callee_stack, block, input);
 
                 // The export-env block should see the env vars *before* activating this overlay
                 caller_stack.add_overlay(overlay_name);

@@ -9,7 +9,7 @@
 # These functions help `open` the files with unsupported extensions such as ndjson.
 #
 
-# Convert from [NDJSON](http://ndjson.org/) to structured data.
+# Convert from [NDJSON](https://github.com/ndjson/ndjson-spec) to structured data.
 export def "from ndjson" []: string -> any {
     from json --objects
 }
@@ -19,7 +19,7 @@ export def "from jsonl" []: string -> any {
     from json --objects
 }
 
-# Convert structured data to [NDJSON](http://ndjson.org/).
+# Convert structured data to [NDJSON](https://github.com/ndjson/ndjson-spec).
 export def "to ndjson" []: any -> string {
     each { to json --raw } | to text
 }

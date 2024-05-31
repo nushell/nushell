@@ -127,7 +127,7 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
         for _ in 0..bytes {
             large_file_body.push('a');
         }
-        sandbox.with_files(vec![FileWithContent("a_large_file.txt", &large_file_body)]);
+        sandbox.with_files(&[FileWithContent("a_large_file.txt", &large_file_body)]);
 
         nu!(
             cwd: dirs.test(), pipeline(
@@ -164,10 +164,26 @@ fn redirection_keep_exit_codes() {
     Playground::setup("redirection preserves exit code", |dirs, _| {
         let out = nu!(
             cwd: dirs.test(),
-            "do -i { nu --testbin fail e> a.txt } | complete | get exit_code"
+            "nu --testbin fail e> a.txt | complete | get exit_code"
         );
         // needs to use contains "1", because it complete will output `Some(RawStream)`.
         assert!(out.out.contains('1'));
+    });
+}
+
+#[test]
+fn redirection_stderr_with_failed_program() {
+    Playground::setup("redirection stderr with failed program", |dirs, _| {
+        let out = nu!(
+            cwd: dirs.test(),
+            r#"$env.FOO = "bar"; nu --testbin echo_env_stderr_fail FOO e> file.txt; echo 3"#
+        );
+        // firstly echo 3 shouldn't run, because previous command runs to failed.
+        // second `file.txt` should contain "bar".
+        assert!(!out.out.contains('3'));
+        let expected_file = dirs.test().join("file.txt");
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "bar\n");
     });
 }
 
@@ -204,7 +220,7 @@ fn redirection_with_pipeline_works() {
             let script_body = r"echo message";
             let expect_body = "message";
 
-            sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+            sandbox.with_files(&[FileWithContent("test.sh", script_body)]);
 
             let actual = nu!(
                 cwd: dirs.test(),
@@ -333,31 +349,71 @@ fn redirection_should_have_a_target() {
 }
 
 #[test]
-fn redirection_with_pipe() {
+fn redirection_with_out_pipe() {
     use nu_test_support::playground::Playground;
-    Playground::setup(
-        "external with many stdout and stderr messages",
-        |dirs, _| {
-            // check for stdout
+    Playground::setup("redirection with out pipes", |dirs, _| {
+        // check for stdout
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file | str length"#,
+        );
+
+        assert_eq!(actual.out, "7");
+        // check for stderr redirection file.
+        let expected_out_file = dirs.test().join("tmp_file");
+        let actual_len = file_contents(expected_out_file).len();
+        assert_eq!(actual_len, 8);
+    })
+}
+
+#[test]
+fn redirection_with_err_pipe() {
+    use nu_test_support::playground::Playground;
+    Playground::setup("redirection with err pipe", |dirs, _| {
+        // check for stdout
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ out> tmp_file e>| str length"#,
+        );
+
+        assert_eq!(actual.out, "7");
+        // check for stdout redirection file.
+        let expected_out_file = dirs.test().join("tmp_file");
+        let actual_len = file_contents(expected_out_file).len();
+        assert_eq!(actual_len, 8);
+    })
+}
+
+#[test]
+fn no_redirection_with_outerr_pipe() {
+    Playground::setup("redirection does not accept outerr pipe", |dirs, _| {
+        for redirect_type in ["o>", "e>", "o+e>"] {
             let actual = nu!(
                 cwd: dirs.test(),
-                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file | str length"#,
+                &format!("echo 3 {redirect_type} a.txt o+e>| str length")
             );
-
-            assert_eq!(actual.out, "8");
-            // check for stderr redirection file.
-            let expected_out_file = dirs.test().join("tmp_file");
-            let actual_len = file_contents(expected_out_file).len();
-            assert_eq!(actual_len, 8);
-
-            // check it inside a function
-            let actual = nu!(
-                cwd: dirs.test(),
-                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file; print aa"#,
+            assert!(actual.err.contains("Multiple redirections provided"));
+            assert!(
+                !dirs.test().join("a.txt").exists(),
+                "No file should be created on error"
             );
-            assert!(actual.out.contains("messageaa"));
-        },
-    )
+        }
+
+        // test for separate redirection
+        let actual = nu!(
+            cwd: dirs.test(),
+            "echo 3 o> a.txt e> b.txt o+e>| str length"
+        );
+        assert!(actual.err.contains("Multiple redirections provided"));
+        assert!(
+            !dirs.test().join("a.txt").exists(),
+            "No file should be created on error"
+        );
+        assert!(
+            !dirs.test().join("b.txt").exists(),
+            "No file should be created on error"
+        );
+    });
 }
 
 #[test]
@@ -367,7 +423,7 @@ fn no_duplicate_redirection() {
             cwd: dirs.test(),
             "echo 3 o> a.txt o> a.txt"
         );
-        assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(actual.err.contains("Multiple redirections provided"));
         assert!(
             !dirs.test().join("a.txt").exists(),
             "No file should be created on error"
@@ -376,7 +432,7 @@ fn no_duplicate_redirection() {
             cwd: dirs.test(),
             "echo 3 e> a.txt e> a.txt"
         );
-        assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(actual.err.contains("Multiple redirections provided"));
         assert!(
             !dirs.test().join("a.txt").exists(),
             "No file should be created on error"

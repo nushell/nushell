@@ -1,14 +1,7 @@
-use std::path::{Path, PathBuf};
-
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
-
 use super::PathSubcommandArguments;
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
+use std::path::{Path, PathBuf};
 
 struct Arguments {
     append: Vec<Spanned<String>>,
@@ -29,8 +22,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::List(Box::new(Type::String)), Type::String),
-                (Type::Record(vec![]), Type::String),
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
+                (Type::record(), Type::String),
+                (Type::table(), Type::List(Box::new(Type::String))),
             ])
             .rest(
                 "append",
@@ -178,8 +171,8 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
 
     match input {
         PipelineData::Value(val, md) => Ok(PipelineData::Value(handle_value(val, args, head), md)),
-        PipelineData::ListStream(..) => Ok(PipelineData::Value(
-            handle_value(input.into_value(head), args, head),
+        PipelineData::ListStream(stream, ..) => Ok(PipelineData::Value(
+            handle_value(stream.into_value(), args, head),
             metadata,
         )),
         PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
@@ -213,7 +206,7 @@ fn join_single(path: &Path, head: Span, args: &Arguments) -> Value {
 }
 
 fn join_list(parts: &[Value], head: Span, span: Span, args: &Arguments) -> Value {
-    let path: Result<PathBuf, ShellError> = parts.iter().map(Value::as_string).collect();
+    let path: Result<PathBuf, ShellError> = parts.iter().map(Value::coerce_string).collect();
 
     match path {
         Ok(ref path) => join_single(path, head, args),
@@ -262,29 +255,29 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, Shel
 
     #[cfg(windows)]
     if let Some(val) = record.get("prefix") {
-        let p = val.as_string()?;
+        let p = val.coerce_str()?;
         if !p.is_empty() {
-            result.push(p);
+            result.push(p.as_ref());
         }
     }
 
     if let Some(val) = record.get("parent") {
-        let p = val.as_string()?;
+        let p = val.coerce_str()?;
         if !p.is_empty() {
-            result.push(p);
+            result.push(p.as_ref());
         }
     }
 
     let mut basename = String::new();
     if let Some(val) = record.get("stem") {
-        let p = val.as_string()?;
+        let p = val.coerce_str()?;
         if !p.is_empty() {
             basename.push_str(&p);
         }
     }
 
     if let Some(val) = record.get("extension") {
-        let p = val.as_string()?;
+        let p = val.coerce_str()?;
         if !p.is_empty() {
             basename.push('.');
             basename.push_str(&p);

@@ -20,7 +20,8 @@ pub use shift_left::BitsShl;
 pub use shift_right::BitsShr;
 pub use xor::BitsXor;
 
-use nu_protocol::Spanned;
+use nu_protocol::{ShellError, Span, Spanned, Value};
+use std::iter;
 
 #[derive(Clone, Copy)]
 enum NumberBytes {
@@ -29,7 +30,6 @@ enum NumberBytes {
     Four,
     Eight,
     Auto,
-    Invalid,
 }
 
 #[derive(Clone, Copy)]
@@ -44,17 +44,22 @@ enum InputNumType {
     SignedEight,
 }
 
-fn get_number_bytes(number_bytes: Option<&Spanned<String>>) -> NumberBytes {
-    match number_bytes.as_ref() {
-        None => NumberBytes::Eight,
-        Some(size) => match size.item.as_str() {
-            "1" => NumberBytes::One,
-            "2" => NumberBytes::Two,
-            "4" => NumberBytes::Four,
-            "8" => NumberBytes::Eight,
-            "auto" => NumberBytes::Auto,
-            _ => NumberBytes::Invalid,
-        },
+fn get_number_bytes(
+    number_bytes: Option<Spanned<usize>>,
+    head: Span,
+) -> Result<NumberBytes, ShellError> {
+    match number_bytes {
+        None => Ok(NumberBytes::Auto),
+        Some(Spanned { item: 1, .. }) => Ok(NumberBytes::One),
+        Some(Spanned { item: 2, .. }) => Ok(NumberBytes::Two),
+        Some(Spanned { item: 4, .. }) => Ok(NumberBytes::Four),
+        Some(Spanned { item: 8, .. }) => Ok(NumberBytes::Eight),
+        Some(Spanned { span, .. }) => Err(ShellError::UnsupportedInput {
+            msg: "Only 1, 2, 4, or 8 bytes are supported as word sizes".to_string(),
+            input: "value originates from here".to_string(),
+            msg_span: head,
+            input_span: span,
+        }),
     }
 }
 
@@ -76,7 +81,6 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
                     InputNumType::SignedEight
                 }
             }
-            NumberBytes::Invalid => InputNumType::SignedFour,
         }
     } else {
         match number_size {
@@ -95,7 +99,68 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
                     InputNumType::Eight
                 }
             }
-            NumberBytes::Invalid => InputNumType::Four,
         }
+    }
+}
+
+fn binary_op<F>(lhs: &Value, rhs: &Value, little_endian: bool, f: F, head: Span) -> Value
+where
+    F: Fn((i64, i64)) -> i64,
+{
+    let span = lhs.span();
+    match (lhs, rhs) {
+        (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+            Value::int(f((*lhs, *rhs)), span)
+        }
+        (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
+            let (lhs, rhs, max_len, min_len) = match (lhs.len(), rhs.len()) {
+                (max, min) if max > min => (lhs, rhs, max, min),
+                (min, max) => (rhs, lhs, max, min),
+            };
+
+            let pad = iter::repeat(0).take(max_len - min_len);
+
+            let mut a;
+            let mut b;
+
+            let padded: &mut dyn Iterator<Item = u8> = if little_endian {
+                a = rhs.iter().copied().chain(pad);
+                &mut a
+            } else {
+                b = pad.chain(rhs.iter().copied());
+                &mut b
+            };
+
+            let bytes: Vec<u8> = lhs
+                .iter()
+                .copied()
+                .zip(padded)
+                .map(|(lhs, rhs)| f((lhs as i64, rhs as i64)) as u8)
+                .collect();
+
+            Value::binary(bytes, span)
+        }
+        (Value::Binary { .. }, Value::Int { .. }) | (Value::Int { .. }, Value::Binary { .. }) => {
+            Value::error(
+                ShellError::PipelineMismatch {
+                    exp_input_type: "input, and argument, to be both int or both binary"
+                        .to_string(),
+                    dst_span: rhs.span(),
+                    src_span: span,
+                },
+                span,
+            )
+        }
+        // Propagate errors by explicitly matching them before the final case.
+        (e @ Value::Error { .. }, _) | (_, e @ Value::Error { .. }) => e.clone(),
+        (other, Value::Int { .. } | Value::Binary { .. }) | (_, other) => Value::error(
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int or binary".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }

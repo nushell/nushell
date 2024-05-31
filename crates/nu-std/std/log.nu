@@ -1,38 +1,42 @@
-export-env {
-    $env.LOG_ANSI = {
+export def log-ansi [] {
+    {
         "CRITICAL": (ansi red_bold),
         "ERROR": (ansi red),
         "WARNING": (ansi yellow),
         "INFO": (ansi default),
         "DEBUG": (ansi default_dimmed)
     }
+}
 
-    $env.LOG_LEVEL = {
+export def log-level [] {
+    {
         "CRITICAL": 50,
         "ERROR": 40,
         "WARNING": 30,
         "INFO": 20,
         "DEBUG": 10
     }
-
-    $env.LOG_PREFIX = {
+}
+export def log-prefix [] {
+    {
         "CRITICAL": "CRT",
         "ERROR": "ERR",
         "WARNING": "WRN",
         "INFO": "INF",
         "DEBUG": "DBG"
     }
-
-    $env.LOG_SHORT_PREFIX = {
+}
+export def log-short-prefix [] {
+    {
         "CRITICAL": "C",
         "ERROR": "E",
         "WARNING": "W",
         "INFO": "I",
         "DEBUG": "D"
     }
-
+}
+export-env {
     $env.NU_LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
-
     $env.NU_LOG_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
@@ -40,34 +44,34 @@ def log-types [] {
     (
         {
             "CRITICAL": {
-                "ansi": $env.LOG_ANSI.CRITICAL,
-                "level": $env.LOG_LEVEL.CRITICAL,
-                "prefix": $env.LOG_PREFIX.CRITICAL,
-                "short_prefix": $env.LOG_SHORT_PREFIX.CRITICAL
+                "ansi": (log-ansi).CRITICAL,
+                "level": (log-level).CRITICAL,
+                "prefix": (log-prefix).CRITICAL,
+                "short_prefix": (log-short-prefix).CRITICAL
             },
             "ERROR": {
-                "ansi": $env.LOG_ANSI.ERROR,
-                "level": $env.LOG_LEVEL.ERROR,
-                "prefix": $env.LOG_PREFIX.ERROR,
-                "short_prefix": $env.LOG_SHORT_PREFIX.ERROR
+                "ansi": (log-ansi).ERROR,
+                "level": (log-level).ERROR,
+                "prefix": (log-prefix).ERROR,
+                "short_prefix": (log-short-prefix).ERROR
             },
             "WARNING": {
-                "ansi": $env.LOG_ANSI.WARNING,
-                "level": $env.LOG_LEVEL.WARNING,
-                "prefix": $env.LOG_PREFIX.WARNING,
-                "short_prefix": $env.LOG_SHORT_PREFIX.WARNING
+                "ansi": (log-ansi).WARNING,
+                "level": (log-level).WARNING,
+                "prefix": (log-prefix).WARNING,
+                "short_prefix": (log-short-prefix).WARNING
             },
             "INFO": {
-                "ansi": $env.LOG_ANSI.INFO,
-                "level": $env.LOG_LEVEL.INFO,
-                "prefix": $env.LOG_PREFIX.INFO,
-                "short_prefix": $env.LOG_SHORT_PREFIX.INFO
+                "ansi": (log-ansi).INFO,
+                "level": (log-level).INFO,
+                "prefix": (log-prefix).INFO,
+                "short_prefix": (log-short-prefix).INFO
             },
             "DEBUG": {
-                "ansi": $env.LOG_ANSI.DEBUG,
-                "level": $env.LOG_LEVEL.DEBUG,
-                "prefix": $env.LOG_PREFIX.DEBUG,
-                "short_prefix": $env.LOG_SHORT_PREFIX.DEBUG
+                "ansi": (log-ansi).DEBUG,
+                "level": (log-level).DEBUG,
+                "prefix": (log-prefix).DEBUG,
+                "short_prefix": (log-short-prefix).DEBUG
             }
         }
     )
@@ -79,16 +83,16 @@ def parse-string-level [
 ] {
     let level = ($level | str upcase)
 
-    if $level in [$env.LOG_PREFIX.CRITICAL $env.LOG_SHORT_PREFIX.CRITICAL "CRIT" "CRITICAL"] {
-        $env.LOG_LEVEL.CRITICAL
-    } else if $level in [$env.LOG_PREFIX.ERROR $env.LOG_SHORT_PREFIX.ERROR "ERROR"] {
-        $env.LOG_LEVEL.ERROR
-    } else if $level in [$env.LOG_PREFIX.WARNING $env.LOG_SHORT_PREFIX.WARNING "WARN" "WARNING"] {
-        $env.LOG_LEVEL.WARNING
-    } else if $level in [$env.LOG_PREFIX.DEBUG $env.LOG_SHORT_PREFIX.DEBUG "DEBUG"] {
-        $env.LOG_LEVEL.DEBUG
+    if $level in [(log-prefix).CRITICAL (log-short-prefix).CRITICAL "CRIT" "CRITICAL"] {
+        (log-level).CRITICAL
+    } else if $level in [(log-prefix).ERROR (log-short-prefix).ERROR "ERROR"] {
+        (log-level).ERROR
+    } else if $level in [(log-prefix).WARNING (log-short-prefix).WARNING "WARN" "WARNING"] {
+        (log-level).WARNING
+    } else if $level in [(log-prefix).DEBUG (log-short-prefix).DEBUG "DEBUG"] {
+        (log-level).DEBUG
     } else {
-        $env.LOG_LEVEL.INFO
+        (log-level).INFO
     }
 }
 
@@ -97,41 +101,41 @@ def parse-int-level [
     level: int,
     --short (-s)
 ] {
-    if $level >= $env.LOG_LEVEL.CRITICAL {
+    if $level >= (log-level).CRITICAL {
         if $short {
-            $env.LOG_SHORT_PREFIX.CRITICAL
+            (log-short-prefix).CRITICAL
         } else {
-            $env.LOG_PREFIX.CRITICAL
+            (log-prefix).CRITICAL
         }
-    } else if $level >= $env.LOG_LEVEL.ERROR {
+    } else if $level >= (log-level).ERROR {
         if $short {
-            $env.LOG_SHORT_PREFIX.ERROR
+            (log-short-prefix).ERROR
         } else {
-            $env.LOG_PREFIX.ERROR
+            (log-prefix).ERROR
         }
-    } else if $level >= $env.LOG_LEVEL.WARNING {
+    } else if $level >= (log-level).WARNING {
         if $short {
-            $env.LOG_SHORT_PREFIX.WARNING
+            (log-short-prefix).WARNING
         } else {
-            $env.LOG_PREFIX.WARNING
+            (log-prefix).WARNING
         }
-    } else if $level >= $env.LOG_LEVEL.INFO {
+    } else if $level >= (log-level).INFO {
         if $short {
-            $env.LOG_SHORT_PREFIX.INFO
+            (log-short-prefix).INFO
         } else {
-            $env.LOG_PREFIX.INFO
+            (log-prefix).INFO
         }
     } else {
         if $short {
-            $env.LOG_SHORT_PREFIX.DEBUG
+            (log-short-prefix).DEBUG
         } else {
-            $env.LOG_PREFIX.DEBUG
+            (log-prefix).DEBUG
         }
     }
 }
 
 def current-log-level [] {
-    let env_level = ($env.NU_LOG_LEVEL? | default ($env.LOG_LEVEL.INFO))
+    let env_level = ($env.NU_LOG_LEVEL? | default (log-level).INFO)
 
     try {
         $env_level | into int
@@ -239,8 +243,8 @@ def log-level-deduction-error [
         label: {
             text: ([
                  "Invalid log level."
-                $"        Available log levels in $env.LOG_LEVEL:"
-                 ($env.LOG_LEVEL | to text | lines | each {|it| $"            ($it)" } | to text)
+                $"        Available log levels in log-level:"
+                 (log-level | to text | lines | each {|it| $"            ($it)" } | to text)
             ] | str join "\n")
             span: $span
         }
@@ -251,7 +255,7 @@ def log-level-deduction-error [
 export def custom [
     message: string, # A message
     format: string, # A format (for further reference: help std log)
-    log_level: int # A log level (has to be one of the $env.LOG_LEVEL values for correct ansi/prefix deduction)
+    log_level: int # A log level (has to be one of the log-level values for correct ansi/prefix deduction)
     --level-prefix (-p): string # %LEVEL% placeholder extension
     --ansi (-a): string # %ANSI_START% placeholder extension
 ] {
@@ -260,11 +264,11 @@ export def custom [
     }
 
     let valid_levels_for_defaulting = [
-        $env.LOG_LEVEL.CRITICAL
-        $env.LOG_LEVEL.ERROR
-        $env.LOG_LEVEL.WARNING
-        $env.LOG_LEVEL.INFO
-        $env.LOG_LEVEL.DEBUG
+        (log-level).CRITICAL
+        (log-level).ERROR
+        (log-level).WARNING
+        (log-level).INFO
+        (log-level).DEBUG
     ]
 
     let prefix = if ($level_prefix | is-empty) {

@@ -1,7 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Debug;
@@ -44,9 +41,9 @@ impl Command for Debug {
         input.map(
             move |x| {
                 if raw {
-                    Value::string(x.debug_value(), head)
+                    Value::string(x.to_debug_string(), head)
                 } else {
-                    Value::string(x.debug_string(", ", &config), head)
+                    Value::string(x.to_expanded_string(", ", &config), head)
                 }
             },
             engine_state.ctrlc.clone(),

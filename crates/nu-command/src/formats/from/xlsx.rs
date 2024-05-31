@@ -1,11 +1,8 @@
 use calamine::*;
-use indexmap::map::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use chrono::{Local, LocalResult, Offset, TimeZone, Utc};
+use indexmap::IndexMap;
+use nu_engine::command_prelude::*;
+
 use std::io::Cursor;
 
 #[derive(Clone)]
@@ -18,7 +15,7 @@ impl Command for FromXlsx {
 
     fn signature(&self) -> Signature {
         Signature::build("from xlsx")
-            .input_output_types(vec![(Type::Binary, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Binary, Type::table())])
             .allow_variants_without_examples(true)
             .named(
                 "sheets",
@@ -85,27 +82,31 @@ fn convert_columns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
 }
 
 fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError> {
-    let mut bytes = vec![];
-    let mut values = input.into_iter();
+    if let PipelineData::ByteStream(stream, ..) = input {
+        stream.into_bytes()
+    } else {
+        let mut bytes = vec![];
+        let mut values = input.into_iter();
 
-    loop {
-        match values.next() {
-            Some(Value::Binary { val: b, .. }) => {
-                bytes.extend_from_slice(&b);
+        loop {
+            match values.next() {
+                Some(Value::Binary { val: b, .. }) => {
+                    bytes.extend_from_slice(&b);
+                }
+                Some(x) => {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "Expected binary from pipeline".to_string(),
+                        input: "value originates from here".into(),
+                        msg_span: span,
+                        input_span: x.span(),
+                    })
+                }
+                None => break,
             }
-            Some(x) => {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "Expected binary from pipeline".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: span,
-                    input_span: x.span(),
-                })
-            }
-            None => break,
         }
-    }
 
-    Ok(bytes)
+        Ok(bytes)
+    }
 }
 
 fn from_xlsx(
@@ -130,6 +131,11 @@ fn from_xlsx(
         sheet_names.retain(|e| sel_sheets.contains(e));
     }
 
+    let tz = match Local.timestamp_opt(0, 0) {
+        LocalResult::Single(tz) => *tz.offset(),
+        _ => Utc.fix(),
+    };
+
     for sheet_name in sheet_names {
         let mut sheet_output = vec![];
 
@@ -140,11 +146,19 @@ fn from_xlsx(
                     .enumerate()
                     .map(|(i, cell)| {
                         let value = match cell {
-                            DataType::Empty => Value::nothing(head),
-                            DataType::String(s) => Value::string(s, head),
-                            DataType::Float(f) => Value::float(*f, head),
-                            DataType::Int(i) => Value::int(*i, head),
-                            DataType::Bool(b) => Value::bool(*b, head),
+                            Data::Empty => Value::nothing(head),
+                            Data::String(s) => Value::string(s, head),
+                            Data::Float(f) => Value::float(*f, head),
+                            Data::Int(i) => Value::int(*i, head),
+                            Data::Bool(b) => Value::bool(*b, head),
+                            Data::DateTime(d) => d
+                                .as_datetime()
+                                .and_then(|d| match tz.from_local_datetime(&d) {
+                                    LocalResult::Single(d) => Some(d),
+                                    _ => None,
+                                })
+                                .map(|d| Value::date(d, head))
+                                .unwrap_or(Value::nothing(head)),
                             _ => Value::nothing(head),
                         };
 

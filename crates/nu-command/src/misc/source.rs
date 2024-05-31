@@ -1,7 +1,5 @@
-use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_protocol::engine::CommandType;
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -32,8 +30,8 @@ impl Command for Source {
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -46,16 +44,11 @@ impl Command for Source {
         // Note: this hidden positional is the block_id that corresponded to the 0th position
         // it is put here by the parser
         let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
-
         let block = engine_state.get_block(block_id as usize).clone();
-        eval_block_with_early_return(
-            engine_state,
-            stack,
-            &block,
-            input,
-            call.redirect_stdout,
-            call.redirect_stderr,
-        )
+
+        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+
+        eval_block_with_early_return(engine_state, stack, &block, input)
     }
 
     fn examples(&self) -> Vec<Example> {

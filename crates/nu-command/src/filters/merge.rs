@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Merge;
@@ -29,8 +23,8 @@ repeating this process with row 1, and so on."#
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("merge")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
             ])
             .required(
                 "value",
@@ -91,11 +85,10 @@ repeating this process with row 1, and so on."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let merge_value: Value = call.req(engine_state, stack, 0)?;
-
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
-        let call = call.clone();
 
         match (&input, merge_value) {
             // table (list of records)
@@ -110,29 +103,25 @@ repeating this process with row 1, and so on."#
                         .into_iter()
                         .map(move |inp| match (inp.as_record(), table_iter.next()) {
                             (Ok(inp), Some(to_merge)) => match to_merge.as_record() {
-                                Ok(to_merge) => Value::record(do_merge(inp, to_merge), call.head),
-                                Err(error) => Value::error(error, call.head),
+                                Ok(to_merge) => Value::record(do_merge(inp, to_merge), head),
+                                Err(error) => Value::error(error, head),
                             },
                             (_, None) => inp,
-                            (Err(error), _) => Value::error(error, call.head),
+                            (Err(error), _) => Value::error(error, head),
                         });
 
-                if let Some(md) = metadata {
-                    Ok(res.into_pipeline_data_with_metadata(md, ctrlc))
-                } else {
-                    Ok(res.into_pipeline_data(ctrlc))
-                }
+                Ok(res.into_pipeline_data_with_metadata(head, ctrlc, metadata))
             }
             // record
             (
                 PipelineData::Value(Value::Record { val: inp, .. }, ..),
                 Value::Record { val: to_merge, .. },
-            ) => Ok(Value::record(do_merge(inp, &to_merge), call.head).into_pipeline_data()),
+            ) => Ok(Value::record(do_merge(inp, &to_merge), head).into_pipeline_data()),
             (PipelineData::Value(val, ..), ..) => {
                 // Only point the "value originates here" arrow at the merge value
                 // if it was generated from a block. Otherwise, point at the pipeline value. -Leon 2022-10-27
                 let span = if val.span() == Span::test_data() {
-                    Span::new(call.head.start, call.head.start)
+                    Span::new(head.start, head.start)
                 } else {
                     val.span()
                 };
@@ -140,14 +129,14 @@ repeating this process with row 1, and so on."#
                 Err(ShellError::PipelineMismatch {
                     exp_input_type: "input, and argument, to be both record or both table"
                         .to_string(),
-                    dst_span: call.head,
+                    dst_span: head,
                     src_span: span,
                 })
             }
             _ => Err(ShellError::PipelineMismatch {
                 exp_input_type: "input, and argument, to be both record or both table".to_string(),
-                dst_span: call.head,
-                src_span: Span::new(call.head.start, call.head.start),
+                dst_span: head,
+                src_span: Span::new(head.start, head.start),
             }),
         }
     }

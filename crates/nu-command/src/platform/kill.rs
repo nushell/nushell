@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{ast::Call, span};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 use std::process::{Command as CommandSys, Stdio};
 
 #[derive(Clone)]
@@ -101,7 +95,7 @@ impl Command for Kill {
                             })?
                             .span,
                         right_message: "signal".to_string(),
-                        right_span: span(&[
+                        right_span: Span::merge(
                             call.get_named_arg("signal")
                                 .ok_or_else(|| ShellError::GenericError {
                                     error: "Flag error".into(),
@@ -112,7 +106,7 @@ impl Command for Kill {
                                 })?
                                 .span,
                             signal_span,
-                        ]),
+                        ),
                     });
                 }
                 cmd.arg("-9");
@@ -152,23 +146,21 @@ impl Command for Kill {
             });
         }
 
-        let val = String::from(
-            String::from_utf8(output.stdout)
-                .map_err(|e| ShellError::GenericError {
-                    error: "failed to convert output to string".into(),
-                    msg: e.to_string(),
-                    span: Some(call.head),
-                    help: None,
-                    inner: vec![],
-                })?
-                .trim_end(),
-        );
-        if val.is_empty() {
+        let mut output =
+            String::from_utf8(output.stdout).map_err(|e| ShellError::GenericError {
+                error: "failed to convert output to string".into(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?;
+
+        output.truncate(output.trim_end().len());
+
+        if output.is_empty() {
             Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
-            Ok(vec![Value::string(val, call.head)]
-                .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+            Ok(Value::string(output, call.head).into_pipeline_data())
         }
     }
 

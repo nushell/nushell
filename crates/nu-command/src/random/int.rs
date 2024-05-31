@@ -1,12 +1,7 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, Range, ShellError, Signature, Spanned, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::Range;
 use rand::prelude::{thread_rng, Rng};
-use std::cmp::Ordering;
+use std::ops::Bound;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -76,34 +71,44 @@ fn integer(
     let span = call.head;
     let range: Option<Spanned<Range>> = call.opt(engine_state, stack, 0)?;
 
-    let mut range_span = call.head;
-    let (min, max) = if let Some(spanned_range) = range {
-        let r = spanned_range.item;
-        range_span = spanned_range.span;
-        if r.is_end_inclusive() {
-            (r.from.as_int()?, r.to.as_int()?)
-        } else if r.to.as_int()? > 0 {
-            (r.from.as_int()?, r.to.as_int()? - 1)
-        } else {
-            (0, 0)
-        }
-    } else {
-        (0, i64::MAX)
-    };
+    let mut thread_rng = thread_rng();
 
-    match min.partial_cmp(&max) {
-        Some(Ordering::Greater) => Err(ShellError::InvalidRange {
-            left_flank: min.to_string(),
-            right_flank: max.to_string(),
-            span: range_span,
-        }),
-        Some(Ordering::Equal) => Ok(PipelineData::Value(Value::int(min, span), None)),
-        _ => {
-            let mut thread_rng = thread_rng();
-            let result: i64 = thread_rng.gen_range(min..=max);
+    match range {
+        Some(range) => {
+            let range_span = range.span;
+            match range.item {
+                Range::IntRange(range) => {
+                    if range.step() < 0 {
+                        return Err(ShellError::InvalidRange {
+                            left_flank: range.start().to_string(),
+                            right_flank: match range.end() {
+                                Bound::Included(end) | Bound::Excluded(end) => end.to_string(),
+                                Bound::Unbounded => "".into(),
+                            },
+                            span: range_span,
+                        });
+                    }
 
-            Ok(PipelineData::Value(Value::int(result, span), None))
+                    let value = match range.end() {
+                        Bound::Included(end) => thread_rng.gen_range(range.start()..=end),
+                        Bound::Excluded(end) => thread_rng.gen_range(range.start()..end),
+                        Bound::Unbounded => thread_rng.gen_range(range.start()..=i64::MAX),
+                    };
+
+                    Ok(PipelineData::Value(Value::int(value, span), None))
+                }
+                Range::FloatRange(_) => Err(ShellError::UnsupportedInput {
+                    msg: "float range".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call.head,
+                    input_span: range.span,
+                }),
+            }
         }
+        None => Ok(PipelineData::Value(
+            Value::int(thread_rng.gen_range(0..=i64::MAX), span),
+            None,
+        )),
     }
 }
 

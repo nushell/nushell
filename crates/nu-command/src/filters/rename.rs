@@ -1,12 +1,6 @@
 use indexmap::IndexMap;
-use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature,
-    SyntaxShape, Type, Value,
-};
-use std::collections::HashSet;
+use nu_engine::{command_prelude::*, ClosureEval};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Rename;
@@ -19,8 +13,8 @@ impl Command for Rename {
     fn signature(&self) -> Signature {
         Signature::build("rename")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
             ])
             .named(
                 "column",
@@ -110,6 +104,8 @@ fn rename(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+    let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
     let specified_column: Option<Record> = call.get_flag(engine_state, stack, "column")?;
     // convert from Record to HashMap for easily query.
     let specified_column: Option<IndexMap<String, String>> = match specified_column {
@@ -139,112 +135,95 @@ fn rename(
         }
         None => None,
     };
-    let redirect_stdout = call.redirect_stdout;
-    let redirect_stderr = call.redirect_stderr;
-    let block_info =
-        if let Some(capture_block) = call.get_flag::<Closure>(engine_state, stack, "block")? {
-            let engine_state = engine_state.clone();
-            let block = engine_state.get_block(capture_block.block_id).clone();
-            let stack = stack.captures_to_stack(capture_block.captures);
-            let orig_env_vars = stack.env_vars.clone();
-            let orig_env_hidden = stack.env_hidden.clone();
-            Some((engine_state, block, stack, orig_env_vars, orig_env_hidden))
-        } else {
-            None
-        };
+    let closure: Option<Closure> = call.get_flag(engine_state, stack, "block")?;
 
-    let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
+    let mut closure = closure.map(|closure| ClosureEval::new(engine_state, stack, closure));
+
     let metadata = input.metadata();
-
-    let head_span = call.head;
     input
         .map(
             move |item| {
                 let span = item.span();
                 match item {
-                    Value::Record {
-                        val: mut record, ..
-                    } => {
-                        if let Some((engine_state, block, mut stack, env_vars, env_hidden)) =
-                            block_info.clone()
-                        {
-                            for c in &mut record.cols {
-                                stack.with_env(&env_vars, &env_hidden);
+                    Value::Record { val: record, .. } => {
+                        let record =
+                            if let Some(closure) = &mut closure {
+                                record
+                                    .into_owned().into_iter()
+                                    .map(|(col, val)| {
+                                        let col = Value::string(col, span);
+                                        let data = closure.run_with_value(col)?;
+                                        let col = data.collect_string_strict(span)?.0;
+                                        Ok((col, val))
+                                    })
+                                    .collect::<Result<Record, _>>()
+                            } else {
+                                match &specified_column {
+                                    Some(columns) => {
+                                        // record columns are unique so we can track the number
+                                        // of renamed columns to check if any were missed
+                                        let mut renamed = 0;
+                                        let record = record.into_owned().into_iter().map(|(col, val)| {
+                                            let col = if let Some(col) = columns.get(&col) {
+                                                renamed += 1;
+                                                col.clone()
+                                            } else {
+                                                col
+                                            };
 
-                                if let Some(var) = block.signature.get_positional(0) {
-                                    if let Some(var_id) = &var.var_id {
-                                        stack.add_var(*var_id, Value::string(c.clone(), span))
-                                    }
-                                }
-                                let eval_result = eval_block_with_early_return(
-                                    &engine_state,
-                                    &mut stack,
-                                    &block,
-                                    Value::string(c.clone(), span).into_pipeline_data(),
-                                    redirect_stdout,
-                                    redirect_stderr,
-                                );
-                                match eval_result {
-                                    Err(e) => return Value::error(e, span),
-                                    Ok(res) => match res.collect_string_strict(span) {
-                                        Err(e) => return Value::error(e, span),
-                                        Ok(new_c) => *c = new_c.0,
-                                    },
-                                }
-                            }
-                        } else {
-                            match &specified_column {
-                                Some(c) => {
-                                    let mut column_to_rename: HashSet<String> = HashSet::from_iter(c.keys().cloned());
-                                    for val in record.cols.iter_mut() {
-                                        if c.contains_key(val) {
-                                            column_to_rename.remove(val);
-                                            *val = c.get(val).expect("already check exists").to_owned();
+                                            (col, val)
+                                        }).collect::<Record>();
+
+                                        let missing_column = if renamed < columns.len() {
+                                            columns.iter().find_map(|(col, new_col)| {
+                                                (!record.contains(new_col)).then_some(col)
+                                            })
+                                        } else {
+                                            None
+                                        };
+
+                                        if let Some(missing) = missing_column {
+                                            Err(ShellError::UnsupportedInput {
+                                                msg: format!("The column '{missing}' does not exist in the input"),
+                                                input: "value originated from here".into(),
+                                                msg_span: head,
+                                                input_span: span,
+                                            })
+                                        } else {
+                                            Ok(record)
                                         }
                                     }
-                                    if !column_to_rename.is_empty() {
-                                        let not_exists_column =
-                                            column_to_rename.into_iter().next().expect(
-                                                "already checked column to rename still exists",
-                                            );
-                                        return Value::error(
-                                            ShellError::UnsupportedInput { msg: format!(
-                                                    "The column '{not_exists_column}' does not exist in the input",
-                                                ), input: "value originated from here".into(), msg_span: head_span, input_span: span },
-                                            span,
-                                        );
-                                    }
+                                    None => Ok(record
+                                        .into_owned().into_iter()
+                                        .enumerate()
+                                        .map(|(i, (col, val))| {
+                                            (columns.get(i).cloned().unwrap_or(col), val)
+                                        })
+                                        .collect()),
                                 }
-                                None => {
-                                    for (idx, val) in columns.iter().enumerate() {
-                                        if idx >= record.len() {
-                                            // skip extra new columns names if we already reached the final column
-                                            break;
-                                        }
-                                        record.cols[idx] = val.clone();
-                                    }
-                                }
-                            }
+                            };
+
+                        match record {
+                            Ok(record) => Value::record(record, span),
+                            Err(err) => Value::error(err, span),
                         }
-
-                        Value::record(record, span)
                     }
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { .. } => item.clone(),
+                    Value::Error { .. } => item,
                     other => Value::error(
                         ShellError::OnlySupportsThisInputType {
                             exp_input_type: "record".into(),
                             wrong_type: other.get_type().to_string(),
-                            dst_span: head_span,
+                            dst_span: head,
                             src_span: other.span(),
                         },
-                        head_span,
+                        head,
                     ),
                 }
             },
             engine_state.ctrlc.clone(),
         )
-        .map(|x| x.set_metadata(metadata))
+        .map(|data| data.set_metadata(metadata))
 }
 
 #[cfg(test)]

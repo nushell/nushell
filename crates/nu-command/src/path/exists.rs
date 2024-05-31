@@ -1,14 +1,9 @@
-use std::path::{Path, PathBuf};
-
-use nu_engine::{current_dir, current_dir_const, CallExt};
-use nu_path::expand_path_with;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
-
 use super::PathSubcommandArguments;
+#[allow(deprecated)]
+use nu_engine::{command_prelude::*, current_dir, current_dir_const};
+use nu_path::expand_path_with;
+use nu_protocol::engine::StateWorkingSet;
+use std::path::{Path, PathBuf};
 
 struct Arguments {
     pwd: PathBuf,
@@ -59,6 +54,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        #[allow(deprecated)]
         let args = Arguments {
             pwd: current_dir(engine_state, stack)?,
             not_follow_symlink: call.has_flag(engine_state, stack, "no-symlink")?,
@@ -80,6 +76,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        #[allow(deprecated)]
         let args = Arguments {
             pwd: current_dir_const(working_set)?,
             not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
@@ -137,7 +134,7 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
     if path.as_os_str().is_empty() {
         return Value::bool(false, span);
     }
-    let path = expand_path_with(path, &args.pwd);
+    let path = expand_path_with(path, &args.pwd, true);
     let exists = if args.not_follow_symlink {
         // symlink_metadata returns true if the file/folder exists
         // whether it is a symbolic link or not. Sorry, but returns Err

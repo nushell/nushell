@@ -1,10 +1,5 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
-};
-use rand::prelude::SliceRandom;
-use rand::thread_rng;
+use nu_engine::command_prelude::*;
+use rand::{prelude::SliceRandom, thread_rng};
 
 #[derive(Clone)]
 pub struct Shuffle;
@@ -35,10 +30,10 @@ impl Command for Shuffle {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input.metadata();
-        let mut v: Vec<_> = input.into_iter_strict(call.head)?.collect();
-        v.shuffle(&mut thread_rng());
-        let iter = v.into_iter();
-        Ok(iter.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+        let mut values = input.into_iter_strict(call.head)?.collect::<Vec<_>>();
+        values.shuffle(&mut thread_rng());
+        let iter = values.into_iter();
+        Ok(iter.into_pipeline_data_with_metadata(call.head, engine_state.ctrlc.clone(), metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

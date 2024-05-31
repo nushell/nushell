@@ -1,8 +1,5 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct ExportUse;
@@ -20,7 +17,7 @@ impl Command for ExportUse {
         Signature::build("export use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("module", SyntaxShape::String, "Module or module file.")
-            .optional(
+            .rest(
                 "members",
                 SyntaxShape::Any,
                 "Which members of the module to import.",
@@ -33,8 +30,8 @@ impl Command for ExportUse {
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(

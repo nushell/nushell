@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Get;
@@ -33,8 +27,8 @@ If multiple cell paths are given, this will produce a list of values."#
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
-                (Type::Table(vec![]), Type::Any),
-                (Type::Record(vec![]), Type::Any),
+                (Type::table(), Type::Any),
+                (Type::record(), Type::Any),
             ])
             .required(
                 "cell_path",
@@ -85,9 +79,9 @@ If multiple cell paths are given, this will produce a list of values."#
         } else {
             let mut output = vec![];
 
-            let paths = vec![cell_path].into_iter().chain(rest);
+            let paths = std::iter::once(cell_path).chain(rest);
 
-            let input = input.into_value(span);
+            let input = input.into_value(span)?;
 
             for path in paths {
                 let val = input.clone().follow_cell_path(&path.members, !sensitive);
@@ -95,7 +89,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 output.push(val?);
             }
 
-            Ok(output.into_iter().into_pipeline_data(ctrlc))
+            Ok(output.into_iter().into_pipeline_data(span, ctrlc))
         }
         .map(|x| x.set_metadata(metadata))
     }
@@ -121,18 +115,13 @@ If multiple cell paths are given, this will produce a list of values."#
             },
             Example {
                 description:
-                    "Extract the name of the 3rd record in a list (same as `ls | $in.name`)",
+                    "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`)",
                 example: "ls | get name.2",
                 result: None,
             },
             Example {
                 description: "Extract the name of the 3rd record in a list",
                 example: "ls | get 2.name",
-                result: None,
-            },
-            Example {
-                description: "Extract the cpu list from the sys information record",
-                example: "sys | get cpu",
                 result: None,
             },
             Example {

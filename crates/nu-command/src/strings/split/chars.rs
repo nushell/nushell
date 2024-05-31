@@ -1,9 +1,5 @@
 use crate::grapheme_flags;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -124,7 +120,7 @@ fn split_chars_helper(v: &Value, name: Span, graphemes: bool) -> Value {
         Value::Error { error, .. } => Value::error(*error.clone(), span),
         v => {
             let v_span = v.span();
-            if let Ok(s) = v.as_string() {
+            if let Ok(s) = v.coerce_str() {
                 Value::list(
                     if graphemes {
                         s.graphemes(true)

@@ -1,13 +1,11 @@
+use crate::{
+    lex, lite_parse,
+    parser::{is_variable, parse_value},
+};
 use nu_protocol::{
     ast::{MatchPattern, Pattern},
     engine::StateWorkingSet,
     ParseError, Span, SyntaxShape, Type, VarId,
-};
-
-use crate::{
-    lex, lite_parse,
-    parser::{is_variable, parse_value},
-    LiteElement,
 };
 
 pub fn garbage(span: Span) -> MatchPattern {
@@ -108,48 +106,46 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
     let mut args = vec![];
 
     if !output.block.is_empty() {
-        for arg in &output.block[0].commands {
+        for command in &output.block[0].commands {
             let mut spans_idx = 0;
 
-            if let LiteElement::Command(_, command) = arg {
-                while spans_idx < command.parts.len() {
-                    let contents = working_set.get_span_contents(command.parts[spans_idx]);
-                    if contents == b".." {
+            while spans_idx < command.parts.len() {
+                let contents = working_set.get_span_contents(command.parts[spans_idx]);
+                if contents == b".." {
+                    args.push(MatchPattern {
+                        pattern: Pattern::IgnoreRest,
+                        guard: None,
+                        span: command.parts[spans_idx],
+                    });
+                    break;
+                } else if contents.starts_with(b"..$") {
+                    if let Some(var_id) = parse_variable_pattern_helper(
+                        working_set,
+                        Span::new(
+                            command.parts[spans_idx].start + 2,
+                            command.parts[spans_idx].end,
+                        ),
+                    ) {
                         args.push(MatchPattern {
-                            pattern: Pattern::IgnoreRest,
+                            pattern: Pattern::Rest(var_id),
                             guard: None,
                             span: command.parts[spans_idx],
                         });
                         break;
-                    } else if contents.starts_with(b"..$") {
-                        if let Some(var_id) = parse_variable_pattern_helper(
-                            working_set,
-                            Span::new(
-                                command.parts[spans_idx].start + 2,
-                                command.parts[spans_idx].end,
-                            ),
-                        ) {
-                            args.push(MatchPattern {
-                                pattern: Pattern::Rest(var_id),
-                                guard: None,
-                                span: command.parts[spans_idx],
-                            });
-                            break;
-                        } else {
-                            args.push(garbage(command.parts[spans_idx]));
-                            working_set.error(ParseError::Expected(
-                                "valid variable name",
-                                command.parts[spans_idx],
-                            ));
-                        }
                     } else {
-                        let arg = parse_pattern(working_set, command.parts[spans_idx]);
+                        args.push(garbage(command.parts[spans_idx]));
+                        working_set.error(ParseError::Expected(
+                            "valid variable name",
+                            command.parts[spans_idx],
+                        ));
+                    }
+                } else {
+                    let arg = parse_pattern(working_set, command.parts[spans_idx]);
 
-                        args.push(arg);
-                    };
+                    args.push(arg);
+                };
 
-                    spans_idx += 1;
-                }
+                spans_idx += 1;
             }
         }
     }

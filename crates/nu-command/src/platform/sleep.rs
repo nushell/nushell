@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use std::{
     thread,
     time::{Duration, Instant},
@@ -52,16 +47,17 @@ impl Command for Sleep {
 
         let total_dur =
             duration_from_i64(duration) + rest.into_iter().map(duration_from_i64).sum::<Duration>();
+        let deadline = Instant::now() + total_dur;
 
-        let ctrlc_ref = &engine_state.ctrlc.clone();
-        let start = Instant::now();
         loop {
-            thread::sleep(CTRL_C_CHECK_INTERVAL);
-            if start.elapsed() >= total_dur {
+            // sleep for 100ms, or until the deadline
+            let time_until_deadline = deadline.saturating_duration_since(Instant::now());
+            if time_until_deadline.is_zero() {
                 break;
             }
-
-            if nu_utils::ctrl_c::was_pressed(ctrlc_ref) {
+            thread::sleep(CTRL_C_CHECK_INTERVAL.min(time_until_deadline));
+            // exit early if Ctrl+C was pressed
+            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
                 return Err(ShellError::InterruptedByUser {
                     span: Some(call.head),
                 });

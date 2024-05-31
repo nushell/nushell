@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use regex::Regex;
 
 #[derive(Clone)]
@@ -27,8 +22,8 @@ impl Command for SubCommand {
                 "The value that denotes what separates the list.",
             )
             .switch(
-                "regex", 
-                "separator is a regular expression, matching values that can be coerced into a string", 
+                "regex",
+                "separator is a regular expression, matching values that can be coerced into a string",
                 Some('r'))
             .category(Category::Filters)
     }
@@ -160,7 +155,7 @@ enum Matcher {
 impl Matcher {
     pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
-            Ok(Matcher::Regex(Regex::new(&lhs.as_string()?).map_err(
+            Ok(Matcher::Regex(Regex::new(&lhs.coerce_str()?).map_err(
                 |e| ShellError::GenericError {
                     error: "Error with regular expression".into(),
                     msg: e.to_string(),
@@ -180,7 +175,7 @@ impl Matcher {
     pub fn compare(&self, rhs: &Value) -> Result<bool, ShellError> {
         Ok(match self {
             Matcher::Regex(regex) => {
-                if let Ok(rhs_str) = rhs.as_string() {
+                if let Ok(rhs_str) = rhs.coerce_str() {
                     regex.is_match(&rhs_str)
                 } else {
                     false
@@ -201,9 +196,12 @@ fn split_list(
     let mut temp_list = Vec::new();
     let mut returned_list = Vec::new();
 
-    let iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
     let matcher = Matcher::new(call.has_flag(engine_state, stack, "regex")?, separator)?;
-    for val in iter {
+    for val in input {
+        if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+            break;
+        }
+
         if matcher.compare(&val)? {
             if !temp_list.is_empty() {
                 returned_list.push(Value::list(temp_list.clone(), call.head));

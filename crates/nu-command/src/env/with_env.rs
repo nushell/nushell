@@ -1,11 +1,5 @@
-use std::collections::HashMap;
-
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, eval_block};
+use nu_protocol::{debugger::WithoutDebug, engine::Closure};
 
 #[derive(Clone)]
 pub struct WithEnv;
@@ -46,31 +40,14 @@ impl Command for WithEnv {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Set the MYENV environment variable",
-                example: r#"with-env [MYENV "my env value"] { $env.MYENV }"#,
-                result: Some(Value::test_string("my env value")),
-            },
-            Example {
-                description: "Set by primitive value list",
-                example: r#"with-env [X Y W Z] { $env.X }"#,
-                result: Some(Value::test_string("Y")),
-            },
-            Example {
-                description: "Set by single row table",
-                example: r#"with-env [[X W]; [Y Z]] { $env.W }"#,
-                result: Some(Value::test_string("Z")),
-            },
-            Example {
-                description: "Set by key-value record",
-                example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
-                result: Some(Value::list(
-                    vec![Value::test_string("Y"), Value::test_string("Z")],
-                    Span::test_data(),
-                )),
-            },
-        ]
+        vec![Example {
+            description: "Set by key-value record",
+            example: r#"with-env {X: "Y", W: "Z"} { [$env.X $env.W] }"#,
+            result: Some(Value::list(
+                vec![Value::test_string("Y"), Value::test_string("Z")],
+                Span::test_data(),
+            )),
+        }]
     }
 }
 
@@ -80,78 +57,26 @@ fn with_env(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    // let external_redirection = args.call_info.args.external_redirection;
-    let variable: Value = call.req(engine_state, stack, 0)?;
-
+    let env: Record = call.req(engine_state, stack, 0)?;
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
     let block = engine_state.get_block(capture_block.block_id);
-    let mut stack = stack.captures_to_stack(capture_block.captures);
+    let mut stack = stack.captures_to_stack_preserve_out_dest(capture_block.captures);
 
-    let mut env: HashMap<String, Value> = HashMap::new();
-
-    match &variable {
-        Value::List { vals: table, .. } => {
-            if table.len() == 1 {
-                // single row([[X W]; [Y Z]])
-                match &table[0] {
-                    Value::Record { val, .. } => {
-                        for (k, v) in val {
-                            env.insert(k.to_string(), v.clone());
-                        }
-                    }
-                    x => {
-                        return Err(ShellError::CantConvert {
-                            to_type: "string list or single row".into(),
-                            from_type: x.get_type().to_string(),
-                            span: call
-                                .positional_nth(1)
-                                .expect("already checked through .req")
-                                .span,
-                            help: None,
-                        });
-                    }
-                }
-            } else {
-                // primitive values([X Y W Z])
-                for row in table.chunks(2) {
-                    if row.len() == 2 {
-                        env.insert(row[0].as_string()?, row[1].clone());
-                    }
-                    // TODO: else error?
-                }
-            }
-        }
-        // when get object by `open x.json` or `from json`
-        Value::Record { val, .. } => {
-            for (k, v) in val {
-                env.insert(k.clone(), v.clone());
-            }
-        }
-        x => {
-            return Err(ShellError::CantConvert {
-                to_type: "string list or single row".into(),
-                from_type: x.get_type().to_string(),
-                span: call
-                    .positional_nth(1)
-                    .expect("already checked through .req")
-                    .span,
-                help: None,
+    // TODO: factor list of prohibited env vars into common place
+    for prohibited in ["PWD", "FILE_PWD", "CURRENT_FILE"] {
+        if env.contains(prohibited) {
+            return Err(ShellError::AutomaticEnvVarSetManually {
+                envvar_name: prohibited.into(),
+                span: call.head,
             });
         }
-    };
+    }
 
     for (k, v) in env {
         stack.add_env_var(k, v);
     }
 
-    eval_block(
-        engine_state,
-        &mut stack,
-        block,
-        input,
-        call.redirect_stdout,
-        call.redirect_stderr,
-    )
+    eval_block::<WithoutDebug>(engine_state, &mut stack, block, input)
 }
 
 #[cfg(test)]

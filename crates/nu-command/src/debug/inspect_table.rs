@@ -1,13 +1,12 @@
+use crate::debug::inspect_table::{
+    global_horizontal_char::SetHorizontalChar, set_widths::SetWidths,
+};
 use nu_protocol::Value;
 use nu_table::{string_width, string_wrap};
 use tabled::{
     grid::config::ColoredConfig,
     settings::{peaker::PriorityMax, width::Wrap, Settings, Style},
     Table,
-};
-
-use crate::debug::inspect_table::{
-    global_horizontal_char::SetHorizontalChar, set_widths::SetWidths,
 };
 
 pub fn build_table(value: Value, description: String, termsize: usize) -> String {
@@ -48,7 +47,6 @@ pub fn build_table(value: Value, description: String, termsize: usize) -> String
 
     add_padding_to_widths(&mut widths);
 
-    #[allow(clippy::manual_clamp)]
     let width = val_table_width.max(desc_table_width).min(termsize);
 
     let mut desc_table = Table::from_iter([[String::from("description"), desc]]);
@@ -201,7 +199,7 @@ mod util {
         let span = value.span();
         match value {
             Value::Record { val: record, .. } => {
-                let (cols, vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+                let (cols, vals): (Vec<_>, Vec<_>) = record.into_owned().into_iter().unzip();
                 (
                     cols,
                     vec![vals

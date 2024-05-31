@@ -1,9 +1,5 @@
 use super::inspect_table;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
-};
+use nu_engine::command_prelude::*;
 use terminal_size::{terminal_size, Height, Width};
 
 #[derive(Clone)]
@@ -33,17 +29,14 @@ impl Command for Inspect {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let input_metadata = input.metadata();
-        let input_val = input.into_value(call.head);
+        let input_val = input.into_value(call.head)?;
         if input_val.is_nothing() {
             return Err(ShellError::PipelineEmpty {
                 dst_span: call.head,
             });
         }
         let original_input = input_val.clone();
-        let description = match input_val {
-            Value::CustomValue { ref val, .. } => val.value_string(),
-            _ => input_val.get_type().to_string(),
-        };
+        let description = input_val.get_type().to_string();
 
         let (cols, _rows) = match terminal_size() {
             Some((w, h)) => (Width(w.0), Height(h.0)),

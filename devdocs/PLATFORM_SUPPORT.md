@@ -33,13 +33,8 @@ We will try to provide builds for all of them but a standard configuration for x
 
 We have features of Nushell behind flags that can be passed at compilation time.
 
-The design focus of Nushell is primarily expressed by everything accessible without passing additional feature flag. This provides a standard command set and receives the most attention.
-Two other feature flags are actively tested but are not guaranteed to express the stable design direction of Nushell:
-- `extra`
-    - This includes commands where we are not convinced that they are ready to be stabilized for 1.0 or popular enough
-- `dataframe`
-    - This includes dataframe support via `polars` and `arrow2`. Introduces a significant additional compilation and binary size.
-    - Due to the use of SIMD extensions may not be compatible with every minimal architecture.
+The design focus of Nushell is primarily expressed by everything accessible without passing additional feature flag.
+This provides a standard command set and receives the most attention.
 
 ## Passively supported platforms
 

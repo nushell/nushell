@@ -1,11 +1,3 @@
-use std::cmp::max;
-use std::collections::HashMap;
-
-use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_engine::column::get_columns;
-use nu_protocol::{Config, Record, ShellError, Span, Value};
-use tabled::grid::config::Position;
-
 use crate::{
     common::{
         create_nu_table_config, error_sign, get_header_style, get_index_style, load_theme,
@@ -16,6 +8,11 @@ use crate::{
     types::has_index,
     NuTable, NuTableCell, TableOpts, TableOutput,
 };
+use nu_color_config::{Alignment, StyleComputer, TextStyle};
+use nu_engine::column::get_columns;
+use nu_protocol::{Config, Record, ShellError, Span, Value};
+use std::{cmp::max, collections::HashMap};
+use tabled::grid::config::Position;
 
 #[derive(Debug, Clone)]
 pub struct ExpandedTable {
@@ -118,7 +115,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 .as_record()
                 .ok()
                 .and_then(|val| val.get(INDEX_COLUMN_NAME))
-                .map(|value| value.into_string("", cfg.opts.config))
+                .map(|value| value.to_expanded_string("", cfg.opts.config))
                 .unwrap_or_else(|| index.to_string());
 
             let row = row + with_header as usize;

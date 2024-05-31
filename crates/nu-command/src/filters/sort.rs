@@ -1,11 +1,6 @@
 use alphanumeric_sort::compare_str;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
@@ -22,7 +17,7 @@ impl Command for Sort {
         .input_output_types(vec![(
             Type::List(Box::new(Type::Any)),
             Type::List(Box::new(Type::Any)),
-        ), (Type::Record(vec![]), Type::Record(vec![])),])
+        ), (Type::record(), Type::record()),])
     .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",
@@ -139,17 +134,25 @@ impl Command for Sort {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;
-        let metadata = &input.metadata();
+        let metadata = input.metadata();
 
         let span = input.span().unwrap_or(call.head);
         match input {
             // Records have two sorting methods, toggled by presence or absence of -v
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 let sort_by_value = call.has_flag(engine_state, stack, "values")?;
-                let record = sort_record(val, span, sort_by_value, reverse, insensitive, natural);
+                let record = sort_record(
+                    val.into_owned(),
+                    span,
+                    sort_by_value,
+                    reverse,
+                    insensitive,
+                    natural,
+                );
                 Ok(record.into_pipeline_data())
             }
             // Other values are sorted here
@@ -161,18 +164,18 @@ impl Command for Sort {
             pipe_data => {
                 let mut vec: Vec<_> = pipe_data.into_iter().collect();
 
-                sort(&mut vec, call.head, insensitive, natural)?;
+                sort(&mut vec, head, insensitive, natural)?;
 
                 if reverse {
                     vec.reverse()
                 }
 
                 let iter = vec.into_iter();
-                match metadata {
-                    Some(m) => Ok(iter
-                        .into_pipeline_data_with_metadata(m.clone(), engine_state.ctrlc.clone())),
-                    None => Ok(iter.into_pipeline_data(engine_state.ctrlc.clone())),
-                }
+                Ok(iter.into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.ctrlc.clone(),
+                    metadata,
+                ))
             }
         }
     }
@@ -193,7 +196,7 @@ fn sort_record(
             match &a.1 {
                 Value::String { val, .. } => val.clone(),
                 val => {
-                    if let Ok(val) = val.as_string() {
+                    if let Ok(val) = val.coerce_string() {
                         val
                     } else {
                         // Values that can't be turned to strings are disregarded by the sort
@@ -209,7 +212,7 @@ fn sort_record(
             match &b.1 {
                 Value::String { val, .. } => val.clone(),
                 val => {
-                    if let Ok(val) = val.as_string() {
+                    if let Ok(val) = val.coerce_string() {
                         val
                     } else {
                         // Values that can't be turned to strings are disregarded by the sort
@@ -275,7 +278,10 @@ pub fn sort(
                     };
 
                     if natural {
-                        match (folded_left.as_string(), folded_right.as_string()) {
+                        match (
+                            folded_left.coerce_into_string(),
+                            folded_right.coerce_into_string(),
+                        ) {
                             (Ok(left), Ok(right)) => compare_str(left, right),
                             _ => Ordering::Equal,
                         }
@@ -285,7 +291,7 @@ pub fn sort(
                             .unwrap_or(Ordering::Equal)
                     }
                 } else if natural {
-                    match (a.as_string(), b.as_string()) {
+                    match (a.coerce_str(), b.coerce_str()) {
                         (Ok(left), Ok(right)) => compare_str(left, right),
                         _ => Ordering::Equal,
                     }
@@ -334,7 +340,10 @@ pub fn process(
                 _ => right_res,
             };
             if natural {
-                match (folded_left.as_string(), folded_right.as_string()) {
+                match (
+                    folded_left.coerce_into_string(),
+                    folded_right.coerce_into_string(),
+                ) {
                     (Ok(left), Ok(right)) => compare_str(left, right),
                     _ => Ordering::Equal,
                 }

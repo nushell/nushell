@@ -1,0 +1,53 @@
+[
+    null,
+    false,
+    true,
+    17,
+    -2,
+    34,
+    1,
+    1,
+    1,
+    -2,
+    -2,
+    -2,
+    -2,
+    -1024.125,
+    -1024.125,
+    "",
+    foo,
+    hello,
+    nushell,
+    "love you",
+    0x[F0FF00],
+    0x[DEADBEEF],
+    0x[C0FFEEFFEE],
+    [
+        true,
+        -2
+    ],
+    [
+        34,
+        1,
+        null
+    ],
+    [
+        -1024.125,
+        foo
+    ],
+    {
+        foo: -2,
+        bar: hello
+    },
+    {
+        hello: true
+    },
+    {
+        nushell: rocks,
+        foo: bar,
+        hello: world
+    },
+    1970-01-01T00:00:01+00:00,
+    1970-01-01T00:00:01.100+00:00,
+    1970-01-01T00:00:01.100+00:00
+]

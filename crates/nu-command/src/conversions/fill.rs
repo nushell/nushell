@@ -1,10 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use print_positions::print_positions;
 
 #[derive(Clone)]
@@ -77,7 +73,7 @@ impl Command for Fill {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["display", "render", "format", "pad", "align"]
+        vec!["display", "render", "format", "pad", "align", "repeat"]
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -95,9 +91,9 @@ impl Command for Fill {
                 result: Some(Value::string("────────nushell", Span::test_data())),
             },
             Example {
-                description: "Fill a string on both sides to a width of 15 with the character '─'",
-                example: "'nushell' | fill --alignment m --character '─' --width 15",
-                result: Some(Value::string("────nushell────", Span::test_data())),
+                description: "Fill an empty string with 10 '─' characters",
+                example: "'' | fill --character '─' --width 10",
+                result: Some(Value::string("──────────", Span::test_data())),
             },
             Example {
                 description:

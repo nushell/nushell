@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use std::io::Read;
 
 #[derive(Clone)]
 pub struct Take;
@@ -17,7 +12,7 @@ impl Command for Take {
     fn signature(&self) -> Signature {
         Signature::build("take")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
@@ -48,6 +43,7 @@ impl Command for Take {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let rows_desired: usize = call.req(engine_state, stack, 0)?;
 
         let ctrlc = engine_state.ctrlc.clone();
@@ -60,41 +56,59 @@ impl Command for Take {
                     Value::List { vals, .. } => Ok(vals
                         .into_iter()
                         .take(rows_desired)
-                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                        .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                     Value::Binary { val, .. } => {
                         let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
                         Ok(PipelineData::Value(Value::binary(slice, span), metadata))
                     }
                     Value::Range { val, .. } => Ok(val
-                        .into_range_iter(ctrlc.clone())?
+                        .into_range_iter(span, ctrlc.clone())
                         .take(rows_desired)
-                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                        .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(*error),
                     other => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "list, binary or range".into(),
                         wrong_type: other.get_type().to_string(),
-                        dst_span: call.head,
+                        dst_span: head,
                         src_span: other.span(),
                     }),
                 }
             }
-            PipelineData::ListStream(ls, metadata) => Ok(ls
-                .take(rows_desired)
-                .into_pipeline_data_with_metadata(metadata, ctrlc)),
-            PipelineData::ExternalStream { span, .. } => {
-                Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "list, binary or range".into(),
-                    wrong_type: "raw data".into(),
-                    dst_span: call.head,
-                    src_span: span,
-                })
+            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::ListStream(
+                stream.modify(|iter| iter.take(rows_desired)),
+                metadata,
+            )),
+            PipelineData::ByteStream(stream, metadata) => {
+                if stream.type_().is_binary_coercible() {
+                    if let Some(reader) = stream.reader() {
+                        // Just take 'rows' bytes off the stream, mimicking the binary behavior
+                        Ok(PipelineData::ByteStream(
+                            ByteStream::read(
+                                reader.take(rows_desired as u64),
+                                head,
+                                None,
+                                ByteStreamType::Binary,
+                            ),
+                            metadata,
+                        ))
+                    } else {
+                        Ok(PipelineData::Empty)
+                    }
+                } else {
+                    Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
+                        dst_span: head,
+                        src_span: stream.span(),
+                    })
+                }
             }
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: "null".into(),
-                dst_span: call.head,
-                src_span: call.head,
+                dst_span: head,
+                src_span: head,
             }),
         }
     }

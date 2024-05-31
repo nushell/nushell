@@ -1,23 +1,14 @@
-use nu_engine::{current_dir, eval_block, CallExt};
-use nu_path::expand_to_real_path;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::util::BufferedReader;
-use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, NuPath, PipelineData,
-    PipelineMetadata, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
-};
-use std::io::BufReader;
+use super::util::get_rest_for_glob_pattern;
+#[allow(deprecated)]
+use nu_engine::{command_prelude::*, current_dir, get_eval_block};
+use nu_protocol::{ByteStream, DataSource, NuGlob, PipelineMetadata};
+use std::path::Path;
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
 
-#[cfg(feature = "sqlite")]
-use nu_protocol::IntoPipelineData;
-
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
 
 #[derive(Clone)]
 pub struct Open;
@@ -42,11 +33,10 @@ impl Command for Open {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .optional("filename", SyntaxShape::GlobPattern, "The filename to use.")
             .rest(
-                "filenames",
-                SyntaxShape::GlobPattern,
-                "Optional additional files to open.",
+                "files",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
+                "The file(s) to open.",
             )
             .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
@@ -62,23 +52,18 @@ impl Command for Open {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
-        let req_path = call.opt::<Spanned<NuPath>>(engine_state, stack, 0)?;
-        let mut path_params = call.rest::<Spanned<NuPath>>(engine_state, stack, 1)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let eval_block = get_eval_block(engine_state);
 
-        // FIXME: JT: what is this doing here?
-
-        if let Some(filename) = req_path {
-            path_params.insert(0, filename);
-        } else {
-            let filename = match input {
-                PipelineData::Value(Value::Nothing { .. }, ..) => {
-                    return Err(ShellError::MissingParameter {
-                        param_name: "needs filename".to_string(),
-                        span: call.head,
-                    })
+        if paths.is_empty() && call.rest_iter(0).next().is_none() {
+            // try to use path from pipeline input if there were no positional or spread args
+            let (filename, span) = match input {
+                PipelineData::Value(val, ..) => {
+                    let span = val.span();
+                    (val.coerce_into_string()?, span)
                 }
-                PipelineData::Value(val, ..) => val.as_spanned_string()?,
                 _ => {
                     return Err(ShellError::MissingParameter {
                         param_name: "needs filename".to_string(),
@@ -87,18 +72,15 @@ impl Command for Open {
                 }
             };
 
-            path_params.insert(
-                0,
-                Spanned {
-                    item: NuPath::UnQuoted(filename.item),
-                    span: filename.span,
-                },
-            );
+            paths.push(Spanned {
+                item: NuGlob::Expand(filename),
+                span,
+            });
         }
 
         let mut output = vec![];
 
-        for mut path in path_params.into_iter() {
+        for mut path in paths {
             //FIXME: `open` should not have to do this
             path.item = path.item.strip_ansi_string_unlikely();
 
@@ -107,7 +89,10 @@ impl Command for Open {
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
-                    ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound { span },
+                    ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound {
+                        file: path.item.to_string(),
+                        span,
+                    },
                     _ => err,
                 })?
                 .1
@@ -158,24 +143,13 @@ impl Command for Open {
                         }
                     };
 
-                    let buf_reader = BufReader::new(file);
-                    let real_path = expand_to_real_path(path);
-
-                    let file_contents = PipelineData::ExternalStream {
-                        stdout: Some(RawStream::new(
-                            Box::new(BufferedReader { input: buf_reader }),
-                            ctrlc.clone(),
-                            call_span,
-                            None,
-                        )),
-                        stderr: None,
-                        exit_code: None,
-                        span: call_span,
-                        metadata: Some(PipelineMetadata {
-                            data_source: DataSource::FilePath(real_path),
+                    let stream = PipelineData::ByteStream(
+                        ByteStream::file(file, call_span, ctrlc.clone()),
+                        Some(PipelineMetadata {
+                            data_source: DataSource::FilePath(path.to_path_buf()),
                         }),
-                        trim_end_newline: false,
-                    };
+                    );
+
                     let exts_opt: Option<Vec<String>> = if raw {
                         None
                     } else {
@@ -198,11 +172,11 @@ impl Command for Open {
                     match converter {
                         Some((converter_id, ext)) => {
                             let decl = engine_state.get_decl(converter_id);
-                            let command_output = if let Some(block_id) = decl.get_block_id() {
+                            let command_output = if let Some(block_id) = decl.block_id() {
                                 let block = engine_state.get_block(block_id);
-                                eval_block(engine_state, stack, block, file_contents, false, false)
+                                eval_block(engine_state, stack, block, stream)
                             } else {
-                                decl.run(engine_state, stack, &Call::new(call_span), file_contents)
+                                decl.run(engine_state, stack, &Call::new(call_span), stream)
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{
@@ -214,7 +188,7 @@ impl Command for Open {
                                 }
                                 })?);
                         }
-                        None => output.push(file_contents),
+                        None => output.push(stream),
                     }
                 }
             }
@@ -225,7 +199,10 @@ impl Command for Open {
         } else if output.len() == 1 {
             Ok(output.remove(0))
         } else {
-            Ok(output.into_iter().flatten().into_pipeline_data(ctrlc))
+            Ok(output
+                .into_iter()
+                .flatten()
+                .into_pipeline_data(call_span, ctrlc))
         }
     }
 

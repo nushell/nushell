@@ -1,7 +1,14 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{ByteStream, ListStream, PipelineData, ShellError, Span, Value};
 
-fn from_delimited_string_to_value(
+fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
+    ShellError::DelimiterError {
+        msg: err.to_string(),
+        span,
+    }
+}
+
+fn from_delimited_stream(
     DelimitedReaderConfig {
         separator,
         comment,
@@ -12,9 +19,15 @@ fn from_delimited_string_to_value(
         no_infer,
         trim,
     }: DelimitedReaderConfig,
-    s: String,
+    input: ByteStream,
     span: Span,
-) -> Result<Value, csv::Error> {
+) -> Result<ListStream, ShellError> {
+    let input_reader = if let Some(stream) = input.reader() {
+        stream
+    } else {
+        return Ok(ListStream::new(std::iter::empty(), span, None));
+    };
+
     let mut reader = ReaderBuilder::new()
         .has_headers(!noheaders)
         .flexible(flexible)
@@ -23,44 +36,54 @@ fn from_delimited_string_to_value(
         .quote(quote as u8)
         .escape(escape.map(|c| c as u8))
         .trim(trim)
-        .from_reader(s.as_bytes());
+        .from_reader(input_reader);
 
     let headers = if noheaders {
-        (1..=reader.headers()?.len())
+        (1..=reader
+            .headers()
+            .map_err(|err| from_csv_error(err, span))?
+            .len())
             .map(|i| format!("column{i}"))
             .collect::<Vec<String>>()
     } else {
-        reader.headers()?.iter().map(String::from).collect()
+        reader
+            .headers()
+            .map_err(|err| from_csv_error(err, span))?
+            .iter()
+            .map(String::from)
+            .collect()
     };
 
-    let mut rows = vec![];
-    for row in reader.records() {
-        let row = row?;
-        let output_row = (0..headers.len())
-            .map(|i| {
-                row.get(i)
-                    .map(|value| {
-                        if no_infer {
-                            Value::string(value.to_string(), span)
-                        } else if let Ok(i) = value.parse::<i64>() {
-                            Value::int(i, span)
-                        } else if let Ok(f) = value.parse::<f64>() {
-                            Value::float(f, span)
-                        } else {
-                            Value::string(value.to_string(), span)
-                        }
-                    })
-                    .unwrap_or(Value::nothing(span))
+    let iter = reader.into_records().map(move |row| {
+        let row = match row {
+            Ok(row) => row,
+            Err(err) => return Value::error(from_csv_error(err, span), span),
+        };
+        let columns = headers.iter().cloned();
+        let values = row
+            .into_iter()
+            .map(|s| {
+                if no_infer {
+                    Value::string(s, span)
+                } else if let Ok(i) = s.parse() {
+                    Value::int(i, span)
+                } else if let Ok(f) = s.parse() {
+                    Value::float(f, span)
+                } else {
+                    Value::string(s, span)
+                }
             })
-            .collect::<Vec<Value>>();
+            .chain(std::iter::repeat(Value::nothing(span)));
 
-        rows.push(Value::record(
-            Record::from_raw_cols_vals(headers.clone(), output_row),
-            span,
-        ));
-    }
+        // If there are more values than the number of headers,
+        // then the remaining values are ignored.
+        //
+        // Otherwise, if there are less values than headers,
+        // then `Value::nothing(span)` is used to fill the remaining columns.
+        Value::record(columns.zip(values).collect(), span)
+    });
 
-    Ok(Value::list(rows, span))
+    Ok(ListStream::new(iter, span, None))
 }
 
 pub(super) struct DelimitedReaderConfig {
@@ -79,14 +102,27 @@ pub(super) fn from_delimited_data(
     input: PipelineData,
     name: Span,
 ) -> Result<PipelineData, ShellError> {
-    let (concat_string, _span, metadata) = input.collect_string_strict(name)?;
-
-    Ok(from_delimited_string_to_value(config, concat_string, name)
-        .map_err(|x| ShellError::DelimiterError {
-            msg: x.to_string(),
-            span: name,
-        })?
-        .into_pipeline_data_with_metadata(metadata))
+    match input {
+        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Value(value, metadata) => {
+            let string = value.into_string()?;
+            let byte_stream = ByteStream::read_string(string, name, None);
+            Ok(PipelineData::ListStream(
+                from_delimited_stream(config, byte_stream, name)?,
+                metadata,
+            ))
+        }
+        PipelineData::ListStream(list_stream, _) => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "string".into(),
+            wrong_type: "list".into(),
+            dst_span: name,
+            src_span: list_stream.span(),
+        }),
+        PipelineData::ByteStream(byte_stream, metadata) => Ok(PipelineData::ListStream(
+            from_delimited_stream(config, byte_stream, name)?,
+            metadata,
+        )),
+    }
 }
 
 pub fn trim_from_str(trim: Option<Value>) -> Result<Trim, ShellError> {

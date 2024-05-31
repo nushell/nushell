@@ -3,13 +3,8 @@ use crossterm::event::{
     EnableMouseCapture, KeyCode, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
 };
 use crossterm::terminal;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use num_traits::AsPrimitive;
 use std::io::stdout;
 
@@ -41,10 +36,10 @@ impl Command for InputListen {
             )
             .input_output_types(vec![(
                 Type::Nothing,
-                Type::Record(vec![
+                Type::Record([
                     ("keycode".to_string(), Type::String),
                     ("modifiers".to_string(), Type::List(Box::new(Type::String))),
-                ]),
+                ].into()),
             )])
     }
 

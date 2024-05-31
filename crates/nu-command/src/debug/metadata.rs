@@ -1,9 +1,7 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_engine::command_prelude::*;
 use nu_protocol::{
-    record, Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata,
-    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::{Expr, Expression},
+    DataSource, PipelineMetadata,
 };
 
 #[derive(Clone)]
@@ -20,7 +18,7 @@ impl Command for Metadata {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("metadata")
-            .input_output_types(vec![(Type::Any, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Any, Type::record())])
             .allow_variants_without_examples(true)
             .optional(
                 "expression",

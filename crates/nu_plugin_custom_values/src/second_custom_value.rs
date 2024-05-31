@@ -1,7 +1,9 @@
+use std::cmp::Ordering;
+
 use nu_protocol::{CustomValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SecondCustomValue {
     pub(crate) something: String,
 }
@@ -14,13 +16,13 @@ impl SecondCustomValue {
     }
 
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        Value::custom(Box::new(self), span)
     }
 
     pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(value) => Ok(value.clone()),
                 None => Err(ShellError::CantConvert {
                     to_type: "cool".into(),
@@ -42,10 +44,10 @@ impl SecondCustomValue {
 #[typetag::serde]
 impl CustomValue for SecondCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> Value {
-        Value::custom_value(Box::new(self.clone()), span)
+        Value::custom(Box::new(self.clone()), span)
     }
 
-    fn value_string(&self) -> String {
+    fn type_name(&self) -> String {
         self.typetag_name().to_string()
     }
 
@@ -59,7 +61,21 @@ impl CustomValue for SecondCustomValue {
         ))
     }
 
+    fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
+        if let Value::Custom { val, .. } = other {
+            val.as_any()
+                .downcast_ref()
+                .and_then(|other: &SecondCustomValue| PartialOrd::partial_cmp(self, other))
+        } else {
+            None
+        }
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
 }

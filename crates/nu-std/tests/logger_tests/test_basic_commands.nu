@@ -5,13 +5,12 @@ def run [
     message_level
     --short
 ] {
-    do {
-        if $short {
-            ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --short "test message"'
-        } else {
-            ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"'
-        }
-    } | complete | get --ignore-errors stderr
+    if $short {
+        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --short "test message"'
+    } else {
+        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) "test message"'
+    }
+    | complete | get --ignore-errors stderr
 }
 
 def "assert no message" [

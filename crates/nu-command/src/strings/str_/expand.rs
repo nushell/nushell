@@ -1,9 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -199,10 +194,10 @@ impl Command for SubCommand {
         input.map(
             move |v| {
                 let value_span = v.span();
-                match v.as_string() {
+                match v.coerce_into_string() {
                     Ok(s) => {
                         let contents = if is_path { s.replace('\\', "\\\\") } else { s };
-                        str_expand(&contents, span, v.span())
+                        str_expand(&contents, span, value_span)
                     }
                     Err(_) => Value::error(
                         ShellError::PipelineMismatch {

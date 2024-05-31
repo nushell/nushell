@@ -1,17 +1,9 @@
-use serde::Deserialize;
-use serde::Serialize;
-
-use crate::ast::Call;
-use crate::engine::Command;
-use crate::engine::EngineState;
-use crate::engine::Stack;
-use crate::BlockId;
-use crate::PipelineData;
-use crate::ShellError;
-use crate::SyntaxShape;
-use crate::Type;
-use crate::Value;
-use crate::VarId;
+use crate::{
+    ast::Call,
+    engine::{Command, CommandType, EngineState, Stack},
+    BlockId, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
+};
+use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -64,6 +56,7 @@ pub enum Category {
     Network,
     Path,
     Platform,
+    Plugin,
     Random,
     Shells,
     Strings,
@@ -98,6 +91,7 @@ impl std::fmt::Display for Category {
             Category::Network => "network",
             Category::Path => "path",
             Category::Platform => "platform",
+            Category::Plugin => "plugin",
             Category::Random => "random",
             Category::Shells => "shells",
             Category::Strings => "strings",
@@ -471,7 +465,7 @@ impl Signature {
     /// Panics if one of them is found
     fn check_names(&self, name: impl Into<String>, short: Option<char>) -> (String, Option<char>) {
         let s = short.map(|c| {
-            debug_assert!(
+            assert!(
                 !self.get_shorts().contains(&c),
                 "There may be duplicate short flags for '-{}'",
                 c
@@ -481,7 +475,7 @@ impl Signature {
 
         let name = {
             let name: String = name.into();
-            debug_assert!(
+            assert!(
                 !self.get_names().contains(&name.as_str()),
                 "There may be duplicate name flags for '--{}'",
                 name
@@ -709,7 +703,11 @@ impl Command for BlockCommand {
         })
     }
 
-    fn get_block_id(&self) -> Option<BlockId> {
+    fn command_type(&self) -> CommandType {
+        CommandType::Custom
+    }
+
+    fn block_id(&self) -> Option<BlockId> {
         Some(self.block_id)
     }
 }

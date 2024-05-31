@@ -1,14 +1,17 @@
-use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
+use crate::{
+    completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy},
+    SuggestionKind,
+};
 use nu_parser::FlatShape;
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
+    engine::{CachedFile, Stack, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
-use std::sync::Arc;
+
+use super::SemanticSuggestion;
 
 pub struct CommandCompletion {
-    engine_state: Arc<EngineState>,
     flattened: Vec<(Span, FlatShape)>,
     flat_shape: FlatShape,
     force_completion_after_space: bool,
@@ -16,14 +19,11 @@ pub struct CommandCompletion {
 
 impl CommandCompletion {
     pub fn new(
-        engine_state: Arc<EngineState>,
-        _: &StateWorkingSet,
         flattened: Vec<(Span, FlatShape)>,
         flat_shape: FlatShape,
         force_completion_after_space: bool,
     ) -> Self {
         Self {
-            engine_state,
             flattened,
             flat_shape,
             force_completion_after_space,
@@ -32,22 +32,26 @@ impl CommandCompletion {
 
     fn external_command_completion(
         &self,
+        working_set: &StateWorkingSet,
         prefix: &str,
         match_algorithm: MatchAlgorithm,
     ) -> Vec<String> {
         let mut executables = vec![];
 
         // os agnostic way to get the PATH env var
-        let paths = self.engine_state.get_path_env_var();
+        let paths = working_set.permanent_state.get_path_env_var();
 
         if let Some(paths) = paths {
             if let Ok(paths) = paths.as_list() {
                 for path in paths {
-                    let path = path.as_string().unwrap_or_default();
+                    let path = path.coerce_str().unwrap_or_default();
 
-                    if let Ok(mut contents) = std::fs::read_dir(path) {
+                    if let Ok(mut contents) = std::fs::read_dir(path.as_ref()) {
                         while let Some(Ok(item)) = contents.next() {
-                            if self.engine_state.config.max_external_completion_results
+                            if working_set
+                                .permanent_state
+                                .config
+                                .max_external_completion_results
                                 > executables.len() as i64
                                 && !executables.contains(
                                     &item
@@ -83,7 +87,7 @@ impl CommandCompletion {
         offset: usize,
         find_externals: bool,
         match_algorithm: MatchAlgorithm,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         let partial = working_set.get_span_contents(span);
 
         let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
@@ -91,13 +95,16 @@ impl CommandCompletion {
         let mut results = working_set
             .find_commands_by_predicate(filter_predicate, true)
             .into_iter()
-            .map(move |x| Suggestion {
-                value: String::from_utf8_lossy(&x.0).to_string(),
-                description: x.1,
-                style: None,
-                extra: None,
-                span: reedline::Span::new(span.start - offset, span.end - offset),
-                append_whitespace: true,
+            .map(move |x| SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: String::from_utf8_lossy(&x.0).to_string(),
+                    description: x.1,
+                    style: None,
+                    extra: None,
+                    span: reedline::Span::new(span.start - offset, span.end - offset),
+                    append_whitespace: true,
+                },
+                kind: Some(SuggestionKind::Command(x.2)),
             })
             .collect::<Vec<_>>();
 
@@ -106,29 +113,36 @@ impl CommandCompletion {
 
         if find_externals {
             let results_external = self
-                .external_command_completion(&partial, match_algorithm)
+                .external_command_completion(working_set, &partial, match_algorithm)
                 .into_iter()
-                .map(move |x| Suggestion {
-                    value: x,
-                    description: None,
-                    style: None,
-                    extra: None,
-                    span: reedline::Span::new(span.start - offset, span.end - offset),
-                    append_whitespace: true,
-                });
-
-            let results_strings: Vec<String> =
-                results.clone().into_iter().map(|x| x.value).collect();
-
-            for external in results_external {
-                if results_strings.contains(&external.value) {
-                    results.push(Suggestion {
-                        value: format!("^{}", external.value),
+                .map(move |x| SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: x,
                         description: None,
                         style: None,
                         extra: None,
-                        span: external.span,
+                        span: reedline::Span::new(span.start - offset, span.end - offset),
                         append_whitespace: true,
+                    },
+                    // TODO: is there a way to create a test?
+                    kind: None,
+                });
+
+            let results_strings: Vec<String> =
+                results.iter().map(|x| x.suggestion.value.clone()).collect();
+
+            for external in results_external {
+                if results_strings.contains(&external.suggestion.value) {
+                    results.push(SemanticSuggestion {
+                        suggestion: Suggestion {
+                            value: format!("^{}", external.suggestion.value),
+                            description: None,
+                            style: None,
+                            extra: None,
+                            span: external.suggestion.span,
+                            append_whitespace: true,
+                        },
+                        kind: external.kind,
                     })
                 } else {
                     results.push(external)
@@ -146,12 +160,13 @@ impl Completer for CommandCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
+        _stack: &Stack,
         _prefix: Vec<u8>,
         span: Span,
         offset: usize,
         pos: usize,
         options: &CompletionOptions,
-    ) -> Vec<Suggestion> {
+    ) -> Vec<SemanticSuggestion> {
         let last = self
             .flattened
             .iter()
@@ -229,8 +244,9 @@ pub fn find_non_whitespace_index(contents: &[u8], start: usize) -> usize {
     }
 }
 
-pub fn is_passthrough_command(working_set_file_contents: &[(Vec<u8>, usize, usize)]) -> bool {
-    for (contents, _, _) in working_set_file_contents {
+pub fn is_passthrough_command(working_set_file_contents: &[CachedFile]) -> bool {
+    for cached_file in working_set_file_contents {
+        let contents = &cached_file.content;
         let last_pipe_pos_rev = contents.iter().rev().position(|x| x == &b'|');
         let last_pipe_pos = last_pipe_pos_rev.map(|x| contents.len() - x).unwrap_or(0);
 
@@ -250,10 +266,12 @@ pub fn is_passthrough_command(working_set_file_contents: &[(Vec<u8>, usize, usiz
 #[cfg(test)]
 mod command_completions_tests {
     use super::*;
+    use nu_protocol::engine::EngineState;
+    use std::sync::Arc;
 
     #[test]
     fn test_find_non_whitespace_index() {
-        let commands = vec![
+        let commands = [
             ("    hello", 4),
             ("sudo ", 0),
             (" 	sudo ", 2),
@@ -273,7 +291,7 @@ mod command_completions_tests {
 
     #[test]
     fn test_is_last_command_passthrough() {
-        let commands = vec![
+        let commands = [
             ("    hello", false),
             ("    sudo ", true),
             ("sudo ", true),
@@ -295,7 +313,7 @@ mod command_completions_tests {
             let input = ele.0.as_bytes();
 
             let mut engine_state = EngineState::new();
-            engine_state.add_file("test.nu".into(), vec![]);
+            engine_state.add_file("test.nu".into(), Arc::new([]));
 
             let delta = {
                 let mut working_set = StateWorkingSet::new(&engine_state);

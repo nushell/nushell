@@ -1,10 +1,9 @@
 use crate::NushellPrompt;
 use log::trace;
-use nu_engine::eval_subexpression;
-use nu_protocol::report_error;
+use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, Value,
+    engine::{EngineState, Stack},
+    report_error_new, Config, PipelineData, Value,
 };
 use reedline::Prompt;
 
@@ -24,10 +23,37 @@ pub(crate) const TRANSIENT_PROMPT_INDICATOR_VI_NORMAL: &str =
     "TRANSIENT_PROMPT_INDICATOR_VI_NORMAL";
 pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
     "TRANSIENT_PROMPT_MULTILINE_INDICATOR";
+
+// Store all these Ansi Escape Markers here so they can be reused easily
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
 pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
 pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
+pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\";
+#[allow(dead_code)]
+pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;";
+#[allow(dead_code)]
+pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
+
+// OSC633 is the same as OSC133 but specifically for VSCode
+pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A\x1b\\";
+pub(crate) const VSCODE_POST_PROMPT_MARKER: &str = "\x1b]633;B\x1b\\";
+#[allow(dead_code)]
+pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\";
+#[allow(dead_code)]
+//"\x1b]633;D;{}\x1b\\"
+pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;";
+#[allow(dead_code)]
+pub(crate) const VSCODE_POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
+#[allow(dead_code)]
+pub(crate) const VSCODE_COMMANDLINE_MARKER: &str = "\x1b]633;E\x1b\\";
+#[allow(dead_code)]
+// "\x1b]633;P;Cwd={}\x1b\\"
+pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
+#[allow(dead_code)]
+pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
+
+pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 fn get_prompt_string(
     prompt: &str,
@@ -39,11 +65,9 @@ fn get_prompt_string(
         .get_env_var(engine_state, prompt)
         .and_then(|v| match v {
             Value::Closure { val, .. } => {
-                let block = engine_state.get_block(val.block_id);
-                let mut stack = stack.captures_to_stack(val.captures);
-                // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                let ret_val =
-                    eval_subexpression(engine_state, &mut stack, block, PipelineData::empty());
+                let result = ClosureEvalOnce::new(engine_state, stack, *val)
+                    .run_with_input(PipelineData::Empty);
+
                 trace!(
                     "get_prompt_string (block) {}:{}:{}",
                     file!(),
@@ -51,28 +75,9 @@ fn get_prompt_string(
                     column!()
                 );
 
-                ret_val
+                result
                     .map_err(|err| {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        report_error(&working_set, &err);
-                    })
-                    .ok()
-            }
-            Value::Block { val: block_id, .. } => {
-                let block = engine_state.get_block(block_id);
-                // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
-                let ret_val = eval_subexpression(engine_state, stack, block, PipelineData::empty());
-                trace!(
-                    "get_prompt_string (block) {}:{}:{}",
-                    file!(),
-                    line!(),
-                    column!()
-                );
-
-                ret_val
-                    .map_err(|err| {
-                        let working_set = StateWorkingSet::new(engine_state);
-                        report_error(&working_set, &err);
+                        report_error_new(engine_state, &err);
                     })
                     .ok()
             }
@@ -99,41 +104,51 @@ fn get_prompt_string(
 pub(crate) fn update_prompt(
     config: &Config,
     engine_state: &EngineState,
-    stack: &Stack,
+    stack: &mut Stack,
     nu_prompt: &mut NushellPrompt,
 ) {
-    let mut stack = stack.clone();
-
-    let left_prompt_string = get_prompt_string(PROMPT_COMMAND, config, engine_state, &mut stack);
+    let configured_left_prompt_string =
+        match get_prompt_string(PROMPT_COMMAND, config, engine_state, stack) {
+            Some(s) => s,
+            None => "".to_string(),
+        };
 
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = if config.shell_integration {
-        if let Some(prompt_string) = left_prompt_string {
+    let left_prompt_string = if config.shell_integration_osc633 {
+        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+            // We're in vscode and we have osc633 enabled
             Some(format!(
-                "{PRE_PROMPT_MARKER}{prompt_string}{POST_PROMPT_MARKER}"
+                "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
+            ))
+        } else if config.shell_integration_osc133 {
+            // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
+            Some(format!(
+                "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
             ))
         } else {
-            left_prompt_string
+            configured_left_prompt_string.into()
         }
+    } else if config.shell_integration_osc133 {
+        Some(format!(
+            "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
+        ))
     } else {
-        left_prompt_string
+        configured_left_prompt_string.into()
     };
 
-    let right_prompt_string =
-        get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, &mut stack);
+    let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack);
 
-    let prompt_indicator_string =
-        get_prompt_string(PROMPT_INDICATOR, config, engine_state, &mut stack);
+    let prompt_indicator_string = get_prompt_string(PROMPT_INDICATOR, config, engine_state, stack);
 
     let prompt_multiline_string =
-        get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, &mut stack);
+        get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack);
 
     let prompt_vi_insert_string =
-        get_prompt_string(PROMPT_INDICATOR_VI_INSERT, config, engine_state, &mut stack);
+        get_prompt_string(PROMPT_INDICATOR_VI_INSERT, config, engine_state, stack);
 
     let prompt_vi_normal_string =
-        get_prompt_string(PROMPT_INDICATOR_VI_NORMAL, config, engine_state, &mut stack);
+        get_prompt_string(PROMPT_INDICATOR_VI_NORMAL, config, engine_state, stack);
 
     // apply the other indicators
     nu_prompt.update_all_prompt_strings(

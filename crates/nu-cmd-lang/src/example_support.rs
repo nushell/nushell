@@ -1,10 +1,15 @@
 use itertools::Itertools;
+use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ast::{Block, RangeInclusion},
-    engine::{EngineState, Stack, StateDelta, StateWorkingSet},
-    Example, PipelineData, Signature, Span, Type, Value,
+    ast::Block,
+    debugger::WithoutDebug,
+    engine::{StateDelta, StateWorkingSet},
+    Range,
 };
-use std::collections::HashSet;
+use std::{
+    sync::Arc,
+    {collections::HashSet, ops::Bound},
+};
 
 pub fn check_example_input_and_output_types_match_command_signature(
     example: &Example,
@@ -75,7 +80,9 @@ fn eval_pipeline_without_terminal_expression(
     let (mut block, delta) = parse(src, engine_state);
     if block.pipelines.len() == 1 {
         let n_expressions = block.pipelines[0].elements.len();
-        block.pipelines[0].elements.truncate(&n_expressions - 1);
+        Arc::make_mut(&mut block).pipelines[0]
+            .elements
+            .truncate(&n_expressions - 1);
 
         if !block.pipelines[0].elements.is_empty() {
             let empty_input = PipelineData::empty();
@@ -89,7 +96,7 @@ fn eval_pipeline_without_terminal_expression(
     }
 }
 
-pub fn parse(contents: &str, engine_state: &EngineState) -> (Block, StateDelta) {
+pub fn parse(contents: &str, engine_state: &EngineState) -> (Arc<Block>, StateDelta) {
     let mut working_set = StateWorkingSet::new(engine_state);
     let output = nu_parser::parse(&mut working_set, None, contents.as_bytes(), false);
 
@@ -101,7 +108,7 @@ pub fn parse(contents: &str, engine_state: &EngineState) -> (Block, StateDelta) 
 }
 
 pub fn eval_block(
-    block: Block,
+    block: Arc<Block>,
     input: PipelineData,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
@@ -111,14 +118,13 @@ pub fn eval_block(
         .merge_delta(delta)
         .expect("Error merging delta");
 
-    let mut stack = Stack::new();
+    let mut stack = Stack::new().capture();
 
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
-    match nu_engine::eval_block(engine_state, &mut stack, &block, input, true, true) {
-        Err(err) => panic!("test eval error in `{}`: {:?}", "TODO", err),
-        Ok(result) => result.into_value(Span::test_data()),
-    }
+    nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
+        .and_then(|data| data.into_value(Span::test_data()))
+        .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", "TODO", err))
 }
 
 pub fn check_example_evaluates_to_expected_output(
@@ -126,7 +132,7 @@ pub fn check_example_evaluates_to_expected_output(
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
 ) {
-    let mut stack = Stack::new();
+    let mut stack = Stack::new().capture();
 
     // Set up PWD
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
@@ -216,25 +222,53 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::Date { val, .. } => {
                 write!(f, "Date({:?})", val)
             }
-            Value::Range { val, .. } => match val.inclusion {
-                RangeInclusion::Inclusive => write!(
-                    f,
-                    "Range({:?}..{:?}, step: {:?})",
-                    val.from, val.to, val.incr
-                ),
-                RangeInclusion::RightExclusive => write!(
-                    f,
-                    "Range({:?}..<{:?}, step: {:?})",
-                    val.from, val.to, val.incr
-                ),
+            Value::Range { val, .. } => match **val {
+                Range::IntRange(range) => match range.end() {
+                    Bound::Included(end) => write!(
+                        f,
+                        "Range({:?}..{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Excluded(end) => write!(
+                        f,
+                        "Range({:?}..<{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Unbounded => {
+                        write!(f, "Range({:?}.., step: {:?})", range.start(), range.step())
+                    }
+                },
+                Range::FloatRange(range) => match range.end() {
+                    Bound::Included(end) => write!(
+                        f,
+                        "Range({:?}..{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Excluded(end) => write!(
+                        f,
+                        "Range({:?}..<{:?}, step: {:?})",
+                        range.start(),
+                        end,
+                        range.step(),
+                    ),
+                    Bound::Unbounded => {
+                        write!(f, "Range({:?}.., step: {:?})", range.start(), range.step())
+                    }
+                },
             },
-            Value::String { val, .. } | Value::QuotedString { val, .. } => {
+            Value::String { val, .. } | Value::Glob { val, .. } => {
                 write!(f, "{:?}", val)
             }
             Value::Record { val, .. } => {
                 write!(f, "{{")?;
                 let mut first = true;
-                for (col, value) in val.into_iter() {
+                for (col, value) in (&**val).into_iter() {
                     if !first {
                         write!(f, ", ")?;
                     }
@@ -253,9 +287,6 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
                 }
                 write!(f, "]")
             }
-            Value::Block { val, .. } => {
-                write!(f, "Block({:?})", val)
-            }
             Value::Closure { val, .. } => {
                 write!(f, "Closure({:?})", val)
             }
@@ -271,12 +302,8 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::CellPath { val, .. } => {
                 write!(f, "CellPath({:?})", val.to_string())
             }
-            Value::CustomValue { val, .. } => {
+            Value::Custom { val, .. } => {
                 write!(f, "CustomValue({:?})", val)
-            }
-            Value::LazyRecord { val, .. } => {
-                let rec = val.collect().map_err(|_| std::fmt::Error)?;
-                write!(f, "LazyRecord({:?})", DebuggableValue(&rec))
             }
         }
     }

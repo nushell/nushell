@@ -1,23 +1,23 @@
 use crate::formats::value_to_json_value;
-use base64::engine::general_purpose::PAD;
-use base64::engine::GeneralPurpose;
-use base64::{alphabet, Engine};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{
-    record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Spanned,
-    Value,
+use base64::{
+    alphabet,
+    engine::{general_purpose::PAD, GeneralPurpose},
+    Engine,
+};
+use nu_engine::command_prelude::*;
+use nu_protocol::ByteStream;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    str::FromStr,
+    sync::{
+        atomic::AtomicBool,
+        mpsc::{self, RecvTimeoutError},
+        Arc,
+    },
+    time::Duration,
 };
 use ureq::{Error, ErrorKind, Request, Response};
-
-use std::collections::HashMap;
-use std::io::BufReader;
-use std::path::PathBuf;
-use std::str::FromStr;
-use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::{self, RecvTimeoutError};
-use std::sync::Arc;
-use std::time::Duration;
 use url::Url;
 
 #[derive(PartialEq, Eq)]
@@ -73,7 +73,7 @@ pub fn http_parse_url(
     span: Span,
     raw_url: Value,
 ) -> Result<(String, Url), ShellError> {
-    let requested_url = raw_url.as_string()?;
+    let requested_url = raw_url.coerce_into_string()?;
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
@@ -117,24 +117,22 @@ pub fn response_to_buffer(
         _ => None,
     };
 
-    let reader = response.into_reader();
-    let buffered_input = BufReader::new(reader);
+    // Try to guess whether the response is definitely intended to binary or definitely intended to
+    // be UTF-8 text. Otherwise specify `None` and just guess. This doesn't have to be thorough.
+    let content_type_lowercase = response.header("content-type").map(|s| s.to_lowercase());
+    let response_type = match content_type_lowercase.as_deref() {
+        Some("application/octet-stream") => ByteStreamType::Binary,
+        Some(h) if h.contains("charset=utf-8") => ByteStreamType::String,
+        _ => ByteStreamType::Unknown,
+    };
 
-    PipelineData::ExternalStream {
-        stdout: Some(RawStream::new(
-            Box::new(BufferedReader {
-                input: buffered_input,
-            }),
-            engine_state.ctrlc.clone(),
-            span,
-            buffer_size,
-        )),
-        stderr: None,
-        exit_code: None,
-        span,
-        metadata: None,
-        trim_end_newline: false,
-    }
+    let reader = response.into_reader();
+
+    PipelineData::ByteStream(
+        ByteStream::read(reader, span, engine_state.ctrlc.clone(), response_type)
+            .with_known_size(buffer_size),
+        None,
+    )
 }
 
 pub fn request_add_authorization_header(
@@ -221,9 +219,8 @@ pub fn send_request(
         Value::Record { val, .. } if body_type == BodyType::Form => {
             let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
-            for (col, val) in val {
-                let val_string = val.as_string()?;
-                data.push((col, val_string))
+            for (col, val) in val.into_owned() {
+                data.push((col, val.coerce_into_string()?))
             }
 
             let request_fn = move || {
@@ -245,7 +242,7 @@ pub fn send_request(
 
             let data = vals
                 .chunks(2)
-                .map(|it| Ok((it[0].as_string()?, it[1].as_string()?)))
+                .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
                 .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
 
             let request_fn = move || {
@@ -284,7 +281,7 @@ fn send_cancellable_request(
             let ret = request_fn();
             let _ = tx.send(ret); // may fail if the user has cancelled the operation
         })
-        .expect("Failed to create thread");
+        .map_err(ShellError::from)?;
 
     // ...and poll the channel for responses
     loop {
@@ -336,7 +333,7 @@ pub fn request_add_custom_headers(
 
         match &headers {
             Value::Record { val, .. } => {
-                for (k, v) in val {
+                for (k, v) in &**val {
                     custom_headers.insert(k.to_string(), v.clone());
                 }
             }
@@ -346,7 +343,7 @@ pub fn request_add_custom_headers(
                     // single row([key1 key2]; [val1 val2])
                     match &table[0] {
                         Value::Record { val, .. } => {
-                            for (k, v) in val {
+                            for (k, v) in &**val {
                                 custom_headers.insert(k.to_string(), v.clone());
                             }
                         }
@@ -364,7 +361,7 @@ pub fn request_add_custom_headers(
                     // primitive values ([key1 val1 key2 val2])
                     for row in table.chunks(2) {
                         if row.len() == 2 {
-                            custom_headers.insert(row[0].as_string()?, row[1].clone());
+                            custom_headers.insert(row[0].coerce_string()?, row[1].clone());
                         }
                     }
                 }
@@ -380,9 +377,9 @@ pub fn request_add_custom_headers(
             }
         };
 
-        for (k, v) in &custom_headers {
-            if let Ok(s) = v.as_string() {
-                request = request.set(k, &s);
+        for (k, v) in custom_headers {
+            if let Ok(s) = v.coerce_into_string() {
+                request = request.set(&k, &s);
             }
         }
     }
@@ -422,7 +419,6 @@ pub struct RequestFlags {
     pub full: bool,
 }
 
-#[allow(clippy::needless_return)]
 fn transform_response_using_content_type(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -465,9 +461,9 @@ fn transform_response_using_content_type(
 
     let output = response_to_buffer(resp, engine_state, span);
     if flags.raw {
-        return Ok(output);
+        Ok(output)
     } else if let Some(ext) = ext {
-        return match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
+        match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
             Some(converter_id) => engine_state.get_decl(converter_id).run(
                 engine_state,
                 stack,
@@ -475,10 +471,10 @@ fn transform_response_using_content_type(
                 output,
             ),
             None => Ok(output),
-        };
+        }
     } else {
-        return Ok(output);
-    };
+        Ok(output)
+    }
 }
 
 pub fn check_response_redirection(
@@ -532,25 +528,25 @@ fn request_handle_response_content(
     if flags.full {
         let response_status = resp.status();
 
-        let request_headers_value = match headers_to_nu(&extract_request_headers(&request), span) {
-            Ok(headers) => headers.into_value(span),
-            Err(_) => Value::nothing(span),
-        };
+        let request_headers_value = headers_to_nu(&extract_request_headers(&request), span)
+            .and_then(|data| data.into_value(span))
+            .unwrap_or(Value::nothing(span));
 
-        let response_headers_value = match headers_to_nu(&extract_response_headers(&resp), span) {
-            Ok(headers) => headers.into_value(span),
-            Err(_) => Value::nothing(span),
-        };
+        let response_headers_value = headers_to_nu(&extract_response_headers(&resp), span)
+            .and_then(|data| data.into_value(span))
+            .unwrap_or(Value::nothing(span));
 
         let headers = record! {
             "request" => request_headers_value,
             "response" => response_headers_value,
         };
 
+        let body = consume_response_body(resp)?.into_value(span)?;
+
         let full_response = Value::record(
             record! {
                 "headers" => Value::record(headers, span),
-                "body" => consume_response_body(resp)?.into_value(span),
+                "body" => body,
                 "status" => Value::int(response_status as i64, span),
             },
             span,
@@ -684,17 +680,11 @@ pub fn request_handle_response_headers(
 }
 
 fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -> Option<String> {
-    let proxy_value: Option<Value> = stack
+    stack
         .get_env_var(engine_state, "http_proxy")
         .or(stack.get_env_var(engine_state, "HTTP_PROXY"))
         .or(stack.get_env_var(engine_state, "https_proxy"))
         .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
-        .or(stack.get_env_var(engine_state, "ALL_PROXY"));
-    match proxy_value {
-        Some(value) => match value.as_string() {
-            Ok(proxy) => Some(proxy),
-            _ => None,
-        },
-        _ => None,
-    }
+        .or(stack.get_env_var(engine_state, "ALL_PROXY"))
+        .and_then(|proxy| proxy.coerce_into_string().ok())
 }

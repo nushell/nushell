@@ -1,13 +1,5 @@
-use std::collections::VecDeque;
-
-use nu_engine::CallExt;
-
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use std::{collections::VecDeque, io::Read};
 
 #[derive(Clone)]
 pub struct Last;
@@ -27,6 +19,7 @@ impl Command for Last {
                     Type::Any,
                 ),
                 (Type::Binary, Type::Binary),
+                (Type::Range, Type::Any),
             ])
             .optional(
                 "rows",
@@ -60,6 +53,11 @@ impl Command for Last {
                 description: "Return the last 2 bytes of a binary value",
                 result: Some(Value::binary(vec![0x23, 0x45], Span::test_data())),
             },
+            Example {
+                example: "1..3 | last",
+                description: "Return the last item of a range",
+                result: Some(Value::test_int(3)),
+            },
         ]
     }
 
@@ -71,34 +69,41 @@ impl Command for Last {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
+        let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
 
         // FIXME: Please read the FIXME message in `first.rs`'s `first_helper` implementation.
         // It has the same issue.
         let return_single_element = rows.is_none();
-        let rows_desired: usize = match rows {
-            Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue { span: head }),
-            Some(x) => x as usize,
-            None => 1,
+        let rows = if let Some(rows) = rows {
+            if rows.item < 0 {
+                return Err(ShellError::NeedsPositiveValue { span: rows.span });
+            } else {
+                rows.item as usize
+            }
+        } else {
+            1
         };
 
-        let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
         // early exit for `last 0`
-        if rows_desired == 0 {
-            return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
+        if rows == 0 {
+            return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
         }
 
         match input {
             PipelineData::ListStream(_, _) | PipelineData::Value(Value::Range { .. }, _) => {
                 let iterator = input.into_iter_strict(head)?;
 
-                // only keep last `rows_desired` rows in memory
-                let mut buf = VecDeque::<_>::new();
+                // only keep the last `rows` in memory
+                let mut buf = VecDeque::new();
 
                 for row in iterator {
-                    if buf.len() == rows_desired {
+                    if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
+                        return Err(ShellError::InterruptedByUser { span: Some(head) });
+                    }
+
+                    if buf.len() == rows {
                         buf.pop_front();
                     }
 
@@ -107,51 +112,41 @@ impl Command for Last {
 
                 if return_single_element {
                     if let Some(last) = buf.pop_back() {
-                        Ok(last.into_pipeline_data_with_metadata(metadata))
+                        Ok(last.into_pipeline_data())
                     } else {
-                        Ok(PipelineData::empty().set_metadata(metadata))
+                        Err(ShellError::AccessEmptyContent { span: head })
                     }
                 } else {
-                    Ok(buf.into_pipeline_data_with_metadata(metadata, ctrlc))
+                    Ok(Value::list(buf.into(), head).into_pipeline_data_with_metadata(metadata))
                 }
             }
             PipelineData::Value(val, _) => {
-                let val_span = val.span();
-
+                let span = val.span();
                 match val {
-                    Value::List { vals, .. } => {
+                    Value::List { mut vals, .. } => {
                         if return_single_element {
-                            if let Some(v) = vals.last() {
-                                Ok(v.clone().into_pipeline_data())
+                            if let Some(v) = vals.pop() {
+                                Ok(v.into_pipeline_data())
                             } else {
                                 Err(ShellError::AccessEmptyContent { span: head })
                             }
                         } else {
-                            Ok(vals
-                                .into_iter()
-                                .rev()
-                                .take(rows_desired)
-                                .rev()
-                                .into_pipeline_data_with_metadata(metadata, ctrlc))
+                            let i = vals.len().saturating_sub(rows);
+                            vals.drain(..i);
+                            Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                         }
                     }
-                    Value::Binary { val, .. } => {
+                    Value::Binary { mut val, .. } => {
                         if return_single_element {
-                            if let Some(b) = val.last() {
-                                Ok(PipelineData::Value(
-                                    Value::int(*b as i64, val_span),
-                                    metadata,
-                                ))
+                            if let Some(val) = val.pop() {
+                                Ok(Value::int(val.into(), span).into_pipeline_data())
                             } else {
                                 Err(ShellError::AccessEmptyContent { span: head })
                             }
                         } else {
-                            let slice: Vec<u8> =
-                                val.into_iter().rev().take(rows_desired).rev().collect();
-                            Ok(PipelineData::Value(
-                                Value::binary(slice, val_span),
-                                metadata,
-                            ))
+                            let i = val.len().saturating_sub(rows);
+                            val.drain(..i);
+                            Ok(Value::binary(val, span).into_pipeline_data())
                         }
                     }
                     // Propagate errors by explicitly matching them before the final case.
@@ -164,13 +159,46 @@ impl Command for Last {
                     }),
                 }
             }
-            PipelineData::ExternalStream { span, .. } => {
-                Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "list, binary or range".into(),
-                    wrong_type: "raw data".into(),
-                    dst_span: head,
-                    src_span: span,
-                })
+            PipelineData::ByteStream(stream, ..) => {
+                if stream.type_().is_binary_coercible() {
+                    let span = stream.span();
+                    if let Some(mut reader) = stream.reader() {
+                        // Have to be a bit tricky here, but just consume into a VecDeque that we
+                        // shrink to fit each time
+                        const TAKE: u64 = 8192;
+                        let mut buf = VecDeque::with_capacity(rows + TAKE as usize);
+                        loop {
+                            let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
+                                .err_span(span)?;
+                            if buf.len() > rows {
+                                buf.drain(..(buf.len() - rows));
+                            }
+                            if taken < TAKE {
+                                // This must be EOF.
+                                if return_single_element {
+                                    if !buf.is_empty() {
+                                        return Ok(
+                                            Value::int(buf[0] as i64, head).into_pipeline_data()
+                                        );
+                                    } else {
+                                        return Err(ShellError::AccessEmptyContent { span: head });
+                                    }
+                                } else {
+                                    return Ok(Value::binary(buf, head).into_pipeline_data());
+                                }
+                            }
+                        }
+                    } else {
+                        Ok(PipelineData::Empty)
+                    }
+                } else {
+                    Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
+                        dst_span: head,
+                        src_span: stream.span(),
+                    })
+                }
             }
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),

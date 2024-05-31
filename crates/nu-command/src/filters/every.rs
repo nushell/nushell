@@ -1,11 +1,4 @@
-use nu_engine::CallExt;
-
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Every;
@@ -85,7 +78,7 @@ impl Command for Every {
                     None
                 }
             })
-            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+            .into_pipeline_data_with_metadata(call.head, engine_state.ctrlc.clone(), metadata))
     }
 }
 

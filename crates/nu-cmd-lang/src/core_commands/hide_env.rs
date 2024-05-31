@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    did_you_mean, Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::did_you_mean;
 
 #[derive(Clone)]
 pub struct HideEnv;
@@ -46,11 +41,7 @@ impl Command for HideEnv {
 
         for name in env_var_names {
             if !stack.remove_env_var(engine_state, &name.item) && !ignore_errors {
-                let all_names: Vec<String> = stack
-                    .get_env_var_names(engine_state)
-                    .iter()
-                    .cloned()
-                    .collect();
+                let all_names = stack.get_env_var_names(engine_state);
                 if let Some(closest_match) = did_you_mean(&all_names, &name.item) {
                     return Err(ShellError::DidYouMeanCustom {
                         msg: format!("Environment variable '{}' not found", name.item),

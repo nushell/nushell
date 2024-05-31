@@ -1,9 +1,8 @@
 mod cd;
+mod du;
 mod glob;
 mod ls;
-mod mkdir;
 mod mktemp;
-mod mv;
 mod open;
 mod rm;
 mod save;
@@ -18,11 +17,10 @@ mod watch;
 
 pub use self::open::Open;
 pub use cd::Cd;
+pub use du::Du;
 pub use glob::Glob;
 pub use ls::Ls;
-pub use mkdir::Mkdir;
 pub use mktemp::Mktemp;
-pub use mv::Mv;
 pub use rm::Rm;
 pub use save::Save;
 pub use start::Start;

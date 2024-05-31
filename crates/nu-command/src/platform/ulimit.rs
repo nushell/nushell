@@ -1,11 +1,6 @@
 use nix::sys::resource::{rlim_t, Resource, RLIM_INFINITY};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use once_cell::sync::Lazy;
 
 /// An object contains resource related parameters
@@ -111,6 +106,7 @@ static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
             target_os = "freebsd",
             target_os = "openbsd",
             target_os = "linux",
+            target_os = "freebsd",
             target_os = "netbsd"
         ))]
         (
@@ -126,6 +122,7 @@ static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
             target_os = "netbsd",
             target_os = "openbsd",
             target_os = "linux",
+            target_os = "freebsd",
             target_os = "aix",
         ))]
         (
@@ -178,6 +175,7 @@ static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
             target_os = "netbsd",
             target_os = "openbsd",
             target_os = "linux",
+            target_os = "freebsd",
             target_os = "aix",
         ))]
         (

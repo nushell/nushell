@@ -1,10 +1,8 @@
-use nu_protocol::report_error;
 use nu_protocol::{
-    ast::RangeInclusion,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Stack},
     Range, ShellError, Span, Value,
 };
-use std::path::PathBuf;
+use std::{ops::Bound, path::PathBuf};
 
 pub fn get_init_cwd() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| {
@@ -15,45 +13,29 @@ pub fn get_init_cwd() -> PathBuf {
 }
 
 pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
-    nu_engine::env::current_dir(engine_state, stack).unwrap_or_else(|e| {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, &e);
-        crate::util::get_init_cwd()
-    })
+    engine_state
+        .cwd(Some(stack))
+        .unwrap_or(crate::util::get_init_cwd())
 }
 
 type MakeRangeError = fn(&str, Span) -> ShellError;
 
 pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
-    let start = match &range.from {
-        Value::Int { val, .. } => isize::try_from(*val).unwrap_or_default(),
-        Value::Nothing { .. } => 0,
-        _ => {
-            return Err(|msg, span| ShellError::TypeMismatch {
-                err_message: msg.to_string(),
-                span,
-            })
+    match range {
+        Range::IntRange(range) => {
+            let start = range.start().try_into().unwrap_or(0);
+            let end = match range.end() {
+                Bound::Included(v) => (v + 1) as isize,
+                Bound::Excluded(v) => v as isize,
+                Bound::Unbounded => isize::MAX,
+            };
+            Ok((start, end))
         }
-    };
-
-    let end = match &range.to {
-        Value::Int { val, .. } => {
-            if matches!(range.inclusion, RangeInclusion::Inclusive) {
-                isize::try_from(*val).unwrap_or(isize::max_value())
-            } else {
-                isize::try_from(*val).unwrap_or(isize::max_value()) - 1
-            }
-        }
-        Value::Nothing { .. } => isize::max_value(),
-        _ => {
-            return Err(|msg, span| ShellError::TypeMismatch {
-                err_message: msg.to_string(),
-                span,
-            })
-        }
-    };
-
-    Ok((start, end))
+        Range::FloatRange(_) => Err(|msg, span| ShellError::TypeMismatch {
+            err_message: msg.to_string(),
+            span,
+        }),
+    }
 }
 
 const HELP_MSG: &str = "Nushell's config file can be found with the command: $nu.config-path. \
@@ -66,7 +48,7 @@ fn get_editor_commandline(
     match value {
         Value::String { val, .. } if !val.is_empty() => Ok((val.to_string(), Vec::new())),
         Value::List { vals, .. } if !vals.is_empty() => {
-            let mut editor_cmd = vals.iter().map(|l| l.as_string());
+            let mut editor_cmd = vals.iter().map(|l| l.coerce_string());
             match editor_cmd.next().transpose()? {
                 Some(editor) if !editor.is_empty() => {
                     let params = editor_cmd.collect::<Result<_, ShellError>>()?;
@@ -99,7 +81,7 @@ fn get_editor_commandline(
 
 pub fn get_editor(
     engine_state: &EngineState,
-    stack: &mut Stack,
+    stack: &Stack,
     span: Span,
 ) -> Result<(String, Vec<String>), ShellError> {
     let config = engine_state.get_config();

@@ -1,10 +1,4 @@
-use super::run_external::create_external_command;
-use nu_engine::current_dir;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-};
+use nu_engine::{command_prelude::*, env_to_strings};
 
 #[derive(Clone)]
 pub struct Exec;
@@ -38,7 +32,66 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        exec(engine_state, stack, call)
+        let cwd = engine_state.cwd(Some(stack))?;
+
+        // Find the absolute path to the executable. If the command is not
+        // found, display a helpful error message.
+        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let executable = {
+            let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
+            let Some(executable) = crate::which(&name.item, &paths, &cwd) else {
+                return Err(crate::command_not_found(
+                    &name.item,
+                    call.head,
+                    engine_state,
+                    stack,
+                ));
+            };
+            executable
+        };
+
+        // Create the command.
+        let mut command = std::process::Command::new(executable);
+
+        // Configure PWD.
+        command.current_dir(cwd);
+
+        // Configure environment variables.
+        let envs = env_to_strings(engine_state, stack)?;
+        command.env_clear();
+        command.envs(envs);
+
+        // Configure args.
+        let args = crate::eval_arguments_from_call(engine_state, stack, call)?;
+        command.args(args.into_iter().map(|s| s.item));
+
+        // Execute the child process, replacing/terminating the current process
+        // depending on platform.
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+
+            let err = command.exec();
+            Err(ShellError::ExternalCommand {
+                label: "Failed to exec into new process".into(),
+                help: err.to_string(),
+                span: call.head,
+            })
+        }
+        #[cfg(windows)]
+        {
+            let mut child = command.spawn().map_err(|err| ShellError::ExternalCommand {
+                label: "Failed to exec into new process".into(),
+                help: err.to_string(),
+                span: call.head,
+            })?;
+            let status = child.wait().map_err(|err| ShellError::ExternalCommand {
+                label: "Failed to wait for child process".into(),
+                help: err.to_string(),
+                span: call.head,
+            })?;
+            std::process::exit(status.code().expect("status.code() succeeds on Windows"))
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -54,57 +107,5 @@ On Windows based systems, Nushell will wait for the command to finish and then e
                 result: None,
             },
         ]
-    }
-}
-
-fn exec(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-) -> Result<PipelineData, ShellError> {
-    let external_command =
-        create_external_command(engine_state, stack, call, false, false, false, false)?;
-
-    let cwd = current_dir(engine_state, stack)?;
-    let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy())?;
-    command.current_dir(cwd);
-    command.envs(external_command.env_vars);
-
-    // this either replaces our process and should not return,
-    // or the exec fails and we get an error back
-    exec_impl(command, call.head)
-}
-
-#[cfg(unix)]
-fn exec_impl(mut command: std::process::Command, span: Span) -> Result<PipelineData, ShellError> {
-    use std::os::unix::process::CommandExt;
-
-    let error = command.exec();
-
-    Err(ShellError::GenericError {
-        error: "Error on exec".into(),
-        msg: error.to_string(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    })
-}
-
-#[cfg(windows)]
-fn exec_impl(mut command: std::process::Command, span: Span) -> Result<PipelineData, ShellError> {
-    match command.spawn() {
-        Ok(mut child) => match child.wait() {
-            Ok(status) => std::process::exit(status.code().unwrap_or(0)),
-            Err(e) => Err(ShellError::ExternalCommand {
-                label: "Error in external command".into(),
-                help: e.to_string(),
-                span,
-            }),
-        },
-        Err(e) => Err(ShellError::ExternalCommand {
-            label: "Error spawning external command".into(),
-            help: e.to_string(),
-            span,
-        }),
     }
 }

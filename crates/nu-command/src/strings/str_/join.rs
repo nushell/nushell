@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
+use std::io::Write;
 
 #[derive(Clone)]
 pub struct StrJoin;
@@ -46,31 +41,40 @@ impl Command for StrJoin {
     ) -> Result<PipelineData, ShellError> {
         let separator: Option<String> = call.opt(engine_state, stack, 0)?;
 
-        let config = engine_state.get_config();
+        let config = engine_state.config.clone();
 
-        // let output = input.collect_string(&separator.unwrap_or_default(), &config)?;
-        // Hmm, not sure what we actually want. If you don't use debug_string, Date comes out as human readable
-        // which feels funny
-        let mut strings: Vec<String> = vec![];
+        let span = call.head;
 
-        for value in input {
-            match value {
-                Value::Error { error, .. } => {
-                    return Err(*error);
+        let metadata = input.metadata();
+        let mut iter = input.into_iter();
+        let mut first = true;
+
+        let output = ByteStream::from_fn(span, None, ByteStreamType::String, move |buffer| {
+            // Write each input to the buffer
+            if let Some(value) = iter.next() {
+                // Write the separator if this is not the first
+                if first {
+                    first = false;
+                } else if let Some(separator) = &separator {
+                    write!(buffer, "{}", separator)?;
                 }
-                value => {
-                    strings.push(value.debug_string("\n", config));
+
+                match value {
+                    Value::Error { error, .. } => {
+                        return Err(*error);
+                    }
+                    // Hmm, not sure what we actually want.
+                    // `to_expanded_string` formats dates as human readable which feels funny.
+                    Value::Date { val, .. } => write!(buffer, "{val:?}")?,
+                    value => write!(buffer, "{}", value.to_expanded_string("\n", &config))?,
                 }
+                Ok(true)
+            } else {
+                Ok(false)
             }
-        }
+        });
 
-        let output = if let Some(separator) = separator {
-            strings.join(&separator)
-        } else {
-            strings.join("")
-        };
-
-        Ok(Value::string(output, call.head).into_pipeline_data())
+        Ok(PipelineData::ByteStream(output, metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

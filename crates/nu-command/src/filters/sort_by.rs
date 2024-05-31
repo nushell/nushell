@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SortBy;
@@ -21,8 +15,8 @@ impl Command for SortBy {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Record(vec![]), Type::Table(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::record(), Type::table()),
+                (Type::table(), Type::table()),
             ])
             .rest("columns", SyntaxShape::Any, "The column(s) to sort by.")
             .switch("reverse", "Sort in reverse order", Some('r'))
@@ -84,33 +78,29 @@ impl Command for SortBy {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;
-        let metadata = &input.metadata();
-        let mut vec: Vec<_> = input.into_iter_strict(call.head)?.collect();
+        let metadata = input.metadata();
+        let mut vec: Vec<_> = input.into_iter_strict(head)?.collect();
 
         if columns.is_empty() {
             return Err(ShellError::MissingParameter {
                 param_name: "columns".into(),
-                span: call.head,
+                span: head,
             });
         }
 
-        crate::sort(&mut vec, columns, call.head, insensitive, natural)?;
+        crate::sort(&mut vec, columns, head, insensitive, natural)?;
 
         if reverse {
             vec.reverse()
         }
 
         let iter = vec.into_iter();
-        match metadata {
-            Some(m) => {
-                Ok(iter.into_pipeline_data_with_metadata(m.clone(), engine_state.ctrlc.clone()))
-            }
-            None => Ok(iter.into_pipeline_data(engine_state.ctrlc.clone())),
-        }
+        Ok(iter.into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
     }
 }
 

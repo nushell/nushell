@@ -1,60 +1,90 @@
-use ical::parser::ical::component::*;
-use ical::property::Property;
-use indexmap::map::IndexMap;
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{record, PluginExample, ShellError, Span, Value};
+use crate::FromCmds;
+
+use ical::{parser::ical::component::*, property::Property};
+use indexmap::IndexMap;
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    record, Category, Example, LabeledError, ShellError, Signature, Span, Type, Value,
+};
 use std::io::BufReader;
 
-pub const CMD_NAME: &str = "from ics";
+pub struct FromIcs;
 
-pub fn from_ics_call(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-    let span = input.span();
-    let input_string = input.as_string()?;
-    let head = call.head;
+impl SimplePluginCommand for FromIcs {
+    type Plugin = FromCmds;
 
-    let input_string = input_string
-        .lines()
-        .enumerate()
-        .map(|(i, x)| {
-            if i == 0 {
-                x.trim().to_string()
-            } else if x.len() > 1 && (x.starts_with(' ') || x.starts_with('\t')) {
-                x[1..].trim_end().to_string()
-            } else {
-                format!("\n{}", x.trim())
-            }
-        })
-        .collect::<String>();
-
-    let input_bytes = input_string.as_bytes();
-    let buf_reader = BufReader::new(input_bytes);
-    let parser = ical::IcalParser::new(buf_reader);
-
-    let mut output = vec![];
-
-    for calendar in parser {
-        match calendar {
-            Ok(c) => output.push(calendar_to_value(c, head)),
-            Err(e) => output.push(Value::error(
-                ShellError::UnsupportedInput {
-                    msg: format!("input cannot be parsed as .ics ({e})"),
-                    input: "value originates from here".into(),
-                    msg_span: head,
-                    input_span: span,
-                },
-                span,
-            )),
-        }
+    fn name(&self) -> &str {
+        "from ics"
     }
-    Ok(Value::list(output, head))
+
+    fn usage(&self) -> &str {
+        "Parse text as .ics and create table."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .input_output_types(vec![(Type::String, Type::table())])
+            .category(Category::Formats)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        examples()
+    }
+
+    fn run(
+        &self,
+        _plugin: &FromCmds,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
+        let span = input.span();
+        let input_string = input.coerce_str()?;
+        let head = call.head;
+
+        let input_string = input_string
+            .lines()
+            .enumerate()
+            .map(|(i, x)| {
+                if i == 0 {
+                    x.trim().to_string()
+                } else if x.len() > 1 && (x.starts_with(' ') || x.starts_with('\t')) {
+                    x[1..].trim_end().to_string()
+                } else {
+                    format!("\n{}", x.trim())
+                }
+            })
+            .collect::<String>();
+
+        let input_bytes = input_string.as_bytes();
+        let buf_reader = BufReader::new(input_bytes);
+        let parser = ical::IcalParser::new(buf_reader);
+
+        let mut output = vec![];
+
+        for calendar in parser {
+            match calendar {
+                Ok(c) => output.push(calendar_to_value(c, head)),
+                Err(e) => output.push(Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: format!("input cannot be parsed as .ics ({e})"),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
+                    span,
+                )),
+            }
+        }
+        Ok(Value::list(output, head))
+    }
 }
 
-pub fn examples() -> Vec<PluginExample> {
-    vec![PluginExample {
+pub fn examples() -> Vec<Example<'static>> {
+    vec![Example {
         example: "'BEGIN:VCALENDAR
-            END:VCALENDAR' | from ics"
-            .into(),
-        description: "Converts ics formatted string to table".into(),
+END:VCALENDAR' | from ics",
+        description: "Converts ics formatted string to table",
         result: Some(Value::test_list(vec![Value::test_record(record! {
                 "properties" => Value::test_list(vec![]),
                 "events" =>     Value::test_list(vec![]),
@@ -238,4 +268,11 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
     }
 
     Value::record(row.into_iter().collect(), span)
+}
+
+#[test]
+fn test_examples() -> Result<(), nu_protocol::ShellError> {
+    use nu_plugin_test_support::PluginTest;
+
+    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromIcs)
 }

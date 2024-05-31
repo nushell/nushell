@@ -1,10 +1,10 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Type, Value,
+use std::{
+    io::{BufRead, Cursor},
+    sync::{atomic::AtomicBool, Arc},
 };
+
+use nu_engine::command_prelude::*;
+use nu_protocol::ListStream;
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -51,6 +51,15 @@ impl Command for FromJson {
                     "b" => Value::test_int(2),
                 })),
             },
+            Example {
+                example: r#"'{ "a": 1 }
+{ "b": 2 }' | from json --objects"#,
+                description: "Parse a stream of line-delimited JSON values",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {"a" => Value::test_int(1)}),
+                    Value::test_record(record! {"b" => Value::test_int(2)}),
+                ])),
+            },
         ]
     }
 
@@ -62,44 +71,78 @@ impl Command for FromJson {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let (string_input, span, metadata) = input.collect_string_strict(span)?;
-
-        if string_input.is_empty() {
-            return Ok(PipelineData::new_with_metadata(metadata, span));
-        }
 
         let strict = call.has_flag(engine_state, stack, "strict")?;
 
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag(engine_state, stack, "objects")? {
-            let lines = string_input.lines().filter(|line| !line.trim().is_empty());
-
-            let converted_lines: Vec<_> = if strict {
-                lines
-                    .map(|line| {
-                        convert_string_to_value_strict(line, span)
-                            .unwrap_or_else(|err| Value::error(err, span))
-                    })
-                    .collect()
-            } else {
-                lines
-                    .map(|line| {
-                        convert_string_to_value(line, span)
-                            .unwrap_or_else(|err| Value::error(err, span))
-                    })
-                    .collect()
-            };
-
-            Ok(converted_lines
-                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
-        } else if strict {
-            Ok(convert_string_to_value_strict(&string_input, span)?
-                .into_pipeline_data_with_metadata(metadata))
+            // Return a stream of JSON values, one for each non-empty line
+            match input {
+                PipelineData::Value(Value::String { val, .. }, metadata) => {
+                    Ok(PipelineData::ListStream(
+                        read_json_lines(Cursor::new(val), span, strict, engine_state.ctrlc.clone()),
+                        metadata,
+                    ))
+                }
+                PipelineData::ByteStream(stream, metadata)
+                    if stream.type_() != ByteStreamType::Binary =>
+                {
+                    if let Some(reader) = stream.reader() {
+                        Ok(PipelineData::ListStream(
+                            read_json_lines(reader, span, strict, None),
+                            metadata,
+                        ))
+                    } else {
+                        Ok(PipelineData::Empty)
+                    }
+                }
+                _ => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "string".into(),
+                    wrong_type: input.get_type().to_string(),
+                    dst_span: call.head,
+                    src_span: input.span().unwrap_or(call.head),
+                }),
+            }
         } else {
-            Ok(convert_string_to_value(&string_input, span)?
-                .into_pipeline_data_with_metadata(metadata))
+            // Return a single JSON value
+            let (string_input, span, metadata) = input.collect_string_strict(span)?;
+
+            if string_input.is_empty() {
+                return Ok(Value::nothing(span).into_pipeline_data());
+            }
+
+            if strict {
+                Ok(convert_string_to_value_strict(&string_input, span)?
+                    .into_pipeline_data_with_metadata(metadata))
+            } else {
+                Ok(convert_string_to_value(&string_input, span)?
+                    .into_pipeline_data_with_metadata(metadata))
+            }
         }
     }
+}
+
+/// Create a stream of values from a reader that produces line-delimited JSON
+fn read_json_lines(
+    input: impl BufRead + Send + 'static,
+    span: Span,
+    strict: bool,
+    interrupt: Option<Arc<AtomicBool>>,
+) -> ListStream {
+    let iter = input
+        .lines()
+        .filter(|line| line.as_ref().is_ok_and(|line| !line.trim().is_empty()) || line.is_err())
+        .map(move |line| {
+            let line = line.err_span(span)?;
+            if strict {
+                convert_string_to_value_strict(&line, span)
+            } else {
+                convert_string_to_value(&line, span)
+            }
+        })
+        .map(move |result| result.unwrap_or_else(|err| Value::error(err, span)));
+
+    ListStream::new(iter, span, interrupt)
 }
 
 fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {

@@ -6,13 +6,13 @@ DIR=$(readlink -f $(dirname "${BASH_SOURCE[0]}"))
 REPO_ROOT=$(dirname $DIR)
 
 echo "-----------------------------------------------------------------"
-echo "Installing nushell (nu) with dataframes and all the plugins"
+echo "Installing nushell (nu) and all the plugins"
 echo "-----------------------------------------------------------------"
 echo ""
 
 echo "Install nushell from local..."
 echo "----------------------------------------------"
-cargo install --force --path "$REPO_ROOT" --features=dataframe,extra --locked
+cargo install --force --path "$REPO_ROOT" --locked
 
 NU_PLUGINS=(
     'nu_plugin_inc'

@@ -1,5 +1,8 @@
-use std::cmp::max;
-
+use super::{colored_text_widget::ColoredTextWidget, cursor::XYCursor, Layout, View, ViewConfig};
+use crate::{
+    nu_common::{NuSpan, NuText},
+    pager::{report::Report, Frame, Transition, ViewInfo},
+};
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::TextStyle;
 use nu_protocol::{
@@ -7,13 +10,7 @@ use nu_protocol::{
     Value,
 };
 use ratatui::layout::Rect;
-
-use crate::{
-    nu_common::{NuSpan, NuText},
-    pager::{report::Report, Frame, Transition, ViewInfo},
-};
-
-use super::{coloredtextw::ColoredTextW, cursor::XYCursor, Layout, View, ViewConfig};
+use std::cmp::max;
 
 // todo: Add wrap option
 #[derive(Debug)]
@@ -46,13 +43,14 @@ impl View for Preview {
 
         let lines = &self.lines[self.cursor.row_starts_at()..];
         for (i, line) in lines.iter().enumerate().take(area.height as usize) {
-            let text = ColoredTextW::new(line, self.cursor.column());
-            let s = text.what(area);
+            let text_widget = ColoredTextWidget::new(line, self.cursor.column());
+            let plain_text = text_widget.get_plain_text(area.width as usize);
 
             let area = Rect::new(area.x, area.y + i as u16, area.width, 1);
-            f.render_widget(text, area);
+            f.render_widget(text_widget, area);
 
-            layout.push(&s, area.x, area.y, area.width, area.height);
+            // push the plain text to layout so it can be searched
+            layout.push(&plain_text, area.x, area.y, area.width, area.height);
         }
     }
 

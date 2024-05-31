@@ -109,16 +109,21 @@ fn const_string() {
 }
 
 #[test]
-fn const_string_interpolation() {
-    let actual = nu!(r#"
-        const x = 2
-        const s = $"var: ($x), date: (2021-02-27T13:55:40+00:00), file size: (2kb)"
-        $s
-    "#);
-    assert_eq!(
-        actual.out,
-        "var: 2, date: Sat, 27 Feb 2021 13:55:40 +0000 (2 years ago), file size: 2.0 KiB"
-    );
+fn const_string_interpolation_var() {
+    let actual = nu!(r#"const x = 2; const s = $"($x)"; $s"#);
+    assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn const_string_interpolation_date() {
+    let actual = nu!(r#"const s = $"(2021-02-27T13:55:40+00:00)"; $s"#);
+    assert!(actual.out.contains("Sat, 27 Feb 2021 13:55:40 +0000"));
+}
+
+#[test]
+fn const_string_interpolation_filesize() {
+    let actual = nu!(r#"const s = $"(2kb)"; $s"#);
+    assert_eq!(actual.out, "2.0 KiB");
 }
 
 #[test]
@@ -330,7 +335,7 @@ fn const_captures_in_closures_work() {
     assert_eq!(actual.out, "hello world");
 }
 
-#[ignore = "TODO: Need to fix `overlay hide` to hide the constants brough by `overlay use`"]
+#[ignore = "TODO: Need to fix `overlay hide` to hide the constants brought by `overlay use`"]
 #[test]
 fn complex_const_overlay_use_hide() {
     let inp = &[MODULE_SETUP, "overlay use spam", "$X"];
@@ -388,4 +393,25 @@ fn if_const() {
     let actual =
         nu!("const x = (if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }); $x");
     assert_eq!(actual.out, "no!");
+}
+
+#[test]
+fn const_glob_type() {
+    let actual = nu!("const x: glob = 'aa'; $x | describe");
+    assert_eq!(actual.out, "glob");
+}
+
+#[test]
+fn const_raw_string() {
+    let actual = nu!(r#"const x = r#'abcde""fghi"''''jkl'#; $x"#);
+    assert_eq!(actual.out, r#"abcde""fghi"''''jkl"#);
+
+    let actual = nu!(r#"const x = r##'abcde""fghi"''''#jkl'##; $x"#);
+    assert_eq!(actual.out, r#"abcde""fghi"''''#jkl"#);
+
+    let actual = nu!(r#"const x = r###'abcde""fghi"'''##'#jkl'###; $x"#);
+    assert_eq!(actual.out, r#"abcde""fghi"'''##'#jkl"#);
+
+    let actual = nu!(r#"const x = r#'abc'#; $x"#);
+    assert_eq!(actual.out, "abc");
 }

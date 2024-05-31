@@ -1,11 +1,6 @@
-use nu_engine::CallExt;
+use nu_engine::command_prelude::*;
 use nu_parser::parse;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack, StateWorkingSet},
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
+use nu_protocol::engine::StateWorkingSet;
 
 #[derive(Clone)]
 pub struct Ast;
@@ -21,7 +16,7 @@ impl Command for Ast {
 
     fn signature(&self) -> Signature {
         Signature::build("ast")
-            .input_output_types(vec![(Type::String, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::String, Type::record())])
             .required(
                 "pipeline",
                 SyntaxShape::String,
@@ -53,9 +48,9 @@ impl Command for Ast {
         if to_json {
             // Get the block as json
             let serde_block_str = if minify {
-                serde_json::to_string(&block_output)
+                serde_json::to_string(&*block_output)
             } else {
-                serde_json::to_string_pretty(&block_output)
+                serde_json::to_string_pretty(&*block_output)
             };
             let block_json = match serde_block_str {
                 Ok(json) => json,

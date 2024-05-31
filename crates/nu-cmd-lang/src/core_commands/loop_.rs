@@ -1,9 +1,4 @@
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Block, Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block};
 
 #[derive(Clone)]
 pub struct Loop;
@@ -32,22 +27,23 @@ impl Command for Loop {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let block: Block = call.req(engine_state, stack, 0)?;
+        let block_id = call
+            .positional_nth(0)
+            .expect("checked through parser")
+            .as_block()
+            .expect("internal error: missing block");
+
+        let block = engine_state.get_block(block_id);
+        let eval_block = get_eval_block(engine_state);
+
+        let stack = &mut stack.push_redirection(None, None);
 
         loop {
             if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
                 break;
             }
 
-            let block = engine_state.get_block(block.block_id);
-            match eval_block(
-                engine_state,
-                stack,
-                block,
-                PipelineData::empty(),
-                call.redirect_stdout,
-                call.redirect_stderr,
-            ) {
+            match eval_block(engine_state, stack, block, PipelineData::empty()) {
                 Err(ShellError::Break { .. }) => {
                     break;
                 }
@@ -57,12 +53,12 @@ impl Command for Loop {
                 Err(err) => {
                     return Err(err);
                 }
-                Ok(pipeline) => {
-                    let exit_code = pipeline.drain_with_exit_code()?;
-                    if exit_code != 0 {
-                        return Ok(PipelineData::new_external_stream_with_only_exit_code(
-                            exit_code,
-                        ));
+                Ok(data) => {
+                    if let Some(status) = data.drain()? {
+                        let code = status.code();
+                        if code != 0 {
+                            return Ok(PipelineData::new_external_stream_with_only_exit_code(code));
+                        }
                     }
                 }
             }

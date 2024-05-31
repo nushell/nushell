@@ -1,13 +1,21 @@
 use super::{get_number_bytes, NumberBytes};
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct BitsNot;
+
+#[derive(Clone, Copy)]
+struct Arguments {
+    signed: bool,
+    number_size: NumberBytes,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        None
+    }
+}
 
 impl Command for BitsNot {
     fn name(&self) -> &str {
@@ -18,9 +26,14 @@ impl Command for BitsNot {
         Signature::build("bits not")
             .input_output_types(vec![
                 (Type::Int, Type::Int),
+                (Type::Binary, Type::Binary),
                 (
                     Type::List(Box::new(Type::Int)),
                     Type::List(Box::new(Type::Int)),
+                ),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Binary)),
                 ),
             ])
             .allow_variants_without_examples(true)
@@ -31,7 +44,7 @@ impl Command for BitsNot {
             )
             .named(
                 "number-bytes",
-                SyntaxShape::String,
+                SyntaxShape::Int,
                 "the size of unsigned number in bytes, it can be 1, 2, 4, 8, auto",
                 Some('n'),
             )
@@ -55,28 +68,21 @@ impl Command for BitsNot {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let signed = call.has_flag(engine_state, stack, "signed")?;
-        let number_bytes: Option<Spanned<String>> =
+        let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let bytes_len = get_number_bytes(number_bytes.as_ref());
-        if let NumberBytes::Invalid = bytes_len {
-            if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    input: "value originates from here".to_string(),
-                    msg_span: head,
-                    input_span: val.span,
-                });
-            }
-        }
+        let number_size = get_number_bytes(number_bytes, head)?;
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        input.map(
-            move |value| operate(value, head, signed, bytes_len),
-            engine_state.ctrlc.clone(),
-        )
+
+        let args = Arguments {
+            signed,
+            number_size,
+        };
+
+        operate(action, args, input, head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -86,9 +92,9 @@ impl Command for BitsNot {
                 example: "[4 3 2] | bits not",
                 result: Some(Value::list(
                     vec![
-                        Value::test_int(140737488355323),
-                        Value::test_int(140737488355324),
-                        Value::test_int(140737488355325),
+                        Value::test_int(251),
+                        Value::test_int(252),
+                        Value::test_int(253),
                     ],
                     Span::test_data(),
                 )),
@@ -96,7 +102,7 @@ impl Command for BitsNot {
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as 2 bytes number",
-                example: "[4 3 2] | bits not --number-bytes '2'",
+                example: "[4 3 2] | bits not --number-bytes 2",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(65531),
@@ -119,14 +125,23 @@ impl Command for BitsNot {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Apply logical negation to binary data",
+                example: "0x[ff 00 7f] | bits not",
+                result: Some(Value::binary(vec![0x00, 0xff, 0x80], Span::test_data())),
+            },
         ]
     }
 }
 
-fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> Value {
-    let span = value.span();
-    match value {
+fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+    let Arguments {
+        signed,
+        number_size,
+    } = *args;
+    match input {
         Value::Int { val, .. } => {
+            let val = *val;
             if signed || val < 0 {
                 Value::int(!val, span)
             } else {
@@ -147,25 +162,24 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
                             !val & 0x7F_FF_FF_FF_FF_FF
                         }
                     }
-                    // This case shouldn't happen here, as it's handled before
-                    Invalid => 0,
                 };
                 Value::int(out_val, span)
             }
         }
-        other => match other {
-            // Propagate errors inside the value
-            Value::Error { .. } => other,
-            _ => Value::error(
-                ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "int".into(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: head,
-                    src_span: other.span(),
-                },
-                head,
-            ),
-        },
+        Value::Binary { val, .. } => {
+            Value::binary(val.iter().copied().map(|b| !b).collect::<Vec<_>>(), span)
+        }
+        // Propagate errors by explicitly matching them before the final case.
+        Value::Error { .. } => input.clone(),
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "int or binary".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: other.span(),
+                src_span: span,
+            },
+            span,
+        ),
     }
 }
 

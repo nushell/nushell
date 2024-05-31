@@ -1,8 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct ViewFiles;
@@ -24,12 +20,15 @@ impl Command for ViewFiles {
         Signature::build("view files")
             .input_output_types(vec![(
                 Type::Nothing,
-                Type::Table(vec![
-                    ("filename".into(), Type::String),
-                    ("start".into(), Type::Int),
-                    ("end".into(), Type::Int),
-                    ("size".into(), Type::Int),
-                ]),
+                Type::Table(
+                    [
+                        ("filename".into(), Type::String),
+                        ("start".into(), Type::Int),
+                        ("end".into(), Type::Int),
+                        ("size".into(), Type::Int),
+                    ]
+                    .into(),
+                ),
             )])
             .category(Category::Debug)
     }
@@ -43,13 +42,15 @@ impl Command for ViewFiles {
     ) -> Result<PipelineData, ShellError> {
         let mut records = vec![];
 
-        for (file, start, end) in engine_state.files() {
+        for file in engine_state.files() {
+            let start = file.covered_span.start;
+            let end = file.covered_span.end;
             records.push(Value::record(
                 record! {
-                    "filename" => Value::string(file, call.head),
-                    "start" => Value::int(*start as i64, call.head),
-                    "end" => Value::int(*end as i64, call.head),
-                    "size" => Value::int(*end as i64 - *start as i64, call.head),
+                    "filename" => Value::string(&*file.name, call.head),
+                    "start" => Value::int(start as i64, call.head),
+                    "end" => Value::int(end as i64, call.head),
+                    "size" => Value::int(end as i64 - start as i64, call.head),
                 },
                 call.head,
             ));

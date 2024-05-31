@@ -1,13 +1,8 @@
-use indexmap::indexmap;
-use indexmap::map::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::record;
-use nu_protocol::{
-    ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use indexmap::{indexmap, IndexMap};
+use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
 use once_cell::sync::Lazy;
+use std::sync::{atomic::AtomicBool, Arc};
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
 #[cfg(target_family = "windows")]
@@ -172,6 +167,10 @@ impl Command for Char {
             .category(Category::Strings)
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn usage(&self) -> &str {
         "Output special characters (e.g., 'newline')."
     }
@@ -217,6 +216,40 @@ impl Command for Char {
         ]
     }
 
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let call_span = call.head;
+        let list = call.has_flag_const(working_set, "list")?;
+        let integer = call.has_flag_const(working_set, "integer")?;
+        let unicode = call.has_flag_const(working_set, "unicode")?;
+        let ctrlc = working_set.permanent().ctrlc.clone();
+
+        // handle -l flag
+        if list {
+            return Ok(generate_character_list(ctrlc, call.head));
+        }
+
+        // handle -i flag
+        if integer {
+            let int_args = call.rest_const(working_set, 0)?;
+            handle_integer_flag(int_args, call_span)
+        }
+        // handle -u flag
+        else if unicode {
+            let string_args = call.rest_const(working_set, 0)?;
+            handle_unicode_flag(string_args, call_span)
+        }
+        // handle the rest
+        else {
+            let string_args = call.rest_const(working_set, 0)?;
+            handle_the_rest(string_args, call_span)
+        }
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -225,102 +258,132 @@ impl Command for Char {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let call_span = call.head;
-        // handle -l flag
-        if call.has_flag(engine_state, stack, "list")? {
-            return Ok(CHAR_MAP
-                .iter()
-                .map(move |(name, s)| {
-                    let unicode = Value::string(
-                        s.chars()
-                            .map(|c| format!("{:x}", c as u32))
-                            .collect::<Vec<String>>()
-                            .join(" "),
-                        call_span,
-                    );
-                    let record = record! {
-                        "name" => Value::string(*name, call_span),
-                        "character" => Value::string(s, call_span),
-                        "unicode" => unicode,
-                    };
+        let list = call.has_flag(engine_state, stack, "list")?;
+        let integer = call.has_flag(engine_state, stack, "integer")?;
+        let unicode = call.has_flag(engine_state, stack, "unicode")?;
+        let ctrlc = engine_state.ctrlc.clone();
 
-                    Value::record(record, call_span)
-                })
-                .into_pipeline_data(engine_state.ctrlc.clone()));
+        // handle -l flag
+        if list {
+            return Ok(generate_character_list(ctrlc, call_span));
+        }
+
+        // handle -i flag
+        if integer {
+            let int_args = call.rest(engine_state, stack, 0)?;
+            handle_integer_flag(int_args, call_span)
         }
         // handle -u flag
-        if call.has_flag(engine_state, stack, "integer")? {
-            let args: Vec<i64> = call.rest(engine_state, stack, 0)?;
-            if args.is_empty() {
-                return Err(ShellError::MissingParameter {
-                    param_name: "missing at least one unicode character".into(),
-                    span: call_span,
-                });
-            }
-            let mut multi_byte = String::new();
-            for (i, &arg) in args.iter().enumerate() {
-                let span = call
-                    .positional_nth(i)
-                    .expect("Unexpected missing argument")
-                    .span;
-                multi_byte.push(integer_to_unicode_char(arg, span)?)
-            }
-            Ok(Value::string(multi_byte, call_span).into_pipeline_data())
-        } else if call.has_flag(engine_state, stack, "unicode")? {
-            let args: Vec<String> = call.rest(engine_state, stack, 0)?;
-            if args.is_empty() {
-                return Err(ShellError::MissingParameter {
-                    param_name: "missing at least one unicode character".into(),
-                    span: call_span,
-                });
-            }
-            let mut multi_byte = String::new();
-            for (i, arg) in args.iter().enumerate() {
-                let span = call
-                    .positional_nth(i)
-                    .expect("Unexpected missing argument")
-                    .span;
-                multi_byte.push(string_to_unicode_char(arg, span)?)
-            }
-            Ok(Value::string(multi_byte, call_span).into_pipeline_data())
-        } else {
-            let args: Vec<String> = call.rest(engine_state, stack, 0)?;
-            if args.is_empty() {
-                return Err(ShellError::MissingParameter {
-                    param_name: "missing name of the character".into(),
-                    span: call_span,
-                });
-            }
-            let special_character = str_to_character(&args[0]);
-            if let Some(output) = special_character {
-                Ok(Value::string(output, call_span).into_pipeline_data())
-            } else {
-                Err(ShellError::TypeMismatch {
-                    err_message: "error finding named character".into(),
-                    span: call
-                        .positional_nth(0)
-                        .expect("Unexpected missing argument")
-                        .span,
-                })
-            }
+        else if unicode {
+            let string_args = call.rest(engine_state, stack, 0)?;
+            handle_unicode_flag(string_args, call_span)
+        }
+        // handle the rest
+        else {
+            let string_args = call.rest(engine_state, stack, 0)?;
+            handle_the_rest(string_args, call_span)
         }
     }
 }
 
-fn integer_to_unicode_char(value: i64, t: Span) -> Result<char, ShellError> {
-    let decoded_char = value.try_into().ok().and_then(std::char::from_u32);
+fn generate_character_list(ctrlc: Option<Arc<AtomicBool>>, call_span: Span) -> PipelineData {
+    CHAR_MAP
+        .iter()
+        .map(move |(name, s)| {
+            let unicode = Value::string(
+                s.chars()
+                    .map(|c| format!("{:x}", c as u32))
+                    .collect::<Vec<String>>()
+                    .join(" "),
+                call_span,
+            );
+            let record = record! {
+                "name" => Value::string(*name, call_span),
+                "character" => Value::string(s, call_span),
+                "unicode" => unicode,
+            };
+
+            Value::record(record, call_span)
+        })
+        .into_pipeline_data(call_span, ctrlc)
+}
+
+fn handle_integer_flag(
+    int_args: Vec<Spanned<i64>>,
+    call_span: Span,
+) -> Result<PipelineData, ShellError> {
+    if int_args.is_empty() {
+        return Err(ShellError::MissingParameter {
+            param_name: "missing at least one unicode character".into(),
+            span: call_span,
+        });
+    }
+
+    let str = int_args
+        .into_iter()
+        .map(integer_to_unicode_char)
+        .collect::<Result<String, _>>()?;
+
+    Ok(Value::string(str, call_span).into_pipeline_data())
+}
+
+fn handle_unicode_flag(
+    string_args: Vec<Spanned<String>>,
+    call_span: Span,
+) -> Result<PipelineData, ShellError> {
+    if string_args.is_empty() {
+        return Err(ShellError::MissingParameter {
+            param_name: "missing at least one unicode character".into(),
+            span: call_span,
+        });
+    }
+
+    let str = string_args
+        .into_iter()
+        .map(string_to_unicode_char)
+        .collect::<Result<String, _>>()?;
+
+    Ok(Value::string(str, call_span).into_pipeline_data())
+}
+
+fn handle_the_rest(
+    string_args: Vec<Spanned<String>>,
+    call_span: Span,
+) -> Result<PipelineData, ShellError> {
+    let Some(s) = string_args.first() else {
+        return Err(ShellError::MissingParameter {
+            param_name: "missing name of the character".into(),
+            span: call_span,
+        });
+    };
+
+    let special_character = str_to_character(&s.item);
+
+    if let Some(output) = special_character {
+        Ok(Value::string(output, call_span).into_pipeline_data())
+    } else {
+        Err(ShellError::TypeMismatch {
+            err_message: "error finding named character".into(),
+            span: s.span,
+        })
+    }
+}
+
+fn integer_to_unicode_char(value: Spanned<i64>) -> Result<char, ShellError> {
+    let decoded_char = value.item.try_into().ok().and_then(std::char::from_u32);
 
     if let Some(ch) = decoded_char {
         Ok(ch)
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "not a valid Unicode codepoint".into(),
-            span: t,
+            span: value.span,
         })
     }
 }
 
-fn string_to_unicode_char(s: &str, t: Span) -> Result<char, ShellError> {
-    let decoded_char = u32::from_str_radix(s, 16)
+fn string_to_unicode_char(s: Spanned<String>) -> Result<char, ShellError> {
+    let decoded_char = u32::from_str_radix(&s.item, 16)
         .ok()
         .and_then(std::char::from_u32);
 
@@ -329,7 +392,7 @@ fn string_to_unicode_char(s: &str, t: Span) -> Result<char, ShellError> {
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "error decoding Unicode character".into(),
-            span: t,
+            span: s.span,
         })
     }
 }

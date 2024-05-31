@@ -7,11 +7,11 @@ fn help() {
         let actual = nu_with_plugins!(
         cwd: dirs.test(),
             plugin: ("nu_plugin_example"),
-            "nu-example-1 --help"
+            "example one --help"
         );
 
-        assert!(actual.out.contains("PluginSignature test 1"));
-        assert!(actual.out.contains("Extra usage for nu-example-1"));
+        assert!(actual.out.contains("test example 1"));
+        assert!(actual.out.contains("Extra usage for example one"));
     })
 }
 
@@ -21,7 +21,7 @@ fn search_terms() {
         let actual = nu_with_plugins!(
         cwd: dirs.test(),
             plugin: ("nu_plugin_example"),
-            r#"help commands | where name == "nu-example-1" | echo $"search terms: ($in.search_terms)""#
+            r#"help commands | where name == "example one" | echo $"search terms: ($in.search_terms)""#
         );
 
         assert!(actual.out.contains("search terms: [example]"));

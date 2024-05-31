@@ -25,7 +25,7 @@ fn table_to_tsv_text_and_from_tsv_text_back_into_table_using_csv_separator() {
 #[test]
 fn table_to_tsv_text() {
     Playground::setup("filter_to_tsv_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "tsv_text_sample.txt",
             r#"
                 importer	shipper	tariff_item	name	origin
@@ -54,7 +54,7 @@ fn table_to_tsv_text() {
 #[test]
 fn table_to_tsv_text_skipping_headers_after_conversion() {
     Playground::setup("filter_to_tsv_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "tsv_text_sample.txt",
             r#"
                 importer    shipper tariff_item name    origin
@@ -81,7 +81,7 @@ fn table_to_tsv_text_skipping_headers_after_conversion() {
 #[test]
 fn from_tsv_text_to_table() {
     Playground::setup("filter_from_tsv_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
                 first Name	Last Name	rusty_luck
@@ -106,10 +106,10 @@ fn from_tsv_text_to_table() {
 }
 
 #[test]
-#[allow(clippy::needless_raw_string_hashes)]
+#[ignore = "csv crate has a bug when the last line is a comment: https://github.com/BurntSushi/rust-csv/issues/363"]
 fn from_tsv_text_with_comments_to_table() {
     Playground::setup("filter_from_tsv_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 # This is a comment
@@ -139,7 +139,7 @@ fn from_tsv_text_with_comments_to_table() {
 #[test]
 fn from_tsv_text_with_custom_quotes_to_table() {
     Playground::setup("filter_from_tsv_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name	last_name	rusty_luck
@@ -166,7 +166,7 @@ fn from_tsv_text_with_custom_quotes_to_table() {
 #[test]
 fn from_tsv_text_with_custom_escapes_to_table() {
     Playground::setup("filter_from_tsv_test_4", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name	last_name	rusty_luck
@@ -193,7 +193,7 @@ fn from_tsv_text_with_custom_escapes_to_table() {
 #[test]
 fn from_tsv_text_skipping_headers_to_table() {
     Playground::setup("filter_from_tsv_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
             r#"
                 Andrés	Robalino	1
@@ -219,7 +219,7 @@ fn from_tsv_text_skipping_headers_to_table() {
 #[test]
 fn from_tsv_text_with_missing_columns_to_table() {
     Playground::setup("filter_from_tsv_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name	last_name	rusty_luck
@@ -247,7 +247,7 @@ fn from_tsv_text_with_missing_columns_to_table() {
 #[test]
 fn from_tsv_text_with_multiple_char_comment() {
     Playground::setup("filter_from_tsv_test_7", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name	last_name	rusty_luck
@@ -272,7 +272,7 @@ fn from_tsv_text_with_multiple_char_comment() {
 #[test]
 fn from_tsv_text_with_wrong_type_comment() {
     Playground::setup("filter_from_csv_test_8", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
             r#"
                 first_name	last_name	rusty_luck

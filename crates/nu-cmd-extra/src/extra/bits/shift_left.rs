@@ -1,12 +1,21 @@
 use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
-use num_traits::CheckedShl;
-use std::fmt::Display;
+use itertools::Itertools;
+use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_engine::command_prelude::*;
+
+use std::iter;
+
+struct Arguments {
+    signed: bool,
+    bits: usize,
+    number_size: NumberBytes,
+}
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        None
+    }
+}
 
 #[derive(Clone)]
 pub struct BitsShl;
@@ -20,11 +29,17 @@ impl Command for BitsShl {
         Signature::build("bits shl")
             .input_output_types(vec![
                 (Type::Int, Type::Int),
+                (Type::Binary, Type::Binary),
                 (
                     Type::List(Box::new(Type::Int)),
                     Type::List(Box::new(Type::Int)),
                 ),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Binary)),
+                ),
             ])
+            .allow_variants_without_examples(true)
             .required("bits", SyntaxShape::Int, "number of bits to shift left")
             .switch(
                 "signed",
@@ -33,7 +48,7 @@ impl Command for BitsShl {
             )
             .named(
                 "number-bytes",
-                SyntaxShape::String,
+                SyntaxShape::Int,
                 "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `8`",
                 Some('n'),
             )
@@ -41,7 +56,7 @@ impl Command for BitsShl {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise shift left for ints."
+        "Bitwise shift left for ints or binary values."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -58,27 +73,22 @@ impl Command for BitsShl {
         let head = call.head;
         let bits: usize = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
-        let number_bytes: Option<Spanned<String>> =
+        let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let bytes_len = get_number_bytes(number_bytes.as_ref());
-        if let NumberBytes::Invalid = bytes_len {
-            if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput {
-                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    input: "value originates from here".to_string(),
-                    msg_span: head,
-                    input_span: val.span,
-                });
-            }
-        }
+        let number_size = get_number_bytes(number_bytes, head)?;
+
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        input.map(
-            move |value| operate(value, bits, head, signed, bytes_len),
-            engine_state.ctrlc.clone(),
-        )
+
+        let args = Arguments {
+            signed,
+            number_size,
+            bits,
+        };
+
+        operate(action, args, input, head, engine_state.ctrlc.clone())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -86,17 +96,17 @@ impl Command for BitsShl {
             Example {
                 description: "Shift left a number by 7 bits",
                 example: "2 | bits shl 7",
-                result: Some(Value::test_int(256)),
+                result: Some(Value::test_int(0)),
             },
             Example {
-                description: "Shift left a number with 1 byte by 7 bits",
-                example: "2 | bits shl 7 --number-bytes '1'",
-                result: Some(Value::test_int(0)),
+                description: "Shift left a number with 2 byte by 7 bits",
+                example: "2 | bits shl 7 --number-bytes 2",
+                result: Some(Value::test_int(256)),
             },
             Example {
                 description: "Shift left a signed number by 1 bit",
                 example: "0x7F | bits shl 1 --signed",
-                result: Some(Value::test_int(254)),
+                result: Some(Value::test_int(-2)),
             },
             Example {
                 description: "Shift left a list of numbers",
@@ -106,75 +116,88 @@ impl Command for BitsShl {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Shift left a binary value",
+                example: "0x[4f f4] | bits shl 4",
+                result: Some(Value::binary(vec![0xff, 0x40], Span::test_data())),
+            },
         ]
     }
 }
 
-fn get_shift_left<T: CheckedShl + Display + Copy>(val: T, bits: u32, span: Span) -> Value
-where
-    i64: std::convert::TryFrom<T>,
-{
-    match val.checked_shl(bits) {
-        Some(val) => {
-            let shift_result = i64::try_from(val);
-            match shift_result {
-                Ok(val) => Value::int( val, span ),
-                Err(_) => Value::error(
-                    ShellError::GenericError {
-                        error:"Shift left result beyond the range of 64 bit signed number".into(),
-                        msg: format!(
-                            "{val} of the specified number of bytes shift left {bits} bits exceed limit"
-                        ),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    },
-                    span,
-                ),
-            }
-        }
-        None => Value::error(
-            ShellError::GenericError {
-                error: "Shift left failed".into(),
-                msg: format!("{val} shift left {bits} bits failed, you may shift too many bits"),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            },
-            span,
-        ),
-    }
-}
+fn action(input: &Value, args: &Arguments, span: Span) -> Value {
+    let Arguments {
+        signed,
+        number_size,
+        bits,
+    } = *args;
 
-fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: NumberBytes) -> Value {
-    let span = value.span();
-    match value {
+    match input {
         Value::Int { val, .. } => {
             use InputNumType::*;
-            // let bits = (((bits % 64) + 64) % 64) as u32;
-            let bits = bits as u32;
-            let input_type = get_input_num_type(val, signed, number_size);
-            match input_type {
-                One => get_shift_left(val as u8, bits, span),
-                Two => get_shift_left(val as u16, bits, span),
-                Four => get_shift_left(val as u32, bits, span),
-                Eight => get_shift_left(val as u64, bits, span),
-                SignedOne => get_shift_left(val as i8, bits, span),
-                SignedTwo => get_shift_left(val as i16, bits, span),
-                SignedFour => get_shift_left(val as i32, bits, span),
-                SignedEight => get_shift_left(val, bits, span),
-            }
+            let val = *val;
+            let bits = bits as u64;
+
+            let input_num_type = get_input_num_type(val, signed, number_size);
+            let int = match input_num_type {
+                One => ((val as u8) << bits) as i64,
+                Two => ((val as u16) << bits) as i64,
+                Four => ((val as u32) << bits) as i64,
+                Eight => {
+                    let Ok(i) = i64::try_from((val as u64) << bits) else {
+                        return Value::error(
+                            ShellError::GenericError {
+                                error: "result out of range for specified number".into(),
+                                msg: format!(
+                                    "shifting left by {bits} is out of range for the value {val}"
+                                ),
+                                span: Some(span),
+                                help: None,
+                                inner: vec![],
+                            },
+                            span,
+                        );
+                    };
+                    i
+                }
+                SignedOne => ((val as i8) << bits) as i64,
+                SignedTwo => ((val as i16) << bits) as i64,
+                SignedFour => ((val as i32) << bits) as i64,
+                SignedEight => val << bits,
+            };
+
+            Value::int(int, span)
+        }
+        Value::Binary { val, .. } => {
+            let byte_shift = bits / 8;
+            let bit_shift = bits % 8;
+
+            use itertools::Position::*;
+            let bytes = val
+                .iter()
+                .copied()
+                .skip(byte_shift)
+                .circular_tuple_windows::<(u8, u8)>()
+                .with_position()
+                .map(|(pos, (lhs, rhs))| match pos {
+                    Last | Only => lhs << bit_shift,
+                    _ => (lhs << bit_shift) | (rhs >> bit_shift),
+                })
+                .chain(iter::repeat(0).take(byte_shift))
+                .collect::<Vec<u8>>();
+
+            Value::binary(bytes, span)
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { .. } => value,
+        Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "int".into(),
+                exp_input_type: "int or binary".into(),
                 wrong_type: other.get_type().to_string(),
-                dst_span: head,
+                dst_span: span,
                 src_span: other.span(),
             },
-            head,
+            span,
         ),
     }
 }

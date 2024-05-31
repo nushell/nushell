@@ -1,12 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::Command,
-    engine::EngineState,
-    engine::Stack,
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -24,8 +16,8 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::String)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .named(
                 "text",

@@ -1,8 +1,6 @@
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use chrono::SecondsFormat;
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct ToToml;
@@ -14,7 +12,7 @@ impl Command for ToToml {
 
     fn signature(&self) -> Signature {
         Signature::build("to toml")
-            .input_output_types(vec![(Type::Record(vec![]), Type::String)])
+            .input_output_types(vec![(Type::record(), Type::String)])
             .category(Category::Formats)
     }
 
@@ -51,29 +49,20 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::Int { val, .. } => toml::Value::Integer(*val),
         Value::Filesize { val, .. } => toml::Value::Integer(*val),
         Value::Duration { val, .. } => toml::Value::String(val.to_string()),
-        Value::Date { val, .. } => toml::Value::String(val.to_string()),
+        Value::Date { val, .. } => {
+            toml::Value::String(val.to_rfc3339_opts(SecondsFormat::AutoSi, false))
+        }
         Value::Range { .. } => toml::Value::String("<Range>".to_string()),
         Value::Float { val, .. } => toml::Value::Float(*val),
-        Value::String { val, .. } | Value::QuotedString { val, .. } => {
-            toml::Value::String(val.clone())
-        }
+        Value::String { val, .. } | Value::Glob { val, .. } => toml::Value::String(val.clone()),
         Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
-            for (k, v) in val {
+            for (k, v) in &**val {
                 m.insert(k.clone(), helper(engine_state, v)?);
             }
             toml::Value::Table(m)
         }
-        Value::LazyRecord { val, .. } => {
-            let collected = val.collect()?;
-            helper(engine_state, &collected)?
-        }
         Value::List { vals, .. } => toml::Value::Array(toml_list(engine_state, vals)?),
-        Value::Block { .. } => {
-            let code = engine_state.get_span_contents(span);
-            let code = String::from_utf8_lossy(code).to_string();
-            toml::Value::String(code)
-        }
         Value::Closure { .. } => {
             let code = engine_state.get_span_contents(span);
             let code = String::from_utf8_lossy(code).to_string();
@@ -95,7 +84,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
                 })
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
-        Value::CustomValue { .. } => toml::Value::String("<Custom Value>".to_string()),
+        Value::Custom { .. } => toml::Value::String("<Custom Value>".to_string()),
     })
 }
 
@@ -152,7 +141,7 @@ fn to_toml(
     input: PipelineData,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(span);
+    let value = input.into_value(span)?;
 
     let toml_value = value_to_toml_value(engine_state, &value, span)?;
     match toml_value {
@@ -171,12 +160,32 @@ fn to_toml(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     #[test]
     fn test_examples() {
         use crate::test_examples;
 
         test_examples(ToToml {})
+    }
+
+    #[test]
+    fn to_toml_creates_correct_date() {
+        let engine_state = EngineState::new();
+
+        let test_date = Value::date(
+            chrono::FixedOffset::east_opt(60 * 120)
+                .unwrap()
+                .with_ymd_and_hms(1980, 10, 12, 10, 12, 44)
+                .unwrap(),
+            Span::test_data(),
+        );
+
+        let reference_date = toml::Value::String(String::from("1980-10-12T10:12:44+02:00"));
+
+        let result = helper(&engine_state, &test_date);
+
+        assert!(result.is_ok_and(|res| res == reference_date));
     }
 
     #[test]

@@ -1,6 +1,5 @@
-use nu_protocol::engine::{EngineState, StateWorkingSet};
-
 use crate::commands::*;
+use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 pub fn add_cli_context(mut engine_state: EngineState) -> EngineState {
     let delta = {
@@ -14,6 +13,9 @@ pub fn add_cli_context(mut engine_state: EngineState) -> EngineState {
 
         bind_command! {
             Commandline,
+            CommandlineEdit,
+            CommandlineGetCursor,
+            CommandlineSetCursor,
             History,
             HistorySession,
             Keybindings,

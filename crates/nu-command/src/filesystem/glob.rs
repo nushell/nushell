@@ -1,13 +1,5 @@
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use nu_engine::command_prelude::*;
+use std::sync::{atomic::AtomicBool, Arc};
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
@@ -186,7 +178,7 @@ impl Command for Glob {
             }
         };
 
-        let path = current_dir(engine_state, stack)?;
+        let path = engine_state.cwd_as_string(Some(stack))?;
         let path = match nu_path::canonicalize_with(prefix, path) {
             Ok(path) => path,
             Err(e) if e.to_string().contains("os error 2") =>
@@ -205,7 +197,7 @@ impl Command for Glob {
             }
         };
 
-        Ok(if !not_patterns.is_empty() {
+        let result = if !not_patterns.is_empty() {
             let np: Vec<&str> = not_patterns.iter().map(|s| s as &str).collect();
             let glob_results = glob
                 .walk_with_behavior(
@@ -224,10 +216,7 @@ impl Command for Glob {
                     inner: vec![],
                 })?
                 .flatten();
-            let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;
-            result
-                .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone())
+            glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)
         } else {
             let glob_results = glob
                 .walk_with_behavior(
@@ -238,11 +227,12 @@ impl Command for Glob {
                     },
                 )
                 .flatten();
-            let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;
-            result
-                .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone())
-        })
+            glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)
+        }?;
+
+        Ok(result
+            .into_iter()
+            .into_pipeline_data(span, engine_state.ctrlc.clone()))
     }
 }
 

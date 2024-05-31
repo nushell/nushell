@@ -1,12 +1,6 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
-use nu_engine::{scope::ScopeData, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, scope::ScopeData};
 
 #[derive(Clone)]
 pub struct HelpAliases;
@@ -34,7 +28,7 @@ impl Command for HelpAliases {
                 "string to find in alias names and usage",
                 Some('f'),
             )
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
     }
 
@@ -97,17 +91,12 @@ pub fn help_aliases(
             &highlight_style,
         )?;
 
-        return Ok(found_cmds_vec
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()));
+        return Ok(Value::list(found_cmds_vec, head).into_pipeline_data());
     }
 
     if rest.is_empty() {
         let found_cmds_vec = build_help_aliases(engine_state, stack, head);
-
-        Ok(found_cmds_vec
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(Value::list(found_cmds_vec, head).into_pipeline_data())
     } else {
         let mut name = String::new();
 
@@ -120,13 +109,13 @@ pub fn help_aliases(
 
         let Some(alias) = engine_state.find_decl(name.as_bytes(), &[]) else {
             return Err(ShellError::AliasNotFound {
-                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+                span: Span::merge_many(rest.iter().map(|s| s.span)),
             });
         };
 
         let Some(alias) = engine_state.get_decl(alias).as_alias() else {
             return Err(ShellError::AliasNotFound {
-                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+                span: Span::merge_many(rest.iter().map(|s| s.span)),
             });
         };
 

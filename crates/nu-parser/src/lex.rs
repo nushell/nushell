@@ -6,6 +6,8 @@ pub enum TokenContents {
     Comment,
     Pipe,
     PipePipe,
+    ErrGreaterPipe,
+    OutErrGreaterPipe,
     Semicolon,
     OutGreaterThan,
     OutGreaterGreaterThan,
@@ -127,7 +129,7 @@ pub fn lex_item(
                         },
                         Some(ParseError::UnexpectedEof(
                             (start as char).to_string(),
-                            Span::new(span.end, span.end),
+                            Span::new(span.end - 1, span.end),
                         )),
                     );
                 }
@@ -205,6 +207,36 @@ pub fn lex_item(
             // We encountered a closing `)` delimiter. Pop off the opening `(`.
             if let Some(BlockKind::Paren) = block_level.last() {
                 let _ = block_level.pop();
+            } else {
+                // We encountered a closing `)` delimiter, but the last opening
+                // delimiter was not a `(`. This is an error.
+                let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+
+                *curr_offset += 1;
+                return (
+                    Token {
+                        contents: TokenContents::Item,
+                        span,
+                    },
+                    Some(ParseError::Unbalanced(
+                        "(".to_string(),
+                        ")".to_string(),
+                        Span::new(span.end, span.end + 1),
+                    )),
+                );
+            }
+        } else if c == b'r' && input.get(*curr_offset + 1) == Some(b'#').as_ref() {
+            // already checked `r#` pattern, so it's a raw string.
+            let lex_result = lex_raw_string(input, curr_offset, span_offset);
+            let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
+            if let Err(e) = lex_result {
+                return (
+                    Token {
+                        contents: TokenContents::Item,
+                        span,
+                    },
+                    Some(e),
+                );
             }
         } else if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
             break;
@@ -214,21 +246,6 @@ pub fn lex_item(
     }
 
     let span = Span::new(span_offset + token_start, span_offset + *curr_offset);
-
-    // If there is still unclosed opening delimiters, remember they were missing
-    if let Some(block) = block_level.last() {
-        let delim = block.closing();
-        let cause =
-            ParseError::UnexpectedEof((delim as char).to_string(), Span::new(span.end, span.end));
-
-        return (
-            Token {
-                contents: TokenContents::Item,
-                span,
-            },
-            Some(cause),
-        );
-    }
 
     if let Some(delim) = quote_start {
         // The non-lite parse trims quotes on both sides, so we add the expected quote so that
@@ -241,8 +258,25 @@ pub fn lex_item(
             },
             Some(ParseError::UnexpectedEof(
                 (delim as char).to_string(),
-                Span::new(span.end, span.end),
+                Span::new(span.end - 1, span.end),
             )),
+        );
+    }
+
+    // If there is still unclosed opening delimiters, remember they were missing
+    if let Some(block) = block_level.last() {
+        let delim = block.closing();
+        let cause = ParseError::UnexpectedEof(
+            (delim as char).to_string(),
+            Span::new(span.end - 1, span.end),
+        );
+
+        return (
+            Token {
+                contents: TokenContents::Item,
+                span,
+            },
+            Some(cause),
         );
     }
 
@@ -310,6 +344,67 @@ pub fn lex_item(
         },
     };
     (output, err)
+}
+
+fn lex_raw_string(
+    input: &[u8],
+    curr_offset: &mut usize,
+    span_offset: usize,
+) -> Result<(), ParseError> {
+    // A raw string literal looks like `echo r#'Look, I can use 'single quotes'!'#`
+    // If the next character is `#` we're probably looking at a raw string literal
+    // so we need to read all the text until we find a closing `#`. This raw string
+    // can contain any character, including newlines and double quotes without needing
+    // to escape them.
+    //
+    // A raw string can contain many `#` as prefix,
+    // incase if there is a `'#` or `#'` in the string itself.
+    // E.g: r##'I can use '#' in a raw string'##
+    let mut prefix_sharp_cnt = 0;
+    let start = *curr_offset;
+    while let Some(b'#') = input.get(start + prefix_sharp_cnt + 1) {
+        prefix_sharp_cnt += 1;
+    }
+
+    // curr_offset is the character `r`, we need to move forward and skip all `#`
+    // characters.
+    //
+    // e.g: r###'<body>
+    //      ^
+    //      ^
+    //   curr_offset
+    *curr_offset += prefix_sharp_cnt + 1;
+    // the next one should be a single quote.
+    if input.get(*curr_offset) != Some(&b'\'') {
+        return Err(ParseError::Expected(
+            "'",
+            Span::new(span_offset + *curr_offset, span_offset + *curr_offset + 1),
+        ));
+    }
+
+    *curr_offset += 1;
+    let mut matches = false;
+    while let Some(ch) = input.get(*curr_offset) {
+        // check for postfix '###
+        if *ch == b'#' {
+            let start_ch = input[*curr_offset - prefix_sharp_cnt];
+            let postfix = &input[*curr_offset - prefix_sharp_cnt + 1..=*curr_offset];
+            if start_ch == b'\'' && postfix.iter().all(|x| *x == b'#') {
+                matches = true;
+                break;
+            }
+        }
+        *curr_offset += 1
+    }
+    if !matches {
+        let mut expected = '\''.to_string();
+        expected.push_str(&"#".repeat(prefix_sharp_cnt));
+        return Err(ParseError::UnexpectedEof(
+            expected,
+            Span::new(span_offset + *curr_offset - 1, span_offset + *curr_offset),
+        ));
+    }
+    Ok(())
 }
 
 pub fn lex_signature(
@@ -485,8 +580,14 @@ fn lex_internal(
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
         } else {
-            // Otherwise, try to consume an unclassified token.
+            let token = try_lex_special_piped_item(input, &mut curr_offset, span_offset);
+            if let Some(token) = token {
+                output.push(token);
+                is_complete = false;
+                continue;
+            }
 
+            // Otherwise, try to consume an unclassified token.
             let (token, err) = lex_item(
                 input,
                 &mut curr_offset,
@@ -503,4 +604,50 @@ fn lex_internal(
         }
     }
     (output, error)
+}
+
+/// trying to lex for the following item:
+/// e>|, e+o>|, o+e>|
+///
+/// It returns Some(token) if we find the item, or else return None.
+fn try_lex_special_piped_item(
+    input: &[u8],
+    curr_offset: &mut usize,
+    span_offset: usize,
+) -> Option<Token> {
+    let c = input[*curr_offset];
+    let e_pipe_len = 3;
+    let eo_pipe_len = 5;
+    let offset = *curr_offset;
+    if c == b'e' {
+        // expect `e>|`
+        if (offset + e_pipe_len <= input.len()) && (&input[offset..offset + e_pipe_len] == b"e>|") {
+            *curr_offset += e_pipe_len;
+            return Some(Token::new(
+                TokenContents::ErrGreaterPipe,
+                Span::new(span_offset + offset, span_offset + offset + e_pipe_len),
+            ));
+        }
+        if (offset + eo_pipe_len <= input.len())
+            && (&input[offset..offset + eo_pipe_len] == b"e+o>|")
+        {
+            *curr_offset += eo_pipe_len;
+            return Some(Token::new(
+                TokenContents::OutErrGreaterPipe,
+                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+            ));
+        }
+    } else if c == b'o' {
+        // it can be the following case: `o+e>|`
+        if (offset + eo_pipe_len <= input.len())
+            && (&input[offset..offset + eo_pipe_len] == b"o+e>|")
+        {
+            *curr_offset += eo_pipe_len;
+            return Some(Token::new(
+                TokenContents::OutErrGreaterPipe,
+                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+            ));
+        }
+    }
+    None
 }

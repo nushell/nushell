@@ -1,11 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    into_code, Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature,
-    Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::{into_code, Config};
 use nu_utils::get_system_locale;
 use num_format::ToFormattedString;
 
@@ -36,6 +31,7 @@ impl Command for SubCommand {
                 (Type::Int, Type::String),
                 (Type::Number, Type::String),
                 (Type::String, Type::String),
+                (Type::Glob, Type::String),
                 (Type::Bool, Type::String),
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
@@ -44,8 +40,8 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .rest(
@@ -159,26 +155,32 @@ fn string_helper(
     }
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-    let config = engine_state.get_config().clone();
-    let args = Arguments {
-        decimals_value,
-        cell_paths,
-        config,
-    };
 
-    match input {
-        PipelineData::ExternalStream { stdout: None, .. } => {
-            Ok(Value::string(String::new(), head).into_pipeline_data())
+    if let PipelineData::ByteStream(stream, metadata) = input {
+        // Just set the type - that should be good enough. There is no guarantee that the data
+        // within a string stream is actually valid UTF-8. But refuse to do it if it was already set
+        // to binary
+        if stream.type_().is_string_coercible() {
+            Ok(PipelineData::ByteStream(
+                stream.with_type(ByteStreamType::String),
+                metadata,
+            ))
+        } else {
+            Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: "binary".into(),
+                span: stream.span(),
+                help: Some("try using the `decode` command".into()),
+            })
         }
-        PipelineData::ExternalStream {
-            stdout: Some(stream),
-            ..
-        } => {
-            // TODO: in the future, we may want this to stream out, converting each to bytes
-            let output = stream.into_string()?;
-            Ok(Value::string(output.item, head).into_pipeline_data())
-        }
-        _ => operate(action, args, input, head, engine_state.ctrlc.clone()),
+    } else {
+        let config = engine_state.get_config().clone();
+        let args = Arguments {
+            decimals_value,
+            cell_paths,
+            config,
+        };
+        operate(action, args, input, head, engine_state.ctrlc.clone())
     }
 }
 
@@ -202,9 +204,12 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
         Value::String { val, .. } => Value::string(val.to_string(), span),
+        Value::Glob { val, .. } => Value::string(val.to_string(), span),
 
-        Value::Filesize { val: _, .. } => Value::string(input.into_string(", ", config), span),
-        Value::Duration { val: _, .. } => Value::string(input.into_string("", config), span),
+        Value::Filesize { val: _, .. } => {
+            Value::string(input.to_expanded_string(", ", config), span)
+        }
+        Value::Duration { val: _, .. } => Value::string(input.to_expanded_string("", config), span),
 
         Value::Error { error, .. } => Value::string(into_code(error).unwrap_or_default(), span),
         Value::Nothing { .. } => Value::string("".to_string(), span),
@@ -227,6 +232,21 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             },
             span,
         ),
+        Value::Custom { val, .. } => {
+            // Only custom values that have a base value that can be converted to string are
+            // accepted.
+            val.to_base_value(input.span())
+                .and_then(|base_value| match action(&base_value, args, span) {
+                    Value::Error { .. } => Err(ShellError::CantConvert {
+                        to_type: String::from("string"),
+                        from_type: val.type_name(),
+                        span,
+                        help: Some("this custom value can't be represented as a string".into()),
+                    }),
+                    success => Ok(success),
+                })
+                .unwrap_or_else(|err| Value::error(err, span))
+        }
         x => Value::error(
             ShellError::CantConvert {
                 to_type: String::from("string"),

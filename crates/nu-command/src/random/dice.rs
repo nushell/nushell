@@ -1,9 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ListStream;
 use rand::prelude::{thread_rng, Rng};
 
 #[derive(Clone)]
@@ -82,10 +78,7 @@ fn dice(
         Value::int(thread_rng.gen_range(1..sides + 1) as i64, span)
     });
 
-    Ok(PipelineData::ListStream(
-        ListStream::from_stream(iter, engine_state.ctrlc.clone()),
-        None,
-    ))
+    Ok(ListStream::new(iter, span, engine_state.ctrlc.clone()).into())
 }
 
 #[cfg(test)]

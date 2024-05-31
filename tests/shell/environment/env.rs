@@ -121,15 +121,24 @@ fn load_env_pwd_env_var_fails() {
 #[test]
 fn passes_with_env_env_var_to_external_process() {
     let actual = nu!("
-        with-env [FOO foo] {nu --testbin echo_env FOO}
+        with-env { FOO: foo } {nu --testbin echo_env FOO}
         ");
     assert_eq!(actual.out, "foo");
 }
 
 #[test]
+fn hides_environment_from_child() {
+    let actual = nu!(r#"
+        $env.TEST = 1; ^$nu.current-exe -c "hide-env TEST; ^$nu.current-exe -c '$env.TEST'"
+    "#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("cannot find column"));
+}
+
+#[test]
 fn has_file_pwd() {
     Playground::setup("has_file_pwd", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent("spam.nu", "$env.FILE_PWD")]);
+        sandbox.with_files(&[FileWithContent("spam.nu", "$env.FILE_PWD")]);
 
         let actual = nu!(cwd: dirs.test(), "nu spam.nu");
 
@@ -140,7 +149,7 @@ fn has_file_pwd() {
 #[test]
 fn has_file_loc() {
     Playground::setup("has_file_pwd", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent("spam.nu", "$env.CURRENT_FILE")]);
+        sandbox.with_files(&[FileWithContent("spam.nu", "$env.CURRENT_FILE")]);
 
         let actual = nu!(cwd: dirs.test(), "nu spam.nu");
 
@@ -154,7 +163,7 @@ fn has_file_loc() {
 #[serial]
 fn passes_env_from_local_cfg_to_external_process() {
     Playground::setup("autoenv_dir", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             ".nu-env",
             r#"[env]
             FOO = "foo"
@@ -193,4 +202,16 @@ fn env_var_not_var() {
         echo $PWD
         ");
     assert!(actual.err.contains("use $env.PWD instead of $PWD"));
+}
+
+#[test]
+fn env_var_case_insensitive() {
+    let actual = nu!("
+        $env.foo = 111
+        print $env.Foo
+        $env.FOO = 222
+        print $env.foo
+    ");
+    assert!(actual.out.contains("111"));
+    assert!(actual.out.contains("222"));
 }

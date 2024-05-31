@@ -151,9 +151,8 @@ fn commands_declare_input_output_types() {
         let sig_name = cmd.signature().name;
         let category = cmd.signature().category;
 
-        if matches!(category, Category::Removed | Category::Custom(_)) {
+        if matches!(category, Category::Removed) {
             // Deprecated/Removed commands don't have to conform
-            // TODO: also upgrade the `--features dataframe` commands
             continue;
         }
 
@@ -233,7 +232,7 @@ fn usage_start_uppercase() {
 
         // Check lowercase to allow usage to contain syntax like:
         //
-        // "`let-env FOO = ...` …"
+        // "`$env.FOO = ...`"
         if usage.starts_with(|u: char| u.is_lowercase()) {
             failures.push(format!("{cmd_name}: \"{usage}\""));
         }

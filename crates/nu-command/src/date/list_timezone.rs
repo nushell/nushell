@@ -1,10 +1,5 @@
 use chrono_tz::TZ_VARIANTS;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -16,7 +11,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("date list-timezone")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .category(Category::Date)
     }
 
@@ -35,23 +30,23 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
+        let head = call.head;
 
         Ok(TZ_VARIANTS
             .iter()
             .map(move |x| {
                 Value::record(
-                    record! { "timezone" => Value::string(x.name(), span) },
-                    span,
+                    record! { "timezone" => Value::string(x.name(), head) },
+                    head,
                 )
             })
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data(head, engine_state.ctrlc.clone()))
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             example: "date list-timezone | where timezone =~ Shanghai",
-            description: "Show timezone(s) that contains 'Shanghai'",
+            description: "Show time zone(s) that contains 'Shanghai'",
             result: Some(Value::test_list(vec![Value::test_record(record! {
                 "timezone" => Value::test_string("Asia/Shanghai"),
             })])),

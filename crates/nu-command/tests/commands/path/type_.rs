@@ -18,9 +18,7 @@ fn returns_type_of_missing_file() {
 #[test]
 fn returns_type_of_existing_file() {
     Playground::setup("path_expand_1", |dirs, sandbox| {
-        sandbox
-            .within("menu")
-            .with_files(vec![EmptyFile("spam.txt")]);
+        sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -37,9 +35,7 @@ fn returns_type_of_existing_file() {
 #[test]
 fn returns_type_of_existing_directory() {
     Playground::setup("path_expand_1", |dirs, sandbox| {
-        sandbox
-            .within("menu")
-            .with_files(vec![EmptyFile("spam.txt")]);
+        sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -65,9 +61,7 @@ fn returns_type_of_existing_directory() {
 #[test]
 fn returns_type_of_existing_file_const() {
     Playground::setup("path_type_const", |dirs, sandbox| {
-        sandbox
-            .within("menu")
-            .with_files(vec![EmptyFile("spam.txt")]);
+        sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
@@ -78,5 +72,16 @@ fn returns_type_of_existing_file_const() {
         ));
 
         assert_eq!(actual.out, "dir");
+    })
+}
+
+#[test]
+fn respects_cwd() {
+    Playground::setup("path_type_respects_cwd", |dirs, sandbox| {
+        sandbox.within("foo").with_files(&[EmptyFile("bar.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), "cd foo; 'bar.txt' | path type");
+
+        assert_eq!(actual.out, "file");
     })
 }

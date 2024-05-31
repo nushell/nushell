@@ -1,25 +1,10 @@
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Record, Value};
-pub struct Example;
+use nu_plugin::EvaluatedCall;
+use nu_protocol::{LabeledError, Value};
 
-impl Example {
-    pub fn config(
-        &self,
-        config: &Option<Value>,
-        call: &EvaluatedCall,
-    ) -> Result<Value, LabeledError> {
-        match config {
-            Some(config) => Ok(config.clone()),
-            None => Err(LabeledError {
-                label: "No config sent".into(),
-                msg: "Configuration for this plugin was not found in `$env.config.plugins.example`"
-                    .into(),
-                span: Some(call.head),
-            }),
-        }
-    }
+pub struct ExamplePlugin;
 
-    fn print_values(
+impl ExamplePlugin {
+    pub fn print_values(
         &self,
         index: u32,
         call: &EvaluatedCall,
@@ -64,39 +49,5 @@ impl Example {
         }
 
         Ok(())
-    }
-
-    pub fn test1(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-        self.print_values(1, call, input)?;
-
-        Ok(Value::nothing(call.head))
-    }
-
-    pub fn test2(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-        self.print_values(2, call, input)?;
-
-        let cols = vec!["one".to_string(), "two".to_string(), "three".to_string()];
-
-        let vals = (0..10i64)
-            .map(|i| {
-                let vals = (0..3)
-                    .map(|v| Value::int(v * i, call.head))
-                    .collect::<Vec<Value>>();
-
-                Value::record(Record::from_raw_cols_vals(cols.clone(), vals), call.head)
-            })
-            .collect::<Vec<Value>>();
-
-        Ok(Value::list(vals, call.head))
-    }
-
-    pub fn test3(&self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-        self.print_values(3, call, input)?;
-
-        Err(LabeledError {
-            label: "ERROR from plugin".into(),
-            msg: "error message pointing to call head span".into(),
-            span: Some(call.head),
-        })
     }
 }

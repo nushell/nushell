@@ -1,7 +1,4 @@
-use nu_engine::get_full_help;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value};
+use nu_engine::{command_prelude::*, get_full_help};
 
 #[derive(Clone)]
 pub struct From;
@@ -32,16 +29,6 @@ impl Command for From {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(
-            get_full_help(
-                &From.signature(),
-                &From.examples(),
-                engine_state,
-                stack,
-                self.is_parser_keyword(),
-            ),
-            call.head,
-        )
-        .into_pipeline_data())
+        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
 }

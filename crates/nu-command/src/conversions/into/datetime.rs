@@ -1,15 +1,8 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::NaiveTime;
-use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveTime, TimeZone, Utc};
 use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
@@ -46,7 +39,7 @@ impl Zone {
             Self::Error // Out of range
         }
     }
-    fn from_string(s: String) -> Self {
+    fn from_string(s: &str) -> Self {
         match s.to_ascii_lowercase().as_str() {
             "utc" | "u" => Self::Utc,
             "local" | "l" => Self::Local,
@@ -69,8 +62,8 @@ impl Command for SubCommand {
             (Type::Int, Type::Date),
             (Type::String, Type::Date),
             (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Date))),
-            (Type::Table(vec![]), Type::Table(vec![])),
-            (Type::Record(vec![]), Type::Record(vec![])),
+            (Type::table(), Type::table()),
+            (Type::record(), Type::record()),
         ])
         .allow_variants_without_examples(true)
         .named(
@@ -133,7 +126,7 @@ impl Command for SubCommand {
                         span: zone_offset.span,
                     }),
                     None => timezone.as_ref().map(|zone| Spanned {
-                        item: Zone::from_string(zone.item.clone()),
+                        item: Zone::from_string(&zone.item),
                         span: zone.span,
                     }),
                 };
@@ -261,11 +254,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     // Let's try dtparse first
     if matches!(input, Value::String { .. }) && dateformat.is_none() {
-        if let Ok(input_val) = input.as_spanned_string() {
-            match parse_date_from_string(&input_val.item, input_val.span) {
-                Ok(date) => return Value::date(date, input_val.span),
+        let span = input.span();
+        if let Ok(input_val) = input.coerce_str() {
+            match parse_date_from_string(&input_val, span) {
+                Ok(date) => return Value::date(date, span),
                 Err(_) => {
-                    if let Ok(date) = from_human_time(&input_val.item) {
+                    if let Ok(date) = from_human_time(&input_val) {
                         match date {
                             ParseResult::Date(date) => {
                                 let time = NaiveTime::from_hms_opt(0, 0, 0).expect("valid time");
@@ -274,10 +268,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                     combined,
                                     *Local::now().offset(),
                                 );
-                                return Value::date(dt_fixed, input_val.span);
+                                return Value::date(dt_fixed, span);
                             }
                             ParseResult::DateTime(date) => {
-                                return Value::date(date.fixed_offset(), input_val.span)
+                                return Value::date(date.fixed_offset(), span)
                             }
                             ParseResult::Time(time) => {
                                 let date = Local::now().date_naive();
@@ -286,7 +280,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                     combined,
                                     *Local::now().offset(),
                                 );
-                                return Value::date(dt_fixed, input_val.span);
+                                return Value::date(dt_fixed, span);
                             }
                         }
                     }
@@ -338,7 +332,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         None => Value::error(
                             ShellError::DatetimeParseError {
-                                msg: input.debug_value(),
+                                msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
                                 span: *span,
                             },
                             *span,
@@ -351,7 +345,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                         }
                         None => Value::error(
                             ShellError::DatetimeParseError {
-                                msg: input.debug_value(),
+                                msg: input.to_abbreviated_string(&nu_protocol::Config::default()),
                                 span: *span,
                             },
                             *span,

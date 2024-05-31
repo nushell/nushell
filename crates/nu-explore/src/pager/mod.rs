@@ -3,15 +3,19 @@ mod events;
 pub mod report;
 mod status_bar;
 
-use std::{
-    cmp::min,
-    io::{self, Result, Stdout},
-    result,
-    sync::atomic::Ordering,
+use self::{
+    command_bar::CommandBar,
+    report::{Report, Severity},
+    status_bar::StatusBar,
 };
-
-use std::collections::HashMap;
-
+use super::views::{Layout, View};
+use crate::{
+    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
+    registry::{Command, CommandRegistry},
+    util::map_into_value,
+    views::{util::nu_style_to_tui, ViewConfig},
+};
+use anyhow::Result;
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
     execute,
@@ -20,6 +24,7 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
+use events::UIEvents;
 use lscolors::LsColors;
 use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
@@ -27,25 +32,15 @@ use nu_protocol::{
     Record, Value,
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
-
-use crate::{
-    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
-    registry::{Command, CommandRegistry},
-    util::map_into_value,
-    views::{util::nu_style_to_tui, ViewConfig},
+use std::{
+    cmp::min,
+    collections::HashMap,
+    io::{self, Stdout},
+    result,
+    sync::atomic::Ordering,
 };
 
-use self::{
-    command_bar::CommandBar,
-    report::{Report, Severity},
-    status_bar::StatusBar,
-};
-
-use super::views::{Layout, View};
-
-use events::UIEvents;
-
-pub type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
+pub type Frame<'a> = ratatui::Frame<'a>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
 pub type ConfigMap = HashMap<String, Value>;
 
@@ -148,8 +143,8 @@ impl<'a> Pager<'a> {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub enum Transition {
+    // TODO: should we add a noop transition instead of doing Option<Transition> everywhere?
     Ok,
     Exit,
     Cmd(String),
@@ -162,8 +157,9 @@ pub struct PagerConfig<'a> {
     pub lscolors: &'a LsColors,
     pub config: ConfigMap,
     pub style: StyleConfig,
+    // If true, when quitting output the value of the cell the cursor was on
     pub peek_value: bool,
-    pub reverse: bool,
+    pub tail: bool,
 }
 
 impl<'a> PagerConfig<'a> {
@@ -179,7 +175,7 @@ impl<'a> PagerConfig<'a> {
             config,
             lscolors,
             peek_value: false,
-            reverse: false,
+            tail: false,
             style: StyleConfig::default(),
         }
     }
@@ -254,7 +250,7 @@ fn render_ui(
         {
             let info = info.clone();
             term.draw(|f| {
-                draw_frame(f, &mut view_stack.view, pager, &mut layout, info);
+                draw_frame(f, &mut view_stack.curr_view, pager, &mut layout, info);
             })?;
         }
 
@@ -266,7 +262,7 @@ fn render_ui(
             info,
             &mut pager.search_buf,
             &mut pager.cmd_buf,
-            view_stack.view.as_mut().map(|p| &mut p.view),
+            view_stack.curr_view.as_mut().map(|p| &mut p.view),
         );
 
         if let Some(transition) = transition {
@@ -302,14 +298,14 @@ fn render_ui(
         if pager.cmd_buf.run_cmd {
             let args = pager.cmd_buf.buf_cmd2.clone();
             pager.cmd_buf.run_cmd = false;
-            pager.cmd_buf.buf_cmd2 = String::new();
+            pager.cmd_buf.buf_cmd2.clear();
 
             let out =
                 pager_run_command(engine_state, stack, pager, &mut view_stack, &commands, args);
             match out {
                 Ok(result) => {
                     if result.exit {
-                        break Ok(peak_value_from_view(&mut view_stack.view, pager));
+                        break Ok(peek_value_from_view(&mut view_stack.curr_view, pager));
                     }
 
                     if result.view_change && !result.cmd_name.is_empty() {
@@ -343,21 +339,21 @@ fn react_to_event_result(
 ) -> (Option<Option<Value>>, String) {
     match status {
         Transition::Exit => (
-            Some(peak_value_from_view(&mut view_stack.view, pager)),
+            Some(peek_value_from_view(&mut view_stack.curr_view, pager)),
             String::default(),
         ),
         Transition::Ok => {
             let exit = view_stack.stack.is_empty();
             if exit {
                 return (
-                    Some(peak_value_from_view(&mut view_stack.view, pager)),
+                    Some(peek_value_from_view(&mut view_stack.curr_view, pager)),
                     String::default(),
                 );
             }
 
             // try to pop the view stack
             if let Some(v) = view_stack.stack.pop() {
-                view_stack.view = Some(v);
+                view_stack.curr_view = Some(v);
             }
 
             (None, String::default())
@@ -366,7 +362,7 @@ fn react_to_event_result(
             let out = pager_run_command(engine_state, stack, pager, view_stack, commands, cmd);
             match out {
                 Ok(result) if result.exit => (
-                    Some(peak_value_from_view(&mut view_stack.view, pager)),
+                    Some(peek_value_from_view(&mut view_stack.curr_view, pager)),
                     String::default(),
                 ),
                 Ok(result) => (None, result.cmd_name),
@@ -379,9 +375,13 @@ fn react_to_event_result(
     }
 }
 
-fn peak_value_from_view(view: &mut Option<Page>, pager: &mut Pager<'_>) -> Option<Value> {
-    let view = view.as_mut().map(|p| &mut p.view);
-    try_to_peek_value(pager, view)
+fn peek_value_from_view(view: &mut Option<Page>, pager: &mut Pager<'_>) -> Option<Value> {
+    if pager.config.peek_value {
+        let view = view.as_mut().map(|p| &mut p.view);
+        view.and_then(|v| v.exit())
+    } else {
+        None
+    }
 }
 
 fn draw_frame(
@@ -460,7 +460,7 @@ fn run_command(
     match command {
         Command::Reactive(mut command) => {
             // what we do we just replace the view.
-            let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
+            let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
             let transition = command.react(engine_state, stack, pager, value)?;
             match transition {
                 Transition::Ok => {
@@ -477,18 +477,18 @@ fn run_command(
                 Transition::Cmd { .. } => todo!("not used so far"),
             }
         }
-        Command::View { mut cmd, is_light } => {
+        Command::View { mut cmd, stackable } => {
             // what we do we just replace the view.
-            let value = view_stack.view.as_mut().and_then(|p| p.view.exit());
+            let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
             let mut new_view = cmd.spawn(engine_state, stack, value)?;
-            if let Some(view) = view_stack.view.take() {
-                if !view.is_light {
+            if let Some(view) = view_stack.curr_view.take() {
+                if !view.stackable {
                     view_stack.stack.push(view);
                 }
             }
 
             update_view_setup(&mut new_view, &pager.config);
-            view_stack.view = Some(Page::raw(new_view, is_light));
+            view_stack.curr_view = Some(Page::raw(new_view, stackable));
 
             Ok(CmdResult::new(false, true, cmd.name().to_owned()))
         }
@@ -496,7 +496,7 @@ fn run_command(
 }
 
 fn update_view_stack_setup(view_stack: &mut ViewStack, cfg: &PagerConfig<'_>) {
-    if let Some(page) = view_stack.view.as_mut() {
+    if let Some(page) = view_stack.curr_view.as_mut() {
         update_view_setup(&mut page.view, cfg);
     }
 
@@ -525,17 +525,6 @@ fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
         if next_pos < area.width {
             f.set_cursor(next_pos, area.height - 1);
         }
-    }
-}
-
-fn try_to_peek_value<V>(pager: &mut Pager, view: Option<&mut V>) -> Option<Value>
-where
-    V: View,
-{
-    if pager.config.peek_value {
-        view.and_then(|v| v.exit())
-    } else {
-        None
     }
 }
 
@@ -821,21 +810,21 @@ fn handle_general_key_events2<V>(
 {
     match key.code {
         KeyCode::Char('?') => {
-            search.buf_cmd_input = String::new();
+            search.buf_cmd_input.clear();
             search.is_search_input = true;
             search.is_reversed = true;
 
             info.report = None;
         }
         KeyCode::Char('/') => {
-            search.buf_cmd_input = String::new();
+            search.buf_cmd_input.clear();
             search.is_search_input = true;
             search.is_reversed = false;
 
             info.report = None;
         }
         KeyCode::Char(':') => {
-            command.buf_cmd2 = String::new();
+            command.buf_cmd2.clear();
             command.is_cmd_input = true;
             command.cmd_exec_info = None;
 
@@ -844,7 +833,7 @@ fn handle_general_key_events2<V>(
         KeyCode::Char('n') => {
             if !search.search_results.is_empty() {
                 if search.buf_cmd_input.is_empty() {
-                    search.buf_cmd_input = search.buf_cmd.clone();
+                    search.buf_cmd_input.clone_from(&search.buf_cmd);
                 }
 
                 if search.search_index + 1 == search.search_results.len() {
@@ -870,7 +859,7 @@ fn search_input_key_event(
 ) -> bool {
     match &key.code {
         KeyCode::Esc => {
-            buf.buf_cmd_input = String::new();
+            buf.buf_cmd_input.clear();
 
             if let Some(view) = view {
                 if !buf.buf_cmd.is_empty() {
@@ -885,7 +874,7 @@ fn search_input_key_event(
             true
         }
         KeyCode::Enter => {
-            buf.buf_cmd = buf.buf_cmd_input.clone();
+            buf.buf_cmd.clone_from(&buf.buf_cmd_input);
             buf.is_search_input = false;
 
             true
@@ -989,7 +978,8 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
                     buf.cmd_history_pos + 1,
                     buf.cmd_history.len().saturating_sub(1),
                 );
-                buf.buf_cmd2 = buf.cmd_history[buf.cmd_history_pos].clone();
+                buf.buf_cmd2
+                    .clone_from(&buf.cmd_history[buf.cmd_history_pos]);
             }
 
             true
@@ -998,7 +988,8 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
             if !buf.cmd_history.is_empty() {
                 buf.cmd_history_allow = true;
                 buf.cmd_history_pos = buf.cmd_history_pos.saturating_sub(1);
-                buf.buf_cmd2 = buf.cmd_history[buf.cmd_history_pos].clone();
+                buf.buf_cmd2
+                    .clone_from(&buf.cmd_history[buf.cmd_history_pos]);
             }
 
             true
@@ -1008,7 +999,7 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
 }
 
 fn value_as_style(style: &mut nu_ansi_term::Style, value: &Value) -> bool {
-    match value.as_string() {
+    match value.coerce_str() {
         Ok(s) => {
             *style = lookup_ansi_color_style(&s);
             true
@@ -1043,7 +1034,7 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
             if path.len() == 2 {
                 let key = path[1];
 
-                record.insert(key, value);
+                record.to_mut().insert(key, value);
             } else {
                 let mut hm2: HashMap<String, Value> = HashMap::new();
                 for (k, v) in record.iter() {
@@ -1097,30 +1088,35 @@ impl Position {
 
 pub struct Page {
     pub view: Box<dyn View>,
-    pub is_light: bool,
+    /// Controls what happens when this view is the current view and a new view is created.
+    /// If true, view will be pushed to the stack, otherwise, it will be deleted.
+    pub stackable: bool,
 }
 
 impl Page {
-    pub fn raw(view: Box<dyn View>, is_light: bool) -> Self {
-        Self { view, is_light }
+    pub fn raw(view: Box<dyn View>, stackable: bool) -> Self {
+        Self { view, stackable }
     }
 
-    pub fn new<V>(view: V, is_light: bool) -> Self
+    pub fn new<V>(view: V, stackable: bool) -> Self
     where
         V: View + 'static,
     {
-        Self::raw(Box::new(view), is_light)
+        Self::raw(Box::new(view), stackable)
     }
 }
 
 struct ViewStack {
-    view: Option<Page>,
+    curr_view: Option<Page>,
     stack: Vec<Page>,
 }
 
 impl ViewStack {
     fn new(view: Option<Page>, stack: Vec<Page>) -> Self {
-        Self { view, stack }
+        Self {
+            curr_view: view,
+            stack,
+        }
     }
 }
 

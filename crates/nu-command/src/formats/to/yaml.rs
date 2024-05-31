@@ -1,8 +1,5 @@
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::ast::PathMember;
 
 #[derive(Clone)]
 pub struct ToYaml;
@@ -52,22 +49,18 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         Value::Date { val, .. } => serde_yaml::Value::String(val.to_string()),
         Value::Range { .. } => serde_yaml::Value::Null,
         Value::Float { val, .. } => serde_yaml::Value::Number(serde_yaml::Number::from(*val)),
-        Value::String { val, .. } | Value::QuotedString { val, .. } => {
+        Value::String { val, .. } | Value::Glob { val, .. } => {
             serde_yaml::Value::String(val.clone())
         }
         Value::Record { val, .. } => {
             let mut m = serde_yaml::Mapping::new();
-            for (k, v) in val {
+            for (k, v) in &**val {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
                     value_to_yaml_value(v)?,
                 );
             }
             serde_yaml::Value::Mapping(m)
-        }
-        Value::LazyRecord { val, .. } => {
-            let collected = val.collect()?;
-            value_to_yaml_value(&collected)?
         }
         Value::List { vals, .. } => {
             let mut out = vec![];
@@ -78,7 +71,6 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
 
             serde_yaml::Value::Sequence(out)
         }
-        Value::Block { .. } => serde_yaml::Value::Null,
         Value::Closure { .. } => serde_yaml::Value::Null,
         Value::Nothing { .. } => serde_yaml::Value::Null,
         Value::Error { error, .. } => return Err(*error.clone()),
@@ -98,12 +90,12 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
                 })
                 .collect::<Result<Vec<serde_yaml::Value>, ShellError>>()?,
         ),
-        Value::CustomValue { .. } => serde_yaml::Value::Null,
+        Value::Custom { .. } => serde_yaml::Value::Null,
     })
 }
 
 fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(head);
+    let value = input.into_value(head)?;
 
     let yaml_value = value_to_yaml_value(&value)?;
     match serde_yaml::to_string(&yaml_value) {

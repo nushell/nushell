@@ -1,9 +1,10 @@
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
-        ExternalArgument, Math, Operator, RecordItem,
+        ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
-    Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
+    debugger::DebugContext,
+    Config, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -17,7 +18,7 @@ pub trait Eval {
     /// This is the stack for regular eval, and unused by const eval
     type MutState;
 
-    fn eval(
+    fn eval<D: DebugContext>(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         expr: &Expression,
@@ -34,20 +35,26 @@ pub trait Eval {
             Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
             Expr::FullCellPath(cell_path) => {
-                let value = Self::eval(state, mut_state, &cell_path.head)?;
+                let value = Self::eval::<D>(state, mut_state, &cell_path.head)?;
 
-                value.follow_cell_path(&cell_path.tail, false)
+                // Cell paths are usually case-sensitive, but we give $env
+                // special treatment.
+                if cell_path.head.expr == Expr::Var(ENV_VARIABLE_ID) {
+                    value.follow_cell_path(&cell_path.tail, true)
+                } else {
+                    value.follow_cell_path(&cell_path.tail, false)
+                }
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
-            Expr::List(x) => {
+            Expr::List(list) => {
                 let mut output = vec![];
-                for expr in x {
-                    match &expr.expr {
-                        Expr::Spread(expr) => match Self::eval(state, mut_state, expr)? {
-                            Value::List { mut vals, .. } => output.append(&mut vals),
+                for item in list {
+                    match item {
+                        ListItem::Item(expr) => output.push(Self::eval::<D>(state, mut_state, expr)?),
+                        ListItem::Spread(_, expr) => match Self::eval::<D>(state, mut_state, expr)? {
+                            Value::List { vals, .. } => output.extend(vals),
                             _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                         },
-                        _ => output.push(Self::eval(state, mut_state, expr)?),
                     }
                 }
                 Ok(Value::list(output, expr.span))
@@ -59,7 +66,7 @@ pub trait Eval {
                     match item {
                         RecordItem::Pair(col, val) => {
                             // avoid duplicate cols
-                            let col_name = Self::eval(state, mut_state, col)?.as_string()?;
+                            let col_name = Self::eval::<D>(state, mut_state, col)?.coerce_into_string()?;
                             if let Some(orig_span) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
@@ -68,13 +75,13 @@ pub trait Eval {
                                 });
                             } else {
                                 col_names.insert(col_name.clone(), col.span);
-                                record.push(col_name, Self::eval(state, mut_state, val)?);
+                                record.push(col_name, Self::eval::<D>(state, mut_state, val)?);
                             }
                         }
                         RecordItem::Spread(_, inner) => {
-                            match Self::eval(state, mut_state, inner)? {
+                            match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
-                                    for (col_name, val) in inner_val {
+                                    for (col_name, val) in inner_val.into_owned() {
                                         if let Some(orig_span) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,
@@ -99,10 +106,10 @@ pub trait Eval {
 
                 Ok(Value::record(record, expr.span))
             }
-            Expr::Table(headers, vals) => {
+            Expr::Table(table) => {
                 let mut output_headers = vec![];
-                for expr in headers {
-                    let header = Self::eval(state, mut_state, expr)?.as_string()?;
+                for expr in table.columns.as_ref() {
+                    let header = Self::eval::<D>(state, mut_state, expr)?.coerce_into_string()?;
                     if let Some(idx) = output_headers
                         .iter()
                         .position(|existing| existing == &header)
@@ -110,7 +117,7 @@ pub trait Eval {
                         return Err(ShellError::ColumnDefinedTwice {
                             col_name: header,
                             second_use: expr.span,
-                            first_use: headers[idx].span,
+                            first_use: table.columns[idx].span,
                         });
                     } else {
                         output_headers.push(header);
@@ -118,63 +125,63 @@ pub trait Eval {
                 }
 
                 let mut output_rows = vec![];
-                for val in vals {
-                    let mut row = vec![];
-                    for expr in val {
-                        row.push(Self::eval(state, mut_state, expr)?);
-                    }
-                    // length equality already ensured in parser
+                for val in table.rows.as_ref() {
+                    let record = output_headers.iter().zip(val.as_ref()).map(|(col, expr)| {
+                        Self::eval::<D>(state, mut_state, expr).map(|val| (col.clone(), val))
+                    }).collect::<Result<_,_>>()?;
+
                     output_rows.push(Value::record(
-                        Record::from_raw_cols_vals(output_headers.clone(), row),
+                        record,
                         expr.span,
                     ));
                 }
                 Ok(Value::list(output_rows, expr.span))
             }
-            Expr::Keyword(_, _, expr) => Self::eval(state, mut_state, expr),
-            Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
+            Expr::Keyword(kw) => Self::eval::<D>(state, mut_state, &kw.expr),
+            Expr::String(s) | Expr::RawString(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
-            Expr::ValueWithUnit(e, unit) => match Self::eval(state, mut_state, e)? {
-                Value::Int { val, .. } => unit.item.to_value(val, unit.span),
+            Expr::ValueWithUnit(value) => match Self::eval::<D>(state, mut_state, &value.expr)? {
+                Value::Int { val, .. } => value.unit.item.build_value(val, value.unit.span),
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),
-                    span: e.span,
+                    span: value.expr.span,
                     help: None,
                 }),
             },
-            Expr::Call(call) => Self::eval_call(state, mut_state, call, expr.span),
-            Expr::ExternalCall(head, args, is_subexpression) => {
-                Self::eval_external_call(state, mut_state, head, args, *is_subexpression, expr.span)
+            Expr::Call(call) => Self::eval_call::<D>(state, mut_state, call, expr.span),
+            Expr::ExternalCall(head, args) => {
+                Self::eval_external_call(state, mut_state, head, args, expr.span)
             }
             Expr::Subexpression(block_id) => {
-                Self::eval_subexpression(state, mut_state, *block_id, expr.span)
+                Self::eval_subexpression::<D>(state, mut_state, *block_id, expr.span)
             }
-            Expr::Range(from, next, to, operator) => {
-                let from = if let Some(f) = from {
-                    Self::eval(state, mut_state, f)?
+            Expr::Range(range) => {
+                let from = if let Some(f) = &range.from {
+                    Self::eval::<D>(state, mut_state, f)?
                 } else {
                     Value::nothing(expr.span)
                 };
 
-                let next = if let Some(s) = next {
-                    Self::eval(state, mut_state, s)?
+                let next = if let Some(s) = &range.next {
+                    Self::eval::<D>(state, mut_state, s)?
                 } else {
                     Value::nothing(expr.span)
                 };
 
-                let to = if let Some(t) = to {
-                    Self::eval(state, mut_state, t)?
+                let to = if let Some(t) = &range.to {
+                    Self::eval::<D>(state, mut_state, t)?
                 } else {
                     Value::nothing(expr.span)
                 };
+
                 Ok(Value::range(
-                    Range::new(expr.span, from, next, to, operator)?,
+                    Range::new(from, next, to, range.operator.inclusion, expr.span)?,
                     expr.span,
                 ))
             }
             Expr::UnaryNot(expr) => {
-                let lhs = Self::eval(state, mut_state, expr)?;
+                let lhs = Self::eval::<D>(state, mut_state, expr)?;
                 match lhs {
                     Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
                     other => Err(ShellError::TypeMismatch {
@@ -189,13 +196,13 @@ pub trait Eval {
 
                 match op {
                     Operator::Boolean(boolean) => {
-                        let lhs = Self::eval(state, mut_state, lhs)?;
+                        let lhs = Self::eval::<D>(state, mut_state, lhs)?;
                         match boolean {
                             Boolean::And => {
                                 if lhs.is_false() {
                                     Ok(Value::bool(false, expr.span))
                                 } else {
-                                    let rhs = Self::eval(state, mut_state, rhs)?;
+                                    let rhs = Self::eval::<D>(state, mut_state, rhs)?;
                                     lhs.and(op_span, &rhs, expr.span)
                                 }
                             }
@@ -203,19 +210,19 @@ pub trait Eval {
                                 if lhs.is_true() {
                                     Ok(Value::bool(true, expr.span))
                                 } else {
-                                    let rhs = Self::eval(state, mut_state, rhs)?;
+                                    let rhs = Self::eval::<D>(state, mut_state, rhs)?;
                                     lhs.or(op_span, &rhs, expr.span)
                                 }
                             }
                             Boolean::Xor => {
-                                let rhs = Self::eval(state, mut_state, rhs)?;
+                                let rhs = Self::eval::<D>(state, mut_state, rhs)?;
                                 lhs.xor(op_span, &rhs, expr.span)
                             }
                         }
                     }
                     Operator::Math(math) => {
-                        let lhs = Self::eval(state, mut_state, lhs)?;
-                        let rhs = Self::eval(state, mut_state, rhs)?;
+                        let lhs = Self::eval::<D>(state, mut_state, lhs)?;
+                        let rhs = Self::eval::<D>(state, mut_state, rhs)?;
 
                         match math {
                             Math::Plus => lhs.add(op_span, &rhs, expr.span),
@@ -229,8 +236,8 @@ pub trait Eval {
                         }
                     }
                     Operator::Comparison(comparison) => {
-                        let lhs = Self::eval(state, mut_state, lhs)?;
-                        let rhs = Self::eval(state, mut_state, rhs)?;
+                        let lhs = Self::eval::<D>(state, mut_state, lhs)?;
+                        let rhs = Self::eval::<D>(state, mut_state, rhs)?;
                         match comparison {
                             Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
                             Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
@@ -251,8 +258,8 @@ pub trait Eval {
                         }
                     }
                     Operator::Bits(bits) => {
-                        let lhs = Self::eval(state, mut_state, lhs)?;
-                        let rhs = Self::eval(state, mut_state, rhs)?;
+                        let lhs = Self::eval::<D>(state, mut_state, lhs)?;
+                        let rhs = Self::eval::<D>(state, mut_state, rhs)?;
                         match bits {
                             Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
                             Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
@@ -261,44 +268,34 @@ pub trait Eval {
                             Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
                         }
                     }
-                    Operator::Assignment(assignment) => Self::eval_assignment(
-                        state, mut_state, lhs, rhs, assignment, op_span, expr.span,
+                    Operator::Assignment(assignment) => Self::eval_assignment::<D>(
+                        state, mut_state, lhs, rhs, assignment, op_span, expr.span
                     ),
                 }
             }
-            Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
             Expr::StringInterpolation(exprs) => {
-                let mut parts = vec![];
-                for expr in exprs {
-                    parts.push(Self::eval(state, mut_state, expr)?);
-                }
-
                 let config = Self::get_config(state, mut_state);
+                let str = exprs
+                    .iter()
+                    .map(|expr| Self::eval::<D>(state, mut_state, expr).map(|v| v.to_expanded_string(", ", &config)))
+                    .collect::<Result<String, _>>()?;
 
-                parts
-                    .into_iter()
-                    .into_pipeline_data(None)
-                    .collect_string("", &config)
-                    .map(|x| Value::string(x, expr.span))
+                Ok(Value::string(str, expr.span))
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
             Expr::GlobPattern(pattern, quoted) => {
                 // GlobPattern is similar to Filepath
                 // But we don't want to expand path during eval time, it's required for `nu_engine::glob_from` to run correctly
-                if *quoted {
-                    Ok(Value::quoted_string(pattern, expr.span))
-                } else {
-                    Ok(Value::string(pattern, expr.span))
-                }
+                Ok(Value::glob(pattern, *quoted, expr.span))
             }
             Expr::MatchBlock(_) // match blocks are handled by `match`
+            | Expr::Block(_) // blocks are handled directly by core commands
             | Expr::VarDecl(_)
             | Expr::ImportPattern(_)
             | Expr::Signature(_)
-            | Expr::Spread(_)
             | Expr::Operator(_)
             | Expr::Garbage => Self::unreachable(expr),
         }
@@ -329,7 +326,7 @@ pub trait Eval {
         span: Span,
     ) -> Result<Value, ShellError>;
 
-    fn eval_call(
+    fn eval_call<D: DebugContext>(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         call: &Call,
@@ -341,11 +338,10 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         head: &Expression,
         args: &[ExternalArgument],
-        is_subexpression: bool,
         span: Span,
     ) -> Result<Value, ShellError>;
 
-    fn eval_subexpression(
+    fn eval_subexpression<D: DebugContext>(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         block_id: usize,
@@ -361,7 +357,8 @@ pub trait Eval {
         expr_span: Span,
     ) -> Result<Value, ShellError>;
 
-    fn eval_assignment(
+    #[allow(clippy::too_many_arguments)]
+    fn eval_assignment<D: DebugContext>(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         lhs: &Expression,

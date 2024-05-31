@@ -1,11 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use num_traits::ToPrimitive;
 
 pub struct Arguments {
@@ -35,9 +30,8 @@ impl Command for BitsInto {
                 (Type::Duration, Type::String),
                 (Type::String, Type::String),
                 (Type::Bool, Type::String),
-                (Type::Date, Type::String),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .rest(
@@ -70,7 +64,7 @@ impl Command for BitsInto {
         vec![
             Example {
                 description: "convert a binary value into a string, padded to 8 places with 0s",
-                example: "01b | into bits",
+                example: "0x[1] | into bits",
                 result: Some(Value::string("00000001",
                     Span::test_data(),
                 )),
@@ -104,13 +98,6 @@ impl Command for BitsInto {
                 )),
             },
             Example {
-                description: "convert a datetime value into a string, padded to 8 places with 0s",
-                example: "2023-04-17T01:02:03 | into bits",
-                result: Some(Value::string("01001101 01101111 01101110 00100000 01000001 01110000 01110010 00100000 00110001 00110111 00100000 00110000 00110001 00111010 00110000 00110010 00111010 00110000 00110011 00100000 00110010 00110000 00110010 00110011",
-                    Span::test_data(),
-                )),
-            },
-            Example {
                 description: "convert a string into a raw binary string, padded with 0s to 8 places",
                 example: "'nushell.sh' | into bits",
                 result: Some(Value::string("01101110 01110101 01110011 01101000 01100101 01101100 01101100 00101110 01110011 01101000",
@@ -131,22 +118,12 @@ fn into_bits(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    match input {
-        PipelineData::ExternalStream { stdout: None, .. } => {
-            Ok(Value::binary(vec![], head).into_pipeline_data())
-        }
-        PipelineData::ExternalStream {
-            stdout: Some(stream),
-            ..
-        } => {
-            // TODO: in the future, we may want this to stream out, converting each to bytes
-            let output = stream.into_bytes()?;
-            Ok(Value::binary(output.item, head).into_pipeline_data())
-        }
-        _ => {
-            let args = Arguments { cell_paths };
-            operate(action, args, input, call.head, engine_state.ctrlc.clone())
-        }
+    if let PipelineData::ByteStream(stream, ..) = input {
+        // TODO: in the future, we may want this to stream out, converting each to bytes
+        Ok(Value::binary(stream.into_bytes()?, head).into_pipeline_data())
+    } else {
+        let args = Arguments { cell_paths };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 }
 
@@ -206,20 +183,11 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
             let v = <i64 as From<bool>>::from(*val);
             convert_to_smallest_number_type(v, span)
         }
-        Value::Date { val, .. } => {
-            let value = val.format("%c").to_string();
-            let bytes = value.as_bytes();
-            let mut raw_string = "".to_string();
-            for ch in bytes {
-                raw_string.push_str(&format!("{:08b} ", ch));
-            }
-            Value::string(raw_string.trim(), span)
-        }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "int, filesize, string, date, duration, binary, or bool".into(),
+                exp_input_type: "int, filesize, string, duration, binary, or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.span(),

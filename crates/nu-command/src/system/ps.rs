@@ -1,27 +1,9 @@
 #[cfg(windows)]
 use itertools::Itertools;
-use nu_engine::CallExt;
-#[cfg(all(
-    unix,
-    not(target_os = "macos"),
-    not(target_os = "windows"),
-    not(target_os = "android"),
-))]
-use nu_protocol::Span;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Type, Value,
-};
-#[cfg(all(
-    unix,
-    not(target_os = "macos"),
-    not(target_os = "windows"),
-    not(target_os = "android"),
-))]
-use procfs::WithCurrentSystemInfo;
+use nu_engine::command_prelude::*;
 
+#[cfg(target_os = "linux")]
+use procfs::WithCurrentSystemInfo;
 use std::time::Duration;
 
 #[derive(Clone)]
@@ -34,7 +16,7 @@ impl Command for Ps {
 
     fn signature(&self) -> Signature {
         Signature::build("ps")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .switch(
                 "long",
                 "list all available columns for each entry",
@@ -121,12 +103,7 @@ fn run_ps(
 
         if long {
             record.push("command", Value::string(proc.command(), span));
-            #[cfg(all(
-                unix,
-                not(target_os = "macos"),
-                not(target_os = "windows"),
-                not(target_os = "android"),
-            ))]
+            #[cfg(target_os = "linux")]
             {
                 let proc_stat = proc
                     .curr_proc
@@ -205,5 +182,5 @@ fn run_ps(
 
     Ok(output
         .into_iter()
-        .into_pipeline_data(engine_state.ctrlc.clone()))
+        .into_pipeline_data(span, engine_state.ctrlc.clone()))
 }

@@ -1,79 +1,103 @@
+use std::{
+    collections::BTreeMap,
+    sync::{atomic::AtomicU64, Mutex},
+};
+
+use handle_custom_value::HandleCustomValue;
+use nu_plugin::{serve_plugin, EngineInterface, MsgPackSerializer, Plugin, PluginCommand};
+
 mod cool_custom_value;
+mod handle_custom_value;
 mod second_custom_value;
 
-use cool_custom_value::CoolCustomValue;
-use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin};
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, PluginSignature, ShellError, Value};
-use second_custom_value::SecondCustomValue;
+mod drop_check;
+mod generate;
+mod generate2;
+mod handle_get;
+mod handle_make;
+mod handle_update;
+mod update;
+mod update_arg;
 
-struct CustomValuePlugin;
+use drop_check::{DropCheck, DropCheckValue};
+use generate::Generate;
+use generate2::Generate2;
+use handle_get::HandleGet;
+use handle_make::HandleMake;
+use handle_update::HandleUpdate;
+use nu_protocol::{CustomValue, LabeledError, Spanned, Value};
+use update::Update;
+use update_arg::UpdateArg;
 
-impl Plugin for CustomValuePlugin {
-    fn signature(&self) -> Vec<nu_protocol::PluginSignature> {
-        vec![
-            PluginSignature::build("custom-value generate")
-                .usage("PluginSignature for a plugin that generates a custom value")
-                .category(Category::Experimental),
-            PluginSignature::build("custom-value generate2")
-                .usage("PluginSignature for a plugin that generates a different custom value")
-                .category(Category::Experimental),
-            PluginSignature::build("custom-value update")
-                .usage("PluginSignature for a plugin that updates a custom value")
-                .category(Category::Experimental),
-        ]
-    }
-
-    fn run(
-        &mut self,
-        name: &str,
-        _config: &Option<Value>,
-        call: &EvaluatedCall,
-        input: &Value,
-    ) -> Result<Value, LabeledError> {
-        match name {
-            "custom-value generate" => self.generate(call, input),
-            "custom-value generate2" => self.generate2(call, input),
-            "custom-value update" => self.update(call, input),
-            _ => Err(LabeledError {
-                label: "Plugin call with wrong name signature".into(),
-                msg: "the signature used to call the plugin does not match any name in the plugin signature vector".into(),
-                span: Some(call.head),
-            }),
-        }
-    }
+#[derive(Default)]
+pub struct CustomValuePlugin {
+    counter: AtomicU64,
+    handles: Mutex<BTreeMap<u64, Value>>,
 }
 
 impl CustomValuePlugin {
-    fn generate(&mut self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
-        Ok(CoolCustomValue::new("abc").into_value(call.head))
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Plugin for CustomValuePlugin {
+    fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
+        vec![
+            Box::new(Generate),
+            Box::new(Generate2),
+            Box::new(Update),
+            Box::new(UpdateArg),
+            Box::new(DropCheck),
+            Box::new(HandleGet),
+            Box::new(HandleMake),
+            Box::new(HandleUpdate),
+        ]
     }
 
-    fn generate2(&mut self, call: &EvaluatedCall, _input: &Value) -> Result<Value, LabeledError> {
-        Ok(SecondCustomValue::new("xyz").into_value(call.head))
+    fn custom_value_to_base_value(
+        &self,
+        _engine: &EngineInterface,
+        custom_value: Spanned<Box<dyn CustomValue>>,
+    ) -> Result<Value, LabeledError> {
+        // HandleCustomValue depends on the plugin state to get.
+        if let Some(handle) = custom_value
+            .item
+            .as_any()
+            .downcast_ref::<HandleCustomValue>()
+        {
+            Ok(self
+                .handles
+                .lock()
+                .map_err(|err| LabeledError::new(err.to_string()))?
+                .get(&handle.0)
+                .cloned()
+                .unwrap_or_else(|| Value::nothing(custom_value.span)))
+        } else {
+            custom_value
+                .item
+                .to_base_value(custom_value.span)
+                .map_err(|err| err.into())
+        }
     }
 
-    fn update(&mut self, call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
-        if let Ok(mut value) = CoolCustomValue::try_from_value(input) {
-            value.cool += "xyz";
-            return Ok(value.into_value(call.head));
+    fn custom_value_dropped(
+        &self,
+        _engine: &EngineInterface,
+        custom_value: Box<dyn CustomValue>,
+    ) -> Result<(), LabeledError> {
+        // This is how we implement our drop behavior.
+        if let Some(drop_check) = custom_value.as_any().downcast_ref::<DropCheckValue>() {
+            drop_check.notify();
+        } else if let Some(handle) = custom_value.as_any().downcast_ref::<HandleCustomValue>() {
+            if let Ok(mut handles) = self.handles.lock() {
+                handles.remove(&handle.0);
+            }
         }
-
-        if let Ok(mut value) = SecondCustomValue::try_from_value(input) {
-            value.something += "abc";
-            return Ok(value.into_value(call.head));
-        }
-
-        Err(ShellError::CantConvert {
-            to_type: "cool or second".into(),
-            from_type: "non-cool and non-second".into(),
-            span: call.head,
-            help: None,
-        }
-        .into())
+        Ok(())
     }
 }
 
 fn main() {
-    serve_plugin(&mut CustomValuePlugin, MsgPackSerializer {})
+    serve_plugin(&CustomValuePlugin::default(), MsgPackSerializer {})
 }

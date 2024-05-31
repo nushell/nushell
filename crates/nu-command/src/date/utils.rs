@@ -8,7 +8,7 @@ pub(crate) fn parse_date_from_string(
     match dtparse::parse(input) {
         Ok((native_dt, fixed_offset)) => {
             let offset = match fixed_offset {
-                Some(fo) => fo,
+                Some(offset) => offset,
                 None => *(Local::now().offset()),
             };
             match offset.from_local_datetime(&native_dt) {
@@ -46,7 +46,7 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         description: &'a str,
     }
 
-    let specifications = vec![
+    let specifications = [
         FormatSpecification {
             spec: "%Y",
             description: "The full proleptic Gregorian year, zero-padded to 4 digits.",

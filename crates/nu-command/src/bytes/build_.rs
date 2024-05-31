@@ -1,10 +1,4 @@
-use nu_engine::eval_expression;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::{command_prelude::*, get_eval_expression};
 
 #[derive(Clone)]
 pub struct BytesBuild;
@@ -30,14 +24,21 @@ impl Command for BytesBuild {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: "bytes build 0x[01 02] 0x[03] 0x[04]",
-            description: "Builds binary data from 0x[01 02], 0x[03], 0x[04]",
-            result: Some(Value::binary(
-                vec![0x01, 0x02, 0x03, 0x04],
-                Span::test_data(),
-            )),
-        }]
+        vec![
+            Example {
+                example: "bytes build 0x[01 02] 0x[03] 0x[04]",
+                description: "Builds binary data from 0x[01 02], 0x[03], 0x[04]",
+                result: Some(Value::binary(
+                    vec![0x01, 0x02, 0x03, 0x04],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                example: "bytes build 255 254 253 252",
+                description: "Builds binary data from byte numbers",
+                result: Some(Value::test_binary(vec![0xff, 0xfe, 0xfd, 0xfc])),
+            },
+        ]
     }
 
     fn run(
@@ -48,9 +49,21 @@ impl Command for BytesBuild {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let mut output = vec![];
-        for val in call.rest_iter_flattened(0, |expr| eval_expression(engine_state, stack, expr))? {
+        for val in call.rest_iter_flattened(0, |expr| {
+            let eval_expression = get_eval_expression(engine_state);
+            eval_expression(engine_state, stack, expr)
+        })? {
+            let val_span = val.span();
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),
+                Value::Int { val, .. } => {
+                    let byte: u8 = val.try_into().map_err(|_| ShellError::IncorrectValue {
+                        msg: format!("{val} is out of range for byte"),
+                        val_span,
+                        call_span: call.head,
+                    })?;
+                    output.push(byte);
+                }
                 // Explicitly propagate errors instead of dropping them.
                 Value::Error { error, .. } => return Err(*error),
                 other => {

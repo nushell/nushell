@@ -1,20 +1,17 @@
-use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
+use crate::eval_call;
 use nu_protocol::{
-    ast::Call,
-    engine::{EngineState, Stack},
+    ast::{Argument, Call, Expr, Expression, RecordItem},
+    debugger::WithoutDebug,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
     Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
-use crate::eval_call;
-
 pub fn get_full_help(
-    sig: &Signature,
-    examples: &[Example],
+    command: &dyn Command,
     engine_state: &EngineState,
     stack: &mut Stack,
-    is_parser_keyword: bool,
 ) -> String {
     let config = engine_state.get_config();
     let doc_config = DocumentationConfig {
@@ -22,13 +19,17 @@ pub fn get_full_help(
         no_color: !config.use_ansi_coloring,
         brief: false,
     };
+
+    let stack = &mut stack.start_capture();
+    let signature = command.signature().update_from_command(command);
+
     get_documentation(
-        sig,
-        examples,
+        &signature,
+        &command.examples(),
         engine_state,
         stack,
         &doc_config,
-        is_parser_keyword,
+        command.is_keyword(),
     )
 }
 
@@ -51,7 +52,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
-            if let Ok(s) = result.as_string() {
+            if let Ok(s) = result.and_then(Value::coerce_into_string) {
                 return s; // successfully highlighted string
             }
         }
@@ -59,7 +60,6 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     code_string.to_string()
 }
 
-#[allow(clippy::cognitive_complexity)]
 fn get_documentation(
     sig: &Signature,
     examples: &[Example],
@@ -139,7 +139,7 @@ fn get_documentation(
     if !sig.named.is_empty() {
         long_desc.push_str(&get_flags_section(Some(engine_state), sig, |v| {
             nu_highlight_string(
-                &v.into_string_parsable(", ", &engine_state.config),
+                &v.to_parsable_string(", ", &engine_state.config),
                 engine_state,
                 stack,
             )
@@ -187,7 +187,7 @@ fn get_documentation(
                         format!(
                             " (optional, default: {})",
                             nu_highlight_string(
-                                &value.into_string_parsable(", ", &engine_state.config),
+                                &value.to_parsable_string(", ", &engine_state.config),
                                 engine_state,
                                 stack
                             )
@@ -234,16 +234,14 @@ fn get_documentation(
                 ));
             }
 
-            let mut caller_stack = Stack::new();
-            if let Ok(result) = eval_call(
+            let caller_stack = &mut Stack::new().capture();
+            if let Ok(result) = eval_call::<WithoutDebug>(
                 engine_state,
-                &mut caller_stack,
+                caller_stack,
                 &Call {
                     decl_id,
                     head: span,
                     arguments: vec![],
-                    redirect_stdout: true,
-                    redirect_stderr: true,
                     parser_info: HashMap::new(),
                 },
                 PipelineData::Value(Value::list(vals, span), None),
@@ -280,7 +278,7 @@ fn get_documentation(
             ) {
                 Ok(output) => {
                     let result = output.into_value(Span::unknown());
-                    match result.as_string() {
+                    match result.and_then(Value::coerce_into_string) {
                         Ok(s) => {
                             let _ = write!(long_desc, "\n  > {s}\n");
                         }
@@ -316,7 +314,7 @@ fn get_documentation(
                 let _ = writeln!(
                     long_desc,
                     "  {}",
-                    item.into_string("", engine_state.get_config())
+                    item.to_expanded_string("", engine_state.get_config())
                         .replace('\n', "\n  ")
                         .trim()
                 );
@@ -339,7 +337,7 @@ fn get_ansi_color_for_component_or_default(
     default: &str,
 ) -> String {
     if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
-        let mut caller_stack = Stack::new();
+        let caller_stack = &mut Stack::new().capture();
         let span = Span::unknown();
 
         let argument_opt = get_argument_for_color_value(engine_state, color, span);
@@ -347,15 +345,13 @@ fn get_ansi_color_for_component_or_default(
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
             if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-                if let Ok(result) = eval_call(
+                if let Ok(result) = eval_call::<WithoutDebug>(
                     engine_state,
-                    &mut caller_stack,
+                    caller_stack,
                     &Call {
                         decl_id,
                         head: span,
                         arguments: vec![argument],
-                        redirect_stdout: true,
-                        redirect_stderr: true,
                         parser_info: HashMap::new(),
                     },
                     PipelineData::Empty,
@@ -378,8 +374,8 @@ fn get_argument_for_color_value(
 ) -> Option<Argument> {
     match color {
         Value::Record { val, .. } => {
-            let record_exp: Vec<RecordItem> = val
-                .into_iter()
+            let record_exp: Vec<RecordItem> = (**val)
+                .iter()
                 .map(|(k, v)| {
                     RecordItem::Pair(
                         Expression {
@@ -390,7 +386,7 @@ fn get_argument_for_color_value(
                         },
                         Expression {
                             expr: Expr::String(
-                                v.clone().into_string("", engine_state.get_config()),
+                                v.clone().to_expanded_string("", engine_state.get_config()),
                             ),
                             span,
                             ty: Type::String,
@@ -402,10 +398,13 @@ fn get_argument_for_color_value(
 
             Some(Argument::Positional(Expression {
                 span: Span::unknown(),
-                ty: Type::Record(vec![
-                    ("fg".to_string(), Type::String),
-                    ("attr".to_string(), Type::String),
-                ]),
+                ty: Type::Record(
+                    [
+                        ("fg".to_string(), Type::String),
+                        ("attr".to_string(), Type::String),
+                    ]
+                    .into(),
+                ),
                 expr: Expr::Record(record_exp),
                 custom_completion: None,
             }))

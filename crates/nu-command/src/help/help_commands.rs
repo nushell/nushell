@@ -1,13 +1,6 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
-use nu_engine::{get_full_help, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
-use std::borrow::Borrow;
+use nu_engine::{command_prelude::*, get_full_help};
 
 #[derive(Clone)]
 pub struct HelpCommands;
@@ -35,7 +28,7 @@ impl Command for HelpCommands {
                 "string to find in command names, usage, and search terms",
                 Some('f'),
             )
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
     }
 
@@ -78,17 +71,12 @@ pub fn help_commands(
             &highlight_style,
         )?;
 
-        return Ok(found_cmds_vec
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()));
+        return Ok(Value::list(found_cmds_vec, head).into_pipeline_data());
     }
 
     if rest.is_empty() {
         let found_cmds_vec = build_help_commands(engine_state, head);
-
-        Ok(found_cmds_vec
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(Value::list(found_cmds_vec, head).into_pipeline_data())
     } else {
         let mut name = String::new();
 
@@ -100,12 +88,13 @@ pub fn help_commands(
         }
 
         let output = engine_state
-            .get_signatures_with_examples(false)
-            .iter()
-            .filter(|(signature, _, _, _, _)| signature.name == name)
-            .map(|(signature, examples, _, _, is_parser_keyword)| {
-                get_full_help(signature, examples, engine_state, stack, *is_parser_keyword)
+            .get_decls_sorted(false)
+            .into_iter()
+            .filter_map(|(_, decl_id)| {
+                let decl = engine_state.get_decl(decl_id);
+                (decl.name() == name).then_some(decl)
             })
+            .map(|cmd| get_full_help(cmd, engine_state, stack))
             .collect::<Vec<String>>();
 
         if !output.is_empty() {
@@ -115,7 +104,7 @@ pub fn help_commands(
             )
         } else {
             Err(ShellError::CommandNotFound {
-                span: span(&[rest[0].span, rest[rest.len() - 1].span]),
+                span: Span::merge_many(rest.iter().map(|s| s.span)),
             })
         }
     }
@@ -127,7 +116,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
 
     for (_, decl_id) in commands {
         let decl = engine_state.get_decl(decl_id);
-        let sig = decl.signature().update_from_command(decl.borrow());
+        let sig = decl.signature().update_from_command(decl);
 
         let key = sig.name;
         let usage = sig.usage;

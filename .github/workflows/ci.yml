@@ -10,7 +10,11 @@ env:
   NUSHELL_CARGO_PROFILE: ci
   NU_LOG_LEVEL: DEBUG
   # If changing these settings also change toolkit.nu
-  CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used"
+  CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used -D clippy::unchecked_duration_subtraction"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   fmt-clippy:
@@ -20,82 +24,55 @@ jobs:
         # Pinning to Ubuntu 20.04 because building on newer Ubuntu versions causes linux-gnu
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 20.04 is closer to EOL (April 2025)
-        platform: [windows-latest, macos-latest, ubuntu-20.04]
-        feature: [default, dataframe, extra]
-        include:
-          - feature: default
-            flags: ""
-          - feature: dataframe
-            flags: "--features=dataframe"
-          - feature: extra
-            flags: "--features=extra"
-        exclude:
-          - platform: windows-latest
-            feature: dataframe
-          - platform: macos-latest
-            feature: dataframe
+        #
+        # Using macOS 13 runner because 14 is based on the M1 and has half as much RAM (7 GB,
+        # instead of 14 GB) which is too little for us right now. Revisit when `dfr` commands are
+        # removed and we're only building the `polars` plugin instead
+        platform: [windows-latest, macos-13, ubuntu-20.04]
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-        with:
-          rustflags: ""
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
         # If changing these settings also change toolkit.nu
       - name: Clippy
-        run: cargo clippy --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- $CLIPPY_OPTIONS
+        run: cargo clippy --workspace --exclude nu_plugin_* -- $CLIPPY_OPTIONS
 
         # In tests we don't have to deny unwrap
       - name: Clippy of tests
-        run: cargo clippy --tests --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
+        run: cargo clippy --tests --workspace --exclude nu_plugin_* -- -D warnings
+
+      - name: Clippy of benchmarks
+        run: cargo clippy --benches --workspace --exclude nu_plugin_* -- -D warnings
 
   tests:
     strategy:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        feature: [default, dataframe, extra]
         include:
-          # linux CI cannot handle clipboard feature
           - default-flags: ""
-          - platform:  ubuntu-20.04
+          # linux CI cannot handle clipboard feature
+          - platform: ubuntu-20.04
             default-flags: "--no-default-features --features=default-no-clipboard"
-          - feature: default
-            flags: ""
-          - feature: dataframe
-            flags: "--features=dataframe"
-          - feature: extra
-            flags: "--features=extra"
-        exclude:
-          - platform: windows-latest
-            feature: dataframe
-          - platform: macos-latest
-            feature: dataframe
-          - platform: windows-latest
-            feature: extra
-          - platform: macos-latest
-            feature: extra
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-        with:
-          rustflags: ""
 
       - name: Tests
-        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.default-flags }} ${{ matrix.flags }}
-
+        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.default-flags }}
       - name: Check for clean repo
         shell: bash
         run: |
@@ -118,18 +95,19 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-        with:
-          rustflags: ""
 
       - name: Install Nushell
         run: cargo install --path . --locked --no-default-features
 
       - name: Standard library tests
         run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
+
+      - name: Ensure that Cargo.toml MSRV and rust-toolchain.toml use the same version
+        run: nu .github/workflows/check-msrv.nu
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -159,20 +137,22 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        platform: [windows-latest, macos-latest, ubuntu-20.04]
+        # Using macOS 13 runner because 14 is based on the M1 and has half as much RAM (7 GB,
+        # instead of 14 GB) which is too little for us right now.
+        #
+        # Failure occurring with clippy for rust 1.77.2
+        platform: [windows-latest, macos-13, ubuntu-20.04]
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-        with:
-          rustflags: ""
 
       - name: Clippy
-        run: cargo clippy --package nu_plugin_* ${{ matrix.flags }} -- $CLIPPY_OPTIONS
+        run: cargo clippy --package nu_plugin_* -- $CLIPPY_OPTIONS
 
       - name: Tests
         run: cargo test --profile ci --package nu_plugin_*

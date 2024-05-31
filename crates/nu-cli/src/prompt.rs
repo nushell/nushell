@@ -1,18 +1,23 @@
-use crate::prompt_update::{POST_PROMPT_MARKER, PRE_PROMPT_MARKER};
+use crate::prompt_update::{
+    POST_PROMPT_MARKER, PRE_PROMPT_MARKER, VSCODE_POST_PROMPT_MARKER, VSCODE_PRE_PROMPT_MARKER,
+};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    Value,
+};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use reedline::DefaultPrompt;
-use {
-    reedline::{
-        Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
-    },
-    std::borrow::Cow,
+use reedline::{
+    DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
+    PromptViMode,
 };
+use std::borrow::Cow;
 
 /// Nushell prompt definition
 #[derive(Clone)]
 pub struct NushellPrompt {
-    shell_integration: bool,
+    shell_integration_osc133: bool,
+    shell_integration_osc633: bool,
     left_prompt_string: Option<String>,
     right_prompt_string: Option<String>,
     default_prompt_indicator: Option<String>,
@@ -20,12 +25,20 @@ pub struct NushellPrompt {
     default_vi_normal_prompt_indicator: Option<String>,
     default_multiline_indicator: Option<String>,
     render_right_prompt_on_last_line: bool,
+    engine_state: EngineState,
+    stack: Stack,
 }
 
 impl NushellPrompt {
-    pub fn new(shell_integration: bool) -> NushellPrompt {
+    pub fn new(
+        shell_integration_osc133: bool,
+        shell_integration_osc633: bool,
+        engine_state: EngineState,
+        stack: Stack,
+    ) -> NushellPrompt {
         NushellPrompt {
-            shell_integration,
+            shell_integration_osc133,
+            shell_integration_osc633,
             left_prompt_string: None,
             right_prompt_string: None,
             default_prompt_indicator: None,
@@ -33,6 +46,8 @@ impl NushellPrompt {
             default_vi_normal_prompt_indicator: None,
             default_multiline_indicator: None,
             render_right_prompt_on_last_line: false,
+            engine_state,
+            stack,
         }
     }
 
@@ -108,7 +123,19 @@ impl Prompt for NushellPrompt {
                 .to_string()
                 .replace('\n', "\r\n");
 
-            if self.shell_integration {
+            if self.shell_integration_osc633 {
+                if self.stack.get_env_var(&self.engine_state, "TERM_PROGRAM")
+                    == Some(Value::test_string("vscode"))
+                {
+                    // We're in vscode and we have osc633 enabled
+                    format!("{VSCODE_PRE_PROMPT_MARKER}{prompt}{VSCODE_POST_PROMPT_MARKER}").into()
+                } else if self.shell_integration_osc133 {
+                    // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
+                    format!("{PRE_PROMPT_MARKER}{prompt}{POST_PROMPT_MARKER}").into()
+                } else {
+                    prompt.into()
+                }
+            } else if self.shell_integration_osc133 {
                 format!("{PRE_PROMPT_MARKER}{prompt}{POST_PROMPT_MARKER}").into()
             } else {
                 prompt.into()

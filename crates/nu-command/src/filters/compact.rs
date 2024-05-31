@@ -1,8 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call, engine::Command, engine::EngineState, engine::Stack, record, Category, Example,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Compact;
@@ -33,6 +29,10 @@ impl Command for Compact {
 
     fn usage(&self) -> &str {
         "Creates a table with non-empty rows."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["empty", "remove"]
     }
 
     fn run(

@@ -1,10 +1,5 @@
 use indexmap::IndexMap;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Values;
@@ -17,8 +12,8 @@ impl Command for Values {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::List(Box::new(Type::Any))),
-                (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+                (Type::record(), Type::List(Box::new(Type::Any))),
+                (Type::table(), Type::List(Box::new(Type::Any))),
             ])
             .category(Category::Filters)
     }
@@ -111,7 +106,7 @@ pub fn get_values<'a>(
     for item in input {
         match item {
             Value::Record { val, .. } => {
-                for (k, v) in val {
+                for (k, v) in &**val {
                     if let Some(vec) = output.get_mut(k) {
                         vec.push(v.clone());
                     } else {
@@ -149,34 +144,23 @@ fn values(
                 Value::List { vals, .. } => match get_values(&vals, head, span) {
                     Ok(cols) => Ok(cols
                         .into_iter()
-                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                        .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                     Err(err) => Err(err),
                 },
-                Value::CustomValue { val, .. } => {
+                Value::Custom { val, .. } => {
                     let input_as_base_value = val.to_base_value(span)?;
                     match get_values(&[input_as_base_value], head, span) {
                         Ok(cols) => Ok(cols
                             .into_iter()
-                            .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                            .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                         Err(err) => Err(err),
                     }
                 }
                 Value::Record { val, .. } => Ok(val
-                    .into_values()
-                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
-                Value::LazyRecord { val, .. } => {
-                    let record = match val.collect()? {
-                        Value::Record { val, .. } => val,
-                        _ => Err(ShellError::NushellFailedSpanned {
-                            msg: "`LazyRecord::collect()` promises `Value::Record`".into(),
-                            label: "Violating lazy record found here".into(),
-                            span,
-                        })?,
-                    };
-                    Ok(record
-                        .into_values()
-                        .into_pipeline_data_with_metadata(metadata, ctrlc))
-                }
+                    .values()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {
@@ -192,17 +176,15 @@ fn values(
             match get_values(&vals, head, head) {
                 Ok(cols) => Ok(cols
                     .into_iter()
-                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                    .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
                 Err(err) => Err(err),
             }
         }
-        PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),
-            wrong_type: "raw data".into(),
+            wrong_type: stream.type_().describe().into(),
             dst_span: head,
-            src_span: input
-                .span()
-                .expect("PipelineData::ExternalStream had no span"),
+            src_span: stream.span(),
         }),
     }
 }

@@ -1,12 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
-};
-use nu_protocol::{IntoPipelineData, Span};
-use std::marker::PhantomData;
+use nu_engine::command_prelude::*;
+use std::{io::Write, marker::PhantomData};
 
 pub trait HashDigest: digest::Digest + Clone {
     fn name() -> &'static str;
@@ -43,7 +37,7 @@ impl CmdArgument for Arguments {
 
 impl<D> Command for GenericDigest<D>
 where
-    D: HashDigest + Send + Sync + 'static,
+    D: HashDigest + Write + Send + Sync + 'static,
     digest::Output<D>: core::fmt::LowerHex,
 {
     fn name(&self) -> &str {
@@ -55,8 +49,8 @@ where
             .category(Category::Hash)
             .input_output_types(vec![
                 (Type::String, Type::Any),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .switch(
@@ -86,54 +80,23 @@ where
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let binary = call.has_flag(engine_state, stack, "binary")?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let args = Arguments { binary, cell_paths };
         let mut hasher = D::new();
-        match input {
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                span,
-                ..
-            } => {
-                for item in stream {
-                    match item {
-                        // String and binary data are valid byte patterns
-                        Ok(Value::String { val, .. }) => hasher.update(val.as_bytes()),
-                        Ok(Value::Binary { val, .. }) => hasher.update(val),
-                        // If any Error value is output, echo it back
-                        Ok(v @ Value::Error { .. }) => return Ok(v.into_pipeline_data()),
-                        // Unsupported data
-                        Ok(other) => {
-                            return Ok(Value::error(
-                                ShellError::OnlySupportsThisInputType {
-                                    exp_input_type: "string and binary".into(),
-                                    wrong_type: other.get_type().to_string(),
-                                    dst_span: span,
-                                    src_span: other.span(),
-                                },
-                                span,
-                            )
-                            .into_pipeline_data());
-                        }
-                        Err(err) => return Err(err),
-                    };
-                }
-                let digest = hasher.finalize();
-                if args.binary {
-                    Ok(Value::binary(digest.to_vec(), span).into_pipeline_data())
-                } else {
-                    Ok(Value::string(format!("{digest:x}"), span).into_pipeline_data())
-                }
+
+        if let PipelineData::ByteStream(stream, ..) = input {
+            stream.write_to(&mut hasher)?;
+            let digest = hasher.finalize();
+            if binary {
+                Ok(Value::binary(digest.to_vec(), head).into_pipeline_data())
+            } else {
+                Ok(Value::string(format!("{digest:x}"), head).into_pipeline_data())
             }
-            _ => operate(
-                action::<D>,
-                args,
-                input,
-                call.head,
-                engine_state.ctrlc.clone(),
-            ),
+        } else {
+            let args = Arguments { binary, cell_paths };
+            operate(action::<D>, args, input, head, engine_state.ctrlc.clone())
         }
     }
 }

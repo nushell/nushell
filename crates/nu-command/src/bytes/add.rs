@@ -1,10 +1,5 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::ast::CellPath;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_engine::command_prelude::*;
 
 struct Arguments {
     added_data: Vec<u8>,
@@ -36,8 +31,8 @@ impl Command for BytesAdd {
                     Type::List(Box::new(Type::Binary)),
                     Type::List(Box::new(Type::Binary)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .required("data", SyntaxShape::Binary, "The binary to add.")

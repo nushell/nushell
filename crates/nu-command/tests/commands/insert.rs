@@ -99,21 +99,6 @@ fn insert_uses_enumerate_index() {
 }
 
 #[test]
-fn insert_support_lazy_record() {
-    let actual =
-        nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | insert a 10 | get a"#);
-    assert_eq!(actual.out, "10");
-}
-
-#[test]
-fn lazy_record_test_values() {
-    let actual = nu!(
-        r#"lazy make --columns ["haskell", "futures", "nushell"] --get-value { |lazything| $lazything + "!" } | values | length"#
-    );
-    assert_eq!(actual.out, "3");
-}
-
-#[test]
 fn deep_cell_path_creates_all_nested_records() {
     let actual = nu!("{a: {}} | insert a.b.c 0 | get a.b.c");
     assert_eq!(actual.out, "0");
@@ -147,14 +132,14 @@ fn record_replacement_closure() {
     let actual = nu!("{ a: text } | insert b {|r| $r.a | str upcase } | to nuon");
     assert_eq!(actual.out, "{a: text, b: TEXT}");
 
-    let actual = nu!("{ a: text } | insert b { default TEXT } | to nuon");
+    let actual = nu!("{ a: text } | insert b { $in.a | str upcase } | to nuon");
     assert_eq!(actual.out, "{a: text, b: TEXT}");
 
     let actual = nu!("{ a: { b: 1 } } | insert a.c {|r| $r.a.b } | to nuon");
     assert_eq!(actual.out, "{a: {b: 1, c: 1}}");
 
-    let actual = nu!("{ a: { b: 1 } } | insert a.c { default 0 } | to nuon");
-    assert_eq!(actual.out, "{a: {b: 1, c: 0}}");
+    let actual = nu!("{ a: { b: 1 } } | insert a.c { $in.a.b } | to nuon");
+    assert_eq!(actual.out, "{a: {b: 1, c: 1}}");
 }
 
 #[test]
@@ -162,14 +147,14 @@ fn table_replacement_closure() {
     let actual = nu!("[[a]; [text]] | insert b {|r| $r.a | str upcase } | to nuon");
     assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 
-    let actual = nu!("[[a]; [text]] | insert b { default TEXT } | to nuon");
+    let actual = nu!("[[a]; [text]] | insert b { $in.a | str upcase } | to nuon");
     assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 
     let actual = nu!("[[b]; [1]] | wrap a | insert a.c {|r| $r.a.b } | to nuon");
     assert_eq!(actual.out, "[[a]; [{b: 1, c: 1}]]");
 
-    let actual = nu!("[[b]; [1]] | wrap a | insert a.c { default 0 } | to nuon");
-    assert_eq!(actual.out, "[[a]; [{b: 1, c: 0}]]");
+    let actual = nu!("[[b]; [1]] | wrap a | insert a.c { $in.a.b } | to nuon");
+    assert_eq!(actual.out, "[[a]; [{b: 1, c: 1}]]");
 }
 
 #[test]
@@ -191,6 +176,6 @@ fn list_stream_replacement_closure() {
     let actual = nu!("[[a]; [text]] | every 1 | insert b {|r| $r.a | str upcase } | to nuon");
     assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 
-    let actual = nu!("[[a]; [text]] | every 1 | insert b { default TEXT } | to nuon");
+    let actual = nu!("[[a]; [text]] | every 1 | insert b { $in.a | str upcase } | to nuon");
     assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 }

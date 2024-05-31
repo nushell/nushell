@@ -1,11 +1,5 @@
 use indexmap::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SplitBy;
@@ -17,7 +11,7 @@ impl Command for SplitBy {
 
     fn signature(&self) -> Signature {
         Signature::build("split-by")
-            .input_output_types(vec![(Type::Record(vec![]), Type::Record(vec![]))])
+            .input_output_types(vec![(Type::record(), Type::record())])
             .optional("splitter", SyntaxShape::Any, "The splitter value to use.")
             .category(Category::Filters)
     }
@@ -96,7 +90,7 @@ pub fn split_by(
     match splitter {
         Some(v) => {
             let splitter = Some(Spanned {
-                item: v.as_string()?,
+                item: v.coerce_into_string()?,
                 span: name,
             });
             Ok(split(splitter.as_ref(), input, name)?)
@@ -133,7 +127,7 @@ pub fn split(
                 };
 
                 match group_key {
-                    Some(group_key) => Ok(group_key.as_string()?),
+                    Some(group_key) => Ok(group_key.coerce_string()?),
                     None => Err(ShellError::CantFindColumn {
                         col_name: column_name.item.to_string(),
                         span: column_name.span,
@@ -145,7 +139,7 @@ pub fn split(
             data_split(values, Some(&block), span)
         }
         Grouper::ByColumn(None) => {
-            let block = move |_, row: &Value| row.as_string();
+            let block = move |_, row: &Value| row.coerce_string();
 
             data_split(values, Some(&block), span)
         }
@@ -164,7 +158,7 @@ fn data_group(
         let group_key = if let Some(ref grouper) = grouper {
             grouper(idx, &value)
         } else {
-            value.as_string()
+            value.coerce_string()
         };
 
         let group = groups.entry(group_key?).or_default();
@@ -193,11 +187,11 @@ pub fn data_split(
             let span = v.span();
             match v {
                 Value::Record { val: grouped, .. } => {
-                    for (outer_key, list) in grouped.into_iter() {
+                    for (outer_key, list) in grouped.into_owned() {
                         match data_group(&list, splitter, span) {
                             Ok(grouped_vals) => {
                                 if let Value::Record { val: sub, .. } = grouped_vals {
-                                    for (inner_key, subset) in sub.into_iter() {
+                                    for (inner_key, subset) in sub.into_owned() {
                                         let s: &mut IndexMap<String, Value> =
                                             splits.entry(inner_key).or_default();
 

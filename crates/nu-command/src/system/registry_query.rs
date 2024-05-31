@@ -1,10 +1,5 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use windows::{core::PCWSTR, Win32::System::Environment::ExpandEnvironmentStringsW};
 use winreg::{enums::*, types::FromRegValue, RegKey};
 
@@ -111,7 +106,7 @@ fn registry_query(
                 *registry_key_span,
             ))
         }
-        Ok(reg_values.into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(reg_values.into_pipeline_data(call_span, engine_state.ctrlc.clone()))
     } else {
         match registry_value {
             Some(value) => {
@@ -296,13 +291,13 @@ fn no_expand_does_not_expand() {
 
     // normally we do expand
     let nu_val_expanded = reg_value_to_nu_string(reg_val(), Span::unknown(), false);
-    assert!(nu_val_expanded.as_string().is_ok());
-    assert_ne!(nu_val_expanded.as_string().unwrap(), unexpanded);
+    assert!(nu_val_expanded.coerce_string().is_ok());
+    assert_ne!(nu_val_expanded.coerce_string().unwrap(), unexpanded);
 
     // unless we skip expansion
     let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), Span::unknown(), true);
-    assert!(nu_val_skip_expand.as_string().is_ok());
-    assert_eq!(nu_val_skip_expand.as_string().unwrap(), unexpanded);
+    assert!(nu_val_skip_expand.coerce_string().is_ok());
+    assert_eq!(nu_val_skip_expand.coerce_string().unwrap(), unexpanded);
 }
 
 fn reg_value_to_nu_list_string(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {

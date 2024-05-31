@@ -1,13 +1,14 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use rstest::rstest;
 use std::fs;
 use std::path::Path;
 
 #[test]
 fn removes_a_file() {
     Playground::setup("rm_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("i_will_be_deleted.txt")]);
+        sandbox.with_files(&[EmptyFile("i_will_be_deleted.txt")]);
 
         nu!(
             cwd: dirs.root(),
@@ -25,17 +26,17 @@ fn removes_files_with_wildcard() {
     Playground::setup("rm_test_2", |dirs, sandbox| {
         sandbox
             .within("src")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("cli.rs"),
                 EmptyFile("lib.rs"),
                 EmptyFile("prelude.rs"),
             ])
             .within("src/parser")
-            .with_files(vec![EmptyFile("parse.rs"), EmptyFile("parser.rs")])
+            .with_files(&[EmptyFile("parse.rs"), EmptyFile("parser.rs")])
             .within("src/parser/parse")
-            .with_files(vec![EmptyFile("token_tree.rs")])
+            .with_files(&[EmptyFile("token_tree.rs")])
             .within("src/parser/hir")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("baseline_parse.rs"),
                 EmptyFile("baseline_parse_tokens.rs"),
             ]);
@@ -66,17 +67,17 @@ fn removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
     Playground::setup("rm_test_3", |dirs, sandbox| {
         sandbox
             .within("src")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("cli.rs"),
                 EmptyFile("lib.rs"),
                 EmptyFile("prelude.rs"),
             ])
             .within("src/parser")
-            .with_files(vec![EmptyFile("parse.rs"), EmptyFile("parser.rs")])
+            .with_files(&[EmptyFile("parse.rs"), EmptyFile("parser.rs")])
             .within("src/parser/parse")
-            .with_files(vec![EmptyFile("token_tree.rs")])
+            .with_files(&[EmptyFile("token_tree.rs")])
             .within("src/parser/hir")
-            .with_files(vec![
+            .with_files(&[
                 EmptyFile("baseline_parse.rs"),
                 EmptyFile("baseline_parse_tokens.rs"),
             ]);
@@ -108,7 +109,7 @@ fn removes_directory_contents_without_recursive_flag_if_empty() {
 #[test]
 fn removes_directory_contents_with_recursive_flag() {
     Playground::setup("rm_test_5", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
@@ -126,7 +127,7 @@ fn removes_directory_contents_with_recursive_flag() {
 #[test]
 fn errors_if_attempting_to_delete_a_directory_with_content_without_recursive_flag() {
     Playground::setup("rm_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("some_empty_file.txt")]);
+        sandbox.with_files(&[EmptyFile("some_empty_file.txt")]);
         let actual = nu!(
             cwd: dirs.root(),
             "rm rm_test_6"
@@ -178,11 +179,11 @@ fn removes_multiple_directories() {
     Playground::setup("rm_test_9", |dirs, sandbox| {
         sandbox
             .within("src")
-            .with_files(vec![EmptyFile("a.rs"), EmptyFile("b.rs")])
+            .with_files(&[EmptyFile("a.rs"), EmptyFile("b.rs")])
             .within("src/cli")
-            .with_files(vec![EmptyFile("c.rs"), EmptyFile("d.rs")])
+            .with_files(&[EmptyFile("c.rs"), EmptyFile("d.rs")])
             .within("test")
-            .with_files(vec![EmptyFile("a_test.rs"), EmptyFile("b_test.rs")]);
+            .with_files(&[EmptyFile("a_test.rs"), EmptyFile("b_test.rs")]);
 
         nu!(
             cwd: dirs.test(),
@@ -199,7 +200,7 @@ fn removes_multiple_directories() {
 #[test]
 fn removes_multiple_files() {
     Playground::setup("rm_test_10", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jttxt"),
             EmptyFile("andres.txt"),
@@ -220,7 +221,7 @@ fn removes_multiple_files() {
 #[test]
 fn removes_multiple_files_with_asterisks() {
     Playground::setup("rm_test_11", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jt.txt"),
             EmptyFile("andres.toml"),
@@ -241,7 +242,7 @@ fn removes_multiple_files_with_asterisks() {
 #[test]
 fn allows_doubly_specified_file() {
     Playground::setup("rm_test_12", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("yehuda.txt"), EmptyFile("jt.toml")]);
+        sandbox.with_files(&[EmptyFile("yehuda.txt"), EmptyFile("jt.toml")]);
 
         let actual = nu!(
             cwd: dirs.test(),
@@ -259,7 +260,7 @@ fn allows_doubly_specified_file() {
 #[test]
 fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
     Playground::setup("rm_test_13", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("yehuda.txt"),
             EmptyFile("jt.txt"),
             EmptyFile("kevin.txt"),
@@ -294,7 +295,7 @@ fn no_errors_if_attempting_to_delete_non_existent_file_with_f_flag() {
 #[test]
 fn rm_wildcard_keeps_dotfiles() {
     Playground::setup("rm_test_15", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("foo"), EmptyFile(".bar")]);
+        sandbox.with_files(&[EmptyFile("foo"), EmptyFile(".bar")]);
 
         nu!(
             cwd: dirs.test(),
@@ -309,7 +310,7 @@ fn rm_wildcard_keeps_dotfiles() {
 #[test]
 fn rm_wildcard_leading_dot_deletes_dotfiles() {
     Playground::setup("rm_test_16", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("foo"), EmptyFile(".bar")]);
+        sandbox.with_files(&[EmptyFile("foo"), EmptyFile(".bar")]);
 
         nu!(
             cwd: dirs.test(),
@@ -324,7 +325,7 @@ fn rm_wildcard_leading_dot_deletes_dotfiles() {
 #[test]
 fn removes_files_with_case_sensitive_glob_matches_by_default() {
     Playground::setup("glob_test", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("A0"), EmptyFile("a1")]);
+        sandbox.with_files(&[EmptyFile("A0"), EmptyFile("a1")]);
 
         nu!(
             cwd: dirs.root(),
@@ -342,7 +343,7 @@ fn removes_files_with_case_sensitive_glob_matches_by_default() {
 #[test]
 fn remove_ignores_ansi() {
     Playground::setup("rm_test_ansi", |_dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("test.txt")]);
+        sandbox.with_files(&[EmptyFile("test.txt")]);
 
         let actual = nu!(
             cwd: sandbox.cwd(),
@@ -357,7 +358,7 @@ fn removes_symlink() {
     let symlink_target = "symlink_target";
     let symlink = "symlink";
     Playground::setup("rm_test_symlink", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile(symlink_target)]);
+        sandbox.with_files(&[EmptyFile(symlink_target)]);
 
         #[cfg(not(windows))]
         std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))
@@ -391,7 +392,7 @@ fn removes_symlink_pointing_to_directory() {
 #[test]
 fn removes_file_after_cd() {
     Playground::setup("rm_after_cd", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("delete.txt")]);
+        sandbox.with_files(&[EmptyFile("delete.txt")]);
 
         nu!(
             cwd: dirs.root(),
@@ -430,11 +431,11 @@ fn rm_prints_filenames_on_error() {
     Playground::setup("rm_prints_filenames_on_error", |dirs, sandbox| {
         let file_names = vec!["test1.txt", "test2.txt"];
 
-        let with_files = file_names
+        let with_files: Vec<_> = file_names
             .iter()
             .map(|file_name| EmptyFile(file_name))
             .collect();
-        sandbox.with_files(with_files);
+        sandbox.with_files(&with_files);
 
         let test_dir = dirs.test();
 
@@ -466,7 +467,7 @@ fn rm_files_inside_glob_metachars_dir() {
         let sub_dir = "test[]";
         sandbox
             .within(sub_dir)
-            .with_files(vec![EmptyFile("test_file.txt")]);
+            .with_files(&[EmptyFile("test_file.txt")]);
 
         let actual = nu!(
             cwd: dirs.test().join(sub_dir),
@@ -481,10 +482,52 @@ fn rm_files_inside_glob_metachars_dir() {
     });
 }
 
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn rm_files_with_glob_metachars(#[case] src_name: &str) {
+    Playground::setup("rm_files_with_glob_metachars", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile(src_name)]);
+
+        let src = dirs.test().join(src_name);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm '{}'",
+            src.display(),
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!src.exists());
+
+        // test with variables
+        sandbox.with_files(&[EmptyFile(src_name)]);
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let f = '{}'; rm $f",
+            src.display(),
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!src.exists());
+    });
+}
+
+#[cfg(not(windows))]
+#[rstest]
+#[case("a]?c")]
+#[case("a*.?c")]
+// windows doesn't allow filename with `*`.
+fn rm_files_with_glob_metachars_nw(#[case] src_name: &str) {
+    rm_files_with_glob_metachars(src_name);
+}
+
 #[test]
 fn force_rm_suppress_error() {
     Playground::setup("force_rm_suppress_error", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("test_file.txt")]);
+        sandbox.with_files(&[EmptyFile("test_file.txt")]);
 
         // the second rm should suppress error.
         let actual = nu!(
@@ -494,4 +537,35 @@ fn force_rm_suppress_error() {
 
         assert!(actual.err.is_empty());
     });
+}
+
+#[test]
+fn rm_with_tilde() {
+    Playground::setup("rm_tilde", |dirs, sandbox| {
+        sandbox.within("~tilde").with_files(&[
+            EmptyFile("f1.txt"),
+            EmptyFile("f2.txt"),
+            EmptyFile("f3.txt"),
+        ]);
+
+        let actual = nu!(cwd: dirs.test(), "rm '~tilde/f1.txt'");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec![Path::new("f1.txt")],
+            dirs.test().join("~tilde")
+        ));
+
+        // pass variable
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde/f2.txt'; rm $f");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec![Path::new("f2.txt")],
+            dirs.test().join("~tilde")
+        ));
+
+        // remove directory
+        let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; rm -r $f");
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+    })
 }

@@ -5,6 +5,7 @@ use self::output::*;
 use self::reedline::*;
 use self::table::*;
 
+use crate::engine::Closure;
 use crate::{record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -13,6 +14,7 @@ pub use self::completer::CompletionAlgorithm;
 pub use self::helper::extract_value;
 pub use self::hooks::Hooks;
 pub use self::output::ErrorStyle;
+pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
     create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
@@ -22,6 +24,7 @@ mod completer;
 mod helper;
 mod hooks;
 mod output;
+mod plugin_gc;
 mod reedline;
 mod table;
 
@@ -46,7 +49,7 @@ impl Default for HistoryConfig {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    pub external_completer: Option<usize>,
+    pub external_completer: Option<Closure>,
     pub filesize_metric: bool,
     pub table_mode: TableMode,
     pub table_move_header: bool,
@@ -59,6 +62,7 @@ pub struct Config {
     pub footer_mode: FooterMode,
     pub float_precision: i64,
     pub max_external_completion_results: i64,
+    pub recursion_limit: i64,
     pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
@@ -70,7 +74,14 @@ pub struct Config {
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
     pub rm_always_trash: bool,
-    pub shell_integration: bool,
+    // Shell integration OSC meaning is described in the default_config.nu
+    pub shell_integration_osc2: bool,
+    pub shell_integration_osc7: bool,
+    pub shell_integration_osc8: bool,
+    pub shell_integration_osc9_9: bool,
+    pub shell_integration_osc133: bool,
+    pub shell_integration_osc633: bool,
+    pub shell_integration_reset_application_mode: bool,
     pub buffer_editor: Value,
     pub table_index_mode: TableIndexMode,
     pub case_sensitive_completions: bool,
@@ -89,12 +100,15 @@ pub struct Config {
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
+    pub use_ls_colors_completions: bool,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
     /// match the registered plugin name so `register nu_plugin_example` will be able to place
     /// its configuration under a `nu_plugin_example` column.
     pub plugins: HashMap<String, Value>,
+    /// Configuration for plugin garbage collection.
+    pub plugin_gc: PluginGcConfigs,
 }
 
 impl Default for Config {
@@ -128,7 +142,9 @@ impl Default for Config {
             completion_algorithm: CompletionAlgorithm::default(),
             enable_external_completion: true,
             max_external_completion_results: 100,
+            recursion_limit: 50,
             external_completer: None,
+            use_ls_colors_completions: true,
 
             filesize_metric: false,
             filesize_format: "auto".into(),
@@ -145,7 +161,15 @@ impl Default for Config {
             use_ansi_coloring: true,
             bracketed_paste: true,
             edit_mode: EditBindings::default(),
-            shell_integration: false,
+            // shell_integration: false,
+            shell_integration_osc2: false,
+            shell_integration_osc7: false,
+            shell_integration_osc8: false,
+            shell_integration_osc9_9: false,
+            shell_integration_osc133: false,
+            shell_integration_osc633: false,
+            shell_integration_reset_application_mode: false,
+
             render_right_prompt_on_last_line: false,
 
             hooks: Hooks::new(),
@@ -160,14 +184,22 @@ impl Default for Config {
             highlight_resolved_externals: false,
 
             plugins: HashMap::new(),
+            plugin_gc: PluginGcConfigs::default(),
         }
     }
 }
 
 impl Value {
-    pub fn into_config(&mut self, config: &Config) -> (Config, Option<ShellError>) {
+    /// Parse the given [`Value`] as a configuration record, and recover encountered mistakes
+    ///
+    /// If any given (sub)value is detected as impossible, this value will be restored to the value
+    /// in `existing_config`, thus mutates `self`.
+    ///
+    /// Returns a new [`Config`] (that is in a valid state) and if encountered the [`ShellError`]
+    /// containing all observed inner errors.
+    pub fn parse_as_config(&mut self, existing_config: &Config) -> (Config, Option<ShellError>) {
         // Clone the passed-in config rather than mutating it.
-        let mut config = config.clone();
+        let mut config = existing_config.clone();
 
         // Vec for storing errors. Current Nushell behaviour (Dec 2022) is that having some typo
         // like `"always_trash": tru` in your config.nu's `$env.config` record shouldn't abort all
@@ -185,13 +217,13 @@ impl Value {
         // the `2`.
 
         if let Value::Record { val, .. } = self {
-            val.retain_mut(|key, value| {
+            val.to_mut().retain_mut(|key, value| {
                 let span = value.span();
                 match key {
                     // Grouped options
                     "ls" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "use_ls_colors" => {
@@ -220,7 +252,7 @@ impl Value {
                     }
                     "rm" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "always_trash" => {
@@ -247,7 +279,7 @@ impl Value {
                     "history" => {
                         let history = &mut config.history;
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "isolation" => {
@@ -289,7 +321,7 @@ impl Value {
                     }
                     "completions" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "quick" => {
@@ -310,7 +342,7 @@ impl Value {
                                     }
                                     "external" => {
                                         if let Value::Record { val, .. } = value {
-                                            val.retain_mut(|key3, value|
+                                            val.to_mut().retain_mut(|key3, value|
                                                 {
                                                     let span = value.span();
                                                     match key3 {
@@ -318,13 +350,13 @@ impl Value {
                                                             process_int_config(value, &mut errors, &mut config.max_external_completion_results);
                                                         }
                                                         "completer" => {
-                                                            if let Ok(v) = value.as_block() {
-                                                                config.external_completer = Some(v)
+                                                            if let Ok(v) = value.as_closure() {
+                                                                config.external_completer = Some(v.clone())
                                                             } else {
                                                                 match value {
                                                                     Value::Nothing { .. } => {}
                                                                     _ => {
-                                                                        report_invalid_value("should be a block or null", span, &mut errors);
+                                                                        report_invalid_value("should be a closure or null", span, &mut errors);
                                                                         // Reconstruct
                                                                         *value = reconstruct_external_completer(&config,
                                                                             span
@@ -349,6 +381,9 @@ impl Value {
                                             *value = reconstruct_external(&config, span);
                                         }
                                     }
+                                    "use_ls_colors" => {
+                                        process_bool_config(value, &mut errors, &mut config.use_ls_colors_completions);
+                                    }
                                     _ => {
                                         report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
@@ -366,6 +401,7 @@ impl Value {
                                     "algorithm" => config.completion_algorithm.reconstruct_value(span),
                                     "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
                                     "external" => reconstruct_external(&config, span),
+                                    "use_ls_colors" => Value::bool(config.use_ls_colors_completions, span),
                                 },
                                 span,
                             );
@@ -373,7 +409,7 @@ impl Value {
                     }
                     "cursor_shape" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 let config_point = match key2 {
                                     "vi_insert" => &mut config.cursor_shape_vi_insert,
@@ -406,7 +442,7 @@ impl Value {
                     }
                     "table" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "mode" => {
@@ -431,7 +467,7 @@ impl Value {
                                         }
                                         Value::Record { val, .. } => {
                                             let mut invalid = false;
-                                            val.retain(|key3, value| {
+                                            val.to_mut().retain(|key3, value| {
                                                 match key3 {
                                                     "left" => {
                                                         match value.as_int() {
@@ -526,14 +562,14 @@ impl Value {
                     }
                     "filesize" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value| {
+                            val.to_mut().retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                 "metric" => {
                                     process_bool_config(value, &mut errors, &mut config.filesize_metric);
                                 }
                                 "format" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_str() {
                                         config.filesize_format = v.to_lowercase();
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
@@ -618,7 +654,54 @@ impl Value {
                             &mut errors);
                     }
                     "shell_integration" => {
-                        process_bool_config(value, &mut errors, &mut config.shell_integration);
+                        if let Value::Record { val, .. } = value {
+                            val.to_mut().retain_mut(|key2, value| {
+                                let span = value.span();
+                                match key2 {
+                                "osc2" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc2);
+                                }
+                                "osc7" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc7);
+                                }
+                                "osc8" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc8);
+                                }
+                                "osc9_9" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc9_9);
+                                }
+                                "osc133" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc133);
+                                }
+                                "osc633" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc633);
+                                }
+                                "reset_application_mode" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_reset_application_mode);
+                                }
+                                _ => {
+                                    report_invalid_key(&[key, key2], span, &mut errors);
+                                    return false;
+                                }
+                            };
+                            true
+                        })
+                        } else {
+                            report_invalid_value("boolean value is deprecated, should be a record. see `config nu --default`.", span, &mut errors);
+                            // Reconstruct
+                            *value = Value::record(
+                                record! {
+                                    "osc2" => Value::bool(config.shell_integration_osc2, span),
+                                    "ocs7" => Value::bool(config.shell_integration_osc7, span),
+                                    "osc8" => Value::bool(config.shell_integration_osc8, span),
+                                    "osc9_9" => Value::bool(config.shell_integration_osc9_9, span),
+                                    "osc133" => Value::bool(config.shell_integration_osc133, span),
+                                    "osc633" => Value::bool(config.shell_integration_osc633, span),
+                                    "reset_application_mode" => Value::bool(config.shell_integration_reset_application_mode, span),
+                                },
+                                span,
+                            );
+                        }
                     }
                     "buffer_editor" => match value {
                         Value::Nothing { .. } | Value::String { .. } => {
@@ -665,6 +748,9 @@ impl Value {
                             );
                         }
                     }
+                    "plugin_gc" => {
+                        config.plugin_gc.process(&[key], value, &mut errors);
+                    }
                     // Menus
                     "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
@@ -696,19 +782,19 @@ impl Value {
                     },
                     "datetime_format" => {
                         if let Value::Record { val, .. } = value {
-                            val.retain_mut(|key2, value|
+                            val.to_mut().retain_mut(|key2, value|
                                 {
                                 let span = value.span();
                                 match key2 {
                                 "normal" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_string() {
                                         config.datetime_normal_format = Some(v);
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
                                     }
                                 }
                                 "table" => {
-                                    if let Ok(v) = value.as_string() {
+                                    if let Ok(v) = value.coerce_string() {
                                         config.datetime_table_format = Some(v);
                                     } else {
                                         report_invalid_value("should be a string", span, &mut errors);
@@ -731,6 +817,19 @@ impl Value {
                             &[key],
                             value,
                             &mut errors);
+                    }
+                    "recursion_limit" => {
+                        if let Value::Int { val, internal_span } = value {
+                            if val > &mut 1 {
+                                config.recursion_limit = *val;
+                            } else {
+                                report_invalid_value("should be a integer greater than 1", span, &mut errors);
+                                *value = Value::Int { val: 50, internal_span: *internal_span };
+                            }
+                        } else {
+                            report_invalid_value("should be a integer greater than 1", span, &mut errors);
+                            *value = Value::Int { val: 50, internal_span: value.span() };
+                        }
                     }
                     // Catch all
                     _ => {

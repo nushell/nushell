@@ -202,17 +202,39 @@ macro_rules! nu_with_std {
 
 #[macro_export]
 macro_rules! nu_with_plugins {
-    (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),+$(,)?], $command:expr) => {{
-        $crate::macros::nu_with_plugin_run_test($cwd, &[$($plugin_name),+], $command)
+    (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),*$(,)?], $command:expr) => {{
+        nu_with_plugins!(
+            cwd: $cwd,
+            envs: Vec::<(&str, &str)>::new(),
+            plugins: [$(($plugin_name)),*],
+            $command
+        )
     }};
     (cwd: $cwd:expr, plugin: ($plugin_name:expr), $command:expr) => {{
-        $crate::macros::nu_with_plugin_run_test($cwd, &[$plugin_name], $command)
+        nu_with_plugins!(
+            cwd: $cwd,
+            envs: Vec::<(&str, &str)>::new(),
+            plugin: ($plugin_name),
+            $command
+        )
+    }};
+
+    (
+        cwd: $cwd:expr,
+        envs: $envs:expr,
+        plugins: [$(($plugin_name:expr)),*$(,)?],
+        $command:expr
+    ) => {{
+        $crate::macros::nu_with_plugin_run_test($cwd, $envs, &[$($plugin_name),*], $command)
+    }};
+    (cwd: $cwd:expr, envs: $envs:expr, plugin: ($plugin_name:expr), $command:expr) => {{
+        $crate::macros::nu_with_plugin_run_test($cwd, $envs, &[$plugin_name], $command)
     }};
 
 }
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
-use std::fmt::Write;
+use std::ffi::OsStr;
 use std::{
     path::Path,
     process::{Command, Stdio},
@@ -223,6 +245,7 @@ use tempfile::tempdir;
 pub struct NuOpts {
     pub cwd: Option<String>,
     pub locale: Option<String>,
+    pub collapse_output: Option<bool>,
 }
 
 pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> Outcome {
@@ -255,15 +278,18 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     command
         .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
         .env(NATIVE_PATH_ENV_VAR, paths_joined);
-    // TODO: consider adding custom plugin path for tests to
-    // not interfere with user local environment
+    // Ensure that the user's config doesn't interfere with the tests
+    command.arg("--no-config-file");
     if !with_std {
         command.arg("--no-std-lib");
     }
     command
-        .arg(format!("-c {}", escape_quote_string(commands)))
+        .arg(format!("-c {}", escape_quote_string(&commands)))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    // Uncomment to debug the command being run:
+    // println!("=== command\n{command:?}\n");
 
     let process = match command.spawn() {
         Ok(child) => child,
@@ -274,15 +300,31 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         .wait_with_output()
         .expect("couldn't read from stdout/stderr");
 
-    let out = collapse_output(&output.stdout);
+    let out = String::from_utf8_lossy(&output.stdout);
     let err = String::from_utf8_lossy(&output.stderr);
+
+    let out = if opts.collapse_output.unwrap_or(true) {
+        collapse_output(&out)
+    } else {
+        out.into_owned()
+    };
 
     println!("=== stderr\n{}", err);
 
     Outcome::new(out, err.into_owned(), output.status)
 }
 
-pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command: &str) -> Outcome {
+pub fn nu_with_plugin_run_test<E, K, V>(
+    cwd: impl AsRef<Path>,
+    envs: E,
+    plugins: &[&str],
+    command: &str,
+) -> Outcome
+where
+    E: IntoIterator<Item = (K, V)>,
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
     let test_bins = crate::fs::binaries();
     let test_bins = nu_path::canonicalize_with(&test_bins, ".").unwrap_or_else(|e| {
         panic!(
@@ -293,22 +335,28 @@ pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command:
     });
 
     let temp = tempdir().expect("couldn't create a temporary directory");
-    let temp_plugin_file = temp.path().join("plugin.nu");
-    std::fs::File::create(&temp_plugin_file).expect("couldn't create temporary plugin file");
+    let [temp_config_file, temp_env_config_file] = ["config.nu", "env.nu"].map(|name| {
+        let temp_file = temp.path().join(name);
+        std::fs::File::create(&temp_file).expect("couldn't create temporary config file");
+        temp_file
+    });
+
+    // We don't have to write the plugin registry file, it's ok for it to not exist
+    let temp_plugin_file = temp.path().join("plugin.msgpackz");
 
     crate::commands::ensure_plugins_built();
 
-    let registrations: String = plugins
+    let plugin_paths_quoted: Vec<String> = plugins
         .iter()
-        .fold(String::new(), |mut output, plugin_name| {
+        .map(|plugin_name| {
             let plugin = with_exe(plugin_name);
             let plugin_path = nu_path::canonicalize_with(&plugin, &test_bins)
                 .unwrap_or_else(|_| panic!("failed to canonicalize plugin {} path", &plugin));
             let plugin_path = plugin_path.to_string_lossy();
-            let _ = write!(output, "register {plugin_path};");
-            output
-        });
-    let commands = format!("{registrations}{command}");
+            escape_quote_string(&plugin_path)
+        })
+        .collect();
+    let plugins_arg = format!("[{}]", plugin_paths_quoted.join(","));
 
     let target_cwd = crate::fs::in_directory(&cwd);
     // In plugin testing, we need to use installed nushell to drive
@@ -318,10 +366,17 @@ pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command:
         executable_path = crate::fs::installed_nu_path();
     }
     let process = match setup_command(&executable_path, &target_cwd)
+        .envs(envs)
         .arg("--commands")
-        .arg(commands)
+        .arg(command)
+        .arg("--config")
+        .arg(temp_config_file)
+        .arg("--env-config")
+        .arg(temp_env_config_file)
         .arg("--plugin-config")
         .arg(temp_plugin_file)
+        .arg("--plugins")
+        .arg(plugins_arg)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -334,7 +389,7 @@ pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command:
         .wait_with_output()
         .expect("couldn't read from stdout/stderr");
 
-    let out = collapse_output(&output.stdout);
+    let out = collapse_output(&String::from_utf8_lossy(&output.stdout));
     let err = String::from_utf8_lossy(&output.stderr);
 
     println!("=== stderr\n{}", err);
@@ -342,7 +397,7 @@ pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command:
     Outcome::new(out, err.into_owned(), output.status)
 }
 
-fn escape_quote_string(input: String) -> String {
+fn escape_quote_string(input: &str) -> String {
     let mut output = String::with_capacity(input.len() + 2);
     output.push('"');
 
@@ -368,8 +423,7 @@ fn with_exe(name: &str) -> String {
     }
 }
 
-fn collapse_output(std: &[u8]) -> String {
-    let out = String::from_utf8_lossy(std);
+fn collapse_output(out: &str) -> String {
     let out = out.lines().collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
     out.replace('\n', "")

@@ -1,11 +1,7 @@
 use crate::grapheme_flags;
 use fancy_regex::Regex;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -158,7 +154,7 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
         Value::Error { error, .. } => Value::error(*error.clone(), v_span),
         v => {
             let v_span = v.span();
-            if let Ok(s) = v.as_string() {
+            if let Ok(s) = v.coerce_str() {
                 // let splits = s.unicode_words();
                 // let words = trim_to_words(s);
                 // let words: Vec<&str> = s.split_whitespace().collect();

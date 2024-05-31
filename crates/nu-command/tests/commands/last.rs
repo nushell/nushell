@@ -15,7 +15,7 @@ fn gets_the_last_row() {
 #[test]
 fn gets_last_rows_by_amount() {
     Playground::setup("last_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![
+        sandbox.with_files(&[
             EmptyFile("los.txt"),
             EmptyFile("tres.txt"),
             EmptyFile("amigos.txt"),
@@ -31,7 +31,7 @@ fn gets_last_rows_by_amount() {
 #[test]
 fn gets_last_row_when_no_amount_given() {
     Playground::setup("last_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
+        sandbox.with_files(&[EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
 
         // FIXME: We should probably change last to return a one row table instead of a record here
         let actual = nu!(cwd: dirs.test(), "ls | last | values | length");
@@ -51,7 +51,7 @@ fn requests_more_rows_than_table_has() {
 fn gets_last_row_as_list_when_amount_given() {
     let actual = nu!("[1, 2, 3] | last 1 | describe");
 
-    assert_eq!(actual.out, "list<int> (stream)");
+    assert_eq!(actual.out, "list<int>");
 }
 
 #[test]
@@ -64,6 +64,20 @@ fn gets_last_bytes() {
 #[test]
 fn gets_last_byte() {
     let actual = nu!("0x[aa bb cc] | last");
+
+    assert_eq!(actual.out, "204");
+}
+
+#[test]
+fn gets_last_bytes_from_stream() {
+    let actual = nu!("(1..10 | each { 0x[aa bb cc] } | bytes collect | last 2) == 0x[bb cc]");
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn gets_last_byte_from_stream() {
+    let actual = nu!("1..10 | each { 0x[aa bb cc] } | bytes collect | last");
 
     assert_eq!(actual.out, "204");
 }

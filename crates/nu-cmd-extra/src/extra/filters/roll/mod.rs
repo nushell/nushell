@@ -4,7 +4,8 @@ mod roll_left;
 mod roll_right;
 mod roll_up;
 
-use nu_protocol::{Record, ShellError, Value};
+use nu_protocol::{ShellError, Value};
+
 pub use roll_::Roll;
 pub use roll_down::RollDown;
 pub use roll_left::RollLeft;
@@ -57,7 +58,7 @@ fn horizontal_rotate_value(
         Value::Record { val: record, .. } => {
             let rotations = by.map(|n| n % record.len()).unwrap_or(1);
 
-            let (mut cols, mut vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+            let (mut cols, mut vals): (Vec<_>, Vec<_>) = record.into_owned().into_iter().unzip();
             if !cells_only {
                 match direction {
                     HorizontalDirection::Right => cols.rotate_right(rotations),
@@ -70,7 +71,8 @@ fn horizontal_rotate_value(
                 HorizontalDirection::Left => vals.rotate_left(rotations),
             }
 
-            Ok(Value::record(Record::from_raw_cols_vals(cols, vals), span))
+            let record = cols.into_iter().zip(vals).collect();
+            Ok(Value::record(record, span))
         }
         Value::List { vals, .. } => {
             let values = vals

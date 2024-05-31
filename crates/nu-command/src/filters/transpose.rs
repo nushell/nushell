@@ -1,11 +1,4 @@
-use nu_engine::column::get_columns;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError,
-    Signature, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{column::get_columns, command_prelude::*};
 
 #[derive(Clone)]
 pub struct Transpose;
@@ -27,8 +20,8 @@ impl Command for Transpose {
     fn signature(&self) -> Signature {
         Signature::build("transpose")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Any),
-                (Type::Record(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::Any),
+                (Type::record(), Type::table()),
             ])
             .switch(
                 "header-row",
@@ -193,8 +186,8 @@ pub fn transpose(
             if let Some(desc) = descs.first() {
                 match &i.get_data_by_key(desc) {
                     Some(x) => {
-                        if let Ok(s) = x.as_string() {
-                            headers.push(s.to_string());
+                        if let Ok(s) = x.coerce_string() {
+                            headers.push(s);
                         } else {
                             return Err(ShellError::GenericError {
                                 error: "Header row needs string headers".into(),
@@ -291,7 +284,7 @@ pub fn transpose(
             metadata,
         ))
     } else {
-        Ok(result_data.into_pipeline_data_with_metadata(metadata, ctrlc))
+        Ok(result_data.into_pipeline_data_with_metadata(name, ctrlc, metadata))
     }
 }
 

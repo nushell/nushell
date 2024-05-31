@@ -2,10 +2,9 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::Expression;
 use crate::{
-    engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue, ShellError, Span,
-    Spanned, Value,
+    ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
+    ShellError, Span, Spanned, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -37,6 +36,15 @@ impl Argument {
             Argument::Spread(e) => e.span,
         }
     }
+
+    pub fn expr(&self) -> Option<&Expression> {
+        match self {
+            Argument::Named((_, _, expr)) => expr.as_ref(),
+            Argument::Positional(expr) | Argument::Unknown(expr) | Argument::Spread(expr) => {
+                Some(expr)
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -51,8 +59,6 @@ pub struct Call {
     pub decl_id: DeclId,
     pub head: Span,
     pub arguments: Vec<Argument>,
-    pub redirect_stdout: bool,
-    pub redirect_stderr: bool,
     /// this field is used by the parser to pass additional command-specific information
     pub parser_info: HashMap<String, Expression>,
 }
@@ -63,8 +69,6 @@ impl Call {
             decl_id: 0,
             head,
             arguments: vec![],
-            redirect_stdout: true,
-            redirect_stderr: false,
             parser_info: HashMap::new(),
         }
     }
@@ -150,28 +154,8 @@ impl Call {
             })
     }
 
-    pub fn positional_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
-        self.arguments
-            .iter_mut()
-            .take_while(|arg| match arg {
-                Argument::Spread(_) => false, // Don't include positional arguments given to rest parameter
-                _ => true,
-            })
-            .filter_map(|arg| match arg {
-                Argument::Named(_) => None,
-                Argument::Positional(positional) => Some(positional),
-                Argument::Unknown(unknown) => Some(unknown),
-                Argument::Spread(_) => None,
-            })
-    }
-
     pub fn positional_nth(&self, i: usize) -> Option<&Expression> {
         self.positional_iter().nth(i)
-    }
-
-    // TODO this method is never used. Delete?
-    pub fn positional_nth_mut(&mut self, i: usize) -> Option<&mut Expression> {
-        self.positional_iter_mut().nth(i)
     }
 
     pub fn positional_len(&self) -> usize {

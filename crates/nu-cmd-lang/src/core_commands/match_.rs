@@ -1,9 +1,7 @@
-use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
-use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::engine::{Command, EngineState, Matcher, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+use nu_engine::{
+    command_prelude::*, get_eval_block, get_eval_expression, get_eval_expression_with_input,
 };
+use nu_protocol::engine::Matcher;
 
 #[derive(Clone)]
 pub struct Match;
@@ -37,56 +35,45 @@ impl Command for Match {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call.req(engine_state, stack, 0)?;
-        let block = call.positional_nth(1);
+        let matches = call
+            .positional_nth(1)
+            .expect("checked through parser")
+            .as_match_block()
+            .expect("missing match block");
 
-        if let Some(Expression {
-            expr: Expr::MatchBlock(matches),
-            ..
-        }) = block
-        {
-            for match_ in matches {
-                let mut match_variables = vec![];
-                if match_.0.match_value(&value, &mut match_variables) {
-                    // This case does match, go ahead and return the evaluated expression
-                    for match_variable in match_variables {
-                        stack.add_var(match_variable.0, match_variable.1);
-                    }
+        let eval_expression = get_eval_expression(engine_state);
+        let eval_expression_with_input = get_eval_expression_with_input(engine_state);
+        let eval_block = get_eval_block(engine_state);
 
-                    let guard_matches = if let Some(guard) = &match_.0.guard {
-                        let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)?
-                        else {
-                            return Err(ShellError::MatchGuardNotBool { span: guard.span });
-                        };
+        let mut match_variables = vec![];
+        for (pattern, expr) in matches {
+            if pattern.match_value(&value, &mut match_variables) {
+                // This case does match, go ahead and return the evaluated expression
+                for (id, value) in match_variables.drain(..) {
+                    stack.add_var(id, value);
+                }
 
-                        val
-                    } else {
-                        true
+                let guard_matches = if let Some(guard) = &pattern.guard {
+                    let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)?
+                    else {
+                        return Err(ShellError::MatchGuardNotBool { span: guard.span });
                     };
 
-                    if guard_matches {
-                        return if let Some(block_id) = match_.1.as_block() {
-                            let block = engine_state.get_block(block_id);
-                            eval_block(
-                                engine_state,
-                                stack,
-                                block,
-                                input,
-                                call.redirect_stdout,
-                                call.redirect_stderr,
-                            )
-                        } else {
-                            eval_expression_with_input(
-                                engine_state,
-                                stack,
-                                &match_.1,
-                                input,
-                                call.redirect_stdout,
-                                call.redirect_stderr,
-                            )
-                            .map(|x| x.0)
-                        };
-                    }
+                    val
+                } else {
+                    true
+                };
+
+                if guard_matches {
+                    return if let Some(block_id) = expr.as_block() {
+                        let block = engine_state.get_block(block_id);
+                        eval_block(engine_state, stack, block, input)
+                    } else {
+                        eval_expression_with_input(engine_state, stack, expr, input).map(|x| x.0)
+                    };
                 }
+            } else {
+                match_variables.clear();
             }
         }
 

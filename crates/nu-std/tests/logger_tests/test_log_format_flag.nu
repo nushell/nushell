@@ -1,4 +1,5 @@
 use std *
+use std log *
 use commons.nu *
 
 def run-command [
@@ -8,13 +9,12 @@ def run-command [
     --format: string,
     --short
 ] {
-    do {
-        if $short {
-            ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --format "($format)" --short "($message)"'
-        } else {
-            ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --format "($format)" "($message)"'
-        }
-    } | complete | get --ignore-errors stderr
+    if $short {
+        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --format "($format)" --short "($message)"'
+    } else {
+        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log ($message_level) --format "($format)" "($message)"'
+    }
+    | complete | get --ignore-errors stderr
 }
 
 
@@ -26,14 +26,14 @@ def "assert formatted" [
 ] {
     let output = (run-command "debug" $command_level $message --format $format)
     let prefix = if $short {
-            ($env.LOG_SHORT_PREFIX | get ($command_level | str upcase))
+            (log-short-prefix | get ($command_level | str upcase))
         } else {
-            ($env.LOG_PREFIX | get ($command_level | str upcase))
+            (log-prefix | get ($command_level | str upcase))
         }
     let ansi = if $short {
-            ($env.LOG_ANSI | get ($command_level | str upcase))
+            (log-ansi | get ($command_level | str upcase))
         } else {
-            ($env.LOG_ANSI | get ($command_level | str upcase))
+            (log-ansi | get ($command_level | str upcase))
         }
 
     assert equal ($output | str trim --right) (format-message $message $format $prefix $ansi)

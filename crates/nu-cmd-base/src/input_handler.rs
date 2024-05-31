@@ -1,7 +1,5 @@
-use nu_protocol::ast::CellPath;
-use nu_protocol::{PipelineData, ShellError, Span, Value};
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use nu_protocol::{ast::CellPath, PipelineData, ShellError, Span, Value};
+use std::sync::{atomic::AtomicBool, Arc};
 
 pub trait CmdArgument {
     fn take_cell_paths(&mut self) -> Option<Vec<CellPath>>;

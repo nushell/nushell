@@ -4,7 +4,6 @@
 
 use std::fmt::{Display, LowerExp};
 use std::io;
-use std::io::{BufRead, BufReader};
 use std::num::FpCategory;
 
 use super::error::{Error, ErrorCode, Result};
@@ -319,9 +318,9 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + ?Sized,
     {
         self.ser
             .formatter
@@ -346,9 +345,9 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + ?Sized,
     {
         ser::SerializeSeq::serialize_element(self, value)
     }
@@ -366,9 +365,9 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + ?Sized,
     {
         ser::SerializeSeq::serialize_element(self, value)
     }
@@ -386,9 +385,9 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + ?Sized,
     {
         ser::SerializeSeq::serialize_element(self, value)
     }
@@ -410,9 +409,9 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<()>
+    fn serialize_key<T>(&mut self, key: &T) -> Result<()>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + ?Sized,
     {
         self.ser
             .formatter
@@ -424,9 +423,9 @@ where
         self.ser.formatter.colon(&mut self.ser.writer)
     }
 
-    fn serialize_value<T: ?Sized>(&mut self, value: &T) -> Result<()>
+    fn serialize_value<T>(&mut self, value: &T) -> Result<()>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + ?Sized,
     {
         value.serialize(&mut *self.ser)
     }
@@ -447,9 +446,9 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + ?Sized,
     {
         ser::SerializeMap::serialize_entry(self, key, value)
     }
@@ -467,9 +466,9 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
+    fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + ?Sized,
     {
         ser::SerializeStruct::serialize_field(self, key, value)
     }
@@ -1033,21 +1032,9 @@ pub fn to_string_raw<T>(value: &T) -> Result<String>
 where
     T: ser::Serialize,
 {
-    let vec = to_vec(value)?;
-    let string = remove_json_whitespace(vec);
-    Ok(string)
-}
-
-fn remove_json_whitespace(v: Vec<u8>) -> String {
-    let reader = BufReader::new(&v[..]);
-    let mut output = String::new();
-    for line in reader.lines() {
-        match line {
-            Ok(line) => output.push_str(line.trim().trim_end()),
-            _ => {
-                eprintln!("Error removing JSON whitespace");
-            }
-        }
+    let result = serde_json::to_string(value);
+    match result {
+        Ok(result_string) => Ok(result_string),
+        Err(error) => Err(Error::Io(std::io::Error::from(error))),
     }
-    output
 }

@@ -1,37 +1,71 @@
 use crate::completions::{matches, CompletionOptions};
+use nu_ansi_term::Style;
+use nu_engine::env_to_string;
 use nu_path::home_dir;
-use nu_protocol::{engine::StateWorkingSet, Span};
-use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
+use nu_protocol::{
+    engine::{EngineState, Stack, StateWorkingSet},
+    Span,
+};
+use nu_utils::get_ls_colors;
+use std::path::{
+    is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
+};
+
+#[derive(Clone, Default)]
+pub struct PathBuiltFromString {
+    parts: Vec<String>,
+    isdir: bool,
+}
 
 fn complete_rec(
-    partial: &[String],
+    partial: &[&str],
+    built: &PathBuiltFromString,
     cwd: &Path,
     options: &CompletionOptions,
     dir: bool,
     isdir: bool,
-) -> Vec<PathBuf> {
+) -> Vec<PathBuiltFromString> {
     let mut completions = vec![];
 
-    if let Ok(result) = cwd.read_dir() {
-        for entry in result.filter_map(|e| e.ok()) {
-            let entry_name = entry.file_name().to_string_lossy().into_owned();
-            let path = entry.path();
+    if let Some((&base, rest)) = partial.split_first() {
+        if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
+            let mut built = built.clone();
+            built.parts.push(base.to_string());
+            built.isdir = true;
+            return complete_rec(rest, &built, cwd, options, dir, isdir);
+        }
+    }
 
-            if !dir || path.is_dir() {
-                match partial.first() {
-                    Some(base) if matches(base, &entry_name, options) => {
-                        let partial = &partial[1..];
-                        if !partial.is_empty() || isdir {
-                            completions.extend(complete_rec(partial, &path, options, dir, isdir));
-                            if entry_name.eq(base) {
-                                break;
-                            }
+    let mut built_path = cwd.to_path_buf();
+    for part in &built.parts {
+        built_path.push(part);
+    }
+
+    let Ok(result) = built_path.read_dir() else {
+        return completions;
+    };
+
+    for entry in result.filter_map(|e| e.ok()) {
+        let entry_name = entry.file_name().to_string_lossy().into_owned();
+        let entry_isdir = entry.path().is_dir();
+        let mut built = built.clone();
+        built.parts.push(entry_name.clone());
+        built.isdir = entry_isdir;
+
+        if !dir || entry_isdir {
+            match partial.split_first() {
+                Some((base, rest)) => {
+                    if matches(base, &entry_name, options) {
+                        if !rest.is_empty() || isdir {
+                            completions
+                                .extend(complete_rec(rest, &built, cwd, options, dir, isdir));
                         } else {
-                            completions.push(path)
+                            completions.push(built);
                         }
                     }
-                    None => completions.push(path),
-                    _ => {}
+                }
+                None => {
+                    completions.push(built);
                 }
             }
         }
@@ -39,33 +73,23 @@ fn complete_rec(
     completions
 }
 
+#[derive(Debug)]
 enum OriginalCwd {
     None,
-    Home(PathBuf),
-    Some(PathBuf),
-    // referencing a single local file
-    Local(PathBuf),
+    Home,
+    Prefix(String),
 }
 
 impl OriginalCwd {
-    fn apply(&self, p: &Path) -> String {
-        let mut ret = match self {
-            Self::None => p.to_string_lossy().into_owned(),
-            Self::Some(base) => pathdiff::diff_paths(p, base)
-                .unwrap_or(p.to_path_buf())
-                .to_string_lossy()
-                .into_owned(),
-            Self::Home(home) => match p.strip_prefix(home) {
-                Ok(suffix) => format!("~{}{}", SEP, suffix.to_string_lossy()),
-                _ => p.to_string_lossy().into_owned(),
-            },
-            Self::Local(base) => Path::new(".")
-                .join(pathdiff::diff_paths(p, base).unwrap_or(p.to_path_buf()))
-                .to_string_lossy()
-                .into_owned(),
+    fn apply(&self, mut p: PathBuiltFromString) -> String {
+        match self {
+            Self::None => {}
+            Self::Home => p.parts.insert(0, "~".to_string()),
+            Self::Prefix(s) => p.parts.insert(0, s.clone()),
         };
 
-        if p.is_dir() {
+        let mut ret = p.parts.join(MAIN_SEPARATOR_STR);
+        if p.isdir {
             ret.push(SEP);
         }
         ret
@@ -92,68 +116,98 @@ pub fn complete_item(
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
-) -> Vec<(nu_protocol::Span, String)> {
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
     let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
+    let ls_colors = (engine_state.config.use_ls_colors_completions
+        && engine_state.config.use_ansi_coloring)
+        .then(|| {
+            let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
+                Some(v) => env_to_string("LS_COLORS", &v, engine_state, stack).ok(),
+                None => None,
+            };
+            get_ls_colors(ls_colors_env_str)
+        });
+
+    let mut cwd = cwd_pathbuf.clone();
+    let mut prefix_len = 0;
     let mut original_cwd = OriginalCwd::None;
+
     let mut components = Path::new(&partial).components().peekable();
-    let mut cwd = match components.peek().cloned() {
+    match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition
             components.next();
             if let Some(Component::RootDir) = components.peek().cloned() {
                 components.next();
             };
-            [c, Component::RootDir].iter().collect()
+            cwd = [c, Component::RootDir].iter().collect();
+            prefix_len = c.as_os_str().len();
+            original_cwd = OriginalCwd::Prefix(c.as_os_str().to_string_lossy().into_owned());
         }
         Some(c @ Component::RootDir) => {
             components.next();
-            PathBuf::from(c.as_os_str())
+            // This is kind of a hack. When joining an empty string with the rest,
+            // we add the slash automagically
+            cwd = PathBuf::from(c.as_os_str());
+            prefix_len = 1;
+            original_cwd = OriginalCwd::Prefix(String::new());
         }
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
             components.next();
-            original_cwd = OriginalCwd::Home(home_dir().unwrap_or(cwd_pathbuf.clone()));
-            home_dir().unwrap_or(cwd_pathbuf)
+            cwd = home_dir().unwrap_or(cwd_pathbuf);
+            prefix_len = 1;
+            original_cwd = OriginalCwd::Home;
         }
-        Some(Component::CurDir) => {
-            components.next();
-            original_cwd = match components.peek().cloned() {
-                Some(Component::Normal(_)) | None => OriginalCwd::Local(cwd_pathbuf.clone()),
-                _ => OriginalCwd::Some(cwd_pathbuf.clone()),
-            };
-            cwd_pathbuf
-        }
-        _ => {
-            original_cwd = OriginalCwd::Some(cwd_pathbuf.clone());
-            cwd_pathbuf
-        }
+        _ => {}
     };
 
-    let mut partial = vec![];
+    let after_prefix = &partial[prefix_len..];
+    let partial: Vec<_> = after_prefix
+        .strip_prefix(is_separator)
+        .unwrap_or(after_prefix)
+        .split(is_separator)
+        .filter(|s| !s.is_empty())
+        .collect();
 
-    for component in components {
-        match component {
-            Component::Prefix(..) => unreachable!(),
-            Component::RootDir => unreachable!(),
-            Component::CurDir => {}
-            Component::ParentDir => {
-                if partial.pop().is_none() {
-                    cwd.pop();
-                }
-            }
-            Component::Normal(c) => partial.push(c.to_string_lossy().into_owned()),
-        }
-    }
-
-    complete_rec(partial.as_slice(), &cwd, options, want_directory, isdir)
-        .into_iter()
-        .map(|p| (span, escape_path(original_cwd.apply(&p), want_directory)))
-        .collect()
+    complete_rec(
+        partial.as_slice(),
+        &PathBuiltFromString::default(),
+        &cwd,
+        options,
+        want_directory,
+        isdir,
+    )
+    .into_iter()
+    .map(|p| {
+        let path = original_cwd.apply(p);
+        let style = ls_colors.as_ref().map(|lsc| {
+            lsc.style_for_path_with_metadata(&path, std::fs::symlink_metadata(&path).ok().as_ref())
+                .map(lscolors::Style::to_nu_ansi_term_style)
+                .unwrap_or_default()
+        });
+        (span, escape_path(path, want_directory), style)
+    })
+    .collect()
 }
 
 // Fix files or folders with quotes or hashes
 pub fn escape_path(path: String, dir: bool) -> String {
+    // make glob pattern have the highest priority.
+    let glob_contaminated = path.contains(['[', '*', ']', '?']);
+    if glob_contaminated {
+        return if path.contains('\'') {
+            // decide to use double quote, also need to escape `"` in path
+            // or else users can't do anything with completed path either.
+            format!("\"{}\"", path.replace('"', r#"\""#))
+        } else {
+            format!("'{path}'")
+        };
+    }
+
     let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
     let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
     let maybe_flag = path.starts_with('-');

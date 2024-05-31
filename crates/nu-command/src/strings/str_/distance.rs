@@ -1,11 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    levenshtein_distance, record, Category, Example, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::levenshtein_distance;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -30,8 +25,8 @@ impl Command for SubCommand {
         Signature::build("str distance")
             .input_output_types(vec![
                 (Type::String, Type::Int),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .required(
                 "compare-string",

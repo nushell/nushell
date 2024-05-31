@@ -20,7 +20,7 @@ fn table_to_json_text_and_from_json_text_back_into_table() {
 #[test]
 fn from_json_text_to_table() {
     Playground::setup("filter_from_json_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
                 {
@@ -46,7 +46,7 @@ fn from_json_text_to_table() {
 #[test]
 fn from_json_text_to_table_strict() {
     Playground::setup("filter_from_json_test_1_strict", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
                 {
@@ -72,7 +72,7 @@ fn from_json_text_to_table_strict() {
 #[test]
 fn from_json_text_recognizing_objects_independently_to_table() {
     Playground::setup("filter_from_json_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
                 {"name":   "Yehuda", "rusty_luck": 1}
@@ -97,9 +97,35 @@ fn from_json_text_recognizing_objects_independently_to_table() {
 }
 
 #[test]
+fn from_json_text_objects_is_stream() {
+    Playground::setup("filter_from_json_test_2_is_stream", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "katz.txt",
+            r#"
+                {"name":   "Yehuda", "rusty_luck": 1}
+                {"name": "JT", "rusty_luck": 1}
+                {"name":   "Andres", "rusty_luck": 1}
+                {"name":"GorbyPuff", "rusty_luck": 3}
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open katz.txt
+                | from json -o
+                | describe -n
+            "#
+        ));
+
+        assert_eq!(actual.out, "stream");
+    })
+}
+
+#[test]
 fn from_json_text_recognizing_objects_independently_to_table_strict() {
     Playground::setup("filter_from_json_test_2_strict", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "katz.txt",
             r#"
                 {"name":   "Yehuda", "rusty_luck": 1}
@@ -126,7 +152,7 @@ fn from_json_text_recognizing_objects_independently_to_table_strict() {
 #[test]
 fn table_to_json_text() {
     Playground::setup("filter_to_json_test", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "sample.txt",
             r#"
                 JonAndrehudaTZ,3
@@ -155,7 +181,7 @@ fn table_to_json_text() {
 #[test]
 fn table_to_json_text_strict() {
     Playground::setup("filter_to_json_test_strict", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
             "sample.txt",
             r#"
                 JonAndrehudaTZ,3
@@ -229,9 +255,43 @@ fn unbounded_from_in_range_fails() {
 #[test]
 fn inf_in_range_fails() {
     let actual = nu!(r#"inf..5 | to json"#);
-    assert!(actual.err.contains("Cannot create range"));
+    assert!(actual.err.contains("can't convert to countable values"));
     let actual = nu!(r#"5..inf | to json"#);
-    assert!(actual.err.contains("Cannot create range"));
+    assert!(actual
+        .err
+        .contains("Unbounded ranges are not allowed when converting to this format"));
     let actual = nu!(r#"-inf..inf | to json"#);
-    assert!(actual.err.contains("Cannot create range"));
+    assert!(actual.err.contains("can't convert to countable values"));
+}
+
+#[test]
+fn test_indent_flag() {
+    let actual = nu!(
+    cwd: "tests/fixtures/formats", pipeline(
+    r#"
+        echo '{ "a": 1, "b": 2, "c": 3 }'
+        | from json
+        | to json --indent 3
+    "#
+    ));
+
+    let expected_output = "{   \"a\": 1,   \"b\": 2,   \"c\": 3}";
+
+    assert_eq!(actual.out, expected_output);
+}
+
+#[test]
+fn test_tabs_indent_flag() {
+    let actual = nu!(
+    cwd: "tests/fixtures/formats", pipeline(
+    r#"
+        echo '{ "a": 1, "b": 2, "c": 3 }'
+        | from json
+        | to json --tabs 2
+    "#
+    ));
+
+    let expected_output = "{\t\t\"a\": 1,\t\t\"b\": 2,\t\t\"c\": 3}";
+
+    assert_eq!(actual.out, expected_output);
 }

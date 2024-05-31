@@ -1,16 +1,6 @@
-use log::trace;
-use nu_engine::env;
-use nu_engine::CallExt;
-use nu_protocol::record;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
-
-use std::ffi::OsStr;
-use std::path::Path;
+use nu_engine::{command_prelude::*, env};
+use nu_protocol::engine::CommandType;
+use std::{ffi::OsStr, path::Path};
 
 #[derive(Clone)]
 pub struct Which;
@@ -22,7 +12,7 @@ impl Command for Which {
 
     fn signature(&self) -> Signature {
         Signature::build("which")
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
             .required("application", SyntaxShape::String, "Application.")
             .rest("rest", SyntaxShape::String, "Additional applications.")
@@ -61,14 +51,14 @@ impl Command for Which {
 fn entry(
     arg: impl Into<String>,
     path: impl Into<String>,
-    cmd_type: impl Into<String>,
+    cmd_type: CommandType,
     span: Span,
 ) -> Value {
     Value::record(
         record! {
-            "command" => Value::string(arg.into(), span),
-            "path" => Value::string(path.into(), span),
-            "type" => Value::string(cmd_type.into(), span),
+            "command" => Value::string(arg, span),
+            "path" => Value::string(path, span),
+            "type" => Value::string(cmd_type.to_string(), span),
         },
         span,
     )
@@ -76,17 +66,8 @@ fn entry(
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
     if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
-        let cmd_type = if engine_state.get_decl(decl_id).is_custom_command() {
-            "custom"
-        } else if engine_state.get_decl(decl_id).is_alias() {
-            "alias"
-        } else {
-            "built-in"
-        };
-
-        trace!("Found command: {}", name);
-
-        Some(entry(name, "", cmd_type, span))
+        let decl = engine_state.get_decl(decl_id);
+        Some(entry(name, "", decl.command_type(), span))
     } else {
         None
     }
@@ -119,7 +100,7 @@ fn get_first_entry_in_path(
     paths: impl AsRef<OsStr>,
 ) -> Option<Value> {
     which::which_in(item, Some(paths), cwd)
-        .map(|path| entry(item, path.to_string_lossy().to_string(), "external", span))
+        .map(|path| entry(item, path.to_string_lossy(), CommandType::External, span))
         .ok()
 }
 
@@ -142,7 +123,7 @@ fn get_all_entries_in_path(
 ) -> Vec<Value> {
     which::which_in_all(&item, Some(paths), cwd)
         .map(|iter| {
-            iter.map(|path| entry(item, path.to_string_lossy().to_string(), "external", span))
+            iter.map(|path| entry(item, path.to_string_lossy(), CommandType::External, span))
                 .collect()
         })
         .unwrap_or_default()
@@ -224,6 +205,7 @@ fn which(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
+    let head = call.head;
     let which_args = WhichArgs {
         applications: call.rest(engine_state, stack, 0)?,
         all: call.has_flag(engine_state, stack, "all")?,
@@ -233,14 +215,15 @@ fn which(
     if which_args.applications.is_empty() {
         return Err(ShellError::MissingParameter {
             param_name: "application".into(),
-            span: call.head,
+            span: head,
         });
     }
 
     let mut output = vec![];
 
+    #[allow(deprecated)]
     let cwd = env::current_dir_str(engine_state, stack)?;
-    let paths = env::path_str(engine_state, stack, call.head)?;
+    let paths = env::path_str(engine_state, stack, head)?;
 
     for app in which_args.applications {
         let values = which_single(
@@ -253,7 +236,7 @@ fn which(
         output.extend(values);
     }
 
-    Ok(output.into_iter().into_pipeline_data(ctrlc))
+    Ok(output.into_iter().into_pipeline_data(head, ctrlc))
 }
 
 #[cfg(test)]

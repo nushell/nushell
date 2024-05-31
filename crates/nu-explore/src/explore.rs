@@ -5,15 +5,11 @@ use crate::{
 };
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_map, StyleComputer};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use std::collections::HashMap;
 
-/// A `less` like program to render a [Value] as a table.
+/// A `less` like program to render a [`Value`] as a table.
 #[derive(Clone)]
 pub struct Explore;
 
@@ -40,9 +36,9 @@ impl Command for Explore {
             )
             .switch("index", "Show row indexes when viewing a list", Some('i'))
             .switch(
-                "reverse",
+                "tail",
                 "Start with the viewport scrolled to the bottom",
-                Some('r'),
+                Some('t'),
             )
             .switch(
                 "peek",
@@ -65,7 +61,7 @@ impl Command for Explore {
     ) -> Result<PipelineData, ShellError> {
         let show_head: bool = call.get_flag(engine_state, stack, "head")?.unwrap_or(true);
         let show_index: bool = call.has_flag(engine_state, stack, "index")?;
-        let is_reverse: bool = call.has_flag(engine_state, stack, "reverse")?;
+        let tail: bool = call.has_flag(engine_state, stack, "tail")?;
         let peek_value: bool = call.has_flag(engine_state, stack, "peek")?;
 
         let ctrlc = engine_state.ctrlc.clone();
@@ -83,27 +79,39 @@ impl Command for Explore {
 
         let mut config = PagerConfig::new(nu_config, &style_computer, &lscolors, config);
         config.style = style;
-        config.reverse = is_reverse;
         config.peek_value = peek_value;
-        config.reverse = is_reverse;
+        config.tail = tail;
 
         let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
 
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
             Ok(None) => Ok(PipelineData::Value(Value::default(), None)),
-            Err(err) => Ok(PipelineData::Value(
-                Value::error(err.into(), call.head),
-                None,
-            )),
+            Err(err) => {
+                let shell_error = match err.downcast::<ShellError>() {
+                    Ok(e) => e,
+                    Err(e) => ShellError::GenericError {
+                        error: e.to_string(),
+                        msg: "".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    },
+                };
+
+                Ok(PipelineData::Value(
+                    Value::error(shell_error, call.head),
+                    None,
+                ))
+            }
         }
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Explore the system information record",
-                example: r#"sys | explore"#,
+                description: "Explore the system host information record",
+                example: r#"sys host | explore"#,
                 result: None,
             },
             Example {
@@ -188,26 +196,27 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
         Some(Color::Rgb(29, 31, 33)),
         Some(Color::Rgb(196, 201, 198)),
     );
-
     const INPUT_BAR: Style = color(Some(Color::Rgb(196, 201, 198)), None);
 
     const HIGHLIGHT: Style = color(Some(Color::Black), Some(Color::Yellow));
 
     const STATUS_ERROR: Style = color(Some(Color::White), Some(Color::Red));
-
     const STATUS_INFO: Style = color(None, None);
-
     const STATUS_SUCCESS: Style = color(Some(Color::Black), Some(Color::Green));
-
     const STATUS_WARN: Style = color(None, None);
 
     const TABLE_SPLIT_LINE: Style = color(Some(Color::Rgb(64, 64, 64)), None);
-
     const TABLE_SELECT_CELL: Style = color(None, None);
-
     const TABLE_SELECT_ROW: Style = color(None, None);
-
     const TABLE_SELECT_COLUMN: Style = color(None, None);
+
+    const HEXDUMP_INDEX: Style = color(Some(Color::Cyan), None);
+    const HEXDUMP_SEGMENT: Style = color(Some(Color::Cyan), None).bold();
+    const HEXDUMP_SEGMENT_ZERO: Style = color(Some(Color::Purple), None).bold();
+    const HEXDUMP_SEGMENT_UNKNOWN: Style = color(Some(Color::Green), None).bold();
+    const HEXDUMP_ASCII: Style = color(Some(Color::Cyan), None).bold();
+    const HEXDUMP_ASCII_ZERO: Style = color(Some(Color::Purple), None).bold();
+    const HEXDUMP_ASCII_UNKNOWN: Style = color(Some(Color::Green), None).bold();
 
     insert_style(config, "status_bar_background", STATUS_BAR);
     insert_style(config, "command_bar_text", INPUT_BAR);
@@ -241,6 +250,28 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
         insert_style(&mut hm, "selected_column", TABLE_SELECT_COLUMN);
 
         config.insert(String::from("table"), map_into_value(hm));
+    }
+
+    {
+        let mut hm = config
+            .get("hex-dump")
+            .and_then(create_map)
+            .unwrap_or_default();
+
+        insert_style(&mut hm, "color_index", HEXDUMP_INDEX);
+        insert_style(&mut hm, "color_segment", HEXDUMP_SEGMENT);
+        insert_style(&mut hm, "color_segment_zero", HEXDUMP_SEGMENT_ZERO);
+        insert_style(&mut hm, "color_segment_unknown", HEXDUMP_SEGMENT_UNKNOWN);
+        insert_style(&mut hm, "color_ascii", HEXDUMP_ASCII);
+        insert_style(&mut hm, "color_ascii_zero", HEXDUMP_ASCII_ZERO);
+        insert_style(&mut hm, "color_ascii_unknown", HEXDUMP_ASCII_UNKNOWN);
+
+        insert_int(&mut hm, "segment_size", 2);
+        insert_int(&mut hm, "count_segments", 8);
+
+        insert_bool(&mut hm, "split", true);
+
+        config.insert(String::from("hex-dump"), map_into_value(hm));
     }
 }
 
@@ -289,6 +320,14 @@ fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
     }
 
     map.insert(String::from(key), Value::bool(value, Span::unknown()));
+}
+
+fn insert_int(map: &mut HashMap<String, Value>, key: &str, value: i64) {
+    if map.contains_key(key) {
+        return;
+    }
+
+    map.insert(String::from(key), Value::int(value, Span::unknown()));
 }
 
 fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {

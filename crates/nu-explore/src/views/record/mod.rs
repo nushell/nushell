@@ -1,17 +1,11 @@
-mod tablew;
+mod table_widget;
 
-use std::borrow::Cow;
-
-use std::collections::HashMap;
-
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use nu_color_config::{get_color_map, StyleComputer};
-use nu_protocol::{
-    engine::{EngineState, Stack},
-    Record, Value,
+use self::table_widget::{TableStyle, TableWidget, TableWidgetState};
+use super::{
+    cursor::XYCursor,
+    util::{make_styled_string, nu_style_to_tui},
+    Layout, View, ViewConfig,
 };
-use ratatui::{layout::Rect, widgets::Block};
-
 use crate::{
     nu_common::{collect_input, lscolorize, NuConfig, NuSpan, NuStyle, NuText},
     pager::{
@@ -21,16 +15,17 @@ use crate::{
     util::create_map,
     views::ElementInfo,
 };
-
-use self::tablew::{TableStyle, TableW, TableWState};
-
-use super::{
-    cursor::XYCursor,
-    util::{make_styled_string, nu_style_to_tui},
-    Layout, View, ViewConfig,
+use anyhow::Result;
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use nu_color_config::{get_color_map, StyleComputer};
+use nu_protocol::{
+    engine::{EngineState, Stack},
+    Record, Span, Value,
 };
+use ratatui::{layout::Rect, widgets::Block};
+use std::{borrow::Cow, collections::HashMap};
 
-pub use self::tablew::Orientation;
+pub use self::table_widget::Orientation;
 
 #[derive(Debug, Clone)]
 pub struct RecordView<'a> {
@@ -53,10 +48,10 @@ impl<'a> RecordView<'a> {
         }
     }
 
-    pub fn reverse(&mut self, width: u16, height: u16) {
+    pub fn tail(&mut self, width: u16, height: u16) {
         let page_size =
             estimate_page_size(Rect::new(0, 0, width, height), self.theme.table.show_header);
-        state_reverse_data(self, page_size as usize);
+        tail_data(self, page_size as usize);
     }
 
     pub fn set_style_split_line(&mut self, style: NuStyle) {
@@ -76,26 +71,14 @@ impl<'a> RecordView<'a> {
     }
 
     pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
-        self.theme.table.padding_column_left = left;
-        self.theme.table.padding_column_right = right;
-    }
-
-    pub fn set_padding_index(&mut self, (left, right): (usize, usize)) {
-        self.theme.table.padding_index_left = left;
-        self.theme.table.padding_index_right = right;
+        self.theme.table.column_padding_left = left;
+        self.theme.table.column_padding_right = right;
     }
 
     pub fn get_padding_column(&self) -> (usize, usize) {
         (
-            self.theme.table.padding_column_left,
-            self.theme.table.padding_column_right,
-        )
-    }
-
-    pub fn get_padding_index(&self) -> (usize, usize) {
-        (
-            self.theme.table.padding_index_left,
-            self.theme.table.padding_index_right,
+            self.theme.table.column_padding_left,
+            self.theme.table.column_padding_right,
         )
     }
 
@@ -185,10 +168,14 @@ impl<'a> RecordView<'a> {
             Orientation::Left => (column, row),
         };
 
-        layer.records[row][column].clone()
+        if layer.records.len() > row && layer.records[row].len() > column {
+            layer.records[row][column].clone()
+        } else {
+            Value::nothing(Span::unknown())
+        }
     }
 
-    fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableW<'a> {
+    fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
         let layer = self.get_layer_last();
         let mut data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
 
@@ -198,7 +185,7 @@ impl<'a> RecordView<'a> {
         let style_computer = cfg.style_computer;
         let (row, column) = self.get_current_offset();
 
-        TableW::new(
+        TableWidget::new(
             headers,
             data,
             style_computer,
@@ -238,7 +225,7 @@ impl<'a> RecordView<'a> {
 
 impl View for RecordView<'_> {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
-        let mut table_layout = TableWState::default();
+        let mut table_layout = TableWidgetState::default();
         let table = self.create_tablew(cfg);
         f.render_stateful_widget(table, area, &mut table_layout);
 
@@ -272,16 +259,26 @@ impl View for RecordView<'_> {
         key: KeyEvent,
     ) -> Option<Transition> {
         let result = match self.mode {
-            UIMode::View => handle_key_event_view_mode(self, &key),
+            UIMode::View => Ok(handle_key_event_view_mode(self, &key)),
             UIMode::Cursor => handle_key_event_cursor_mode(self, &key),
         };
 
-        if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
-            let report = self.create_records_report();
-            info.status = Some(report);
-        }
+        match result {
+            Ok(result) => {
+                if matches!(&result, Some(Transition::Ok) | Some(Transition::Cmd { .. })) {
+                    let report = self.create_records_report();
+                    info.status = Some(report);
+                }
 
-        result
+                result
+            }
+            Err(e) => {
+                log::error!("Error handling input in RecordView: {e}");
+                let report = Report::message(e.to_string(), Severity::Err);
+                info.status = Some(report);
+                None
+            }
+        }
     }
 
     fn collect_data(&self) -> Vec<NuText> {
@@ -331,8 +328,8 @@ impl View for RecordView<'_> {
         if let Some(hm) = cfg.config.get("table").and_then(create_map) {
             self.theme = theme_from_config(&hm);
 
-            if let Some(orientation) = hm.get("orientation").and_then(|v| v.as_string().ok()) {
-                let orientation = match orientation.as_str() {
+            if let Some(orientation) = hm.get("orientation").and_then(|v| v.coerce_str().ok()) {
+                let orientation = match orientation.as_ref() {
                     "left" => Some(Orientation::Left),
                     "top" => Some(Orientation::Top),
                     _ => None,
@@ -514,7 +511,10 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
     }
 }
 
-fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option<Transition> {
+fn handle_key_event_cursor_mode(
+    view: &mut RecordView,
+    key: &KeyEvent,
+) -> Result<Option<Transition>> {
     match key {
         KeyEvent {
             code: KeyCode::Char('u'),
@@ -527,7 +527,7 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         } => {
             view.get_layer_last_mut().cursor.prev_row_page();
 
-            return Some(Transition::Ok);
+            return Ok(Some(Transition::Ok));
         }
         KeyEvent {
             code: KeyCode::Char('d'),
@@ -540,7 +540,7 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         } => {
             view.get_layer_last_mut().cursor.next_row_page();
 
-            return Some(Transition::Ok);
+            return Ok(Some(Transition::Ok));
         }
         _ => {}
     }
@@ -549,43 +549,42 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
         KeyCode::Esc => {
             view.set_view_mode();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Up | KeyCode::Char('k') => {
             view.get_layer_last_mut().cursor.prev_row();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Down | KeyCode::Char('j') => {
             view.get_layer_last_mut().cursor.next_row();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Left | KeyCode::Char('h') => {
             view.get_layer_last_mut().cursor.prev_column();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Right | KeyCode::Char('l') => {
             view.get_layer_last_mut().cursor.next_column();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Home | KeyCode::Char('g') => {
             view.get_layer_last_mut().cursor.row_move_to_start();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::End | KeyCode::Char('G') => {
             view.get_layer_last_mut().cursor.row_move_to_end();
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
         KeyCode::Enter => {
             let value = view.get_current_value();
             let is_record = matches!(value, Value::Record { .. });
-            let next_layer = create_layer(value);
-
+            let next_layer = create_layer(value)?;
             push_layer(view, next_layer);
 
             if is_record {
@@ -596,16 +595,16 @@ fn handle_key_event_cursor_mode(view: &mut RecordView, key: &KeyEvent) -> Option
                 view.set_orientation_current(view.orientation);
             }
 
-            Some(Transition::Ok)
+            Ok(Some(Transition::Ok))
         }
-        _ => None,
+        _ => Ok(None),
     }
 }
 
-fn create_layer(value: Value) -> RecordLayer<'static> {
-    let (columns, values) = collect_input(value);
+fn create_layer(value: Value) -> Result<RecordLayer<'static>> {
+    let (columns, values) = collect_input(value)?;
 
-    RecordLayer::new(columns, values)
+    Ok(RecordLayer::new(columns, values))
 }
 
 fn push_layer(view: &mut RecordView<'_>, mut next_layer: RecordLayer<'static>) {
@@ -630,7 +629,8 @@ fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
     available_height
 }
 
-fn state_reverse_data(state: &mut RecordView<'_>, page_size: usize) {
+/// scroll to the end of the data
+fn tail_data(state: &mut RecordView<'_>, page_size: usize) {
     let layer = state.get_layer_last_mut();
     let count_rows = layer.records.len();
     if count_rows > page_size {
@@ -648,7 +648,7 @@ fn convert_records_to_string(
         .map(|row| {
             row.iter()
                 .map(|value| {
-                    let text = value.clone().into_abbreviated_string(cfg);
+                    let text = value.clone().to_abbreviated_string(cfg);
                     let float_precision = cfg.float_precision as usize;
 
                     make_styled_string(style_computer, text, Some(value), float_precision)
@@ -701,16 +701,13 @@ fn build_last_value(v: &RecordView) -> Value {
 fn build_table_as_list(v: &RecordView) -> Value {
     let layer = v.get_layer_last();
 
-    let headers = layer.columns.to_vec();
+    let cols = &layer.columns;
     let vals = layer
         .records
         .iter()
-        .cloned()
         .map(|vals| {
-            Value::record(
-                Record::from_raw_cols_vals(headers.clone(), vals),
-                NuSpan::unknown(),
-            )
+            let record = cols.iter().cloned().zip(vals.iter().cloned()).collect();
+            Value::record(record, NuSpan::unknown())
         })
         .collect();
 
@@ -720,10 +717,18 @@ fn build_table_as_list(v: &RecordView) -> Value {
 fn build_table_as_record(v: &RecordView) -> Value {
     let layer = v.get_layer_last();
 
-    let cols = layer.columns.to_vec();
-    let vals = layer.records.first().map_or(Vec::new(), |row| row.clone());
+    let record = if let Some(row) = layer.records.first() {
+        layer
+            .columns
+            .iter()
+            .cloned()
+            .zip(row.iter().cloned())
+            .collect()
+    } else {
+        Record::new()
+    };
 
-    Value::record(Record::from_raw_cols_vals(cols, vals), NuSpan::unknown())
+    Value::record(record, NuSpan::unknown())
 }
 
 fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
@@ -813,7 +818,7 @@ fn _transpose_table(
     let mut data = vec![vec![Value::default(); count_rows]; count_columns];
     for (row, values) in values.iter().enumerate() {
         for (column, value) in values.iter().enumerate() {
-            data[column][row] = value.to_owned();
+            data[column][row].clone_from(value);
         }
     }
 
@@ -836,10 +841,8 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.table.show_header = config_get_bool(config, "show_head", true);
     theme.table.show_index = config_get_bool(config, "show_index", false);
 
-    theme.table.padding_index_left = config_get_usize(config, "padding_index_left", 2);
-    theme.table.padding_index_right = config_get_usize(config, "padding_index_right", 1);
-    theme.table.padding_column_left = config_get_usize(config, "padding_column_left", 2);
-    theme.table.padding_column_right = config_get_usize(config, "padding_column_right", 2);
+    theme.table.column_padding_left = config_get_usize(config, "column_padding_left", 1);
+    theme.table.column_padding_right = config_get_usize(config, "column_padding_right", 1);
 
     theme
 }
@@ -854,7 +857,7 @@ fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
 fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
     config
         .get(key)
-        .and_then(|v| v.as_string().ok())
+        .and_then(|v| v.coerce_str().ok())
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(default)
 }

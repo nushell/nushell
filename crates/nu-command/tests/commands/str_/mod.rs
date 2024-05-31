@@ -1,5 +1,5 @@
-mod collect;
 mod into_string;
+mod join;
 
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
@@ -8,7 +8,7 @@ use nu_test_support::{nu, pipeline};
 #[test]
 fn trims() {
     Playground::setup("str_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [dependency]
@@ -39,7 +39,7 @@ fn error_trim_multiple_chars() {
 #[test]
 fn capitalizes() {
     Playground::setup("str_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [dependency]
@@ -59,7 +59,7 @@ fn capitalizes() {
 #[test]
 fn downcases() {
     Playground::setup("str_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [dependency]
@@ -86,7 +86,7 @@ fn non_ascii_downcase() {
 #[test]
 fn upcases() {
     Playground::setup("str_test_4", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [package]
@@ -114,7 +114,7 @@ fn non_ascii_upcase() {
 #[ignore = "Playgrounds are not supported in nu-cmd-extra"]
 fn camelcases() {
     Playground::setup("str_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                     [dependency]
@@ -165,7 +165,7 @@ fn converts_to_float() {
 #[test]
 fn find_and_replaces() {
     Playground::setup("str_test_6", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                      [fortune.teller]
@@ -189,7 +189,7 @@ fn find_and_replaces() {
 #[test]
 fn find_and_replaces_without_passing_field() {
     Playground::setup("str_test_7", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                      [fortune.teller]
@@ -233,7 +233,7 @@ fn regex_error_in_pattern() {
 #[test]
 fn substrings_the_input() {
     Playground::setup("str_test_8", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                      [fortune.teller]
@@ -257,7 +257,7 @@ fn substrings_the_input() {
 #[test]
 fn substring_errors_if_start_index_is_greater_than_end_index() {
     Playground::setup("str_test_9", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                      [fortune.teller]
@@ -269,7 +269,7 @@ fn substring_errors_if_start_index_is_greater_than_end_index() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring 6..5 fortune.teller.phone
+                 | str substring 6..4 fortune.teller.phone
              "#
         ));
 
@@ -282,7 +282,7 @@ fn substring_errors_if_start_index_is_greater_than_end_index() {
 #[test]
 fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length() {
     Playground::setup("str_test_10", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                      [package]
@@ -306,7 +306,7 @@ fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length() {
 #[test]
 fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length() {
     Playground::setup("str_test_11", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                      [package]
@@ -330,7 +330,7 @@ fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length() {
 #[test]
 fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_given() {
     Playground::setup("str_test_12", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                      [package]
@@ -342,7 +342,7 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring ..2 package.name
+                 | str substring ..1 package.name
                  | get package.name
              "#
         ));
@@ -354,7 +354,7 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
 #[test]
 fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given() {
     Playground::setup("str_test_13", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContent(
+        sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
                      [package]

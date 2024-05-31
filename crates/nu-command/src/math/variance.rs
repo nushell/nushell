@@ -1,10 +1,5 @@
 use crate::math::utils::run_with_function;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -18,8 +13,8 @@ impl Command for SubCommand {
         Signature::build("math variance")
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Number)), Type::Number),
-                (Type::Table(vec![]), Type::Record(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::record()),
+                (Type::record(), Type::record()),
             ])
             .switch(
                 "sample",

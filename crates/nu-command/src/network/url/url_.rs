@@ -1,9 +1,4 @@
-use nu_engine::get_full_help;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
-};
+use nu_engine::{command_prelude::*, get_full_help};
 
 #[derive(Clone)]
 pub struct Url;
@@ -38,16 +33,6 @@ impl Command for Url {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(
-            get_full_help(
-                &Url.signature(),
-                &Url.examples(),
-                engine_state,
-                stack,
-                self.is_parser_keyword(),
-            ),
-            call.head,
-        )
-        .into_pipeline_data())
+        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
 }

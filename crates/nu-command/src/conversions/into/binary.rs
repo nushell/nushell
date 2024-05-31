@@ -1,11 +1,5 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 pub struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
@@ -36,8 +30,8 @@ impl Command for SubCommand {
                 (Type::Bool, Type::Binary),
                 (Type::Filesize, Type::Binary),
                 (Type::Date, Type::Binary),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .switch("compact", "output without padding zeros", Some('c'))
@@ -133,25 +127,18 @@ fn into_binary(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    match input {
-        PipelineData::ExternalStream { stdout: None, .. } => {
-            Ok(Value::binary(vec![], head).into_pipeline_data())
-        }
-        PipelineData::ExternalStream {
-            stdout: Some(stream),
-            ..
-        } => {
-            // TODO: in the future, we may want this to stream out, converting each to bytes
-            let output = stream.into_bytes()?;
-            Ok(Value::binary(output.item, head).into_pipeline_data())
-        }
-        _ => {
-            let args = Arguments {
-                cell_paths,
-                compact: call.has_flag(engine_state, stack, "compact")?,
-            };
-            operate(action, args, input, call.head, engine_state.ctrlc.clone())
-        }
+    if let PipelineData::ByteStream(stream, metadata) = input {
+        // Just set the type - that should be good enough
+        Ok(PipelineData::ByteStream(
+            stream.with_type(ByteStreamType::Binary),
+            metadata,
+        ))
+    } else {
+        let args = Arguments {
+            cell_paths,
+            compact: call.has_flag(engine_state, stack, "compact")?,
+        };
+        operate(action, args, input, head, engine_state.ctrlc.clone())
     }
 }
 

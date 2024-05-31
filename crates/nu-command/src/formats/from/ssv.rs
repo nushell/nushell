@@ -1,11 +1,5 @@
-use indexmap::map::IndexMap;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
+use indexmap::IndexMap;
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct FromSsv;
@@ -19,7 +13,7 @@ impl Command for FromSsv {
 
     fn signature(&self) -> Signature {
         Signature::build("from ssv")
-            .input_output_types(vec![(Type::String, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::String, Type::table())])
             .switch(
                 "noheaders",
                 "don't treat the first row as column names",
@@ -239,7 +233,9 @@ fn string_to_table(
     aligned_columns: bool,
     split_at: usize,
 ) -> Vec<Vec<(String, String)>> {
-    let mut lines = s.lines().filter(|l| !l.trim().is_empty());
+    let mut lines = s
+        .lines()
+        .filter(|l| !l.trim().is_empty() && !l.trim().starts_with('#'));
     let separator = " ".repeat(std::cmp::max(split_at, 1));
 
     let (ls, header_options) = if noheaders {
@@ -312,6 +308,24 @@ mod tests {
 
     fn owned(x: &str, y: &str) -> (String, String) {
         (String::from(x), String::from(y))
+    }
+
+    #[test]
+    fn it_filters_comment_lines() {
+        let input = r#"
+            a       b
+            1       2
+            3       4
+            #comment       line
+        "#;
+        let result = string_to_table(input, false, true, 1);
+        assert_eq!(
+            result,
+            vec![
+                vec![owned("a", "1"), owned("b", "2")],
+                vec![owned("a", "3"), owned("b", "4")]
+            ]
+        );
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use std::{io::Write, path::PathBuf};
 
-use chrono::{DateTime, FixedOffset, NaiveDateTime, Offset};
-use nu_protocol::{ast::PathMember, Record, Span, Value};
+use chrono::{DateTime, FixedOffset};
+use nu_protocol::{ast::PathMember, record, Span, Value};
 use nu_test_support::{
     fs::{line_ending, Stub},
     nu, pipeline,
@@ -60,9 +60,9 @@ fn into_sqlite_values() {
         insert_test_rows(
             &dirs,
             r#"[
-                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary];
-                [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary)],
-                [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary)],
+                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
+                [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), 1],
+                [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary), null],
             ]"#,
             None,
             vec![
@@ -75,6 +75,7 @@ fn into_sqlite_values() {
                     DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
                     "foo".into(),
                     b"binary".to_vec(),
+                    rusqlite::types::Value::Integer(1),
                 ),
                 TestRow(
                     false,
@@ -85,6 +86,146 @@ fn into_sqlite_values() {
                     DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
                     "bar".into(),
                     b"wut".to_vec(),
+                    rusqlite::types::Value::Null,
+                ),
+            ],
+        );
+    });
+}
+
+/// When we create a new table, we use the first row to infer the schema of the
+/// table. In the event that a column is null, we can't know what type the row
+/// should be, so we just assume TEXT.
+#[test]
+fn into_sqlite_values_first_column_null() {
+    Playground::setup("values", |dirs, _| {
+        insert_test_rows(
+            &dirs,
+            r#"[
+                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
+                [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary), null],
+                [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), 1],
+            ]"#,
+            None,
+            vec![
+                TestRow(
+                    false,
+                    2,
+                    3.0,
+                    2000000,
+                    2419200000000000,
+                    DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                    "bar".into(),
+                    b"wut".to_vec(),
+                    rusqlite::types::Value::Null,
+                ),
+                TestRow(
+                    true,
+                    1,
+                    2.0,
+                    1000,
+                    1000000000,
+                    DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+                    "foo".into(),
+                    b"binary".to_vec(),
+                    rusqlite::types::Value::Text("1".into()),
+                ),
+            ],
+        );
+    });
+}
+
+/// If the DB / table already exist, then the insert should end up with the
+/// right data types no matter if the first row is null or not.
+#[test]
+fn into_sqlite_values_first_column_null_preexisting_db() {
+    Playground::setup("values", |dirs, _| {
+        insert_test_rows(
+            &dirs,
+            r#"[
+                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
+                [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), 1],
+                [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary), null],
+            ]"#,
+            None,
+            vec![
+                TestRow(
+                    true,
+                    1,
+                    2.0,
+                    1000,
+                    1000000000,
+                    DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+                    "foo".into(),
+                    b"binary".to_vec(),
+                    rusqlite::types::Value::Integer(1),
+                ),
+                TestRow(
+                    false,
+                    2,
+                    3.0,
+                    2000000,
+                    2419200000000000,
+                    DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                    "bar".into(),
+                    b"wut".to_vec(),
+                    rusqlite::types::Value::Null,
+                ),
+            ],
+        );
+
+        insert_test_rows(
+            &dirs,
+            r#"[
+                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
+                [true, 3, 5.0, 3.1mb, 1wk, "2020-09-10T12:30:00-00:00", "baz", ("huh" | into binary), null],
+                [true, 3, 5.0, 3.1mb, 1wk, "2020-09-10T12:30:00-00:00", "baz", ("huh" | into binary), 3],
+            ]"#,
+            None,
+            vec![
+                TestRow(
+                    true,
+                    1,
+                    2.0,
+                    1000,
+                    1000000000,
+                    DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
+                    "foo".into(),
+                    b"binary".to_vec(),
+                    rusqlite::types::Value::Integer(1),
+                ),
+                TestRow(
+                    false,
+                    2,
+                    3.0,
+                    2000000,
+                    2419200000000000,
+                    DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                    "bar".into(),
+                    b"wut".to_vec(),
+                    rusqlite::types::Value::Null,
+                ),
+                TestRow(
+                    true,
+                    3,
+                    5.0,
+                    3100000,
+                    604800000000000,
+                    DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                    "baz".into(),
+                    b"huh".to_vec(),
+                    rusqlite::types::Value::Null,
+                ),
+                TestRow(
+                    true,
+                    3,
+                    5.0,
+                    3100000,
+                    604800000000000,
+                    DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
+                    "baz".into(),
+                    b"huh".to_vec(),
+                    rusqlite::types::Value::Integer(3),
                 ),
             ],
         );
@@ -99,8 +240,8 @@ fn into_sqlite_existing_db_append() {
         insert_test_rows(
             &dirs,
             r#"[
-                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary];
-                [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary)],
+                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
+                [true, 1, 2.0, 1kb, 1sec, "2023-09-10T11:30:00-00:00", "foo", ("binary" | into binary), null],
             ]"#,
             None,
             vec![TestRow(
@@ -112,6 +253,7 @@ fn into_sqlite_existing_db_append() {
                 DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
                 "foo".into(),
                 b"binary".to_vec(),
+                rusqlite::types::Value::Null,
             )],
         );
 
@@ -119,8 +261,8 @@ fn into_sqlite_existing_db_append() {
         insert_test_rows(
             &dirs,
             r#"[
-                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary];
-                [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary)],
+                [somebool, someint, somefloat, somefilesize, someduration, somedate, somestring, somebinary, somenull];
+                [false, 2, 3.0, 2mb, 4wk, "2020-09-10T12:30:00-00:00", "bar", ("wut" | into binary), null],
             ]"#,
             None,
             // it should have both rows
@@ -134,6 +276,7 @@ fn into_sqlite_existing_db_append() {
                     DateTime::parse_from_rfc3339("2023-09-10T11:30:00-00:00").unwrap(),
                     "foo".into(),
                     b"binary".to_vec(),
+                    rusqlite::types::Value::Null,
                 ),
                 TestRow(
                     false,
@@ -144,6 +287,7 @@ fn into_sqlite_existing_db_append() {
                     DateTime::parse_from_rfc3339("2020-09-10T12:30:00-00:00").unwrap(),
                     "bar".into(),
                     b"wut".to_vec(),
+                    rusqlite::types::Value::Null,
                 ),
             ],
         );
@@ -160,7 +304,7 @@ fn into_sqlite_big_insert() {
 
         let nuon_path = dirs.test().join(NUON_FILE_NAME);
 
-        playground.with_files(vec![Stub::EmptyFile(&nuon_path.to_string_lossy())]);
+        playground.with_files(&[Stub::EmptyFile(&nuon_path.to_string_lossy())]);
 
         let mut expected_rows = Vec::new();
         let mut nuon_file = std::fs::OpenOptions::new()
@@ -180,11 +324,13 @@ fn into_sqlite_big_insert() {
                         span: Span::unknown(),
                         optional: false,
                     }],
-                    Box::new(|dateval| Value::string(dateval.as_string().unwrap(), dateval.span())),
+                    Box::new(|dateval| {
+                        Value::string(dateval.coerce_string().unwrap(), dateval.span())
+                    }),
                 )
                 .unwrap();
 
-            let nuon = nu_command::value_to_string(&value, Span::unknown(), 0, None).unwrap()
+            let nuon = nuon::to_nuon(&value, nuon::ToStyle::Raw, Some(Span::unknown())).unwrap()
                 + &line_ending();
 
             nuon_file.write_all(nuon.as_bytes()).unwrap();
@@ -221,6 +367,7 @@ struct TestRow(
     chrono::DateTime<chrono::FixedOffset>,
     std::string::String,
     std::vec::Vec<u8>,
+    rusqlite::types::Value,
 );
 
 impl TestRow {
@@ -232,22 +379,17 @@ impl TestRow {
 impl From<TestRow> for Value {
     fn from(row: TestRow) -> Self {
         Value::record(
-            Record::from_iter(vec![
-                ("somebool".into(), Value::bool(row.0, Span::unknown())),
-                ("someint".into(), Value::int(row.1, Span::unknown())),
-                ("somefloat".into(), Value::float(row.2, Span::unknown())),
-                (
-                    "somefilesize".into(),
-                    Value::filesize(row.3, Span::unknown()),
-                ),
-                (
-                    "someduration".into(),
-                    Value::duration(row.4, Span::unknown()),
-                ),
-                ("somedate".into(), Value::date(row.5, Span::unknown())),
-                ("somestring".into(), Value::string(row.6, Span::unknown())),
-                ("somebinary".into(), Value::binary(row.7, Span::unknown())),
-            ]),
+            record! {
+                "somebool" => Value::bool(row.0, Span::unknown()),
+                "someint" => Value::int(row.1, Span::unknown()),
+                "somefloat" => Value::float(row.2, Span::unknown()),
+                "somefilesize" => Value::filesize(row.3, Span::unknown()),
+                "someduration" => Value::duration(row.4, Span::unknown()),
+                "somedate" => Value::date(row.5, Span::unknown()),
+                "somestring" => Value::string(row.6, Span::unknown()),
+                "somebinary" => Value::binary(row.7, Span::unknown()),
+                "somenull" => Value::nothing(Span::unknown()),
+            },
             Span::unknown(),
         )
     }
@@ -265,6 +407,7 @@ impl<'r> TryFrom<&rusqlite::Row<'r>> for TestRow {
         let somedate: DateTime<FixedOffset> = row.get("somedate").unwrap();
         let somestring: String = row.get("somestring").unwrap();
         let somebinary: Vec<u8> = row.get("somebinary").unwrap();
+        let somenull: rusqlite::types::Value = row.get("somenull").unwrap();
 
         Ok(TestRow(
             somebool,
@@ -275,6 +418,7 @@ impl<'r> TryFrom<&rusqlite::Row<'r>> for TestRow {
             somedate,
             somestring,
             somebinary,
+            somenull,
         ))
     }
 }
@@ -284,9 +428,10 @@ impl Distribution<TestRow> for Standard {
     where
         R: rand::Rng + ?Sized,
     {
-        let naive_dt =
-            NaiveDateTime::from_timestamp_millis(rng.gen_range(0..2324252554000)).unwrap();
-        let dt = DateTime::from_naive_utc_and_offset(naive_dt, chrono::Utc.fix());
+        let dt = DateTime::from_timestamp_millis(rng.gen_range(0..2324252554000))
+            .unwrap()
+            .fixed_offset();
+
         let rand_string = Alphanumeric.sample_string(rng, 10);
 
         // limit the size of the numbers to work around
@@ -303,6 +448,7 @@ impl Distribution<TestRow> for Standard {
             dt,
             rand_string,
             rng.gen::<u64>().to_be_bytes().to_vec(),
+            rusqlite::types::Value::Null,
         )
     }
 }

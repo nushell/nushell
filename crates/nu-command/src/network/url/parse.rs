@@ -1,10 +1,4 @@
-use super::url;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
-
+use nu_engine::command_prelude::*;
 use url::Url;
 
 #[derive(Clone)]
@@ -18,9 +12,9 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("url parse")
             .input_output_types(vec![
-                (Type::String, Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::String, Type::record()),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .rest(
@@ -48,7 +42,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        parse(input.into_value(call.head), call.head, engine_state)
+        parse(input.into_value(call.head)?, call.head, engine_state)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -75,7 +69,7 @@ impl Command for SubCommand {
 }
 
 fn get_url_string(value: &Value, engine_state: &EngineState) -> String {
-    value.into_string("", engine_state.get_config())
+    value.to_expanded_string("", engine_state.get_config())
 }
 
 fn parse(value: Value, head: Span, engine_state: &EngineState) -> Result<PipelineData, ShellError> {

@@ -1,0 +1,27 @@
+[files]
+extend-exclude = [
+    ".git/",
+    "crates/nu-cmd-extra/assets/228_themes.json",
+    "tests/fixtures/formats/",
+]
+ignore-hidden = false
+
+[default]
+extend-ignore-re = [
+    "Plasticos Rival",
+    "│ in_custom_valu │",
+    "│ ine │",
+    ":es\\|ful\\(",
+    "\\\\u\\{e7ba\\}",
+    "([0-9a-f][0-9a-f] ){4}",
+    "--find ba\\b",
+    "0x\\[ba be\\]",
+    "\\)BaR'",
+]
+
+[type.rust.extend-words]
+nd = "nd"
+numer = "numer"
+
+[default.extend-identifiers]
+ratatui = "ratatui"

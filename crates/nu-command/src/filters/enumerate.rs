@@ -1,9 +1,4 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Enumerate;
@@ -23,7 +18,7 @@ impl Command for Enumerate {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("enumerate")
-            .input_output_types(vec![(Type::Any, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Any, Type::table())])
             .category(Category::Filters)
     }
 
@@ -55,9 +50,9 @@ impl Command for Enumerate {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
-        let span = call.head;
 
         Ok(input
             .into_iter()
@@ -65,13 +60,13 @@ impl Command for Enumerate {
             .map(move |(idx, x)| {
                 Value::record(
                     record! {
-                        "index" => Value::int(idx as i64, span),
+                        "index" => Value::int(idx as i64, head),
                         "item" => x,
                     },
-                    span,
+                    head,
                 )
             })
-            .into_pipeline_data_with_metadata(metadata, ctrlc))
+            .into_pipeline_data_with_metadata(head, ctrlc, metadata))
     }
 }
 

@@ -1,11 +1,5 @@
 pub use super::uniq;
-use nu_engine::column::nonexistent_column;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::{column::nonexistent_column, command_prelude::*};
 
 #[derive(Clone)]
 pub struct UniqBy;
@@ -18,7 +12,7 @@ impl Command for UniqBy {
     fn signature(&self) -> Signature {
         Signature::build("uniq-by")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),

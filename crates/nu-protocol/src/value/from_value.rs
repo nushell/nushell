@@ -1,10 +1,10 @@
-use std::path::PathBuf;
-
-use super::NuPath;
-use crate::ast::{CellPath, PathMember};
-use crate::engine::{Block, Closure};
-use crate::{Range, Record, ShellError, Spanned, Value};
+use crate::{
+    ast::{CellPath, PathMember},
+    engine::Closure,
+    NuGlob, Range, Record, ShellError, Spanned, Value,
+};
 use chrono::{DateTime, FixedOffset};
+use std::path::PathBuf;
 
 pub trait FromValue: Sized {
     fn from_value(v: Value) -> Result<Self, ShellError>;
@@ -204,13 +204,23 @@ impl FromValue for Spanned<String> {
     }
 }
 
-impl FromValue for NuPath {
+impl FromValue for NuGlob {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(NuPath::UnQuoted(val.to_string())),
-            Value::String { val, .. } => Ok(NuPath::UnQuoted(val)),
-            Value::QuotedString { val, .. } => Ok(NuPath::Quoted(val)),
+            Value::CellPath { val, .. } => Ok(NuGlob::Expand(val.to_string())),
+            Value::String { val, .. } => Ok(NuGlob::DoNotExpand(val)),
+            Value::Glob {
+                val,
+                no_expand: quoted,
+                ..
+            } => {
+                if quoted {
+                    Ok(NuGlob::DoNotExpand(val))
+                } else {
+                    Ok(NuGlob::Expand(val))
+                }
+            }
             v => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: v.get_type().to_string(),
@@ -221,14 +231,24 @@ impl FromValue for NuPath {
     }
 }
 
-impl FromValue for Spanned<NuPath> {
+impl FromValue for Spanned<NuGlob> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         Ok(Spanned {
             item: match v {
-                Value::CellPath { val, .. } => NuPath::UnQuoted(val.to_string()),
-                Value::String { val, .. } => NuPath::UnQuoted(val),
-                Value::QuotedString { val, .. } => NuPath::Quoted(val),
+                Value::CellPath { val, .. } => NuGlob::Expand(val.to_string()),
+                Value::String { val, .. } => NuGlob::DoNotExpand(val),
+                Value::Glob {
+                    val,
+                    no_expand: quoted,
+                    ..
+                } => {
+                    if quoted {
+                        NuGlob::DoNotExpand(val)
+                    } else {
+                        NuGlob::Expand(val)
+                    }
+                }
                 v => {
                     return Err(ShellError::CantConvert {
                         to_type: "string".into(),
@@ -518,7 +538,7 @@ impl FromValue for Vec<Value> {
 impl FromValue for Record {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Record { val, .. } => Ok(val),
+            Value::Record { val, .. } => Ok(val.into_owned()),
             v => Err(ShellError::CantConvert {
                 to_type: "Record".into(),
                 from_type: v.get_type().to_string(),
@@ -532,27 +552,9 @@ impl FromValue for Record {
 impl FromValue for Closure {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
-            Value::Closure { val, .. } => Ok(val),
-            Value::Block { val, .. } => Ok(Closure {
-                block_id: val,
-                captures: Vec::new(),
-            }),
+            Value::Closure { val, .. } => Ok(*val),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-}
-
-impl FromValue for Block {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v {
-            Value::Block { val, .. } => Ok(Block { block_id: val }),
-            v => Err(ShellError::CantConvert {
-                to_type: "Block".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,
@@ -565,7 +567,7 @@ impl FromValue for Spanned<Closure> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         match v {
-            Value::Closure { val, .. } => Ok(Spanned { item: val, span }),
+            Value::Closure { val, .. } => Ok(Spanned { item: *val, span }),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
                 from_type: v.get_type().to_string(),

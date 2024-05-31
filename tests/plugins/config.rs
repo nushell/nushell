@@ -15,7 +15,7 @@ fn closure() {
                     }
                 }
             }
-            nu-example-config
+            example config
         "#
     );
 
@@ -27,7 +27,7 @@ fn none() {
     let actual = nu_with_plugins!(
         cwd: "tests",
         plugin: ("nu_plugin_example"),
-        "nu-example-config"
+        "example config"
     );
 
     assert!(actual.err.contains("No config sent"));
@@ -47,7 +47,7 @@ fn record() {
                     }
                 }
             }
-            nu-example-config
+            example config
         "#
     );
 

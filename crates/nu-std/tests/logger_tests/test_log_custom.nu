@@ -1,4 +1,5 @@
 use std *
+use std log *
 use commons.nu *
 
 def run-command [
@@ -9,17 +10,16 @@ def run-command [
     --level-prefix: string,
     --ansi: string
 ] {
-    do {
-        if ($level_prefix | is-empty) {
-            if ($ansi | is-empty) {
-                ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level)'
-            } else {
-                ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --ansi "($ansi)"'
-            }
+    if ($level_prefix | is-empty) {
+        if ($ansi | is-empty) {
+            ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level)'
         } else {
-            ^$nu.current-exe --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --level-prefix "($level_prefix)" --ansi "($ansi)"'
+            ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --ansi "($ansi)"'
         }
-    }  | complete | get --ignore-errors stderr
+    } else {
+        ^$nu.current-exe --no-config-file --commands $'use std; NU_LOG_LEVEL=($system_level) std log custom "($message)" "($format)" ($log_level) --level-prefix "($level_prefix)" --ansi "($ansi)"'
+    }
+    | complete | get --ignore-errors stderr
 }
 
 #[test]
@@ -32,13 +32,13 @@ def errors_during_deduction [] {
 #[test]
 def valid_calls [] {
     assert equal (run-command "DEBUG" "msg" "%MSG%" 25 --level-prefix "abc" --ansi (ansi default) | str trim --right) "msg"
-    assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"($env.LOG_PREFIX.INFO) msg"
+    assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"((log-prefix).INFO) msg"
     assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" --level-prefix "abc" 20 | str trim --right) "abc msg"
-    assert equal (run-command "INFO" "msg" "%ANSI_START%%LEVEL% %MSG%%ANSI_STOP%" $env.LOG_LEVEL.CRITICAL | str trim --right) $"($env.LOG_ANSI.CRITICAL)CRT msg(ansi reset)"
+    assert equal (run-command "INFO" "msg" "%ANSI_START%%LEVEL% %MSG%%ANSI_STOP%" ((log-level).CRITICAL) | str trim --right) $"((log-ansi).CRITICAL)CRT msg(ansi reset)"
 }
 
 #[test]
-def log_level_handling [] {
-    assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"($env.LOG_PREFIX.INFO) msg"
+def log-level_handling [] {
+    assert equal (run-command "DEBUG" "msg" "%LEVEL% %MSG%" 20 | str trim --right) $"((log-prefix).INFO) msg"
     assert equal (run-command "WARNING" "msg" "%LEVEL% %MSG%" 20 | str trim --right) ""
 }

@@ -1,12 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::ast::CellPath;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::record;
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
@@ -35,8 +29,8 @@ impl Command for SubCommand {
             .input_output_types(vec![
                 (Type::String, Type::Bool),
                 // TODO figure out cell-path type behavior
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
             ])
             .required("string", SyntaxShape::String, "The substring to find.")
@@ -46,7 +40,7 @@ impl Command for SubCommand {
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
-            .switch("not", "does not contain", Some('n'))
+            .switch("not", "DEPRECATED OPTION: does not contain", Some('n'))
             .category(Category::Strings)
     }
 
@@ -65,6 +59,20 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        if call.has_flag(engine_state, stack, "not")? {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Deprecated option".into(),
+                    msg: "`str contains --not {string}` is deprecated and will be removed in 0.95."
+                        .into(),
+                    span: Some(call.head),
+                    help: Some("Please use the `not` operator instead.".into()),
+                    inner: vec![],
+                },
+            );
+        }
+
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
@@ -124,15 +132,6 @@ impl Command for SubCommand {
                     Value::test_bool(true),
                     Value::test_bool(true),
                     Value::test_bool(false),
-                ])),
-            },
-            Example {
-                description: "Check if list does not contain string",
-                example: "[one two three] | str contains --not o",
-                result: Some(Value::test_list(vec![
-                    Value::test_bool(false),
-                    Value::test_bool(false),
-                    Value::test_bool(true),
                 ])),
             },
         ]

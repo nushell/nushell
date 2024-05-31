@@ -1,5 +1,14 @@
-use std::cmp::min;
-
+use super::{
+    record::{RecordView, TableTheme},
+    util::{lookup_tui_color, nu_style_to_tui},
+    Layout, Orientation, View, ViewConfig,
+};
+use crate::{
+    nu_common::{collect_pipeline, run_command_with_value},
+    pager::{report::Report, Frame, Transition, ViewInfo},
+    util::create_map,
+};
+use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::get_color_map;
 use nu_protocol::{
@@ -11,18 +20,7 @@ use ratatui::{
     style::{Modifier, Style},
     widgets::{BorderType, Borders, Paragraph},
 };
-
-use crate::{
-    nu_common::{collect_pipeline, run_command_with_value},
-    pager::{report::Report, Frame, Transition, ViewInfo},
-    util::create_map,
-};
-
-use super::{
-    record::{RecordView, TableTheme},
-    util::{lookup_tui_color, nu_style_to_tui},
-    Layout, Orientation, View, ViewConfig,
-};
+use std::cmp::min;
 
 pub struct InteractiveView<'a> {
     input: Value,
@@ -53,7 +51,7 @@ impl<'a> InteractiveView<'a> {
         self.command = command;
     }
 
-    pub fn try_run(&mut self, engine_state: &EngineState, stack: &mut Stack) -> Result<(), String> {
+    pub fn try_run(&mut self, engine_state: &EngineState, stack: &mut Stack) -> Result<()> {
         let mut view = run_command(&self.command, &self.input, engine_state, stack)?;
         view.set_theme(self.table_theme.clone());
 
@@ -284,13 +282,12 @@ fn run_command(
     input: &Value,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> Result<RecordView<'static>, String> {
-    let pipeline =
-        run_command_with_value(command, input, engine_state, stack).map_err(|e| e.to_string())?;
+) -> Result<RecordView<'static>> {
+    let pipeline = run_command_with_value(command, input, engine_state, stack)?;
 
     let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 
-    let (columns, values) = collect_pipeline(pipeline);
+    let (columns, values) = collect_pipeline(pipeline)?;
 
     let mut view = RecordView::new(columns, values);
     if is_record {

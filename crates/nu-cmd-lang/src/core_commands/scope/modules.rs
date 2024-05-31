@@ -1,9 +1,4 @@
-use nu_engine::scope::ScopeData;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
-};
+use nu_engine::{command_prelude::*, scope::ScopeData};
 
 #[derive(Clone)]
 pub struct ScopeModules;
@@ -31,13 +26,10 @@ impl Command for ScopeModules {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
-        let ctrlc = engine_state.ctrlc.clone();
-
+        let head = call.head;
         let mut scope_data = ScopeData::new(engine_state, stack);
         scope_data.populate_modules();
-
-        Ok(scope_data.collect_modules(span).into_pipeline_data(ctrlc))
+        Ok(Value::list(scope_data.collect_modules(head), head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -1,11 +1,7 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
+
 use regex::Regex;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -152,7 +148,7 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
         v => {
             let v_span = v.span();
 
-            if let Ok(s) = v.as_string() {
+            if let Ok(s) = v.coerce_str() {
                 match max_split {
                     Some(max_split) => regex
                         .splitn(&s, max_split)

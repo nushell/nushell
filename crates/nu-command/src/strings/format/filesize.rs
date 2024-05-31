@@ -1,11 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    format_filesize, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_engine::command_prelude::*;
+use nu_protocol::format_filesize;
 
 struct Arguments {
     format_value: String,
@@ -30,8 +25,8 @@ impl Command for FormatFilesize {
         Signature::build("format filesize")
             .input_output_types(vec![
                 (Type::Filesize, Type::String),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .required(
@@ -64,7 +59,7 @@ impl Command for FormatFilesize {
     ) -> Result<PipelineData, ShellError> {
         let format_value = call
             .req::<Value>(engine_state, stack, 0)?
-            .as_string()?
+            .coerce_into_string()?
             .to_ascii_lowercase();
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);

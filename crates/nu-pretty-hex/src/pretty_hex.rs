@@ -1,5 +1,4 @@
-use core::primitive::str;
-use core::{default::Default, fmt};
+use core::fmt;
 use nu_ansi_term::{Color, Style};
 
 /// Returns a one-line hexdump of `source` grouped in default format without header
@@ -110,7 +109,7 @@ impl HexConfig {
     }
 }
 
-fn categorize_byte(byte: &u8) -> (Style, Option<char>) {
+pub fn categorize_byte(byte: &u8) -> (Style, Option<char>) {
     // This section is here so later we can configure these items
     let null_char_style = Style::default().fg(Color::Fixed(242));
     let null_char = Some('0');
@@ -175,20 +174,14 @@ where
         .collect();
 
     if cfg.title {
-        if use_color {
-            writeln!(
-                writer,
-                "Length: {0} (0x{0:x}) bytes | {1}printable {2}whitespace {3}ascii_other {4}non_ascii{5}",
-                source_part_vec.len(),
-                Style::default().fg(Color::Cyan).bold().prefix(),
-                Style::default().fg(Color::Green).bold().prefix(),
-                Style::default().fg(Color::Purple).bold().prefix(),
-                Style::default().fg(Color::Yellow).bold().prefix(),
-                Style::default().fg(Color::Yellow).suffix()
-            )?;
-        } else {
-            writeln!(writer, "Length: {0} (0x{0:x}) bytes", source_part_vec.len(),)?;
-        }
+        write_title(
+            writer,
+            HexConfig {
+                length: Some(source_part_vec.len()),
+                ..cfg
+            },
+            use_color,
+        )?;
     }
 
     let lines = source_part_vec.chunks(if cfg.width > 0 {
@@ -255,6 +248,34 @@ where
         }
     }
     Ok(())
+}
+
+/// Write the title for the given config. The length will be taken from `cfg.length`.
+pub fn write_title<W>(writer: &mut W, cfg: HexConfig, use_color: bool) -> Result<(), fmt::Error>
+where
+    W: fmt::Write,
+{
+    let write = |writer: &mut W, length: fmt::Arguments<'_>| {
+        if use_color {
+            writeln!(
+                writer,
+                "Length: {length} | {0}printable {1}whitespace {2}ascii_other {3}non_ascii{4}",
+                Style::default().fg(Color::Cyan).bold().prefix(),
+                Style::default().fg(Color::Green).bold().prefix(),
+                Style::default().fg(Color::Purple).bold().prefix(),
+                Style::default().fg(Color::Yellow).bold().prefix(),
+                Style::default().fg(Color::Yellow).suffix()
+            )
+        } else {
+            writeln!(writer, "Length: {length}")
+        }
+    };
+
+    if let Some(len) = cfg.length {
+        write(writer, format_args!("{len} (0x{len:x}) bytes"))
+    } else {
+        write(writer, format_args!("unknown (stream)"))
+    }
 }
 
 /// Reference wrapper for use in arguments formatting.

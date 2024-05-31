@@ -1,9 +1,5 @@
 use nu_ansi_term::{build_all_gradient_text, gradient::TargetGround, Gradient, Rgb};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -50,8 +46,8 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                     Type::List(Box::new(Type::String)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Platform)
@@ -104,7 +100,7 @@ impl Command for SubCommand {
 fn value_to_color(v: Option<Value>) -> Result<Option<Rgb>, ShellError> {
     let s = match v {
         None => return Ok(None),
-        Some(x) => x.as_string()?,
+        Some(x) => x.coerce_into_string()?,
     };
     Ok(Some(Rgb::from_hex_string(s)))
 }

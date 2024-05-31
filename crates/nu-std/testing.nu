@@ -1,7 +1,7 @@
-use std/log.nu
+use std log
 
 def "nu-complete threads" [] {
-    seq 1 (sys|get cpu|length)
+    seq 1 (sys cpu | length)
 }
 
 # Here we store the map of annotations internal names and the annotation actually used during test creation
@@ -287,7 +287,7 @@ export def run-tests [
     --list,                               # list the selected tests without running them.
     --threads: int@"nu-complete threads", # Amount of threads to use for parallel execution. Default: All threads are utilized
 ] {
-    let available_threads = (sys | get cpu | length)
+    let available_threads = (sys cpu | length)
 
     # Can't use pattern matching here due to https://github.com/nushell/nushell/issues/9198
     let threads = (if $threads == null {
@@ -329,7 +329,7 @@ export def run-tests [
     }
 
     let modules = (
-        ls ($path | path join $module_search_pattern)
+        ls ($path | path join $module_search_pattern | into glob)
         | par-each --threads $threads {|row|
             {
                 file: $row.name

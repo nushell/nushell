@@ -1,12 +1,9 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Config, Example, PipelineData, Record, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+use nu_engine::command_prelude::*;
+use nu_protocol::Config;
+use std::{
+    cmp::max,
+    collections::{HashMap, HashSet},
 };
-use std::cmp::max;
-use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
 pub struct Join;
@@ -49,7 +46,7 @@ impl Command for Join {
             .switch("left", "Left-outer join", Some('l'))
             .switch("right", "Right-outer join", Some('r'))
             .switch("outer", "Outer join", Some('o'))
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::table(), Type::table())])
             .category(Category::Filters)
     }
 
@@ -78,7 +75,7 @@ impl Command for Join {
         let join_type = join_type(engine_state, stack, call)?;
 
         // FIXME: we should handle ListStreams properly instead of collecting
-        let collected_input = input.into_value(span);
+        let collected_input = input.into_value(span)?;
 
         match (&collected_input, &table_2, &l_on, &r_on) {
             (
@@ -264,7 +261,7 @@ fn join_rows(
         } = this_row
         {
             if let Some(this_valkey) = this_record.get(this_join_key) {
-                if let Some(other_rows) = other.get(&this_valkey.into_string(sep, config)) {
+                if let Some(other_rows) = other.get(&this_valkey.to_expanded_string(sep, config)) {
                     if matches!(include_inner, IncludeInner::Yes) {
                         for other_record in other_rows {
                             // `other` table contains rows matching `this` row on the join column
@@ -346,7 +343,7 @@ fn lookup_table<'a>(
     for row in rows {
         if let Value::Record { val: record, .. } = row {
             if let Some(val) = record.get(on) {
-                let valkey = val.into_string(sep, config);
+                let valkey = val.to_expanded_string(sep, config);
                 map.entry(valkey).or_default().push(record);
             }
         };

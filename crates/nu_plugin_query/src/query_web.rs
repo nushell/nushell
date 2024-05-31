@@ -1,7 +1,87 @@
-use crate::web_tables::WebTable;
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Record, Span, Value};
+use crate::{web_tables::WebTable, Query};
+use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
+use nu_protocol::{
+    Category, Example, LabeledError, Record, Signature, Span, Spanned, SyntaxShape, Value,
+};
 use scraper::{Html, Selector as ScraperSelector};
+
+pub struct QueryWeb;
+
+impl SimplePluginCommand for QueryWeb {
+    type Plugin = Query;
+
+    fn name(&self) -> &str {
+        "query web"
+    }
+
+    fn usage(&self) -> &str {
+        "execute selector query on html/web"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .named("query", SyntaxShape::String, "selector query", Some('q'))
+            .switch("as-html", "return the query output as html", Some('m'))
+            .named(
+                "attribute",
+                SyntaxShape::String,
+                "downselect based on the given attribute",
+                Some('a'),
+            )
+            .named(
+                "as-table",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "find table based on column header list",
+                Some('t'),
+            )
+            .switch(
+                "inspect",
+                "run in inspect mode to provide more information for determining column headers",
+                Some('i'),
+            )
+            .category(Category::Network)
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        web_examples()
+    }
+
+    fn run(
+        &self,
+        _plugin: &Query,
+        _engine: &EngineInterface,
+        call: &EvaluatedCall,
+        input: &Value,
+    ) -> Result<Value, LabeledError> {
+        parse_selector_params(call, input)
+    }
+}
+
+pub fn web_examples() -> Vec<Example<'static>> {
+    vec![
+        Example {
+            example: "http get https://phoronix.com | query web --query 'header' | flatten",
+            description: "Retrieve all `<header>` elements from phoronix.com website",
+            result: None,
+        },
+        Example {
+            example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population |
+        query web --as-table [City 'Population(2011)[3]' 'Population(2001)[3][a]' 'State or unionterritory' 'Ref']",
+            description: "Retrieve a html table from Wikipedia and parse it into a nushell table using table headers as guides",
+            result: None
+        },
+        Example {
+            example: "http get https://www.nushell.sh | query web --query 'h2, h2 + p' | each {str join} | group 2 | each {rotate --ccw tagline description} | flatten",
+            description: "Pass multiple css selectors to extract several elements within single query, group the query results together and rotate them to create a table",
+            result: None,
+        },
+        Example {
+            example: "http get https://example.org | query web --query a --attribute href",
+            description: "Retrieve a specific html attribute instead of the default text",
+            result: None,
+        }
+    ]
+}
 
 pub struct Selector {
     pub query: String,
@@ -31,10 +111,7 @@ impl Default for Selector {
 
 pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
     let head = call.head;
-    let query: String = match call.get_flag("query")? {
-        Some(q2) => q2,
-        None => "".to_string(),
-    };
+    let query: Option<Spanned<String>> = call.get_flag("query")?;
     let as_html = call.has_flag("as-html")?;
     let attribute = call.get_flag("attribute")?.unwrap_or_default();
     let as_table: Value = call
@@ -43,16 +120,16 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
 
     let inspect = call.has_flag("inspect")?;
 
-    if !&query.is_empty() && ScraperSelector::parse(&query).is_err() {
-        return Err(LabeledError {
-            msg: "Cannot parse this query as a valid css selector".to_string(),
-            label: "Parse error".to_string(),
-            span: Some(head),
-        });
+    if let Some(query) = &query {
+        if let Err(err) = ScraperSelector::parse(&query.item) {
+            return Err(LabeledError::new("CSS query parse error")
+                .with_label(err.to_string(), query.span)
+                .with_help("cannot parse this query as a valid CSS selector"));
+        }
     }
 
     let selector = Selector {
-        query,
+        query: query.map(|q| q.item).unwrap_or_default(),
         as_html,
         attribute,
         as_table,
@@ -62,11 +139,8 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     let span = input.span();
     match input {
         Value::String { val, .. } => Ok(begin_selector_query(val.to_string(), selector, span)),
-        _ => Err(LabeledError {
-            label: "requires text input".to_string(),
-            msg: "Expected text from pipeline".to_string(),
-            span: Some(span),
-        }),
+        _ => Err(LabeledError::new("Requires text input")
+            .with_label("expected text from pipeline", span)),
     }
 }
 
@@ -107,7 +181,6 @@ pub fn retrieve_tables(
     let mut cols: Vec<String> = Vec::new();
     if let Value::List { vals, .. } = &columns {
         for x in vals {
-            // TODO Find a way to get the Config object here
             if let Value::String { val, .. } = x {
                 cols.push(val.to_string())
             }
@@ -115,10 +188,11 @@ pub fn retrieve_tables(
     }
 
     if inspect_mode {
-        eprintln!("Passed in Column Headers = {:#?}", &cols,);
+        eprintln!("Passed in Column Headers = {:?}\n", &cols);
+        eprintln!("First 2048 HTML chars = {}\n", &html[0..2047]);
     }
 
-    let tables = match WebTable::find_by_headers(html, &cols) {
+    let tables = match WebTable::find_by_headers(html, &cols, inspect_mode) {
         Some(t) => {
             if inspect_mode {
                 eprintln!("Table Found = {:#?}", &t);
@@ -159,6 +233,18 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         for col in table.headers().keys() {
             cols.push(col.to_string());
         }
+    }
+
+    // We provided columns but the table has no headers, so we'll just make a single column table
+    if !cols.is_empty() && table.headers().is_empty() {
+        let mut record = Record::new();
+        for col in &cols {
+            record.push(
+                col.clone(),
+                Value::string("error: no data found (column name may be incorrect)", span),
+            );
+        }
+        return Value::record(record, span);
     }
 
     let mut table_out = Vec::new();
@@ -248,10 +334,11 @@ fn execute_selector_query(
         false => doc
             .select(&css(query_string, inspect))
             .map(|selection| {
-                Value::string(
+                Value::list(
                     selection
                         .text()
-                        .fold("".to_string(), |acc, x| format!("{acc}{x}")),
+                        .map(|text| Value::string(text, span))
+                        .collect(),
                     span,
                 )
             })
@@ -281,6 +368,8 @@ mod tests {
          </ul>
      "#;
 
+    const NESTED_TEXT: &str = r#"<p>Hello there, <span style="color: red;">World</span></p>"#;
+
     #[test]
     fn test_first_child_is_not_empty() {
         assert!(!execute_selector_query(
@@ -303,7 +392,36 @@ mod tests {
             Span::test_data(),
         );
         let config = nu_protocol::Config::default();
-        let out = item.into_string("\n", &config);
-        assert_eq!("[Coffee]".to_string(), out)
+        let out = item.to_expanded_string("\n", &config);
+        assert_eq!("[[Coffee]]".to_string(), out)
+    }
+
+    #[test]
+    fn test_nested_text_nodes() {
+        let item = execute_selector_query(
+            NESTED_TEXT,
+            "p:first-child",
+            false,
+            false,
+            Span::test_data(),
+        );
+        let out = item
+            .into_list()
+            .unwrap()
+            .into_iter()
+            .map(|matches| {
+                matches
+                    .into_list()
+                    .unwrap()
+                    .into_iter()
+                    .map(|text_nodes| text_nodes.coerce_into_string().unwrap())
+                    .collect::<Vec<String>>()
+            })
+            .collect::<Vec<Vec<String>>>();
+
+        assert_eq!(
+            out,
+            vec![vec!["Hello there, ".to_string(), "World".to_string()]],
+        );
     }
 }

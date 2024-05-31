@@ -1,13 +1,9 @@
-use nu_engine::current_dir;
-use nu_engine::CallExt;
-use nu_path::{expand_path_with, expand_to_real_path};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, NuPath, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
-};
-use std::ffi::OsString;
-use std::path::PathBuf;
+use super::util::get_rest_for_glob_pattern;
+#[allow(deprecated)]
+use nu_engine::{command_prelude::*, current_dir};
+use nu_path::expand_path_with;
+use nu_protocol::NuGlob;
+use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
 
 #[derive(Clone)]
@@ -15,39 +11,39 @@ pub struct UMv;
 
 impl Command for UMv {
     fn name(&self) -> &str {
-        "umv"
+        "mv"
     }
 
     fn usage(&self) -> &str {
-        "Move files or directories."
+        "Move files or directories using uutils/coreutils mv."
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Rename a file",
-                example: "umv before.txt after.txt",
+                example: "mv before.txt after.txt",
                 result: None,
             },
             Example {
                 description: "Move a file into a directory",
-                example: "umv test.txt my/subdirectory",
+                example: "mv test.txt my/subdirectory",
                 result: None,
             },
             Example {
                 description: "Move many files into a directory",
-                example: "umv *.txt my/subdirectory",
+                example: "mv *.txt my/subdirectory",
                 result: None,
             },
         ]
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["move"]
+        vec!["move", "file", "files", "coreutils"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("umv")
+        Signature::build("mv")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch("force", "do not prompt before overwriting", Some('f'))
             .switch("verbose", "explain what is being done.", Some('v'))
@@ -56,7 +52,7 @@ impl Command for UMv {
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .rest(
                 "paths",
-                SyntaxShape::GlobPattern,
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "Rename SRC to DST, or move SRC to DIR.",
             )
             .allow_variants_without_examples(true)
@@ -82,8 +78,9 @@ impl Command for UMv {
             uu_mv::OverwriteMode::Force
         };
 
+        #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
-        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+        let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -99,7 +96,8 @@ impl Command for UMv {
                 error: "Missing destination path".into(),
                 msg: format!(
                     "Missing destination path operand after {}",
-                    expand_path_with(paths[0].item.as_ref(), cwd).to_string_lossy()
+                    expand_path_with(paths[0].item.as_ref(), cwd, paths[0].item.is_expand())
+                        .to_string_lossy()
                 ),
                 span: Some(paths[0].span),
                 help: None,
@@ -113,7 +111,7 @@ impl Command for UMv {
             label: "Missing file operand".into(),
             span: call.head,
         })?;
-        let mut files: Vec<PathBuf> = Vec::new();
+        let mut files: Vec<(Vec<PathBuf>, bool)> = Vec::new();
         for mut p in paths {
             p.item = p.item.strip_ansi_string_unlikely();
             let exp_files: Vec<Result<PathBuf, ShellError>> =
@@ -121,7 +119,10 @@ impl Command for UMv {
                     .map(|f| f.1)?
                     .collect();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound { span: p.span });
+                return Err(ShellError::FileNotFound {
+                    file: p.item.to_string(),
+                    span: p.span,
+                });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
@@ -132,22 +133,26 @@ impl Command for UMv {
                     Err(e) => return Err(e),
                 }
             }
-            files.append(&mut app_vals);
+            files.push((app_vals, p.item.is_expand()));
         }
 
         // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env which is not
         // supported in Nushell
-        for src in files.iter_mut() {
-            if !src.is_absolute() {
-                *src = nu_path::expand_path_with(&src, &cwd);
+        for (files, need_expand_tilde) in files.iter_mut() {
+            for src in files.iter_mut() {
+                if !src.is_absolute() {
+                    *src = nu_path::expand_path_with(&src, &cwd, *need_expand_tilde);
+                }
             }
         }
+        let mut files: Vec<PathBuf> = files.into_iter().flat_map(|x| x.0).collect();
 
         // Add back the target after globbing
-        let expanded_target = expand_to_real_path(nu_utils::strip_ansi_string_unlikely(
-            spanned_target.item.to_string(),
-        ));
-        let abs_target_path = expand_path_with(expanded_target, &cwd);
+        let abs_target_path = expand_path_with(
+            nu_utils::strip_ansi_string_unlikely(spanned_target.item.to_string()),
+            &cwd,
+            matches!(spanned_target.item, NuGlob::Expand(..)),
+        );
         files.push(abs_target_path.clone());
         let files = files
             .into_iter()

@@ -1,10 +1,4 @@
-use nu_engine::{eval_block, eval_expression_with_input};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression_with_input};
 use std::time::Instant;
 
 #[derive(Clone)]
@@ -50,36 +44,28 @@ impl Command for TimeIt {
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
 
+        // reset outdest, so the command can write to stdout and stderr.
+        let stack = &mut stack.push_redirection(None, None);
         if let Some(command_to_run) = command_to_run {
             if let Some(block_id) = command_to_run.as_block() {
+                let eval_block = get_eval_block(engine_state);
                 let block = engine_state.get_block(block_id);
-                eval_block(
-                    engine_state,
-                    stack,
-                    block,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )?
+                eval_block(engine_state, stack, block, input)?
             } else {
-                eval_expression_with_input(
-                    engine_state,
-                    stack,
-                    command_to_run,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )
-                .map(|res| res.0)?
+                let eval_expression_with_input = get_eval_expression_with_input(engine_state);
+                eval_expression_with_input(engine_state, stack, command_to_run, input)?.0
             }
         } else {
             PipelineData::empty()
         }
-        .into_value(call.head);
+        .into_value(call.head)?;
 
         let end_time = Instant::now();
 
-        let output = Value::duration((end_time - start_time).as_nanos() as i64, call.head);
+        let output = Value::duration(
+            end_time.saturating_duration_since(start_time).as_nanos() as i64,
+            call.head,
+        );
 
         Ok(output.into_pipeline_data())
     }

@@ -1,12 +1,7 @@
-use chrono::naive::NaiveDate;
-use chrono::{Duration, Local};
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
-};
+use chrono::{Duration, Local, NaiveDate};
+use nu_engine::command_prelude::*;
+
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct SeqDate;
@@ -61,25 +56,26 @@ impl Command for SeqDate {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "print the next 10 days in YYYY-MM-DD format with newline separator",
+                description: "Return a list of the next 10 days in the YYYY-MM-DD format",
                 example: "seq date --days 10",
                 result: None,
             },
             Example {
-                description: "print the previous 10 days in YYYY-MM-DD format with newline separator",
+                description: "Return the previous 10 days in the YYYY-MM-DD format",
                 example: "seq date --days 10 --reverse",
                 result: None,
             },
             Example {
-                description: "print the previous 10 days starting today in MM/DD/YYYY format with newline separator",
+                description:
+                    "Return the previous 10 days, starting today, in the MM/DD/YYYY format",
                 example: "seq date --days 10 -o '%m/%d/%Y' --reverse",
                 result: None,
             },
             Example {
-                description: "print the first 10 days in January, 2020",
+                description: "Return the first 10 days in January, 2020",
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-10'",
                 result: Some(Value::list(
-                     vec![
+                    vec![
                         Value::test_string("2020-01-01"),
                         Value::test_string("2020-01-02"),
                         Value::test_string("2020-01-03"),
@@ -91,7 +87,7 @@ impl Command for SeqDate {
                         Value::test_string("2020-01-09"),
                         Value::test_string("2020-01-10"),
                     ],
-                     Span::test_data(),
+                    Span::test_data(),
                 )),
             },
             Example {
@@ -99,15 +95,15 @@ impl Command for SeqDate {
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5",
                 result: Some(Value::list(
                     vec![
-                    Value::test_string("2020-01-01"),
-                    Value::test_string("2020-01-06"),
-                    Value::test_string("2020-01-11"),
-                    Value::test_string("2020-01-16"),
-                    Value::test_string("2020-01-21"),
-                    Value::test_string("2020-01-26"),
-                    Value::test_string("2020-01-31"),
+                        Value::test_string("2020-01-01"),
+                        Value::test_string("2020-01-06"),
+                        Value::test_string("2020-01-11"),
+                        Value::test_string("2020-01-16"),
+                        Value::test_string("2020-01-21"),
+                        Value::test_string("2020-01-26"),
+                        Value::test_string("2020-01-31"),
                     ],
-                     Span::test_data(),
+                    Span::test_data(),
                 )),
             },
         ]
@@ -204,7 +200,7 @@ pub fn run_seq_dates(
     }
 
     let in_format = match input_format {
-        Some(i) => match i.as_string() {
+        Some(i) => match i.coerce_into_string() {
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {
@@ -220,7 +216,7 @@ pub fn run_seq_dates(
     };
 
     let out_format = match output_format {
-        Some(i) => match i.as_string() {
+        Some(o) => match o.coerce_into_string() {
             Ok(v) => v,
             Err(e) => {
                 return Err(ShellError::GenericError {
@@ -279,7 +275,9 @@ pub fn run_seq_dates(
     }
 
     if days_to_output != 0 {
-        end_date = match start_date.checked_add_signed(Duration::days(days_to_output)) {
+        end_date = match Duration::try_days(days_to_output)
+            .and_then(|days| start_date.checked_add_signed(days))
+        {
             Some(date) => date,
             None => {
                 return Err(ShellError::GenericError {
@@ -302,6 +300,16 @@ pub fn run_seq_dates(
     let is_out_of_range =
         |next| (step_size > 0 && next > end_date) || (step_size < 0 && next < end_date);
 
+    let Some(step_size) = Duration::try_days(step_size) else {
+        return Err(ShellError::GenericError {
+            error: "increment magnitude is too large".into(),
+            msg: "increment magnitude is too large".into(),
+            span: Some(call_span),
+            help: None,
+            inner: vec![],
+        });
+    };
+
     let mut next = start_date;
     if is_out_of_range(next) {
         return Err(ShellError::GenericError {
@@ -315,9 +323,31 @@ pub fn run_seq_dates(
 
     let mut ret = vec![];
     loop {
-        let date_string = &next.format(&out_format).to_string();
+        let mut date_string = String::new();
+        match write!(date_string, "{}", next.format(&out_format)) {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(ShellError::GenericError {
+                    error: "Invalid output format".into(),
+                    msg: e.to_string(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                });
+            }
+        }
         ret.push(Value::string(date_string, call_span));
-        next += Duration::days(step_size);
+        if let Some(n) = next.checked_add_signed(step_size) {
+            next = n;
+        } else {
+            return Err(ShellError::GenericError {
+                error: "date overflow".into(),
+                msg: "adding the increment overflowed".into(),
+                span: Some(call_span),
+                help: None,
+                inner: vec![],
+            });
+        }
 
         if is_out_of_range(next) {
             break;

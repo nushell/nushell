@@ -31,7 +31,7 @@ fn url_join_with_only_user() {
             "#
     ));
 
-    assert_eq!(actual.out, "http://localhost");
+    assert_eq!(actual.out, "http://usr@localhost");
 }
 
 #[test]

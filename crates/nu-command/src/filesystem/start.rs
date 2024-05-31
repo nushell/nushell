@@ -1,15 +1,11 @@
 use itertools::Itertools;
-use nu_engine::env_to_strings;
-use nu_engine::CallExt;
+use nu_engine::{command_prelude::*, env_to_strings};
 use nu_path::canonicalize_with;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+use std::{
+    ffi::{OsStr, OsString},
+    path::Path,
+    process::Stdio,
 };
-use std::ffi::{OsStr, OsString};
-use std::path::Path;
-use std::process::Stdio;
 
 #[derive(Clone)]
 pub struct Start;
@@ -29,7 +25,7 @@ impl Command for Start {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("start")
-            .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .required("path", SyntaxShape::String, "Path to open.")
             .category(Category::FileSystem)
     }
@@ -176,6 +172,8 @@ fn try_commands(
                 help: "Try different path or install appropriate command\n".to_string() + &err_msg,
                 span,
             });
+        } else if one_result.is_ok() {
+            break;
         }
     }
     Ok(())

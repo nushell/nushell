@@ -1,10 +1,5 @@
 use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Fmt;
@@ -20,7 +15,7 @@ impl Command for Fmt {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("fmt")
-            .input_output_types(vec![(Type::Number, Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Number, Type::record())])
             .category(Category::Conversions)
     }
 

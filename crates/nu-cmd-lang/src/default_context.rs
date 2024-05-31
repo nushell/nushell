@@ -1,6 +1,5 @@
-use nu_protocol::engine::{EngineState, StateWorkingSet};
-
 use crate::*;
+use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 pub fn create_default_context() -> EngineState {
     let mut engine_state = EngineState::new();
@@ -44,7 +43,6 @@ pub fn create_default_context() -> EngineState {
             OverlayList,
             OverlayNew,
             OverlayHide,
-            LazyMake,
             Let,
             Loop,
             Match,
@@ -63,9 +61,6 @@ pub fn create_default_context() -> EngineState {
             Version,
             While,
         };
-
-        //#[cfg(feature = "plugin")]
-        bind_command!(Register);
 
         working_set.render()
     };

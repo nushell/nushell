@@ -3,27 +3,25 @@
 //        the goal is to configure it once...
 
 use lscolors::{LsColors, Style};
-use nu_color_config::color_from_hex;
-use nu_color_config::{StyleComputer, TextStyle};
-use nu_engine::{env::get_config, env_to_string, CallExt};
+use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
+use nu_engine::{command_prelude::*, env::get_config, env_to_string};
+use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
-    PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ByteStream, Config, DataSource, ListStream, PipelineMetadata, TableMode, ValueIterator,
 };
-use nu_protocol::{record, TableMode};
-use nu_table::common::create_nu_table_config;
 use nu_table::{
-    CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
-    TableOutput,
+    common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
+    StringResult, TableOpts, TableOutput,
 };
 use nu_utils::get_ls_colors;
-use std::io::IsTerminal;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Instant;
-use std::{path::PathBuf, sync::atomic::AtomicBool};
+use std::{
+    collections::VecDeque,
+    io::{IsTerminal, Read},
+    path::PathBuf,
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
+    time::Instant,
+};
 use terminal_size::{Height, Width};
 use url::Url;
 
@@ -270,9 +268,14 @@ fn parse_table_config(
     let index = get_index_flag(call, state, stack)?;
 
     let term_width = get_width_param(width_param);
-    let cfg = TableConfig::new(table_view, term_width, theme, abbrivation, index);
 
-    Ok(cfg)
+    Ok(TableConfig::new(
+        table_view,
+        term_width,
+        theme,
+        abbrivation,
+        index,
+    ))
 }
 
 fn get_index_flag(
@@ -362,38 +365,23 @@ fn handle_table_command(
 ) -> Result<PipelineData, ShellError> {
     let span = input.data.span().unwrap_or(input.call.head);
     match input.data {
-        PipelineData::ExternalStream { .. } => Ok(input.data),
+        // Binary streams should behave as if they really are `binary` data, and printed as hex
+        PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
+            PipelineData::ByteStream(pretty_hex_stream(stream, input.call.head), None),
+        ),
+        PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let stream_list = if input.call.redirect_stdout {
-                vec![Ok(val)]
-            } else {
-                let hex = format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                    .as_bytes()
-                    .to_vec();
-                vec![Ok(hex)]
-            };
-
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = RawStream::new(
-                Box::new(stream_list.into_iter()),
-                ctrlc,
-                input.call.head,
+            let stream = ByteStream::read_binary(val, input.call.head, ctrlc);
+            Ok(PipelineData::ByteStream(
+                pretty_hex_stream(stream, input.call.head),
                 None,
-            );
-
-            Ok(PipelineData::ExternalStream {
-                stdout: Some(stream),
-                stderr: None,
-                exit_code: None,
-                span: input.call.head,
-                metadata: None,
-                trim_end_newline: false,
-            })
+            ))
         }
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::from_stream(vals.into_iter(), ctrlc);
+            let stream = ListStream::new(vals.into_iter(), span, ctrlc);
             input.data = PipelineData::Empty;
 
             handle_row_stream(input, cfg, stream, metadata)
@@ -404,29 +392,89 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::Record { val, .. }, ..) => {
             input.data = PipelineData::Empty;
-            handle_record(input, cfg, val)
-        }
-        PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
-            input.data = val.collect()?.into_pipeline_data();
-            handle_table_command(input, cfg)
+            handle_record(input, cfg, val.into_owned())
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
             // instead of stdout.
             Err(*error)
         }
-        PipelineData::Value(Value::CustomValue { val, .. }, ..) => {
+        PipelineData::Value(Value::Custom { val, .. }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
             Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc);
+            let stream = ListStream::new(val.into_range_iter(span, ctrlc), span, None);
             input.data = PipelineData::Empty;
             handle_row_stream(input, cfg, stream, metadata)
         }
         x => Ok(x),
     }
+}
+
+fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
+    let mut cfg = HexConfig {
+        // We are going to render the title manually first
+        title: true,
+        // If building on 32-bit, the stream size might be bigger than a usize
+        length: stream.known_size().and_then(|sz| sz.try_into().ok()),
+        ..HexConfig::default()
+    };
+
+    // This won't really work for us
+    debug_assert!(cfg.width > 0, "the default hex config width was zero");
+
+    let mut read_buf = Vec::with_capacity(cfg.width);
+
+    let mut reader = if let Some(reader) = stream.reader() {
+        reader
+    } else {
+        // No stream to read from
+        return ByteStream::read_string("".into(), span, None);
+    };
+
+    ByteStream::from_fn(span, None, ByteStreamType::String, move |buffer| {
+        // Turn the buffer into a String we can write to
+        let mut write_buf = std::mem::take(buffer);
+        write_buf.clear();
+        // SAFETY: we just truncated it empty
+        let mut write_buf = unsafe { String::from_utf8_unchecked(write_buf) };
+
+        // Write the title at the beginning
+        if cfg.title {
+            nu_pretty_hex::write_title(&mut write_buf, cfg, true).expect("format error");
+            cfg.title = false;
+
+            // Put the write_buf back into buffer
+            *buffer = write_buf.into_bytes();
+
+            Ok(true)
+        } else {
+            // Read up to `cfg.width` bytes
+            read_buf.clear();
+            (&mut reader)
+                .take(cfg.width as u64)
+                .read_to_end(&mut read_buf)
+                .err_span(span)?;
+
+            if !read_buf.is_empty() {
+                nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))
+                    .expect("format error");
+                write_buf.push('\n');
+
+                // Advance the address offset for next time
+                cfg.address_offset += read_buf.len();
+
+                // Put the write_buf back into buffer
+                *buffer = write_buf.into_bytes();
+
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+    })
 }
 
 fn handle_record(
@@ -553,7 +601,6 @@ fn handle_row_stream(
             data_source: DataSource::Ls,
         }) => {
             let config = get_config(input.engine_state, input.stack);
-            let ctrlc = ctrlc.clone();
             let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
                 Some(v) => Some(env_to_string(
                     "LS_COLORS",
@@ -565,67 +612,55 @@ fn handle_row_stream(
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
 
-            ListStream::from_stream(
-                stream.map(move |mut x| match &mut x {
-                    Value::Record { val: record, .. } => {
-                        // Only the name column gets special colors, for now
-                        if let Some(value) = record.get_mut("name") {
-                            let span = value.span();
-                            if let Value::String { val, .. } = value {
-                                if let Some(val) = render_path_name(val, &config, &ls_colors, span)
-                                {
-                                    *value = val;
-                                }
+            stream.map(move |mut value| {
+                if let Value::Record { val: record, .. } = &mut value {
+                    // Only the name column gets special colors, for now
+                    if let Some(value) = record.to_mut().get_mut("name") {
+                        let span = value.span();
+                        if let Value::String { val, .. } = value {
+                            if let Some(val) = render_path_name(val, &config, &ls_colors, span) {
+                                *value = val;
                             }
                         }
-
-                        x
                     }
-                    _ => x,
-                }),
-                ctrlc,
-            )
+                }
+                value
+            })
         }
         // Next, `to html -l` sources:
         Some(PipelineMetadata {
             data_source: DataSource::HtmlThemes,
         }) => {
-            let ctrlc = ctrlc.clone();
-
-            ListStream::from_stream(
-                stream.map(move |mut x| match &mut x {
-                    Value::Record { val: record, .. } => {
-                        for (rec_col, rec_val) in record.iter_mut() {
-                            // Every column in the HTML theme table except 'name' is colored
-                            if rec_col != "name" {
-                                continue;
-                            }
-                            // Simple routine to grab the hex code, convert to a style,
-                            // then place it in a new Value::String.
-
-                            let span = rec_val.span();
-                            if let Value::String { val, .. } = rec_val {
-                                let s = match color_from_hex(val) {
-                                    Ok(c) => match c {
-                                        // .normal() just sets the text foreground color.
-                                        Some(c) => c.normal(),
-                                        None => nu_ansi_term::Style::default(),
-                                    },
-                                    Err(_) => nu_ansi_term::Style::default(),
-                                };
-                                *rec_val = Value::string(
-                                    // Apply the style (ANSI codes) to the string
-                                    s.paint(&*val).to_string(),
-                                    span,
-                                );
-                            }
+            stream.map(|mut value| {
+                if let Value::Record { val: record, .. } = &mut value {
+                    for (rec_col, rec_val) in record.to_mut().iter_mut() {
+                        // Every column in the HTML theme table except 'name' is colored
+                        if rec_col != "name" {
+                            continue;
                         }
-                        x
+                        // Simple routine to grab the hex code, convert to a style,
+                        // then place it in a new Value::String.
+
+                        let span = rec_val.span();
+                        if let Value::String { val, .. } = rec_val {
+                            let s = match color_from_hex(val) {
+                                Ok(c) => match c {
+                                    // .normal() just sets the text foreground color.
+                                    Some(c) => c.normal(),
+                                    None => nu_ansi_term::Style::default(),
+                                },
+                                Err(_) => nu_ansi_term::Style::default(),
+                            };
+                            *rec_val = Value::string(
+                                // Apply the style (ANSI codes) to the string
+                                s.paint(&*val).to_string(),
+                                span,
+                            );
+                        }
                     }
-                    _ => x,
-                }),
-                ctrlc,
-            )
+                }
+                value
+            })
         }
         _ => stream,
     };
@@ -640,16 +675,9 @@ fn handle_row_stream(
         ctrlc.clone(),
         cfg,
     );
-    let stream = RawStream::new(Box::new(paginator), ctrlc, input.call.head, None);
-
-    Ok(PipelineData::ExternalStream {
-        stdout: Some(stream),
-        stderr: None,
-        exit_code: None,
-        span: input.call.head,
-        metadata: None,
-        trim_end_newline: false,
-    })
+    let stream =
+        ByteStream::from_result_iter(paginator, input.call.head, None, ByteStreamType::String);
+    Ok(PipelineData::ByteStream(stream, None))
 }
 
 fn make_clickable_link(
@@ -678,7 +706,7 @@ fn make_clickable_link(
 
 struct PagingTableCreator {
     head: Span,
-    stream: ListStream,
+    stream: ValueIterator,
     engine_state: EngineState,
     stack: Stack,
     ctrlc: Option<Arc<AtomicBool>>,
@@ -699,7 +727,7 @@ impl PagingTableCreator {
     ) -> Self {
         PagingTableCreator {
             head,
-            stream,
+            stream: stream.into_inner(),
             engine_state,
             stack,
             ctrlc,
@@ -788,37 +816,26 @@ impl Iterator for PagingTableCreator {
     type Item = Result<Vec<u8>, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut batch = vec![];
+        let batch;
+        let end;
 
-        let start_time = Instant::now();
-
-        let mut idx = 0;
-        let mut reached_end = true;
-
-        // Pull from stream until time runs out or we have enough items
-        for item in self.stream.by_ref() {
-            batch.push(item);
-            idx += 1;
-
-            // If we've been buffering over a second, go ahead and send out what we have so far
-            if (Instant::now() - start_time).as_secs() >= 1 {
-                reached_end = false;
-                break;
+        match self.cfg.abbreviation {
+            Some(abbr) => {
+                (batch, _, end) =
+                    stream_collect_abbriviated(&mut self.stream, abbr, self.ctrlc.clone());
             }
-
-            if idx == STREAM_PAGE_SIZE {
-                reached_end = false;
-                break;
-            }
-
-            if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
-                break;
+            None => {
+                // Pull from stream until time runs out or we have enough items
+                (batch, end) =
+                    stream_collect(&mut self.stream, STREAM_PAGE_SIZE, self.ctrlc.clone());
             }
         }
 
+        let batch_size = batch.len();
+
         // Count how much elements were displayed and if end of stream was reached
-        self.elements_displayed += idx;
-        self.reached_end = self.reached_end || reached_end;
+        self.elements_displayed += batch_size;
+        self.reached_end = self.reached_end || end;
 
         if batch.is_empty() {
             // If this iterator has not displayed a single entry and reached its end (no more elements
@@ -839,50 +856,111 @@ impl Iterator for PagingTableCreator {
             };
         }
 
-        if let Some(limit) = self.cfg.abbreviation {
-            // todo: could be optimized cause we already consumed the list there's no point in goint back to pagination;
-
-            if batch.len() > limit * 2 + 1 {
-                batch = abbreviate_list(
-                    &batch,
-                    limit,
-                    Value::string(String::from("..."), Span::unknown()),
-                );
-
-                let is_record_list = batch[..limit]
-                    .iter()
-                    .all(|value| matches!(value, Value::Record { .. }))
-                    && batch[limit + 1..]
-                        .iter()
-                        .all(|value| matches!(value, Value::Record { .. }));
-
-                if limit > 0 && is_record_list {
-                    // in case it's a record list we set a default text to each column instead of a single value.
-
-                    let dummy: Record = batch[0]
-                        .as_record()
-                        .expect("ok")
-                        .columns()
-                        .map(|k| {
-                            (
-                                k.to_owned(),
-                                Value::string(String::from("..."), Span::unknown()),
-                            )
-                        })
-                        .collect();
-
-                    batch[limit] = Value::record(dummy, Span::unknown());
-                }
-            }
-        }
-
         let table = self.build_table(batch);
 
-        self.row_offset += idx;
+        self.row_offset += batch_size;
 
         let config = get_config(&self.engine_state, &self.stack);
         convert_table_to_output(table, &config, &self.ctrlc, self.cfg.term_width)
     }
+}
+
+fn stream_collect(
+    stream: impl Iterator<Item = Value>,
+    size: usize,
+    ctrlc: Option<Arc<AtomicBool>>,
+) -> (Vec<Value>, bool) {
+    let start_time = Instant::now();
+    let mut end = true;
+
+    let mut batch = Vec::with_capacity(size);
+    for (i, item) in stream.enumerate() {
+        batch.push(item);
+
+        // If we've been buffering over a second, go ahead and send out what we have so far
+        if (Instant::now() - start_time).as_secs() >= 1 {
+            end = false;
+            break;
+        }
+
+        if i + 1 == size {
+            end = false;
+            break;
+        }
+
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            break;
+        }
+    }
+
+    (batch, end)
+}
+
+fn stream_collect_abbriviated(
+    stream: impl Iterator<Item = Value>,
+    size: usize,
+    ctrlc: Option<Arc<AtomicBool>>,
+) -> (Vec<Value>, usize, bool) {
+    let mut end = true;
+    let mut read = 0;
+    let mut head = Vec::with_capacity(size);
+    let mut tail = VecDeque::with_capacity(size);
+
+    if size == 0 {
+        return (vec![], 0, false);
+    }
+
+    for item in stream {
+        read += 1;
+
+        if read <= size {
+            head.push(item);
+        } else if tail.len() < size {
+            tail.push_back(item);
+        } else {
+            let _ = tail.pop_front();
+            tail.push_back(item);
+        }
+
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            end = false;
+            break;
+        }
+    }
+
+    let have_filled_list = head.len() == size && tail.len() == size;
+    if have_filled_list {
+        let dummy = get_abbriviated_dummy(&head, &tail);
+        head.insert(size, dummy)
+    }
+
+    head.extend(tail);
+
+    (head, read, end)
+}
+
+fn get_abbriviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
+    let dummy = || Value::string(String::from("..."), Span::unknown());
+    let is_record_list = is_record_list(head.iter()) && is_record_list(tail.iter());
+
+    if is_record_list {
+        // in case it's a record list we set a default text to each column instead of a single value.
+        Value::record(
+            head[0]
+                .as_record()
+                .expect("ok")
+                .columns()
+                .map(|key| (key.clone(), dummy()))
+                .collect(),
+            Span::unknown(),
+        )
+    } else {
+        dummy()
+    }
+}
+
+fn is_record_list<'a>(mut batch: impl ExactSizeIterator<Item = &'a Value>) -> bool {
+    batch.len() > 0 && batch.all(|value| matches!(value, Value::Record { .. }))
 }
 
 fn render_path_name(
@@ -897,17 +975,18 @@ fn render_path_name(
 
     let stripped_path = nu_utils::strip_ansi_unlikely(path);
 
-    let (style, has_metadata) = match std::fs::symlink_metadata(stripped_path.as_ref()) {
-        Ok(metadata) => (
-            ls_colors.style_for_path_with_metadata(stripped_path.as_ref(), Some(&metadata)),
-            true,
-        ),
-        Err(_) => (ls_colors.style_for_path(stripped_path.as_ref()), false),
-    };
+    let metadata = std::fs::symlink_metadata(stripped_path.as_ref());
+    let has_metadata = metadata.is_ok();
+    let style =
+        ls_colors.style_for_path_with_metadata(stripped_path.as_ref(), metadata.ok().as_ref());
 
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
-    let show_clickable_links = config.show_clickable_links_in_ls && !in_ssh_session && has_metadata;
+    //TODO: Deprecated show_clickable_links_in_ls in favor of shell_integration_osc8
+    let show_clickable_links = config.show_clickable_links_in_ls
+        && !in_ssh_session
+        && has_metadata
+        && config.shell_integration_osc8;
 
     let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
 
@@ -936,7 +1015,6 @@ enum TableView {
     },
 }
 
-#[allow(clippy::manual_filter)]
 fn maybe_strip_color(output: String, config: &Config) -> String {
     // the terminal is for when people do ls from vim, there should be no coloring there
     if !config.use_ansi_coloring || !std::io::stdout().is_terminal() {
@@ -1001,21 +1079,6 @@ fn convert_table_to_output(
         }
         Err(err) => Some(Err(err)),
     }
-}
-
-fn abbreviate_list<T>(list: &[T], limit: usize, text: T) -> Vec<T>
-where
-    T: Clone,
-{
-    let head = &list[..limit];
-    let tail = &list[list.len() - limit..];
-
-    let mut out = Vec::with_capacity(limit * 2 + 1);
-    out.extend(head.iter().cloned());
-    out.push(text);
-    out.extend(tail.iter().cloned());
-
-    out
 }
 
 fn supported_table_modes() -> Vec<Value> {

@@ -1,12 +1,7 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
-use nu_engine::{scope::ScopeData, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    span, Category, DeclId, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, scope::ScopeData};
+use nu_protocol::DeclId;
 
 #[derive(Clone)]
 pub struct HelpModules;
@@ -40,7 +35,7 @@ are also available in the current scope. Commands/aliases that were imported und
                 "string to find in module names and usage",
                 Some('f'),
             )
-            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
     }
 
@@ -103,17 +98,12 @@ pub fn help_modules(
             &highlight_style,
         )?;
 
-        return Ok(found_cmds_vec
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()));
+        return Ok(Value::list(found_cmds_vec, head).into_pipeline_data());
     }
 
     if rest.is_empty() {
         let found_cmds_vec = build_help_modules(engine_state, stack, head);
-
-        Ok(found_cmds_vec
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(Value::list(found_cmds_vec, head).into_pipeline_data())
     } else {
         let mut name = String::new();
 
@@ -127,7 +117,7 @@ pub fn help_modules(
         let Some(module_id) = engine_state.find_module(name.as_bytes(), &[]) else {
             return Err(ShellError::ModuleNotFoundAtRuntime {
                 mod_name: name,
-                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+                span: Span::merge_many(rest.iter().map(|s| s.span)),
             });
         };
 
@@ -159,6 +149,7 @@ pub fn help_modules(
         if !module.decls.is_empty() || module.main.is_some() {
             let commands: Vec<(Vec<u8>, DeclId)> = engine_state
                 .get_decls_sorted(false)
+                .into_iter()
                 .filter(|(_, id)| !engine_state.get_decl(*id).is_alias())
                 .collect();
 
@@ -196,6 +187,7 @@ pub fn help_modules(
         if !module.decls.is_empty() {
             let aliases: Vec<(Vec<u8>, DeclId)> = engine_state
                 .get_decls_sorted(false)
+                .into_iter()
                 .filter(|(_, id)| engine_state.get_decl(*id).is_alias())
                 .collect();
 

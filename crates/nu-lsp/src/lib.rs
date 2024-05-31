@@ -1,3 +1,19 @@
+use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
+use lsp_types::{
+    request::{Completion, GotoDefinition, HoverRequest, Request},
+    CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
+    MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit,
+    Url,
+};
+use miette::{IntoDiagnostic, Result};
+use nu_cli::{NuCompleter, SuggestionKind};
+use nu_parser::{flatten_block, parse, FlatShape};
+use nu_protocol::{
+    engine::{EngineState, Stack, StateWorkingSet},
+    DeclId, Span, Value, VarId,
+};
+use ropey::Rope;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -7,23 +23,6 @@ use std::{
     },
     time::Duration,
 };
-
-use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
-use lsp_types::{
-    request::{Completion, GotoDefinition, HoverRequest, Request},
-    CompletionItem, CompletionParams, CompletionResponse, CompletionTextEdit, GotoDefinitionParams,
-    GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location, MarkupContent, MarkupKind,
-    OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit, Url,
-};
-use miette::{IntoDiagnostic, Result};
-use nu_cli::NuCompleter;
-use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, Span, Value, VarId,
-};
-use reedline::Completer;
-use ropey::Rope;
 
 mod diagnostics;
 mod notification;
@@ -251,8 +250,7 @@ impl LanguageServer {
     ) -> Option<(&Rope, &PathBuf, StateWorkingSet<'a>)> {
         let (file, path) = self.rope(file_url)?;
 
-        // TODO: AsPath thingy
-        engine_state.start_in_file(Some(&path.to_string_lossy()));
+        engine_state.file = Some(path.to_owned());
 
         let working_set = StateWorkingSet::new(engine_state);
 
@@ -281,14 +279,18 @@ impl LanguageServer {
 
         match id {
             Id::Declaration(decl_id) => {
-                if let Some(block_id) = working_set.get_decl(decl_id).get_block_id() {
+                if let Some(block_id) = working_set.get_decl(decl_id).block_id() {
                     let block = working_set.get_block(block_id);
                     if let Some(span) = &block.span {
-                        for (file_path, file_start, file_end) in working_set.files() {
-                            if span.start >= *file_start && span.start < *file_end {
+                        for cached_file in working_set.files() {
+                            if cached_file.covered_span.contains(span.start) {
                                 return Some(GotoDefinitionResponse::Scalar(Location {
-                                    uri: Url::from_file_path(file_path).ok()?,
-                                    range: Self::span_to_range(span, file, *file_start),
+                                    uri: Url::from_file_path(&*cached_file.name).ok()?,
+                                    range: Self::span_to_range(
+                                        span,
+                                        file,
+                                        cached_file.covered_span.start,
+                                    ),
                                 }));
                             }
                         }
@@ -297,9 +299,10 @@ impl LanguageServer {
             }
             Id::Variable(var_id) => {
                 let var = working_set.get_variable(var_id);
-                for (_, file_start, file_end) in working_set.files() {
-                    if var.declaration_span.start >= *file_start
-                        && var.declaration_span.start < *file_end
+                for cached_file in working_set.files() {
+                    if cached_file
+                        .covered_span
+                        .contains(var.declaration_span.start)
                     {
                         return Some(GotoDefinitionResponse::Scalar(Location {
                             uri: params
@@ -307,7 +310,11 @@ impl LanguageServer {
                                 .text_document
                                 .uri
                                 .clone(),
-                            range: Self::span_to_range(&var.declaration_span, file, *file_start),
+                            range: Self::span_to_range(
+                                &var.declaration_span,
+                                file,
+                                cached_file.covered_span.start,
+                            ),
                         }));
                     }
                 }
@@ -358,7 +365,7 @@ impl LanguageServer {
                 }
 
                 // Usage
-                description.push_str("### Usage \n```\n");
+                description.push_str("### Usage \n```nu\n");
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
@@ -465,7 +472,7 @@ impl LanguageServer {
                 // Input/output types
                 if !signature.input_output_types.is_empty() {
                     description.push_str("\n### Input/output types\n");
-                    description.push_str("\n```\n");
+                    description.push_str("\n```nu\n");
                     for input_output in &signature.input_output_types {
                         description
                             .push_str(&format!(" {} | {}\n", input_output.0, input_output.1));
@@ -478,7 +485,7 @@ impl LanguageServer {
                     description.push_str("### Example(s)\n");
                     for example in decl.examples() {
                         description.push_str(&format!(
-                            "  {}\n```\n  {}\n```\n",
+                            "  {}\n```nu\n  {}\n```\n",
                             example.description, example.example
                         ));
                     }
@@ -545,12 +552,13 @@ impl LanguageServer {
             &params.text_document_position.text_document.uri,
         )?;
 
-        let stack = Stack::new();
-        let mut completer = NuCompleter::new(Arc::new(engine_state.clone()), stack);
+        let mut completer =
+            NuCompleter::new(Arc::new(engine_state.clone()), Arc::new(Stack::new()));
 
         let location =
             Self::lsp_position_to_location(&params.text_document_position.position, rope_of_file);
-        let results = completer.complete(&rope_of_file.to_string()[..location], location);
+        let results =
+            completer.fetch_completions_at(&rope_of_file.to_string()[..location], location);
         if results.is_empty() {
             None
         } else {
@@ -559,17 +567,18 @@ impl LanguageServer {
                     .into_iter()
                     .map(|r| {
                         let mut start = params.text_document_position.position;
-                        start.character -= (r.span.end - r.span.start) as u32;
+                        start.character -= (r.suggestion.span.end - r.suggestion.span.start) as u32;
 
                         CompletionItem {
-                            label: r.value.clone(),
-                            detail: r.description,
+                            label: r.suggestion.value.clone(),
+                            detail: r.suggestion.description,
+                            kind: Self::lsp_completion_item_kind(r.kind),
                             text_edit: Some(CompletionTextEdit::Edit(TextEdit {
                                 range: Range {
                                     start,
                                     end: params.text_document_position.position,
                                 },
-                                new_text: r.value,
+                                new_text: r.suggestion.value,
                             })),
                             ..Default::default()
                         }
@@ -578,12 +587,28 @@ impl LanguageServer {
             ))
         }
     }
+
+    fn lsp_completion_item_kind(
+        suggestion_kind: Option<SuggestionKind>,
+    ) -> Option<CompletionItemKind> {
+        suggestion_kind.and_then(|suggestion_kind| match suggestion_kind {
+            SuggestionKind::Type(t) => match t {
+                nu_protocol::Type::String => Some(CompletionItemKind::VARIABLE),
+                _ => None,
+            },
+            SuggestionKind::Command(c) => match c {
+                nu_protocol::engine::CommandType::Keyword => Some(CompletionItemKind::KEYWORD),
+                nu_protocol::engine::CommandType::Builtin => Some(CompletionItemKind::FUNCTION),
+                _ => None,
+            },
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assert_json_diff::assert_json_eq;
+    use assert_json_diff::{assert_json_eq, assert_json_include};
     use lsp_types::{
         notification::{
             DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification,
@@ -955,7 +980,7 @@ mod tests {
     }
 
     #[test]
-    fn hover_on_command() {
+    fn hover_on_custom_command() {
         let (client_connection, _recv) = initialize_language_server();
 
         let mut script = fixtures();
@@ -978,7 +1003,37 @@ mod tests {
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "Renders some greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                    "value": "Renders some greeting message\n### Usage \n```nu\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn hover_on_str_join() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("command.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = hover(&client_connection, script.clone(), 5, 8);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "contents": {
+                    "kind": "markdown",
+                    "value": "Concatenate multiple strings into a single string, with an optional separator between each.\n### Usage \n```nu\n  str join {flags} <separator?>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator: string` - Optional separator to use when creating string.\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
                 }
             })
         );
@@ -1039,7 +1094,8 @@ mod tests {
                         "start": { "character": 5, "line": 2 },
                         "end": { "character": 9, "line": 2 }
                      }
-                  }
+                  },
+                  "kind": 6
                }
             ])
         );
@@ -1076,7 +1132,8 @@ mod tests {
                         "end": { "line": 0, "character": 8 },
                      },
                      "newText": "config nu"
-                  }
+                  },
+                  "kind": 3
                }
             ])
         );
@@ -1113,7 +1170,45 @@ mod tests {
                         "end": { "line": 0, "character": 14 },
                      },
                      "newText": "str trim"
-                  }
+                  },
+                  "kind": 3
+               }
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_keyword() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("keyword.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = complete(&client_connection, script, 0, 2);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_include!(
+            actual: result,
+            expected: serde_json::json!([
+               {
+                  "label": "def",
+                  "textEdit": {
+                     "newText": "def",
+                     "range": {
+                        "start": { "character": 0, "line": 0 },
+                        "end": { "character": 2, "line": 0 }
+                     }
+                  },
+                  "kind": 14
                }
             ])
         );

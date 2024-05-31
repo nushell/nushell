@@ -1,10 +1,6 @@
 use chrono::Local;
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Type,
-};
+use nu_engine::command_prelude::*;
+
 use nu_utils::{get_default_config, get_default_env};
 use std::io::Write;
 
@@ -52,13 +48,7 @@ impl Command for ConfigReset {
         let mut config_path = match nu_path::config_dir() {
             Some(path) => path,
             None => {
-                return Err(ShellError::GenericError {
-                    error: "Could not find config path".into(),
-                    msg: "Could not find config path".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::ConfigDirNotFound { span: None });
             }
         };
         config_path.push("nushell");

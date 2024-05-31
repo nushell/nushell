@@ -1,11 +1,6 @@
 use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, PipelineData, ShellError, ShellError::DatetimeParseError,
-    ShellError::PipelineEmpty, Signature, Span, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -18,8 +13,8 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("date to-table")
             .input_output_types(vec![
-                (Type::Date, Type::Table(vec![])),
-                (Type::String, Type::Table(vec![])),
+                (Type::Date, Type::table()),
+                (Type::String, Type::table()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .category(Category::Date)
@@ -43,7 +38,7 @@ impl Command for SubCommand {
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(PipelineEmpty { dst_span: head });
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(move |value| helper(value, head), engine_state.ctrlc.clone())
     }
@@ -52,11 +47,6 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert the current date into a table.",
-                example: "date to-table",
-                result: None,
-            },
-            Example {
-                description: "Convert the date into a table.",
                 example: "date now | date to-table",
                 result: None,
             },
@@ -121,9 +111,11 @@ fn helper(val: Value, head: Span) -> Value {
         }
         Value::Date { val, .. } => parse_date_into_table(val, head),
         _ => Value::error(
-            DatetimeParseError {
-                msg: val.debug_value(),
-                span: head,
+            ShellError::OnlySupportsThisInputType {
+                exp_input_type: "date, string (that represents datetime), or nothing".into(),
+                wrong_type: val.get_type().to_string(),
+                dst_span: head,
+                src_span: val_span,
             },
             head,
         ),

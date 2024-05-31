@@ -1,25 +1,31 @@
+use crate::{
+    ast::Block,
+    debugger::{Debugger, NoopDebugger},
+    engine::{
+        usage::{build_usage, Usage},
+        CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
+        Variable, Visibility, DEFAULT_OVERLAY_NAME,
+    },
+    eval_const::create_nu_constant,
+    BlockId, Category, Config, DeclId, FileId, HistoryConfig, Module, ModuleId, OverlayId,
+    ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
+};
 use fancy_regex::Regex;
 use lru::LruCache;
-
-use super::{usage::build_usage, usage::Usage, StateDelta};
-use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
-use crate::ast::Block;
-use crate::{
-    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
-};
-use crate::{Category, Value};
-use std::borrow::Borrow;
-use std::collections::HashMap;
-use std::num::NonZeroUsize;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::{
-    atomic::{AtomicBool, AtomicU32},
-    Arc, Mutex,
+use std::{
+    collections::HashMap,
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, AtomicU32, Ordering},
+        Arc, Mutex, MutexGuard, PoisonError,
+    },
 };
 
-pub static PWD_ENV: &str = "PWD";
+type PoisonDebuggerError<'a> = PoisonError<MutexGuard<'a, Box<dyn Debugger>>>;
+
+#[cfg(feature = "plugin")]
+use crate::{PluginRegistryFile, PluginRegistryItem, RegisteredPlugin};
 
 #[derive(Clone, Debug)]
 pub enum VirtualPath {
@@ -33,6 +39,20 @@ pub struct ReplState {
     pub cursor_pos: usize,
 }
 
+pub struct IsDebugging(AtomicBool);
+
+impl IsDebugging {
+    pub fn new(val: bool) -> Self {
+        IsDebugging(AtomicBool::new(val))
+    }
+}
+
+impl Clone for IsDebugging {
+    fn clone(&self) -> Self {
+        IsDebugging(AtomicBool::new(self.0.load(Ordering::Relaxed)))
+    }
+}
+
 /// The core global engine state. This includes all global definitions as well as any global state that
 /// will persist for the whole session.
 ///
@@ -42,68 +62,49 @@ pub struct ReplState {
 /// will refer to the corresponding IDs rather than their definitions directly. At runtime, this means
 /// less copying and smaller structures.
 ///
+/// Many of the larger objects in this structure are stored within `Arc` to decrease the cost of
+/// cloning `EngineState`. While `Arc`s are generally immutable, they can be modified using
+/// `Arc::make_mut`, which automatically clones to a new allocation if there are other copies of
+/// the `Arc` already in use, but will let us modify the `Arc` directly if we have the only
+/// reference to it.
+///
 /// Note that the runtime stack is not part of this global state. Runtime stacks are handled differently,
 /// but they also rely on using IDs rather than full definitions.
-///
-/// A note on implementation:
-///
-/// Much of the global definitions are built on the Bodil's 'im' crate. This gives us a way of working with
-/// lists of definitions in a way that is very cheap to access, while also allowing us to update them at
-/// key points in time (often, the transition between parsing and evaluation).
-///
-/// Over the last two years we tried a few different approaches to global state like this. I'll list them
-/// here for posterity, so we can more easily know how we got here:
-///
-/// * `Rc` - Rc is cheap, but not thread-safe. The moment we wanted to work with external processes, we
-/// needed a way send to stdin/stdout. In Rust, the current practice is to spawn a thread to handle both.
-/// These threads would need access to the global state, as they'll need to process data as it streams out
-/// of the data pipeline. Because Rc isn't thread-safe, this breaks.
-///
-/// * `Arc` - Arc is the thread-safe version of the above. Often Arc is used in combination with a Mutex or
-/// RwLock, but you can use Arc by itself. We did this a few places in the original Nushell. This *can* work
-/// but because of Arc's nature of not allowing mutation if there's a second copy of the Arc around, this
-/// ultimately becomes limiting.
-///
-/// * `Arc` + `Mutex/RwLock` - the standard practice for thread-safe containers. Unfortunately, this would
-/// have meant we would incur a lock penalty every time we needed to access any declaration or block. As we
-/// would be reading far more often than writing, it made sense to explore solutions that favor large amounts
-/// of reads.
-///
-/// * `im` - the `im` crate was ultimately chosen because it has some very nice properties: it gives the
-/// ability to cheaply clone these structures, which is nice as EngineState may need to be cloned a fair bit
-/// to follow ownership rules for closures and iterators. It also is cheap to access. Favoring reads here fits
-/// more closely to what we need with Nushell. And, of course, it's still thread-safe, so we get the same
-/// benefits as above.
-///
 #[derive(Clone)]
 pub struct EngineState {
-    files: Vec<(String, usize, usize)>,
-    file_contents: Vec<(Vec<u8>, usize, usize)>,
+    files: Vec<CachedFile>,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
-    decls: Vec<Box<dyn Command + 'static>>,
-    pub(super) blocks: Vec<Block>,
-    pub(super) modules: Vec<Module>,
+    decls: Arc<Vec<Box<dyn Command + 'static>>>,
+    // The Vec is wrapped in Arc so that if we don't need to modify the list, we can just clone
+    // the reference and not have to clone each individual Arc inside. These lists can be
+    // especially long, so it helps
+    pub(super) blocks: Arc<Vec<Arc<Block>>>,
+    pub(super) modules: Arc<Vec<Arc<Module>>>,
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
-    pub env_vars: EnvVars,
-    pub previous_env_vars: HashMap<String, Value>,
-    pub config: Config,
+    pub env_vars: Arc<EnvVars>,
+    pub previous_env_vars: Arc<HashMap<String, Value>>,
+    pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
     pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
-    pub plugin_signatures: Option<PathBuf>,
+    pub plugin_path: Option<PathBuf>,
+    #[cfg(feature = "plugin")]
+    plugins: Vec<Arc<dyn RegisteredPlugin>>,
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
-    // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
-    pub(super) currently_parsed_cwd: Option<PathBuf>,
+    // Path to the file Nushell is currently evaluating, or None if we're in an interactive session.
+    pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
     pub is_interactive: bool,
     pub is_login: bool,
     startup_time: i64,
+    is_debugging: IsDebugging,
+    pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -118,7 +119,6 @@ impl EngineState {
     pub fn new() -> Self {
         Self {
             files: vec![],
-            file_contents: vec![],
             virtual_paths: vec![],
             vars: vec![
                 Variable::new(Span::new(0, 0), Type::Any, false),
@@ -127,9 +127,11 @@ impl EngineState {
                 Variable::new(Span::new(0, 0), Type::Any, false),
                 Variable::new(Span::new(0, 0), Type::Any, false),
             ],
-            decls: vec![],
-            blocks: vec![],
-            modules: vec![Module::new(DEFAULT_OVERLAY_NAME.as_bytes().to_vec())],
+            decls: Arc::new(vec![]),
+            blocks: Arc::new(vec![]),
+            modules: Arc::new(vec![Arc::new(Module::new(
+                DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
+            ))]),
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -138,11 +140,13 @@ impl EngineState {
                 false,
             ),
             ctrlc: None,
-            env_vars: [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
-                .into_iter()
-                .collect(),
-            previous_env_vars: HashMap::new(),
-            config: Config::default(),
+            env_vars: Arc::new(
+                [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
+                    .into_iter()
+                    .collect(),
+            ),
+            previous_env_vars: Arc::new(HashMap::new()),
+            config: Arc::new(Config::default()),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
             repl_state: Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
@@ -150,17 +154,21 @@ impl EngineState {
             })),
             table_decl_id: None,
             #[cfg(feature = "plugin")]
-            plugin_signatures: None,
+            plugin_path: None,
+            #[cfg(feature = "plugin")]
+            plugins: vec![],
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
-            currently_parsed_cwd: None,
+            file: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             ))),
             is_interactive: false,
             is_login: false,
             startup_time: -1,
+            is_debugging: IsDebugging::new(false),
+            debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
         }
     }
 
@@ -174,13 +182,20 @@ impl EngineState {
     pub fn merge_delta(&mut self, mut delta: StateDelta) -> Result<(), ShellError> {
         // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
-        self.file_contents.extend(delta.file_contents);
         self.virtual_paths.extend(delta.virtual_paths);
-        self.decls.extend(delta.decls);
         self.vars.extend(delta.vars);
-        self.blocks.extend(delta.blocks);
-        self.modules.extend(delta.modules);
         self.usage.merge_with(delta.usage);
+
+        // Avoid potentially cloning the Arcs if we aren't adding anything
+        if !delta.decls.is_empty() {
+            Arc::make_mut(&mut self.decls).extend(delta.decls);
+        }
+        if !delta.blocks.is_empty() {
+            Arc::make_mut(&mut self.blocks).extend(delta.blocks);
+        }
+        if !delta.modules.is_empty() {
+            Arc::make_mut(&mut self.modules).extend(delta.modules);
+        }
 
         let first = delta.scope.remove(0);
 
@@ -233,14 +248,29 @@ impl EngineState {
         self.scope.active_overlays.append(&mut activated_ids);
 
         #[cfg(feature = "plugin")]
-        if delta.plugins_changed {
-            let result = self.update_plugin_file();
-
-            if result.is_ok() {
-                delta.plugins_changed = false;
+        if !delta.plugins.is_empty() {
+            // Replace plugins that overlap in identity.
+            for plugin in std::mem::take(&mut delta.plugins) {
+                if let Some(existing) = self
+                    .plugins
+                    .iter_mut()
+                    .find(|p| p.identity().name() == plugin.identity().name())
+                {
+                    // Stop the existing plugin, so that the new plugin definitely takes over
+                    existing.stop()?;
+                    *existing = plugin;
+                } else {
+                    self.plugins.push(plugin);
+                }
             }
+        }
 
-            return result;
+        #[cfg(feature = "plugin")]
+        if !delta.plugin_registry_items.is_empty() {
+            // Update the plugin file with the new signatures.
+            if self.plugin_path.is_some() {
+                self.update_plugin_file(std::mem::take(&mut delta.plugin_registry_items))?;
+            }
         }
 
         Ok(())
@@ -252,17 +282,20 @@ impl EngineState {
         stack: &mut Stack,
         cwd: impl AsRef<Path>,
     ) -> Result<(), ShellError> {
+        let mut config_updated = false;
+
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in scope.drain() {
-                if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+                if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
                     // Updating existing overlay
                     for (k, v) in env.drain() {
                         if k == "config" {
                             // Don't insert the record as the "config" env var as-is.
                             // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
-                            let (config, error) = new_record.into_config(&self.config);
-                            self.config = config;
+                            let (config, error) = new_record.parse_as_config(&self.config);
+                            self.config = Arc::new(config);
+                            config_updated = true;
                             env_vars.insert(k, new_record);
                             if let Some(e) = error {
                                 return Err(e);
@@ -273,7 +306,7 @@ impl EngineState {
                     }
                 } else {
                     // Pushing a new overlay
-                    self.env_vars.insert(overlay_name, env);
+                    Arc::make_mut(&mut self.env_vars).insert(overlay_name, env);
                 }
             }
         }
@@ -281,16 +314,13 @@ impl EngineState {
         // TODO: better error
         std::env::set_current_dir(cwd)?;
 
-        Ok(())
-    }
+        if config_updated {
+            // Make plugin GC config changes take effect immediately.
+            #[cfg(feature = "plugin")]
+            self.update_plugin_gc_configs(&self.config.plugin_gc);
+        }
 
-    /// Mark a starting point if it is a script (e.g., nu spam.nu)
-    pub fn start_in_file(&mut self, file_path: Option<&str>) {
-        self.currently_parsed_cwd = if let Some(path) = file_path {
-            Path::new(path).parent().map(PathBuf::from)
-        } else {
-            None
-        };
+        Ok(())
     }
 
     pub fn has_overlay(&self, name: &[u8]) -> bool {
@@ -401,10 +431,10 @@ impl EngineState {
     pub fn add_env_var(&mut self, name: String, val: Value) {
         let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();
 
-        if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
+        if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
             env_vars.insert(name, val);
         } else {
-            self.env_vars
+            Arc::make_mut(&mut self.env_vars)
                 .insert(overlay_name, [(name, val)].into_iter().collect());
         }
     }
@@ -444,96 +474,71 @@ impl EngineState {
     }
 
     #[cfg(feature = "plugin")]
-    pub fn update_plugin_file(&self) -> Result<(), ShellError> {
-        use std::io::Write;
+    pub fn plugins(&self) -> &[Arc<dyn RegisteredPlugin>] {
+        &self.plugins
+    }
 
-        use crate::{PluginExample, PluginSignature};
-
+    #[cfg(feature = "plugin")]
+    pub fn update_plugin_file(
+        &self,
+        updated_items: Vec<PluginRegistryItem>,
+    ) -> Result<(), ShellError> {
         // Updating the signatures plugin file with the added signatures
-        self.plugin_signatures
+        use std::fs::File;
+
+        let plugin_path = self
+            .plugin_path
             .as_ref()
-            .ok_or_else(|| ShellError::PluginFailedToLoad {
-                msg: "Plugin file not found".into(),
-            })
-            .and_then(|plugin_path| {
-                // Always create the file, which will erase previous signatures
-                std::fs::File::create(plugin_path.as_path()).map_err(|err| {
-                    ShellError::PluginFailedToLoad {
-                        msg: err.to_string(),
-                    }
-                })
-            })
-            .and_then(|mut plugin_file| {
-                // Plugin definitions with parsed signature
-                self.plugin_decls().try_for_each(|decl| {
-                    // A successful plugin registration already includes the plugin filename
-                    // No need to check the None option
-                    let (path, shell) = decl.is_plugin().expect("plugin should have file name");
-                    let mut file_name = path
-                        .to_str()
-                        .expect("path was checked during registration as a str")
-                        .to_string();
+            .ok_or_else(|| ShellError::GenericError {
+                error: "Plugin file path not set".into(),
+                msg: "".into(),
+                span: None,
+                help: Some("you may be running nu with --no-config-file".into()),
+                inner: vec![],
+            })?;
 
-                    // Fix files or folders with quotes
-                    if file_name.contains('\'')
-                        || file_name.contains('"')
-                        || file_name.contains(' ')
-                    {
-                        file_name = format!("`{file_name}`");
-                    }
+        // Read the current contents of the plugin file if it exists
+        let mut contents = match File::open(plugin_path.as_path()) {
+            Ok(mut plugin_file) => PluginRegistryFile::read_from(&mut plugin_file, None),
+            Err(err) => {
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    Ok(PluginRegistryFile::default())
+                } else {
+                    Err(ShellError::GenericError {
+                        error: "Failed to open plugin file".into(),
+                        msg: "".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![err.into()],
+                    })
+                }
+            }
+        }?;
 
-                    let sig = decl.signature();
-                    let examples = decl
-                        .examples()
-                        .into_iter()
-                        .map(|eg| PluginExample {
-                            example: eg.example.into(),
-                            description: eg.description.into(),
-                            result: eg.result,
-                        })
-                        .collect();
-                    let sig_with_examples = PluginSignature::new(sig, examples);
-                    serde_json::to_string_pretty(&sig_with_examples)
-                        .map(|signature| {
-                            // Extracting the possible path to the shell used to load the plugin
-                            let shell_str = shell
-                                .as_ref()
-                                .map(|path| {
-                                    format!(
-                                        "-s {}",
-                                        path.to_str().expect(
-                                            "shell path was checked during registration as a str"
-                                        )
-                                    )
-                                })
-                                .unwrap_or_default();
+        // Update the given signatures
+        for item in updated_items {
+            contents.upsert_plugin(item);
+        }
 
-                            // Each signature is stored in the plugin file with the shell and signature
-                            // This information will be used when loading the plugin
-                            // information when nushell starts
-                            format!("register {file_name} {shell_str} {signature}\n\n")
-                        })
-                        .map_err(|err| ShellError::PluginFailedToLoad {
-                            msg: err.to_string(),
-                        })
-                        .and_then(|line| {
-                            plugin_file.write_all(line.as_bytes()).map_err(|err| {
-                                ShellError::PluginFailedToLoad {
-                                    msg: err.to_string(),
-                                }
-                            })
-                        })
-                        .and_then(|_| {
-                            plugin_file.flush().map_err(|err| ShellError::GenericError {
-                                error: "Error flushing plugin file".into(),
-                                msg: format! {"{err}"},
-                                span: None,
-                                help: None,
-                                inner: vec![],
-                            })
-                        })
-                })
-            })
+        // Write it to the same path
+        let plugin_file =
+            File::create(plugin_path.as_path()).map_err(|err| ShellError::GenericError {
+                error: "Failed to write plugin file".into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![err.into()],
+            })?;
+
+        contents.write_to(plugin_file, None)
+    }
+
+    /// Update plugins with new garbage collection config
+    #[cfg(feature = "plugin")]
+    fn update_plugin_gc_configs(&self, plugin_gc: &crate::PluginGcConfigs) {
+        for plugin in &self.plugins {
+            plugin.set_gc_config(plugin_gc.get(plugin.identity().name()));
+        }
     }
 
     pub fn num_files(&self) -> usize {
@@ -579,8 +584,8 @@ impl EngineState {
     }
 
     pub fn print_contents(&self) {
-        for (contents, _, _) in self.file_contents.iter() {
-            let string = String::from_utf8_lossy(contents);
+        for cached_file in self.files.iter() {
+            let string = String::from_utf8_lossy(&cached_file.content);
             println!("{string}");
         }
     }
@@ -628,7 +633,7 @@ impl EngineState {
         let mut unique_plugin_decls = HashMap::new();
 
         // Make sure there are no duplicate decls: Newer one overwrites the older one
-        for decl in self.decls.iter().filter(|d| d.is_plugin().is_some()) {
+        for decl in self.decls.iter().filter(|d| d.is_plugin()) {
             unique_plugin_decls.insert(decl.name(), decl);
         }
 
@@ -679,7 +684,7 @@ impl EngineState {
         &self,
         predicate: impl Fn(&[u8]) -> bool,
         ignore_deprecated: bool,
-    ) -> Vec<(Vec<u8>, Option<String>)> {
+    ) -> Vec<(Vec<u8>, Option<String>, CommandType)> {
         let mut output = vec![];
 
         for overlay_frame in self.active_overlays(&[]).rev() {
@@ -689,7 +694,11 @@ impl EngineState {
                     if ignore_deprecated && command.signature().category == Category::Removed {
                         continue;
                     }
-                    output.push((decl.0.clone(), Some(command.usage().to_string())));
+                    output.push((
+                        decl.0.clone(),
+                        Some(command.usage().to_string()),
+                        command.command_type(),
+                    ));
                 }
             }
         }
@@ -698,9 +707,10 @@ impl EngineState {
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
-        for (contents, start, finish) in &self.file_contents {
-            if span.start >= *start && span.end <= *finish {
-                return &contents[(span.start - start)..(span.end - start)];
+        for file in &self.files {
+            if file.covered_span.contains_span(span) {
+                return &file.content
+                    [(span.start - file.covered_span.start)..(span.end - file.covered_span.start)];
             }
         }
         &[0u8; 0]
@@ -711,7 +721,13 @@ impl EngineState {
     }
 
     pub fn set_config(&mut self, conf: Config) {
-        self.config = conf;
+        #[cfg(feature = "plugin")]
+        if conf.plugin_gc != self.config.plugin_gc {
+            // Make plugin GC config changes take effect immediately.
+            self.update_plugin_gc_configs(&conf.plugin_gc);
+        }
+
+        self.config = Arc::new(conf);
     }
 
     /// Fetch the configuration for a plugin
@@ -724,11 +740,7 @@ impl EngineState {
 
     /// Returns the configuration settings for command history or `None` if history is disabled
     pub fn history_config(&self) -> Option<HistoryConfig> {
-        if self.history_enabled {
-            Some(self.config.history)
-        } else {
-            None
-        }
+        self.history_enabled.then(|| self.config.history)
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {
@@ -742,22 +754,19 @@ impl EngineState {
         var.const_val.as_ref()
     }
 
-    pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
-        self.vars[var_id].const_val = Some(val);
+    pub fn generate_nu_constant(&mut self) {
+        self.vars[NU_VARIABLE_ID].const_val = Some(create_nu_constant(self, Span::unknown()));
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
+    pub fn get_decl(&self, decl_id: DeclId) -> &dyn Command {
         self.decls
             .get(decl_id)
             .expect("internal error: missing declaration")
+            .as_ref()
     }
 
     /// Get all commands within scope, sorted by the commands' names
-    pub fn get_decls_sorted(
-        &self,
-        include_hidden: bool,
-    ) -> impl Iterator<Item = (Vec<u8>, DeclId)> {
+    pub fn get_decls_sorted(&self, include_hidden: bool) -> Vec<(Vec<u8>, DeclId)> {
         let mut decls_map = HashMap::new();
 
         for overlay_frame in self.active_overlays(&[]) {
@@ -778,12 +787,11 @@ impl EngineState {
         let mut decls: Vec<(Vec<u8>, DeclId)> = decls_map.into_iter().collect();
 
         decls.sort_by(|a, b| a.0.cmp(&b.0));
-        decls.into_iter()
+        decls
     }
 
-    #[allow(clippy::borrowed_box)]
-    pub fn get_signature(&self, decl: &Box<dyn Command>) -> Signature {
-        if let Some(block_id) = decl.get_block_id() {
+    pub fn get_signature(&self, decl: &dyn Command) -> Signature {
+        if let Some(block_id) = decl.block_id() {
             *self.blocks[block_id].signature.clone()
         } else {
             decl.signature()
@@ -793,44 +801,28 @@ impl EngineState {
     /// Get signatures of all commands within scope.
     pub fn get_signatures(&self, include_hidden: bool) -> Vec<Signature> {
         self.get_decls_sorted(include_hidden)
+            .into_iter()
             .map(|(_, id)| {
                 let decl = self.get_decl(id);
 
-                self.get_signature(decl).update_from_command(decl.borrow())
+                self.get_signature(decl).update_from_command(decl)
             })
             .collect()
     }
 
-    /// Get signatures of all commands within scope.
-    ///
-    /// In addition to signatures, it returns whether each command is:
-    ///     a) a plugin
-    ///     b) custom
-    pub fn get_signatures_with_examples(
-        &self,
-        include_hidden: bool,
-    ) -> Vec<(Signature, Vec<Example>, bool, bool, bool)> {
-        self.get_decls_sorted(include_hidden)
-            .map(|(_, id)| {
-                let decl = self.get_decl(id);
-
-                let signature = self.get_signature(decl).update_from_command(decl.borrow());
-
-                (
-                    signature,
-                    decl.examples(),
-                    decl.is_plugin().is_some(),
-                    decl.get_block_id().is_some(),
-                    decl.is_parser_keyword(),
-                )
-            })
-            .collect()
-    }
-
-    pub fn get_block(&self, block_id: BlockId) -> &Block {
+    pub fn get_block(&self, block_id: BlockId) -> &Arc<Block> {
         self.blocks
             .get(block_id)
             .expect("internal error: missing block")
+    }
+
+    /// Optionally get a block by id, if it exists
+    ///
+    /// Prefer to use [`.get_block()`] in most cases - `BlockId`s that don't exist are normally a
+    /// compiler error. This only exists to stop plugins from crashing the engine if they send us
+    /// something invalid.
+    pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
+        self.blocks.get(block_id)
     }
 
     pub fn get_module(&self, module_id: ModuleId) -> &Module {
@@ -846,35 +838,30 @@ impl EngineState {
     }
 
     pub fn next_span_start(&self) -> usize {
-        if let Some((_, _, last)) = self.file_contents.last() {
-            *last
+        if let Some(cached_file) = self.files.last() {
+            cached_file.covered_span.end
         } else {
             0
         }
     }
 
-    pub fn files(&self) -> impl Iterator<Item = &(String, usize, usize)> {
+    pub fn files(&self) -> impl Iterator<Item = &CachedFile> {
         self.files.iter()
     }
 
-    pub fn add_file(&mut self, filename: String, contents: Vec<u8>) -> usize {
+    pub fn add_file(&mut self, filename: Arc<str>, content: Arc<[u8]>) -> FileId {
         let next_span_start = self.next_span_start();
-        let next_span_end = next_span_start + contents.len();
+        let next_span_end = next_span_start + content.len();
 
-        self.file_contents
-            .push((contents, next_span_start, next_span_end));
+        let covered_span = Span::new(next_span_start, next_span_end);
 
-        self.files.push((filename, next_span_start, next_span_end));
+        self.files.push(CachedFile {
+            name: filename,
+            content,
+            covered_span,
+        });
 
         self.num_files() - 1
-    }
-
-    pub fn get_cwd(&self) -> Option<String> {
-        if let Some(pwd_value) = self.get_env_var(PWD_ENV) {
-            pwd_value.as_string().ok()
-        } else {
-            None
-        }
     }
 
     pub fn set_config_path(&mut self, key: &str, val: PathBuf) {
@@ -898,14 +885,94 @@ impl EngineState {
             .map(|comment_spans| self.build_usage(comment_spans))
     }
 
+    /// Returns the current working directory, which is guaranteed to be canonicalized.
+    ///
+    /// Returns an empty String if $env.PWD doesn't exist.
+    #[deprecated(since = "0.92.3", note = "please use `EngineState::cwd()` instead")]
     pub fn current_work_dir(&self) -> String {
-        self.get_env_var("PWD")
-            .map(|d| d.as_string().unwrap_or_default())
+        self.cwd(None)
+            .map(|path| path.to_string_lossy().to_string())
             .unwrap_or_default()
     }
 
-    pub fn get_file_contents(&self) -> &[(Vec<u8>, usize, usize)] {
-        &self.file_contents
+    /// Returns the current working directory, which is guaranteed to be an
+    /// absolute path without trailing slashes (unless it's the root path), but
+    /// might contain symlink components.
+    ///
+    /// If `stack` is supplied, also considers modifications to the working
+    /// directory on the stack that have yet to be merged into the engine state.
+    pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
+        // Helper function to create a simple generic error.
+        fn error(msg: &str, cwd: impl AsRef<Path>) -> Result<PathBuf, ShellError> {
+            Err(ShellError::GenericError {
+                error: msg.into(),
+                msg: format!("$env.PWD = {}", cwd.as_ref().display()),
+                span: None,
+                help: Some("Use `cd` to reset $env.PWD into a good state".into()),
+                inner: vec![],
+            })
+        }
+
+        // Helper function to check if a path is a root path.
+        fn is_root(path: &Path) -> bool {
+            path.parent().is_none()
+        }
+
+        // Helper function to check if a path has trailing slashes.
+        fn has_trailing_slash(path: &Path) -> bool {
+            nu_path::components(path).last()
+                == Some(std::path::Component::Normal(std::ffi::OsStr::new("")))
+        }
+
+        // Retrieve $env.PWD from the stack or the engine state.
+        let pwd = if let Some(stack) = stack {
+            stack.get_env_var(self, "PWD")
+        } else {
+            self.get_env_var("PWD").map(ToOwned::to_owned)
+        };
+
+        if let Some(pwd) = pwd {
+            if let Value::String { val, .. } = pwd {
+                let path = PathBuf::from(val);
+
+                // Technically, a root path counts as "having trailing slashes", but
+                // for the purpose of PWD, a root path is acceptable.
+                if !is_root(&path) && has_trailing_slash(&path) {
+                    error("$env.PWD contains trailing slashes", path)
+                } else if !path.is_absolute() {
+                    error("$env.PWD is not an absolute path", path)
+                } else if !path.exists() {
+                    error("$env.PWD points to a non-existent directory", path)
+                } else if !path.is_dir() {
+                    error("$env.PWD points to a non-directory", path)
+                } else {
+                    Ok(path)
+                }
+            } else {
+                error("$env.PWD is not a string", format!("{pwd:?}"))
+            }
+        } else {
+            error("$env.PWD not found", "")
+        }
+    }
+
+    /// Like `EngineState::cwd()`, but returns a String instead of a PathBuf for convenience.
+    pub fn cwd_as_string(&self, stack: Option<&Stack>) -> Result<String, ShellError> {
+        let cwd = self.cwd(stack)?;
+        cwd.into_os_string()
+            .into_string()
+            .map_err(|err| ShellError::NonUtf8Custom {
+                msg: format!(
+                    "The current working directory is not a valid utf-8 string: {:?}",
+                    err
+                ),
+                span: Span::unknown(),
+            })
+    }
+
+    // TODO: see if we can completely get rid of this
+    pub fn get_file_contents(&self) -> &[CachedFile] {
+        &self.files
     }
 
     pub fn get_startup_time(&self) -> i64 {
@@ -914,6 +981,43 @@ impl EngineState {
 
     pub fn set_startup_time(&mut self, startup_time: i64) {
         self.startup_time = startup_time;
+    }
+
+    pub fn activate_debugger(
+        &self,
+        debugger: Box<dyn Debugger>,
+    ) -> Result<(), PoisonDebuggerError> {
+        let mut locked_debugger = self.debugger.lock()?;
+        *locked_debugger = debugger;
+        locked_debugger.activate();
+        self.is_debugging.0.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+
+    pub fn deactivate_debugger(&self) -> Result<Box<dyn Debugger>, PoisonDebuggerError> {
+        let mut locked_debugger = self.debugger.lock()?;
+        locked_debugger.deactivate();
+        let ret = std::mem::replace(&mut *locked_debugger, Box::new(NoopDebugger));
+        self.is_debugging.0.store(false, Ordering::Relaxed);
+        Ok(ret)
+    }
+
+    pub fn is_debugging(&self) -> bool {
+        self.is_debugging.0.load(Ordering::Relaxed)
+    }
+
+    pub fn recover_from_panic(&mut self) {
+        if Mutex::is_poisoned(&self.repl_state) {
+            self.repl_state = Arc::new(Mutex::new(ReplState {
+                buffer: "".to_string(),
+                cursor_pos: 0,
+            }));
+        }
+        if Mutex::is_poisoned(&self.regex_cache) {
+            self.regex_cache = Arc::new(Mutex::new(LruCache::new(
+                NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
+            )));
+        }
     }
 }
 
@@ -942,7 +1046,7 @@ mod engine_state_tests {
     #[test]
     fn add_file_gives_id_including_parent() {
         let mut engine_state = EngineState::new();
-        let parent_id = engine_state.add_file("test.nu".into(), vec![]);
+        let parent_id = engine_state.add_file("test.nu".into(), Arc::new([]));
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let working_set_id = working_set.add_file("child.nu".into(), &[]);
@@ -954,7 +1058,7 @@ mod engine_state_tests {
     #[test]
     fn merge_states() -> Result<(), ShellError> {
         let mut engine_state = EngineState::new();
-        engine_state.add_file("test.nu".into(), vec![]);
+        engine_state.add_file("test.nu".into(), Arc::new([]));
 
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
@@ -965,8 +1069,8 @@ mod engine_state_tests {
         engine_state.merge_delta(delta)?;
 
         assert_eq!(engine_state.num_files(), 2);
-        assert_eq!(&engine_state.files[0].0, "test.nu");
-        assert_eq!(&engine_state.files[1].0, "child.nu");
+        assert_eq!(&*engine_state.files[0].name, "test.nu");
+        assert_eq!(&*engine_state.files[1].name, "child.nu");
 
         Ok(())
     }
@@ -1013,5 +1117,227 @@ mod engine_state_tests {
             engine_state.get_plugin_config("example").is_some(),
             "Plugin configuration not found"
         );
+    }
+}
+
+#[cfg(test)]
+mod test_cwd {
+    //! Here're the test cases we need to cover:
+    //!
+    //! `EngineState::cwd()` computes the result from `self.env_vars["PWD"]` and
+    //! optionally `stack.env_vars["PWD"]`.
+    //!
+    //! PWD may be unset in either `env_vars`.
+    //! PWD should NOT be an empty string.
+    //! PWD should NOT be a non-string value.
+    //! PWD should NOT be a relative path.
+    //! PWD should NOT contain trailing slashes.
+    //! PWD may point to a directory or a symlink to directory.
+    //! PWD should NOT point to a file or a symlink to file.
+    //! PWD should NOT point to non-existent entities in the filesystem.
+
+    use crate::{
+        engine::{EngineState, Stack},
+        Span, Value,
+    };
+    use nu_path::assert_path_eq;
+    use std::path::Path;
+    use tempfile::{NamedTempFile, TempDir};
+
+    /// Creates a symlink. Works on both Unix and Windows.
+    #[cfg(any(unix, windows))]
+    fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(original, link)
+        }
+        #[cfg(windows)]
+        {
+            if original.as_ref().is_dir() {
+                std::os::windows::fs::symlink_dir(original, link)
+            } else {
+                std::os::windows::fs::symlink_file(original, link)
+            }
+        }
+    }
+
+    /// Create an engine state initialized with the given PWD.
+    fn engine_state_with_pwd(path: impl AsRef<Path>) -> EngineState {
+        let mut engine_state = EngineState::new();
+        engine_state.add_env_var(
+            "PWD".into(),
+            Value::String {
+                val: path.as_ref().to_string_lossy().to_string(),
+                internal_span: Span::unknown(),
+            },
+        );
+        engine_state
+    }
+
+    /// Create a stack initialized with the given PWD.
+    fn stack_with_pwd(path: impl AsRef<Path>) -> Stack {
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            "PWD".into(),
+            Value::String {
+                val: path.as_ref().to_string_lossy().to_string(),
+                internal_span: Span::unknown(),
+            },
+        );
+        stack
+    }
+
+    #[test]
+    fn pwd_not_set() {
+        let engine_state = EngineState::new();
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_is_empty_string() {
+        let engine_state = engine_state_with_pwd("");
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_is_non_string_value() {
+        let mut engine_state = EngineState::new();
+        engine_state.add_env_var(
+            "PWD".into(),
+            Value::Glob {
+                val: "*".into(),
+                no_expand: false,
+                internal_span: Span::unknown(),
+            },
+        );
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_is_relative_path() {
+        let engine_state = engine_state_with_pwd("./foo");
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_has_trailing_slash() {
+        let dir = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir.path().join(""));
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_root() {
+        #[cfg(windows)]
+        let root = Path::new(r"C:\");
+        #[cfg(not(windows))]
+        let root = Path::new("/");
+
+        let engine_state = engine_state_with_pwd(root);
+        let cwd = engine_state.cwd(None).unwrap();
+        assert_path_eq!(cwd, root);
+    }
+
+    #[test]
+    fn pwd_points_to_normal_file() {
+        let file = NamedTempFile::new().unwrap();
+        let engine_state = engine_state_with_pwd(file.path());
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_normal_directory() {
+        let dir = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir.path());
+
+        let cwd = engine_state.cwd(None).unwrap();
+        assert_path_eq!(cwd, dir.path());
+    }
+
+    #[test]
+    fn pwd_points_to_symlink_to_file() {
+        let file = NamedTempFile::new().unwrap();
+        let dir = TempDir::new().unwrap();
+        let link = dir.path().join("link");
+        symlink(file.path(), &link).unwrap();
+        let engine_state = engine_state_with_pwd(&link);
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_symlink_to_directory() {
+        let dir = TempDir::new().unwrap();
+        let link = dir.path().join("link");
+        symlink(dir.path(), &link).unwrap();
+        let engine_state = engine_state_with_pwd(&link);
+
+        let cwd = engine_state.cwd(None).unwrap();
+        assert_path_eq!(cwd, link);
+    }
+
+    #[test]
+    fn pwd_points_to_broken_symlink() {
+        let dir = TempDir::new().unwrap();
+        let link = dir.path().join("link");
+        symlink(TempDir::new().unwrap().path(), &link).unwrap();
+        let engine_state = engine_state_with_pwd(&link);
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn pwd_points_to_nonexistent_entity() {
+        let engine_state = engine_state_with_pwd(TempDir::new().unwrap().path());
+
+        engine_state.cwd(None).unwrap_err();
+    }
+
+    #[test]
+    fn stack_pwd_not_set() {
+        let dir = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir.path());
+        let stack = Stack::new();
+
+        let cwd = engine_state.cwd(Some(&stack)).unwrap();
+        assert_eq!(cwd, dir.path());
+    }
+
+    #[test]
+    fn stack_pwd_is_empty_string() {
+        let dir = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir.path());
+        let stack = stack_with_pwd("");
+
+        engine_state.cwd(Some(&stack)).unwrap_err();
+    }
+
+    #[test]
+    fn stack_pwd_points_to_normal_directory() {
+        let dir1 = TempDir::new().unwrap();
+        let dir2 = TempDir::new().unwrap();
+        let engine_state = engine_state_with_pwd(dir1.path());
+        let stack = stack_with_pwd(dir2.path());
+
+        let cwd = engine_state.cwd(Some(&stack)).unwrap();
+        assert_path_eq!(cwd, dir2.path());
+    }
+
+    #[test]
+    fn stack_pwd_points_to_normal_directory_with_symlink_components() {
+        // `/tmp/dir/link` points to `/tmp/dir`, then we set PWD to `/tmp/dir/link/foo`
+        let dir = TempDir::new().unwrap();
+        let link = dir.path().join("link");
+        symlink(dir.path(), &link).unwrap();
+        let foo = link.join("foo");
+        std::fs::create_dir(dir.path().join("foo")).unwrap();
+        let engine_state = EngineState::new();
+        let stack = stack_with_pwd(&foo);
+
+        let cwd = engine_state.cwd(Some(&stack)).unwrap();
+        assert_path_eq!(cwd, foo);
     }
 }

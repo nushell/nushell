@@ -15,7 +15,7 @@ pub enum Type {
     Bool,
     CellPath,
     Closure,
-    Custom(String),
+    Custom(Box<str>),
     Date,
     Duration,
     Error,
@@ -28,13 +28,22 @@ pub enum Type {
     Nothing,
     Number,
     Range,
-    Record(Vec<(String, Type)>),
+    Record(Box<[(String, Type)]>),
     Signature,
     String,
-    Table(Vec<(String, Type)>),
+    Glob,
+    Table(Box<[(String, Type)]>),
 }
 
 impl Type {
+    pub fn record() -> Self {
+        Self::Record([].into())
+    }
+
+    pub fn table() -> Self {
+        Self::Table([].into())
+    }
+
     pub fn is_subtype(&self, other: &Type) -> bool {
         // Structural subtyping
         let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
@@ -110,6 +119,7 @@ impl Type {
             Type::Binary => SyntaxShape::Binary,
             Type::Custom(_) => SyntaxShape::Any,
             Type::Signature => SyntaxShape::Signature,
+            Type::Glob => SyntaxShape::GlobPattern,
         }
     }
 
@@ -139,6 +149,7 @@ impl Type {
             Type::Binary => String::from("binary"),
             Type::Custom(_) => String::from("custom"),
             Type::Signature => String::from("signature"),
+            Type::Glob => String::from("glob"),
         }
     }
 }
@@ -196,6 +207,7 @@ impl Display for Type {
             Type::Binary => write!(f, "binary"),
             Type::Custom(custom) => write!(f, "{custom}"),
             Type::Signature => write!(f, "signature"),
+            Type::Glob => write!(f, "glob"),
         }
     }
 }

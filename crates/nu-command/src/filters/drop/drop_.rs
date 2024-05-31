@@ -1,11 +1,4 @@
-use nu_engine::CallExt;
-
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Drop;
@@ -18,7 +11,7 @@ impl Command for Drop {
     fn signature(&self) -> Signature {
         Signature::build("drop")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
@@ -69,8 +62,8 @@ impl Command for Drop {
                 description: "Remove the last row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | drop 1",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "a" =>  Value::test_int(1),
-                    "b" =>  Value::test_int(2),
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
                 })])),
             },
         ]
@@ -83,30 +76,23 @@ impl Command for Drop {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let metadata = input.metadata();
-        let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
-        let v: Vec<_> = input.into_iter_strict(call.head)?.collect();
-        let vlen: i64 = v.len() as i64;
+        let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+        let mut values = input.into_iter_strict(head)?.collect::<Vec<_>>();
 
-        let rows_to_drop = if let Some(quantity) = rows {
-            quantity
+        let rows_to_drop = if let Some(rows) = rows {
+            if rows.item < 0 {
+                return Err(ShellError::NeedsPositiveValue { span: rows.span });
+            } else {
+                rows.item as usize
+            }
         } else {
             1
         };
 
-        if rows_to_drop == 0 {
-            Ok(v.into_iter()
-                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
-        } else {
-            let k = if vlen < rows_to_drop {
-                0
-            } else {
-                vlen - rows_to_drop
-            };
-
-            let iter = v.into_iter().take(k as usize);
-            Ok(iter.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
-        }
+        values.truncate(values.len().saturating_sub(rows_to_drop));
+        Ok(Value::list(values, head).into_pipeline_data_with_metadata(metadata))
     }
 }
 

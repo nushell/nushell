@@ -1,10 +1,5 @@
-use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
-};
+use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct Try;
@@ -43,33 +38,37 @@ impl Command for Try {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let try_block: Block = call.req(engine_state, stack, 0)?;
+        let try_block = call
+            .positional_nth(0)
+            .expect("checked through parser")
+            .as_block()
+            .expect("internal error: missing block");
+
         let catch_block: Option<Closure> = call.opt(engine_state, stack, 1)?;
 
-        let try_block = engine_state.get_block(try_block.block_id);
+        let try_block = engine_state.get_block(try_block);
+        let eval_block = get_eval_block(engine_state);
 
-        let result = eval_block(engine_state, stack, try_block, input, false, false);
-
-        match result {
+        match eval_block(engine_state, stack, try_block, input) {
             Err(error) => {
                 let error = intercept_block_control(error)?;
                 let err_record = err_to_record(error, call.head);
-                handle_catch(err_record, catch_block, engine_state, stack)
+                handle_catch(err_record, catch_block, engine_state, stack, eval_block)
             }
             Ok(PipelineData::Value(Value::Error { error, .. }, ..)) => {
                 let error = intercept_block_control(*error)?;
                 let err_record = err_to_record(error, call.head);
-                handle_catch(err_record, catch_block, engine_state, stack)
+                handle_catch(err_record, catch_block, engine_state, stack, eval_block)
             }
             // external command may fail to run
             Ok(pipeline) => {
-                let (pipeline, external_failed) = pipeline.is_external_failed();
+                let (pipeline, external_failed) = pipeline.check_external_failed()?;
                 if external_failed {
-                    // Because external command errors aren't "real" errors,
-                    // (unless do -c is in effect)
-                    // they can't be passed in as Nushell values.
+                    let status = pipeline.drain()?;
+                    let code = status.map(|status| status.code()).unwrap_or(0);
+                    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(code.into(), call.head));
                     let err_value = Value::nothing(call.head);
-                    handle_catch(err_value, catch_block, engine_state, stack)
+                    handle_catch(err_value, catch_block, engine_state, stack, eval_block)
                 } else {
                     Ok(pipeline)
                 }
@@ -98,6 +97,7 @@ fn handle_catch(
     catch_block: Option<Closure>,
     engine_state: &EngineState,
     stack: &mut Stack,
+    eval_block_fn: EvalBlockFn,
 ) -> Result<PipelineData, ShellError> {
     if let Some(catch_block) = catch_block {
         let catch_block = engine_state.get_block(catch_block.block_id);
@@ -108,14 +108,12 @@ fn handle_catch(
             }
         }
 
-        eval_block(
+        eval_block_fn(
             engine_state,
             stack,
             catch_block,
             // Make the error accessible with $in, too
             err_value.into_pipeline_data(),
-            false,
-            false,
         )
     } else {
         Ok(PipelineData::empty())

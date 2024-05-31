@@ -1,12 +1,7 @@
 use super::hashable_value::HashableValue;
 use itertools::Itertools;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+
 use std::collections::HashMap;
 
 #[derive(Clone)]
@@ -24,7 +19,7 @@ impl Command for Histogram {
 
     fn signature(&self) -> Signature {
         Signature::build("histogram")
-            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Table(vec![])),])
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::table()),])
             .optional("column-name", SyntaxShape::String, "Column name to calc frequency, no need to provide if input is a list.")
             .optional("frequency-column-name", SyntaxShape::String, "Histogram's frequency column, default to be frequency column output.")
             .named("percentage-type", SyntaxShape::String, "percentage calculate method, can be 'normalize' or 'relative', in 'normalize', defaults to be 'normalize'", Some('t'))
@@ -126,16 +121,17 @@ impl Command for Histogram {
         };
 
         let span = call.head;
-        let data_as_value = input.into_value(span);
+        let data_as_value = input.into_value(span)?;
+        let value_span = data_as_value.span();
         // `input` is not a list, here we can return an error.
         run_histogram(
-            data_as_value.as_list()?.to_vec(),
+            data_as_value.into_list()?,
             column_name,
             frequency_column_name,
             calc_method,
             span,
             // Note that as_list() filters out Value::Error here.
-            data_as_value.span(),
+            value_span,
         )
     }
 }
@@ -162,7 +158,7 @@ fn run_histogram(
                         let t = v.get_type();
                         let span = v.span();
                         inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
-                        ShellError::UnsupportedInput { msg: "Since --column-name was not provided, only lists of hashable values are supported.".to_string(), input: format!(
+                        ShellError::UnsupportedInput { msg: "Since column-name was not provided, only lists of hashable values are supported.".to_string(), input: format!(
                                 "input type: {t:?}"
                             ), msg_span: head_span, input_span: span }
                     })?)
@@ -181,9 +177,9 @@ fn run_histogram(
                 match v {
                     // parse record, and fill valid value to actual input.
                     Value::Record { val, .. } => {
-                        for (c, v) in val {
-                            if &c == col_name {
-                                if let Ok(v) = HashableValue::from_value(v, head_span) {
+                        for (c, v) in val.iter() {
+                            if c == col_name {
+                                if let Ok(v) = HashableValue::from_value(v.clone(), head_span) {
                                     inputs.push(v);
                                 }
                             }
@@ -238,13 +234,6 @@ fn histogram_impl(
     }
 
     let mut result = vec![];
-    let result_cols = vec![
-        value_column_name.to_string(),
-        "count".to_string(),
-        "quantile".to_string(),
-        "percentage".to_string(),
-        freq_column.to_string(),
-    ];
     const MAX_FREQ_COUNT: f64 = 100.0;
     for (val, count) in counter.into_iter().sorted() {
         let quantile = match calc_method {
@@ -258,16 +247,13 @@ fn histogram_impl(
         result.push((
             count, // attach count first for easily sorting.
             Value::record(
-                Record::from_raw_cols_vals(
-                    result_cols.clone(),
-                    vec![
-                        val.into_value(),
-                        Value::int(count, span),
-                        Value::float(quantile, span),
-                        Value::string(percentage, span),
-                        Value::string(freq, span),
-                    ],
-                ),
+                record! {
+                    value_column_name => val.into_value(),
+                    "count" => Value::int(count, span),
+                    "quantile" => Value::float(quantile, span),
+                    "percentage" => Value::string(percentage, span),
+                    freq_column => Value::string(freq, span),
+                },
                 span,
             ),
         ));

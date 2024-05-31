@@ -10,25 +10,44 @@
 //! over stdin and stdout using a standardizes serialization framework to exchange
 //! the typed data that Nushell commands utilize natively.
 //!
-//! A typical plugin application will define a struct that implements the [Plugin]
-//! trait and then, in it's main method, pass that [Plugin] to the [serve_plugin]
+//! A typical plugin application will define a struct that implements the [`Plugin`]
+//! trait and then, in its main method, pass that [`Plugin`] to the [`serve_plugin()`]
 //! function, which will handle all of the input and output serialization when
 //! invoked by Nushell.
 //!
-//! ```
-//! use nu_plugin::{EvaluatedCall, LabeledError, MsgPackSerializer, Plugin, serve_plugin};
-//! use nu_protocol::{PluginSignature, Value};
+//! ```rust,no_run
+//! use nu_plugin::{EvaluatedCall, MsgPackSerializer, serve_plugin};
+//! use nu_plugin::{EngineInterface, Plugin, PluginCommand, SimplePluginCommand};
+//! use nu_protocol::{LabeledError, Signature, Value};
 //!
 //! struct MyPlugin;
+//! struct MyCommand;
 //!
 //! impl Plugin for MyPlugin {
-//!     fn signature(&self) -> Vec<PluginSignature> {
+//!     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
+//!         vec![Box::new(MyCommand)]
+//!     }
+//! }
+//!
+//! impl SimplePluginCommand for MyCommand {
+//!     type Plugin = MyPlugin;
+//!
+//!     fn name(&self) -> &str {
+//!         "my-command"
+//!     }
+//!
+//!     fn usage(&self) -> &str {
 //!         todo!();
 //!     }
+//!
+//!     fn signature(&self) -> Signature {
+//!         todo!();
+//!     }
+//!
 //!     fn run(
-//!         &mut self,
-//!         name: &str,
-//!         config: &Option<Value>,
+//!         &self,
+//!         plugin: &MyPlugin,
+//!         engine: &EngineInterface,
 //!         call: &EvaluatedCall,
 //!         input: &Value
 //!     ) -> Result<Value, LabeledError> {
@@ -37,7 +56,7 @@
 //! }
 //!
 //! fn main() {
-//!    serve_plugin(&mut MyPlugin{}, MsgPackSerializer)
+//!    serve_plugin(&MyPlugin{}, MsgPackSerializer)
 //! }
 //! ```
 //!
@@ -45,9 +64,16 @@
 //! [Plugin Example](https://github.com/nushell/nushell/tree/main/crates/nu_plugin_example)
 //! that demonstrates the full range of plugin capabilities.
 mod plugin;
-mod protocol;
-mod serializers;
 
-pub use plugin::{get_signature, serve_plugin, Plugin, PluginDeclaration};
-pub use protocol::{EvaluatedCall, LabeledError, PluginResponse};
-pub use serializers::{json::JsonSerializer, msgpack::MsgPackSerializer, EncodingType};
+#[cfg(test)]
+mod test_util;
+
+pub use plugin::{serve_plugin, EngineInterface, Plugin, PluginCommand, SimplePluginCommand};
+
+// Re-exports. Consider semver implications carefully.
+pub use nu_plugin_core::{JsonSerializer, MsgPackSerializer, PluginEncoder};
+pub use nu_plugin_protocol::EvaluatedCall;
+
+// Required by other internal crates.
+#[doc(hidden)]
+pub use plugin::{create_plugin_signature, serve_plugin_io};

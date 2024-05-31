@@ -1,10 +1,4 @@
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct Prepend;
@@ -123,7 +117,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             .into_pipeline_data()
             .into_iter()
             .chain(input)
-            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+            .into_pipeline_data_with_metadata(call.head, engine_state.ctrlc.clone(), metadata))
     }
 }
 

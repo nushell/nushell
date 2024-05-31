@@ -1,7 +1,4 @@
-use nu_color_config::TextStyle;
-use nu_engine::column::get_columns;
-use nu_protocol::{Config, Record, ShellError, Value};
-
+use super::has_index;
 use crate::{
     clean_charset, colorize_space,
     common::{
@@ -10,8 +7,9 @@ use crate::{
     },
     NuTable, NuTableCell, StringResult, TableOpts, TableOutput, TableResult,
 };
-
-use super::has_index;
+use nu_color_config::TextStyle;
+use nu_engine::column::get_columns;
+use nu_protocol::{Config, Record, ShellError, Value};
 
 pub struct JustTable;
 
@@ -101,7 +99,7 @@ fn table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
         .filter(|header| header != INDEX_COLUMN_NAME)
         .collect();
 
-    let table = to_table_with_header(input, headers, with_index, row_offset, opts)?;
+    let table = to_table_with_header(input, &headers, with_index, row_offset, opts)?;
     let table = table.map(|table| TableOutput::new(table, true, with_index));
 
     Ok(table)
@@ -109,7 +107,7 @@ fn table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
 
 fn to_table_with_header(
     input: &[Value],
-    headers: Vec<String>,
+    headers: &[String],
     with_index: bool,
     row_offset: usize,
     opts: &TableOpts<'_>,
@@ -207,7 +205,7 @@ fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize)
     match item {
         Value::Record { val, .. } => val
             .get(INDEX_COLUMN_NAME)
-            .map(|value| value.into_string("", config))
+            .map(|value| value.to_expanded_string("", config))
             .unwrap_or_else(|| (row + offset).to_string()),
         _ => (row + offset).to_string(),
     }

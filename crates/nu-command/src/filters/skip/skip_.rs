@@ -1,12 +1,5 @@
-use std::convert::TryInto;
-
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, SyntaxShape, Type, Value,
-};
+use nu_engine::command_prelude::*;
+use std::io::{self, Read};
 
 #[derive(Clone)]
 pub struct Skip;
@@ -19,7 +12,8 @@ impl Command for Skip {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::table(), Type::table()),
+                (Type::Binary, Type::Binary),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
@@ -59,6 +53,11 @@ impl Command for Skip {
                     "editions" => Value::test_int(2021),
                 })])),
             },
+            Example {
+                description: "Skip 2 bytes of a binary value",
+                example: "0x[01 23 45 67] | skip 2",
+                result: Some(Value::test_binary(vec![0x45, 0x67])),
+            },
         ]
     }
     fn run(
@@ -95,52 +94,37 @@ impl Command for Skip {
         let ctrlc = engine_state.ctrlc.clone();
         let input_span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                span: bytes_span,
-                metadata,
-                ..
-            } => {
-                let mut remaining = n;
-                let mut output = vec![];
-
-                for frame in stream {
-                    let frame = frame?;
-
-                    match frame {
-                        Value::String { val, .. } => {
-                            let bytes = val.as_bytes();
-                            if bytes.len() < remaining {
-                                remaining -= bytes.len();
-                                //output.extend_from_slice(bytes)
-                            } else {
-                                output.extend_from_slice(&bytes[remaining..]);
-                                break;
-                            }
-                        }
-                        Value::Binary { val: bytes, .. } => {
-                            if bytes.len() < remaining {
-                                remaining -= bytes.len();
-                            } else {
-                                output.extend_from_slice(&bytes[remaining..]);
-                                break;
-                            }
-                        }
-                        _ => unreachable!("Raw streams are either bytes or strings"),
+            PipelineData::ByteStream(stream, metadata) => {
+                if stream.type_().is_binary_coercible() {
+                    let span = stream.span();
+                    if let Some(mut reader) = stream.reader() {
+                        // Copy the number of skipped bytes into the sink before proceeding
+                        io::copy(&mut (&mut reader).take(n as u64), &mut io::sink())
+                            .err_span(span)?;
+                        Ok(PipelineData::ByteStream(
+                            ByteStream::read(reader, call.head, None, ByteStreamType::Binary),
+                            metadata,
+                        ))
+                    } else {
+                        Ok(PipelineData::Empty)
                     }
+                } else {
+                    Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
+                        dst_span: call.head,
+                        src_span: stream.span(),
+                    })
                 }
-
-                Ok(Value::binary(output, bytes_span).into_pipeline_data_with_metadata(metadata))
             }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
-
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
             }
             _ => Ok(input
                 .into_iter_strict(call.head)?
                 .skip(n)
-                .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                .into_pipeline_data_with_metadata(input_span, ctrlc, metadata)),
         }
     }
 }

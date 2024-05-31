@@ -1,8 +1,9 @@
-use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env};
-use nu_protocol::ast::{Call, Expr, Expression};
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_engine::{
+    command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
+};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    ast::{Expr, Expression},
+    engine::CommandType,
 };
 
 #[derive(Clone)]
@@ -42,8 +43,8 @@ This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -104,7 +105,9 @@ This command is a parser keyword. For details, check:
                     .as_ref()
                     .and_then(|path| path.parent().map(|p| p.to_path_buf()));
 
-                let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+                let mut callee_stack = caller_stack
+                    .gather_captures(engine_state, &block.captures)
+                    .reset_pipes();
 
                 // If so, set the currently evaluated directory (file-relative PWD)
                 if let Some(parent) = maybe_parent {
@@ -117,15 +120,10 @@ This command is a parser keyword. For details, check:
                     callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
                 }
 
+                let eval_block = get_eval_block(engine_state);
+
                 // Run the block (discard the result)
-                let _ = eval_block(
-                    engine_state,
-                    &mut callee_stack,
-                    block,
-                    input,
-                    call.redirect_stdout,
-                    call.redirect_stderr,
-                )?;
+                let _ = eval_block(engine_state, &mut callee_stack, block, input)?;
 
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);

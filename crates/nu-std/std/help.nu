@@ -93,6 +93,18 @@ def "nu-complete list-commands" [] {
     scope commands | select name usage | rename value description
 }
 
+def "nu-complete main-help" [] {
+    [
+        { value: "commands", description: "Show help on Nushell commands." }
+        { value: "aliases", description: "Show help on Nushell aliases." }
+        { value: "modules", description: "Show help on Nushell modules." }
+        { value: "externs", description: "Show help on Nushell externs." }
+        { value: "operators", description: "Show help on Nushell operators." }
+        { value: "escapes", description: "Show help on Nushell string escapes." }
+    ]
+    | append (nu-complete list-commands)
+}
+
 def "nu-complete list-externs" [] {
     scope commands | where is_extern | select name usage | rename value description
 }
@@ -503,7 +515,7 @@ def build-command-page [command: record] {
             $"- (ansi cyan)does not create(ansi reset) a scope."
         }
     ) | append (
-        if ($command.is_builtin) {
+        if ($command.type == "built-in") {
             $"- (ansi cyan)is(ansi reset) a built-in command."
         } else {
             $"- (ansi cyan)is not(ansi reset) a built-in command."
@@ -515,19 +527,19 @@ def build-command-page [command: record] {
             $"- (ansi cyan)is not(ansi reset) a subcommand."
         }
     ) | append (
-        if ($command.is_plugin) {
+        if ($command.type == "plugin") {
             $"- (ansi cyan)is part(ansi reset) of a plugin."
         } else {
             $"- (ansi cyan)is not part(ansi reset) of a plugin."
         }
     ) | append (
-        if ($command.is_custom) {
+        if ($command.type == "custom") {
             $"- (ansi cyan)is(ansi reset) a custom command."
         } else {
             $"- (ansi cyan)is not(ansi reset) a custom command."
         }
     ) | append (
-        if ($command.is_keyword) {
+        if ($command.type == "keyword") {
             $"- (ansi cyan)is(ansi reset) a keyword."
         } else {
             $"- (ansi cyan)is not(ansi reset) a keyword."
@@ -647,6 +659,7 @@ def build-command-page [command: record] {
             (if not ($example.result | is-empty) {
                 $example.result
                 | table
+                | to text
                 | if ($example.result | describe) == "binary" { str join } else { lines }
                 | each {|line|
                     $"  ($line)"
@@ -676,7 +689,7 @@ export def commands [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
     --find (-f): string  # string to find in command names and usage
 ] {
-    let commands = (scope commands | where not is_extern | reject is_extern | sort-by name)
+    let commands = (scope commands | sort-by name)
 
     if not ($find | is-empty) {
         # TODO: impl find for external commands
@@ -714,12 +727,12 @@ def pretty-cmd [] {
 #   > help match
 #
 #   show help for single sub-command, alias, or module
-#   > help str lpad
+#   > help str join
 #
 #   search for string in command names, usage and search terms
 #   > help --find char
 export def main [
-    ...item: string  # the name of the help item to get help on
+    ...item: string@"nu-complete main-help"  # the name of the help item to get help on
     --find (-f): string  # string to find in help items names and usage
 ] {
     if ($item | is-empty) and ($find | is-empty) {
@@ -738,8 +751,8 @@ Each stage in the pipeline works together to load, parse, and display informatio
     List the files in the current directory, sorted by size
     > ('ls | sort-by size' | nu-highlight)
 
-    Get information about the current system
-    > ('sys | get host' | nu-highlight)
+    Get the current system host name
+    > ('sys host | get hostname' | nu-highlight)
 
     Get the processes on your system actively using CPU
     > ('ps | where cpu > 0' | nu-highlight)

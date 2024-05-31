@@ -1,11 +1,6 @@
 use indexmap::IndexMap;
 use itertools::Itertools;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
-    Value,
-};
+use nu_engine::command_prelude::*;
 use serde::de::Deserialize;
 
 #[derive(Clone)]
@@ -190,14 +185,10 @@ fn convert_yaml_value_to_nu_value(
     })
 }
 
-pub fn from_yaml_string_to_value(
-    s: String,
-    span: Span,
-    val_span: Span,
-) -> Result<Value, ShellError> {
+pub fn from_yaml_string_to_value(s: &str, span: Span, val_span: Span) -> Result<Value, ShellError> {
     let mut documents = vec![];
 
-    for document in serde_yaml::Deserializer::from_str(&s) {
+    for document in serde_yaml::Deserializer::from_str(s) {
         let v: serde_yaml::Value =
             serde_yaml::Value::deserialize(document).map_err(|x| ShellError::UnsupportedInput {
                 msg: format!("Could not load YAML: {x}"),
@@ -243,7 +234,7 @@ pub fn get_examples() -> Vec<Example<'static>> {
 fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
     let (concat_string, span, metadata) = input.collect_string_strict(head)?;
 
-    match from_yaml_string_to_value(concat_string, head, span) {
+    match from_yaml_string_to_value(&concat_string, head, span) {
         Ok(x) => Ok(x.into_pipeline_data_with_metadata(metadata)),
         Err(other) => Err(other),
     }
@@ -279,11 +270,7 @@ mod test {
         ];
         let config = Config::default();
         for tc in tt {
-            let actual = from_yaml_string_to_value(
-                tc.input.to_owned(),
-                Span::test_data(),
-                Span::test_data(),
-            );
+            let actual = from_yaml_string_to_value(tc.input, Span::test_data(), Span::test_data());
             if actual.is_err() {
                 assert!(
                     tc.expected.is_err(),
@@ -293,8 +280,8 @@ mod test {
                 );
             } else {
                 assert_eq!(
-                    actual.unwrap().into_string("", &config),
-                    tc.expected.unwrap().into_string("", &config)
+                    actual.unwrap().to_expanded_string("", &config),
+                    tc.expected.unwrap().to_expanded_string("", &config)
                 );
             }
         }
@@ -318,11 +305,7 @@ mod test {
         // table was non-deterministic. It would take a few executions of the YAML conversion to
         // see this ordering difference. This loop should be far more than enough to catch a regression.
         for ii in 1..1000 {
-            let actual = from_yaml_string_to_value(
-                String::from(test_yaml),
-                Span::test_data(),
-                Span::test_data(),
-            );
+            let actual = from_yaml_string_to_value(test_yaml, Span::test_data(), Span::test_data());
 
             let expected: Result<Value, ShellError> = Ok(Value::test_list(vec![
                 Value::test_record(record! {
