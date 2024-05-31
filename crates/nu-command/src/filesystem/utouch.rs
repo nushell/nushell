@@ -10,7 +10,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
 };
-use uu_touch::error::{TouchError, TouchFileError};
+use uu_touch::error::TouchError;
 use uu_touch::{ChangeTimes, InputFile, Options, Source};
 
 #[derive(Clone)]
@@ -179,26 +179,6 @@ impl Command for UTouch {
                             format!("Failed to read metadata of {}", reference_path.display()),
                             span,
                         )
-                    }
-                }
-                TouchError::TouchFileError { path, index, error } => {
-                    let span = file_spans[index];
-                    match error {
-                        TouchFileError::CannotCreate(_) => ShellError::CreateNotPossible {
-                            msg: format!("Cannot create {}", path.display()),
-                            span,
-                        },
-                        TouchFileError::CannotReadTimes(io_err) => io_to_nu_err(
-                            io_err,
-                            format!("Cannot read times for {}", path.display()),
-                            span,
-                        ),
-                        TouchFileError::CannotSetTimes(io_err) => io_to_nu_err(
-                            io_err,
-                            format!("Cannot set times for {}", path.display()),
-                            span,
-                        ),
-                        TouchFileError::TargetFileNotFound => ShellError::FileNotFound { span },
                     }
                 }
                 _ => ShellError::GenericError {
