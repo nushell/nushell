@@ -800,13 +800,14 @@ fn prepare_history_metadata(
     line_editor: &mut Reedline,
 ) {
     if !s.is_empty() && line_editor.has_last_command_context() {
-        #[allow(deprecated)]
         let result = line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
                 c.hostname = hostname.map(str::to_string);
-
-                c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
+                c.cwd = engine_state
+                    .cwd(None)
+                    .ok()
+                    .map(|path| path.to_string_lossy().to_string());
                 c
             })
             .into_diagnostic();
