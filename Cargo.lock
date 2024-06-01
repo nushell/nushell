@@ -2709,18 +2709,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nix"
-version = "0.28.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab2156c4fce2f8df6c499cc1c763e4394b7482525bf2a9701c9d79d215f519e4"
-dependencies = [
- "bitflags 2.4.2",
- "cfg-if",
- "cfg_aliases",
- "libc",
-]
-
-[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6389,7 +6377,7 @@ dependencies = [
  "indicatif",
  "libc",
  "quick-error 2.0.1",
- "uucore 0.0.26",
+ "uucore 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
  "xattr",
 ]
@@ -6401,7 +6389,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "040aa4584036b2f65e05387b0ea9ac468afce1db325743ce5f350689fd9ce4ae"
 dependencies = [
  "clap",
- "uucore 0.0.26",
+ "uucore 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6413,7 +6401,7 @@ dependencies = [
  "clap",
  "rand",
  "tempfile",
- "uucore 0.0.26",
+ "uucore 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6425,7 +6413,7 @@ dependencies = [
  "clap",
  "fs_extra",
  "indicatif",
- "uucore 0.0.26",
+ "uucore 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6441,6 +6429,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "uu_uname"
+version = "0.0.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5951832d73199636bde6c0d61cf960932b3c4450142c290375bc10c7abed6db5"
+dependencies = [
+ "clap",
+ "platform-info",
+ "uucore 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "uu_whoami"
 version = "0.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6448,7 +6447,7 @@ checksum = "e3b44166eb6335aeac42744ea368cc4c32d3f2287a4ff765a5ce44d927ab8bb4"
 dependencies = [
  "clap",
  "libc",
- "uucore 0.0.26",
+ "uucore 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
  "windows-sys 0.48.0",
 ]
 
@@ -6464,7 +6463,22 @@ dependencies = [
  "nix",
  "once_cell",
  "os_display",
- "uucore_procs",
+ "uucore_procs 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wild",
+]
+
+[[package]]
+name = "uucore"
+version = "0.0.26"
+dependencies = [
+ "clap",
+ "glob",
+ "libc",
+ "nix",
+ "number_prefix",
+ "once_cell",
+ "os_display",
+ "uucore_procs 0.0.26",
  "wild",
 ]
 
@@ -6482,38 +6496,12 @@ dependencies = [
  "number_prefix",
  "once_cell",
  "os_display",
- "uucore_procs 0.0.24",
+ "uucore_procs 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
  "wild",
  "winapi-util",
  "windows-sys 0.48.0",
  "xattr",
-]
-
-[[package]]
-name = "uucore"
-version = "0.0.26"
-dependencies = [
- "clap",
- "glob",
- "libc",
- "nix 0.28.0",
- "number_prefix",
- "once_cell",
- "os_display",
- "uucore_procs 0.0.26",
- "wild",
-]
-
-[[package]]
-name = "uucore_procs"
-version = "0.0.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a233a488da42f3ddb0aaa8a9f75a969e3f37e4de7e909d2d23f6aa3ee401d20"
-dependencies = [
- "proc-macro2",
- "quote",
- "uuhelp_parser 0.0.24",
 ]
 
 [[package]]
@@ -6526,14 +6514,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "uuhelp_parser"
+name = "uucore_procs"
 version = "0.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "425a23c7b7145bc7620c9c445817c37b1f78b6790aee9f208133f3c028975b60"
+checksum = "1a233a488da42f3ddb0aaa8a9f75a969e3f37e4de7e909d2d23f6aa3ee401d20"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "uuhelp_parser 0.0.26 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "uuhelp_parser"
 version = "0.0.26"
+
+[[package]]
+name = "uuhelp_parser"
+version = "0.0.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "425a23c7b7145bc7620c9c445817c37b1f78b6790aee9f208133f3c028975b60"
 
 [[package]]
 name = "uuid"

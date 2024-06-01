@@ -172,7 +172,10 @@ impl Command for UTouch {
                     let span = reference_span.expect("utouch was given a reference file");
                     if io_err.kind() == ErrorKind::NotFound {
                         // todo merge main into this to say which file not found
-                        ShellError::FileNotFound { span }
+                        ShellError::FileNotFound {
+                            span,
+                            file: reference_path.display().to_string(),
+                        }
                     } else {
                         io_to_nu_err(
                             io_err,
@@ -232,15 +235,11 @@ impl Command for UTouch {
 }
 
 fn io_to_nu_err(err: std::io::Error, msg: String, span: Span) -> ShellError {
-    if err.kind() == ErrorKind::PermissionDenied {
-        ShellError::PermissionDeniedError { msg, span }
-    } else {
-        ShellError::GenericError {
-            error: err.to_string(),
-            msg,
-            span: Some(span),
-            help: None,
-            inner: Vec::new(),
-        }
+    ShellError::GenericError {
+        error: err.to_string(),
+        msg,
+        span: Some(span),
+        help: None,
+        inner: Vec::new(),
     }
 }

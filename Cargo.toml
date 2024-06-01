@@ -163,6 +163,7 @@ uu_cp = "0.0.25"
 uu_mkdir = "0.0.25"
 uu_mktemp = "0.0.25"
 uu_mv = "0.0.25"
+uu_touch = { path = "../coreutils/src/uu/touch" }
 uu_whoami = "0.0.25"
 uu_uname = "0.0.25"
 uucore = "0.0.25"
