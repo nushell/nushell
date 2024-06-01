@@ -1,8 +1,8 @@
 use convert_case::{Case, Casing};
 use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_error::{Diagnostic, Level};
-use quote::{format_ident, quote, ToTokens};
-use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident, Index};
+use quote::{quote, ToTokens};
+use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident};
 
 enum DeriveError {
     Syn(syn::parse::Error),
@@ -31,7 +31,11 @@ pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, impl Into<
             data_struct,
             input.generics,
         )),
-        Data::Enum(data_enum) => Ok(derive_enum_from_value(input.ident, data_enum, input.generics)),
+        Data::Enum(data_enum) => Ok(derive_enum_from_value(
+            input.ident,
+            data_enum,
+            input.generics,
+        )),
         Data::Union(_) => Err(DeriveError::Unsupported),
     }
 }
@@ -111,7 +115,7 @@ fn struct_expected_type(fields: &Fields) -> TokenStream2 {
 fn derive_enum_from_value(ident: Ident, data: DataEnum, generics: Generics) -> TokenStream2 {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let from_value_impl = enum_from_value(&data);
-    // As variants are hard to type with the current type system, we use the 
+    // As variants are hard to type with the current type system, we use the
     // default impl for `expected_type`.
     quote! {
         #[automatically_derived]
@@ -128,7 +132,7 @@ fn enum_from_value(data: &DataEnum) -> TokenStream2 {
         let fields = fields_from_record(&variant.fields, quote!(Self::#ident));
         quote!(#ident_s => {#fields})
     });
-    
+
     quote! {
         fn from_value(
             v: nu_protocol::Value,
@@ -144,7 +148,7 @@ fn enum_from_value(data: &DataEnum) -> TokenStream2 {
             })?;
             let ty = ty.into_string()?;
 
-            // This allows unit variants to resolve without the "content" field 
+            // This allows unit variants to resolve without the "content" field
             // in the record.
             let v = record
                 .remove("content")
@@ -165,10 +169,7 @@ fn enum_from_value(data: &DataEnum) -> TokenStream2 {
     }
 }
 
-fn fields_from_record(
-    fields: &Fields,
-    self_ident: impl ToTokens
-) -> TokenStream2 {
+fn fields_from_record(fields: &Fields, self_ident: impl ToTokens) -> TokenStream2 {
     match fields {
         Fields::Named(fields) => {
             let fields = fields.named.iter().map(|field| {
@@ -194,7 +195,7 @@ fn fields_from_record(
                 let mut record = v.into_record()?;
                 std::result::Result::Ok(#self_ident {#(#fields),*})
             }
-        },
+        }
         Fields::Unnamed(fields) => {
             let fields = fields.unnamed.iter().enumerate().map(|(i, field)| {
                 let ty = &field.ty;
@@ -228,6 +229,6 @@ fn fields_from_record(
                     help: std::option::Option::None
                 })
             }
-        }
+        },
     }
 }
