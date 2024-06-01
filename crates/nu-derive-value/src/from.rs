@@ -98,7 +98,17 @@ fn struct_from_value(data: &DataStruct, generics: &Generics) -> TokenStream2 {
                 Ok(Self(#(#fields),*))
             }
         }
-        Fields::Unit => todo!(),
+        Fields::Unit => quote! {
+            match v {
+                nu_protocol::Value::Nothing {..} => Ok(Self),
+                v => Err(nu_protocol::ShellError::CantConvert {
+                    to_type: <Self as nu_protocol::FromValue>::expected_type().to_string(),
+                    from_type: v.get_type().to_string(),
+                    span: v.span(),
+                    help: std::option::Option::None
+                })
+            }
+        },
     };
 
     quote! {
