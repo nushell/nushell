@@ -722,7 +722,10 @@ mod test {
             assert_eq!(actual, expected);
 
             let actual = expand_glob("./*.txt", cwd, Span::unknown(), &None).unwrap();
-            let expected = &["./a.txt", "./b.txt"];
+            let expected = vec![
+                Path::new(".").join("a.txt").to_string_lossy().into_owned(),
+                Path::new(".").join("b.txt").to_string_lossy().into_owned(),
+            ];
             assert_eq!(actual, expected);
 
             let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &None).unwrap();
