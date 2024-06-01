@@ -89,7 +89,9 @@ fn struct_expected_type(fields: &Fields) -> TokenStream2 {
             });
             let mut template = String::new();
             template.push('[');
-            iter.next().map(|_| template.push_str("{}"));
+            if iter.next().is_some() {
+                template.push_str("{}")
+            }
             iter.for_each(|_| template.push_str(", {}"));
             template.push(']');
             quote! {
