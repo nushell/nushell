@@ -263,6 +263,12 @@ fn unit_struct_roundtrip() {
     let actual =
         UnitStruct::from_value(UnitStruct.into_value_unknown(), Span::test_data()).unwrap();
     assert_eq!(expected, actual);
+
+    let expected = Value::test_nothing();
+    let actual = UnitStruct::from_value(Value::test_nothing(), Span::test_data())
+        .unwrap()
+        .into_value_unknown();
+    assert_eq!(expected, actual);
 }
 
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
@@ -319,4 +325,51 @@ fn enum_from_value() {
     let expected = Enum::make();
     let actual = <[Enum; 3]>::from_value(Enum::value(), Span::test_data()).unwrap();
     assert_eq!(expected, actual);
+}
+
+#[test]
+fn enum_roundtrip() {
+    let expected = Enum::make();
+    let actual =
+        <[Enum; 3]>::from_value(Enum::make().into_value_unknown(), Span::test_data()).unwrap();
+    assert_eq!(expected, actual);
+
+    let expected = Enum::value();
+    let actual = <[Enum; 3]>::from_value(Enum::value(), Span::test_data())
+        .unwrap()
+        .into_value_unknown();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn enum_type_missing() {
+    let value = Value::test_record(record!());
+    let res = Enum::from_value(value, Span::test_data());
+    assert!(res.is_err());
+}
+
+#[test]
+fn enum_content_missing() {
+    let value = Value::test_record(record! {
+        "type" => Value::test_string("tuple")
+    });
+    let res = Enum::from_value(value, Span::test_data());
+    assert!(res.is_err());
+}
+
+#[test]
+fn enum_unknown_variant() {
+    let value = Value::test_record(record! {
+        "type" => Value::test_string("who_knows")
+    });
+    let res = Enum::from_value(value, Span::test_data());
+    assert!(res.is_err());
+}
+
+#[test]
+fn enum_incorrect_type() {
+    // Should work for every type that is not a record.
+    let value = Value::test_nothing();
+    let res = Enum::from_value(value, Span::test_data());
+    assert!(res.is_err());
 }
