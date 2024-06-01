@@ -5,11 +5,11 @@ use nu_protocol::{
 };
 use polars::prelude::UniqueKeepStrategy;
 
-use crate::values::{CustomValueSupport, NuDataFrame};
+use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 
 use super::super::values::utils::convert_columns_string;
-use super::super::values::{Column, NuLazyFrame};
+use super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct DropDuplicates;
@@ -48,7 +48,7 @@ impl PluginCommand for DropDuplicates {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "drop duplicates",
-            example: "[[a b]; [1 2] [3 4] [1 2]] | polars into-df | polars drop-duplicates | polars collect",
+            example: "[[a b]; [1 2] [3 4] [1 2]] | polars into-df | polars drop-duplicates",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -87,7 +87,7 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let columns: Option<Vec<Value>> = call.opt(0)?;
-    let (subset, _col_span) = match columns {
+    let (subset, col_span) = match columns {
         Some(cols) => {
             let (agg_string, col_span) = convert_columns_string(cols, call.head)?;
             (Some(agg_string), col_span)
@@ -95,7 +95,9 @@ fn command(
         None => (None, call.head),
     };
 
-    let df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+
+    let subset_slice = subset.as_ref().map(|cols| &cols[..]);
 
     let keep_strategy = if call.has_flag("last")? {
         UniqueKeepStrategy::Last
@@ -103,9 +105,18 @@ fn command(
         UniqueKeepStrategy::First
     };
 
-    let polars_df = df.to_polars().unique(subset, keep_strategy);
+    let polars_df = df
+        .as_ref()
+        .unique(subset_slice, keep_strategy, None)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error dropping duplicates".into(),
+            msg: e.to_string(),
+            span: Some(col_span),
+            help: None,
+            inner: vec![],
+        })?;
 
-    let df = NuLazyFrame::new(polars_df);
+    let df = NuDataFrame::new(df.from_lazy, polars_df);
     df.to_pipeline_data(plugin, engine, call.head)
 }
 

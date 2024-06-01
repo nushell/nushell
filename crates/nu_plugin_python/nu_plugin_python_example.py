@@ -27,7 +27,7 @@ import sys
 import json
 
 
-NUSHELL_VERSION = "0.93.1"
+NUSHELL_VERSION = "0.94.1"
 
 
 def signatures():

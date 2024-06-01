@@ -21,6 +21,7 @@ pub use custom_value::NuLazyFrameCustomValue;
 pub struct NuLazyFrame {
     pub id: Uuid,
     pub lazy: Arc<LazyFrame>,
+    pub from_eager: bool,
 }
 
 impl fmt::Debug for NuLazyFrame {
@@ -31,21 +32,22 @@ impl fmt::Debug for NuLazyFrame {
 
 impl From<LazyFrame> for NuLazyFrame {
     fn from(lazy_frame: LazyFrame) -> Self {
-        NuLazyFrame::new(lazy_frame)
+        NuLazyFrame::new(false, lazy_frame)
     }
 }
 
 impl NuLazyFrame {
-    pub fn new(lazy: LazyFrame) -> Self {
+    pub fn new(from_eager: bool, lazy: LazyFrame) -> Self {
         Self {
             id: Uuid::new_v4(),
             lazy: Arc::new(lazy),
+            from_eager,
         }
     }
 
     pub fn from_dataframe(df: NuDataFrame) -> Self {
         let lazy = df.as_ref().clone().lazy();
-        NuLazyFrame::new(lazy)
+        NuLazyFrame::new(true, lazy)
     }
 
     pub fn to_polars(&self) -> LazyFrame {
@@ -62,7 +64,7 @@ impl NuLazyFrame {
                 help: None,
                 inner: vec![],
             })
-            .map(NuDataFrame::new)
+            .map(|df| NuDataFrame::new(true, df))
     }
 
     pub fn apply_with_expr<F>(self, expr: NuExpression, f: F) -> Self
@@ -72,7 +74,7 @@ impl NuLazyFrame {
         let df = self.to_polars();
         let expr = expr.into_polars();
         let new_frame = f(df, expr);
-        Self::new(new_frame)
+        Self::new(self.from_eager, new_frame)
     }
 
     pub fn schema(&self) -> Result<NuSchema, ShellError> {

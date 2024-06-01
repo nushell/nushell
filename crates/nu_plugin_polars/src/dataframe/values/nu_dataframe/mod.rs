@@ -104,6 +104,7 @@ impl PolarsObject for DataFrameValue {
 pub struct NuDataFrame {
     pub id: Uuid,
     pub df: Arc<DataFrame>,
+    pub from_lazy: bool,
 }
 
 impl AsRef<DataFrame> for NuDataFrame {
@@ -114,16 +115,17 @@ impl AsRef<DataFrame> for NuDataFrame {
 
 impl From<DataFrame> for NuDataFrame {
     fn from(df: DataFrame) -> Self {
-        Self::new(df)
+        Self::new(false, df)
     }
 }
 
 impl NuDataFrame {
-    pub fn new(df: DataFrame) -> Self {
+    pub fn new(from_lazy: bool, df: DataFrame) -> Self {
         let id = Uuid::new_v4();
         Self {
             id,
             df: Arc::new(df),
+            from_lazy,
         }
     }
 
@@ -132,12 +134,12 @@ impl NuDataFrame {
     }
 
     pub fn lazy(&self) -> NuLazyFrame {
-        NuLazyFrame::new(self.to_polars().lazy())
+        NuLazyFrame::new(true, self.to_polars().lazy())
     }
 
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
         match DataFrame::new(vec![series]) {
-            Ok(dataframe) => Ok(NuDataFrame::new(dataframe)),
+            Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
                 msg: e.to_string(),
@@ -200,7 +202,7 @@ impl NuDataFrame {
             inner: vec![],
         })?;
 
-        Ok(Self::new(dataframe))
+        Ok(Self::new(false, dataframe))
     }
 
     pub fn try_from_columns(
@@ -274,7 +276,7 @@ impl NuDataFrame {
             inner: vec![],
         })?;
 
-        Ok(Self::new(df))
+        Ok(Self::new(false, df))
     }
 
     pub fn is_series(&self) -> bool {
