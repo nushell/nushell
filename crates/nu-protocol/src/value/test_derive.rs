@@ -265,7 +265,7 @@ fn unit_struct_roundtrip() {
     assert_eq!(expected, actual);
 }
 
-#[derive(IntoValue)]
+#[derive(IntoValue, FromValue, Debug, PartialEq)]
 enum Enum {
     Unit,
     Tuple(u32, String),
@@ -283,29 +283,40 @@ impl Enum {
             },
         ]
     }
+
+    fn value() -> Value {
+        Value::test_list(vec![
+            Value::test_record(record! {
+                "type" => Value::test_string("unit")
+            }),
+            Value::test_record(record! {
+                "type" => Value::test_string("tuple"),
+                "content" => Value::test_list(vec![
+                    Value::test_int(12),
+                    Value::test_string("Tuple variant")
+                ])
+            }),
+            Value::test_record(record! {
+                "type" => Value::test_string("struct"),
+                "content" => Value::test_record(record! {
+                    "a" => Value::test_int(34),
+                    "b" => Value::test_string("Struct variant")
+                })
+            }),
+        ])
+    }
 }
 
 #[test]
 fn enum_into_value() {
-    let enums = Enum::make().into_value_unknown();
-    let expected = Value::test_list(vec![
-        Value::test_record(record! {
-            "type" => Value::test_string("unit")
-        }),
-        Value::test_record(record! {
-            "type" => Value::test_string("tuple"),
-            "content" => Value::test_list(vec![
-                Value::test_int(12),
-                Value::test_string("Tuple variant")
-            ])
-        }),
-        Value::test_record(record! {
-            "type" => Value::test_string("struct"),
-            "content" => Value::test_record(record! {
-                "a" => Value::test_int(34),
-                "b" => Value::test_string("Struct variant")
-            })
-        }),
-    ]);
-    assert_eq!(enums, expected);
+    let expected = Enum::value();
+    let actual = Enum::make().into_value_unknown();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn enum_from_value() {
+    let expected = Enum::make();
+    let actual = <[Enum; 3]>::from_value(Enum::value(), Span::test_data()).unwrap();
+    assert_eq!(expected, actual);
 }
