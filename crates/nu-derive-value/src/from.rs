@@ -144,13 +144,11 @@ fn enum_from_value(data: &DataEnum) -> TokenStream2 {
             })?;
             let ty = ty.into_string()?;
 
-            // TODO: make content optional if type refers to a unit variant
-
-            let v = record.remove("content").ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
-                col_name: std::string::ToString::to_string("content"),
-                span: call_span,
-                src_span: span
-            })?;
+            // This allows unit variants to resolve without the "content" field 
+            // in the record.
+            let v = record
+                .remove("content")
+                .unwrap_or_else(|| nu_protocol::Value::nothing(span));
 
             match ty.as_str() {
                 #(#arms),*
