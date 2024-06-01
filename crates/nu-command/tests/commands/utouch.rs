@@ -35,7 +35,7 @@ fn creates_two_files() {
 #[test]
 fn change_modified_time_of_file_to_today() {
     Playground::setup("change_time_test_9", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
 
         nu!(
             cwd: dirs.test(),
@@ -57,7 +57,7 @@ fn change_modified_time_of_file_to_today() {
 #[test]
 fn change_access_time_of_file_to_today() {
     Playground::setup("change_time_test_18", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
 
         nu!(
             cwd: dirs.test(),
@@ -79,7 +79,7 @@ fn change_access_time_of_file_to_today() {
 #[test]
 fn change_modified_and_access_time_of_file_to_today() {
     Playground::setup("change_time_test_27", |dirs, sandbox| {
-        sandbox.with_files(vec![Stub::EmptyFile("file.txt")]);
+        sandbox.with_files(&[Stub::EmptyFile("file.txt")]);
 
         nu!(
             cwd: dirs.test(),
