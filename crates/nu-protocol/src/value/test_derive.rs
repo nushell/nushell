@@ -85,7 +85,7 @@ impl NamedFieldsStruct<u32> {
             "bool" => Value::test_bool(true),
             "char" => Value::test_string('a'),
             "f32" => Value::test_float(std::f32::consts::PI as f64),
-            "f64" => Value::test_float(std::f64::consts::PI),
+            "f64" => Value::test_float(std::f64::consts::E),
             "i8" => Value::test_int(127),
             "i16" => Value::test_int(-32768),
             "i32" => Value::test_int(2147483647),
