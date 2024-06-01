@@ -82,7 +82,7 @@ fn struct_from_value(data: &DataStruct, generics: &Generics) -> TokenStream2 {
                     <#ty as nu_protocol::FromValue>::from_value(
                         deque
                             .pop_front()
-                            .ok_or_else(|| nu_protocol::CantFindColumn {
+                            .ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
                                 col_name: std::string::ToString::to_string(&#i),
                                 span: call_span,
                                 src_span: span
@@ -94,7 +94,7 @@ fn struct_from_value(data: &DataStruct, generics: &Generics) -> TokenStream2 {
             quote! {
                 let span = v.span();
                 let list = v.into_list()?;
-                let mut deque: std::collections::Deque = std::convert::From::from(list);
+                let mut deque: std::collections::VecDeque<_> = std::convert::From::from(list);
                 Ok(Self(#(#fields),*))
             }
         }
