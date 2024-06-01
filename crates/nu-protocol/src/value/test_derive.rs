@@ -1,16 +1,16 @@
 use crate::{record, FromValue, IntoValue, Record, Span, Value};
 use std::collections::HashMap;
 
-// make nu_protocol available in this namespace, consumers of this crate will
-// have this without such an export
-// the derive macro fully qualifies paths to "nu_protocol"
+// Make nu_protocol available in this namespace, consumers of this crate will
+// have this without such an export.
+// The derive macro fully qualifies paths to "nu_protocol".
 use crate as nu_protocol;
 
-macro_rules! make_type {
+macro_rules! make_struct {
     (
         $(#[$meta:meta])*
         struct $name:ident {
-            $($field:ident : $t:ty = $val:expr),* $(,)?
+            $($field:ident : $t:ty = $raw:expr, $val:expr),* $(,)?
         }
     ) => {
         $(#[$meta])*
@@ -21,179 +21,111 @@ macro_rules! make_type {
         impl $name {
             fn make() -> Self {
                 Self {
-                    $($field: $val,)*
+                    $($field: $raw,)*
                 }
+            }
+
+            fn value() -> Value {
+                Value::test_record(record! {
+                    $(stringify!($field) => $val),*
+                })
             }
         }
     };
 }
 
-make_type! {
+make_struct! {
     #[derive(IntoValue, FromValue, Debug, PartialEq)]
     struct Primitives {
-        p_array: [u16; 4] = [12, 34, 56, 78],
-        p_bool: bool = true,
-        p_char: char = 'A',
-        p_f32: f32 = 123.456,
-        p_f64: f64 = 789.1011,
-        p_i8: i8 = -12,
-        p_i16: i16 = -1234,
-        p_i32: i32 = -123456,
-        p_i64: i64 = -1234567890,
-        p_isize: isize = 1024,
-        p_str: String = "Hello, world!".to_string(),
-        p_u16: u16 = 65535,
-        p_u32: u32 = 4294967295,
-        p_u64: u64 = 8446744073709551615,
-        p_usize: usize = 4096,
-        p_unit: () = (),
-        p_tuple: (u32, bool) = (123456789, false),
+        p_array: [u16; 4] = [12, 34, 56, 78], Value::test_list(vec![
+            Value::test_int(12), 
+            Value::test_int(34), 
+            Value::test_int(56), 
+            Value::test_int(78),
+        ]),
+        p_bool: bool = true, Value::test_bool(true),
+        p_char: char = 'A', Value::test_string('A'),
+        p_f32: f32 = 123.456, Value::test_float(123.456f32 as f64),
+        p_f64: f64 = 789.1011, Value::test_float(789.1011),
+        p_i8: i8 = -12, Value::test_int(-12),
+        p_i16: i16 = -1234, Value::test_int(-1234),
+        p_i32: i32 = -123456, Value::test_int(-123456),
+        p_i64: i64 = -1234567890, Value::test_int(-1234567890),
+        p_isize: isize = 1024, Value::test_int(1024),
+        p_str: String = "Hello, world!".to_string(), Value::test_string("Hello, world!"),
+        p_u16: u16 = 65535, Value::test_int(65535),
+        p_u32: u32 = 4294967295, Value::test_int(4294967295),
+        p_u64: u64 = 8446744073709551615, Value::test_int(8446744073709551615),
+        p_usize: usize = 4096, Value::test_int(4096),
+        p_unit: () = (), Value::test_nothing(),
+        p_tuple: (u32, bool) = (123456789, false), Value::test_list(vec![
+            Value::test_int(123456789), 
+            Value::test_bool(false),
+        ])
     }
-}
-
-fn assert_record_field(value: &mut Record, key: &str, expected: Value) {
-    let field = value
-        .remove(key)
-        .expect(&format!("expected record to have {key:?}"));
-    assert_eq!(field, expected);
 }
 
 #[test]
 fn primitives_into_value() {
-    let primitives = Primitives::make();
-    let mut record = primitives.into_value_unknown().into_record().unwrap();
-    assert_record_field(
-        &mut record,
-        "p_array",
-        Value::test_list(vec![
-            Value::test_int(12),
-            Value::test_int(34),
-            Value::test_int(56),
-            Value::test_int(78),
-        ]),
-    );
-    assert_record_field(&mut record, "p_bool", Value::test_bool(true));
-    assert_record_field(&mut record, "p_char", Value::test_string("A"));
-    assert_record_field(&mut record, "p_f64", Value::test_float(789.1011));
-    assert_record_field(&mut record, "p_i8", Value::test_int(-12));
-    assert_record_field(&mut record, "p_i16", Value::test_int(-1234));
-    assert_record_field(&mut record, "p_i32", Value::test_int(-123456));
-    assert_record_field(&mut record, "p_i64", Value::test_int(-1234567890));
-    assert_record_field(&mut record, "p_isize", Value::test_int(1024));
-    assert_record_field(&mut record, "p_str", Value::test_string("Hello, world!"));
-    assert_record_field(&mut record, "p_u16", Value::test_int(65535));
-    assert_record_field(&mut record, "p_u32", Value::test_int(4294967295));
-    assert_record_field(&mut record, "p_u64", Value::test_int(8446744073709551615));
-    assert_record_field(&mut record, "p_usize", Value::test_int(4096));
-    assert_record_field(&mut record, "p_unit", Value::test_nothing());
-    assert_record_field(
-        &mut record,
-        "p_tuple",
-        Value::test_list(vec![Value::test_int(123456789), Value::test_bool(false)]),
-    );
-
-    // Handle f32 separately to cast the value back down to f32 for comparison.
-    let key = "p_f32";
-    let p_f32 = record
-        .remove(key)
-        .expect("expected record to have {key:?}")
-        .as_float()
-        .expect("{key:?} was not a float");
-    assert_eq!(p_f32 as f32, 123.456);
-
-    assert!(record.is_empty());
+    let expected = Primitives::value();
+    let actual = Primitives::make().into_value_unknown();
+    assert_eq!(expected, actual);
 }
 
 #[test]
 fn primitives_from_value() {
-    let value = Value::test_record(record! {
-        "p_array" => Value::test_list(vec![
-            Value::test_int(12),
-            Value::test_int(34),
-            Value::test_int(56),
-            Value::test_int(78),
-        ]),
-        "p_bool" => Value::test_bool(true),
-        "p_char" => Value::test_string('A'),
-        "p_f32" => Value::test_float(123.456),
-        "p_f64" => Value::test_float(789.1011),
-        "p_i8" => Value::test_int(-12),
-        "p_i16" => Value::test_int(-1234),
-        "p_i32" => Value::test_int(-123456),
-        "p_i64" => Value::test_int(-1234567890),
-        "p_isize" => Value::test_int(1024),
-        "p_str" => Value::test_string("Hello, world!"),
-        "p_u16" => Value::test_int(65535),
-        "p_u32" => Value::test_int(4294967295),
-        "p_u64" => Value::test_int(8446744073709551615),
-        "p_usize" => Value::test_int(4096),
-        "p_unit" => Value::test_nothing(),
-        "p_tuple" => Value::test_list(vec![
-            Value::test_int(123456789),
-            Value::test_bool(false)
-        ]),
-    });
     let expected = Primitives::make();
-    let actual = Primitives::from_value(value, Span::unknown()).unwrap();
+    let actual = Primitives::from_value(Primitives::value(), Span::test_data()).unwrap();
     assert_eq!(expected, actual);
 }
 
-make_type! {
+make_struct! {
     #[derive(IntoValue, FromValue, Debug, PartialEq)]
     struct StdValues {
-        some: Option<usize> = Some(123),
-        none: Option<usize> = None,
-        vec: Vec<usize> = vec![1, 2],
-        string: String = "Hello std!".to_string(),
+        some: Option<usize> = Some(123), Value::test_int(123),
+        none: Option<usize> = None, Value::test_nothing(),
+        vec: Vec<usize> = vec![1, 2], Value::test_list(vec![
+            Value::test_int(1), 
+            Value::test_int(2),
+        ]),
+        string: String = "Hello std!".to_string(), Value::test_string("Hello std!"),
         hashmap: HashMap<String, Value> = HashMap::from([
             ("int".to_string(), Value::test_int(123)),
             ("str".to_string(), Value::test_string("some value")),
             ("bool".to_string(), Value::test_bool(true))
-        ]),
+        ]), Value::test_record(record! {
+            "int" => Value::test_int(123),
+            "str" => Value::test_string("some value"),
+            "bool" => Value::test_bool(true),
+        })
     }
 }
 
 #[test]
 fn std_values_into_value() {
+    let expected = StdValues::value();
     let actual = StdValues::make().into_value_unknown();
-    let expected = Value::test_record(record! {
-        "some" => Value::test_int(123),
-        "none" => Value::test_nothing(),
-        "vec" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
-        "string" => Value::test_string("Hello std!"),
-        "hashmap" => Value::test_record(record! {
-            "int" => Value::test_int(123),
-            "str" => Value::test_string("some value"),
-            "bool" => Value::test_bool(true)
-        }),
-    });
-    assert_eq!(actual, expected);
+    assert_eq!(expected, actual);
 }
 
 #[test]
 fn std_values_from_value() {
-    let value = Value::test_record(record! {
-        "some" => Value::test_int(123),
-        "none" => Value::test_nothing(),
-        "vec" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
-        "string" => Value::test_string("Hello std!"),
-        "hashmap" => Value::test_record(record! {
-            "int" => Value::test_int(123),
-            "str" => Value::test_string("some value"),
-            "bool" => Value::test_bool(true)
-        })
-    });
-    let actual = StdValues::from_value(value, Span::unknown()).unwrap();
     let expected = StdValues::make();
-    assert_eq!(actual, expected);
+    let actual = StdValues::from_value(StdValues::value(), Span::test_data()).unwrap();
+    assert_eq!(expected, actual);
 }
 
-make_type! {
+make_struct! {
     #[derive(IntoValue)]
     struct Outer {
-        a: InnerA = InnerA { d: true },
-        b: InnerB = InnerB { e: 123.456, f: () },
-        c: u8 = 69,
+        a: InnerA = InnerA { d: true }, Value::test_record(record! {
+            "d" => Value::test_bool(true),
+        }),
+        b: InnerB = InnerB { e: 123.456, f: () }, Value::test_record(record! {
+            "e" => Value::test_float(123.456),
+            "f" => Value::test_nothing(),
+        }),
+        c: u8 = 69, Value::test_int(69),
     }
 }
 
@@ -210,18 +142,9 @@ struct InnerB {
 
 #[test]
 fn nested_into_value() {
-    let nested = Outer::make().into_value_unknown();
-    let expected = Value::test_record(record! {
-        "a" => Value::test_record(record! {
-            "d" => Value::test_bool(true),
-        }),
-        "b" => Value::test_record(record! {
-            "e" => Value::test_float(123.456),
-            "f" => Value::test_nothing(),
-        }),
-        "c" => Value::test_int(69),
-    });
-    assert_eq!(nested, expected);
+    let expected = Outer::value();
+    let actual = Outer::make().into_value_unknown();
+    assert_eq!(expected, actual);
 }
 
 #[derive(IntoValue)]
