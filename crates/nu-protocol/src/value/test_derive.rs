@@ -258,7 +258,7 @@ fn unit_struct_from_value() {
 }
 
 #[test]
-fn unit_strcut_roundtrip() {
+fn unit_struct_roundtrip() {
     let expected = UnitStruct;
     let actual =
         UnitStruct::from_value(UnitStruct.into_value_unknown(), Span::test_data()).unwrap();
