@@ -7,7 +7,10 @@ use std::collections::HashMap;
 use crate as nu_protocol;
 
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
-struct NamedFieldsStruct<T> where T: IntoValue + FromValue {
+struct NamedFieldsStruct<T>
+where
+    T: IntoValue + FromValue,
+{
     array: [u16; 4],
     bool: bool,
     char: char,
@@ -128,23 +131,50 @@ fn named_fields_struct_into_value() {
 #[test]
 fn named_fields_struct_from_value() {
     let expected = NamedFieldsStruct::make();
-    let actual = NamedFieldsStruct::from_value(NamedFieldsStruct::value(), Span::test_data()).unwrap();
+    let actual =
+        NamedFieldsStruct::from_value(NamedFieldsStruct::value(), Span::test_data()).unwrap();
     assert_eq!(expected, actual);
 }
 
 #[test]
 fn named_fields_struct_roundtrip() {
     let expected = NamedFieldsStruct::make();
-    let actual = NamedFieldsStruct::from_value(NamedFieldsStruct::make().into_value_unknown(), Span::test_data()).unwrap();
+    let actual = NamedFieldsStruct::from_value(
+        NamedFieldsStruct::make().into_value_unknown(),
+        Span::test_data(),
+    )
+    .unwrap();
     assert_eq!(expected, actual);
 
     let expected = NamedFieldsStruct::value();
-    let actual = NamedFieldsStruct::<u32>::from_value(NamedFieldsStruct::value(), Span::test_data()).unwrap().into_value_unknown();
+    let actual =
+        NamedFieldsStruct::<u32>::from_value(NamedFieldsStruct::value(), Span::test_data())
+            .unwrap()
+            .into_value_unknown();
     assert_eq!(expected, actual);
 }
 
+#[test]
+fn named_fields_struct_missing_value() {
+    let value = Value::test_record(Record::new());
+    let res: Result<NamedFieldsStruct<u32>, _> =
+        NamedFieldsStruct::from_value(value, Span::test_data());
+    assert!(res.is_err());
+}
+
+#[test]
+fn named_fields_struct_incorrect_type() {
+    // Should work for every type that is not a record.
+    let value = Value::test_nothing();
+    let res: Result<NamedFieldsStruct<u32>, _> =
+        NamedFieldsStruct::from_value(value, Span::test_data());
+    assert!(res.is_err());
+}
+
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
-struct UnnamedFieldsStruct<T>(usize, String, T) where T: IntoValue + FromValue;
+struct UnnamedFieldsStruct<T>(usize, String, T)
+where
+    T: IntoValue + FromValue;
 
 impl UnnamedFieldsStruct<f64> {
     fn make() -> Self {
@@ -152,7 +182,11 @@ impl UnnamedFieldsStruct<f64> {
     }
 
     fn value() -> Value {
-        Value::test_list(vec![Value::test_int(420), Value::test_string("Hello, tuple!"), Value::test_float(33.33)])
+        Value::test_list(vec![
+            Value::test_int(420),
+            Value::test_string("Hello, tuple!"),
+            Value::test_float(33.33),
+        ])
     }
 }
 
@@ -174,11 +208,18 @@ fn unnamed_fields_struct_from_value() {
 #[test]
 fn unnamed_fields_struct_roundtrip() {
     let expected = UnnamedFieldsStruct::make();
-    let actual = UnnamedFieldsStruct::from_value(UnnamedFieldsStruct::make().into_value_unknown(), Span::test_data()).unwrap();
+    let actual = UnnamedFieldsStruct::from_value(
+        UnnamedFieldsStruct::make().into_value_unknown(),
+        Span::test_data(),
+    )
+    .unwrap();
     assert_eq!(expected, actual);
 
     let expected = UnnamedFieldsStruct::value();
-    let actual = UnnamedFieldsStruct::<f64>::from_value(UnnamedFieldsStruct::value(), Span::test_data()).unwrap().into_value_unknown();
+    let actual =
+        UnnamedFieldsStruct::<f64>::from_value(UnnamedFieldsStruct::value(), Span::test_data())
+            .unwrap()
+            .into_value_unknown();
     assert_eq!(expected, actual);
 }
 
@@ -202,7 +243,8 @@ fn unit_struct_from_value() {
 #[test]
 fn unit_strcut_roundtrip() {
     let expected = UnitStruct;
-    let actual = UnitStruct::from_value(UnitStruct.into_value_unknown(), Span::test_data()).unwrap();
+    let actual =
+        UnitStruct::from_value(UnitStruct.into_value_unknown(), Span::test_data()).unwrap();
     assert_eq!(expected, actual);
 }
 
