@@ -19,16 +19,65 @@ use std::{
     sync::Arc,
 };
 
+/// A wrapper around [`std::path::Path`] with extra invariants determined by its `Form`.
+///
+/// The possible path forms are [`Any`], [`Relative`], [`Absolute`], or [`Canonical`].
+/// To learn more, view the documentation on [`PathForm`] or any of the individual forms.
+///
+/// There are also several type aliases available, corresponding to each [`PathForm`]:
+/// - [`RelativePath`] (same as [`Path<Relative>`])
+/// - [`AbsolutePath`] (same as [`Path<Absolute>`])
+/// - [`CanonicalPath`] (same as [`Path<Canonical>`])
+///
+/// If the `Form` is not specified, then it defaults to [`Any`], so [`Path`] and [`Path<Any>`]
+/// are one in the same.
+///
+/// To create a [`Path`] with [`Any`] form, use the [`Path::new`] method or use `as_ref` on
+/// a type from the [`std::path`] module like [`std::path::Path`] or [`std::path::PathBuf`].
 #[repr(transparent)]
 pub struct Path<Form: PathForm = Any> {
     _form: PhantomData<Form>,
     inner: std::path::Path,
 }
 
+/// A path that is strictly relative.
+///
+/// I.e., this path is guaranteed to never be absolute.
+///
+/// [`RelativePath`]s can be created by using [`try_relative`](Path::try_relative)
+/// on a [`Path`] or using [`strip_prefix`](Path::strip_prefix) on a [`Path`] of any form.
+/// You can also use `RelativePath::try_from` or `try_into`.
+/// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
+///
+/// [`RelativePath`]s cannot be easily converted into a [`std::path::Path`] by design.
+/// Other Nushell crates need to account for the emulated current working directory
+/// before passing a path to functions in [`std`] or other third party crates.
+/// You can use a [`RelativePath`] as input to `join` on an [`AbsolutePath`] or [`CanonicalPath`].
+/// This will return an [`AbsolutePath`] which can be referenced as and easily converted to
+/// a [`std::path::Path`]. If you really mean it, you can use
+/// [`as_relative_std_path`](RelativePath::as_relative_std_path) to get the underlying
+/// [`std::path::Path`] from a [`RelativePath`].
 pub type RelativePath = Path<Relative>;
 
+/// A path that is strictly absolute.
+///
+/// I.e., this path is guaranteed to never be relative.
+///
+/// [`AbsolutePath`]s can be created by using [`try_absolute`](Path::try_absolute) on a [`Path`].
+/// You can also use `AbsolutePath::try_from` or `try_into`.
+/// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
+///
+/// References to [`CanonicalPath`]s can be converted to [`AbsolutePath`] references using
+/// `as_ref`, [`cast`](Path::cast), or [`as_absolute`](CanonicalPath::as_absolute).
 pub type AbsolutePath = Path<Absolute>;
 
+/// An absolute, canonical path.
+///
+/// [`CanonicalPath`]s can only be created by using [`canonicalize`](Path::canonicalize) on
+/// an [`AbsolutePath`].
+///
+/// References to [`CanonicalPath`]s can be converted to [`AbsolutePath`] references using
+/// `as_ref`, [`cast`](Path::cast), or [`as_absolute`](CanonicalPath::as_absolute).
 pub type CanonicalPath = Path<Canonical>;
 
 impl<Form: PathForm> Path<Form> {
