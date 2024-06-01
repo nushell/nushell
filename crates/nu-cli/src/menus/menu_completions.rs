@@ -146,6 +146,7 @@ fn convert_to_suggestions(
                 extra,
                 span,
                 append_whitespace: false,
+                match_indices: None,
             }]
         }
         Value::List { vals, .. } => vals
@@ -170,6 +171,7 @@ fn convert_to_suggestions(
                 },
             },
             append_whitespace: false,
+            match_indices: None,
         }],
     }
 }

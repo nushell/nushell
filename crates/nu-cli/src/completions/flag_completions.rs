@@ -56,6 +56,7 @@ impl Completer for FlagCompletion {
                                     end: span.end - offset,
                                 },
                                 append_whitespace: true,
+                                match_indices: None,
                             },
                             // TODO????
                             kind: None,
@@ -83,6 +84,7 @@ impl Completer for FlagCompletion {
                                 end: span.end - offset,
                             },
                             append_whitespace: true,
+                            match_indices: None,
                         },
                         // TODO????
                         kind: None,

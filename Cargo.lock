@@ -4819,7 +4819,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.32.0"
-source = "git+https://github.com/nushell/reedline?branch=main#a580ea56d4e5a889468b2969d2a1534379504ab6"
+source = "git+https://github.com/ysthakur/reedline?branch=fuzzy-select-underline#a747c7110eb5113c347c99cd6f1ee09d2c4a0084"
 dependencies = [
  "arboard",
  "chrono",
