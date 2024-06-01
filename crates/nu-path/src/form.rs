@@ -117,15 +117,15 @@ impl PathJoin for Canonical {
     type Output = Absolute;
 }
 
-/// A marker trait for [`PathForm`]s that support mutation.
+/// A marker trait for [`PathForm`]s that support setting the file name or extension.
 ///
 /// This includes the [`Any`], [`Relative`], and [`Absolute`] path forms.
-/// [`Canonical`] paths do not support mutation,
-/// since unguarded mutation can cause them to no longer be canonical.
-pub trait PathMut: PathForm {}
-impl PathMut for Any {}
-impl PathMut for Relative {}
-impl PathMut for Absolute {}
+/// [`Canonical`] paths do not support this, since appending file names and extensions that contain
+/// path separators can cause the path to no longer be canonical.
+pub trait PathSet: PathForm {}
+impl PathSet for Any {}
+impl PathSet for Relative {}
+impl PathSet for Absolute {}
 
 /// A marker trait for [`PathForm`]s that support pushing [`MaybeRelative`] paths.
 ///
@@ -134,6 +134,6 @@ impl PathMut for Absolute {}
 /// which is why they do not support pushing.
 /// In the future, a `push_rel` and/or a `try_push` method could be added as an alternative.
 /// Similarly, [`Canonical`] paths may become uncanonical if a non-canonical path is pushed onto it.
-pub trait PathPush: PathMut {}
+pub trait PathPush: PathSet {}
 impl PathPush for Any {}
 impl PathPush for Absolute {}

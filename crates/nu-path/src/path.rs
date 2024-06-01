@@ -1,6 +1,6 @@
 use crate::form::{
     Absolute, Any, Canonical, IsAbsolute, MaybeAbsolute, MaybeRelative, PathCast, PathForm,
-    PathJoin, PathMut, PathPush, Relative,
+    PathJoin, PathPush, PathSet, Relative,
 };
 use std::{
     borrow::{Borrow, Cow},
@@ -199,6 +199,11 @@ impl Path {
     }
 
     #[inline]
+    pub fn as_mut_os_str(&mut self) -> &mut OsStr {
+        self.inner.as_mut_os_str()
+    }
+
+    #[inline]
     pub fn is_absolute(&self) -> bool {
         self.inner.is_absolute()
     }
@@ -230,12 +235,7 @@ impl<Form: PathJoin> Path<Form> {
     }
 }
 
-impl<Form: PathMut> Path<Form> {
-    #[inline]
-    pub fn as_mut_os_str(&mut self) -> &mut OsStr {
-        self.inner.as_mut_os_str()
-    }
-
+impl<Form: PathSet> Path<Form> {
     #[inline]
     pub fn with_file_name(&self, file_name: impl AsRef<OsStr>) -> PathBuf<Form> {
         PathBuf::new_unchecked(self.inner.with_file_name(file_name))
@@ -487,6 +487,11 @@ impl PathBuf {
     }
 
     #[inline]
+    pub fn as_mut_os_string(&mut self) -> &mut OsString {
+        self.inner.as_mut_os_string()
+    }
+
+    #[inline]
     pub fn clear(&mut self) {
         self.inner.clear()
     }
@@ -517,12 +522,7 @@ impl<Form: PathPush> PathBuf<Form> {
     }
 }
 
-impl<Form: PathMut> PathBuf<Form> {
-    #[inline]
-    pub fn as_mut_os_string(&mut self) -> &mut OsString {
-        self.inner.as_mut_os_string()
-    }
-
+impl<Form: PathSet> PathBuf<Form> {
     #[inline]
     pub fn set_file_name(&mut self, file_name: impl AsRef<OsStr>) {
         self.inner.set_file_name(file_name)
@@ -587,12 +587,12 @@ impl<Form: PathForm> Deref for PathBuf<Form> {
     }
 }
 
-impl<Form: PathMut> DerefMut for PathBuf<Form> {
+impl DerefMut for PathBuf {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         // Safety: `Path<Form>` is a repr(transparent) wrapper around `std::path::Path`.
         let path: &mut std::path::Path = &mut self.inner;
-        let ptr = std::ptr::from_mut(path) as *mut Path<Form>;
+        let ptr = std::ptr::from_mut(path) as *mut Path;
         unsafe { &mut *ptr }
     }
 }
