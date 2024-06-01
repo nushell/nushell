@@ -3048,7 +3048,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.93.1"
+version = "0.94.1"
 dependencies = [
  "convert_case",
  "proc-macro-error",
