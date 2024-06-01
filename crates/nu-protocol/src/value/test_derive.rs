@@ -6,175 +6,204 @@ use std::collections::HashMap;
 // The derive macro fully qualifies paths to "nu_protocol".
 use crate as nu_protocol;
 
-macro_rules! make_struct {
-    (
-        $(#[$meta:meta])*
-        struct $name:ident {
-            $($field:ident : $t:ty = $raw:expr, $val:expr),* $(,)?
-        }
-    ) => {
-        $(#[$meta])*
-        struct $name {
-            $($field: $t,)*
-        }
-
-        impl $name {
-            fn make() -> Self {
-                Self {
-                    $($field: $raw,)*
-                }
-            }
-
-            fn value() -> Value {
-                Value::test_record(record! {
-                    $(stringify!($field) => $val),*
-                })
-            }
-        }
-    };
+#[derive(IntoValue, FromValue, Debug, PartialEq)]
+struct NamedFieldsStruct<T> where T: IntoValue + FromValue {
+    array: [u16; 4],
+    bool: bool,
+    char: char,
+    f32: f32,
+    f64: f64,
+    i8: i8,
+    i16: i16,
+    i32: i32,
+    i64: i64,
+    isize: isize,
+    u16: u16,
+    u32: u32,
+    u64: u64,
+    usize: usize,
+    unit: (),
+    tuple: (u32, bool),
+    some: Option<usize>,
+    none: Option<usize>,
+    vec: Vec<T>,
+    string: String,
+    hashmap: HashMap<String, usize>,
+    nested: Nestee,
 }
 
-make_struct! {
-    #[derive(IntoValue, FromValue, Debug, PartialEq)]
-    struct Primitives {
-        p_array: [u16; 4] = [12, 34, 56, 78], Value::test_list(vec![
-            Value::test_int(12), 
-            Value::test_int(34), 
-            Value::test_int(56), 
-            Value::test_int(78),
-        ]),
-        p_bool: bool = true, Value::test_bool(true),
-        p_char: char = 'A', Value::test_string('A'),
-        p_f32: f32 = 123.456, Value::test_float(123.456f32 as f64),
-        p_f64: f64 = 789.1011, Value::test_float(789.1011),
-        p_i8: i8 = -12, Value::test_int(-12),
-        p_i16: i16 = -1234, Value::test_int(-1234),
-        p_i32: i32 = -123456, Value::test_int(-123456),
-        p_i64: i64 = -1234567890, Value::test_int(-1234567890),
-        p_isize: isize = 1024, Value::test_int(1024),
-        p_str: String = "Hello, world!".to_string(), Value::test_string("Hello, world!"),
-        p_u16: u16 = 65535, Value::test_int(65535),
-        p_u32: u32 = 4294967295, Value::test_int(4294967295),
-        p_u64: u64 = 8446744073709551615, Value::test_int(8446744073709551615),
-        p_usize: usize = 4096, Value::test_int(4096),
-        p_unit: () = (), Value::test_nothing(),
-        p_tuple: (u32, bool) = (123456789, false), Value::test_list(vec![
-            Value::test_int(123456789), 
-            Value::test_bool(false),
-        ])
+#[derive(IntoValue, FromValue, Debug, PartialEq)]
+struct Nestee {
+    usize: usize,
+    some: Option<usize>,
+    none: Option<usize>,
+}
+
+impl NamedFieldsStruct<u32> {
+    fn make() -> Self {
+        Self {
+            array: [1, 2, 3, 4],
+            bool: true,
+            char: 'a',
+            f32: 3.14,
+            f64: 2.71828,
+            i8: 127,
+            i16: -32768,
+            i32: 2147483647,
+            i64: -9223372036854775808,
+            isize: 2,
+            u16: 65535,
+            u32: 4294967295,
+            u64: 9223372036854775807,
+            usize: 8,
+            unit: (),
+            tuple: (1, true),
+            some: Some(123),
+            none: None,
+            vec: vec![10, 20, 30],
+            string: "string".to_string(),
+            hashmap: HashMap::from_iter([("a".to_string(), 10), ("b".to_string(), 20)]),
+            nested: Nestee {
+                usize: 3,
+                some: Some(42),
+                none: None,
+            },
+        }
     }
-}
 
-#[test]
-fn primitives_into_value() {
-    let expected = Primitives::value();
-    let actual = Primitives::make().into_value_unknown();
-    assert_eq!(expected, actual);
-}
-
-#[test]
-fn primitives_from_value() {
-    let expected = Primitives::make();
-    let actual = Primitives::from_value(Primitives::value(), Span::test_data()).unwrap();
-    assert_eq!(expected, actual);
-}
-
-make_struct! {
-    #[derive(IntoValue, FromValue, Debug, PartialEq)]
-    struct StdValues {
-        some: Option<usize> = Some(123), Value::test_int(123),
-        none: Option<usize> = None, Value::test_nothing(),
-        vec: Vec<usize> = vec![1, 2], Value::test_list(vec![
-            Value::test_int(1), 
-            Value::test_int(2),
-        ]),
-        string: String = "Hello std!".to_string(), Value::test_string("Hello std!"),
-        hashmap: HashMap<String, Value> = HashMap::from([
-            ("int".to_string(), Value::test_int(123)),
-            ("str".to_string(), Value::test_string("some value")),
-            ("bool".to_string(), Value::test_bool(true))
-        ]), Value::test_record(record! {
-            "int" => Value::test_int(123),
-            "str" => Value::test_string("some value"),
+    fn value() -> Value {
+        Value::test_record(record! {
+            "array" => Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_int(2),
+                Value::test_int(3),
+                Value::test_int(4)
+            ]),
             "bool" => Value::test_bool(true),
+            "char" => Value::test_string('a'),
+            "f32" => Value::test_float(3.14f32 as f64),
+            "f64" => Value::test_float(2.71828),
+            "i8" => Value::test_int(127),
+            "i16" => Value::test_int(-32768),
+            "i32" => Value::test_int(2147483647),
+            "i64" => Value::test_int(-9223372036854775808),
+            "isize" => Value::test_int(2),
+            "u16" => Value::test_int(65535),
+            "u32" => Value::test_int(4294967295),
+            "u64" => Value::test_int(9223372036854775807),
+            "usize" => Value::test_int(8),
+            "unit" => Value::test_nothing(),
+            "tuple" => Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_bool(true)
+            ]),
+            "some" => Value::test_int(123),
+            "none" => Value::test_nothing(),
+            "vec" => Value::test_list(vec![
+                Value::test_int(10),
+                Value::test_int(20),
+                Value::test_int(30)
+            ]),
+            "string" => Value::test_string("string"),
+            "hashmap" => Value::test_record(record! {
+                "a" => Value::test_int(10),
+                "b" => Value::test_int(20)
+            }),
+            "nested" => Value::test_record(record! {
+                "usize" => Value::test_int(3),
+                "some" => Value::test_int(42),
+                "none" => Value::test_nothing(),
+            })
         })
     }
 }
 
 #[test]
-fn std_values_into_value() {
-    let expected = StdValues::value();
-    let actual = StdValues::make().into_value_unknown();
+fn named_fields_struct_into_value() {
+    let expected = NamedFieldsStruct::value();
+    let actual = NamedFieldsStruct::make().into_value_unknown();
     assert_eq!(expected, actual);
 }
 
 #[test]
-fn std_values_from_value() {
-    let expected = StdValues::make();
-    let actual = StdValues::from_value(StdValues::value(), Span::test_data()).unwrap();
+fn named_fields_struct_from_value() {
+    let expected = NamedFieldsStruct::make();
+    let actual = NamedFieldsStruct::from_value(NamedFieldsStruct::value(), Span::test_data()).unwrap();
     assert_eq!(expected, actual);
-}
-
-make_struct! {
-    #[derive(IntoValue)]
-    struct Outer {
-        a: InnerA = InnerA { d: true }, Value::test_record(record! {
-            "d" => Value::test_bool(true),
-        }),
-        b: InnerB = InnerB { e: 123.456, f: () }, Value::test_record(record! {
-            "e" => Value::test_float(123.456),
-            "f" => Value::test_nothing(),
-        }),
-        c: u8 = 69, Value::test_int(69),
-    }
-}
-
-#[derive(IntoValue)]
-struct InnerA {
-    d: bool,
-}
-
-#[derive(IntoValue)]
-struct InnerB {
-    e: f64,
-    f: (),
 }
 
 #[test]
-fn nested_into_value() {
-    let expected = Outer::value();
-    let actual = Outer::make().into_value_unknown();
+fn named_fields_struct_roundtrip() {
+    let expected = NamedFieldsStruct::make();
+    let actual = NamedFieldsStruct::from_value(NamedFieldsStruct::make().into_value_unknown(), Span::test_data()).unwrap();
+    assert_eq!(expected, actual);
+
+    let expected = NamedFieldsStruct::value();
+    let actual = NamedFieldsStruct::<u32>::from_value(NamedFieldsStruct::value(), Span::test_data()).unwrap().into_value_unknown();
     assert_eq!(expected, actual);
 }
 
-#[derive(IntoValue)]
-struct TupleStruct(usize, String, f64);
+#[derive(IntoValue, FromValue, Debug, PartialEq)]
+struct UnnamedFieldsStruct<T>(usize, String, T) where T: IntoValue + FromValue;
 
-impl TupleStruct {
+impl UnnamedFieldsStruct<f64> {
     fn make() -> Self {
-        TupleStruct(420, "Hello, tuple!".to_string(), 33.33)
+        UnnamedFieldsStruct(420, "Hello, tuple!".to_string(), 33.33)
+    }
+
+    fn value() -> Value {
+        Value::test_list(vec![Value::test_int(420), Value::test_string("Hello, tuple!"), Value::test_float(33.33)])
     }
 }
 
 #[test]
-fn tuple_struct_into_value() {
-    let tuple = TupleStruct::make().into_value_unknown();
-    let expected = Value::test_list(vec![
-        Value::test_int(420),
-        Value::test_string("Hello, tuple!"),
-        Value::test_float(33.33),
-    ]);
-    assert_eq!(tuple, expected);
+fn unnamed_fields_struct_into_value() {
+    let expected = UnnamedFieldsStruct::value();
+    let actual = UnnamedFieldsStruct::make().into_value_unknown();
+    assert_eq!(expected, actual);
 }
 
-#[derive(IntoValue)]
-struct Unit;
+#[test]
+fn unnamed_fields_struct_from_value() {
+    let expected = UnnamedFieldsStruct::make();
+    let value = UnnamedFieldsStruct::value();
+    let actual = UnnamedFieldsStruct::from_value(value, Span::test_data()).unwrap();
+    assert_eq!(expected, actual);
+}
 
 #[test]
-fn unit_into_value() {
-    let unit = Unit.into_value_unknown();
+fn unnamed_fields_struct_roundtrip() {
+    let expected = UnnamedFieldsStruct::make();
+    let actual = UnnamedFieldsStruct::from_value(UnnamedFieldsStruct::make().into_value_unknown(), Span::test_data()).unwrap();
+    assert_eq!(expected, actual);
+
+    let expected = UnnamedFieldsStruct::value();
+    let actual = UnnamedFieldsStruct::<f64>::from_value(UnnamedFieldsStruct::value(), Span::test_data()).unwrap().into_value_unknown();
+    assert_eq!(expected, actual);
+}
+
+#[derive(IntoValue, FromValue, Debug, PartialEq)]
+struct UnitStruct;
+
+#[test]
+fn unit_struct_into_value() {
     let expected = Value::test_nothing();
-    assert_eq!(unit, expected);
+    let actual = UnitStruct.into_value_unknown();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn unit_struct_from_value() {
+    let expected = UnitStruct;
+    let actual = UnitStruct::from_value(Value::test_nothing(), Span::test_data()).unwrap();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn unit_strcut_roundtrip() {
+    let expected = UnitStruct;
+    let actual = UnitStruct::from_value(UnitStruct.into_value_unknown(), Span::test_data()).unwrap();
+    assert_eq!(expected, actual);
 }
 
 #[derive(IntoValue)]
