@@ -76,6 +76,16 @@ impl<Form: PathForm> Path<Form> {
     }
 
     #[inline]
+    pub fn strip_prefix<F: PathForm>(
+        &self,
+        base: impl AsRef<Path<F>>,
+    ) -> Result<&RelativePath, StripPrefixError> {
+        self.inner
+            .strip_prefix(&base.as_ref().inner)
+            .map(RelativePath::new_unchecked)
+    }
+
+    #[inline]
     pub fn starts_with<F: PathForm>(&self, base: impl AsRef<Path<F>>) -> bool {
         self.inner.starts_with(&base.as_ref().inner)
     }
@@ -161,16 +171,6 @@ impl Path {
         self.is_relative()
             .then_some(RelativePath::new_unchecked(&self.inner))
             .ok_or(AbsolutePath::new_unchecked(&self.inner))
-    }
-
-    #[inline]
-    pub fn strip_prefix<Form: PathForm>(
-        &self,
-        base: impl AsRef<Path<Form>>,
-    ) -> Result<&RelativePath, StripPrefixError> {
-        self.inner
-            .strip_prefix(&base.as_ref().inner)
-            .map(RelativePath::new_unchecked)
     }
 }
 
