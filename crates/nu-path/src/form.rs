@@ -2,7 +2,7 @@ mod private {
     // This trait should not be extended by external crates in order to uphold safety guarantees.
     // As such, this trait is put inside a private module to prevent external impls.
     // This ensures that all possible [`PathForm`]s can only be defined here and will:
-    // - be zero sized
+    // - be zero sized (enforced anyways by the `repr(transparent)` on `Path`)
     // - have a no-op [`Drop`] implementation
     pub trait Sealed {}
 }
@@ -23,7 +23,7 @@ impl PathForm for Canonical {}
 /// A path whose form is unknown. It could be a relative, absolute, or canonical path.
 ///
 /// The path is not guaranteed to be normalized. It may contain unresolved symlinks,
-/// trailing slashes, dot components (`..` or `.`), and duplicate path separators.
+/// trailing slashes, dot components (`..` or `.`), and repeated path separators.
 pub struct Any;
 
 impl private::Sealed for Any {}
@@ -31,7 +31,7 @@ impl private::Sealed for Any {}
 /// A strictly relative path.
 ///
 /// The path is not guaranteed to be normalized. It may contain unresolved symlinks,
-/// trailing slashes, dot components (`..` or `.`), and duplicate path separators.
+/// trailing slashes, dot components (`..` or `.`), and repeated path separators.
 pub struct Relative;
 
 impl private::Sealed for Relative {}
@@ -39,7 +39,7 @@ impl private::Sealed for Relative {}
 /// An absolute path.
 ///
 /// The path is not guaranteed to be normalized. It may contain unresolved symlinks,
-/// trailing slashes, dot components (`..` or `.`), and duplicate path separators.
+/// trailing slashes, dot components (`..` or `.`), and repeated path separators.
 pub struct Absolute;
 
 impl private::Sealed for Absolute {}

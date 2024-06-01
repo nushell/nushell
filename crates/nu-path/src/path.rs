@@ -1,6 +1,6 @@
 use crate::form::{
-    Absolute, Any, Canonical, IsAbsolute, MaybeAbsolute, MaybeRelative, PathCast, PathForm,
-    PathJoin, PathPush, PathSet, Relative,
+    Absolute, Any, Canonical, IsAbsolute, MaybeRelative, PathCast, PathForm, PathJoin, PathPush,
+    PathSet, Relative,
 };
 use std::{
     borrow::{Borrow, Cow},
@@ -81,6 +81,7 @@ pub type AbsolutePath = Path<Absolute>;
 pub type CanonicalPath = Path<Canonical>;
 
 impl<Form: PathForm> Path<Form> {
+    /// Create a new path without checking that invariants are satisfied.
     #[inline]
     fn new_unchecked<P: AsRef<OsStr> + ?Sized>(path: &P) -> &Self {
         // Safety: `Path<Form>` is a repr(transparent) wrapper around `std::path::Path`.
@@ -89,41 +90,67 @@ impl<Form: PathForm> Path<Form> {
         unsafe { &*ptr }
     }
 
+    /// Returns the underlying [`OsStr`] slice.
     #[inline]
     pub fn as_os_str(&self) -> &OsStr {
         self.inner.as_os_str()
     }
 
+    /// Returns a [`str`] slice if the [`Path`] is valid unicode.
     #[inline]
     pub fn to_str(&self) -> Option<&str> {
         self.inner.to_str()
     }
 
+    /// Converts a [`Path`] to a `Cow<str>`.
+    ///
+    /// Any non-Unicode sequences are replaced with `U+FFFD REPLACEMENT CHARACTER`.
     #[inline]
     pub fn to_string_lossy(&self) -> Cow<'_, str> {
         self.inner.to_string_lossy()
     }
 
+    /// Converts a [`Path`] to an owned [`PathBuf`].
     #[inline]
     pub fn to_path_buf(&self) -> PathBuf<Form> {
         PathBuf::new_unchecked(self.inner.to_path_buf())
     }
 
+    /// Returns the [`Path`] without its final component, if there is one.
+    ///
+    /// This means it returns `Some("")` for relative paths with one component.
+    ///
+    /// Returns [`None`] if the path terminates in a root or prefix, or if it's
+    /// the empty string.
     #[inline]
     pub fn parent(&self) -> Option<&Self> {
         self.inner.parent().map(Self::new_unchecked)
     }
 
+    /// Produces an iterator over a [`Path`] and its ancestors.
+    ///
+    /// The iterator will yield the [`Path`] that is returned if the [`parent`](Path::parent) method
+    /// is used zero or more times. That means, the iterator will yield `&self`,
+    /// `&self.parent().unwrap()`, `&self.parent().unwrap().parent().unwrap()` and so on.
+    /// If the [`parent`](Path::parent) method returns [`None`], the iterator will do likewise.
+    /// The iterator will always yield at least one value, namely `&self`.
     #[inline]
     pub fn ancestors(&self) -> std::path::Ancestors<'_> {
         self.inner.ancestors()
     }
 
+    /// Returns the final component of a [`Path`], if there is one.
+    ///
+    /// If the path is a normal file, this is the file name. If it's the path of a directory, this
+    /// is the directory name.
+    ///
+    /// Returns [`None`] if the path terminates in `..`.
     #[inline]
     pub fn file_name(&self) -> Option<&OsStr> {
         self.inner.file_name()
     }
 
+    /// Returns a relative path that, when joined onto `base`, yields `self`.
     #[inline]
     pub fn strip_prefix<F: PathForm>(
         &self,
@@ -134,41 +161,90 @@ impl<Form: PathForm> Path<Form> {
             .map(RelativePath::new_unchecked)
     }
 
+    /// Determines whether `base` is a prefix of `self`.
+    ///
+    /// Only considers whole path components to match.
     #[inline]
     pub fn starts_with<F: PathForm>(&self, base: impl AsRef<Path<F>>) -> bool {
         self.inner.starts_with(&base.as_ref().inner)
     }
 
+    /// Determines whether `child` is a suffix of `self`.
+    ///
+    /// Only considers whole path components to match.
     #[inline]
     pub fn ends_with<F: PathForm>(&self, child: impl AsRef<Path<F>>) -> bool {
         self.inner.ends_with(&child.as_ref().inner)
     }
 
+    /// Extracts the stem (non-extension) portion of [`self.file_name`](Path::file_name).
+    ///
+    /// The stem is:
+    ///
+    /// * [`None`], if there is no file name;
+    /// * The entire file name if there is no embedded `.`;
+    /// * The entire file name if the file name begins with `.` and has no other `.`s within;
+    /// * Otherwise, the portion of the file name before the final `.`
     #[inline]
     pub fn file_stem(&self) -> Option<&OsStr> {
         self.inner.file_stem()
     }
 
+    /// Extracts the extension (without the leading dot) of [`self.file_name`](Path::file_name),
+    /// if possible.
+    ///
+    /// The extension is:
+    ///
+    /// * [`None`], if there is no file name;
+    /// * [`None`], if there is no embedded `.`;
+    /// * [`None`], if the file name begins with `.` and has no other `.`s within;
+    /// * Otherwise, the portion of the file name after the final `.`
     #[inline]
     pub fn extension(&self) -> Option<&OsStr> {
         self.inner.extension()
     }
 
+    /// Produces an iterator over the [`Component`](std::path::Component)s of the path.
+    ///
+    /// When parsing the path, there is a small amount of normalization:
+    ///
+    /// * Repeated separators are ignored, so `a/b` and `a//b` both have
+    ///   `a` and `b` as components.
+    ///
+    /// * Occurrences of `.` are normalized away, except if they are at the
+    ///   beginning of the path. For example, `a/./b`, `a/b/`, `a/b/.` and
+    ///   `a/b` all have `a` and `b` as components, but `./a/b` starts with
+    ///   an additional [`CurDir`](std::path::Component) component.
+    ///
+    /// * A trailing slash is normalized away, `/a/b` and `/a/b/` are equivalent.
+    ///
+    /// Note that no other normalization takes place; in particular, `a/c`
+    /// and `a/b/../c` are distinct, to account for the possibility that `b`
+    /// is a symbolic link (so its parent isn't `a`).
     #[inline]
     pub fn components(&self) -> std::path::Components<'_> {
         self.inner.components()
     }
 
+    /// Produces an iterator over the path's components viewed as [`OsStr`] slices.
+    ///
+    /// For more information about the particulars of how the path is separated into components,
+    /// see [`components`](Path::components).
     #[inline]
     pub fn iter(&self) -> std::path::Iter<'_> {
         self.inner.iter()
     }
 
+    /// Returns an object that implements [`Display`](fmt::Display) for safely printing paths
+    /// that may contain non-Unicode data. This may perform lossy conversion,
+    /// depending on the platform. If you would like an implementation which escapes the path
+    /// please use [`Debug`](fmt::Debug) instead.
     #[inline]
     pub fn display(&self) -> std::path::Display<'_> {
         self.inner.display()
     }
 
+    /// Converts a [`Box<Path>`](Box) into a [`PathBuf`] without copying or allocating.
     #[inline]
     pub fn into_path_buf(self: Box<Self>) -> PathBuf<Form> {
         // Safety: `Path<Form>` is a repr(transparent) wrapper around `std::path::Path`.
@@ -177,6 +253,13 @@ impl<Form: PathForm> Path<Form> {
         PathBuf::new_unchecked(boxed.into_path_buf())
     }
 
+    /// Returns a reference to the same [`Path`] in a different form.
+    ///
+    /// [`PathForm`]s can be converted to one another based on [`PathCast`] implementations.
+    /// Namely, the following form conversions are possible:
+    /// - [`Relative`], [`Absolute`], or [`Canonical`] into [`Any`].
+    /// - [`Canonical`] into [`Absolute`].
+    /// - Any form into itself.
     #[inline]
     pub fn cast<To>(&self) -> &Path<To>
     where
@@ -186,6 +269,7 @@ impl<Form: PathForm> Path<Form> {
         Path::new_unchecked(self)
     }
 
+    /// Returns a reference to a path with its form as [`Any`].
     #[inline]
     pub fn as_any(&self) -> &Path {
         Path::new_unchecked(self)
@@ -193,26 +277,43 @@ impl<Form: PathForm> Path<Form> {
 }
 
 impl Path {
+    /// Create a new [`Path`] by wrapping a string slice.
+    ///
+    /// This is a cost-free conversion.
     #[inline]
     pub fn new<P: AsRef<OsStr> + ?Sized>(path: &P) -> &Self {
         Self::new_unchecked(path)
     }
 
+    /// Returns a mutable reference to the underlying [`OsStr`] slice.
     #[inline]
     pub fn as_mut_os_str(&mut self) -> &mut OsStr {
         self.inner.as_mut_os_str()
     }
 
+    /// Returns `true` if the [`Path`] is absolute, i.e., if it is independent of
+    /// the current directory.
+    ///
+    /// * On Unix, a path is absolute if it starts with the root,
+    /// so [`is_absolute`](Path::is_absolute) and [`has_root`](Path::has_root) are equivalent.
+    ///
+    /// * On Windows, a path is absolute if it has a prefix and starts with the root:
+    /// `c:\windows` is absolute, while `c:temp` and `\temp` are not.
     #[inline]
     pub fn is_absolute(&self) -> bool {
         self.inner.is_absolute()
     }
 
+    // Returns `true` if the [`Path`] is relative, i.e., not absolute.
+    ///
+    /// See [`is_absolute`](Path::is_absolute)'s documentation for more details.
     #[inline]
     pub fn is_relative(&self) -> bool {
         self.inner.is_relative()
     }
 
+    /// Returns an `Ok` [`AbsolutePath`] if the [`Path`] is absolute.
+    /// Otherwise, returns an `Err` [`RelativePath`].
     #[inline]
     pub fn try_absolute(&self) -> Result<&AbsolutePath, &RelativePath> {
         self.is_absolute()
@@ -220,6 +321,8 @@ impl Path {
             .ok_or(RelativePath::new_unchecked(&self.inner))
     }
 
+    /// Returns an `Ok` [`RelativePath`] if the [`Path`] is relative.
+    /// Otherwise, returns an `Err` [`AbsolutePath`].
     #[inline]
     pub fn try_relative(&self) -> Result<&RelativePath, &AbsolutePath> {
         self.is_relative()
@@ -229,6 +332,11 @@ impl Path {
 }
 
 impl<Form: PathJoin> Path<Form> {
+    /// Creates an owned [`PathBuf`] with `path` adjoined to `self`.
+    ///
+    /// If `path` is absolute, it replaces the current path.
+    ///
+    /// See [`PathBuf::push`] for more details on what it means to adjoin a path.
     #[inline]
     pub fn join<F: MaybeRelative>(&self, path: impl AsRef<Path<F>>) -> PathBuf<Form::Output> {
         PathBuf::new_unchecked(self.inner.join(&path.as_ref().inner))
@@ -236,11 +344,17 @@ impl<Form: PathJoin> Path<Form> {
 }
 
 impl<Form: PathSet> Path<Form> {
+    /// Creates an owned [`PathBuf`] like `self` but with the given file name.
+    ///
+    /// See [`PathBuf::set_file_name`] for more details.
     #[inline]
     pub fn with_file_name(&self, file_name: impl AsRef<OsStr>) -> PathBuf<Form> {
         PathBuf::new_unchecked(self.inner.with_file_name(file_name))
     }
 
+    /// Creates an owned [`PathBuf`] like `self` but with the given extension.
+    ///
+    /// See [`PathBuf::set_extension`] for more details.
     #[inline]
     pub fn with_extension(&self, extension: impl AsRef<OsStr>) -> PathBuf<Form> {
         PathBuf::new_unchecked(self.inner.with_extension(extension))
@@ -248,13 +362,30 @@ impl<Form: PathSet> Path<Form> {
 }
 
 impl<Form: MaybeRelative> Path<Form> {
+    /// Returns the, potentially relative, underlying [`std::path::Path`].
+    ///
+    /// # Note
+    ///
+    /// Caution should be taken when using this function. Nushell keeps track of an emulated current
+    /// working directory, and using the [`std::path::Path`] returned from this method will likely
+    /// use [`std::env::current_dir`] to resolve the path instead of using the emulated current
+    /// working directory.
+    ///
+    /// Instead, you should probably join this path onto the emulated current working directory.
+    /// Any [`AbsolutePath`] or [`CanonicalPath`] will also suffice.
     #[inline]
     pub fn as_relative_std_path(&self) -> &std::path::Path {
         &self.inner
     }
-}
 
-impl<Form: MaybeAbsolute> Path<Form> {
+    // Returns `true` if the [`Path`] has a root.
+    ///
+    /// * On Unix, a path has a root if it begins with `/`.
+    ///
+    /// * On Windows, a path has a root if it:
+    ///     * has no prefix and begins with a separator, e.g., `\windows`
+    ///     * has a prefix followed by a separator, e.g., `c:\windows` but not `c:windows`
+    ///     * has any non-disk prefix, e.g., `\\server\share`
     #[inline]
     pub fn has_root(&self) -> bool {
         self.inner.has_root()
@@ -262,36 +393,70 @@ impl<Form: MaybeAbsolute> Path<Form> {
 }
 
 impl<Form: IsAbsolute> Path<Form> {
+    /// Returns the underlying [`std::path::Path`].
     #[inline]
     pub fn as_std_path(&self) -> &std::path::Path {
         &self.inner
     }
 
+    /// Converts a [`Path`] to an owned [`std::path::PathBuf`].
     #[inline]
     pub fn to_std_pathbuf(&self) -> std::path::PathBuf {
         self.inner.to_path_buf()
     }
 
+    /// Queries the file system to get information about a file, directory, etc.
+    ///
+    /// This function will traverse symbolic links to query information about the destination file.
+    ///
+    /// This is an alias to [`std::fs::metadata`].
     #[inline]
     pub fn metadata(&self) -> io::Result<fs::Metadata> {
         self.inner.metadata()
     }
 
+    /// Returns an iterator over the entries within a directory.
+    ///
+    /// The iterator will yield instances of <code>[io::Result]<[fs::DirEntry]></code>.
+    /// New errors may be encountered after an iterator is initially constructed.
+    ///
+    /// This is an alias to [`std::fs::read_dir`].
     #[inline]
     pub fn read_dir(&self) -> io::Result<fs::ReadDir> {
         self.inner.read_dir()
     }
 
+    /// Returns `true` if the path points at an existing entity.
+    ///
+    /// Warning: this method may be error-prone, consider using [`try_exists`](Path::try_exists)
+    /// instead! It also has a risk of introducing time-of-check to time-of-use (TOCTOU) bugs.
+    ///
+    /// This function will traverse symbolic links to query information about the destination file.
+    ///
+    /// If you cannot access the metadata of the file, e.g. because of a permission error
+    /// or broken symbolic links, this will return `false`.
     #[inline]
     pub fn exists(&self) -> bool {
         self.inner.exists()
     }
 
+    /// Returns `true` if the path exists on disk and is pointing at a regular file.
+    ///
+    /// This function will traverse symbolic links to query information about the destination file.
+    ///
+    /// If you cannot access the metadata of the file, e.g. because of a permission error
+    /// or broken symbolic links, this will return `false`.
     #[inline]
     pub fn is_file(&self) -> bool {
         self.inner.is_file()
     }
 
+    /// Returns `true` if the path exists on disk and is pointing at a directory.
+    ///
+    /// This function will traverse symbolic links to query information about the destination file.
+    ///
+    /// If you cannot access the metadata of the file, e.g. because of a permission error
+    /// or broken symbolic links, this will return `false`.
     #[inline]
     pub fn is_dir(&self) -> bool {
         self.inner.is_dir()
@@ -299,6 +464,12 @@ impl<Form: IsAbsolute> Path<Form> {
 }
 
 impl AbsolutePath {
+    /// Returns the canonical, absolute form of the path with all intermediate components
+    /// normalized and symbolic links resolved.
+    ///
+    /// On Windows, this will also simplify to a winuser path.
+    ///
+    /// This is an alias to [`std::fs::canonicalize`].
     #[cfg(not(windows))]
     #[inline]
     pub fn canonicalize(&self) -> io::Result<CanonicalPathBuf> {
@@ -307,6 +478,12 @@ impl AbsolutePath {
             .map(CanonicalPathBuf::new_unchecked)
     }
 
+    /// Returns the canonical, absolute form of the path with all intermediate components
+    /// normalized and symbolic links resolved.
+    ///
+    /// On Windows, this will also simplify to a winuser path.
+    ///
+    /// This is an alias to [`std::fs::canonicalize`].
     #[cfg(windows)]
     pub fn canonicalize(&self) -> io::Result<CanonicalPathBuf> {
         use omnipath::WinPathExt;
@@ -315,21 +492,48 @@ impl AbsolutePath {
         Ok(CanonicalPathBuf::new_unchecked(path))
     }
 
+    /// Reads a symbolic link, returning the file that the link points to.
+    ///
+    /// This is an alias to [`std::fs::read_link`].
     #[inline]
     pub fn read_link(&self) -> io::Result<AbsolutePathBuf> {
         self.inner.read_link().map(PathBuf::new_unchecked)
     }
 
+    /// Returns `Ok(true)` if the path points at an existing entity.
+    ///
+    /// This function will traverse symbolic links to query information about the destination file.
+    /// In case of broken symbolic links this will return `Ok(false)`.
+    ///
+    /// [`Path::exists`] only checks whether or not a path was both found and readable.
+    /// By contrast, [`try_exists`](Path::try_exists) will return `Ok(true)` or `Ok(false)`,
+    /// respectively, if the path was _verified_ to exist or not exist.
+    /// If its existence can neither be confirmed nor denied, it will propagate an `Err` instead.
+    /// This can be the case if e.g. listing permission is denied on one of the parent directories.
+    ///
+    /// Note that while this avoids some pitfalls of the [`exist`](Path::exists) method,
+    /// it still can not prevent time-of-check to time-of-use (TOCTOU) bugs.
+    /// You should only use it in scenarios where those bugs are not an issue.
     #[inline]
     pub fn try_exists(&self) -> io::Result<bool> {
         self.inner.try_exists()
     }
 
+    /// Returns `true` if the path exists on disk and is pointing at a symbolic link.
+    ///
+    /// This function will not traverse symbolic links.
+    /// In case of a broken symbolic link this will also return true.
+    ///
+    /// If you cannot access the directory containing the file, e.g., because of a permission error,
+    /// this will return false.
     #[inline]
     pub fn is_symlink(&self) -> bool {
         self.inner.is_symlink()
     }
 
+    /// Queries the metadata about a file without following symlinks.
+    ///
+    /// This is an alias to [`std::fs::symlink_metadata`].
     #[inline]
     pub fn symlink_metadata(&self) -> io::Result<fs::Metadata> {
         self.inner.symlink_metadata()
@@ -337,6 +541,7 @@ impl AbsolutePath {
 }
 
 impl CanonicalPath {
+    /// Returns a [`CanonicalPath`] as a [`AbsolutePath`].
     #[inline]
     pub fn as_absolute(&self) -> &AbsolutePath {
         self.cast()
