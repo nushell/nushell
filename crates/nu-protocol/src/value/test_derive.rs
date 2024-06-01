@@ -223,6 +223,23 @@ fn unnamed_fields_struct_roundtrip() {
     assert_eq!(expected, actual);
 }
 
+#[test]
+fn unnamed_fields_struct_missing_value() {
+    let value = Value::test_list(vec![]);
+    let res: Result<UnnamedFieldsStruct<f64>, _> =
+        UnnamedFieldsStruct::from_value(value, Span::test_data());
+    assert!(res.is_err());
+}
+
+#[test]
+fn unnamed_fields_struct_incorrect_type() {
+    // Should work for every type that is not a record.
+    let value = Value::test_nothing();
+    let res: Result<UnnamedFieldsStruct<f64>, _> =
+        UnnamedFieldsStruct::from_value(value, Span::test_data());
+    assert!(res.is_err());
+}
+
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
 struct UnitStruct;
 
