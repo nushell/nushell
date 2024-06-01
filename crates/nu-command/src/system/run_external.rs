@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Expr, Expression},
     did_you_mean,
     process::ChildProcess,
-    ByteStream, OutDest,
+    ByteStream, NuGlob, OutDest,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -13,7 +13,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::Arc,
+    sync::{atomic::AtomicBool, Arc},
     thread,
 };
 
@@ -232,6 +232,7 @@ pub fn eval_arguments_from_call(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<Vec<Spanned<String>>, ShellError> {
+    let ctrlc = &engine_state.ctrlc;
     let cwd = engine_state.cwd(Some(stack))?;
     let mut args: Vec<Spanned<String>> = vec![];
     for (expr, spread) in call.rest_iter(1) {
@@ -240,7 +241,7 @@ pub fn eval_arguments_from_call(
             // glob-expansion, and inner-quotes-removal, in that order.
             for arg in eval_argument(engine_state, stack, expr, spread)? {
                 let tilde_expanded = expand_tilde(&arg);
-                for glob_expanded in expand_glob(&tilde_expanded, &cwd, expr.span)? {
+                for glob_expanded in expand_glob(&tilde_expanded, &cwd, expr.span, ctrlc)? {
                     let inner_quotes_removed = remove_inner_quotes(&glob_expanded);
                     args.push(inner_quotes_removed.into_owned().into_spanned(expr.span));
                 }
@@ -321,37 +322,51 @@ fn expand_tilde(arg: &str) -> String {
 ///
 /// Note: This matches the default behavior of Bash, but is known to be
 /// error-prone. We might want to change this behavior in the future.
-fn expand_glob(arg: &str, cwd: &Path, span: Span) -> Result<Vec<String>, ShellError> {
-    let Ok(paths) = nu_glob::glob_with_parent(arg, nu_glob::MatchOptions::default(), cwd) else {
+fn expand_glob(
+    arg: &str,
+    cwd: &Path,
+    span: Span,
+    interrupt: &Option<Arc<AtomicBool>>,
+) -> Result<Vec<String>, ShellError> {
+    // We must use `nu_engine::glob_from` here, in order to ensure we get paths from the correct
+    // dir
+    let glob = NuGlob::Expand(arg.to_owned()).into_spanned(span);
+    let Ok((_prefix, paths)) = nu_engine::glob_from(&glob, cwd, span, None) else {
+        // If an error occurred, return the original input
         return Ok(vec![arg.into()]);
     };
 
-    let mut result = vec![];
-    for path in paths {
-        let path = path.map_err(|err| ShellError::IOErrorSpanned {
-            msg: format!("{}: {:?}", err.path().display(), err.error()),
-            span,
-        })?;
-        // Strip PWD from the resulting paths if possible.
-        let path_stripped = if let Ok(remainder) = path.strip_prefix(cwd) {
-            // If stripping PWD results in an empty path, return `.` instead.
-            if remainder.components().next().is_none() {
-                Path::new(".")
-            } else {
-                remainder
+    let paths = paths
+        // Skip over glob failures. These are usually just inaccessible paths.
+        .flat_map(|path_result| match path_result {
+            Ok(path) => Some(path),
+            Err(err) => {
+                // But internally log them just in case we need to debug this.
+                log::warn!("Error in run_external::expand_glob(): {}", err);
+                None
             }
-        } else {
-            &path
-        };
-        let path_string = path_stripped.to_string_lossy().to_string();
-        result.push(path_string);
-    }
+        })
+        // Convert the paths returned to UTF-8 strings.
+        //
+        // FIXME: this fails to return the correct results for non-UTF-8 paths, but we don't support
+        // those in Nushell yet.
+        .map(|path| path.to_string_lossy().into_owned())
+        // Abandon if ctrl-c is pressed
+        .map(|path| {
+            if !nu_utils::ctrl_c::was_pressed(&interrupt) {
+                Ok(path)
+            } else {
+                Err(ShellError::InterruptedByUser { span: Some(span) })
+            }
+        })
+        .collect::<Result<Vec<String>, ShellError>>()?;
 
-    if result.is_empty() {
-        result.push(arg.to_string());
+    if !paths.is_empty() {
+        Ok(paths)
+    } else {
+        // If we failed to match, return the original input
+        Ok(vec![arg.into()])
     }
-
-    Ok(result)
 }
 
 /// Transforms `--option="value"` into `--option=value`. `value` can be quoted
@@ -674,19 +689,19 @@ mod test {
         std::fs::File::create(cwd.join("a.txt")).unwrap();
         std::fs::File::create(cwd.join("b.txt")).unwrap();
 
-        let actual = expand_glob("*.txt", cwd, Span::unknown()).unwrap();
+        let actual = expand_glob("*.txt", cwd, Span::unknown(), &None).unwrap();
         let expected = &["a.txt", "b.txt"];
         assert_eq!(actual, expected);
 
-        let actual = expand_glob("'*.txt'", cwd, Span::unknown()).unwrap();
+        let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &None).unwrap();
         let expected = &["'*.txt'"];
         assert_eq!(actual, expected);
 
-        let actual = expand_glob(cwd.to_str().unwrap(), cwd, Span::unknown()).unwrap();
+        let actual = expand_glob(cwd.to_str().unwrap(), cwd, Span::unknown(), &None).unwrap();
         let expected = &["."];
         assert_eq!(actual, expected);
 
-        let actual = expand_glob("[*.txt", cwd, Span::unknown()).unwrap();
+        let actual = expand_glob("[*.txt", cwd, Span::unknown(), &None).unwrap();
         let expected = &["[*.txt"];
         assert_eq!(actual, expected);
     }
