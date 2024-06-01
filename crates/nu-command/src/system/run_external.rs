@@ -331,6 +331,13 @@ fn expand_glob(
     span: Span,
     interrupt: &Option<Arc<AtomicBool>>,
 ) -> Result<Vec<String>, ShellError> {
+    const GLOB_CHARS: &[char] = &['*', '?', '['];
+
+    // Don't expand something that doesn't include the GLOB_CHARS
+    if !arg.contains(GLOB_CHARS) {
+        return Ok(vec![arg.into()]);
+    }
+
     // We must use `nu_engine::glob_from` here, in order to ensure we get paths from the correct
     // dir
     let glob = NuGlob::Expand(arg.to_owned()).into_spanned(span);
@@ -338,6 +345,9 @@ fn expand_glob(
         // If an error occurred, return the original input
         return Ok(vec![arg.into()]);
     };
+
+    // If the first component of the original `arg` string path was '.', that should be preserved
+    let relative_to_dot = Path::new(arg).starts_with(".");
 
     let paths = paths
         // Skip over glob failures. These are usually just inaccessible paths.
@@ -349,6 +359,20 @@ fn expand_glob(
                 None
             }
         })
+        // Make the paths relative to the cwd
+        .map(|path| {
+            path.strip_prefix(cwd)
+                .map(|path| path.to_owned())
+                .unwrap_or(path)
+        })
+        // Add './' to relative paths if the original pattern had it
+        .map(|path| {
+            if relative_to_dot && path.is_relative() {
+                Path::new(".").join(path)
+            } else {
+                path
+            }
+        })
         // Convert the paths returned to UTF-8 strings.
         //
         // FIXME: this fails to return the correct results for non-UTF-8 paths, but we don't support
@@ -356,7 +380,7 @@ fn expand_glob(
         .map(|path| path.to_string_lossy().into_owned())
         // Abandon if ctrl-c is pressed
         .map(|path| {
-            if !nu_utils::ctrl_c::was_pressed(&interrupt) {
+            if !nu_utils::ctrl_c::was_pressed(interrupt) {
                 Ok(path)
             } else {
                 Err(ShellError::InterruptedByUser { span: Some(span) })
@@ -625,6 +649,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
 mod test {
     use super::*;
     use nu_protocol::ast::ListItem;
+    use nu_test_support::{fs::Stub, playground::Playground};
 
     #[test]
     fn test_remove_quotes() {
@@ -687,26 +712,35 @@ mod test {
 
     #[test]
     fn test_expand_glob() {
-        let tempdir = tempfile::tempdir().unwrap();
-        let cwd = tempdir.path();
-        std::fs::File::create(cwd.join("a.txt")).unwrap();
-        std::fs::File::create(cwd.join("b.txt")).unwrap();
+        Playground::setup("test_expand_glob", |dirs, play| {
+            play.with_files(&[Stub::EmptyFile("a.txt"), Stub::EmptyFile("b.txt")]);
 
-        let actual = expand_glob("*.txt", cwd, Span::unknown(), &None).unwrap();
-        let expected = &["a.txt", "b.txt"];
-        assert_eq!(actual, expected);
+            let cwd = dirs.test();
 
-        let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &None).unwrap();
-        let expected = &["'*.txt'"];
-        assert_eq!(actual, expected);
+            let actual = expand_glob("*.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["a.txt", "b.txt"];
+            assert_eq!(actual, expected);
 
-        let actual = expand_glob(cwd.to_str().unwrap(), cwd, Span::unknown(), &None).unwrap();
-        let expected = &["."];
-        assert_eq!(actual, expected);
+            let actual = expand_glob("./*.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["./a.txt", "./b.txt"];
+            assert_eq!(actual, expected);
 
-        let actual = expand_glob("[*.txt", cwd, Span::unknown(), &None).unwrap();
-        let expected = &["[*.txt"];
-        assert_eq!(actual, expected);
+            let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["'*.txt'"];
+            assert_eq!(actual, expected);
+
+            let actual = expand_glob(".", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["."];
+            assert_eq!(actual, expected);
+
+            let actual = expand_glob("./a.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["./a.txt"];
+            assert_eq!(actual, expected);
+
+            let actual = expand_glob("[*.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["[*.txt"];
+            assert_eq!(actual, expected);
+        })
     }
 
     #[test]
