@@ -1,6 +1,6 @@
 use crate::form::{
     Absolute, Any, Canonical, IsAbsolute, MaybeAbsolute, MaybeRelative, PathCast, PathForm,
-    PathJoin, PathPush, PathSet, Relative,
+    PathJoin, PathMut, PathPush, Relative,
 };
 use std::{
     borrow::{Borrow, Cow},
@@ -43,11 +43,6 @@ impl<Form: PathForm> Path<Form> {
     #[inline]
     pub fn as_os_str(&self) -> &OsStr {
         self.inner.as_os_str()
-    }
-
-    #[inline]
-    pub fn as_mut_os_str(&mut self) -> &mut OsStr {
-        self.inner.as_mut_os_str()
     }
 
     #[inline]
@@ -186,7 +181,12 @@ impl<Form: PathJoin> Path<Form> {
     }
 }
 
-impl<Form: PathSet> Path<Form> {
+impl<Form: PathMut> Path<Form> {
+    #[inline]
+    pub fn as_mut_os_str(&mut self) -> &mut OsStr {
+        self.inner.as_mut_os_str()
+    }
+
     #[inline]
     pub fn with_file_name(&self, file_name: impl AsRef<OsStr>) -> PathBuf<Form> {
         PathBuf::new_unchecked(self.inner.with_file_name(file_name))
@@ -367,11 +367,6 @@ impl<Form: PathForm> PathBuf<Form> {
     }
 
     #[inline]
-    pub fn as_mut_os_string(&mut self) -> &mut OsString {
-        self.inner.as_mut_os_string()
-    }
-
-    #[inline]
     pub fn into_os_string(self) -> OsString {
         self.inner.into_os_string()
     }
@@ -473,7 +468,12 @@ impl<Form: PathPush> PathBuf<Form> {
     }
 }
 
-impl<Form: PathSet> PathBuf<Form> {
+impl<Form: PathMut> PathBuf<Form> {
+    #[inline]
+    pub fn as_mut_os_string(&mut self) -> &mut OsString {
+        self.inner.as_mut_os_string()
+    }
+
     #[inline]
     pub fn set_file_name(&mut self, file_name: impl AsRef<OsStr>) {
         self.inner.set_file_name(file_name)
@@ -538,7 +538,7 @@ impl<Form: PathForm> Deref for PathBuf<Form> {
     }
 }
 
-impl<Form: PathForm> DerefMut for PathBuf<Form> {
+impl<Form: PathMut> DerefMut for PathBuf<Form> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         // Safety: `Path<Form>` is a repr(transparent) wrapper around `std::path::Path`.

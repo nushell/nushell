@@ -20,7 +20,7 @@ pub trait PathJoin: PathForm {
 
 pub trait PathPush: PathForm {}
 
-pub trait PathSet: PathForm {}
+pub trait PathMut: PathForm {}
 
 /// A path whose form is unknown. It could be a relative, absolute, or canonical path.
 ///
@@ -36,7 +36,7 @@ impl PathJoin for Any {
     type Output = Self;
 }
 impl PathPush for Any {}
-impl PathSet for Any {}
+impl PathMut for Any {}
 
 /// A strictly relative path.
 ///
@@ -51,7 +51,7 @@ impl MaybeRelative for Relative {}
 impl PathJoin for Relative {
     type Output = Any;
 }
-impl PathSet for Relative {}
+impl PathMut for Relative {}
 
 /// An absolute path.
 ///
@@ -68,7 +68,7 @@ impl PathJoin for Absolute {
     type Output = Self;
 }
 impl PathPush for Absolute {}
-impl PathSet for Absolute {}
+impl PathMut for Absolute {}
 
 // A canonical path.
 //
