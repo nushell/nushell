@@ -155,6 +155,9 @@ impl Command for External {
             }
         };
 
+        // Log the command we're about to run in case it's useful for debugging purposes.
+        log::trace!("run-external spawning: {command:?}");
+
         // Spawn the child process. On Unix, also put the child process to
         // foreground if we're in an interactive session.
         #[cfg(windows)]
