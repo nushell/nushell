@@ -38,7 +38,7 @@ pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, impl Into<
 
 fn derive_struct_from_value(ident: Ident, data: DataStruct, generics: Generics) -> TokenStream2 {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let from_value_impl = struct_from_value(&data, &generics);
+    let from_value_impl = struct_from_value(&data);
     let expected_type_impl = struct_expected_type(&data.fields);
     quote! {
         #[automatically_derived]
@@ -49,7 +49,7 @@ fn derive_struct_from_value(ident: Ident, data: DataStruct, generics: Generics) 
     }
 }
 
-fn struct_from_value(data: &DataStruct, generics: &Generics) -> TokenStream2 {
+fn struct_from_value(data: &DataStruct) -> TokenStream2 {
     let body = match &data.fields {
         Fields::Named(fields) => {
             let fields = fields.named.iter().map(|field| {
@@ -72,7 +72,7 @@ fn struct_from_value(data: &DataStruct, generics: &Generics) -> TokenStream2 {
             quote! {
                 let span = v.span();
                 let mut record = v.into_record()?;
-                Ok(Self {#(#fields),*})
+                std::result::Result::Ok(Self {#(#fields),*})
             }
         }
         Fields::Unnamed(fields) => {
@@ -95,13 +95,13 @@ fn struct_from_value(data: &DataStruct, generics: &Generics) -> TokenStream2 {
                 let span = v.span();
                 let list = v.into_list()?;
                 let mut deque: std::collections::VecDeque<_> = std::convert::From::from(list);
-                Ok(Self(#(#fields),*))
+                std::result::Result::Ok(Self(#(#fields),*))
             }
         }
         Fields::Unit => quote! {
             match v {
                 nu_protocol::Value::Nothing {..} => Ok(Self),
-                v => Err(nu_protocol::ShellError::CantConvert {
+                v => std::result::Result::Err(nu_protocol::ShellError::CantConvert {
                     to_type: <Self as nu_protocol::FromValue>::expected_type().to_string(),
                     from_type: v.get_type().to_string(),
                     span: v.span(),
