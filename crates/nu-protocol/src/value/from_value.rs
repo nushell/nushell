@@ -124,7 +124,7 @@ impl FromValue for char {
                     to_type: Self::expected_type().to_string(),
                     from_type: v_ty.to_string(),
                     span,
-                    help: Some(format!("make the string only one char long")),
+                    help: Some("make the string only one char long".to_string()),
                 }),
             },
             _ => Err(ShellError::CantConvert {
