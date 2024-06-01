@@ -27,6 +27,9 @@ pub fn derive_into_value(input: TokenStream) -> TokenStream {
     TokenStream::from(output)
 }
 
+/// Derive macro generating an impl of the trait `FromValue`.
+///
+/// For further information, see the docs on the trait itself.
 #[proc_macro_derive(FromValue)]
 #[proc_macro_error]
 pub fn derive_from_value(input: TokenStream) -> TokenStream {
