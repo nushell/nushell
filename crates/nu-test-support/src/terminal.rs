@@ -10,8 +10,10 @@
 //! will create one for you with sensible defaults.
 //!
 //! Step 2: Create a PTY and spawn a Nushell process to the slave end.
-//! `pty_with_nushell()` will do that for you. It's probably a good idea to pass
-//! `--no-config-file` as argument to Nushell.
+//! `pty_with_nushell()` will do that for you. Here you can set PWD or pass
+//! command line arguments to Nushell. It's always a good idea to pass
+//! `--no-config-file`, otherwise Nushell will ask if you want to create one
+//! with default, and that messes up the input.
 //!
 //! Step 3: Wait for Nushell to initialize (sleeping for 500ms should do). On
 //! Linux, trying to write to the PTY before Nushell finishes initialization
