@@ -1,4 +1,4 @@
-use crate::{record, FromValue, IntoValue, Record, Span, Value};
+use crate::{record, FromValue, IntoValue, Record, Value};
 use std::collections::HashMap;
 
 // Make nu_protocol available in this namespace, consumers of this crate will
@@ -131,34 +131,28 @@ fn named_fields_struct_into_value() {
 #[test]
 fn named_fields_struct_from_value() {
     let expected = NamedFieldsStruct::make();
-    let actual =
-        NamedFieldsStruct::from_value(NamedFieldsStruct::value(), Span::test_data()).unwrap();
+    let actual = NamedFieldsStruct::from_value(NamedFieldsStruct::value()).unwrap();
     assert_eq!(expected, actual);
 }
 
 #[test]
 fn named_fields_struct_roundtrip() {
     let expected = NamedFieldsStruct::make();
-    let actual = NamedFieldsStruct::from_value(
-        NamedFieldsStruct::make().into_value_unknown(),
-        Span::test_data(),
-    )
-    .unwrap();
+    let actual =
+        NamedFieldsStruct::from_value(NamedFieldsStruct::make().into_value_unknown()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = NamedFieldsStruct::value();
-    let actual =
-        NamedFieldsStruct::<u32>::from_value(NamedFieldsStruct::value(), Span::test_data())
-            .unwrap()
-            .into_value_unknown();
+    let actual = NamedFieldsStruct::<u32>::from_value(NamedFieldsStruct::value())
+        .unwrap()
+        .into_value_unknown();
     assert_eq!(expected, actual);
 }
 
 #[test]
 fn named_fields_struct_missing_value() {
     let value = Value::test_record(Record::new());
-    let res: Result<NamedFieldsStruct<u32>, _> =
-        NamedFieldsStruct::from_value(value, Span::test_data());
+    let res: Result<NamedFieldsStruct<u32>, _> = NamedFieldsStruct::from_value(value);
     assert!(res.is_err());
 }
 
@@ -166,8 +160,7 @@ fn named_fields_struct_missing_value() {
 fn named_fields_struct_incorrect_type() {
     // Should work for every type that is not a record.
     let value = Value::test_nothing();
-    let res: Result<NamedFieldsStruct<u32>, _> =
-        NamedFieldsStruct::from_value(value, Span::test_data());
+    let res: Result<NamedFieldsStruct<u32>, _> = NamedFieldsStruct::from_value(value);
     assert!(res.is_err());
 }
 
@@ -201,33 +194,28 @@ fn unnamed_fields_struct_into_value() {
 fn unnamed_fields_struct_from_value() {
     let expected = UnnamedFieldsStruct::make();
     let value = UnnamedFieldsStruct::value();
-    let actual = UnnamedFieldsStruct::from_value(value, Span::test_data()).unwrap();
+    let actual = UnnamedFieldsStruct::from_value(value).unwrap();
     assert_eq!(expected, actual);
 }
 
 #[test]
 fn unnamed_fields_struct_roundtrip() {
     let expected = UnnamedFieldsStruct::make();
-    let actual = UnnamedFieldsStruct::from_value(
-        UnnamedFieldsStruct::make().into_value_unknown(),
-        Span::test_data(),
-    )
-    .unwrap();
+    let actual =
+        UnnamedFieldsStruct::from_value(UnnamedFieldsStruct::make().into_value_unknown()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = UnnamedFieldsStruct::value();
-    let actual =
-        UnnamedFieldsStruct::<f64>::from_value(UnnamedFieldsStruct::value(), Span::test_data())
-            .unwrap()
-            .into_value_unknown();
+    let actual = UnnamedFieldsStruct::<f64>::from_value(UnnamedFieldsStruct::value())
+        .unwrap()
+        .into_value_unknown();
     assert_eq!(expected, actual);
 }
 
 #[test]
 fn unnamed_fields_struct_missing_value() {
     let value = Value::test_list(vec![]);
-    let res: Result<UnnamedFieldsStruct<f64>, _> =
-        UnnamedFieldsStruct::from_value(value, Span::test_data());
+    let res: Result<UnnamedFieldsStruct<f64>, _> = UnnamedFieldsStruct::from_value(value);
     assert!(res.is_err());
 }
 
@@ -235,8 +223,7 @@ fn unnamed_fields_struct_missing_value() {
 fn unnamed_fields_struct_incorrect_type() {
     // Should work for every type that is not a record.
     let value = Value::test_nothing();
-    let res: Result<UnnamedFieldsStruct<f64>, _> =
-        UnnamedFieldsStruct::from_value(value, Span::test_data());
+    let res: Result<UnnamedFieldsStruct<f64>, _> = UnnamedFieldsStruct::from_value(value);
     assert!(res.is_err());
 }
 
@@ -253,19 +240,18 @@ fn unit_struct_into_value() {
 #[test]
 fn unit_struct_from_value() {
     let expected = UnitStruct;
-    let actual = UnitStruct::from_value(Value::test_nothing(), Span::test_data()).unwrap();
+    let actual = UnitStruct::from_value(Value::test_nothing()).unwrap();
     assert_eq!(expected, actual);
 }
 
 #[test]
 fn unit_struct_roundtrip() {
     let expected = UnitStruct;
-    let actual =
-        UnitStruct::from_value(UnitStruct.into_value_unknown(), Span::test_data()).unwrap();
+    let actual = UnitStruct::from_value(UnitStruct.into_value_unknown()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = Value::test_nothing();
-    let actual = UnitStruct::from_value(Value::test_nothing(), Span::test_data())
+    let actual = UnitStruct::from_value(Value::test_nothing())
         .unwrap()
         .into_value_unknown();
     assert_eq!(expected, actual);
@@ -323,19 +309,18 @@ fn enum_into_value() {
 #[test]
 fn enum_from_value() {
     let expected = Enum::make();
-    let actual = <[Enum; 3]>::from_value(Enum::value(), Span::test_data()).unwrap();
+    let actual = <[Enum; 3]>::from_value(Enum::value()).unwrap();
     assert_eq!(expected, actual);
 }
 
 #[test]
 fn enum_roundtrip() {
     let expected = Enum::make();
-    let actual =
-        <[Enum; 3]>::from_value(Enum::make().into_value_unknown(), Span::test_data()).unwrap();
+    let actual = <[Enum; 3]>::from_value(Enum::make().into_value_unknown()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = Enum::value();
-    let actual = <[Enum; 3]>::from_value(Enum::value(), Span::test_data())
+    let actual = <[Enum; 3]>::from_value(Enum::value())
         .unwrap()
         .into_value_unknown();
     assert_eq!(expected, actual);
@@ -344,7 +329,7 @@ fn enum_roundtrip() {
 #[test]
 fn enum_type_missing() {
     let value = Value::test_record(record!());
-    let res = Enum::from_value(value, Span::test_data());
+    let res = Enum::from_value(value);
     assert!(res.is_err());
 }
 
@@ -353,7 +338,7 @@ fn enum_content_missing() {
     let value = Value::test_record(record! {
         "type" => Value::test_string("tuple")
     });
-    let res = Enum::from_value(value, Span::test_data());
+    let res = Enum::from_value(value);
     assert!(res.is_err());
 }
 
@@ -362,7 +347,7 @@ fn enum_unknown_variant() {
     let value = Value::test_record(record! {
         "type" => Value::test_string("who_knows")
     });
-    let res = Enum::from_value(value, Span::test_data());
+    let res = Enum::from_value(value);
     assert!(res.is_err());
 }
 
@@ -370,6 +355,6 @@ fn enum_unknown_variant() {
 fn enum_incorrect_type() {
     // Should work for every type that is not a record.
     let value = Value::test_nothing();
-    let res = Enum::from_value(value, Span::test_data());
+    let res = Enum::from_value(value);
     assert!(res.is_err());
 }

@@ -57,8 +57,7 @@ fn struct_from_value(data: &DataStruct) -> TokenStream2 {
     let body = fields_from_record(&data.fields, quote!(Self));
     quote! {
         fn from_value(
-            v: nu_protocol::Value,
-            call_span: nu_protocol::Span
+            v: nu_protocol::Value
         ) -> std::result::Result<Self, nu_protocol::ShellError> {
             #body
         }
@@ -137,15 +136,14 @@ fn enum_from_value(data: &DataEnum) -> TokenStream2 {
 
     quote! {
         fn from_value(
-            v: nu_protocol::Value,
-            call_span: nu_protocol::Span
+            v: nu_protocol::Value
         ) -> std::result::Result<Self, nu_protocol::ShellError> {
             let span = v.span();
             let mut record = v.into_record()?;
 
             let ty = record.remove("type").ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
                 col_name: std::string::ToString::to_string("type"),
-                span: call_span,
+                span: None,
                 src_span: span
             })?;
             let ty = ty.into_string()?;
@@ -185,10 +183,9 @@ fn fields_from_record(fields: &Fields, self_ident: impl ToTokens) -> TokenStream
                             .remove(#ident_s)
                             .ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
                                 col_name: std::string::ToString::to_string(#ident_s),
-                                span: call_span,
+                                span: std::option::Option::None,
                                 src_span: span
                             })?,
-                        call_span,
                     )?
                 }
             });
@@ -207,10 +204,9 @@ fn fields_from_record(fields: &Fields, self_ident: impl ToTokens) -> TokenStream
                             .pop_front()
                             .ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
                                 col_name: std::string::ToString::to_string(&#i),
-                                span: call_span,
+                                span: std::option::Option::None,
                                 src_span: span
                             })?,
-                        call_span,
                     )?
                 }}
             });

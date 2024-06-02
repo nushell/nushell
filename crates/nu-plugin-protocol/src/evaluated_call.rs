@@ -294,7 +294,7 @@ impl EvaluatedCall {
     /// ```
     pub fn get_flag<T: FromValue>(&self, name: &str) -> Result<Option<T>, ShellError> {
         if let Some(value) = self.get_flag_value(name) {
-            FromValue::from_value(value, self.head).map(Some)
+            FromValue::from_value(value).map(Some)
         } else {
             Ok(None)
         }
@@ -328,7 +328,7 @@ impl EvaluatedCall {
         self.positional
             .iter()
             .skip(starting_pos)
-            .map(|value| FromValue::from_value(value.clone(), self.head))
+            .map(|value| FromValue::from_value(value.clone()))
             .collect()
     }
 
@@ -339,7 +339,7 @@ impl EvaluatedCall {
     /// or an error that can be passed back to the shell on error.
     pub fn opt<T: FromValue>(&self, pos: usize) -> Result<Option<T>, ShellError> {
         if let Some(value) = self.nth(pos) {
-            FromValue::from_value(value, self.head).map(Some)
+            FromValue::from_value(value).map(Some)
         } else {
             Ok(None)
         }
@@ -352,7 +352,7 @@ impl EvaluatedCall {
     /// be passed back to the shell.
     pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
         if let Some(value) = self.nth(pos) {
-            FromValue::from_value(value, self.head)
+            FromValue::from_value(value)
         } else if self.positional.is_empty() {
             Err(ShellError::AccessEmptyContent { span: self.head })
         } else {

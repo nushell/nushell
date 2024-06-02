@@ -1093,7 +1093,7 @@ impl Value {
                             } else {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.clone(),
-                                    span: *origin_span,
+                                    span: Some(*origin_span),
                                     src_span: span,
                                 });
                             }
@@ -1130,7 +1130,7 @@ impl Value {
                                             } else {
                                                 Err(ShellError::CantFindColumn {
                                                     col_name: column_name.clone(),
-                                                    span: *origin_span,
+                                                    span: Some(*origin_span),
                                                     src_span: val_span,
                                                 })
                                             }
@@ -1140,7 +1140,7 @@ impl Value {
                                         }
                                         _ => Err(ShellError::CantFindColumn {
                                             col_name: column_name.clone(),
-                                            span: *origin_span,
+                                            span: Some(*origin_span),
                                             src_span: val_span,
                                         }),
                                     }
@@ -1241,7 +1241,7 @@ impl Value {
                                 v => {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: col_name.clone(),
-                                        span: *span,
+                                        span: Some(*span),
                                         src_span: v.span(),
                                     });
                                 }
@@ -1266,7 +1266,7 @@ impl Value {
                     v => {
                         return Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
-                            span: *span,
+                            span: Some(*span),
                             src_span: v.span(),
                         });
                     }
@@ -1346,7 +1346,7 @@ impl Value {
                                     } else {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.clone(),
-                                            span: *span,
+                                            span: Some(*span),
                                             src_span: v_span,
                                         });
                                     }
@@ -1355,7 +1355,7 @@ impl Value {
                                 v => {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: col_name.clone(),
-                                        span: *span,
+                                        span: Some(*span),
                                         src_span: v.span(),
                                     });
                                 }
@@ -1368,7 +1368,7 @@ impl Value {
                         } else {
                             return Err(ShellError::CantFindColumn {
                                 col_name: col_name.clone(),
-                                span: *span,
+                                span: Some(*span),
                                 src_span: v_span,
                             });
                         }
@@ -1377,7 +1377,7 @@ impl Value {
                     v => {
                         return Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
-                            span: *span,
+                            span: Some(*span),
                             src_span: v.span(),
                         });
                     }
@@ -1431,7 +1431,7 @@ impl Value {
                                         if record.to_mut().remove(col_name).is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.clone(),
-                                                span: *span,
+                                                span: Some(*span),
                                                 src_span: v_span,
                                             });
                                         }
@@ -1439,7 +1439,7 @@ impl Value {
                                     v => {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.clone(),
-                                            span: *span,
+                                            span: Some(*span),
                                             src_span: v.span(),
                                         });
                                     }
@@ -1451,7 +1451,7 @@ impl Value {
                             if record.to_mut().remove(col_name).is_none() && !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.clone(),
-                                    span: *span,
+                                    span: Some(*span),
                                     src_span: v_span,
                                 });
                             }
@@ -1459,7 +1459,7 @@ impl Value {
                         }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
-                            span: *span,
+                            span: Some(*span),
                             src_span: v.span(),
                         }),
                     },
@@ -1508,7 +1508,7 @@ impl Value {
                                         } else if !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.clone(),
-                                                span: *span,
+                                                span: Some(*span),
                                                 src_span: v_span,
                                             });
                                         }
@@ -1516,7 +1516,7 @@ impl Value {
                                     v => {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.clone(),
-                                            span: *span,
+                                            span: Some(*span),
                                             src_span: v.span(),
                                         });
                                     }
@@ -1530,7 +1530,7 @@ impl Value {
                             } else if !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.clone(),
-                                    span: *span,
+                                    span: Some(*span),
                                     src_span: v_span,
                                 });
                             }
@@ -1538,7 +1538,7 @@ impl Value {
                         }
                         v => Err(ShellError::CantFindColumn {
                             col_name: col_name.clone(),
-                            span: *span,
+                            span: Some(*span),
                             src_span: v.span(),
                         }),
                     },

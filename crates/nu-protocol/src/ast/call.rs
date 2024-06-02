@@ -245,7 +245,7 @@ impl Call {
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.get_flag_expr(name) {
             let result = eval_constant(working_set, expr)?;
-            FromValue::from_value(result, self.head).map(Some)
+            FromValue::from_value(result).map(Some)
         } else {
             Ok(None)
         }
@@ -261,7 +261,7 @@ impl Call {
         for result in
             self.rest_iter_flattened(starting_pos, |expr| eval_constant(working_set, expr))?
         {
-            output.push(FromValue::from_value(result, self.head)?);
+            output.push(FromValue::from_value(result)?);
         }
 
         Ok(output)
@@ -299,7 +299,7 @@ impl Call {
     ) -> Result<T, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
             let result = eval_constant(working_set, expr)?;
-            FromValue::from_value(result, self.head)
+            FromValue::from_value(result)
         } else if self.positional_len() == 0 {
             Err(ShellError::AccessEmptyContent { span: self.head })
         } else {

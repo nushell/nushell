@@ -557,12 +557,12 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
-    #[error("Cannot find column")]
+    #[error("Cannot find column '{col_name}'")]
     #[diagnostic(code(nu::shell::column_not_found))]
     CantFindColumn {
         col_name: String,
         #[label = "cannot find column '{col_name}'"]
-        span: Span,
+        span: Option<Span>,
         #[label = "value originates here"]
         src_span: Span,
     },

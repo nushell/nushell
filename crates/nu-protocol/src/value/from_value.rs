@@ -1,7 +1,7 @@
 use crate::{
     ast::{CellPath, PathMember},
     engine::Closure,
-    NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
+    NuGlob, Range, Record, ShellError, Spanned, Type, Value,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
@@ -21,18 +21,7 @@ pub trait FromValue: Sized {
     /// [`FromStr`].
     /// The operation might fail if the `Value` contains unexpected types or
     /// structures.
-    ///
-    /// The `call_span` parameter is used to trace errors when they are not
-    /// directly related to the `Value` itself.
-    /// For example, when using [`Value::Record`] and a field is missing,
-    /// nushell typically tracks errors back to user input or files.
-    /// However, the specific column name triggering the error might not be part
-    /// of the direct user input, as the column name could be embedded within
-    /// the binary itself.
-    /// By using `call_span`, you can link the error to the broader command or
-    /// input that triggered the function call, helping identify where the issue
-    /// with a missing field (or similar problem) began.
-    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError>;
+    fn from_value(v: Value) -> Result<Self, ShellError>;
 
     /// Expected `Value` type.
     ///
@@ -65,10 +54,10 @@ impl<T, const N: usize> FromValue for [T; N]
 where
     T: FromValue,
 {
-    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         let v_ty = v.get_type();
-        let vec = Vec::<T>::from_value(v, call_span)?;
+        let vec = Vec::<T>::from_value(v)?;
         vec.try_into()
             .map_err(|err_vec: Vec<T>| ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
@@ -96,7 +85,7 @@ where
 }
 
 impl FromValue for bool {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Bool { val, .. } => Ok(val),
             v => Err(ShellError::CantConvert {
@@ -114,7 +103,7 @@ impl FromValue for bool {
 }
 
 impl FromValue for char {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         let v_ty = v.get_type();
         match v {
@@ -142,13 +131,13 @@ impl FromValue for char {
 }
 
 impl FromValue for f32 {
-    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
-        f64::from_value(v, call_span).map(|float| float as f32)
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        f64::from_value(v).map(|float| float as f32)
     }
 }
 
 impl FromValue for f64 {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Float { val, .. } => Ok(val),
             Value::Int { val, .. } => Ok(val as f64),
@@ -167,7 +156,7 @@ impl FromValue for f64 {
 }
 
 impl FromValue for i64 {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Int { val, .. } => Ok(val),
             Value::Filesize { val, .. } => Ok(val),
@@ -190,9 +179,9 @@ impl FromValue for i64 {
 macro_rules! impl_from_value_for_int {
     ($type:ty) => {
         impl FromValue for $type {
-            fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+            fn from_value(v: Value) -> Result<Self, ShellError> {
                 let span = v.span();
-                let int = i64::from_value(v, call_span)?;
+                let int = i64::from_value(v)?;
                 const MIN: i64 = <$type>::MIN as i64;
                 const MAX: i64 = <$type>::MAX as i64;
                 #[allow(overlapping_range_endpoints)] // calculating MIN-1 is not possible for i64::MIN
@@ -234,7 +223,7 @@ impl_from_value_for_int!(isize);
 macro_rules! impl_from_value_for_uint {
     ($type:ty, $max:expr) => {
         impl FromValue for $type {
-            fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+            fn from_value(v: Value) -> Result<Self, ShellError> {
                 let span = v.span();
                 const MAX: i64 = $max;
                 match v {
@@ -285,7 +274,7 @@ impl_from_value_for_uint!(usize, i64::MAX);
 impl_from_value_for_uint!(usize, usize::MAX);
 
 impl FromValue for () {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Nothing { .. } => Ok(()),
             v => Err(ShellError::CantConvert {
@@ -305,7 +294,7 @@ impl FromValue for () {
 macro_rules! tuple_from_value {
     ($template:literal, $($t:ident:$n:tt),+) => {
         impl<$($t),+> FromValue for ($($t,)+) where $($t: FromValue,)+ {
-            fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+            fn from_value(v: Value) -> Result<Self, ShellError> {
                 let span = v.span();
                 match v {
                     Value::List { vals, .. } => {
@@ -315,10 +304,10 @@ macro_rules! tuple_from_value {
                             {
                                 let v = deque.pop_front().ok_or_else(|| ShellError::CantFindColumn {
                                     col_name: $n.to_string(),
-                                    span: call_span,
+                                    span: None,
                                     src_span: span
                                 })?;
-                                $t::from_value(v, call_span)?
+                                $t::from_value(v)?
                             },
                         )*))
                     },
@@ -361,7 +350,7 @@ tuple_from_value!("[{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}]", T0:0, T1:1
 // Other std Types
 
 impl FromValue for PathBuf {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::String { val, .. } => Ok(val.into()),
             v => Err(ShellError::CantConvert {
@@ -379,7 +368,7 @@ impl FromValue for PathBuf {
 }
 
 impl FromValue for String {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
             Value::CellPath { val, .. } => Ok(val.to_string()),
@@ -402,7 +391,7 @@ impl FromValue for String {
 // Value::String instead of Value::List.
 // This also denies implementing FromValue for u8.
 impl FromValue for Vec<u8> {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Binary { val, .. } => Ok(val),
             Value::String { val, .. } => Ok(val.into_bytes()),
@@ -426,10 +415,10 @@ impl<T> FromValue for Option<T>
 where
     T: FromValue,
 {
-    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Nothing { .. } => Ok(None),
-            v => T::from_value(v, call_span).map(Option::Some),
+            v => T::from_value(v).map(Option::Some),
         }
     }
 
@@ -442,11 +431,11 @@ impl<V> FromValue for HashMap<String, V>
 where
     V: FromValue,
 {
-    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         let record = v.into_record()?;
         let items: Result<Vec<(String, V)>, ShellError> = record
             .into_iter()
-            .map(|(k, v)| Ok((k, V::from_value(v, call_span)?)))
+            .map(|(k, v)| Ok((k, V::from_value(v)?)))
             .collect();
         Ok(HashMap::from_iter(items?))
     }
@@ -460,11 +449,11 @@ impl<T> FromValue for Vec<T>
 where
     T: FromValue,
 {
-    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::List { vals, .. } => vals
                 .into_iter()
-                .map(|v| T::from_value(v, call_span))
+                .map(|v| T::from_value(v))
                 .collect::<Result<Vec<T>, ShellError>>(),
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
@@ -483,7 +472,7 @@ where
 // Nu Types
 
 impl FromValue for Value {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         Ok(v)
     }
 
@@ -493,7 +482,7 @@ impl FromValue for Value {
 }
 
 impl FromValue for CellPath {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         match v {
             Value::CellPath { val, .. } => Ok(val),
@@ -532,7 +521,7 @@ impl FromValue for CellPath {
 }
 
 impl FromValue for Closure {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Closure { val, .. } => Ok(*val),
             v => Err(ShellError::CantConvert {
@@ -546,7 +535,7 @@ impl FromValue for Closure {
 }
 
 impl FromValue for DateTime<FixedOffset> {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Date { val, .. } => Ok(val),
             v => Err(ShellError::CantConvert {
@@ -564,7 +553,7 @@ impl FromValue for DateTime<FixedOffset> {
 }
 
 impl FromValue for NuGlob {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
             Value::CellPath { val, .. } => Ok(NuGlob::Expand(val.to_string())),
@@ -595,7 +584,7 @@ impl FromValue for NuGlob {
 }
 
 impl FromValue for Range {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Range { val, .. } => Ok(*val),
             v => Err(ShellError::CantConvert {
@@ -613,7 +602,7 @@ impl FromValue for Range {
 }
 
 impl FromValue for Record {
-    fn from_value(v: Value, _: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Record { val, .. } => Ok(val.into_owned()),
             v => Err(ShellError::CantConvert {
@@ -632,10 +621,10 @@ impl<T> FromValue for Spanned<T>
 where
     T: FromValue,
 {
-    fn from_value(v: Value, call_span: Span) -> Result<Self, ShellError> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         Ok(Spanned {
-            item: T::from_value(v, call_span)?,
+            item: T::from_value(v)?,
             span,
         })
     }

@@ -194,7 +194,7 @@ fn run_histogram(
             if inputs.is_empty() {
                 return Err(ShellError::CantFindColumn {
                     col_name: col_name.clone(),
-                    span: head_span,
+                    span: Some(head_span),
                     src_span: list_span,
                 });
             }

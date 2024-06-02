@@ -126,7 +126,7 @@ pub fn get_rest_for_glob_pattern(
             }
         }
     })? {
-        output.push(FromValue::from_value(result, call.head)?);
+        output.push(FromValue::from_value(result)?);
     }
 
     Ok(output)

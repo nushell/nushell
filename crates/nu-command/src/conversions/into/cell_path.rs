@@ -154,7 +154,7 @@ fn record_to_path_member(
     let Some(value) = record.get("value") else {
         return Err(ShellError::CantFindColumn {
             col_name: "value".into(),
-            span: val_span,
+            span: Some(val_span),
             src_span: span,
         });
     };
