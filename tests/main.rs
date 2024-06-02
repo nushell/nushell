@@ -14,4 +14,5 @@ mod plugins;
 mod repl;
 mod scope;
 mod shell;
+#[cfg(not(macos))]
 mod terminal;
