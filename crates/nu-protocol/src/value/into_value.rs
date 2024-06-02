@@ -69,8 +69,7 @@ primitive_into_value!(isize as i64, int);
 primitive_into_value!(u8 as i64, int);
 primitive_into_value!(u16 as i64, int);
 primitive_into_value!(u32 as i64, int);
-primitive_into_value!(u64 as i64, int);
-primitive_into_value!(usize as i64, int);
+// u64 and usize may be truncated as Value only supports i64.
 
 impl IntoValue for () {
     fn into_value(self, span: Span) -> Value {
