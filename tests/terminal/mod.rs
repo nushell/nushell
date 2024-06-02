@@ -18,7 +18,7 @@ fn auto_cd_works() {
     );
     let (mut term, mut events) = default_terminal();
 
-    // Wait for Nushell to initalize.
+    // Wait for Nushell to initialize.
     std::thread::sleep(Duration::from_millis(500));
 
     #[cfg(windows)]
@@ -60,7 +60,7 @@ fn command_hints_are_pwd_aware() {
     );
     let (mut term, mut events) = default_terminal();
 
-    // Wait for Nushell to initalize.
+    // Wait for Nushell to initialize.
     std::thread::sleep(Duration::from_millis(500));
 
     pty.writer().write_all(b"cd foo\r").unwrap();
