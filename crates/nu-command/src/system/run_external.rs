@@ -46,15 +46,36 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
 
+        // Evaluate the command name in the same way the arguments are evaluated. Since this isn't
+        // a spread, it should return a one-element vec.
+        let name_expr = call
+            .positional_nth(0)
+            .ok_or_else(|| ShellError::MissingParameter {
+                param_name: "command".into(),
+                span: call.head,
+            })?;
+        let name = eval_argument(engine_state, stack, name_expr, false)?
+            .pop()
+            .expect("eval_argument returned zero-element vec")
+            .into_spanned(name_expr.span);
+
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's is a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
         let executable = if cfg!(windows) && is_cmd_internal_command(&name.item) {
             PathBuf::from("cmd.exe")
         } else {
+            // Expand tilde on the name if it's a bare string (#13000)
+            let expanded_name = if is_bare_string(name_expr) {
+                expand_tilde(&name.item)
+            } else {
+                name.item.clone()
+            };
+
+            // Determine the PATH to be used and then use `which` to find it - though this has no
+            // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(&name.item, &paths, &cwd) else {
+            let Some(executable) = which(&expanded_name, &paths, &cwd) else {
                 return Err(command_not_found(
                     &name.item,
                     call.head,
@@ -544,12 +565,20 @@ fn has_cmd_special_character(s: &str) -> bool {
     SPECIAL_CHARS.iter().any(|c| s.contains(*c))
 }
 
-/// Escape an argument for CMD internal commands. The result can be safely
-/// passed to `raw_arg()`.
+/// Escape an argument for CMD internal commands. The result can be safely passed to `raw_arg()`.
 #[cfg(windows)]
 fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError> {
     let Spanned { item: arg, span } = arg;
-    if arg.contains('"') {
+    if arg.contains(['\r', '\n', '%']) {
+        // \r and \n trunacte the rest of the arguments and % can expand environment variables
+        Err(ShellError::ExternalCommand {
+            label:
+                "Arguments to CMD internal commands cannot contain new lines or percent signs '%'"
+                    .into(),
+            help: "some characters currently cannot be securely escaped".into(),
+            span: *span,
+        })
+    } else if arg.contains('"') {
         // If `arg` is already quoted by double quotes, confirm there's no
         // embedded double quotes, then leave it as is.
         if arg.chars().filter(|c| *c == '"').count() == 2
@@ -561,7 +590,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
             Err(ShellError::ExternalCommand {
                 label: "Arguments to CMD internal commands cannot contain embedded double quotes"
                     .into(),
-                help: "CMD doesn't support escaping double quotes inside double quotes".into(),
+                help: "this case currently cannot be securely handled".into(),
                 span: *span,
             })
         }
@@ -569,6 +598,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
         // If `arg` contains space or special characters, quote the entire argument by double quotes.
         Ok(Cow::Owned(format!("\"{arg}\"")))
     } else {
+        // FIXME?: what if `arg.is_empty()`?
         Ok(Cow::Borrowed(arg))
     }
 }
