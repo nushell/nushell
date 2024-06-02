@@ -5,6 +5,17 @@ use crate::{Record, ShellError, Span, Value};
 /// A trait for converting a value into a [`Value`].
 ///
 /// This conversion is infallible, for fallible conversions use [`TryIntoValue`].
+/// 
+/// # Derivable
+/// This trait can be used with `#[derive]`. 
+/// When derived on structs with named fields, the resulting value 
+/// representation will use [`Value::Record`], where each field of the record 
+/// corresponds to a field of the struct. 
+/// For structs with unnamed fields, the value representation will be 
+/// [`Value::List`], with all fields inserted into a list.
+/// Unit structs will be represented as [`Value::Nothing`] since they contain 
+/// no data.
+// TODO: explain derive for enums
 pub trait IntoValue: Sized {
     /// Converts the given value to a [`Value`].
     fn into_value(self, span: Span) -> Value;

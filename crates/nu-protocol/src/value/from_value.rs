@@ -13,6 +13,17 @@ use std::{
 };
 
 /// A trait for loading a value from a [`Value`].
+/// 
+/// # Derivable
+/// This trait can be used with `#[derive]`. 
+/// When derived on structs with named fields, it expects a [`Value::Record`] 
+/// where each field of the struct maps to a corresponding field in the record. 
+/// For structs with unnamed fields, it expects a [`Value::List`], and the 
+/// fields are populated in the order they appear in the list. 
+/// Unit structs expect  a [`Value::Nothing`], as they contain no data. 
+/// Attempting to convert from a non-matching `Value` type will result in an 
+/// error.
+// TODO: explain derive for enums
 pub trait FromValue: Sized {
     // TODO: instead of ShellError, maybe we could have a FromValueError that implements Into<ShellError>
     /// Loads a value from a [`Value`].
