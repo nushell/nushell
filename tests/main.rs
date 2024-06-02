@@ -14,5 +14,5 @@ mod plugins;
 mod repl;
 mod scope;
 mod shell;
-#[cfg(not(macos))]
+#[cfg(not(target_os = "macos"))]
 mod terminal;
