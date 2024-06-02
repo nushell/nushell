@@ -52,7 +52,12 @@ fn command_hints_are_pwd_aware() {
 
     // Create the PTY and the terminal.
     let mut pty = pty_with_nushell(
-        vec!["--no-config-file", "--config", &nu_config_string],
+        vec![
+            "--config",
+            &nu_config_string,
+            "--env-config",
+            &nu_config_string,
+        ],
         Some(cwd.path().to_path_buf()),
     );
     let (mut term, mut events) = default_terminal();
