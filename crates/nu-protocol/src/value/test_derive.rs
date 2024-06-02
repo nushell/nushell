@@ -23,23 +23,21 @@ where
     isize: isize,
     u16: u16,
     u32: u32,
-    u64: u64,
-    usize: usize,
     unit: (),
     tuple: (u32, bool),
-    some: Option<usize>,
-    none: Option<usize>,
+    some: Option<u32>,
+    none: Option<u32>,
     vec: Vec<T>,
     string: String,
-    hashmap: HashMap<String, usize>,
+    hashmap: HashMap<String, u32>,
     nested: Nestee,
 }
 
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
 struct Nestee {
-    usize: usize,
-    some: Option<usize>,
-    none: Option<usize>,
+    u32: u32,
+    some: Option<u32>,
+    none: Option<u32>,
 }
 
 impl NamedFieldsStruct<u32> {
@@ -57,8 +55,6 @@ impl NamedFieldsStruct<u32> {
             isize: 2,
             u16: 65535,
             u32: 4294967295,
-            u64: 9223372036854775807,
-            usize: 8,
             unit: (),
             tuple: (1, true),
             some: Some(123),
@@ -67,7 +63,7 @@ impl NamedFieldsStruct<u32> {
             string: "string".to_string(),
             hashmap: HashMap::from_iter([("a".to_string(), 10), ("b".to_string(), 20)]),
             nested: Nestee {
-                usize: 3,
+                u32: 3,
                 some: Some(42),
                 none: None,
             },
@@ -93,8 +89,6 @@ impl NamedFieldsStruct<u32> {
             "isize" => Value::test_int(2),
             "u16" => Value::test_int(65535),
             "u32" => Value::test_int(4294967295),
-            "u64" => Value::test_int(9223372036854775807),
-            "usize" => Value::test_int(8),
             "unit" => Value::test_nothing(),
             "tuple" => Value::test_list(vec![
                 Value::test_int(1),
@@ -113,7 +107,7 @@ impl NamedFieldsStruct<u32> {
                 "b" => Value::test_int(20)
             }),
             "nested" => Value::test_record(record! {
-                "usize" => Value::test_int(3),
+                "u32" => Value::test_int(3),
                 "some" => Value::test_int(42),
                 "none" => Value::test_nothing(),
             })
@@ -165,7 +159,7 @@ fn named_fields_struct_incorrect_type() {
 }
 
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
-struct UnnamedFieldsStruct<T>(usize, String, T)
+struct UnnamedFieldsStruct<T>(u32, String, T)
 where
     T: IntoValue + FromValue;
 
