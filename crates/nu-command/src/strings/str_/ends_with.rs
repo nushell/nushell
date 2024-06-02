@@ -1,6 +1,7 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
+use nu_protocol::engine::StateWorkingSet;
 use nu_utils::IgnoreCaseExt;
 
 struct Arguments {
@@ -50,6 +51,10 @@ impl Command for SubCommand {
         vec!["suffix", "match", "find", "search"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -65,6 +70,28 @@ impl Command for SubCommand {
             case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let args = Arguments {
+            substring: call.req_const::<String>(working_set, 0)?,
+            cell_paths,
+            case_insensitive: call.has_flag_const(working_set, "ignore-case")?,
+        };
+        operate(
+            action,
+            args,
+            input,
+            call.head,
+            working_set.permanent().ctrlc.clone(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
