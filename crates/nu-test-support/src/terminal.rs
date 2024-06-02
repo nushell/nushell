@@ -87,7 +87,7 @@ pub fn pty_with_nushell(args: Vec<String>, pwd: Option<PathBuf>) -> Pty {
         cell_width: 0,
         cell_height: 0,
     };
-    tty::new(&options, window_size, 0).unwrap()
+    tty::new(&options, window_size, 0).expect("creating a PTY succeeds")
 }
 
 /// Reads from `pty` until no more data is available. Will periodically call
@@ -138,14 +138,16 @@ pub fn read_to_end<T: EventListener>(
 /// minimum amount of event handling you need to get Nushell working.
 pub fn pty_write_handler<T: EventListener>(_terminal: &mut Term<T>, pty: &mut Pty, event: Event) {
     if let Event::PtyWrite(text) = event {
-        pty.writer().write_all(text.as_bytes()).unwrap();
+        pty.writer()
+            .write_all(text.as_bytes())
+            .expect("writing to PTY succeeds");
     }
 }
 
 /// Extracts the current cursor position.
 pub fn extract_cursor<T>(terminal: &Term<T>) -> (usize, usize) {
     let cursor = terminal.grid().cursor.point;
-    (cursor.line.0 as usize, cursor.column.0 as usize)
+    (cursor.line.0 as usize, cursor.column.0)
 }
 
 /// Extracts all visible text, ignoring text styles.
@@ -155,7 +157,9 @@ pub fn extract_text<T>(terminal: &Term<T>) -> Vec<String> {
         if point.column == 0 {
             text.push(String::new());
         }
-        text.last_mut().unwrap().push(cell.c);
+        text.last_mut()
+            .expect("terminal grid start at column 0")
+            .push(cell.c);
     }
     text
 }
