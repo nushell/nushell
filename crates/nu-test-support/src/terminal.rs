@@ -1,4 +1,39 @@
-//! Helper functions for tests that requires a terminal emulator.
+//! Helper functions for tests that requires a terminal emulator. Terminal
+//! emulation is supported by the `alacritty_terminal` crate.
+//!
+//! Here's the general process of writing a test with a terminal emulator. This
+//! module provides helper functions for common cases, but you can always do it
+//! on your own. Examples can be found in `tests/terminal`.
+//!
+//! Step 1: Create an `alacritty_terminal::Term` instance. Here you can
+//! configure window size and scrollback buffer size, etc. `default_terminal()`
+//! will create one for you with sensible defaults.
+//!
+//! Step 2: Create a PTY and spawn a Nushell process to the slave end.
+//! `pty_with_nushell()` will do that for you. It's probably a good idea to pass
+//! `--no-config-file` as argument to Nushell.
+//!
+//! Step 3: Wait for Nushell to initialize (sleeping for 500ms should do). On
+//! Linux, trying to write to the PTY before Nushell finishes initialization
+//! appears to succeed, but the data will be lost. I'm not sure if this is a bug
+//! or just weird behavior of Linux PTY. It's not necessary on Windows, but it
+//! won't hurt either.
+//!
+//! Step 4: Write data to the PTY. Any data you sent will appear to Nushell as
+//! if they were typed in a terminal. ANSI escape codes are used for special
+//! keystrokes. For example, if you want to press Enter, send "\r" (NOT "\n").
+//! On Linux, use `sendkey -a` to see the actual value of a keystroke. The
+//! [Wikipedia page](https://en.wikipedia.org/wiki/ANSI_escape_code) also
+//! contains a list of common ANSI escape codes.
+//!
+//! Step 5: Wait for Nushell to respond and update the terminal state. Sometimes
+//! Nushell will emit terminal events (e.g. querying cursor position, modifying
+//! system clipboard), and these events need to be handled. `read_to_end()` will
+//! do that for you, and you can use `pty_write_handler()` for the event handler
+//! if you don't care about any of the terminal events.
+//!
+//! Step 6: Examine the terminal state and make assertions. You can use
+//! `extract_text()` and `extract_cursor()` if you only care about the text.
 
 use alacritty_terminal::{
     event::{Event, EventListener, WindowSize},
