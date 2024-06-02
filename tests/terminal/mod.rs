@@ -12,10 +12,7 @@ fn auto_cd_works() {
     std::fs::create_dir(cwd.path().join("foo")).unwrap();
 
     // Create the PTY and the terminal.
-    let mut pty = pty_with_nushell(
-        vec!["--no-config-file".to_string()],
-        Some(cwd.path().to_path_buf()),
-    );
+    let mut pty = pty_with_nushell(vec!["--no-config-file"], Some(cwd.path().to_path_buf()));
     let (mut term, mut events) = default_terminal();
 
     // Wait for Nushell to initialize.
@@ -55,7 +52,7 @@ fn command_hints_are_pwd_aware() {
 
     // Create the PTY and the terminal.
     let mut pty = pty_with_nushell(
-        vec!["--config".to_string(), nu_config_string],
+        vec!["--no-config-file", "--config", &nu_config_string],
         Some(cwd.path().to_path_buf()),
     );
     let (mut term, mut events) = default_terminal();

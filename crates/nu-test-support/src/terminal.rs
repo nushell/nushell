@@ -73,10 +73,13 @@ pub fn default_terminal() -> (Term<EventProxy>, mpsc::Receiver<Event>) {
 
 /// Creates a PTY and connect the slave end to a Nushell process. If `pwd` is
 /// None, the Nushell process will inherit PWD from the current process.
-pub fn pty_with_nushell(args: Vec<String>, pwd: Option<PathBuf>) -> Pty {
+pub fn pty_with_nushell(args: Vec<&str>, pwd: Option<PathBuf>) -> Pty {
     let executable = crate::fs::executable_path().to_string_lossy().to_string();
     let options = Options {
-        shell: Some(Shell::new(executable, args)),
+        shell: Some(Shell::new(
+            executable,
+            args.iter().map(|s| s.to_string()).collect(),
+        )),
         working_directory: pwd,
         hold: false,
         env: HashMap::new(),
