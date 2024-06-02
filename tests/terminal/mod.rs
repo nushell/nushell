@@ -6,6 +6,7 @@ use nu_test_support::terminal::{
 use std::{io::Write, time::Duration};
 
 #[test]
+#[cfg(any(windows, linux))]
 fn auto_cd_works() {
     // Setup a directory with a sub-directory in it.
     let cwd = tempfile::tempdir().unwrap();
@@ -38,6 +39,7 @@ fn auto_cd_works() {
 }
 
 #[test]
+#[cfg(any(windows, linux))]
 fn command_hints_are_pwd_aware() {
     // PWD-aware command hints require setting history file format to "sqlite".
     let nu_config = tempfile::NamedTempFile::new().unwrap();
