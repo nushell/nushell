@@ -77,5 +77,8 @@ fn command_hints_are_pwd_aware() {
     // Examine the terminal state.
     let (row, _col) = extract_cursor(&term);
     let text = extract_text(&term);
+    for line in &text {
+        println!("{}", line);
+    }
     assert!(text[row - 2].contains("print 'FOO'"));
 }
