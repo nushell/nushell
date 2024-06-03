@@ -53,7 +53,7 @@ pub struct Path<Form: PathForm = Any> {
 /// Other Nushell crates need to account for the emulated current working directory
 /// before passing a path to functions in [`std`] or other third party crates.
 /// You can use a [`RelativePath`] as input to `join` on an [`AbsolutePath`] or [`CanonicalPath`].
-/// This will return an [`AbsolutePath`] which can be referenced as and easily converted to
+/// This will return an [`AbsolutePathBuf`] which can be referenced as and easily converted to
 /// a [`std::path::Path`]. If you really mean it, you can use
 /// [`as_relative_std_path`](RelativePath::as_relative_std_path) to get the underlying
 /// [`std::path::Path`] from a [`RelativePath`].
@@ -81,7 +81,7 @@ pub type AbsolutePath = Path<Absolute>;
 pub type CanonicalPath = Path<Canonical>;
 
 impl<Form: PathForm> Path<Form> {
-    /// Create a new path without checking that invariants are satisfied.
+    /// Create a new path of any form without validating invariants.
     #[inline]
     fn new_unchecked<P: AsRef<OsStr> + ?Sized>(path: &P) -> &Self {
         // Safety: `Path<Form>` is a repr(transparent) wrapper around `std::path::Path`.
@@ -401,7 +401,7 @@ impl<Form: IsAbsolute> Path<Form> {
 
     /// Converts a [`Path`] to an owned [`std::path::PathBuf`].
     #[inline]
-    pub fn to_std_pathbuf(&self) -> std::path::PathBuf {
+    pub fn to_std_path_buf(&self) -> std::path::PathBuf {
         self.inner.to_path_buf()
     }
 
@@ -589,19 +589,70 @@ impl<'a, Form: PathForm> IntoIterator for &'a Path<Form> {
     }
 }
 
+/// A wrapper around [`std::path::PathBuf`] with extra invariants determined by its `Form`.
+///
+/// The possible path forms are [`Any`], [`Relative`], [`Absolute`], or [`Canonical`].
+/// To learn more, view the documentation on [`PathForm`] or any of the individual forms.
+///
+/// There are also several type aliases available, corresponding to each [`PathForm`]:
+/// - [`RelativePathBuf`] (same as [`PathBuf<Relative>`])
+/// - [`AbsolutePathBuf`] (same as [`PathBuf<Absolute>`])
+/// - [`CanonicalPathBuf`] (same as [`PathBuf<Canonical>`])
+///
+/// If the `Form` is not specified, then it defaults to [`Any`], so [`PathBuf`] and [`PathBuf<Any>`]
+/// are one in the same.
+///
+/// To create a [`PathBuf`] with [`Any`] form, use the [`PathBuf::new`] method
+/// or use one of the many `From` implementations (e.g., from [`std::path::PathBuf`]).
+/// Of course, you can also convert a [`Path`] (of any form) to an owned [`PathBuf`]
+/// via [`to_path_buf`](Path::to_path_buf).
 #[repr(transparent)]
 pub struct PathBuf<Form: PathForm = Any> {
     _form: PhantomData<Form>,
     inner: std::path::PathBuf,
 }
 
+/// A path buf that is strictly relative.
+///
+/// I.e., this path buf is guaranteed to never be absolute.
+///
+/// [`RelativePathBuf`]s can be created by using [`try_into_relative`](PathBuf::try_into_relative)
+/// on a [`PathBuf`] or by using [`to_path_buf`](Path::to_path_buf) on a [`RelativePath`].
+/// You can also use `RelativePathBuf::try_from` or `try_into`.
+/// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
+///
+/// [`RelativePathBuf`]s cannot be easily referenced as a [`std::path::Path`] by design.
+/// Other Nushell crates need to account for the emulated current working directory
+/// before passing a path to functions in [`std`] or other third party crates.
+/// You can use a [`RelativePath`] as input to `join` on an [`AbsolutePath`] or [`CanonicalPath`].
+/// This will return an [`AbsolutePathBuf`] which can be referenced as and easily converted to
+/// a [`std::path::Path`]. If you really mean it, you can use
+/// [`as_relative_std_path`](RelativePath::as_relative_std_path)
+/// or [`into_relative_std_path_buf`](RelativePathBuf::into_relative_std_path_buf)
+/// to get the underlying [`std::path::Path`] or [`std::path::PathBuf`] from a [`RelativePathBuf`].
 pub type RelativePathBuf = PathBuf<Relative>;
 
+/// A path buf that is strictly absolute.
+///
+/// I.e., this path buf is guaranteed to never be relative.
+///
+/// [`AbsolutePathBuf`]s can be created by using [`try_into_absolute`](PathBuf::try_into_absolute)
+/// on a [`PathBuf`] or by using [`to_path_buf`](Path::to_path_buf) on an [`AbsolutePath`].
+/// You can also use `AbsolutePathBuf::try_from` or `try_into`.
+/// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
 pub type AbsolutePathBuf = PathBuf<Absolute>;
 
+/// An absolute, canonical path buf.
+///
+/// [`CanonicalPathBuf`]s can only be created by using [`canonicalize`](Path::canonicalize) on
+/// an [`AbsolutePath`].
+///
+/// [`CanonicalPathBuf`]s can be converted to [`AbsolutePathBuf`]s via
+/// [`into_absolute`](CanonicalPathBuf::into_absolute).
 pub type CanonicalPathBuf = PathBuf<Canonical>;
 
 impl<Form: PathForm> PathBuf<Form> {
+    /// Create a new [`PathBuf`] of any form without validiting invariants.
     #[inline]
     pub(crate) fn new_unchecked(buf: std::path::PathBuf) -> Self {
         Self {
@@ -610,61 +661,82 @@ impl<Form: PathForm> PathBuf<Form> {
         }
     }
 
+    /// Coerces to a [`Path`] slice.
     #[inline]
     pub fn as_path(&self) -> &Path<Form> {
         Path::new_unchecked(&self.inner)
     }
 
+    /// Truncates `self` to [`self.parent`](Path::parent).
+    ///
+    /// Returns `false` and does nothing if [`self.parent`](Path::parent) is [`None`].
+    /// Otherwise, returns `true`.
     #[inline]
     pub fn pop(&mut self) -> bool {
         self.inner.pop()
     }
 
+    /// Consumes the [`PathBuf`], returning its internal [`OsString`] storage.
     #[inline]
     pub fn into_os_string(self) -> OsString {
         self.inner.into_os_string()
     }
 
+    /// Converts this [`PathBuf`] into a [boxed](Box) [`Path`].
     #[inline]
     pub fn into_boxed_path(self) -> Box<Path<Form>> {
         std_box_to_box(self.inner.into_boxed_path())
     }
 
+    /// Returns the [`capacity`](OsString::capacity) of the underlying [`OsString`].
     #[inline]
     pub fn capacity(&self) -> usize {
         self.inner.capacity()
     }
 
+    /// Invokes [`reserve`](OsString::reserve) on the underlying [`OsString`].
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
         self.inner.reserve(additional)
     }
 
+    /// Invokes [`try_reserve`](OsString::try_reserve) on the underlying [`OsString`].
     #[inline]
     pub fn try_reserve(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.inner.try_reserve(additional)
     }
 
+    /// Invokes [`reserve_exact`](OsString::reserve_exact) on the underlying [`OsString`].
     #[inline]
     pub fn reserve_exact(&mut self, additional: usize) {
         self.inner.reserve_exact(additional)
     }
 
+    /// Invokes [`try_reserve_exact`](OsString::try_reserve_exact) on the underlying [`OsString`].
     #[inline]
     pub fn try_reserve_exact(&mut self, additional: usize) -> Result<(), TryReserveError> {
         self.inner.try_reserve_exact(additional)
     }
 
+    /// Invokes [`shrink_to_fit`](OsString::shrink_to_fit) on the underlying [`OsString`].
     #[inline]
     pub fn shrink_to_fit(&mut self) {
         self.inner.shrink_to_fit()
     }
 
+    /// Invokes [`shrink_to`](OsString::shrink_to) on the underlying [`OsString`].
     #[inline]
     pub fn shrink_to(&mut self, min_capacity: usize) {
         self.inner.shrink_to(min_capacity)
     }
 
+    /// Consumes a [`PathBuf`], returning it with a different form.
+    ///
+    /// [`PathForm`]s can be converted to one another based on [`PathCast`] implementations.
+    /// Namely, the following form conversions are possible:
+    /// - [`Relative`], [`Absolute`], or [`Canonical`] into [`Any`].
+    /// - [`Canonical`] into [`Absolute`].
+    /// - Any form into itself.
     #[inline]
     pub fn cast_into<To>(self) -> PathBuf<To>
     where
@@ -674,6 +746,7 @@ impl<Form: PathForm> PathBuf<Form> {
         PathBuf::new_unchecked(self.inner)
     }
 
+    /// Consumes a [`PathBuf`], returning it with form [`Any`].
     #[inline]
     pub fn into_any(self) -> PathBuf {
         PathBuf::new_unchecked(self.inner)
@@ -681,26 +754,33 @@ impl<Form: PathForm> PathBuf<Form> {
 }
 
 impl PathBuf {
+    /// Creates an empty [`PathBuf`].
     #[inline]
     pub fn new() -> Self {
         Self::new_unchecked(std::path::PathBuf::new())
     }
 
+    /// Creates a new [`PathBuf`] with a given capacity used to create the internal [`OsString`].
+    /// See [`with_capacity`](OsString::with_capacity) defined on [`OsString`].
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self::new_unchecked(std::path::PathBuf::with_capacity(capacity))
     }
 
+    /// Returns a mutable reference to the underlying [`OsString`].
     #[inline]
     pub fn as_mut_os_string(&mut self) -> &mut OsString {
         self.inner.as_mut_os_string()
     }
 
+    /// Invokes [`clear`](OsString::clear) on the underlying [`OsString`].
     #[inline]
     pub fn clear(&mut self) {
         self.inner.clear()
     }
 
+    /// Consumes a [`PathBuf`], returning an `Ok` [`RelativePathBuf`] if the [`PathBuf`]
+    /// is relative. Otherwise, returns the original [`PathBuf`] as an `Err`.
     #[inline]
     pub fn try_into_relative(self) -> Result<RelativePathBuf, Self> {
         if self.inner.is_relative() {
@@ -710,6 +790,8 @@ impl PathBuf {
         }
     }
 
+    /// Consumes a [`PathBuf`], returning an `Ok` [`AbsolutePathBuf`] if the [`PathBuf`]
+    /// is absolute. Otherwise, returns the original [`PathBuf`] as an `Err`.
     #[inline]
     pub fn try_into_absolute(self) -> Result<AbsolutePathBuf, Self> {
         if self.inner.is_absolute() {
@@ -721,6 +803,21 @@ impl PathBuf {
 }
 
 impl<Form: PathPush> PathBuf<Form> {
+    /// Extends `self` with `path`.
+    ///
+    /// If `path` is absolute, it replaces the current path.
+    ///
+    /// On Windows:
+    ///
+    /// * if `path` has a root but no prefix (e.g., `\windows`), it
+    ///   replaces everything except for the prefix (if any) of `self`.
+    /// * if `path` has a prefix but no root, it replaces `self`.
+    /// * if `self` has a verbatim prefix (e.g. `\\?\C:\windows`)
+    ///   and `path` is not empty, the new path is normalized: all references
+    ///   to `.` and `..` are removed.
+    ///
+    /// Consider using [`Path::join`] if you need a new [`PathBuf`] instead of
+    /// using this function on a cloned [`PathBuf`].
     #[inline]
     pub fn push<R: MaybeRelative>(&mut self, path: impl AsRef<Path<R>>) {
         self.inner.push(&path.as_ref().inner)
@@ -728,11 +825,39 @@ impl<Form: PathPush> PathBuf<Form> {
 }
 
 impl<Form: PathSet> PathBuf<Form> {
+    /// Updates [`self.file_name`](Path::file_name) to `file_name`.
+    ///
+    /// If [`self.file_name`](Path::file_name) was [`None`],
+    /// this is equivalent to pushing `file_name`.
+    ///
+    /// Otherwise it is equivalent to calling [`pop`](PathBuf::pop) and then pushing `file_name`.
+    /// The new path will be a sibling of the original path.
+    /// (That is, it will have the same parent.)
     #[inline]
     pub fn set_file_name(&mut self, file_name: impl AsRef<OsStr>) {
         self.inner.set_file_name(file_name)
     }
 
+    /// Updates [`self.extension`](Path::extension) to `Some(extension)` or to [`None`] if
+    /// `extension` is empty.
+    ///
+    /// Returns `false` and does nothing if [`self.file_name`](Path::file_name) is [`None`],
+    /// returns `true` and updates the extension otherwise.
+    ///
+    /// If [`self.extension`](Path::extension) is [`None`], the extension is added; otherwise
+    /// it is replaced.
+    ///
+    /// If `extension` is the empty string, [`self.extension`](Path::extension) will be [`None`]
+    /// afterwards, not `Some("")`.
+    ///
+    /// # Caveats
+    ///
+    /// The new `extension` may contain dots and will be used in its entirety,
+    /// but only the part after the final dot will be reflected in
+    /// [`self.extension`](Path::extension).
+    ///
+    /// If the file stem contains internal dots and `extension` is empty, part of the
+    /// old file stem will be considered the new [`self.extension`](Path::extension).
     #[inline]
     pub fn set_extension(&mut self, extension: impl AsRef<OsStr>) -> bool {
         self.inner.set_extension(extension)
@@ -740,20 +865,34 @@ impl<Form: PathSet> PathBuf<Form> {
 }
 
 impl<Form: MaybeRelative> PathBuf<Form> {
+    /// Consumes a [`PathBuf`] and returns the, potentially relative,
+    /// underlying [`std::path::PathBuf`].
+    ///
+    /// # Note
+    ///
+    /// Caution should be taken when using this function. Nushell keeps track of an emulated current
+    /// working directory, and using the [`std::path::PathBuf`] returned from this method
+    /// will likely use [`std::env::current_dir`] to resolve the path instead of
+    /// using the emulated current working directory.
+    ///
+    /// Instead, you should probably join this path onto the emulated current working directory.
+    /// Any [`AbsolutePath`] or [`CanonicalPath`] will also suffice.
     #[inline]
-    pub fn into_relative_std_pathbuf(self) -> std::path::PathBuf {
+    pub fn into_relative_std_path_buf(self) -> std::path::PathBuf {
         self.inner
     }
 }
 
 impl<Form: IsAbsolute> PathBuf<Form> {
+    /// Consumes a [`PathBuf`] and returns the underlying [`std::path::PathBuf`].
     #[inline]
-    pub fn into_std_pathbuf(self) -> std::path::PathBuf {
+    pub fn into_std_path_buf(self) -> std::path::PathBuf {
         self.inner
     }
 }
 
 impl CanonicalPathBuf {
+    /// Consumes a [`CanonicalPathBuf`] and returns an [`AbsolutePathBuf`].
     #[inline]
     pub fn into_absolute(self) -> AbsolutePathBuf {
         self.cast_into()
