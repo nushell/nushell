@@ -694,6 +694,221 @@ pub fn parse_call_missing_req_flag() {
     ));
 }
 
+#[rstest]
+#[case("foo-external-call", "foo-external-call", "bare word")]
+#[case("^foo-external-call", "foo-external-call", "bare word with caret")]
+#[case(
+    "foo/external-call",
+    "foo/external-call",
+    "bare word with forward slash"
+)]
+#[case(
+    "^foo/external-call",
+    "foo/external-call",
+    "bare word with forward slash and caret"
+)]
+#[case(r"foo\external-call", r"foo\external-call", "bare word with backslash")]
+#[case(
+    r"^foo\external-call",
+    r"foo\external-call",
+    "bare word with backslash and caret"
+)]
+#[case(
+    "^'foo external call'",
+    "'foo external call'",
+    "single quote with caret"
+)]
+#[case(
+    "^'foo/external call'",
+    "'foo/external call'",
+    "single quote with forward slash and caret"
+)]
+#[case(
+    r"^'foo\external call'",
+    r"'foo\external call'",
+    "single quote with backslash and caret"
+)]
+#[case(
+    r#"^"foo external call""#,
+    r#""foo external call""#,
+    "double quote with caret"
+)]
+#[case(
+    r#"^"foo/external call""#,
+    r#""foo/external call""#,
+    "double quote with forward slash and caret"
+)]
+#[case(
+    r#"^"foo\\external call""#,
+    r#""foo\external call""#,
+    "double quote with backslash and caret"
+)]
+#[case("`foo external call`", "`foo external call`", "backtick quote")]
+#[case(
+    "^`foo external call`",
+    "`foo external call`",
+    "backtick quote with caret"
+)]
+#[case(
+    "`foo/external call`",
+    "`foo/external call`",
+    "backtick quote with forward slash"
+)]
+#[case(
+    "^`foo/external call`",
+    "`foo/external call`",
+    "backtick quote with forward slash and caret"
+)]
+#[case(
+    r"^`foo\external call`",
+    r"`foo\external call`",
+    "backtick quote with backslash"
+)]
+#[case(
+    r"^`foo\external call`",
+    r"`foo\external call`",
+    "backtick quote with backslash and caret"
+)]
+fn test_external_call_name(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{tag}: errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => {
+            match &name.expr {
+                Expr::String(string) => {
+                    assert_eq!(expected, string);
+                }
+                other => {
+                    panic!("{tag}: Unexpected expression in command name position: {other:?}");
+                }
+            }
+            assert_eq!(0, args.len());
+        }
+        other => {
+            panic!("{tag}: Unexpected expression in pipeline: {other:?}");
+        }
+    }
+}
+
+#[rstest]
+#[case("^foo bar-baz", "bar-baz", "bare word")]
+#[case("^foo bar/baz", "bar/baz", "bare word with forward slash")]
+#[case(r"^foo bar\baz", r"bar\baz", "bare word with backslash")]
+#[case("^foo 'bar baz'", "'bar baz'", "single quote")]
+#[case("foo 'bar/baz'", "'bar/baz'", "single quote with forward slash")]
+#[case(r"foo 'bar\baz'", r"'bar\baz'", "single quote with backslash")]
+#[case(r#"^foo "bar baz""#, r#""bar baz""#, "double quote")]
+#[case(r#"^foo "bar/baz""#, r#""bar/baz""#, "double quote with forward slash")]
+#[case(r#"^foo "bar\\baz""#, r#""bar\baz""#, "double quote with backslash")]
+#[case("^foo `bar baz`", "`bar baz`", "backtick quote")]
+#[case("^foo `bar/baz`", "`bar/baz`", "backtick quote with forward slash")]
+#[case(r"^foo `bar\baz`", r"`bar\baz`", "backtick quote with backslash")]
+fn test_external_call_argument_regular(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{tag}: errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => {
+            match &name.expr {
+                Expr::String(string) => {
+                    assert_eq!("foo", string, "{tag}: incorrect name");
+                }
+                other => {
+                    panic!("{tag}: Unexpected expression in command name position: {other:?}");
+                }
+            }
+            assert_eq!(1, args.len());
+            match &args[0] {
+                ExternalArgument::Regular(expr) => match &expr.expr {
+                    Expr::String(string) => {
+                        assert_eq!(expected, string, "{tag}: incorrect arg");
+                    }
+                    other => {
+                        panic!("Unexpected expression in command arg position: {other:?}")
+                    }
+                },
+                other @ ExternalArgument::Spread(..) => {
+                    panic!("Unexpected external spread argument in command arg position: {other:?}")
+                }
+            }
+        }
+        other => {
+            panic!("{tag}: Unexpected expression in pipeline: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn test_external_call_argument_spread() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"^foo ...[a b c]", true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => {
+            match &name.expr {
+                Expr::String(string) => {
+                    assert_eq!("foo", string, "incorrect name");
+                }
+                other => {
+                    panic!("Unexpected expression in command name position: {other:?}");
+                }
+            }
+            assert_eq!(1, args.len());
+            match &args[0] {
+                ExternalArgument::Spread(expr) => match &expr.expr {
+                    Expr::List(items) => {
+                        assert_eq!(3, items.len());
+                        // that's good enough, don't really need to go so deep into it...
+                    }
+                    other => {
+                        panic!("Unexpected expression in command arg position: {other:?}")
+                    }
+                },
+                other @ ExternalArgument::Regular(..) => {
+                    panic!(
+                        "Unexpected external regular argument in command arg position: {other:?}"
+                    )
+                }
+            }
+        }
+        other => {
+            panic!("Unexpected expression in pipeline: {other:?}");
+        }
+    }
+}
+
 #[test]
 fn test_nothing_comparison_eq() {
     let engine_state = EngineState::new();
