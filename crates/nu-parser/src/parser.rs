@@ -16,6 +16,7 @@ use nu_protocol::{
     IN_VARIABLE_ID,
 };
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     num::ParseIntError,
     str,
@@ -241,15 +242,10 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
         ))
     } else {
         // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
-        let contents = if contents.starts_with(b"\"") {
-            let (contents, err) = unescape_string(contents, span);
-            if let Some(err) = err {
-                working_set.error(err)
-            }
-            String::from_utf8_lossy(&contents).to_string()
-        } else {
-            String::from_utf8_lossy(contents).to_string()
-        };
+        let (contents, err) = unescape_string_preserving_quotes(contents, span);
+        if let Some(err) = err {
+            working_set.error(err);
+        }
 
         ExternalArgument::Regular(Expression {
             expr: Expr::String(contents),
@@ -279,13 +275,13 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         Box::new(arg)
     } else {
         // Eval stage will unquote the string, so we don't bother with that here
-        let (contents, err) = unescape_string(&head_contents, head_span);
+        let (contents, err) = unescape_string_preserving_quotes(&head_contents, head_span);
         if let Some(err) = err {
             working_set.error(err)
         }
 
         Box::new(Expression {
-            expr: Expr::String(String::from_utf8_lossy(&contents).into_owned()),
+            expr: Expr::String(contents),
             span: head_span,
             ty: Type::String,
             custom_completion: None,
@@ -2697,6 +2693,23 @@ pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<Pars
             (String::new(), Some(ParseError::Expected("string", span)))
         }
     }
+}
+
+/// XXX: This is here temporarily as a patch, but we should replace this with properly representing
+/// the quoted state of a string in the AST
+fn unescape_string_preserving_quotes(bytes: &[u8], span: Span) -> (String, Option<ParseError>) {
+    let (bytes, err) = if bytes.starts_with(b"\"") {
+        let (bytes, err) = unescape_string(bytes, span);
+        (Cow::Owned(bytes), err)
+    } else {
+        (Cow::Borrowed(bytes), None)
+    };
+
+    // The original code for args used lossy conversion here, even though that's not what we
+    // typically use for strings. Revisit whether that's actually desirable later, but don't
+    // want to introduce a breaking change for this patch.
+    let token = String::from_utf8_lossy(&bytes).into_owned();
+    (token, err)
 }
 
 pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
