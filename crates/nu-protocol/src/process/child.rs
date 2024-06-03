@@ -31,7 +31,7 @@ impl ExitStatusFuture {
                         } = status
                         {
                             return Err(ShellError::CoredumpErrorSpanned {
-                                msg: format!("program coredumped, receive signal: {signal}"),
+                                msg: format!("coredump detected. received signal: {signal}"),
                                 signal,
                                 span,
                             });
