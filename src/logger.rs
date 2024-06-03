@@ -69,6 +69,7 @@ fn set_write_logger(level: LevelFilter, config: Config, path: &Path) -> Result<(
 pub fn configure(
     level: &str,
     target: &str,
+    filters: Option<&[String]>,
     builder: &mut ConfigBuilder,
 ) -> (LevelFilter, LogTarget) {
     let level = match Level::from_str(level) {
@@ -77,7 +78,13 @@ pub fn configure(
     };
 
     // Add allowed module filter
-    builder.add_filter_allow_str("nu");
+    if let Some(filters) = filters {
+        for filter in filters {
+            builder.add_filter_allow(filter.clone());
+        }
+    } else {
+        builder.add_filter_allow_str("nu");
+    }
 
     // Set level padding
     builder.set_level_padding(LevelPadding::Right);

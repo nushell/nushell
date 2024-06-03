@@ -25,7 +25,8 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Value,
+    engine::{EngineState, StateWorkingSet},
+    report_error, report_error_new, ByteStream, PipelineData, ShellError, Span, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -155,7 +156,11 @@ fn main() -> Result<()> {
 
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
-        .unwrap_or_else(|_| std::process::exit(1));
+        .unwrap_or_else(|err| {
+            let working_set = StateWorkingSet::new(&engine_state);
+            report_error(&working_set, &err);
+            std::process::exit(1)
+        });
 
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
@@ -186,8 +191,14 @@ fn main() -> Result<()> {
             .as_ref()
             .map(|target| target.item.clone())
             .unwrap_or_else(|| "stderr".to_string());
+        let filter = parsed_nu_cli_args.log_include.as_ref().map(|filters| {
+            filters
+                .iter()
+                .map(|filter| filter.item.clone())
+                .collect::<Vec<String>>()
+        });
 
-        logger(|builder| configure(&level, &target, builder))?;
+        logger(|builder| configure(&level, &target, filter.as_deref(), builder))?;
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
         perf(
             "start logging",
@@ -370,7 +381,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
         use nu_plugin_engine::{GetPlugin, PluginDeclaration};
-        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity};
+        use nu_protocol::{ErrSpan, PluginIdentity};
 
         // Load any plugins specified with --plugins
         start_time = std::time::Instant::now();
