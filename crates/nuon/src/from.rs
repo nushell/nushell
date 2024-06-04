@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{Expr, Expression, ListItem, RecordItem},
     engine::{EngineState, StateWorkingSet},
-    Range, Record, ShellError, Span, Type, Unit, Value,
+    Range, Record, ShellError, Span, Type, Value,
 };
 use std::sync::Arc;
 
@@ -9,7 +9,7 @@ use std::sync::Arc;
 ///
 // WARNING: please leave the following two trailing spaces, they matter for the documentation
 // formatting
-/// > **Note**  
+/// > **Note**
 /// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as
 /// [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
@@ -151,6 +151,8 @@ fn convert_to_value(
             span: expr.span,
         }),
         Expr::CellPath(val) => Ok(Value::cell_path(val, span)),
+        Expr::Filesize(filesize) => Ok(Value::filesize(filesize.value, span)),
+        Expr::Duration(duration) => Ok(Value::duration(duration.value, span)),
         Expr::DateTime(dt) => Ok(Value::date(dt, span)),
         Expr::ExternalCall(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
@@ -380,74 +382,6 @@ fn convert_to_value(
             }
 
             Ok(Value::list(output, span))
-        }
-        Expr::ValueWithUnit(value) => {
-            let size = match value.expr.expr {
-                Expr::Int(val) => val,
-                _ => {
-                    return Err(ShellError::OutsideSpannedLabeledError {
-                        src: original_text.to_string(),
-                        error: "Error when loading".into(),
-                        msg: "non-integer unit value".into(),
-                        span: expr.span,
-                    })
-                }
-            };
-
-            match value.unit.item {
-                Unit::Byte => Ok(Value::filesize(size, span)),
-                Unit::Kilobyte => Ok(Value::filesize(size * 1000, span)),
-                Unit::Megabyte => Ok(Value::filesize(size * 1000 * 1000, span)),
-                Unit::Gigabyte => Ok(Value::filesize(size * 1000 * 1000 * 1000, span)),
-                Unit::Terabyte => Ok(Value::filesize(size * 1000 * 1000 * 1000 * 1000, span)),
-                Unit::Petabyte => Ok(Value::filesize(
-                    size * 1000 * 1000 * 1000 * 1000 * 1000,
-                    span,
-                )),
-                Unit::Exabyte => Ok(Value::filesize(
-                    size * 1000 * 1000 * 1000 * 1000 * 1000 * 1000,
-                    span,
-                )),
-
-                Unit::Kibibyte => Ok(Value::filesize(size * 1024, span)),
-                Unit::Mebibyte => Ok(Value::filesize(size * 1024 * 1024, span)),
-                Unit::Gibibyte => Ok(Value::filesize(size * 1024 * 1024 * 1024, span)),
-                Unit::Tebibyte => Ok(Value::filesize(size * 1024 * 1024 * 1024 * 1024, span)),
-                Unit::Pebibyte => Ok(Value::filesize(
-                    size * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                )),
-                Unit::Exbibyte => Ok(Value::filesize(
-                    size * 1024 * 1024 * 1024 * 1024 * 1024 * 1024,
-                    span,
-                )),
-
-                Unit::Nanosecond => Ok(Value::duration(size, span)),
-                Unit::Microsecond => Ok(Value::duration(size * 1000, span)),
-                Unit::Millisecond => Ok(Value::duration(size * 1000 * 1000, span)),
-                Unit::Second => Ok(Value::duration(size * 1000 * 1000 * 1000, span)),
-                Unit::Minute => Ok(Value::duration(size * 1000 * 1000 * 1000 * 60, span)),
-                Unit::Hour => Ok(Value::duration(size * 1000 * 1000 * 1000 * 60 * 60, span)),
-                Unit::Day => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24) {
-                    Some(val) => Ok(Value::duration(val, span)),
-                    None => Err(ShellError::OutsideSpannedLabeledError {
-                        src: original_text.to_string(),
-                        error: "day duration too large".into(),
-                        msg: "day duration too large".into(),
-                        span: expr.span,
-                    }),
-                },
-
-                Unit::Week => match size.checked_mul(1000 * 1000 * 1000 * 60 * 60 * 24 * 7) {
-                    Some(val) => Ok(Value::duration(val, span)),
-                    None => Err(ShellError::OutsideSpannedLabeledError {
-                        src: original_text.to_string(),
-                        error: "week duration too large".into(),
-                        msg: "week duration too large".into(),
-                        span: expr.span,
-                    }),
-                },
-            }
         }
         Expr::Var(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),

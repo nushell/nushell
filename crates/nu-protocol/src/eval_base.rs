@@ -45,6 +45,8 @@ pub trait Eval {
                     value.follow_cell_path(&cell_path.tail, false)
                 }
             }
+            Expr::Filesize(filesize) => Ok(Value::filesize(filesize.value, expr.span)),
+            Expr::Duration(duration) => Ok(Value::duration(duration.value, expr.span)),
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
             Expr::List(list) => {
                 let mut output = vec![];
@@ -140,15 +142,6 @@ pub trait Eval {
             Expr::Keyword(kw) => Self::eval::<D>(state, mut_state, &kw.expr),
             Expr::String(s) | Expr::RawString(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
-            Expr::ValueWithUnit(value) => match Self::eval::<D>(state, mut_state, &value.expr)? {
-                Value::Int { val, .. } => value.unit.item.build_value(val, value.unit.span),
-                x => Err(ShellError::CantConvert {
-                    to_type: "unit value".into(),
-                    from_type: x.get_type().to_string(),
-                    span: value.expr.span,
-                    help: None,
-                }),
-            },
             Expr::Call(call) => Self::eval_call::<D>(state, mut_state, call, expr.span),
             Expr::ExternalCall(head, args) => {
                 Self::eval_external_call(state, mut_state, head, args, expr.span)

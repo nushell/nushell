@@ -354,7 +354,7 @@ fn duration_decimal_math_with_nanoseconds() {
         "#
     ));
 
-    assert_eq!(actual.out, "1wk 3day 10ns");
+    assert_eq!(actual.out, "1wk 3day 12hr 10ns");
 }
 
 #[test]

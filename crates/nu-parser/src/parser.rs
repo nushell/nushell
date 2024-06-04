@@ -18,8 +18,9 @@ use nu_protocol::{
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    fmt::{Debug, Display},
     num::ParseIntError,
-    str,
+    str::{self, FromStr},
     sync::Arc,
 };
 
@@ -85,15 +86,24 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     }
     working_set.parse_errors.truncate(starting_error_count);
 
-    // Filesize
     parse_filesize(working_set, span);
-    if working_set.parse_errors.len() == starting_error_count {
+    if working_set.parse_errors.len() == starting_error_count
+        || !matches!(
+            working_set.parse_errors.last(),
+            Some(ParseError::Expected(..))
+        )
+    {
         return true;
     }
     working_set.parse_errors.truncate(starting_error_count);
 
     parse_duration(working_set, span);
-    if working_set.parse_errors.len() == starting_error_count {
+    if working_set.parse_errors.len() == starting_error_count
+        || !matches!(
+            working_set.parse_errors.last(),
+            Some(ParseError::Expected(..))
+        )
+    {
         return true;
     }
     working_set.parse_errors.truncate(starting_error_count);
@@ -1334,12 +1344,11 @@ pub fn parse_int(working_set: &mut StateWorkingSet, span: Span) -> Expression {
                 custom_completion: None,
             }
         } else {
-            working_set.error(ParseError::InvalidLiteral(
-                format!("invalid digits for radix {}", radix),
-                "int".into(),
+            working_set.error(ParseError::InvalidLiteral {
+                ty: "int",
+                label: format!("invalid digits for radix {radix}"),
                 span,
-            ));
-
+            });
             garbage(span)
         }
     }
@@ -2286,10 +2295,19 @@ pub fn parse_duration(working_set: &mut StateWorkingSet, span: Span) -> Expressi
 
     let bytes = working_set.get_span_contents(span);
 
-    match parse_unit_value(bytes, span, DURATION_UNIT_GROUPS, Type::Duration, |x| x) {
-        Some(Ok(expr)) => expr,
-        Some(Err(mk_err_for)) => {
-            working_set.error(mk_err_for("duration"));
+    match parse_unit_value(bytes, span, DurationUnit::as_nanos_i64) {
+        Some(Ok(expr)) => Expression {
+            expr: Expr::Duration(Box::new(expr)),
+            span,
+            ty: Type::Duration,
+            custom_completion: None,
+        },
+        Some(Err(val_span)) => {
+            working_set.error(ParseError::InvalidLiteral {
+                ty: "duration",
+                label: "magnitude too large".into(),
+                span: val_span,
+            });
             garbage(span)
         }
         None => {
@@ -2311,12 +2329,19 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         return garbage(span);
     }
 
-    match parse_unit_value(bytes, span, FILESIZE_UNIT_GROUPS, Type::Filesize, |x| {
-        x.to_ascii_uppercase()
-    }) {
-        Some(Ok(expr)) => expr,
-        Some(Err(mk_err_for)) => {
-            working_set.error(mk_err_for("filesize"));
+    match parse_unit_value(bytes, span, FilesizeUnit::as_bytes_i64) {
+        Some(Ok(expr)) => Expression {
+            expr: Expr::Filesize(Box::new(expr)),
+            span,
+            ty: Type::Filesize,
+            custom_completion: None,
+        },
+        Some(Err(val_span)) => {
+            working_set.error(ParseError::InvalidLiteral {
+                ty: "filesize",
+                label: "magnitude too large".into(),
+                span: val_span,
+            });
             garbage(span)
         }
         None => {
@@ -2325,157 +2350,139 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         }
     }
 }
-
-type ParseUnitResult<'res> = Result<Expression, Box<dyn Fn(&'res str) -> ParseError>>;
-type UnitGroup<'unit> = (Unit, &'unit str, Option<(Unit, i64)>);
-
-pub fn parse_unit_value<'res>(
+pub fn parse_unit_value<T>(
     bytes: &[u8],
     span: Span,
-    unit_groups: &[UnitGroup],
-    ty: Type,
-    transform: fn(String) -> String,
-) -> Option<ParseUnitResult<'res>> {
-    if bytes.len() < 2
-        || !(bytes[0].is_ascii_digit() || (bytes[0] == b'-' && bytes[1].is_ascii_digit()))
-    {
-        return None;
+    unit_size: impl Fn(&T) -> i64,
+) -> Option<Result<ValueWithUnit<T>, Span>>
+where
+    T: Display + FromStr,
+{
+    // Check that `bytes` starts with a number and that there is
+    // at least one character after the digit (otherwise the unit would be empty).
+    match bytes {
+        &[digit, _, ..]
+        | &[b'.', digit, _, ..]
+        | &[b'-' | b'+', digit, _, ..]
+        | &[b'-' | b'+', b'.', digit, _, ..]
+            if digit.is_ascii_digit() => {}
+        _ => return None,
     }
 
-    let value = transform(String::from_utf8_lossy(bytes).into());
+    let s = std::str::from_utf8(bytes).ok()?; // invalid utft-8 cannot parse into a valid value
+    let value_str = s.trim_end_matches(char::is_alphabetic);
+    let split_idx = value_str.len();
+    let unit_str = &s[split_idx..];
+    let unit = unit_str.parse().ok()?;
+    let value_str = strip_underscores(value_str.as_bytes());
 
-    if let Some((unit, name, convert)) = unit_groups.iter().find(|x| value.ends_with(x.1)) {
-        let lhs_len = value.len() - name.len();
-        let lhs = strip_underscores(value[..lhs_len].as_bytes());
-        let lhs_span = Span::new(span.start, span.start + lhs_len);
-        let unit_span = Span::new(span.start + lhs_len, span.end);
-        if lhs.ends_with('$') {
-            // If `parse_unit_value` has higher precedence over `parse_range`,
-            // a variable with the name of a unit could otherwise not be used as the end of a range.
-            return None;
-        }
+    // Check if the value can be parsed as a float.
+    value_str.parse::<f64>().ok()?;
+    // If so, then at this point we know the string consists of a valid number and a valid unit.
+    // Only overflow errors can happen after here, and we should returrn an error instead of `None`.
 
-        let (decimal_part, number_part) = modf(match lhs.parse::<f64>() {
-            Ok(it) => it,
-            Err(_) => {
-                let mk_err = move |name| {
-                    ParseError::LabeledError(
-                        format!("{name} value must be a number"),
-                        "not a number".into(),
-                        lhs_span,
-                    )
-                };
-                return Some(Err(Box::new(mk_err)));
-            }
-        });
+    let value_span = Span::new(span.start, span.start + split_idx);
+    let unit_span = Span::new(span.start + split_idx, span.end);
 
-        let (num, unit) = match convert {
-            Some(convert_to) => (
-                ((number_part * convert_to.1 as f64) + (decimal_part * convert_to.1 as f64)) as i64,
-                convert_to.0,
-            ),
-            None => (number_part as i64, *unit),
-        };
+    let Some(value) = value_or_overflow(&value_str, unit_size(&unit)) else {
+        return Some(Err(value_span));
+    };
 
-        trace!("-- found {} {:?}", num, unit);
-        let value = ValueWithUnit {
-            expr: Expression {
-                expr: Expr::Int(num),
-                span: lhs_span,
-                ty: Type::Number,
-                custom_completion: None,
-            },
-            unit: Spanned {
-                item: unit,
-                span: unit_span,
-            },
-        };
-        let expr = Expression {
-            expr: Expr::ValueWithUnit(Box::new(value)),
-            span,
-            ty,
-            custom_completion: None,
-        };
+    trace!("-- found {value} {unit}");
+    let value = ValueWithUnit {
+        value,
+        value_span,
+        unit,
+        unit_span,
+    };
 
-        Some(Ok(expr))
-    } else {
-        None
-    }
+    Some(Ok(value))
 }
 
-pub const FILESIZE_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Kilobyte, "KB", Some((Unit::Byte, 1000))),
-    (Unit::Megabyte, "MB", Some((Unit::Kilobyte, 1000))),
-    (Unit::Gigabyte, "GB", Some((Unit::Megabyte, 1000))),
-    (Unit::Terabyte, "TB", Some((Unit::Gigabyte, 1000))),
-    (Unit::Petabyte, "PB", Some((Unit::Terabyte, 1000))),
-    (Unit::Exabyte, "EB", Some((Unit::Petabyte, 1000))),
-    (Unit::Kibibyte, "KIB", Some((Unit::Byte, 1024))),
-    (Unit::Mebibyte, "MIB", Some((Unit::Kibibyte, 1024))),
-    (Unit::Gibibyte, "GIB", Some((Unit::Mebibyte, 1024))),
-    (Unit::Tebibyte, "TIB", Some((Unit::Gibibyte, 1024))),
-    (Unit::Pebibyte, "PIB", Some((Unit::Tebibyte, 1024))),
-    (Unit::Exbibyte, "EIB", Some((Unit::Pebibyte, 1024))),
-    (Unit::Byte, "B", None),
-];
+fn value_or_overflow(s: &str, unit_size: i64) -> Option<i64> {
+    // This re-parses the whole, fractional, and exponent portions of the number
+    // to check for overflow and prevent inaccuracies.
+    //
+    // The formula for the number can be expressed as:
+    // (whole + fractional) * 10^exp * unit_size
+    //
+    // The code below splits the above computation into whole and fractional portions:
+    // a = whole * 10^exp * unit_size
+    // b = fractional * 10^exp * unit_size
+    // result = a + b
 
-pub const DURATION_UNIT_GROUPS: &[UnitGroup] = &[
-    (Unit::Nanosecond, "ns", None),
-    // todo start adding aliases for duration units here
-    (Unit::Microsecond, "us", Some((Unit::Nanosecond, 1000))),
-    (
-        // µ Micro Sign
-        Unit::Microsecond,
-        "\u{00B5}s",
-        Some((Unit::Nanosecond, 1000)),
-    ),
-    (
-        // μ Greek small letter Mu
-        Unit::Microsecond,
-        "\u{03BC}s",
-        Some((Unit::Nanosecond, 1000)),
-    ),
-    (Unit::Millisecond, "ms", Some((Unit::Microsecond, 1000))),
-    (Unit::Second, "sec", Some((Unit::Millisecond, 1000))),
-    (Unit::Minute, "min", Some((Unit::Second, 60))),
-    (Unit::Hour, "hr", Some((Unit::Minute, 60))),
-    (Unit::Day, "day", Some((Unit::Minute, 1440))),
-    (Unit::Week, "wk", Some((Unit::Day, 7))),
-];
+    let (positive, rest) = match s.as_bytes().first() {
+        Some(b'-') => (false, &s[1..]),
+        Some(b'+') => (true, &s[1..]),
+        _ => (true, s),
+    };
 
-// Borrowed from libm at https://github.com/rust-lang/libm/blob/master/src/math/modf.rs
-fn modf(x: f64) -> (f64, f64) {
-    let rv2: f64;
-    let mut u = x.to_bits();
-    let e = ((u >> 52 & 0x7ff) as i32) - 0x3ff;
+    let (exp_positive, exp, num) = if let Some((num, exp)) = rest.split_once('e') {
+        let (positive, exp) = match exp.as_bytes().first() {
+            Some(b'-') => (false, &exp[1..]),
+            Some(b'+') => (true, &exp[1..]),
+            _ => (true, exp),
+        };
+        let exp = exp.parse().ok()?;
+        let exp = 10_i64.checked_pow(exp)?;
+        (positive, exp, num)
+    } else {
+        (true, 1, rest)
+    };
 
-    /* no fractional part */
-    if e >= 52 {
-        rv2 = x;
-        if e == 0x400 && (u << 12) != 0 {
-            /* nan */
-            return (x, rv2);
-        }
-        u &= 1 << 63;
-        return (f64::from_bits(u), rv2);
+    let (whole, fract) = if let Some(i) = num.find('.') {
+        let (whole, fract) = num.split_at(i);
+        let whole = if whole.is_empty() {
+            0_i64
+        } else {
+            whole.parse().ok()?
+        };
+        let fract = if fract.len() == 1 {
+            0.0
+        } else {
+            let fract = fract.parse::<f64>().ok();
+            debug_assert_ne!(fract, None, "this parse should always succeed");
+            fract?
+        };
+        (whole, fract)
+    } else {
+        (num.parse().ok()?, 0.0)
+    };
+
+    let whole = if exp_positive {
+        whole.checked_mul(unit_size)?.checked_mul(exp)?
+    } else {
+        (i128::from(whole) * i128::from(unit_size) / i128::from(exp))
+            .try_into()
+            .ok()?
+    };
+
+    // Only exponents in the range [-18, 18] will not overflow `exp`,
+    // and all of the values from these exponents can be lossless converted into a `f64`.
+    debug_assert_eq!(
+        exp, exp as f64 as i64,
+        "conversion to f64 should be lossless"
+    );
+    let exp = exp as f64;
+    let fract = if exp_positive {
+        fract * exp
+    } else {
+        fract / exp
+    };
+    // All filsize and duration units can be losslessly converted to `f64`.
+    debug_assert_eq!(
+        unit_size, unit_size as f64 as i64,
+        "conversion to f64 should be lossless"
+    );
+    let fract = fract * unit_size as f64;
+    if fract > i64::MAX as f64 {
+        return None;
     }
+    let fract = fract as i64; // truncate remaining fractional portion
 
-    /* no integral part*/
-    if e < 0 {
-        u &= 1 << 63;
-        rv2 = f64::from_bits(u);
-        return (x, rv2);
-    }
-
-    let mask = ((!0) >> 12) >> e;
-    if (u & mask) == 0 {
-        rv2 = x;
-        u &= 1 << 63;
-        return (f64::from_bits(u), rv2);
-    }
-    u &= !mask;
-    rv2 = f64::from_bits(u);
-    (x - rv2, rv2)
+    let value = whole.checked_add(fract)?;
+    let value = if positive { value } else { -value };
+    Some(value)
 }
 
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -2613,11 +2620,11 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                                     cur_idx += 1;
                                 }
                                 _ => {
-                                    error = error.or(Some(ParseError::InvalidLiteral(
-                                        "missing '}' for unicode escape '\\u{X...}'".into(),
-                                        "string".into(),
-                                        Span::new(span.start + idx, span.end),
-                                    )));
+                                    error = error.or(Some(ParseError::InvalidLiteral {
+                                        ty: "string",
+                                        label: "missing '}' for unicode escape '\\u{X...}'".into(),
+                                        span: Span::new(span.start + idx, span.end),
+                                    }));
                                     break 'us_loop;
                                 }
                             }
@@ -2646,20 +2653,20 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                         }
                     }
                     // fall through -- escape not accepted above, must be error.
-                    error = error.or(Some(ParseError::InvalidLiteral(
-                            "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
-                            "string".into(),
-                            Span::new(span.start + idx, span.end),
-                    )));
+                    error = error.or(Some(ParseError::InvalidLiteral {
+                        ty: "string",
+                        label: "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
+                        span: Span::new(span.start + idx, span.end),
+                    }));
                     break 'us_loop;
                 }
 
                 _ => {
-                    error = error.or(Some(ParseError::InvalidLiteral(
-                        "unrecognized escape after '\\'".into(),
-                        "string".into(),
-                        Span::new(span.start + idx, span.end),
-                    )));
+                    error = error.or(Some(ParseError::InvalidLiteral {
+                        ty: "string",
+                        label: "unrecognized escape after '\\'".into(),
+                        span: Span::new(span.start + idx, span.end),
+                    }));
                     break 'us_loop;
                 }
             }
@@ -6043,6 +6050,8 @@ pub fn discover_captures_in_expr(
             }
         }
         Expr::CellPath(_) => {}
+        Expr::Filesize(_) => {}
+        Expr::Duration(_) => {}
         Expr::DateTime(_) => {}
         Expr::ExternalCall(head, args) => {
             discover_captures_in_expr(working_set, head, seen, seen_blocks, output)?;
@@ -6176,9 +6185,6 @@ pub fn discover_captures_in_expr(
                     discover_captures_in_expr(working_set, cell, seen, seen_blocks, output)?;
                 }
             }
-        }
-        Expr::ValueWithUnit(value) => {
-            discover_captures_in_expr(working_set, &value.expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
             if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {

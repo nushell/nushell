@@ -304,6 +304,14 @@ fn flatten_expression_into(
         }
         Expr::Garbage => output.push((expr.span, FlatShape::Garbage)),
         Expr::Nothing => output.push((expr.span, FlatShape::Nothing)),
+        Expr::Filesize(filesize) => {
+            output.push((filesize.value_span, FlatShape::Int));
+            output.push((filesize.unit_span, FlatShape::String));
+        }
+        Expr::Duration(duration) => {
+            output.push((duration.value_span, FlatShape::Int));
+            output.push((duration.unit_span, FlatShape::String));
+        }
         Expr::DateTime(_) => output.push((expr.span, FlatShape::DateTime)),
         Expr::Binary(_) => output.push((expr.span, FlatShape::Binary)),
         Expr::Int(_) => output.push((expr.span, FlatShape::Int)),
@@ -313,10 +321,6 @@ fn flatten_expression_into(
                 flatten_pattern_into(pattern, output);
                 flatten_expression_into(working_set, expr, output);
             }
-        }
-        Expr::ValueWithUnit(value) => {
-            flatten_expression_into(working_set, &value.expr, output);
-            output.push((value.unit.span, FlatShape::String));
         }
         Expr::CellPath(cell_path) => {
             output.extend(cell_path.members.iter().map(|member| match *member {
