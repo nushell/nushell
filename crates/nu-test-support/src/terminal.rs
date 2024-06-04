@@ -24,7 +24,7 @@
 //! Step 4: Write data to the PTY. Any data you sent will appear to Nushell as
 //! if they were typed in a terminal. ANSI escape codes are used for special
 //! keystrokes. For example, if you want to press Enter, send "\r" (NOT "\n").
-//! On Linux, use `sendkey -a` to see the actual value of a keystroke. The
+//! On Linux, use `showkey -a` to see the actual value of a keystroke. The
 //! [Wikipedia page](https://en.wikipedia.org/wiki/ANSI_escape_code) also
 //! contains a list of common ANSI escape codes.
 //!
