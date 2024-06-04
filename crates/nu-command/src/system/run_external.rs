@@ -352,7 +352,7 @@ fn expand_glob(
             if let Ok(arg) = m {
                 let arg = if let Some(prefix) = &prefix {
                     if let Ok(remainder) = arg.strip_prefix(prefix) {
-                        let new_prefix = if let Some(pfx) = diff_paths(prefix, &cwd) {
+                        let new_prefix = if let Some(pfx) = diff_paths(prefix, cwd) {
                             pfx
                         } else {
                             prefix.to_path_buf()
@@ -378,9 +378,9 @@ fn expand_glob(
             result.push(arg.into());
         }
 
-        return Ok(result);
+        Ok(result)
     } else {
-        return Ok(vec![arg.into()]);
+        Ok(vec![arg.into()])
     }
 }
 
