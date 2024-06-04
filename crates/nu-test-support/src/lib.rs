@@ -3,6 +3,7 @@ pub mod fs;
 pub mod locale_override;
 pub mod macros;
 pub mod playground;
+pub mod terminal;
 use std::process::ExitStatus;
 
 // Needs to be reexported for `nu!` macro
