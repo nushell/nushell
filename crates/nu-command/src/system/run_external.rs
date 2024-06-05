@@ -665,12 +665,7 @@ mod test {
     #[test]
     fn test_eval_argument() {
         fn expression(expr: Expr) -> Expression {
-            Expression {
-                expr,
-                span: Span::unknown(),
-                ty: Type::Any,
-                custom_completion: None,
-            }
+            Expression::new_unknown(expr, Span::unknown(), Type::Any)
         }
 
         fn eval(expr: Expr, spread: bool) -> Result<Vec<String>, ShellError> {
