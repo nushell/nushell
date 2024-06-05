@@ -1,6 +1,5 @@
 use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
 
 #[derive(Clone)]
 pub struct SubCommand;

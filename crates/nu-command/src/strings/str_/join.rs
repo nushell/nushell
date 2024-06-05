@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
+
 use std::io::Write;
 
 #[derive(Clone)]

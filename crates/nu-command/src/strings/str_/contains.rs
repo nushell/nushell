@@ -1,7 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
-use nu_protocol::engine::StateWorkingSet;
 use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]

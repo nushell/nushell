@@ -2,7 +2,6 @@ use crate::{grapheme_flags, grapheme_flags_const};
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
 
-use nu_protocol::engine::StateWorkingSet;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]

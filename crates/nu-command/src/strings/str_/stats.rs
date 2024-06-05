@@ -1,6 +1,6 @@
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
+
 use std::collections::BTreeMap;
 use std::{fmt, str};
 use unicode_segmentation::UnicodeSegmentation;

@@ -1,6 +1,5 @@
-use super::base64::{operate, ActionType, CHARACTER_SET_DESC, Base64CommandArguments};
+use super::base64::{operate, ActionType, Base64CommandArguments, CHARACTER_SET_DESC};
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
 
 #[derive(Clone)]
 pub struct EncodeBase64;

@@ -1,5 +1,4 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
 
 #[derive(Clone)]
 pub struct Encode;

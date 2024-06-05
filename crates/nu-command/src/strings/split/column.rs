@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
 
-use nu_protocol::engine::StateWorkingSet;
 use regex::Regex;
 
 #[derive(Clone)]
