@@ -350,23 +350,8 @@ fn expand_glob(
                 return Err(ShellError::InterruptedByUser { span: Some(span) });
             }
             if let Ok(arg) = m {
-                let arg = if let Some(prefix) = &prefix {
-                    if let Ok(remainder) = arg.strip_prefix(prefix) {
-                        let new_prefix = if let Some(pfx) = diff_paths(prefix, cwd) {
-                            pfx
-                        } else {
-                            prefix.to_path_buf()
-                        };
-
-                        new_prefix.join(remainder).to_string_lossy().to_string()
-                    } else {
-                        arg.to_string_lossy().to_string()
-                    }
-                } else {
-                    arg.to_string_lossy().to_string()
-                };
-
-                result.push(arg);
+                let arg = resolve_globbed_path_to_cwd_relative(arg, prefix.as_ref(), cwd);
+                result.push(arg.to_string_lossy().to_string());
             } else {
                 result.push(arg.into());
             }
@@ -381,6 +366,27 @@ fn expand_glob(
         Ok(result)
     } else {
         Ok(vec![arg.into()])
+    }
+}
+
+fn resolve_globbed_path_to_cwd_relative(
+    path: PathBuf,
+    prefix: Option<&PathBuf>,
+    cwd: &Path,
+) -> PathBuf {
+    if let Some(prefix) = prefix {
+        if let Ok(remainder) = path.strip_prefix(&prefix) {
+            let new_prefix = if let Some(pfx) = diff_paths(prefix, cwd) {
+                pfx
+            } else {
+                prefix.to_path_buf()
+            };
+            new_prefix.join(remainder)
+        } else {
+            path
+        }
+    } else {
+        path
     }
 }
 
