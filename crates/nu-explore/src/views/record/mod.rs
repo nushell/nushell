@@ -2,7 +2,7 @@ mod table_widget;
 
 use self::table_widget::{TableStyle, TableWidget, TableWidgetState};
 use super::{
-    cursor::XYCursor,
+    cursor::{Position, WindowCursor2D},
     util::{make_styled_string, nu_style_to_tui},
     Layout, View, ViewConfig,
 };
@@ -133,22 +133,22 @@ impl<'a> RecordView<'a> {
         layer.reset_cursor();
     }
 
-    pub fn get_current_position(&self) -> (usize, usize) {
+    /// Get the current position of the cursor in the table as a whole
+    pub fn get_cursor_position(&self) -> Position {
         let layer = self.get_layer_last();
-        (layer.cursor.row(), layer.cursor.column())
+        layer.cursor.position()
     }
 
-    pub fn get_current_window(&self) -> (usize, usize) {
+    /// Get the current position of the cursor in the window being shown
+    pub fn get_cursor_position_in_window(&self) -> Position {
         let layer = self.get_layer_last();
-        (layer.cursor.row_window(), layer.cursor.column_window())
+        layer.cursor.window_relative_position()
     }
 
-    pub fn get_current_offset(&self) -> (usize, usize) {
+    /// Get the origin of the window being shown. (0,0), top left corner.
+    pub fn get_window_origin(&self) -> Position {
         let layer = self.get_layer_last();
-        (
-            layer.cursor.row_starts_at(),
-            layer.cursor.column_starts_at(),
-        )
+        layer.cursor.window_origin()
     }
 
     pub fn set_cursor_mode(&mut self) {
@@ -160,7 +160,7 @@ impl<'a> RecordView<'a> {
     }
 
     pub fn get_current_value(&self) -> Value {
-        let (row, column) = self.get_current_position();
+        let Position { row, column } = self.get_cursor_position();
         let layer = self.get_layer_last();
 
         let (row, column) = match layer.orientation {
@@ -175,15 +175,17 @@ impl<'a> RecordView<'a> {
         }
     }
 
-    fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
+    /// Create a table widget.
+    /// WARNING: this is currently really slow on large data sets.
+    /// It creates a string representation of every cell in the table and looks at every row for lscolorize.
+    fn create_table_widget(&'a self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
         let layer = self.get_layer_last();
         let mut data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
-
         lscolorize(&layer.columns, &mut data, cfg.lscolors);
 
         let headers = layer.columns.as_ref();
         let style_computer = cfg.style_computer;
-        let (row, column) = self.get_current_offset();
+        let Position { row, column } = self.get_window_origin();
 
         TableWidget::new(
             headers,
@@ -199,11 +201,17 @@ impl<'a> RecordView<'a> {
     fn update_cursors(&mut self, rows: usize, columns: usize) {
         match self.get_layer_last().orientation {
             Orientation::Top => {
-                self.get_layer_last_mut().cursor.set_window(rows, columns);
+                let _ = self
+                    .get_layer_last_mut()
+                    .cursor
+                    .set_window_size(rows, columns);
             }
 
             Orientation::Left => {
-                self.get_layer_last_mut().cursor.set_window(rows, columns);
+                let _ = self
+                    .get_layer_last_mut()
+                    .cursor
+                    .set_window_size(rows, columns);
             }
         }
     }
@@ -226,7 +234,10 @@ impl<'a> RecordView<'a> {
 impl View for RecordView<'_> {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let mut table_layout = TableWidgetState::default();
-        let table = self.create_tablew(cfg);
+        // TODO: creating the table widget is O(N) where N is the number of cells in the grid.
+        // Way too slow to do on every draw call!
+        // To make explore work for larger data sets, this needs to be improved.
+        let table = self.create_table_widget(cfg);
         f.render_stateful_widget(table, area, &mut table_layout);
 
         *layout = table_layout.layout;
@@ -234,7 +245,7 @@ impl View for RecordView<'_> {
         self.update_cursors(table_layout.count_rows, table_layout.count_columns);
 
         if self.mode == UIMode::Cursor {
-            let (row, column) = self.get_current_window();
+            let Position { row, column } = self.get_cursor_position_in_window();
             let info = get_element_info(
                 layout,
                 row,
@@ -308,7 +319,9 @@ impl View for RecordView<'_> {
 
             for (column, _) in cells.iter().enumerate() {
                 if i == pos {
-                    self.get_layer_last_mut().cursor.set_position(row, column);
+                    self.get_layer_last_mut()
+                        .cursor
+                        .set_window_start_position(row, column);
                     return true;
                 }
 
@@ -374,7 +387,7 @@ pub struct RecordLayer<'a> {
     orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
-    cursor: XYCursor,
+    cursor: WindowCursor2D,
 }
 
 impl<'a> RecordLayer<'a> {
@@ -384,7 +397,10 @@ impl<'a> RecordLayer<'a> {
     ) -> Self {
         let columns = columns.into();
         let records = records.into();
-        let cursor = XYCursor::new(records.len(), columns.len());
+
+        // TODO: refactor so this is fallible and returns a Result instead of panicking
+        let cursor =
+            WindowCursor2D::new(records.len(), columns.len()).expect("Failed to create cursor");
 
         Self {
             columns,
@@ -420,7 +436,9 @@ impl<'a> RecordLayer<'a> {
     }
 
     fn reset_cursor(&mut self) {
-        self.cursor = XYCursor::new(self.count_rows(), self.count_columns());
+        // TODO: refactor so this is fallible and returns a Result instead of panicking
+        self.cursor = WindowCursor2D::new(self.count_rows(), self.count_columns())
+            .expect("Failed to create cursor");
     }
 }
 
@@ -634,7 +652,9 @@ fn tail_data(state: &mut RecordView<'_>, page_size: usize) {
     let layer = state.get_layer_last_mut();
     let count_rows = layer.records.len();
     if count_rows > page_size {
-        layer.cursor.set_position(count_rows - page_size, 0);
+        layer
+            .cursor
+            .set_window_start_position(count_rows - page_size, 0);
     }
 }
 
@@ -731,20 +751,18 @@ fn build_table_as_record(v: &RecordView) -> Value {
     Value::record(record, NuSpan::unknown())
 }
 
-fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
+fn report_cursor_position(mode: UIMode, cursor: WindowCursor2D) -> String {
     if mode == UIMode::Cursor {
-        let row = cursor.row();
-        let column = cursor.column();
+        let Position { row, column } = cursor.position();
         format!("{row},{column}")
     } else {
-        let rows_seen = cursor.row_starts_at();
-        let columns_seen = cursor.column_starts_at();
-        format!("{rows_seen},{columns_seen}")
+        let Position { row, column } = cursor.window_origin();
+        format!("{row},{column}")
     }
 }
 
-fn report_row_position(cursor: XYCursor) -> String {
-    if cursor.row_starts_at() == 0 {
+fn report_row_position(cursor: WindowCursor2D) -> String {
+    if cursor.window_origin().row == 0 {
         String::from("Top")
     } else {
         let percent_rows = get_percentage(cursor.row(), cursor.row_limit());

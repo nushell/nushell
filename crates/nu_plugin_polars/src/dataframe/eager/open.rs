@@ -469,7 +469,7 @@ fn from_csv(
         let df: NuLazyFrame = csv_reader
             .finish()
             .map_err(|e| ShellError::GenericError {
-                error: "Parquet reader error".into(),
+                error: "CSV reader error".into(),
                 msg: format!("{e:?}"),
                 span: Some(call.head),
                 help: None,

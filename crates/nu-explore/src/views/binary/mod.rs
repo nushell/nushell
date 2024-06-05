@@ -17,16 +17,20 @@ use crate::{
         ConfigMap, Frame, Transition, ViewInfo,
     },
     util::create_map,
+    views::cursor::Position,
 };
 
 use self::binary_widget::{BinarySettings, BinaryStyle, BinaryWidget};
 
-use super::{cursor::XYCursor, Layout, View, ViewConfig};
+use super::{cursor::WindowCursor2D, Layout, View, ViewConfig};
 
+/// An interactive view that displays binary data in a hex dump format.
+/// Not finished; many aspects are still WIP.
 #[derive(Debug, Clone)]
 pub struct BinaryView {
     data: Vec<u8>,
-    cursor: XYCursor,
+    // HACK: we are only using the vertical dimension of the cursor, should we use a plain old WindowCursor?
+    cursor: WindowCursor2D,
     settings: Settings,
 }
 
@@ -40,7 +44,7 @@ impl BinaryView {
     pub fn new(data: Vec<u8>) -> Self {
         Self {
             data,
-            cursor: XYCursor::default(),
+            cursor: WindowCursor2D::default(),
             settings: Settings::default(),
         }
     }
@@ -95,12 +99,13 @@ impl View for BinaryView {
 
         let count_rows =
             BinaryWidget::new(&self.data, self.settings.opts, Default::default()).count_lines();
-        self.cursor = XYCursor::new(count_rows, 0);
+        // TODO: refactor View so setup() is fallible and we don't have to panic here
+        self.cursor = WindowCursor2D::new(count_rows, 1).expect("Failed to create XYCursor");
     }
 }
 
 fn create_binary_widget(v: &BinaryView) -> BinaryWidget<'_> {
-    let start_line = v.cursor.row_starts_at();
+    let start_line = v.cursor.window_origin().row;
     let count_elements =
         BinaryWidget::new(&[], v.settings.opts, Default::default()).count_elements();
     let index = start_line * count_elements;
@@ -203,7 +208,7 @@ fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
         .unwrap_or(default)
 }
 
-fn create_report(cursor: XYCursor) -> Report {
+fn create_report(cursor: WindowCursor2D) -> Report {
     let covered_percent = report_row_position(cursor);
     let cursor = report_cursor_position(cursor);
     let mode = report_mode_name();
@@ -216,8 +221,8 @@ fn report_mode_name() -> String {
     String::from("VIEW")
 }
 
-fn report_row_position(cursor: XYCursor) -> String {
-    if cursor.row_starts_at() == 0 {
+fn report_row_position(cursor: WindowCursor2D) -> String {
+    if cursor.window_origin().row == 0 {
         return String::from("Top");
     }
 
@@ -233,10 +238,9 @@ fn report_row_position(cursor: XYCursor) -> String {
     }
 }
 
-fn report_cursor_position(cursor: XYCursor) -> String {
-    let rows_seen = cursor.row_starts_at();
-    let columns_seen = cursor.column_starts_at();
-    format!("{rows_seen},{columns_seen}")
+fn report_cursor_position(cursor: WindowCursor2D) -> String {
+    let Position { row, column } = cursor.window_origin();
+    format!("{row},{column}")
 }
 
 fn get_percentage(value: usize, max: usize) -> usize {
