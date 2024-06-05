@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 
+use nu_protocol::engine::StateWorkingSet;
 use regex::Regex;
 
 #[derive(Clone)]
@@ -34,16 +35,6 @@ impl Command for SubCommand {
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["separate", "divide", "regex"]
-    }
-
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        split_list(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -145,6 +136,33 @@ impl Command for SubCommand {
             },
         ]
     }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let has_regex = call.has_flag(engine_state, stack, "regex")?;
+        let separator: Value = call.req(engine_state, stack, 0)?;
+        split_list(engine_state, call, input, has_regex, separator)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let has_regex = call.has_flag_const(working_set, "regex")?;
+        let separator: Value = call.req_const(working_set, 0)?;
+        split_list(working_set.permanent(), call, input, has_regex, separator)
+    }
 }
 
 enum Matcher {
@@ -188,15 +206,15 @@ impl Matcher {
 
 fn split_list(
     engine_state: &EngineState,
-    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    has_regex: bool,
+    separator: Value,
 ) -> Result<PipelineData, ShellError> {
-    let separator: Value = call.req(engine_state, stack, 0)?;
     let mut temp_list = Vec::new();
     let mut returned_list = Vec::new();
 
-    let matcher = Matcher::new(call.has_flag(engine_state, stack, "regex")?, separator)?;
+    let matcher = Matcher::new(has_regex, separator)?;
     for val in input {
         if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
             break;
