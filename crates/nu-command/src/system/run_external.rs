@@ -223,7 +223,7 @@ fn remove_quotes(s: &str) -> Cow<'_, str> {
     let quoted_by_single_quotes = s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'');
     let quoted_by_backticks = s.len() >= 2 && s.starts_with('`') && s.ends_with('`');
     if quoted_by_double_quotes {
-        Cow::Owned((&s[1..s.len() - 1]).to_string().replace(r#"\""#, "\""))
+        Cow::Owned(s[1..s.len() - 1].to_string().replace(r#"\""#, "\""))
     } else if quoted_by_single_quotes || quoted_by_backticks {
         Cow::Borrowed(&s[1..s.len() - 1])
     } else {
