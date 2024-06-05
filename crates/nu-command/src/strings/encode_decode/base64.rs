@@ -7,10 +7,9 @@ use base64::{
     Engine,
 };
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
-use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
-    engine::{EngineState, Stack},
+    engine::EngineState,
     PipelineData, ShellError, Span, Spanned, Value,
 };
 
@@ -42,22 +41,24 @@ impl CmdArgument for Arguments {
     }
 }
 
+pub(super) struct Base64CommandArguments {
+    pub(super) character_set: Option<Spanned<String>>,
+    pub(super) action_type: ActionType,
+    pub(super) binary: bool,
+}
+
 pub fn operate(
-    action_type: ActionType,
     engine_state: &EngineState,
-    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    cell_paths: Vec<CellPath>,
+    args: Base64CommandArguments,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let character_set: Option<Spanned<String>> =
-        call.get_flag(engine_state, stack, "character-set")?;
-    let binary = call.has_flag(engine_state, stack, "binary")?;
-    let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     // Default the character set to standard if the argument is not specified.
-    let character_set = match character_set {
+    let character_set = match args.character_set {
         Some(inner_tag) => inner_tag,
         None => Spanned {
             item: "standard".to_string(),
@@ -68,9 +69,9 @@ pub fn operate(
     let args = Arguments {
         encoding_config: Base64Config {
             character_set,
-            action_type,
+            action_type: args.action_type,
         },
-        binary,
+        binary: args.binary,
         cell_paths,
     };
 

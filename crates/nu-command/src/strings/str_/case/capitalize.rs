@@ -36,6 +36,10 @@ impl Command for SubCommand {
         vec!["convert", "style", "caps", "upper"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -43,7 +47,18 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        operate(engine_state, call, input, column_paths)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let column_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        operate(working_set.permanent(), call, input, column_paths)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -72,12 +87,11 @@ impl Command for SubCommand {
 
 fn operate(
     engine_state: &EngineState,
-    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    column_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     input.map(
         move |v| {
             if column_paths.is_empty() {
