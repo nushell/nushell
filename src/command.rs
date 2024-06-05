@@ -33,9 +33,9 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--env-config" | "-I" | "ide-ast" => args.next().map(|a| escape_quote_string(&a)),
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-            "--log-level" | "--log-target" | "--log-include" | "--testbin" | "--threads" | "-t"
-            | "--include-path" | "--lsp" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
-            | "--ide-check" => args.next(),
+            "--log-level" | "--log-target" | "--log-include" | "--log-exclude" | "--testbin"
+            | "--threads" | "-t" | "--include-path" | "--lsp" | "--ide-goto-def"
+            | "--ide-hover" | "--ide-complete" | "--ide-check" => args.next(),
             #[cfg(feature = "plugin")]
             "--plugins" => args.next(),
             _ => None,
@@ -98,6 +98,7 @@ pub(crate) fn parse_commandline_args(
             let log_level = call.get_flag_expr("log-level");
             let log_target = call.get_flag_expr("log-target");
             let log_include = call.get_flag_expr("log-include");
+            let log_exclude = call.get_flag_expr("log-exclude");
             let execute = call.get_flag_expr("execute");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
@@ -193,6 +194,7 @@ pub(crate) fn parse_commandline_args(
             let log_level = extract_contents(log_level)?;
             let log_target = extract_contents(log_target)?;
             let log_include = extract_list(log_include, "string", |expr| expr.as_string())?;
+            let log_exclude = extract_list(log_exclude, "string", |expr| expr.as_string())?;
             let execute = extract_contents(execute)?;
             let include_path = extract_contents(include_path)?;
 
@@ -233,6 +235,7 @@ pub(crate) fn parse_commandline_args(
                 log_level,
                 log_target,
                 log_include,
+                log_exclude,
                 execute,
                 include_path,
                 ide_goto_def,
@@ -272,6 +275,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) log_include: Option<Vec<Spanned<String>>>,
+    pub(crate) log_exclude: Option<Vec<Spanned<String>>>,
     pub(crate) execute: Option<Spanned<String>>,
     pub(crate) table_mode: Option<Value>,
     pub(crate) no_newline: Option<Spanned<String>>,
@@ -417,6 +421,12 @@ impl Command for Nu {
                 "log-include",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "set the Rust module prefixes to include in the log output. default: [nu]",
+                None,
+            )
+            .named(
+                "log-exclude",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "set the Rust module prefixes to exclude from the log output",
                 None,
             )
             .switch(

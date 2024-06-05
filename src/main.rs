@@ -26,7 +26,7 @@ use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
-    report_error, report_error_new, ByteStream, PipelineData, ShellError, Span, Value,
+    report_error, report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -173,6 +173,8 @@ fn main() -> Result<()> {
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
+
+    // Set up logger
     if let Some(level) = parsed_nu_cli_args
         .log_level
         .as_ref()
@@ -191,14 +193,21 @@ fn main() -> Result<()> {
             .as_ref()
             .map(|target| target.item.clone())
             .unwrap_or_else(|| "stderr".to_string());
-        let filter = parsed_nu_cli_args.log_include.as_ref().map(|filters| {
-            filters
-                .iter()
-                .map(|filter| filter.item.clone())
-                .collect::<Vec<String>>()
-        });
 
-        logger(|builder| configure(&level, &target, filter.as_deref(), builder))?;
+        let make_filters = |filters: &Option<Vec<Spanned<String>>>| {
+            filters.as_ref().map(|filters| {
+                filters
+                    .iter()
+                    .map(|filter| filter.item.clone())
+                    .collect::<Vec<String>>()
+            })
+        };
+        let filters = logger::Filters {
+            include: make_filters(&parsed_nu_cli_args.log_include),
+            exclude: make_filters(&parsed_nu_cli_args.log_exclude),
+        };
+
+        logger(|builder| configure(&level, &target, filters, builder))?;
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
         perf(
             "start logging",
