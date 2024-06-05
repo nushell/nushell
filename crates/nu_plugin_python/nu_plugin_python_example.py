@@ -27,7 +27,7 @@ import sys
 import json
 
 
-NUSHELL_VERSION = "0.94.1"
+NUSHELL_VERSION = "0.94.3"
 
 
 def signatures():
@@ -124,7 +124,7 @@ def process_call(id, plugin_call):
     span = plugin_call["call"]["head"]
 
     # Creates a Value of type List that will be encoded and sent to Nushell
-    f = lambda x, y: {
+    def f(x, y): return {
         "Int": {
             "val": x * y,
             "span": span
@@ -169,7 +169,7 @@ def tell_nushell_hello():
     """
     hello = {
         "Hello": {
-            "protocol": "nu-plugin", # always this value
+            "protocol": "nu-plugin",  # always this value
             "version": NUSHELL_VERSION,
             "features": []
         }
@@ -245,6 +245,7 @@ def plugin():
     for line in sys.stdin:
         input = json.loads(line)
         handle_input(input)
+
 
 if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1] == "--stdio":

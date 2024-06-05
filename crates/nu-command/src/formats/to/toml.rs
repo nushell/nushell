@@ -24,7 +24,7 @@ impl Command for ToToml {
         vec![Example {
             description: "Outputs an TOML string representing the contents of this record",
             example: r#"{foo: 1 bar: 'qwe'} | to toml"#,
-            result: Some(Value::test_string("bar = \"qwe\"\nfoo = 1\n")),
+            result: Some(Value::test_string("foo = 1\nbar = \"qwe\"\n")),
         }]
     }
 
@@ -103,7 +103,7 @@ fn toml_into_pipeline_data(
     value_type: Type,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    match toml::to_string(&toml_value) {
+    match toml::to_string_pretty(&toml_value) {
         Ok(serde_toml_string) => Ok(Value::string(serde_toml_string, span).into_pipeline_data()),
         _ => Ok(Value::error(
             ShellError::CantConvert {

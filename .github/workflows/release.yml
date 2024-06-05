@@ -76,7 +76,7 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.10
+      uses: hustcer/setup-nu@v3.11
       with:
         version: 0.93.0
 

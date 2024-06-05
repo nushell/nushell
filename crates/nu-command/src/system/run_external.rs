@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Expr, Expression},
     did_you_mean,
     process::ChildProcess,
-    ByteStream, OutDest,
+    ByteStream, NuGlob, OutDest,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -13,7 +13,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::Arc,
+    sync::{atomic::AtomicBool, Arc},
     thread,
 };
 
@@ -155,6 +155,9 @@ impl Command for External {
             }
         };
 
+        // Log the command we're about to run in case it's useful for debugging purposes.
+        log::trace!("run-external spawning: {command:?}");
+
         // Spawn the child process. On Unix, also put the child process to
         // foreground if we're in an interactive session.
         #[cfg(windows)]
@@ -232,6 +235,7 @@ pub fn eval_arguments_from_call(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<Vec<Spanned<String>>, ShellError> {
+    let ctrlc = &engine_state.ctrlc;
     let cwd = engine_state.cwd(Some(stack))?;
     let mut args: Vec<Spanned<String>> = vec![];
     for (expr, spread) in call.rest_iter(1) {
@@ -240,7 +244,7 @@ pub fn eval_arguments_from_call(
             // glob-expansion, and inner-quotes-removal, in that order.
             for arg in eval_argument(engine_state, stack, expr, spread)? {
                 let tilde_expanded = expand_tilde(&arg);
-                for glob_expanded in expand_glob(&tilde_expanded, &cwd, expr.span)? {
+                for glob_expanded in expand_glob(&tilde_expanded, &cwd, expr.span, ctrlc)? {
                     let inner_quotes_removed = remove_inner_quotes(&glob_expanded);
                     args.push(inner_quotes_removed.into_owned().into_spanned(expr.span));
                 }
@@ -321,37 +325,75 @@ fn expand_tilde(arg: &str) -> String {
 ///
 /// Note: This matches the default behavior of Bash, but is known to be
 /// error-prone. We might want to change this behavior in the future.
-fn expand_glob(arg: &str, cwd: &Path, span: Span) -> Result<Vec<String>, ShellError> {
-    let Ok(paths) = nu_glob::glob_with_parent(arg, nu_glob::MatchOptions::default(), cwd) else {
+fn expand_glob(
+    arg: &str,
+    cwd: &Path,
+    span: Span,
+    interrupt: &Option<Arc<AtomicBool>>,
+) -> Result<Vec<String>, ShellError> {
+    const GLOB_CHARS: &[char] = &['*', '?', '['];
+
+    // Don't expand something that doesn't include the GLOB_CHARS
+    if !arg.contains(GLOB_CHARS) {
+        return Ok(vec![arg.into()]);
+    }
+
+    // We must use `nu_engine::glob_from` here, in order to ensure we get paths from the correct
+    // dir
+    let glob = NuGlob::Expand(arg.to_owned()).into_spanned(span);
+    let Ok((_prefix, paths)) = nu_engine::glob_from(&glob, cwd, span, None) else {
+        // If an error occurred, return the original input
         return Ok(vec![arg.into()]);
     };
 
-    let mut result = vec![];
-    for path in paths {
-        let path = path.map_err(|err| ShellError::IOErrorSpanned {
-            msg: format!("{}: {:?}", err.path().display(), err.error()),
-            span,
-        })?;
-        // Strip PWD from the resulting paths if possible.
-        let path_stripped = if let Ok(remainder) = path.strip_prefix(cwd) {
-            // If stripping PWD results in an empty path, return `.` instead.
-            if remainder.components().next().is_none() {
-                Path::new(".")
-            } else {
-                remainder
+    // If the first component of the original `arg` string path was '.', that should be preserved
+    let relative_to_dot = Path::new(arg).starts_with(".");
+
+    let paths = paths
+        // Skip over glob failures. These are usually just inaccessible paths.
+        .flat_map(|path_result| match path_result {
+            Ok(path) => Some(path),
+            Err(err) => {
+                // But internally log them just in case we need to debug this.
+                log::warn!("Error in run_external::expand_glob(): {}", err);
+                None
             }
-        } else {
-            &path
-        };
-        let path_string = path_stripped.to_string_lossy().to_string();
-        result.push(path_string);
-    }
+        })
+        // Make the paths relative to the cwd
+        .map(|path| {
+            path.strip_prefix(cwd)
+                .map(|path| path.to_owned())
+                .unwrap_or(path)
+        })
+        // Add './' to relative paths if the original pattern had it
+        .map(|path| {
+            if relative_to_dot && path.is_relative() {
+                Path::new(".").join(path)
+            } else {
+                path
+            }
+        })
+        // Convert the paths returned to UTF-8 strings.
+        //
+        // FIXME: this fails to return the correct results for non-UTF-8 paths, but we don't support
+        // those in Nushell yet.
+        .map(|path| path.to_string_lossy().into_owned())
+        // Abandon if ctrl-c is pressed
+        .map(|path| {
+            if !nu_utils::ctrl_c::was_pressed(interrupt) {
+                Ok(path)
+            } else {
+                Err(ShellError::InterruptedByUser { span: Some(span) })
+            }
+        })
+        .collect::<Result<Vec<String>, ShellError>>()?;
 
-    if result.is_empty() {
-        result.push(arg.to_string());
+    if !paths.is_empty() {
+        Ok(paths)
+    } else {
+        // If we failed to match, return the original input
+        Ok(vec![arg.into()])
     }
-
-    Ok(result)
 }
 
 /// Transforms `--option="value"` into `--option=value`. `value` can be quoted
@@ -565,12 +607,20 @@ fn has_cmd_special_character(s: &str) -> bool {
     SPECIAL_CHARS.iter().any(|c| s.contains(*c))
 }
 
-/// Escape an argument for CMD internal commands. The result can be safely
-/// passed to `raw_arg()`.
+/// Escape an argument for CMD internal commands. The result can be safely passed to `raw_arg()`.
 #[cfg(windows)]
 fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError> {
     let Spanned { item: arg, span } = arg;
-    if arg.contains('"') {
+    if arg.contains(['\r', '\n', '%']) {
+        // \r and \n trunacte the rest of the arguments and % can expand environment variables
+        Err(ShellError::ExternalCommand {
+            label:
+                "Arguments to CMD internal commands cannot contain new lines or percent signs '%'"
+                    .into(),
+            help: "some characters currently cannot be securely escaped".into(),
+            span: *span,
+        })
+    } else if arg.contains('"') {
         // If `arg` is already quoted by double quotes, confirm there's no
         // embedded double quotes, then leave it as is.
         if arg.chars().filter(|c| *c == '"').count() == 2
@@ -582,7 +632,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
             Err(ShellError::ExternalCommand {
                 label: "Arguments to CMD internal commands cannot contain embedded double quotes"
                     .into(),
-                help: "CMD doesn't support escaping double quotes inside double quotes".into(),
+                help: "this case currently cannot be securely handled".into(),
                 span: *span,
             })
         }
@@ -590,6 +640,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
         // If `arg` contains space or special characters, quote the entire argument by double quotes.
         Ok(Cow::Owned(format!("\"{arg}\"")))
     } else {
+        // FIXME?: what if `arg.is_empty()`?
         Ok(Cow::Borrowed(arg))
     }
 }
@@ -598,6 +649,7 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
 mod test {
     use super::*;
     use nu_protocol::ast::ListItem;
+    use nu_test_support::{fs::Stub, playground::Playground};
 
     #[test]
     fn test_remove_quotes() {
@@ -613,12 +665,7 @@ mod test {
     #[test]
     fn test_eval_argument() {
         fn expression(expr: Expr) -> Expression {
-            Expression {
-                expr,
-                span: Span::unknown(),
-                ty: Type::Any,
-                custom_completion: None,
-            }
+            Expression::new_unknown(expr, Span::unknown(), Type::Any)
         }
 
         fn eval(expr: Expr, spread: bool) -> Result<Vec<String>, ShellError> {
@@ -660,26 +707,38 @@ mod test {
 
     #[test]
     fn test_expand_glob() {
-        let tempdir = tempfile::tempdir().unwrap();
-        let cwd = tempdir.path();
-        std::fs::File::create(cwd.join("a.txt")).unwrap();
-        std::fs::File::create(cwd.join("b.txt")).unwrap();
+        Playground::setup("test_expand_glob", |dirs, play| {
+            play.with_files(&[Stub::EmptyFile("a.txt"), Stub::EmptyFile("b.txt")]);
 
-        let actual = expand_glob("*.txt", cwd, Span::unknown()).unwrap();
-        let expected = &["a.txt", "b.txt"];
-        assert_eq!(actual, expected);
+            let cwd = dirs.test();
 
-        let actual = expand_glob("'*.txt'", cwd, Span::unknown()).unwrap();
-        let expected = &["'*.txt'"];
-        assert_eq!(actual, expected);
+            let actual = expand_glob("*.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["a.txt", "b.txt"];
+            assert_eq!(actual, expected);
 
-        let actual = expand_glob(cwd.to_str().unwrap(), cwd, Span::unknown()).unwrap();
-        let expected = &["."];
-        assert_eq!(actual, expected);
+            let actual = expand_glob("./*.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = vec![
+                Path::new(".").join("a.txt").to_string_lossy().into_owned(),
+                Path::new(".").join("b.txt").to_string_lossy().into_owned(),
+            ];
+            assert_eq!(actual, expected);
 
-        let actual = expand_glob("[*.txt", cwd, Span::unknown()).unwrap();
-        let expected = &["[*.txt"];
-        assert_eq!(actual, expected);
+            let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["'*.txt'"];
+            assert_eq!(actual, expected);
+
+            let actual = expand_glob(".", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["."];
+            assert_eq!(actual, expected);
+
+            let actual = expand_glob("./a.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["./a.txt"];
+            assert_eq!(actual, expected);
+
+            let actual = expand_glob("[*.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["[*.txt"];
+            assert_eq!(actual, expected);
+        })
     }
 
     #[test]
