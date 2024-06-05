@@ -1,5 +1,6 @@
-use crate::grapheme_flags;
+use crate::{grapheme_flags, grapheme_flags_const};
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::StateWorkingSet;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -88,6 +89,10 @@ impl Command for SubCommand {
         ]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -95,19 +100,28 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        split_chars(engine_state, stack, call, input)
+        let graphemes = grapheme_flags(engine_state, stack, call)?;
+        split_chars(engine_state, call, input, graphemes)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let graphemes = grapheme_flags_const(working_set, call)?;
+        split_chars(working_set.permanent(), call, input, graphemes)
     }
 }
 
 fn split_chars(
     engine_state: &EngineState,
-    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    graphemes: bool,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-
-    let graphemes = grapheme_flags(engine_state, stack, call)?;
     input.map(
         move |x| split_chars_helper(&x, span, graphemes),
         engine_state.ctrlc.clone(),
