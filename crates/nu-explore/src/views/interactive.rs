@@ -160,7 +160,7 @@ impl View for InteractiveView<'_> {
                 .as_mut()
                 .expect("we know that we have a table cause of a flag");
 
-            let was_at_the_top = table.get_current_position().0 == 0;
+            let was_at_the_top = table.get_cursor_position().row == 0;
 
             if was_at_the_top && matches!(key.code, KeyCode::Up | KeyCode::PageUp) {
                 self.view_mode = false;
