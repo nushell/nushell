@@ -25,8 +25,8 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
-    report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned, Value,
+    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned,
+    Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
