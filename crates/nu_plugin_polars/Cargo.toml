@@ -30,7 +30,7 @@ mimalloc = { version = "0.1.42" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.45"}
-polars-io = { version = "0.39", features = ["avro"]}
+polars-io = { version = "0.40", features = ["avro"]}
 polars-arrow = { version = "0.39"}
 polars-ops = { version = "0.39"}
 polars-plan = { version = "0.39", features = ["regex"]}
