@@ -590,4 +590,18 @@ mod external_command_arguments {
 
         assert_eq!(actual.out, "a;&$(hello)");
     }
+
+    #[test]
+    fn remove_quotes_in_shell_arguments() {
+        let actual = nu!("nu --testbin cococo expression='-r -w'");
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!(r#"nu --testbin cococo expression="-r -w""#);
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!("nu --testbin cococo expression='-r -w'");
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!(r#"nu --testbin cococo expression="-r\" -w""#);
+        assert_eq!(actual.out, r#"expression=-r" -w"#);
+        let actual = nu!(r#"nu --testbin cococo expression='-r\" -w'"#);
+        assert_eq!(actual.out, r#"expression=-r\" -w"#);
+    }
 }

@@ -218,14 +218,16 @@ impl Command for External {
 
 /// Removes surrounding quotes from a string. Doesn't remove quotes from raw
 /// strings. Returns the original string if it doesn't have matching quotes.
-fn remove_quotes(s: &str) -> &str {
+fn remove_quotes(s: &str) -> Cow<'_, str> {
     let quoted_by_double_quotes = s.len() >= 2 && s.starts_with('"') && s.ends_with('"');
     let quoted_by_single_quotes = s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'');
     let quoted_by_backticks = s.len() >= 2 && s.starts_with('`') && s.ends_with('`');
-    if quoted_by_double_quotes || quoted_by_single_quotes || quoted_by_backticks {
-        &s[1..s.len() - 1]
+    if quoted_by_double_quotes {
+        Cow::Owned((&s[1..s.len() - 1]).to_string().replace(r#"\""#, "\""))
+    } else if quoted_by_single_quotes || quoted_by_backticks {
+        Cow::Borrowed(&s[1..s.len() - 1])
     } else {
-        s
+        Cow::Borrowed(s)
     }
 }
 
@@ -400,10 +402,6 @@ fn expand_glob(
 /// with double quotes, single quotes, or backticks. Only removes the outermost
 /// pair of quotes after the equal sign.
 fn remove_inner_quotes(arg: &str) -> Cow<'_, str> {
-    // Check that `arg` is a long option.
-    if !arg.starts_with("--") {
-        return Cow::Borrowed(arg);
-    }
     // Split `arg` on the first `=`.
     let Some((option, value)) = arg.split_once('=') else {
         return Cow::Borrowed(arg);
@@ -660,6 +658,7 @@ mod test {
         assert_eq!(remove_quotes(r#"`foo '"' bar`"#), r#"foo '"' bar"#);
         assert_eq!(remove_quotes(r#"'foo' bar"#), r#"'foo' bar"#);
         assert_eq!(remove_quotes(r#"r#'foo'#"#), r#"r#'foo'#"#);
+        assert_eq!(remove_quotes(r#""foo\" bar""#), r#"foo" bar"#);
     }
 
     #[test]
@@ -757,6 +756,18 @@ mod test {
 
         let actual = remove_inner_quotes(r#"--option "value""#);
         let expected = r#"--option "value""#;
+        assert_eq!(actual, expected);
+
+        let actual = remove_inner_quotes(r#"-option="value""#);
+        let expected = r#"-option=value"#;
+        assert_eq!(actual, expected);
+
+        let actual = remove_inner_quotes(r#"option="value""#);
+        let expected = r#"option=value"#;
+        assert_eq!(actual, expected);
+
+        let actual = remove_inner_quotes(r#"option="v\"alue""#);
+        let expected = r#"option=v"alue"#;
         assert_eq!(actual, expected);
     }
 
