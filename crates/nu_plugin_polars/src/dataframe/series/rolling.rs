@@ -150,6 +150,7 @@ fn command(
 
     let rolling_opts = RollingOptionsFixedWindow {
         window_size,
+        min_periods: window_size,
         ..RollingOptionsFixedWindow::default()
     };
 
