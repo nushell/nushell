@@ -1,7 +1,8 @@
-use crate::grapheme_flags;
+use crate::{grapheme_flags, grapheme_flags_const};
 use fancy_regex::Regex;
 use nu_engine::command_prelude::*;
 
+use nu_protocol::engine::StateWorkingSet;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -96,6 +97,10 @@ impl Command for SubCommand {
         ]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -103,40 +108,76 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        split_words(engine_state, stack, call, input)
+        let word_length: Option<usize> = call.get_flag(engine_state, stack, "min-word-length")?;
+        let has_grapheme = call.has_flag(engine_state, stack, "grapheme-clusters")?;
+        let has_utf8 = call.has_flag(engine_state, stack, "utf-8-bytes")?;
+        let graphemes = grapheme_flags(engine_state, stack, call)?;
+
+        let args = Arguments {
+            word_length,
+            has_grapheme,
+            has_utf8,
+            graphemes,
+        };
+        split_words(engine_state, call, input, args)
     }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let word_length: Option<usize> = call.get_flag_const(working_set, "min-word-length")?;
+        let has_grapheme = call.has_flag_const(working_set, "grapheme-clusters")?;
+        let has_utf8 = call.has_flag_const(working_set, "utf-8-bytes")?;
+        let graphemes = grapheme_flags_const(working_set, call)?;
+
+        let args = Arguments {
+            word_length,
+            has_grapheme,
+            has_utf8,
+            graphemes,
+        };
+        split_words(working_set.permanent(), call, input, args)
+    }
+}
+
+struct Arguments {
+    word_length: Option<usize>,
+    has_grapheme: bool,
+    has_utf8: bool,
+    graphemes: bool,
 }
 
 fn split_words(
     engine_state: &EngineState,
-    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
     // let ignore_hyphenated = call.has_flag(engine_state, stack, "ignore-hyphenated")?;
     // let ignore_apostrophes = call.has_flag(engine_state, stack, "ignore-apostrophes")?;
     // let ignore_punctuation = call.has_flag(engine_state, stack, "ignore-punctuation")?;
-    let word_length: Option<usize> = call.get_flag(engine_state, stack, "min-word-length")?;
 
-    if word_length.is_none() {
-        if call.has_flag(engine_state, stack, "grapheme-clusters")? {
+    if args.word_length.is_none() {
+        if args.has_grapheme {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
                 span,
             });
         }
-        if call.has_flag(engine_state, stack, "utf-8-bytes")? {
+        if args.has_utf8 {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "--utf-8-bytes (-b) requires --min-word-length (-l)".to_string(),
                 span,
             });
         }
     }
-    let graphemes = grapheme_flags(engine_state, stack, call)?;
 
     input.map(
-        move |x| split_words_helper(&x, word_length, span, graphemes),
+        move |x| split_words_helper(&x, args.word_length, span, args.graphemes),
         engine_state.ctrlc.clone(),
     )
 }
