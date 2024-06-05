@@ -11,7 +11,7 @@ use crate::{PluginIdentity, PluginSignature, ShellError, Span};
 const BUFFER_SIZE: usize = 65536;
 
 // Chose settings at the low end, because we're just trying to get the maximum speed
-const COMPRESSION_QUALITY: u32 = 1;
+const COMPRESSION_QUALITY: u32 = 3; // 1 can be very bad
 const WIN_SIZE: u32 = 20; // recommended 20-22
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
