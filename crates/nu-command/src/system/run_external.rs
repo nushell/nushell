@@ -375,7 +375,7 @@ fn resolve_globbed_path_to_cwd_relative(
     cwd: &Path,
 ) -> PathBuf {
     if let Some(prefix) = prefix {
-        if let Ok(remainder) = path.strip_prefix(&prefix) {
+        if let Ok(remainder) = path.strip_prefix(prefix) {
             let new_prefix = if let Some(pfx) = diff_paths(prefix, cwd) {
                 pfx
             } else {
