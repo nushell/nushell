@@ -766,8 +766,8 @@ mod test {
         let expected = r#"option=value"#;
         assert_eq!(actual, expected);
 
-        let actual = remove_inner_quotes(r#"option="v\"alue""#);
-        let expected = r#"option=v"alue"#;
+        let actual = remove_inner_quotes(r#"option="v\"value""#);
+        let expected = r#"option=v"value"#;
         assert_eq!(actual, expected);
     }
 
