@@ -135,6 +135,11 @@ impl Command for Cd {
                 example: r#"cd -"#,
                 result: None,
             },
+            Example {
+                description: "Changing directories inside a custom command requires 'def --env'",
+                example: r#"def --env gohome [] { cd ~ }"#,
+                result: None,
+            },
         ]
     }
 }

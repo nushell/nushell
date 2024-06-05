@@ -61,6 +61,11 @@ impl Command for Def {
                 result: Some(Value::test_string("BAZ")),
             },
             Example {
+                description: "cd (change directory) affects the environment, so '--env' is required",
+                example: r#"cd /; def --env gohome [] { cd ~ }; gohome; $env.pwd == ('~' | path expand)"#,
+                result: Some(Value::test_string("true")),
+            },
+            Example {
                 description: "Define a custom wrapper for an external command",
                 example: r#"def --wrapped my-echo [...rest] { echo $rest }; my-echo spam"#,
                 result: Some(Value::test_list(vec![Value::test_string("spam")])),
