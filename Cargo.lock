@@ -1794,6 +1794,7 @@ dependencies = [
  "ahash 0.8.11",
  "allocator-api2",
  "rayon",
+ "serde",
 ]
 
 [[package]]
@@ -3402,7 +3403,7 @@ dependencies = [
  "polars-io",
  "polars-ops",
  "polars-plan",
- "polars-utils",
+ "polars-utils 0.40.0",
  "serde",
  "sqlparser 0.45.0",
  "tempfile",
@@ -4021,14 +4022,14 @@ dependencies = [
  "getrandom",
  "polars-arrow",
  "polars-core",
- "polars-error",
+ "polars-error 0.39.2",
  "polars-io",
  "polars-lazy",
  "polars-ops",
  "polars-parquet",
  "polars-sql",
  "polars-time",
- "polars-utils",
+ "polars-utils 0.39.2",
  "version_check",
 ]
 
@@ -4059,8 +4060,8 @@ dependencies = [
  "multiversion",
  "num-traits",
  "polars-arrow-format",
- "polars-error",
- "polars-utils",
+ "polars-error 0.39.2",
+ "polars-utils 0.39.2",
  "ryu",
  "serde",
  "simdutf8",
@@ -4090,8 +4091,8 @@ dependencies = [
  "either",
  "num-traits",
  "polars-arrow",
- "polars-error",
- "polars-utils",
+ "polars-error 0.39.2",
+ "polars-utils 0.39.2",
  "strength_reduce",
  "version_check",
 ]
@@ -4115,9 +4116,9 @@ dependencies = [
  "once_cell",
  "polars-arrow",
  "polars-compute",
- "polars-error",
+ "polars-error 0.39.2",
  "polars-row",
- "polars-utils",
+ "polars-utils 0.39.2",
  "rand",
  "rand_distr",
  "rayon",
@@ -4139,6 +4140,16 @@ dependencies = [
  "avro-schema",
  "polars-arrow-format",
  "regex",
+ "simdutf8",
+ "thiserror",
+]
+
+[[package]]
+name = "polars-error"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08888f58e61599b00f5ea0c2ccdc796b54b9859559cc0d4582733509451fa01a"
+dependencies = [
  "simdutf8",
  "thiserror",
 ]
@@ -4166,11 +4177,11 @@ dependencies = [
  "percent-encoding",
  "polars-arrow",
  "polars-core",
- "polars-error",
+ "polars-error 0.39.2",
  "polars-json",
  "polars-parquet",
  "polars-time",
- "polars-utils",
+ "polars-utils 0.39.2",
  "rayon",
  "regex",
  "ryu",
@@ -4198,8 +4209,8 @@ dependencies = [
  "itoa",
  "num-traits",
  "polars-arrow",
- "polars-error",
- "polars-utils",
+ "polars-error 0.39.2",
+ "polars-utils 0.39.2",
  "ryu",
  "simd-json",
  "streaming-iterator",
@@ -4223,7 +4234,7 @@ dependencies = [
  "polars-pipe",
  "polars-plan",
  "polars-time",
- "polars-utils",
+ "polars-utils 0.39.2",
  "rayon",
  "smartstring",
  "version_check",
@@ -4251,9 +4262,9 @@ dependencies = [
  "polars-arrow",
  "polars-compute",
  "polars-core",
- "polars-error",
+ "polars-error 0.39.2",
  "polars-json",
- "polars-utils",
+ "polars-utils 0.39.2",
  "rand",
  "rand_distr",
  "rayon",
@@ -4282,8 +4293,8 @@ dependencies = [
  "num-traits",
  "parquet-format-safe",
  "polars-arrow",
- "polars-error",
- "polars-utils",
+ "polars-error 0.39.2",
+ "polars-utils 0.39.2",
  "seq-macro",
  "simdutf8",
  "snap",
@@ -4309,7 +4320,7 @@ dependencies = [
  "polars-ops",
  "polars-plan",
  "polars-row",
- "polars-utils",
+ "polars-utils 0.39.2",
  "rayon",
  "smartstring",
  "uuid",
@@ -4335,7 +4346,7 @@ dependencies = [
  "polars-ops",
  "polars-parquet",
  "polars-time",
- "polars-utils",
+ "polars-utils 0.39.2",
  "rayon",
  "recursive",
  "regex",
@@ -4353,8 +4364,8 @@ checksum = "a515bdc68c2ae3702e3de70d89601f3b71ca8137e282a226dddb53ee4bacfa2e"
 dependencies = [
  "bytemuck",
  "polars-arrow",
- "polars-error",
- "polars-utils",
+ "polars-error 0.39.2",
+ "polars-utils 0.39.2",
 ]
 
 [[package]]
@@ -4366,7 +4377,7 @@ dependencies = [
  "hex",
  "polars-arrow",
  "polars-core",
- "polars-error",
+ "polars-error 0.39.2",
  "polars-lazy",
  "polars-plan",
  "rand",
@@ -4388,9 +4399,9 @@ dependencies = [
  "once_cell",
  "polars-arrow",
  "polars-core",
- "polars-error",
+ "polars-error 0.39.2",
  "polars-ops",
- "polars-utils",
+ "polars-utils 0.39.2",
  "regex",
  "serde",
  "smartstring",
@@ -4408,12 +4419,32 @@ dependencies = [
  "indexmap",
  "num-traits",
  "once_cell",
- "polars-error",
+ "polars-error 0.39.2",
  "raw-cpuid",
  "rayon",
  "smartstring",
  "stacker",
  "sysinfo",
+ "version_check",
+]
+
+[[package]]
+name = "polars-utils"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34e1a907c63abf71e5f21467e2e4ff748896c28196746f631c6c25512ec6102c"
+dependencies = [
+ "ahash 0.8.11",
+ "bytemuck",
+ "hashbrown 0.14.5",
+ "indexmap",
+ "num-traits",
+ "once_cell",
+ "polars-error 0.40.0",
+ "raw-cpuid",
+ "rayon",
+ "smartstring",
+ "stacker",
  "version_check",
 ]
 
