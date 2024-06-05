@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 
+use nu_protocol::engine::StateWorkingSet;
 use regex::Regex;
 
 #[derive(Clone)]
@@ -41,16 +42,6 @@ impl Command for SubCommand {
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["separate", "divide", "regex"]
-    }
-
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        split_row(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -109,32 +100,77 @@ impl Command for SubCommand {
             },
         ]
     }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
+        let has_regex = call.has_flag(engine_state, stack, "regex")?;
+
+        let args = Arguments {
+            separator,
+            max_split,
+            has_regex,
+        };
+        split_row(engine_state, call, input, args)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let separator: Spanned<String> = call.req_const(working_set, 0)?;
+        let max_split: Option<usize> = call.get_flag_const(working_set, "number")?;
+        let has_regex = call.has_flag_const(working_set, "regex")?;
+
+        let args = Arguments {
+            separator,
+            max_split,
+            has_regex,
+        };
+        split_row(working_set.permanent(), call, input, args)
+    }
+}
+
+struct Arguments {
+    has_regex: bool,
+    separator: Spanned<String>,
+    max_split: Option<usize>,
 }
 
 fn split_row(
     engine_state: &EngineState,
-    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
-    let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let regex = if call.has_flag(engine_state, stack, "regex")? {
-        Regex::new(&separator.item)
+    let regex = if args.has_regex {
+        Regex::new(&args.separator.item)
     } else {
-        let escaped = regex::escape(&separator.item);
+        let escaped = regex::escape(&args.separator.item);
         Regex::new(&escaped)
     }
     .map_err(|e| ShellError::GenericError {
         error: "Error with regular expression".into(),
         msg: e.to_string(),
-        span: Some(separator.span),
+        span: Some(args.separator.span),
         help: None,
         inner: vec![],
     })?;
-    let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
     input.flat_map(
-        move |x| split_row_helper(&x, &regex, max_split, name_span),
+        move |x| split_row_helper(&x, &regex, args.max_split, name_span),
         engine_state.ctrlc.clone(),
     )
 }

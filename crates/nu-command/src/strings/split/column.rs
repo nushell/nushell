@@ -111,7 +111,7 @@ impl Command for SubCommand {
         let collapse_empty = call.has_flag(engine_state, stack, "collapse-empty")?;
         let has_regex = call.has_flag(engine_state, stack, "regex")?;
 
-        let args = Argument {
+        let args = Arguments {
             separator,
             rest,
             collapse_empty,
@@ -131,7 +131,7 @@ impl Command for SubCommand {
         let collapse_empty = call.has_flag_const(working_set, "collapse-empty")?;
         let has_regex = call.has_flag_const(working_set, "regex")?;
 
-        let args = Argument {
+        let args = Arguments {
             separator,
             rest,
             collapse_empty,
@@ -141,7 +141,7 @@ impl Command for SubCommand {
     }
 }
 
-struct Argument {
+struct Arguments {
     separator: Spanned<String>,
     rest: Vec<Spanned<String>>,
     collapse_empty: bool,
@@ -152,7 +152,7 @@ fn split_column(
     engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
-    args: Argument,
+    args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let regex = if args.has_regex {
