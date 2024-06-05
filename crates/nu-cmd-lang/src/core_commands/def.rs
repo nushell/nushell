@@ -61,7 +61,7 @@ impl Command for Def {
                 result: Some(Value::test_string("BAZ")),
             },
             Example {
-                description: "cd (change directory) affects the environment, so '--env' is required",
+                description: "cd affects the environment, so '--env' is required",
                 example: r#"cd /; def --env gohome [] { cd ~ }; gohome; $env.pwd == ('~' | path expand)"#,
                 result: Some(Value::test_string("true")),
             },
