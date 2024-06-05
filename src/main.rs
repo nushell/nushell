@@ -26,7 +26,7 @@ use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
-    report_error, report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned, Value,
+    report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -157,8 +157,7 @@ fn main() -> Result<()> {
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|err| {
-            let working_set = StateWorkingSet::new(&engine_state);
-            report_error(&working_set, &err);
+            report_error_new(&engine_state, &err);
             std::process::exit(1)
         });
 
