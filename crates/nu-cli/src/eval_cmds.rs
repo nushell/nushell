@@ -8,15 +8,45 @@ use nu_protocol::{
 };
 use std::sync::Arc;
 
+#[derive(Default)]
+pub struct EvaluateCommandsOpts {
+    pub table_mode: Option<Value>,
+    pub error_style: Option<Value>,
+    pub no_newline: bool,
+}
+
 /// Run a command (or commands) given to us by the user
 pub fn evaluate_commands(
     commands: &Spanned<String>,
     engine_state: &mut EngineState,
     stack: &mut Stack,
     input: PipelineData,
-    table_mode: Option<Value>,
-    no_newline: bool,
+    opts: EvaluateCommandsOpts,
 ) -> Result<(), ShellError> {
+    let EvaluateCommandsOpts {
+        table_mode,
+        error_style,
+        no_newline,
+    } = opts;
+
+    // Handle the configured error style early
+    if let Some(e_style) = error_style {
+        match e_style.coerce_str()?.parse() {
+            Ok(e_style) => {
+                Arc::make_mut(&mut engine_state.config).error_style = e_style;
+            }
+            Err(err) => {
+                return Err(ShellError::GenericError {
+                    error: "Invalid value for `--error-style`".into(),
+                    msg: err.into(),
+                    span: Some(e_style.span()),
+                    help: None,
+                    inner: vec![],
+                });
+            }
+        }
+    }
+
     // Translate environment variables from Strings to Values
     convert_env_values(engine_state, stack)?;
 

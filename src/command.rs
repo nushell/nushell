@@ -29,8 +29,10 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
         }
 
         let flag_value = match arg.as_ref() {
-            "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" | "--config"
-            | "--env-config" | "-I" | "ide-ast" => args.next().map(|a| escape_quote_string(&a)),
+            "--commands" | "-c" | "--table-mode" | "-m" | "--error-style" | "-e" | "--execute"
+            | "--config" | "--env-config" | "-I" | "ide-ast" => {
+                args.next().map(|a| escape_quote_string(&a))
+            }
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
@@ -100,6 +102,8 @@ pub(crate) fn parse_commandline_args(
             let execute = call.get_flag_expr("execute");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
+            let error_style: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "error-style")?;
             let no_newline = call.get_named_arg("no-newline");
 
             // ide flags
@@ -233,6 +237,7 @@ pub(crate) fn parse_commandline_args(
                 ide_check,
                 ide_ast,
                 table_mode,
+                error_style,
                 no_newline,
             });
         }
@@ -264,6 +269,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) log_target: Option<Spanned<String>>,
     pub(crate) execute: Option<Spanned<String>>,
     pub(crate) table_mode: Option<Value>,
+    pub(crate) error_style: Option<Value>,
     pub(crate) no_newline: Option<Spanned<String>>,
     pub(crate) include_path: Option<Spanned<String>>,
     pub(crate) lsp: bool,
@@ -310,6 +316,12 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "the table mode to use. rounded is default.",
                 Some('m'),
+            )
+            .named(
+                "error-style",
+                SyntaxShape::String,
+                "the error style to use (fancy or plain). default: fancy",
+                None,
             )
             .switch("no-newline", "print the result for --commands(-c) without a newline", None)
             .switch(
