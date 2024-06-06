@@ -253,42 +253,21 @@ fn unit_struct_roundtrip() {
 
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
 enum Enum {
-    Unit,
-    Tuple(u32, String),
-    Struct { a: u32, b: String },
+    AlphaOne,
+    BetaTwo,
+    CharlieThree,
 }
 
 impl Enum {
     fn make() -> [Self; 3] {
-        [
-            Enum::Unit,
-            Enum::Tuple(12, "Tuple variant".to_string()),
-            Enum::Struct {
-                a: 34,
-                b: "Struct variant".to_string(),
-            },
-        ]
+        [Enum::AlphaOne, Enum::BetaTwo, Enum::CharlieThree]
     }
 
     fn value() -> Value {
         Value::test_list(vec![
-            Value::test_record(record! {
-                "type" => Value::test_string("unit")
-            }),
-            Value::test_record(record! {
-                "type" => Value::test_string("tuple"),
-                "content" => Value::test_list(vec![
-                    Value::test_int(12),
-                    Value::test_string("Tuple variant")
-                ])
-            }),
-            Value::test_record(record! {
-                "type" => Value::test_string("struct"),
-                "content" => Value::test_record(record! {
-                    "a" => Value::test_int(34),
-                    "b" => Value::test_string("Struct variant")
-                })
-            }),
+            Value::test_string("alpha_one"),
+            Value::test_string("beta_two"),
+            Value::test_string("charlie_three"),
         ])
     }
 }
@@ -321,26 +300,8 @@ fn enum_roundtrip() {
 }
 
 #[test]
-fn enum_type_missing() {
-    let value = Value::test_record(record!());
-    let res = Enum::from_value(value);
-    assert!(res.is_err());
-}
-
-#[test]
-fn enum_content_missing() {
-    let value = Value::test_record(record! {
-        "type" => Value::test_string("tuple")
-    });
-    let res = Enum::from_value(value);
-    assert!(res.is_err());
-}
-
-#[test]
 fn enum_unknown_variant() {
-    let value = Value::test_record(record! {
-        "type" => Value::test_string("who_knows")
-    });
+    let value = Value::test_string("delta_four");
     let res = Enum::from_value(value);
     assert!(res.is_err());
 }

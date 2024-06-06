@@ -1,24 +1,37 @@
 use convert_case::{Case, Casing};
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_error::{Diagnostic, Level};
-use quote::{format_ident, quote, ToTokens};
-use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident, Index};
+use quote::{quote, ToTokens};
+use syn::{
+    spanned::Spanned, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident, Index,
+};
 
 enum DeriveError {
     Syn(syn::parse::Error),
-    Unsupported,
+    UnsupportedUnions,
+    UnsupportedEnums { fields_span: Span },
 }
 
 impl From<DeriveError> for Diagnostic {
     fn from(value: DeriveError) -> Self {
         match value {
             DeriveError::Syn(e) => Diagnostic::spanned(e.span(), Level::Error, e.to_string()),
-            DeriveError::Unsupported => Diagnostic::new(
+            DeriveError::UnsupportedUnions => Diagnostic::new(
                 Level::Error,
                 "`IntoValue` cannot be derived from unions".to_string(),
             )
-            .help("consider refactoring to a struct or enum".to_string())
+            .help("consider refactoring to a struct".to_string())
             .note("if you really need a union, consider opening an issue on Github".to_string()),
+            DeriveError::UnsupportedEnums { fields_span } => Diagnostic::spanned(
+                fields_span,
+                Level::Error,
+                "`IntoValue` can only be derived from plain enums".to_string(),
+            )
+            .help(
+                "consider refactoring your data type to a struct with a plain enum as a field"
+                    .to_string(),
+            )
+            .note("more complex enums could be implemented in the future".to_string()),
         }
     }
 }
@@ -29,8 +42,8 @@ pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, impl Into<
         Data::Struct(data_struct) => {
             Ok(struct_into_value(input.ident, data_struct, input.generics))
         }
-        Data::Enum(data_enum) => Ok(enum_into_value(input.ident, data_enum, input.generics)),
-        Data::Union(_) => Err(DeriveError::Unsupported),
+        Data::Enum(data_enum) => Ok(enum_into_value(input.ident, data_enum, input.generics)?),
+        Data::Union(_) => Err(DeriveError::UnsupportedUnions),
     }
 }
 
@@ -66,51 +79,42 @@ fn struct_into_value(ident: Ident, data: DataStruct, generics: Generics) -> Toke
     }
 }
 
-fn enum_into_value(ident: Ident, data: DataEnum, generics: Generics) -> TokenStream2 {
-    let arms: Vec<TokenStream2> = data.variants.into_iter().map(|variant| {
-        let ident = variant.ident;
-        let ident_s = format!("{ident}").as_str().to_case(Case::Snake);
-        match &variant.fields {
-            Fields::Named(fields) => {
-                let accessor = fields.named.iter().map(|field| field.ident.clone().expect("named fields have an ident"));
-                let fields: Vec<Ident> = accessor.clone().collect();
-                let content = fields_to_record(&variant.fields, accessor);
-                quote! {
-                    Self::#ident {#(#fields),*} => nu_protocol::Value::record(nu_protocol::record! {
-                        "type" => nu_protocol::Value::string(#ident_s, span),
-                        "content" => #content
-                    }, span)
+fn enum_into_value(
+    ident: Ident,
+    data: DataEnum,
+    generics: Generics,
+) -> Result<TokenStream2, DeriveError> {
+    let arms: Vec<TokenStream2> = data
+        .variants
+        .into_iter()
+        .map(|variant| {
+            let ident = variant.ident;
+            let ident_s = format!("{ident}").as_str().to_case(Case::Snake);
+            match &variant.fields {
+                // In the future we can implement more complexe enums here.
+                Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
+                    fields_span: fields.span(),
+                }),
+                Fields::Unnamed(fields) => Err(DeriveError::UnsupportedEnums {
+                    fields_span: fields.span(),
+                }),
+                Fields::Unit => {
+                    Ok(quote!(Self::#ident => nu_protocol::Value::string(#ident_s, span)))
                 }
             }
-            Fields::Unnamed(fields) => {
-                let accessor = fields.unnamed.iter().enumerate().map(|(n, _)| format_ident!("v{n}"));
-                let fields: Vec<Ident> = accessor.clone().collect();
-                let content = fields_to_record(&variant.fields, accessor);
-                quote! {
-                    Self::#ident(#(#fields),*) => nu_protocol::Value::record(nu_protocol::record! {
-                        "type" => nu_protocol::Value::string(#ident_s, span),
-                        "content" => #content
-                    }, span)
-                }
-            }
-            Fields::Unit => quote! {
-                Self::#ident => nu_protocol::Value::record(nu_protocol::record! {
-                    "type" => nu_protocol::Value::string(#ident_s, span)
-                }, span)
-            }
-        }
-    }).collect();
+        })
+        .collect::<Result<_, _>>()?;
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    quote! {
+    Ok(quote! {
         impl #impl_generics nu_protocol::IntoValue for #ident #ty_generics #where_clause {
             fn into_value(self, span: nu_protocol::Span) -> nu_protocol::Value {
                 match self {
-                    #(#arms),*
+                    #(#arms,)*
                 }
             }
         }
-    }
+    })
 }
 
 fn fields_to_record(

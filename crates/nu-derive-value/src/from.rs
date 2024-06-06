@@ -1,24 +1,35 @@
 use convert_case::{Case, Casing};
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use proc_macro_error::{Diagnostic, Level};
 use quote::{quote, ToTokens};
-use syn::{Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident};
+use syn::{spanned::Spanned, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident};
 
 enum DeriveError {
     Syn(syn::parse::Error),
-    Unsupported,
+    UnsupportedUnions,
+    UnsupportedEnums { fields_span: Span },
 }
 
 impl From<DeriveError> for Diagnostic {
     fn from(value: DeriveError) -> Self {
         match value {
             DeriveError::Syn(e) => Diagnostic::spanned(e.span(), Level::Error, e.to_string()),
-            DeriveError::Unsupported => Diagnostic::new(
+            DeriveError::UnsupportedUnions => Diagnostic::new(
                 Level::Error,
                 "`FromValue` cannot be derived from unions".to_string(),
             )
             .help("consider refactoring to a struct or enum".to_string())
             .note("if you really need a union, consider opening an issue on Github".to_string()),
+            DeriveError::UnsupportedEnums { fields_span } => Diagnostic::spanned(
+                fields_span,
+                Level::Error,
+                "`FromValue` can only be derived from plain enums".to_string(),
+            )
+            .help(
+                "consider refactoring your data type to a struct with a plain enum as a field"
+                    .to_string(),
+            )
+            .note("more complex enums could be implemented in the future".to_string()),
         }
     }
 }
@@ -35,8 +46,8 @@ pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, impl Into<
             input.ident,
             data_enum,
             input.generics,
-        )),
-        Data::Union(_) => Err(DeriveError::Unsupported),
+        )?),
+        Data::Union(_) => Err(DeriveError::UnsupportedUnions),
     }
 }
 
@@ -113,60 +124,63 @@ fn struct_expected_type(fields: &Fields) -> TokenStream2 {
     }
 }
 
-fn derive_enum_from_value(ident: Ident, data: DataEnum, generics: Generics) -> TokenStream2 {
+fn derive_enum_from_value(
+    ident: Ident,
+    data: DataEnum,
+    generics: Generics,
+) -> Result<TokenStream2, DeriveError> {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let from_value_impl = enum_from_value(&data);
+    let from_value_impl = enum_from_value(&data)?;
     // As variants are hard to type with the current type system, we use the
     // default impl for `expected_type`.
-    quote! {
+    Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
             #from_value_impl
         }
-    }
+    })
 }
 
-fn enum_from_value(data: &DataEnum) -> TokenStream2 {
-    let arms = data.variants.iter().map(|variant| {
-        let ident = &variant.ident;
-        let ident_s = format!("{ident}").as_str().to_case(Case::Snake);
-        let fields = fields_from_record(&variant.fields, quote!(Self::#ident));
-        quote!(#ident_s => {#fields})
-    });
+fn enum_from_value(data: &DataEnum) -> Result<TokenStream2, DeriveError> {
+    let arms: Vec<TokenStream2> = data
+        .variants
+        .iter()
+        .map(|variant| {
+            let ident = &variant.ident;
+            let ident_s = format!("{ident}").as_str().to_case(Case::Snake);
+            match &variant.fields {
+                Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
+                    fields_span: fields.span(),
+                }),
+                Fields::Unnamed(fields) => Err(DeriveError::UnsupportedEnums {
+                    fields_span: fields.span(),
+                }),
+                Fields::Unit => Ok(quote!(#ident_s => std::result::Result::Ok(Self::#ident))),
+            }
+        })
+        .collect::<Result<_, _>>()?;
 
-    quote! {
+    Ok(quote! {
         fn from_value(
             v: nu_protocol::Value
         ) -> std::result::Result<Self, nu_protocol::ShellError> {
             let span = v.span();
-            let mut record = v.into_record()?;
+            let ty = v.get_type();
 
-            let ty = record.remove("type").ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
-                col_name: std::string::ToString::to_string("type"),
-                span: None,
-                src_span: span
-            })?;
-            let ty = ty.into_string()?;
-
-            // This allows unit variants to resolve without the "content" field
-            // in the record.
-            let v = record
-                .remove("content")
-                .unwrap_or_else(|| nu_protocol::Value::nothing(span));
-
-            match ty.as_str() {
-                #(#arms),*
+            let s = v.into_string()?;
+            match s.as_str() {
+                #(#arms,)*
                 _ => std::result::Result::Err(nu_protocol::ShellError::CantConvert {
                     to_type: std::string::ToString::to_string(
                         &<Self as nu_protocol::FromValue>::expected_type()
                     ),
-                    from_type: ty,
+                    from_type: std::string::ToString::to_string(&ty),
                     span: span,
-                    help: std::option::Option::None
+                    help: std::option::Option::None,
                 }),
             }
         }
-    }
+    })
 }
 
 fn fields_from_record(fields: &Fields, self_ident: impl ToTokens) -> TokenStream2 {
