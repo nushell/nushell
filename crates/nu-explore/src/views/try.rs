@@ -1,6 +1,5 @@
 use super::{record::RecordView, util::nu_style_to_tui, Layout, Orientation, View, ViewConfig};
 use crate::{
-    explore::TableConfig,
     nu_common::{collect_pipeline, run_command_with_value},
     pager::{report::Report, Frame, Transition, ViewInfo},
 };
@@ -22,7 +21,6 @@ pub struct TryView<'a> {
     command: String,
     reactive: bool,
     table: Option<RecordView<'a>>,
-    table_config: TableConfig,
     view_mode: bool,
     border_color: Style,
 }
@@ -33,7 +31,6 @@ impl<'a> TryView<'a> {
             input,
             table: None,
             reactive: false,
-            table_config: TableConfig::default(),
             border_color: Style::default(),
             view_mode: false,
             command: String::new(),
@@ -125,6 +122,7 @@ impl View for TryView<'_> {
         f.render_widget(table_block, table_area);
 
         if let Some(table) = &mut self.table {
+            table.setup(cfg);
             let area = Rect::new(
                 area.x + 2,
                 area.y + 4,
@@ -242,9 +240,8 @@ impl View for TryView<'_> {
         let mut r = RecordView::new(vec![], vec![]);
         r.setup(config);
 
-        self.table_config = config.explore_config.table;
-
         if let Some(view) = &mut self.table {
+            view.setup(config);
             view.set_orientation(r.get_orientation_current());
             view.set_orientation_current(r.get_orientation_current());
         }
