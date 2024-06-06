@@ -276,7 +276,7 @@ pub trait Eval {
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
-            Expr::StringInterpolation(exprs) => {
+            Expr::StringInterpolation(exprs, _) => {
                 let config = Self::get_config(state, mut_state);
                 let str = exprs
                     .iter()

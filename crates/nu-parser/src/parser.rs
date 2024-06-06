@@ -16,7 +16,6 @@ use nu_protocol::{
     IN_VARIABLE_ID,
 };
 use std::{
-    borrow::Cow,
     collections::{HashMap, HashSet},
     num::ParseIntError,
     str,
@@ -222,6 +221,152 @@ pub(crate) fn check_call(
     }
 }
 
+/// Parses a string in the arg or head position of an external call.
+///
+/// If the string begins with `r#`, it is parsed as a raw string. If it doesn't contain any quotes
+/// or parentheses, it is parsed as a glob pattern so that tilde and glob expansion can be handled
+/// by `run-external`. Otherwise, we use a custom state machine to put together an interpolated
+/// string, where each balanced pair of quotes is parsed as a separate part of the string, and then
+/// concatenated together.
+///
+/// For example, `-foo="bar\nbaz"` becomes `$"-foo=bar\nbaz"`
+fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    let contents = &working_set.get_span_contents(span);
+
+    if contents.starts_with(b"r#") {
+        parse_raw_string(working_set, span)
+    } else if contents
+        .iter()
+        .any(|b| matches!(b, b'"' | b'\'' | b'`' | b'(' | b')'))
+    {
+        enum State {
+            Bare {
+                from: usize,
+            },
+            Quote {
+                from: usize,
+                quote_char: u8,
+                escaped: bool,
+                depth: i32,
+            },
+        }
+        let make_span = |from: usize, index: usize| Span {
+            start: span.start + from,
+            end: span.start + index,
+        };
+        let mut spans = vec![];
+        let mut state = State::Bare { from: 0 };
+        for (index, &ch) in contents.iter().enumerate() {
+            match &mut state {
+                State::Bare { from } => match ch {
+                    b'"' | b'\'' | b'`' => {
+                        // Push bare string
+                        if index != *from {
+                            spans.push(make_span(*from, index));
+                        }
+                        // then transition to other state
+                        state = State::Quote {
+                            from: index,
+                            quote_char: ch,
+                            escaped: false,
+                            depth: 1,
+                        };
+                    }
+                    // Continue to consume
+                    _ => (),
+                },
+                State::Quote {
+                    from,
+                    quote_char,
+                    escaped,
+                    depth,
+                } => match ch {
+                    b'"' if !*escaped => {
+                        // Count if there are more than `depth` quotes remaining
+                        if contents[index..]
+                            .iter()
+                            .filter(|b| *b == quote_char)
+                            .count() as i32
+                            > *depth
+                        {
+                            // Increment depth to be greedy
+                            *depth += 1;
+                        } else {
+                            // Decrement depth
+                            *depth -= 1;
+                        }
+                        if *depth == 0 {
+                            // End of string
+                            spans.push(make_span(*from, index + 1));
+                            // go back to Bare state
+                            state = State::Bare { from: index + 1 };
+                        }
+                    }
+                    b'\\' if !*escaped && *quote_char == b'"' => {
+                        // The next token is escaped so it doesn't count (only for double quote)
+                        *escaped = true;
+                    }
+                    _ => {
+                        *escaped = false;
+                    }
+                },
+            }
+        }
+
+        // Add the final span
+        match state {
+            State::Bare { from } | State::Quote { from, .. } => {
+                if from < contents.len() {
+                    spans.push(make_span(from, contents.len()));
+                }
+            }
+        }
+
+        // Log the spans that will be parsed
+        if log::log_enabled!(log::Level::Trace) {
+            let contents = spans
+                .iter()
+                .map(|span| String::from_utf8_lossy(working_set.get_span_contents(*span)))
+                .collect::<Vec<_>>();
+
+            trace!("parsing: external string, parts: {contents:?}")
+        }
+
+        // Parse each as its own string
+        let exprs: Vec<Expression> = spans
+            .into_iter()
+            .map(|span| parse_string(working_set, span))
+            .collect();
+
+        if exprs
+            .iter()
+            .all(|expr| matches!(expr.expr, Expr::String(..)))
+        {
+            // If the exprs are all strings anyway, just collapse into a single string.
+            let string = exprs
+                .into_iter()
+                .map(|expr| {
+                    let Expr::String(contents) = expr.expr else {
+                        unreachable!("already checked that this was a String")
+                    };
+                    contents
+                })
+                .collect::<String>();
+            Expression::new(working_set, Expr::String(string), span, Type::String)
+        } else {
+            // Make a string interpolation out of the expressions.
+            Expression::new(
+                working_set,
+                Expr::StringInterpolation(exprs, false),
+                span,
+                Type::String,
+            )
+        }
+    } else {
+        parse_glob_pattern(working_set, span)
+    }
+}
+
 fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> ExternalArgument {
     let contents = working_set.get_span_contents(span);
 
@@ -229,8 +374,6 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
         ExternalArgument::Regular(parse_dollar_expr(working_set, span))
     } else if contents.starts_with(b"[") {
         ExternalArgument::Regular(parse_list_expression(working_set, span, &SyntaxShape::Any))
-    } else if contents.starts_with(b"r#") {
-        ExternalArgument::Regular(parse_raw_string(working_set, span))
     } else if contents.len() > 3
         && contents.starts_with(b"...")
         && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
@@ -241,18 +384,7 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
             &SyntaxShape::List(Box::new(SyntaxShape::Any)),
         ))
     } else {
-        // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
-        let (contents, err) = unescape_string_preserving_quotes(contents, span);
-        if let Some(err) = err {
-            working_set.error(err);
-        }
-
-        ExternalArgument::Regular(Expression::new(
-            working_set,
-            Expr::String(contents),
-            span,
-            Type::String,
-        ))
+        ExternalArgument::Regular(parse_external_string(working_set, span))
     }
 }
 
@@ -274,18 +406,7 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         let arg = parse_expression(working_set, &[head_span]);
         Box::new(arg)
     } else {
-        // Eval stage will unquote the string, so we don't bother with that here
-        let (contents, err) = unescape_string_preserving_quotes(&head_contents, head_span);
-        if let Some(err) = err {
-            working_set.error(err)
-        }
-
-        Box::new(Expression::new(
-            working_set,
-            Expr::String(contents),
-            head_span,
-            Type::String,
-        ))
+        Box::new(parse_external_string(working_set, head_span))
     };
 
     let args = spans[1..]
@@ -1857,7 +1978,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 
     Expression::new(
         working_set,
-        Expr::StringInterpolation(output),
+        Expr::StringInterpolation(output, double_quote),
         span,
         Type::String,
     )
@@ -2637,23 +2758,6 @@ pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<Pars
             (String::new(), Some(ParseError::Expected("string", span)))
         }
     }
-}
-
-/// XXX: This is here temporarily as a patch, but we should replace this with properly representing
-/// the quoted state of a string in the AST
-fn unescape_string_preserving_quotes(bytes: &[u8], span: Span) -> (String, Option<ParseError>) {
-    let (bytes, err) = if bytes.starts_with(b"\"") {
-        let (bytes, err) = unescape_string(bytes, span);
-        (Cow::Owned(bytes), err)
-    } else {
-        (Cow::Borrowed(bytes), None)
-    };
-
-    // The original code for args used lossy conversion here, even though that's not what we
-    // typically use for strings. Revisit whether that's actually desirable later, but don't
-    // want to introduce a breaking change for this patch.
-    let token = String::from_utf8_lossy(&bytes).into_owned();
-    (token, err)
 }
 
 pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -6012,7 +6116,7 @@ pub fn discover_captures_in_expr(
         }
         Expr::String(_) => {}
         Expr::RawString(_) => {}
-        Expr::StringInterpolation(exprs) => {
+        Expr::StringInterpolation(exprs, _) => {
             for expr in exprs {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }

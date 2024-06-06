@@ -232,7 +232,7 @@ impl Expression {
                 }
                 false
             }
-            Expr::StringInterpolation(items) => {
+            Expr::StringInterpolation(items, _) => {
                 for i in items {
                     if i.has_in_variable(working_set) {
                         return true;
@@ -441,7 +441,7 @@ impl Expression {
             Expr::Signature(_) => {}
             Expr::String(_) => {}
             Expr::RawString(_) => {}
-            Expr::StringInterpolation(items) => {
+            Expr::StringInterpolation(items, _) => {
                 for i in items {
                     i.replace_span(working_set, replaced, new_span)
                 }

@@ -9,7 +9,6 @@ use nu_protocol::{
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use std::{
-    borrow::Cow,
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
@@ -32,8 +31,16 @@ impl Command for External {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("command", SyntaxShape::String, "External command to run.")
-            .rest("args", SyntaxShape::Any, "Arguments for external command.")
+            .required(
+                "command",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
+                "External command to run.",
+            )
+            .rest(
+                "args",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Any]),
+                "Arguments for external command.",
+            )
             .category(Category::System)
     }
 
@@ -216,19 +223,6 @@ impl Command for External {
     }
 }
 
-/// Removes surrounding quotes from a string. Doesn't remove quotes from raw
-/// strings. Returns the original string if it doesn't have matching quotes.
-fn remove_quotes(s: &str) -> &str {
-    let quoted_by_double_quotes = s.len() >= 2 && s.starts_with('"') && s.ends_with('"');
-    let quoted_by_single_quotes = s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'');
-    let quoted_by_backticks = s.len() >= 2 && s.starts_with('`') && s.ends_with('`');
-    if quoted_by_double_quotes || quoted_by_single_quotes || quoted_by_backticks {
-        &s[1..s.len() - 1]
-    } else {
-        s
-    }
-}
-
 /// Evaluate all arguments from a call, performing expansions when necessary.
 pub fn eval_arguments_from_call(
     engine_state: &EngineState,
@@ -240,14 +234,13 @@ pub fn eval_arguments_from_call(
     let mut args: Vec<Spanned<String>> = vec![];
     for (expr, spread) in call.rest_iter(1) {
         if is_bare_string(expr) {
-            // If `expr` is a bare string, perform tilde-expansion,
-            // glob-expansion, and inner-quotes-removal, in that order.
+            // If `expr` is a bare string, perform glob expansion.
             for arg in eval_argument(engine_state, stack, expr, spread)? {
-                let tilde_expanded = expand_tilde(&arg);
-                for glob_expanded in expand_glob(&tilde_expanded, &cwd, expr.span, ctrlc)? {
-                    let inner_quotes_removed = remove_inner_quotes(&glob_expanded);
-                    args.push(inner_quotes_removed.into_owned().into_spanned(expr.span));
-                }
+                args.extend(
+                    expand_glob(&arg, &cwd, expr.span, ctrlc)?
+                        .into_iter()
+                        .map(|s| s.into_spanned(expr.span)),
+                );
             }
         } else {
             for arg in eval_argument(engine_state, stack, expr, spread)? {
@@ -271,12 +264,6 @@ fn eval_argument(
     expr: &Expression,
     spread: bool,
 ) -> Result<Vec<String>, ShellError> {
-    // Remove quotes from string literals.
-    let mut expr = expr.clone();
-    if let Expr::String(s) = &expr.expr {
-        expr.expr = Expr::String(remove_quotes(s).into());
-    }
-
     let eval = get_eval_expression(engine_state);
     match eval(engine_state, stack, &expr)? {
         Value::List { vals, .. } => {
@@ -289,6 +276,13 @@ fn eval_argument(
                     arg: String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).into(),
                     span: expr.span,
                 })
+            }
+        }
+        Value::Glob { val, .. } => {
+            if spread {
+                Err(ShellError::CannotSpreadAsList { span: expr.span })
+            } else {
+                Ok(vec![expand_tilde(&val)])
             }
         }
         value => {
@@ -304,14 +298,12 @@ fn eval_argument(
 /// Returns whether an expression is considered a bare string.
 ///
 /// Bare strings are defined as string literals that are either unquoted or
-/// quoted by backticks. Raw strings or string interpolations don't count.
+/// quoted by backticks. Raw strings or non-bare string interpolations don't count.
 fn is_bare_string(expr: &Expression) -> bool {
-    let Expr::String(s) = &expr.expr else {
-        return false;
-    };
-    let quoted_by_double_quotes = s.len() >= 2 && s.starts_with('"') && s.ends_with('"');
-    let quoted_by_single_quotes = s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'');
-    !quoted_by_double_quotes && !quoted_by_single_quotes
+    matches!(
+        expr.expr,
+        Expr::GlobPattern(_, false) | Expr::StringInterpolation(_, false)
+    )
 }
 
 /// Performs tilde expansion on `arg`. Returns the original string if `arg`
@@ -394,27 +386,6 @@ fn expand_glob(
         // If we failed to match, return the original input
         Ok(vec![arg.into()])
     }
-}
-
-/// Transforms `--option="value"` into `--option=value`. `value` can be quoted
-/// with double quotes, single quotes, or backticks. Only removes the outermost
-/// pair of quotes after the equal sign.
-fn remove_inner_quotes(arg: &str) -> Cow<'_, str> {
-    // Check that `arg` is a long option.
-    if !arg.starts_with("--") {
-        return Cow::Borrowed(arg);
-    }
-    // Split `arg` on the first `=`.
-    let Some((option, value)) = arg.split_once('=') else {
-        return Cow::Borrowed(arg);
-    };
-    // Check that `option` doesn't contain quotes.
-    if option.contains('"') || option.contains('\'') || option.contains('`') {
-        return Cow::Borrowed(arg);
-    }
-    // Remove the outermost pair of quotes from `value`.
-    let value = remove_quotes(value);
-    Cow::Owned(format!("{option}={value}"))
 }
 
 /// Write `PipelineData` into `writer`. If `PipelineData` is not binary, it is
@@ -652,17 +623,6 @@ mod test {
     use nu_test_support::{fs::Stub, playground::Playground};
 
     #[test]
-    fn test_remove_quotes() {
-        assert_eq!(remove_quotes(r#""#), r#""#);
-        assert_eq!(remove_quotes(r#"'"#), r#"'"#);
-        assert_eq!(remove_quotes(r#"''"#), r#""#);
-        assert_eq!(remove_quotes(r#""foo""#), r#"foo"#);
-        assert_eq!(remove_quotes(r#"`foo '"' bar`"#), r#"foo '"' bar"#);
-        assert_eq!(remove_quotes(r#"'foo' bar"#), r#"'foo' bar"#);
-        assert_eq!(remove_quotes(r#"r#'foo'#"#), r#"r#'foo'#"#);
-    }
-
-    #[test]
     fn test_eval_argument() {
         fn expression(expr: Expr) -> Expression {
             Expression::new_unknown(expr, Span::unknown(), Type::Any)
@@ -739,25 +699,6 @@ mod test {
             let expected = &["[*.txt"];
             assert_eq!(actual, expected);
         })
-    }
-
-    #[test]
-    fn test_remove_inner_quotes() {
-        let actual = remove_inner_quotes(r#"--option=value"#);
-        let expected = r#"--option=value"#;
-        assert_eq!(actual, expected);
-
-        let actual = remove_inner_quotes(r#"--option="value""#);
-        let expected = r#"--option=value"#;
-        assert_eq!(actual, expected);
-
-        let actual = remove_inner_quotes(r#"--option='value'"#);
-        let expected = r#"--option=value"#;
-        assert_eq!(actual, expected);
-
-        let actual = remove_inner_quotes(r#"--option "value""#);
-        let expected = r#"--option "value""#;
-        assert_eq!(actual, expected);
     }
 
     #[test]

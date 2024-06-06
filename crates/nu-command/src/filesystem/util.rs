@@ -115,7 +115,7 @@ pub fn get_rest_for_glob_pattern(
                     Value::String { val, .. }
                         if matches!(
                             &expr.expr,
-                            Expr::FullCellPath(_) | Expr::StringInterpolation(_)
+                            Expr::FullCellPath(_) | Expr::StringInterpolation(_, _)
                         ) =>
                     {
                         // should not expand if given input type is not glob.

@@ -277,7 +277,7 @@ fn flatten_expression_into(
             output[arg_start..].sort();
         }
         Expr::ExternalCall(head, args) => {
-            if let Expr::String(..) = &head.expr {
+            if let Expr::String(..) | Expr::GlobPattern(..) = &head.expr {
                 output.push((head.span, FlatShape::External));
             } else {
                 flatten_expression_into(working_set, head, output);
@@ -410,24 +410,22 @@ fn flatten_expression_into(
                 output.push((Span::new(last_end, outer_span.end), FlatShape::List));
             }
         }
-        Expr::StringInterpolation(exprs) => {
+        Expr::StringInterpolation(exprs, quoted) => {
             let mut flattened = vec![];
             for expr in exprs {
                 flatten_expression_into(working_set, expr, &mut flattened);
             }
 
-            if let Some(first) = flattened.first() {
-                if first.0.start != expr.span.start {
-                    // If we aren't a bare word interpolation, also highlight the outer quotes
-                    output.push((
-                        Span::new(expr.span.start, expr.span.start + 2),
-                        FlatShape::StringInterpolation,
-                    ));
-                    flattened.push((
-                        Span::new(expr.span.end - 1, expr.span.end),
-                        FlatShape::StringInterpolation,
-                    ));
-                }
+            if *quoted {
+                // If we aren't a bare word interpolation, also highlight the outer quotes
+                output.push((
+                    Span::new(expr.span.start, expr.span.start + 2),
+                    FlatShape::StringInterpolation,
+                ));
+                flattened.push((
+                    Span::new(expr.span.end - 1, expr.span.end),
+                    FlatShape::StringInterpolation,
+                ));
             }
             output.extend(flattened);
         }

@@ -182,7 +182,7 @@ pub fn multi_test_parse_int() {
         Test(
             "ranges or relative paths not confused for int",
             b"./a/b",
-            Expr::String("./a/b".into()),
+            Expr::GlobPattern("./a/b".into(), false),
             None,
         ),
         Test(
@@ -713,63 +713,94 @@ pub fn parse_call_missing_req_flag() {
     r"foo\external-call",
     "bare word with backslash and caret"
 )]
+pub fn test_external_call_head_glob(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
+}
+
+#[rstest]
 #[case(
-    "^'foo external call'",
-    "'foo external call'",
-    "single quote with caret"
+    r##"^r#"foo-external-call"#"##,
+    "foo-external-call",
+    "raw string with caret"
 )]
 #[case(
+    r##"^r#"foo/external-call"#"##,
+    "foo/external-call",
+    "raw string with forward slash and caret"
+)]
+#[case(
+    r##"^r#"foo\external-call"#"##,
+    r"foo\external-call",
+    "raw string with backslash and caret"
+)]
+pub fn test_external_call_head_raw_string(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
+}
+
+#[rstest]
+#[case("^'foo external call'", "foo external call", "single quote with caret")]
+#[case(
     "^'foo/external call'",
-    "'foo/external call'",
+    "foo/external call",
     "single quote with forward slash and caret"
 )]
 #[case(
     r"^'foo\external call'",
-    r"'foo\external call'",
+    r"foo\external call",
     "single quote with backslash and caret"
 )]
 #[case(
     r#"^"foo external call""#,
-    r#""foo external call""#,
+    r#"foo external call"#,
     "double quote with caret"
 )]
 #[case(
     r#"^"foo/external call""#,
-    r#""foo/external call""#,
+    r#"foo/external call"#,
     "double quote with forward slash and caret"
 )]
 #[case(
     r#"^"foo\\external call""#,
-    r#""foo\external call""#,
+    r#"foo\external call"#,
     "double quote with backslash and caret"
 )]
-#[case("`foo external call`", "`foo external call`", "backtick quote")]
+#[case("`foo external call`", "foo external call", "backtick quote")]
 #[case(
     "^`foo external call`",
-    "`foo external call`",
+    "foo external call",
     "backtick quote with caret"
 )]
 #[case(
     "`foo/external call`",
-    "`foo/external call`",
+    "foo/external call",
     "backtick quote with forward slash"
 )]
 #[case(
     "^`foo/external call`",
-    "`foo/external call`",
+    "foo/external call",
     "backtick quote with forward slash and caret"
 )]
 #[case(
-    r"^`foo\external call`",
     r"`foo\external call`",
+    r"foo\external call",
     "backtick quote with backslash"
 )]
 #[case(
     r"^`foo\external call`",
-    r"`foo\external call`",
+    r"foo\external call",
     "backtick quote with backslash and caret"
 )]
-fn test_external_call_name(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
+pub fn test_external_call_head_string(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
     let block = parse(&mut working_set, None, input.as_bytes(), true);
@@ -801,19 +832,109 @@ fn test_external_call_name(#[case] input: &str, #[case] expected: &str, #[case] 
 }
 
 #[rstest]
-#[case("^foo bar-baz", "bar-baz", "bare word")]
-#[case("^foo bar/baz", "bar/baz", "bare word with forward slash")]
-#[case(r"^foo bar\baz", r"bar\baz", "bare word with backslash")]
-#[case("^foo 'bar baz'", "'bar baz'", "single quote")]
-#[case("foo 'bar/baz'", "'bar/baz'", "single quote with forward slash")]
-#[case(r"foo 'bar\baz'", r"'bar\baz'", "single quote with backslash")]
-#[case(r#"^foo "bar baz""#, r#""bar baz""#, "double quote")]
-#[case(r#"^foo "bar/baz""#, r#""bar/baz""#, "double quote with forward slash")]
-#[case(r#"^foo "bar\\baz""#, r#""bar\baz""#, "double quote with backslash")]
-#[case("^foo `bar baz`", "`bar baz`", "backtick quote")]
-#[case("^foo `bar/baz`", "`bar/baz`", "backtick quote with forward slash")]
-#[case(r"^foo `bar\baz`", r"`bar\baz`", "backtick quote with backslash")]
-fn test_external_call_argument_regular(
+#[case(r"~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case(
+    r"~\.foo(2)\(1)",
+    3,
+    false,
+    "unquoted interpolated string with backslash"
+)]
+#[case(r"^~/.foo/(1)", 2, false, "unquoted interpolated string with caret")]
+#[case(r#"^$"~/.foo/(1)""#, 2, true, "quoted interpolated string with caret")]
+pub fn test_external_call_head_interpolated_string(
+    #[case] input: &str,
+    #[case] subexpr_count: usize,
+    #[case] quoted: bool,
+    #[case] tag: &str,
+) {
+}
+
+#[rstest]
+#[case("^foo foo-external-call", "foo-external-call", "bare word")]
+#[case(
+    "^foo foo/external-call",
+    "foo/external-call",
+    "bare word with forward slash"
+)]
+#[case(
+    r"^foo foo\external-call",
+    r"foo\external-call",
+    "bare word with backslash"
+)]
+pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
+}
+
+#[rstest]
+#[case(r##"^foo r#"foo-external-call"#"##, "foo-external-call", "raw string")]
+#[case(
+    r##"^foo r#"foo/external-call"#"##,
+    "foo/external-call",
+    "raw string with forward slash"
+)]
+#[case(
+    r##"^foo r#"foo\external-call"#"##,
+    r"foo\external-call",
+    "raw string with backslash"
+)]
+pub fn test_external_call_arg_raw_string(
+    #[case] input: &str,
+    #[case] expected: &str,
+    #[case] tag: &str,
+) {
+}
+
+#[rstest]
+#[case(
+    "^foo 'foo external call'",
+    "foo external call",
+    "single quote with caret"
+)]
+#[case(
+    "^foo 'foo/external call'",
+    "foo/external call",
+    "single quote with forward slash and caret"
+)]
+#[case(
+    r"^foo 'foo\external call'",
+    r"foo\external call",
+    "single quote with backslash and caret"
+)]
+#[case(
+    r#"^foo "foo external call""#,
+    r#"foo external call"#,
+    "double quote with caret"
+)]
+#[case(
+    r#"^foo "foo/external call""#,
+    r#"foo/external call"#,
+    "double quote with forward slash and caret"
+)]
+#[case(
+    r#"^foo "foo\\external call""#,
+    r#"foo\external call"#,
+    "double quote with backslash and caret"
+)]
+#[case(
+    "^foo `foo external call`",
+    "foo external call",
+    "backtick quote with caret"
+)]
+#[case(
+    "^foo `foo/external call`",
+    "foo/external call",
+    "backtick quote with forward slash"
+)]
+#[case(
+    "^foo `foo/external call`",
+    "foo/external call",
+    "backtick quote with forward slash and caret"
+)]
+#[case(
+    r"^foo `foo\external call`",
+    r"foo\external call",
+    "backtick quote with backslash and caret"
+)]
+pub fn test_external_call_arg_string(
     #[case] input: &str,
     #[case] expected: &str,
     #[case] tag: &str,
@@ -833,7 +954,7 @@ fn test_external_call_argument_regular(
     match &element.expr.expr {
         Expr::ExternalCall(name, args) => {
             match &name.expr {
-                Expr::String(string) => {
+                Expr::GlobPattern(string, _) => {
                     assert_eq!("foo", string, "{tag}: incorrect name");
                 }
                 other => {
@@ -861,6 +982,17 @@ fn test_external_call_argument_regular(
     }
 }
 
+#[rstest]
+#[case(r"^foo ~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case(r#"^foo $"~/.foo/(1)""#, 2, true, "quoted interpolated string")]
+pub fn test_external_call_arg_interpolated_string(
+    #[case] input: &str,
+    #[case] subexpr_count: usize,
+    #[case] quoted: bool,
+    #[case] tag: &str,
+) {
+}
+
 #[test]
 fn test_external_call_argument_spread() {
     let engine_state = EngineState::new();
@@ -878,7 +1010,7 @@ fn test_external_call_argument_spread() {
     match &element.expr.expr {
         Expr::ExternalCall(name, args) => {
             match &name.expr {
-                Expr::String(string) => {
+                Expr::GlobPattern(string, _) => {
                     assert_eq!("foo", string, "incorrect name");
                 }
                 other => {
@@ -1037,7 +1169,8 @@ mod string {
             assert!(element.redirection.is_none());
 
             let subexprs: Vec<&Expr> = match &element.expr.expr {
-                Expr::StringInterpolation(expressions) => {
+                Expr::StringInterpolation(expressions, quoted) => {
+                    assert!(quoted);
                     expressions.iter().map(|e| &e.expr).collect()
                 }
                 _ => panic!("Expected an `Expr::StringInterpolation`"),
@@ -1066,7 +1199,8 @@ mod string {
             assert!(element.redirection.is_none());
 
             let subexprs: Vec<&Expr> = match &element.expr.expr {
-                Expr::StringInterpolation(expressions) => {
+                Expr::StringInterpolation(expressions, quoted) => {
+                    assert!(quoted);
                     expressions.iter().map(|e| &e.expr).collect()
                 }
                 _ => panic!("Expected an `Expr::StringInterpolation`"),
@@ -1093,7 +1227,8 @@ mod string {
             assert!(element.redirection.is_none());
 
             let subexprs: Vec<&Expr> = match &element.expr.expr {
-                Expr::StringInterpolation(expressions) => {
+                Expr::StringInterpolation(expressions, quoted) => {
+                    assert!(quoted);
                     expressions.iter().map(|e| &e.expr).collect()
                 }
                 _ => panic!("Expected an `Expr::StringInterpolation`"),
@@ -1122,7 +1257,8 @@ mod string {
             assert!(element.redirection.is_none());
 
             let subexprs: Vec<&Expr> = match &element.expr.expr {
-                Expr::StringInterpolation(expressions) => {
+                Expr::StringInterpolation(expressions, quoted) => {
+                    assert!(quoted);
                     expressions.iter().map(|e| &e.expr).collect()
                 }
                 _ => panic!("Expected an `Expr::StringInterpolation`"),
@@ -1130,6 +1266,45 @@ mod string {
 
             assert_eq!(subexprs.len(), 1);
             assert_eq!(subexprs[0], &Expr::String("(1 + 3)(7 - 5)".to_string()));
+        }
+
+        #[test]
+        pub fn parse_string_interpolation_bare() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let block = parse(
+                &mut working_set,
+                None,
+                b"\"\" ++ foo(1 + 3)bar(7 - 5)",
+                true,
+            );
+
+            assert!(working_set.parse_errors.is_empty());
+
+            assert_eq!(block.len(), 1);
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::BinaryOp(_, _, rhs) => match &rhs.expr {
+                    Expr::StringInterpolation(expressions, quoted) => {
+                        assert!(!quoted);
+                        expressions.iter().map(|e| &e.expr).collect()
+                    }
+                    _ => panic!("Expected an `Expr::StringInterpolation`"),
+                },
+                _ => panic!("Expected an `Expr::BinaryOp`"),
+            };
+
+            assert_eq!(subexprs.len(), 4);
+
+            assert_eq!(subexprs[0], &Expr::String("foo".to_string()));
+            assert!(matches!(subexprs[1], &Expr::FullCellPath(..)));
+            assert_eq!(subexprs[2], &Expr::String("bar".to_string()));
+            assert!(matches!(subexprs[3], &Expr::FullCellPath(..)));
         }
 
         #[test]

@@ -452,7 +452,7 @@ fn find_matching_block_end_in_expr(
                 }
             }
 
-            Expr::StringInterpolation(exprs) => exprs.iter().find_map(|expr| {
+            Expr::StringInterpolation(exprs, _) => exprs.iter().find_map(|expr| {
                 find_matching_block_end_in_expr(
                     line,
                     working_set,
