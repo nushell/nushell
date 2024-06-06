@@ -176,7 +176,8 @@ fn from_csv(
         trim,
     };
 
-    from_delimited_data(config, input, name)
+    let ctrlc = engine_state.ctrlc.clone();
+    from_delimited_data(config, input, name, ctrlc)
 }
 
 #[cfg(test)]

@@ -1,3 +1,5 @@
+use std::sync::{atomic::AtomicBool, Arc};
+
 use csv::{ReaderBuilder, Trim};
 use nu_protocol::{ByteStream, ListStream, PipelineData, ShellError, Span, Value};
 
@@ -21,6 +23,7 @@ fn from_delimited_stream(
     }: DelimitedReaderConfig,
     input: ByteStream,
     span: Span,
+    ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<ListStream, ShellError> {
     let input_reader = if let Some(stream) = input.reader() {
         stream
@@ -83,7 +86,7 @@ fn from_delimited_stream(
         Value::record(columns.zip(values).collect(), span)
     });
 
-    Ok(ListStream::new(iter, span, None))
+    Ok(ListStream::new(iter, span, ctrl_c))
 }
 
 pub(super) struct DelimitedReaderConfig {
@@ -101,6 +104,7 @@ pub(super) fn from_delimited_data(
     config: DelimitedReaderConfig,
     input: PipelineData,
     name: Span,
+    ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<PipelineData, ShellError> {
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
@@ -108,7 +112,7 @@ pub(super) fn from_delimited_data(
             let string = value.into_string()?;
             let byte_stream = ByteStream::read_string(string, name, None);
             Ok(PipelineData::ListStream(
-                from_delimited_stream(config, byte_stream, name)?,
+                from_delimited_stream(config, byte_stream, name, ctrl_c)?,
                 metadata,
             ))
         }
@@ -119,7 +123,7 @@ pub(super) fn from_delimited_data(
             src_span: list_stream.span(),
         }),
         PipelineData::ByteStream(byte_stream, metadata) => Ok(PipelineData::ListStream(
-            from_delimited_stream(config, byte_stream, name)?,
+            from_delimited_stream(config, byte_stream, name, ctrl_c)?,
             metadata,
         )),
     }
