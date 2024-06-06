@@ -20,7 +20,7 @@ use std::cmp::min;
 pub struct TryView<'a> {
     input: Value,
     command: String,
-    immediate: bool,
+    reactive: bool,
     table: Option<RecordView<'a>>,
     table_theme: TableConfig,
     view_mode: bool,
@@ -33,7 +33,7 @@ impl<'a> TryView<'a> {
         Self {
             input,
             table: None,
-            immediate: false,
+            reactive: false,
             table_theme: TableConfig::default(),
             border_color: Style::default(),
             highlighted_color: Style::default(),
@@ -183,7 +183,7 @@ impl View for TryView<'_> {
                 if !self.command.is_empty() {
                     self.command.pop();
 
-                    if self.immediate {
+                    if self.reactive {
                         match self.try_run(engine_state, stack) {
                             Ok(_) => info.report = Some(Report::default()),
                             Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
@@ -196,7 +196,7 @@ impl View for TryView<'_> {
             KeyCode::Char(c) => {
                 self.command.push(*c);
 
-                if self.immediate {
+                if self.reactive {
                     match self.try_run(engine_state, stack) {
                         Ok(_) => info.report = Some(Report::default()),
                         Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
@@ -241,8 +241,7 @@ impl View for TryView<'_> {
     fn setup(&mut self, config: ViewConfig<'_>) {
         self.border_color = nu_style_to_tui(config.explore_config.table.separator_style);
         self.highlighted_color = nu_style_to_tui(config.explore_config.highlight);
-        // TODO: make sure this is set based on try.reactive setting
-        self.immediate = config.explore_config.try_immediate;
+        self.reactive = config.explore_config.try_reactive;
 
         let mut r = RecordView::new(vec![], vec![]);
         r.setup(config);

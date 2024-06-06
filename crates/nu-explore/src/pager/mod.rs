@@ -440,18 +440,30 @@ fn run_command(
         Command::View { mut cmd, stackable } => {
             // what we do we just replace the view.
             let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
-            let new_view = cmd.spawn(engine_state, stack, value)?;
+            let mut new_view = cmd.spawn(engine_state, stack, value)?;
             if let Some(view) = view_stack.curr_view.take() {
                 if !view.stackable {
                     view_stack.stack.push(view);
                 }
             }
 
+            setup_view(&mut new_view, &pager.config);
+
             view_stack.curr_view = Some(Page::raw(new_view, stackable));
 
             Ok(CmdResult::new(false, true, cmd.name().to_owned()))
         }
     }
+}
+
+fn setup_view(view: &mut Box<dyn View>, cfg: &PagerConfig<'_>) {
+    let cfg = ViewConfig::new(
+        cfg.nu_config,
+        cfg.explore_config,
+        cfg.style_computer,
+        cfg.lscolors,
+    );
+    view.setup(cfg);
 }
 
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {

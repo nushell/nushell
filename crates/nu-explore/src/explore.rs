@@ -151,7 +151,7 @@ pub struct ExploreConfig {
     pub cmd_bar_background: Style,
     pub highlight: Style,
     /// if true, the explore view will immediately try to run the command as it is typed
-    pub try_immediate: bool,
+    pub try_reactive: bool,
 }
 
 impl Default for ExploreConfig {
@@ -171,7 +171,7 @@ impl Default for ExploreConfig {
             cmd_bar_text: color(Some(Color::Rgb(196, 201, 198)), None),
             cmd_bar_background: color(None, None),
             highlight: color(Some(Color::Black), Some(Color::Yellow)),
-            try_immediate: false,
+            try_reactive: false,
         }
     }
 }
@@ -227,6 +227,14 @@ impl ExploreConfig {
 
             if let Some(s) = colors.get("error") {
                 ret.status_error = *s;
+            }
+        }
+
+        if let Some(hm) = explore_cfg_hash_map.get("try").and_then(create_map) {
+            if let Some(reactive) = hm.get("reactive") {
+                if let Ok(b) = reactive.as_bool() {
+                    ret.try_reactive = b;
+                }
             }
         }
 
