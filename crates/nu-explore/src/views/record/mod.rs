@@ -19,7 +19,8 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::StyleComputer;
 use nu_protocol::{
-    engine::{EngineState, Stack}, Config, Record, Span, Value
+    engine::{EngineState, Stack},
+    Config, Record, Span, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 use std::{borrow::Cow, collections::HashMap};

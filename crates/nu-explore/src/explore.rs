@@ -6,6 +6,7 @@ use crate::{
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_engine::command_prelude::*;
+use nu_protocol::Config;
 
 use std::collections::HashMap;
 
@@ -68,13 +69,15 @@ impl Command for Explore {
         let nu_config = engine_state.get_config();
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
-        let mut config = nu_config.explore.clone();
-        include_nu_config(&mut config, &style_computer);
-        update_config(&mut config, show_index, show_head);
-        prepare_default_config(&mut config);
+        // let mut config = nu_config.explore.clone();
+        // include_nu_config(&mut config, &style_computer);
+        // update_config(&mut config, show_index, show_head);
+        // default_config(&mut config);
 
-        // TODO finish implementing this function, pass it nu config not that BS above
-        let explore_config = explore_config_from_nu_config(&config);
+        let mut explore_config = ExploreConfig::from_nu_config(&nu_config);
+        explore_config.table.show_header = show_head;
+        explore_config.table.show_index = show_index;
+        explore_config.table.separator_style = lookup_color(&style_computer, "separator");
 
         let lscolors = create_lscolors(engine_state, stack);
 
@@ -139,14 +142,9 @@ impl Command for Explore {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct ExploreConfig {
     pub table: TableConfig,
-    // TODO selected_cell should have a default of light blue if not specified
-    // let mut style = nu_ansi_term::Style::new();
-    //         // light blue chosen somewhat arbitrarily, looks OK but I'm not set on it
-    //         style.background = Some(nu_ansi_term::Color::LightBlue);
-    //         style
     pub selected_cell: Style,
     pub status_info: Style,
     pub status_success: Style,
@@ -157,8 +155,91 @@ pub struct ExploreConfig {
     pub cmd_bar_text: Style,
     pub cmd_bar_background: Style,
     pub highlight: Style,
-    // if true, the explore view will immediately try to run the command as it is typed
+    /// if true, the explore view will immediately try to run the command as it is typed
     pub try_immediate: bool,
+}
+
+impl Default for ExploreConfig {
+    fn default() -> Self {
+        Self {
+            table: TableConfig::default(),
+            selected_cell: color(None, Some(Color::LightBlue)),
+            status_info: color(None, None),
+            status_success: color(Some(Color::Black), Some(Color::Green)),
+            status_warn: color(None, None),
+            status_error: color(Some(Color::White), Some(Color::Red)),
+            status_bar_background: color(
+                Some(Color::Rgb(29, 31, 33)),
+                Some(Color::Rgb(196, 201, 198)),
+            ),
+            status_bar_text: color(None, None),
+            cmd_bar_text: color(Some(Color::Rgb(196, 201, 198)), None),
+            cmd_bar_background: color(None, None),
+            highlight: color(Some(Color::Black), Some(Color::Yellow)),
+            try_immediate: false,
+        }
+    }
+}
+impl ExploreConfig {
+    /// take the default explore config and update it with relevant values from the nu config
+    pub fn from_nu_config(config: &Config) -> Self {
+        let mut ret = Self::default();
+
+        ret.table.column_padding_left = config.table_indent.left;
+        ret.table.column_padding_right = config.table_indent.right;
+
+        let explore_cfg_hash_map = config.explore.clone();
+        let colors = get_color_map(&explore_cfg_hash_map);
+
+        if let Some(s) = colors.get("status_bar_text") {
+            ret.status_bar_text = *s;
+        }
+
+        if let Some(s) = colors.get("status_bar_background") {
+            ret.status_bar_background = *s;
+        }
+
+        if let Some(s) = colors.get("command_bar_text") {
+            ret.cmd_bar_text = *s;
+        }
+
+        if let Some(s) = colors.get("command_bar_background") {
+            ret.cmd_bar_background = *s;
+        }
+
+        if let Some(s) = colors.get("command_bar_background") {
+            ret.cmd_bar_background = *s;
+        }
+
+        if let Some(s) = colors.get("selected_cell") {
+            ret.selected_cell = *s;
+        } else {
+            // light blue background as default
+            ret.selected_cell = color(None, Some(Color::LightBlue));
+        }
+
+        if let Some(hm) = explore_cfg_hash_map.get("status").and_then(create_map) {
+            let colors = get_color_map(&hm);
+
+            if let Some(s) = colors.get("info") {
+                ret.status_info = *s;
+            }
+
+            if let Some(s) = colors.get("success") {
+                ret.status_success = *s;
+            }
+
+            if let Some(s) = colors.get("warn") {
+                ret.status_warn = *s;
+            }
+
+            if let Some(s) = colors.get("error") {
+                ret.status_error = *s;
+            }
+        }
+
+        ret
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -168,141 +249,6 @@ pub struct TableConfig {
     pub show_header: bool,
     pub column_padding_left: usize,
     pub column_padding_right: usize,
-}
-
-fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_head: bool) {
-    let mut hm = config.get("table").and_then(create_map).unwrap_or_default();
-    if show_index {
-        insert_bool(&mut hm, "show_index", show_index);
-    }
-
-    if show_head {
-        insert_bool(&mut hm, "show_head", show_head);
-    }
-
-    config.insert(String::from("table"), map_into_value(hm));
-}
-
-fn explore_config_from_nu_config(config: &HashMap<String, Value>) -> ExploreConfig {
-    let mut style = ExploreConfig::default();
-
-    let colors = get_color_map(config);
-
-    if let Some(s) = colors.get("status_bar_text") {
-        style.status_bar_text = *s;
-    }
-
-    if let Some(s) = colors.get("status_bar_background") {
-        style.status_bar_background = *s;
-    }
-
-    if let Some(s) = colors.get("command_bar_text") {
-        style.cmd_bar_text = *s;
-    }
-
-    if let Some(s) = colors.get("command_bar_background") {
-        style.cmd_bar_background = *s;
-    }
-
-    if let Some(hm) = config.get("status").and_then(create_map) {
-        let colors = get_color_map(&hm);
-
-        if let Some(s) = colors.get("info") {
-            style.status_info = *s;
-        }
-
-        if let Some(s) = colors.get("success") {
-            style.status_success = *s;
-        }
-
-        if let Some(s) = colors.get("warn") {
-            style.status_warn = *s;
-        }
-
-        if let Some(s) = colors.get("error") {
-            style.status_error = *s;
-        }
-    }
-
-    style
-}
-
-fn prepare_default_config(config: &mut HashMap<String, Value>) {
-    const STATUS_BAR: Style = color(
-        Some(Color::Rgb(29, 31, 33)),
-        Some(Color::Rgb(196, 201, 198)),
-    );
-    const INPUT_BAR: Style = color(Some(Color::Rgb(196, 201, 198)), None);
-
-    const HIGHLIGHT: Style = color(Some(Color::Black), Some(Color::Yellow));
-
-    const STATUS_ERROR: Style = color(Some(Color::White), Some(Color::Red));
-    const STATUS_INFO: Style = color(None, None);
-    const STATUS_SUCCESS: Style = color(Some(Color::Black), Some(Color::Green));
-    const STATUS_WARN: Style = color(None, None);
-
-    const TABLE_SELECT_CELL: Style = color(None, None);
-    const TABLE_SELECT_ROW: Style = color(None, None);
-    const TABLE_SELECT_COLUMN: Style = color(None, None);
-
-    const HEXDUMP_INDEX: Style = color(Some(Color::Cyan), None);
-
-    insert_style(config, "status_bar_background", STATUS_BAR);
-    insert_style(config, "command_bar_text", INPUT_BAR);
-    insert_style(config, "highlight", HIGHLIGHT);
-
-    // because how config works we need to parse a string into Value::Record
-
-    {
-        let mut hm = config
-            .get("status")
-            .and_then(parse_hash_map)
-            .unwrap_or_default();
-
-        insert_style(&mut hm, "info", STATUS_INFO);
-        insert_style(&mut hm, "success", STATUS_SUCCESS);
-        insert_style(&mut hm, "warn", STATUS_WARN);
-        insert_style(&mut hm, "error", STATUS_ERROR);
-
-        config.insert(String::from("status"), map_into_value(hm));
-    }
-
-    {
-        let mut hm = config
-            .get("table")
-            .and_then(parse_hash_map)
-            .unwrap_or_default();
-
-        insert_style(&mut hm, "selected_cell", TABLE_SELECT_CELL);
-        insert_style(&mut hm, "selected_row", TABLE_SELECT_ROW);
-        insert_style(&mut hm, "selected_column", TABLE_SELECT_COLUMN);
-
-        config.insert(String::from("table"), map_into_value(hm));
-    }
-
-    {
-        let mut hm = config
-            .get("hex-dump")
-            .and_then(create_map)
-            .unwrap_or_default();
-
-        insert_style(&mut hm, "color_index", HEXDUMP_INDEX);
-
-        insert_int(&mut hm, "segment_size", 2);
-        insert_int(&mut hm, "count_segments", 8);
-
-        insert_bool(&mut hm, "split", true);
-
-        config.insert(String::from("hex-dump"), map_into_value(hm));
-    }
-}
-
-fn parse_hash_map(value: &Value) -> Option<HashMap<String, Value>> {
-    value.as_record().ok().map(|val| {
-        val.iter()
-            .map(|(col, val)| (col.clone(), val.clone()))
-            .collect::<HashMap<_, _>>()
-    })
 }
 
 const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
@@ -319,47 +265,6 @@ const fn color(foreground: Option<Color>, background: Option<Color>) -> Style {
         is_underline: false,
         prefix_with_reset: false,
     }
-}
-
-fn insert_style(map: &mut HashMap<String, Value>, key: &str, value: Style) {
-    if map.contains_key(key) {
-        return;
-    }
-
-    if value == Style::default() {
-        return;
-    }
-
-    let value = nu_color_config::NuStyle::from(value);
-    if let Ok(val) = nu_json::to_string_raw(&value) {
-        map.insert(String::from(key), Value::string(val, Span::unknown()));
-    }
-}
-
-fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
-    if map.contains_key(key) {
-        return;
-    }
-
-    map.insert(String::from(key), Value::bool(value, Span::unknown()));
-}
-
-fn insert_int(map: &mut HashMap<String, Value>, key: &str, value: i64) {
-    if map.contains_key(key) {
-        return;
-    }
-
-    map.insert(String::from(key), Value::int(value, Span::unknown()));
-}
-
-fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {
-    let line_color = lookup_color(style_computer, "separator");
-    let mut map = config
-        .get("table")
-        .and_then(parse_hash_map)
-        .unwrap_or_default();
-    insert_style(&mut map, "separator", line_color);
-    config.insert(String::from("table"), map_into_value(map));
 }
 
 fn lookup_color(style_computer: &StyleComputer, key: &str) -> nu_ansi_term::Style {

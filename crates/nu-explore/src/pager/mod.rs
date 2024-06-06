@@ -942,7 +942,6 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
     }
 }
 
-
 fn report_level_style(level: Severity, config: &ExploreConfig) -> NuStyle {
     match level {
         Severity::Info => config.status_info,

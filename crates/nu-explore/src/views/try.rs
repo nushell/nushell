@@ -1,8 +1,4 @@
-use super::{
-    record::RecordView,
-    util::nu_style_to_tui,
-    Layout, Orientation, View, ViewConfig,
-};
+use super::{record::RecordView, util::nu_style_to_tui, Layout, Orientation, View, ViewConfig};
 use crate::{
     explore::TableConfig,
     nu_common::{collect_pipeline, run_command_with_value},
