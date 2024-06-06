@@ -237,7 +237,7 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
         parse_raw_string(working_set, span)
     } else if contents
         .iter()
-        .any(|b| matches!(b, b'"' | b'\'' | b'`' | b'(' | b')'))
+        .any(|b| matches!(b, b'"' | b'\'' | b'(' | b')'))
     {
         enum State {
             Bare {
@@ -250,6 +250,11 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                 depth: i32,
             },
         }
+        // Find the spans of parts of the string that can be parsed as their own strings for
+        // concatenation.
+        //
+        // By passing each of these parts to `parse_string()`, we can eliminate the quotes and also
+        // handle string interpolation.
         let make_span = |from: usize, index: usize| Span {
             start: span.start + from,
             end: span.start + index,
@@ -259,7 +264,7 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
         for (index, &ch) in contents.iter().enumerate() {
             match &mut state {
                 State::Bare { from } => match ch {
-                    b'"' | b'\'' | b'`' => {
+                    b'"' | b'\'' => {
                         // Push bare string
                         if index != *from {
                             spans.push(make_span(*from, index));
@@ -281,7 +286,7 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                     escaped,
                     depth,
                 } => match ch {
-                    b'"' if !*escaped => {
+                    ch if ch == *quote_char && !*escaped => {
                         // Count if there are more than `depth` quotes remaining
                         if contents[index..]
                             .iter()

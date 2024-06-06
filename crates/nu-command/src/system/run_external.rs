@@ -1,5 +1,6 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
+use nu_path::{dots::expand_ndots, expand_tilde};
 use nu_protocol::{
     ast::{Expr, Expression},
     did_you_mean,
@@ -9,6 +10,7 @@ use nu_protocol::{
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use std::{
+    ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
@@ -76,7 +78,7 @@ impl Command for External {
             let expanded_name = if is_bare_string(name_expr) {
                 expand_tilde(&name.item)
             } else {
-                name.item.clone()
+                Path::new(&name.item).to_owned()
             };
 
             // Determine the PATH to be used and then use `which` to find it - though this has no
@@ -228,10 +230,10 @@ pub fn eval_arguments_from_call(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-) -> Result<Vec<Spanned<String>>, ShellError> {
+) -> Result<Vec<Spanned<OsString>>, ShellError> {
     let ctrlc = &engine_state.ctrlc;
     let cwd = engine_state.cwd(Some(stack))?;
-    let mut args: Vec<Spanned<String>> = vec![];
+    let mut args: Vec<Spanned<OsString>> = vec![];
     for (expr, spread) in call.rest_iter(1) {
         if is_bare_string(expr) {
             // If `expr` is a bare string, perform glob expansion.
@@ -244,7 +246,7 @@ pub fn eval_arguments_from_call(
             }
         } else {
             for arg in eval_argument(engine_state, stack, expr, spread)? {
-                args.push(arg.into_spanned(expr.span));
+                args.push(OsString::from(arg).into_spanned(expr.span));
             }
         }
     }
@@ -306,12 +308,6 @@ fn is_bare_string(expr: &Expression) -> bool {
     )
 }
 
-/// Performs tilde expansion on `arg`. Returns the original string if `arg`
-/// doesn't start with tilde.
-fn expand_tilde(arg: &str) -> String {
-    nu_path::expand_tilde(arg).to_string_lossy().to_string()
-}
-
 /// Performs glob expansion on `arg`. If the expansion found no matches or the pattern
 /// is not a valid glob, then this returns the original string as the expansion result.
 ///
@@ -322,12 +318,14 @@ fn expand_glob(
     cwd: &Path,
     span: Span,
     interrupt: &Option<Arc<AtomicBool>>,
-) -> Result<Vec<String>, ShellError> {
+) -> Result<Vec<OsString>, ShellError> {
     const GLOB_CHARS: &[char] = &['*', '?', '['];
 
-    // Don't expand something that doesn't include the GLOB_CHARS
+    // For an argument that doesn't include the GLOB_CHARS, just do the `expand_tilde`
+    // and `expand_ndots` expansion
     if !arg.contains(GLOB_CHARS) {
-        return Ok(vec![arg.into()]);
+        let path = expand_ndots(expand_tilde(arg));
+        return Ok(vec![path.into()]);
     }
 
     // We must use `nu_engine::glob_from` here, in order to ensure we get paths from the correct
@@ -365,11 +363,7 @@ fn expand_glob(
                 path
             }
         })
-        // Convert the paths returned to UTF-8 strings.
-        //
-        // FIXME: this fails to return the correct results for non-UTF-8 paths, but we don't support
-        // those in Nushell yet.
-        .map(|path| path.to_string_lossy().into_owned())
+        .map(OsString::from)
         // Abandon if ctrl-c is pressed
         .map(|path| {
             if !nu_utils::ctrl_c::was_pressed(interrupt) {
@@ -378,7 +372,7 @@ fn expand_glob(
                 Err(ShellError::InterruptedByUser { span: Some(span) })
             }
         })
-        .collect::<Result<Vec<String>, ShellError>>()?;
+        .collect::<Result<Vec<OsString>, ShellError>>()?;
 
     if !paths.is_empty() {
         Ok(paths)
@@ -556,7 +550,7 @@ pub fn command_not_found(
 /// Note: the `which.rs` crate always uses PATHEXT from the environment. As
 /// such, changing PATHEXT within Nushell doesn't work without updating the
 /// actual environment of the Nushell process.
-pub fn which(name: &str, paths: &str, cwd: &Path) -> Option<PathBuf> {
+pub fn which(name: impl AsRef<OsStr>, paths: &str, cwd: &Path) -> Option<PathBuf> {
     #[cfg(windows)]
     let paths = format!("{};{}", cwd.display(), paths);
     which::which_in(name, Some(paths), cwd).ok()
@@ -678,9 +672,9 @@ mod test {
             assert_eq!(actual, expected);
 
             let actual = expand_glob("./*.txt", cwd, Span::unknown(), &None).unwrap();
-            let expected = vec![
-                Path::new(".").join("a.txt").to_string_lossy().into_owned(),
-                Path::new(".").join("b.txt").to_string_lossy().into_owned(),
+            let expected: Vec<OsString> = vec![
+                Path::new(".").join("a.txt").into(),
+                Path::new(".").join("b.txt").into(),
             ];
             assert_eq!(actual, expected);
 
@@ -698,6 +692,11 @@ mod test {
 
             let actual = expand_glob("[*.txt", cwd, Span::unknown(), &None).unwrap();
             let expected = &["[*.txt"];
+            assert_eq!(actual, expected);
+
+            let actual = expand_glob("~/foo.txt", cwd, Span::unknown(), &None).unwrap();
+            let home = dirs_next::home_dir().expect("failed to get home dir");
+            let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
             assert_eq!(actual, expected);
         })
     }

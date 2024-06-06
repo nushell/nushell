@@ -713,6 +713,32 @@ pub fn parse_call_missing_req_flag() {
     r"foo\external-call",
     "bare word with backslash and caret"
 )]
+#[case("`foo external call`", "foo external call", "backtick quote")]
+#[case(
+    "^`foo external call`",
+    "foo external call",
+    "backtick quote with caret"
+)]
+#[case(
+    "`foo/external call`",
+    "foo/external call",
+    "backtick quote with forward slash"
+)]
+#[case(
+    "^`foo/external call`",
+    "foo/external call",
+    "backtick quote with forward slash and caret"
+)]
+#[case(
+    r"`foo\external call`",
+    r"foo\external call",
+    "backtick quote with backslash"
+)]
+#[case(
+    r"^`foo\external call`",
+    r"foo\external call",
+    "backtick quote with backslash and caret"
+)]
 pub fn test_external_call_head_glob(
     #[case] input: &str,
     #[case] expected: &str,
@@ -827,32 +853,6 @@ pub fn test_external_call_head_raw_string(
     r#"foo\external call"#,
     "double quote with backslash and caret"
 )]
-#[case("`foo external call`", "foo external call", "backtick quote")]
-#[case(
-    "^`foo external call`",
-    "foo external call",
-    "backtick quote with caret"
-)]
-#[case(
-    "`foo/external call`",
-    "foo/external call",
-    "backtick quote with forward slash"
-)]
-#[case(
-    "^`foo/external call`",
-    "foo/external call",
-    "backtick quote with forward slash and caret"
-)]
-#[case(
-    r"`foo\external call`",
-    r"foo\external call",
-    "backtick quote with backslash"
-)]
-#[case(
-    r"^`foo\external call`",
-    r"foo\external call",
-    "backtick quote with backslash and caret"
-)]
 pub fn test_external_call_head_string(
     #[case] input: &str,
     #[case] expected: &str,
@@ -947,6 +947,21 @@ pub fn test_external_call_head_interpolated_string(
     r"^foo foo\external-call",
     r"foo\external-call",
     "bare word with backslash"
+)]
+#[case(
+    "^foo `foo external call`",
+    "foo external call",
+    "backtick quote with caret"
+)]
+#[case(
+    "^foo `foo/external call`",
+    "foo/external call",
+    "backtick quote with forward slash"
+)]
+#[case(
+    r"^foo `foo\external call`",
+    r"foo\external call",
+    "backtick quote with backslash"
 )]
 pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
     let engine_state = EngineState::new();
@@ -1054,55 +1069,27 @@ pub fn test_external_call_arg_raw_string(
 }
 
 #[rstest]
-#[case(
-    "^foo 'foo external call'",
-    "foo external call",
-    "single quote with caret"
-)]
+#[case("^foo 'foo external call'", "foo external call", "single quote")]
 #[case(
     "^foo 'foo/external call'",
     "foo/external call",
-    "single quote with forward slash and caret"
+    "single quote with forward slash"
 )]
 #[case(
     r"^foo 'foo\external call'",
     r"foo\external call",
-    "single quote with backslash and caret"
+    "single quote with backslash"
 )]
-#[case(
-    r#"^foo "foo external call""#,
-    r#"foo external call"#,
-    "double quote with caret"
-)]
+#[case(r#"^foo "foo external call""#, r#"foo external call"#, "double quote")]
 #[case(
     r#"^foo "foo/external call""#,
     r#"foo/external call"#,
-    "double quote with forward slash and caret"
+    "double quote with forward slash"
 )]
 #[case(
     r#"^foo "foo\\external call""#,
     r#"foo\external call"#,
-    "double quote with backslash and caret"
-)]
-#[case(
-    "^foo `foo external call`",
-    "foo external call",
-    "backtick quote with caret"
-)]
-#[case(
-    "^foo `foo/external call`",
-    "foo/external call",
-    "backtick quote with forward slash"
-)]
-#[case(
-    "^foo `foo/external call`",
-    "foo/external call",
-    "backtick quote with forward slash and caret"
-)]
-#[case(
-    r"^foo `foo\external call`",
-    r"foo\external call",
-    "backtick quote with backslash and caret"
+    "double quote with backslash"
 )]
 pub fn test_external_call_arg_string(
     #[case] input: &str,
@@ -1138,11 +1125,11 @@ pub fn test_external_call_arg_string(
                         assert_eq!(expected, string, "{tag}: incorrect arg");
                     }
                     other => {
-                        panic!("Unexpected expression in command arg position: {other:?}")
+                        panic!("{tag}: Unexpected expression in command arg position: {other:?}")
                     }
                 },
                 other @ ExternalArgument::Spread(..) => {
-                    panic!("Unexpected external spread argument in command arg position: {other:?}")
+                    panic!("{tag}: Unexpected external spread argument in command arg position: {other:?}")
                 }
             }
         }

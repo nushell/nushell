@@ -222,6 +222,44 @@ fn external_command_escape_args() {
 }
 
 #[test]
+#[cfg_attr(
+    not(target_os = "linux"),
+    ignore = "only runs on Linux, where controlling the HOME var is reliable"
+)]
+fn external_command_expand_tilde() {
+    Playground::setup("external command expand tilde", |dirs, _| {
+        // Make a copy of the nu executable that we can use
+        let mut src = std::fs::File::open(nu_test_support::fs::binaries().join("nu"))
+            .expect("failed to open nu");
+        let mut dst = std::fs::File::create_new(dirs.test().join("test_nu"))
+            .expect("failed to create test_nu file");
+        std::io::copy(&mut src, &mut dst).expect("failed to copy data for nu binary");
+
+        // Make test_nu have the same permissions so that it's executable
+        dst.set_permissions(
+            src.metadata()
+                .expect("failed to get nu metadata")
+                .permissions(),
+        )
+        .expect("failed to set permissions on test_nu");
+
+        // Close the files
+        drop(dst);
+        drop(src);
+
+        let actual = nu!(
+            envs: vec![
+                ("HOME".to_string(), dirs.test().to_string_lossy().into_owned()),
+            ],
+            r#"
+                ^~/test_nu --testbin cococo hello
+            "#
+        );
+        assert_eq!(actual.out, "hello");
+    })
+}
+
+#[test]
 fn external_arg_expand_tilde() {
     Playground::setup("external arg expand tilde", |dirs, _| {
         let actual = nu!(
