@@ -1,26 +1,26 @@
 mod table_widget;
 
-use self::table_widget::{TableStyle, TableWidget, TableWidgetState};
+use self::table_widget::{TableWidget, TableWidgetState};
 use super::{
     cursor::{Position, WindowCursor2D},
     util::{make_styled_string, nu_style_to_tui},
     Layout, View, ViewConfig,
 };
 use crate::{
-    nu_common::{collect_input, lscolorize, NuConfig, NuSpan, NuStyle, NuText},
+    explore::ExploreConfig,
+    nu_common::{collect_input, lscolorize, NuSpan, NuText},
     pager::{
         report::{Report, Severity},
-        ConfigMap, Frame, Transition, ViewInfo,
+        Frame, Transition, ViewInfo,
     },
-    util::create_map,
     views::ElementInfo,
 };
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use nu_color_config::{get_color_map, StyleComputer};
+use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Record, Span, Value,
+    Config, Record, Span, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 use std::{borrow::Cow, collections::HashMap};
@@ -32,7 +32,7 @@ pub struct RecordView<'a> {
     layer_stack: Vec<RecordLayer<'a>>,
     mode: UIMode,
     orientation: Orientation,
-    theme: TableTheme,
+    cfg: ExploreConfig,
 }
 
 impl<'a> RecordView<'a> {
@@ -44,50 +44,16 @@ impl<'a> RecordView<'a> {
             layer_stack: vec![RecordLayer::new(columns, records)],
             mode: UIMode::View,
             orientation: Orientation::Top,
-            theme: TableTheme::default(),
+            // TODO: It's kind of gross how this temporarily has an incorrect/default config.
+            // See if we can pass correct config in through the constructor
+            cfg: ExploreConfig::default(),
         }
     }
 
     pub fn tail(&mut self, width: u16, height: u16) {
         let page_size =
-            estimate_page_size(Rect::new(0, 0, width, height), self.theme.table.show_header);
+            estimate_page_size(Rect::new(0, 0, width, height), self.cfg.table.show_header);
         tail_data(self, page_size as usize);
-    }
-
-    pub fn set_style_split_line(&mut self, style: NuStyle) {
-        self.theme.table.splitline_style = style
-    }
-
-    pub fn set_style_selected_cell(&mut self, style: NuStyle) {
-        self.theme.cursor.selected_cell = Some(style)
-    }
-
-    pub fn set_style_selected_row(&mut self, style: NuStyle) {
-        self.theme.cursor.selected_row = Some(style)
-    }
-
-    pub fn set_style_selected_column(&mut self, style: NuStyle) {
-        self.theme.cursor.selected_column = Some(style)
-    }
-
-    pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
-        self.theme.table.column_padding_left = left;
-        self.theme.table.column_padding_right = right;
-    }
-
-    pub fn get_padding_column(&self) -> (usize, usize) {
-        (
-            self.theme.table.column_padding_left,
-            self.theme.table.column_padding_right,
-        )
-    }
-
-    pub fn get_theme(&self) -> &TableTheme {
-        &self.theme
-    }
-
-    pub fn set_theme(&mut self, theme: TableTheme) {
-        self.theme = theme;
     }
 
     pub fn transpose(&mut self) {
@@ -193,7 +159,7 @@ impl<'a> RecordView<'a> {
             style_computer,
             row,
             column,
-            self.theme.table,
+            self.cfg.table,
             layer.orientation,
         )
     }
@@ -252,11 +218,11 @@ impl View for RecordView<'_> {
                 column,
                 table_layout.count_rows,
                 self.get_layer_last().orientation,
-                self.theme.table.show_header,
+                self.cfg.table.show_header,
             );
 
             if let Some(info) = info {
-                highlight_cell(f, area, info.clone(), &self.theme.cursor);
+                highlight_selected_cell(f, info.clone(), &self.cfg);
             }
         }
     }
@@ -300,7 +266,7 @@ impl View for RecordView<'_> {
 
         let data = convert_records_to_string(
             &self.get_layer_last().records,
-            &NuConfig::default(),
+            &nu_protocol::Config::default(),
             &style_computer,
         );
 
@@ -338,22 +304,7 @@ impl View for RecordView<'_> {
 
     // todo: move the method to Command?
     fn setup(&mut self, cfg: ViewConfig<'_>) {
-        if let Some(hm) = cfg.config.get("table").and_then(create_map) {
-            self.theme = theme_from_config(&hm);
-
-            if let Some(orientation) = hm.get("orientation").and_then(|v| v.coerce_str().ok()) {
-                let orientation = match orientation.as_ref() {
-                    "left" => Some(Orientation::Left),
-                    "top" => Some(Orientation::Top),
-                    _ => None,
-                };
-
-                if let Some(orientation) = orientation {
-                    self.set_orientation(orientation);
-                    self.set_orientation_current(orientation);
-                }
-            }
-        }
+        self.cfg = cfg.explore_config.clone();
     }
 }
 
@@ -660,7 +611,7 @@ fn tail_data(state: &mut RecordView<'_>, page_size: usize) {
 
 fn convert_records_to_string(
     records: &[Vec<Value>],
-    cfg: &NuConfig,
+    cfg: &Config,
     style_computer: &StyleComputer,
 ) -> Vec<Vec<NuText>> {
     records
@@ -678,31 +629,8 @@ fn convert_records_to_string(
         .collect::<Vec<_>>()
 }
 
-fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorStyle) {
-    // highlight selected column
-    if let Some(style) = theme.selected_column {
-        let highlight_block = Block::default().style(nu_style_to_tui(style));
-        let area = Rect::new(info.area.x, area.y, info.area.width, area.height);
-        f.render_widget(highlight_block.clone(), area);
-    }
-
-    // highlight selected row
-    if let Some(style) = theme.selected_row {
-        let highlight_block = Block::default().style(nu_style_to_tui(style));
-        let area = Rect::new(area.x, info.area.y, area.width, 1);
-        f.render_widget(highlight_block.clone(), area);
-    }
-
-    // highlight selected cell
-    let cell_style = match theme.selected_cell {
-        Some(s) => s,
-        None => {
-            let mut style = nu_ansi_term::Style::new();
-            // light blue chosen somewhat arbitrarily, looks OK but I'm not set on it
-            style.background = Some(nu_ansi_term::Color::LightBlue);
-            style
-        }
-    };
+fn highlight_selected_cell(f: &mut Frame, info: ElementInfo, cfg: &ExploreConfig) {
+    let cell_style = cfg.selected_cell;
     let highlight_block = Block::default().style(nu_style_to_tui(cell_style));
     let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
     f.render_widget(highlight_block.clone(), area)
@@ -841,54 +769,4 @@ fn _transpose_table(
     }
 
     data
-}
-
-fn theme_from_config(config: &ConfigMap) -> TableTheme {
-    let mut theme = TableTheme::default();
-
-    let colors = get_color_map(config);
-
-    if let Some(s) = colors.get("split_line") {
-        theme.table.splitline_style = *s;
-    }
-
-    theme.cursor.selected_cell = colors.get("selected_cell").cloned();
-    theme.cursor.selected_row = colors.get("selected_row").cloned();
-    theme.cursor.selected_column = colors.get("selected_column").cloned();
-
-    theme.table.show_header = config_get_bool(config, "show_head", true);
-    theme.table.show_index = config_get_bool(config, "show_index", false);
-
-    theme.table.column_padding_left = config_get_usize(config, "column_padding_left", 1);
-    theme.table.column_padding_right = config_get_usize(config, "column_padding_right", 1);
-
-    theme
-}
-
-fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
-    config
-        .get(key)
-        .and_then(|v| v.as_bool().ok())
-        .unwrap_or(default)
-}
-
-fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
-    config
-        .get(key)
-        .and_then(|v| v.coerce_str().ok())
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(default)
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct TableTheme {
-    table: TableStyle,
-    cursor: CursorStyle,
-}
-
-#[derive(Debug, Default, Clone)]
-struct CursorStyle {
-    selected_cell: Option<NuStyle>,
-    selected_column: Option<NuStyle>,
-    selected_row: Option<NuStyle>,
 }

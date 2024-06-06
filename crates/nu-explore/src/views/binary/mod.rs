@@ -3,7 +3,6 @@
 mod binary_widget;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -11,12 +10,12 @@ use nu_protocol::{
 use ratatui::layout::Rect;
 
 use crate::{
+    explore::ExploreConfig,
     nu_common::NuText,
     pager::{
         report::{Report, Severity},
-        ConfigMap, Frame, Transition, ViewInfo,
+        Frame, Transition, ViewInfo,
     },
-    util::create_map,
     views::cursor::Position,
 };
 
@@ -90,12 +89,7 @@ impl View for BinaryView {
     }
 
     fn setup(&mut self, cfg: ViewConfig<'_>) {
-        let hm = match cfg.config.get("hex-dump").and_then(create_map) {
-            Some(hm) => hm,
-            None => return,
-        };
-
-        self.settings = settings_from_config(&hm);
+        self.settings = settings_from_config(cfg.explore_config);
 
         let count_rows =
             BinaryWidget::new(&self.data, self.settings.opts, Default::default()).count_lines();
@@ -184,28 +178,16 @@ fn handle_event_view_mode(view: &mut BinaryView, key: &KeyEvent) -> Option<Trans
     }
 }
 
-fn settings_from_config(config: &ConfigMap) -> Settings {
-    let colors = get_color_map(config);
-
+fn settings_from_config(config: &ExploreConfig) -> Settings {
+    // Most of this is hardcoded for now, add it to the config later if needed
     Settings {
-        opts: BinarySettings::new(
-            config_get_usize(config, "segment_size", 2),
-            config_get_usize(config, "count_segments", 8),
-        ),
+        opts: BinarySettings::new(2, 8),
         style: BinaryStyle::new(
-            colors.get("color_index").cloned(),
-            config_get_usize(config, "column_padding_left", 1) as u16,
-            config_get_usize(config, "column_padding_right", 1) as u16,
+            None,
+            config.table.column_padding_left as u16,
+            config.table.column_padding_right as u16,
         ),
     }
-}
-
-fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
-    config
-        .get(key)
-        .and_then(|v| v.coerce_str().ok())
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(default)
 }
 
 fn create_report(cursor: WindowCursor2D) -> Report {
