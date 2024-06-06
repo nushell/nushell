@@ -251,6 +251,15 @@ pub fn eval_arguments_from_call(
     Ok(args)
 }
 
+/// Custom `coerce_into_string()`, including globs, since those are often args to `run-external`
+/// as well
+fn coerce_into_string(val: Value) -> Result<String, ShellError> {
+    match val {
+        Value::Glob { val, .. } => Ok(val),
+        _ => val.coerce_into_string(),
+    }
+}
+
 /// Evaluates an expression, coercing the values to strings.
 ///
 /// Note: The parser currently has a special hack that retains surrounding
@@ -268,9 +277,7 @@ fn eval_argument(
     match eval(engine_state, stack, &expr)? {
         Value::List { vals, .. } => {
             if spread {
-                vals.into_iter()
-                    .map(|val| val.coerce_into_string())
-                    .collect()
+                vals.into_iter().map(coerce_into_string).collect()
             } else {
                 Err(ShellError::CannotPassListToExternal {
                     arg: String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).into(),
@@ -278,18 +285,11 @@ fn eval_argument(
                 })
             }
         }
-        Value::Glob { val, .. } => {
-            if spread {
-                Err(ShellError::CannotSpreadAsList { span: expr.span })
-            } else {
-                Ok(vec![expand_tilde(&val)])
-            }
-        }
         value => {
             if spread {
                 Err(ShellError::CannotSpreadAsList { span: expr.span })
             } else {
-                Ok(vec![value.coerce_into_string()?])
+                Ok(vec![coerce_into_string(value)?])
             }
         }
     }
@@ -638,8 +638,9 @@ mod test {
         let expected = &[""];
         assert_eq!(actual, expected);
 
+        // This previously unquoted, but is no longer necessary
         let actual = eval(Expr::String("'foo'".into()), false).unwrap();
-        let expected = &["foo"];
+        let expected = &["'foo'"];
         assert_eq!(actual, expected);
 
         let actual = eval(Expr::RawString("'foo'".into()), false).unwrap();

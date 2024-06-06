@@ -155,17 +155,38 @@ fn external_args_with_quoted() {
 
 #[cfg(not(windows))]
 #[test]
-fn external_arg_with_long_flag_value_quoted() {
-    Playground::setup("external failed command with semicolon", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                ^echo --foo='bar'
+fn external_arg_with_option_like_embedded_quotes() {
+    // TODO: would be nice to make this work with cococo, but arg parsing interferes
+    Playground::setup(
+        "external arg with option like embedded quotes",
+        |dirs, _| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                ^echo --foo='bar' -foo='bar'
             "#
-        ));
+            ));
 
-        assert_eq!(actual.out, "--foo=bar");
-    })
+            assert_eq!(actual.out, "--foo=bar -foo=bar");
+        },
+    )
+}
+
+#[test]
+fn external_arg_with_non_option_like_embedded_quotes() {
+    Playground::setup(
+        "external arg with non option like embedded quotes",
+        |dirs, _| {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                r#"
+                ^nu --testbin cococo foo='bar' 'foo'=bar
+            "#
+            ));
+
+            assert_eq!(actual.out, "foo=bar foo=bar");
+        },
+    )
 }
 
 #[test]
@@ -197,6 +218,25 @@ fn external_command_escape_args() {
         ));
 
         assert_eq!(actual.out, r#""abcd"#);
+    })
+}
+
+#[test]
+fn external_arg_expand_tilde() {
+    Playground::setup("external arg expand tilde", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^nu --testbin cococo ~/foo ~/(2 + 2)
+            "#
+        ));
+
+        let home = dirs_next::home_dir()
+            .expect("failed to find home dir")
+            .to_string_lossy()
+            .into_owned();
+
+        assert_eq!(actual.out, format!("{home}/foo {home}/4"));
     })
 }
 
