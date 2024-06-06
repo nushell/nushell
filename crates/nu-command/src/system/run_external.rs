@@ -84,7 +84,7 @@ impl Command for External {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(&expanded_name, &paths, &cwd) else {
+            let Some(executable) = which(expanded_name, &paths, &cwd) else {
                 return Err(command_not_found(
                     &name.item,
                     call.head,
@@ -276,7 +276,7 @@ fn eval_argument(
     spread: bool,
 ) -> Result<Vec<String>, ShellError> {
     let eval = get_eval_expression(engine_state);
-    match eval(engine_state, stack, &expr)? {
+    match eval(engine_state, stack, expr)? {
         Value::List { vals, .. } => {
             if spread {
                 vals.into_iter().map(coerce_into_string).collect()
