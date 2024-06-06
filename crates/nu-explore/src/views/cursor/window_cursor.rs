@@ -42,8 +42,8 @@ impl WindowCursor {
         }
 
         Ok(Self {
-            view: Cursor::new(view_size)?,
-            window: Cursor::new(window_size)?,
+            view: Cursor::new(view_size),
+            window: Cursor::new(window_size),
         })
     }
 
