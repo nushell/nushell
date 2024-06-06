@@ -354,6 +354,14 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                 .collect::<String>();
             Expression::new(working_set, Expr::String(string), span, Type::String)
         } else {
+            // Flatten any string interpolations contained with the exprs.
+            let exprs = exprs
+                .into_iter()
+                .flat_map(|expr| match expr.expr {
+                    Expr::StringInterpolation(subexprs, _) => subexprs,
+                    _ => vec![expr],
+                })
+                .collect();
             // Make a string interpolation out of the expressions.
             Expression::new(
                 working_set,

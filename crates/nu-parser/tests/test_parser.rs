@@ -718,21 +718,50 @@ pub fn test_external_call_head_glob(
     #[case] expected: &str,
     #[case] tag: &str,
 ) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{tag}: errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => {
+            match &name.expr {
+                Expr::GlobPattern(string, is_quoted) => {
+                    assert_eq!(expected, string, "{tag}: incorrect name");
+                    assert!(!*is_quoted);
+                }
+                other => {
+                    panic!("{tag}: Unexpected expression in command name position: {other:?}");
+                }
+            }
+            assert_eq!(0, args.len());
+        }
+        other => {
+            panic!("{tag}: Unexpected expression in pipeline: {other:?}");
+        }
+    }
 }
 
 #[rstest]
 #[case(
-    r##"^r#"foo-external-call"#"##,
+    r##"^r#'foo-external-call'#"##,
     "foo-external-call",
     "raw string with caret"
 )]
 #[case(
-    r##"^r#"foo/external-call"#"##,
+    r##"^r#'foo/external-call'#"##,
     "foo/external-call",
     "raw string with forward slash and caret"
 )]
 #[case(
-    r##"^r#"foo\external-call"#"##,
+    r##"^r#'foo\external-call'#"##,
     r"foo\external-call",
     "raw string with backslash and caret"
 )]
@@ -741,6 +770,34 @@ pub fn test_external_call_head_raw_string(
     #[case] expected: &str,
     #[case] tag: &str,
 ) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{tag}: errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => {
+            match &name.expr {
+                Expr::RawString(string) => {
+                    assert_eq!(expected, string, "{tag}: incorrect name");
+                }
+                other => {
+                    panic!("{tag}: Unexpected expression in command name position: {other:?}");
+                }
+            }
+            assert_eq!(0, args.len());
+        }
+        other => {
+            panic!("{tag}: Unexpected expression in pipeline: {other:?}");
+        }
+    }
 }
 
 #[rstest]
@@ -835,7 +892,7 @@ pub fn test_external_call_head_string(
 #[case(r"~/.foo/(1)", 2, false, "unquoted interpolated string")]
 #[case(
     r"~\.foo(2)\(1)",
-    3,
+    4,
     false,
     "unquoted interpolated string with backslash"
 )]
@@ -847,6 +904,36 @@ pub fn test_external_call_head_interpolated_string(
     #[case] quoted: bool,
     #[case] tag: &str,
 ) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{tag}: errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => {
+            match &name.expr {
+                Expr::StringInterpolation(exprs, is_quoted) => {
+                    println!("exprs = {exprs:?}, is_quoted = {is_quoted:?}");
+                    assert_eq!(subexpr_count, exprs.len(), "{tag}: subexpr_count");
+                    assert_eq!(quoted, *is_quoted, "{tag}: quoted");
+                }
+                other => {
+                    panic!("{tag}: Unexpected expression in command name position: {other:?}");
+                }
+            }
+            assert_eq!(0, args.len());
+        }
+        other => {
+            panic!("{tag}: Unexpected expression in pipeline: {other:?}");
+        }
+    }
 }
 
 #[rstest]
@@ -862,17 +949,59 @@ pub fn test_external_call_head_interpolated_string(
     "bare word with backslash"
 )]
 pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, #[case] tag: &str) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{tag}: errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => {
+            match &name.expr {
+                Expr::GlobPattern(string, _) => {
+                    assert_eq!("foo", string, "{tag}: incorrect name");
+                }
+                other => {
+                    panic!("{tag}: Unexpected expression in command name position: {other:?}");
+                }
+            }
+            assert_eq!(1, args.len());
+            match &args[0] {
+                ExternalArgument::Regular(expr) => match &expr.expr {
+                    Expr::GlobPattern(string, is_quoted) => {
+                        assert_eq!(expected, string, "{tag}: incorrect arg");
+                        assert!(!*is_quoted);
+                    }
+                    other => {
+                        panic!("Unexpected expression in command arg position: {other:?}")
+                    }
+                },
+                other @ ExternalArgument::Spread(..) => {
+                    panic!("Unexpected external spread argument in command arg position: {other:?}")
+                }
+            }
+        }
+        other => {
+            panic!("{tag}: Unexpected expression in pipeline: {other:?}");
+        }
+    }
 }
 
 #[rstest]
-#[case(r##"^foo r#"foo-external-call"#"##, "foo-external-call", "raw string")]
+#[case(r##"^foo r#'foo-external-call'#"##, "foo-external-call", "raw string")]
 #[case(
-    r##"^foo r#"foo/external-call"#"##,
+    r##"^foo r#'foo/external-call'#"##,
     "foo/external-call",
     "raw string with forward slash"
 )]
 #[case(
-    r##"^foo r#"foo\external-call"#"##,
+    r##"^foo r#'foo\external-call'#"##,
     r"foo\external-call",
     "raw string with backslash"
 )]
@@ -881,6 +1010,47 @@ pub fn test_external_call_arg_raw_string(
     #[case] expected: &str,
     #[case] tag: &str,
 ) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{tag}: errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => {
+            match &name.expr {
+                Expr::GlobPattern(string, _) => {
+                    assert_eq!("foo", string, "{tag}: incorrect name");
+                }
+                other => {
+                    panic!("{tag}: Unexpected expression in command name position: {other:?}");
+                }
+            }
+            assert_eq!(1, args.len());
+            match &args[0] {
+                ExternalArgument::Regular(expr) => match &expr.expr {
+                    Expr::RawString(string) => {
+                        assert_eq!(expected, string, "{tag}: incorrect arg");
+                    }
+                    other => {
+                        panic!("Unexpected expression in command arg position: {other:?}")
+                    }
+                },
+                other @ ExternalArgument::Spread(..) => {
+                    panic!("Unexpected external spread argument in command arg position: {other:?}")
+                }
+            }
+        }
+        other => {
+            panic!("{tag}: Unexpected expression in pipeline: {other:?}");
+        }
+    }
 }
 
 #[rstest]
@@ -991,6 +1161,48 @@ pub fn test_external_call_arg_interpolated_string(
     #[case] quoted: bool,
     #[case] tag: &str,
 ) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, input.as_bytes(), true);
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "{tag}: errors: {:?}",
+        working_set.parse_errors
+    );
+
+    let pipeline = &block.pipelines[0];
+    assert_eq!(1, pipeline.len());
+    let element = &pipeline.elements[0];
+    match &element.expr.expr {
+        Expr::ExternalCall(name, args) => {
+            match &name.expr {
+                Expr::GlobPattern(string, _) => {
+                    assert_eq!("foo", string, "{tag}: incorrect name");
+                }
+                other => {
+                    panic!("{tag}: Unexpected expression in command name position: {other:?}");
+                }
+            }
+            assert_eq!(1, args.len());
+            match &args[0] {
+                ExternalArgument::Regular(expr) => match &expr.expr {
+                    Expr::StringInterpolation(expressions, is_quoted) => {
+                        assert_eq!(subexpr_count, expressions.len(), "{tag}: subexpr_count");
+                        assert_eq!(quoted, *is_quoted, "{tag}: is_quoted");
+                    }
+                    other => {
+                        panic!("Unexpected expression in command arg position: {other:?}")
+                    }
+                },
+                other @ ExternalArgument::Spread(..) => {
+                    panic!("Unexpected external spread argument in command arg position: {other:?}")
+                }
+            }
+        }
+        other => {
+            panic!("{tag}: Unexpected expression in pipeline: {other:?}");
+        }
+    }
 }
 
 #[test]
