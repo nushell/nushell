@@ -286,7 +286,7 @@ fn flatten_expression_into(
             for arg in args.as_ref() {
                 match arg {
                     ExternalArgument::Regular(expr) => {
-                        if let Expr::String(..) = &expr.expr {
+                        if let Expr::String(..) | Expr::GlobPattern(..) = &expr.expr {
                             output.push((expr.span, FlatShape::ExternalArg));
                         } else {
                             flatten_expression_into(working_set, expr, output);
