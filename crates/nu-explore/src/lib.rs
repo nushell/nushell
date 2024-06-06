@@ -15,7 +15,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
-use pager::{Page, Pager, PagerConfig, StyleConfig};
+use pager::{Page, Pager, PagerConfig};
 use registry::CommandRegistry;
 use terminal_size::{Height, Width};
 use views::{BinaryView, Orientation, Preview, RecordView};

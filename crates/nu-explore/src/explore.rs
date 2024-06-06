@@ -1,7 +1,7 @@
 use crate::{
     run_pager,
     util::{create_lscolors, create_map, map_into_value},
-    PagerConfig, StyleConfig,
+    PagerConfig,
 };
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_map, StyleComputer};
@@ -73,14 +73,19 @@ impl Command for Explore {
         update_config(&mut config, show_index, show_head);
         prepare_default_config(&mut config);
 
-        let style = style_from_config(&config);
+        // TODO finish implementing this function, pass it nu config not that BS above
+        let explore_config = explore_config_from_nu_config(&config);
 
         let lscolors = create_lscolors(engine_state, stack);
 
-        let mut config = PagerConfig::new(nu_config, &style_computer, &lscolors, config);
-        config.style = style;
-        config.peek_value = peek_value;
-        config.tail = tail;
+        let config = PagerConfig::new(
+            nu_config,
+            &explore_config,
+            &style_computer,
+            &lscolors,
+            peek_value,
+            tail,
+        );
 
         let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
 
@@ -134,6 +139,37 @@ impl Command for Explore {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct ExploreConfig {
+    pub table: TableConfig,
+    // TODO selected_cell should have a default of light blue if not specified
+    // let mut style = nu_ansi_term::Style::new();
+    //         // light blue chosen somewhat arbitrarily, looks OK but I'm not set on it
+    //         style.background = Some(nu_ansi_term::Color::LightBlue);
+    //         style
+    pub selected_cell: Style,
+    pub status_info: Style,
+    pub status_success: Style,
+    pub status_warn: Style,
+    pub status_error: Style,
+    pub status_bar_background: Style,
+    pub status_bar_text: Style,
+    pub cmd_bar_text: Style,
+    pub cmd_bar_background: Style,
+    pub highlight: Style,
+    // if true, the explore view will immediately try to run the command as it is typed
+    pub try_immediate: bool,
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct TableConfig {
+    pub separator_style: Style,
+    pub show_index: bool,
+    pub show_header: bool,
+    pub column_padding_left: usize,
+    pub column_padding_right: usize,
+}
+
 fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_head: bool) {
     let mut hm = config.get("table").and_then(create_map).unwrap_or_default();
     if show_index {
@@ -147,8 +183,8 @@ fn update_config(config: &mut HashMap<String, Value>, show_index: bool, show_hea
     config.insert(String::from("table"), map_into_value(hm));
 }
 
-fn style_from_config(config: &HashMap<String, Value>) -> StyleConfig {
-    let mut style = StyleConfig::default();
+fn explore_config_from_nu_config(config: &HashMap<String, Value>) -> ExploreConfig {
+    let mut style = ExploreConfig::default();
 
     let colors = get_color_map(config);
 
@@ -205,18 +241,11 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
     const STATUS_SUCCESS: Style = color(Some(Color::Black), Some(Color::Green));
     const STATUS_WARN: Style = color(None, None);
 
-    const TABLE_SPLIT_LINE: Style = color(Some(Color::Rgb(64, 64, 64)), None);
     const TABLE_SELECT_CELL: Style = color(None, None);
     const TABLE_SELECT_ROW: Style = color(None, None);
     const TABLE_SELECT_COLUMN: Style = color(None, None);
 
     const HEXDUMP_INDEX: Style = color(Some(Color::Cyan), None);
-    const HEXDUMP_SEGMENT: Style = color(Some(Color::Cyan), None).bold();
-    const HEXDUMP_SEGMENT_ZERO: Style = color(Some(Color::Purple), None).bold();
-    const HEXDUMP_SEGMENT_UNKNOWN: Style = color(Some(Color::Green), None).bold();
-    const HEXDUMP_ASCII: Style = color(Some(Color::Cyan), None).bold();
-    const HEXDUMP_ASCII_ZERO: Style = color(Some(Color::Purple), None).bold();
-    const HEXDUMP_ASCII_UNKNOWN: Style = color(Some(Color::Green), None).bold();
 
     insert_style(config, "status_bar_background", STATUS_BAR);
     insert_style(config, "command_bar_text", INPUT_BAR);
@@ -244,7 +273,6 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
             .and_then(parse_hash_map)
             .unwrap_or_default();
 
-        insert_style(&mut hm, "split_line", TABLE_SPLIT_LINE);
         insert_style(&mut hm, "selected_cell", TABLE_SELECT_CELL);
         insert_style(&mut hm, "selected_row", TABLE_SELECT_ROW);
         insert_style(&mut hm, "selected_column", TABLE_SELECT_COLUMN);
@@ -259,12 +287,6 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
             .unwrap_or_default();
 
         insert_style(&mut hm, "color_index", HEXDUMP_INDEX);
-        insert_style(&mut hm, "color_segment", HEXDUMP_SEGMENT);
-        insert_style(&mut hm, "color_segment_zero", HEXDUMP_SEGMENT_ZERO);
-        insert_style(&mut hm, "color_segment_unknown", HEXDUMP_SEGMENT_UNKNOWN);
-        insert_style(&mut hm, "color_ascii", HEXDUMP_ASCII);
-        insert_style(&mut hm, "color_ascii_zero", HEXDUMP_ASCII_ZERO);
-        insert_style(&mut hm, "color_ascii_unknown", HEXDUMP_ASCII_UNKNOWN);
 
         insert_int(&mut hm, "segment_size", 2);
         insert_int(&mut hm, "count_segments", 8);
@@ -332,14 +354,12 @@ fn insert_int(map: &mut HashMap<String, Value>, key: &str, value: i64) {
 
 fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {
     let line_color = lookup_color(style_computer, "separator");
-    if line_color != nu_ansi_term::Style::default() {
-        let mut map = config
-            .get("table")
-            .and_then(parse_hash_map)
-            .unwrap_or_default();
-        insert_style(&mut map, "split_line", line_color);
-        config.insert(String::from("table"), map_into_value(map));
-    }
+    let mut map = config
+        .get("table")
+        .and_then(parse_hash_map)
+        .unwrap_or_default();
+    insert_style(&mut map, "separator", line_color);
+    config.insert(String::from("table"), map_into_value(map));
 }
 
 fn lookup_color(style_computer: &StyleComputer, key: &str) -> nu_ansi_term::Style {
