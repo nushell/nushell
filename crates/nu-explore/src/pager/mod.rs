@@ -375,13 +375,13 @@ fn draw_info(f: &mut Frame, pager: &mut Pager<'_>, info: ViewInfo) {
     if let Some(report) = info.status {
         let last_2nd_line = area.bottom().saturating_sub(2);
         let area = Rect::new(area.left(), last_2nd_line, area.width, 1);
-        render_status_bar(f, area, report, &pager.config.explore_config);
+        render_status_bar(f, area, report, pager.config.explore_config);
     }
 
     {
         let last_line = area.bottom().saturating_sub(1);
         let area = Rect::new(area.left(), last_line, area.width, 1);
-        render_cmd_bar(f, area, pager, info.report, &pager.config.explore_config);
+        render_cmd_bar(f, area, pager, info.report, pager.config.explore_config);
     }
 }
 
@@ -389,7 +389,7 @@ fn create_view_config<'a>(pager: &'a Pager<'_>) -> ViewConfig<'a> {
     let cfg = &pager.config;
     ViewConfig::new(
         cfg.nu_config,
-        &cfg.explore_config,
+        cfg.explore_config,
         cfg.style_computer,
         cfg.lscolors,
     )

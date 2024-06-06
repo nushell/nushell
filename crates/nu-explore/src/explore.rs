@@ -1,14 +1,12 @@
 use crate::{
     run_pager,
-    util::{create_lscolors, create_map, map_into_value},
+    util::{create_lscolors, create_map},
     PagerConfig,
 };
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
-
-use std::collections::HashMap;
 
 /// A `less` like program to render a [`Value`] as a table.
 #[derive(Clone)]
@@ -69,7 +67,7 @@ impl Command for Explore {
         let nu_config = engine_state.get_config();
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
-        let mut explore_config = ExploreConfig::from_nu_config(&nu_config);
+        let mut explore_config = ExploreConfig::from_nu_config(nu_config);
         explore_config.table.show_header = show_head;
         explore_config.table.show_index = show_index;
         explore_config.table.separator_style = lookup_color(&style_computer, "separator");

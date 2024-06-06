@@ -21,7 +21,7 @@ use terminal_size::{Height, Width};
 use views::{BinaryView, Orientation, Preview, RecordView};
 
 mod util {
-    pub use super::nu_common::{create_lscolors, create_map, map_into_value};
+    pub use super::nu_common::{create_lscolors, create_map};
 }
 
 fn run_pager(

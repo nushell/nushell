@@ -246,7 +246,7 @@ impl View for TryView<'_> {
         let mut r = RecordView::new(vec![], vec![]);
         r.setup(config);
 
-        self.table_theme = config.explore_config.table.clone();
+        self.table_theme = config.explore_config.table;
 
         if let Some(view) = &mut self.table {
             view.set_orientation(r.get_orientation_current());

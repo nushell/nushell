@@ -89,7 +89,7 @@ impl View for BinaryView {
     }
 
     fn setup(&mut self, cfg: ViewConfig<'_>) {
-        self.settings = settings_from_config(&cfg.explore_config);
+        self.settings = settings_from_config(cfg.explore_config);
 
         let count_rows =
             BinaryWidget::new(&self.data, self.settings.opts, Default::default()).count_lines();
