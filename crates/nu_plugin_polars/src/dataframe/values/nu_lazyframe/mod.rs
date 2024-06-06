@@ -160,7 +160,15 @@ impl CustomValueSupport for NuLazyFrame {
             .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string());
         Ok(Value::record(
             record! {
-                "plan" => Value::string(self.lazy.describe_plan(), span),
+                "plan" => Value::string(
+                    self.lazy.describe_plan().map_err(|e| ShellError::GenericError {
+                        error: "Error getting plan".into(),
+                        msg: e.to_string(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    })?,
+                    span),
                 "optimized_plan" => Value::string(optimized_plan, span),
             },
             span,

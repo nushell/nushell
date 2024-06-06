@@ -1,5 +1,6 @@
 use super::Layout;
 use crate::{
+    explore::TableConfig,
     nu_common::{truncate_str, NuStyle, NuText},
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
@@ -23,7 +24,7 @@ pub struct TableWidget<'a> {
     data: Cow<'a, [Vec<NuText>]>,
     index_row: usize,
     index_column: usize,
-    style: TableStyle,
+    config: TableConfig,
     header_position: Orientation,
     style_computer: &'a StyleComputer<'a>,
 }
@@ -35,15 +36,6 @@ pub enum Orientation {
     Left,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct TableStyle {
-    pub splitline_style: NuStyle,
-    pub show_index: bool,
-    pub show_header: bool,
-    pub column_padding_left: usize,
-    pub column_padding_right: usize,
-}
-
 impl<'a> TableWidget<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -52,7 +44,7 @@ impl<'a> TableWidget<'a> {
         style_computer: &'a StyleComputer<'a>,
         index_row: usize,
         index_column: usize,
-        style: TableStyle,
+        config: TableConfig,
         header_position: Orientation,
     ) -> Self {
         Self {
@@ -61,7 +53,7 @@ impl<'a> TableWidget<'a> {
             style_computer,
             index_row,
             index_column,
-            style,
+            config,
             header_position,
         }
     }
@@ -100,13 +92,13 @@ impl StatefulWidget for TableWidget<'_> {
 // todo: refactoring these to methods as they have quite a bit in common.
 impl<'a> TableWidget<'a> {
     fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
-        let padding_l = self.style.column_padding_left as u16;
-        let padding_r = self.style.column_padding_right as u16;
+        let padding_l = self.config.column_padding_left as u16;
+        let padding_r = self.config.column_padding_right as u16;
 
-        let show_index = self.style.show_index;
-        let show_head = self.style.show_header;
+        let show_index = self.config.show_index;
+        let show_head = self.config.show_header;
 
-        let splitline_s = self.style.splitline_style;
+        let separator_s = self.config.separator_style;
 
         let mut data_height = area.height;
         let mut data_y = area.y;
@@ -137,7 +129,7 @@ impl<'a> TableWidget<'a> {
         }
 
         if show_head {
-            render_header_borders(buf, area, 1, splitline_s);
+            render_header_borders(buf, area, 1, separator_s);
         }
 
         if show_index {
@@ -158,7 +150,7 @@ impl<'a> TableWidget<'a> {
                 data_height,
                 show_head,
                 false,
-                splitline_s,
+                separator_s,
             );
         }
 
@@ -250,7 +242,7 @@ impl<'a> TableWidget<'a> {
                 data_height,
                 show_head,
                 false,
-                splitline_s,
+                separator_s,
             );
         }
 
@@ -268,12 +260,12 @@ impl<'a> TableWidget<'a> {
             return;
         }
 
-        let padding_l = self.style.column_padding_left as u16;
-        let padding_r = self.style.column_padding_right as u16;
+        let padding_l = self.config.column_padding_left as u16;
+        let padding_r = self.config.column_padding_right as u16;
 
-        let show_index = self.style.show_index;
-        let show_head = self.style.show_header;
-        let splitline_s = self.style.splitline_style;
+        let show_index = self.config.show_index;
+        let show_head = self.config.show_header;
+        let separator_s = self.config.separator_style;
 
         let mut left_w = 0;
 
@@ -295,7 +287,7 @@ impl<'a> TableWidget<'a> {
                 area.height,
                 false,
                 false,
-                splitline_s,
+                separator_s,
             );
         }
 
@@ -327,7 +319,7 @@ impl<'a> TableWidget<'a> {
                     area.height,
                     false,
                     false,
-                    splitline_s,
+                    separator_s,
                 );
             }
 
@@ -352,7 +344,7 @@ impl<'a> TableWidget<'a> {
                 area.height,
                 false,
                 false,
-                splitline_s,
+                separator_s,
             );
         }
 

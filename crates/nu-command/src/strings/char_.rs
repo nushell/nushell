@@ -1,6 +1,6 @@
 use indexmap::{indexmap, IndexMap};
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
+
 use once_cell::sync::Lazy;
 use std::sync::{atomic::AtomicBool, Arc};
 
