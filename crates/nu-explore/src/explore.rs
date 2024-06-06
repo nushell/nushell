@@ -69,11 +69,6 @@ impl Command for Explore {
         let nu_config = engine_state.get_config();
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
-        // let mut config = nu_config.explore.clone();
-        // include_nu_config(&mut config, &style_computer);
-        // update_config(&mut config, show_index, show_head);
-        // default_config(&mut config);
-
         let mut explore_config = ExploreConfig::from_nu_config(&nu_config);
         explore_config.table.show_header = show_head;
         explore_config.table.show_index = show_index;
@@ -213,9 +208,6 @@ impl ExploreConfig {
 
         if let Some(s) = colors.get("selected_cell") {
             ret.selected_cell = *s;
-        } else {
-            // light blue background as default
-            ret.selected_cell = color(None, Some(Color::LightBlue));
         }
 
         if let Some(hm) = explore_cfg_hash_map.get("status").and_then(create_map) {

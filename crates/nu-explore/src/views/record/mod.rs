@@ -44,7 +44,8 @@ impl<'a> RecordView<'a> {
             layer_stack: vec![RecordLayer::new(columns, records)],
             mode: UIMode::View,
             orientation: Orientation::Top,
-            // this is kind of gross. can we pass in ExploreConfig in the constructor instead of setting it later?
+            // TODO: It's kind of gross how this temporarily has an incorrect/default config.
+            // See if we can pass correct config in through the constructor
             cfg: ExploreConfig::default(),
         }
     }
@@ -303,7 +304,6 @@ impl View for RecordView<'_> {
 
     // todo: move the method to Command?
     fn setup(&mut self, cfg: ViewConfig<'_>) {
-        // gross, move this to a constructor
         self.cfg = cfg.explore_config.clone();
     }
 }

@@ -57,8 +57,6 @@ impl ViewCommand for TableCmd {
 
         let mut view = RecordView::new(columns, data);
 
-        // todo: use setup instead ????
-
         if is_record {
             view.set_orientation_current(Orientation::Left);
         }
@@ -66,32 +64,6 @@ impl ViewCommand for TableCmd {
         if let Some(o) = self.settings.orientation {
             view.set_orientation_current(o);
         }
-
-        // if let Some(style) = self.settings.selected_cell_s {
-        //     view.set_style_selected_cell(style);
-        // }
-
-        // if let Some(style) = self.settings.selected_column_s {
-        //     view.set_style_selected_column(style);
-        // }
-
-        // if let Some(style) = self.settings.selected_row_s {
-        //     view.set_style_selected_row(style);
-        // }
-
-        // if let Some(style) = self.settings.split_line_s {
-        //     view.set_style_separator(style);
-        // }
-
-        // if let Some(p) = self.settings.padding_column_left {
-        //     let c = view.get_padding_column();
-        //     view.set_padding_column((p, c.1))
-        // }
-
-        // if let Some(p) = self.settings.padding_column_right {
-        //     let c = view.get_padding_column();
-        //     view.set_padding_column((c.0, p))
-        // }
 
         if self.settings.turn_on_cursor_mode {
             view.set_cursor_mode();
