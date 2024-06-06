@@ -22,10 +22,9 @@ pub struct TryView<'a> {
     command: String,
     reactive: bool,
     table: Option<RecordView<'a>>,
-    table_theme: TableConfig,
+    table_config: TableConfig,
     view_mode: bool,
     border_color: Style,
-    highlighted_color: Style,
 }
 
 impl<'a> TryView<'a> {
@@ -34,9 +33,8 @@ impl<'a> TryView<'a> {
             input,
             table: None,
             reactive: false,
-            table_theme: TableConfig::default(),
+            table_config: TableConfig::default(),
             border_color: Style::default(),
-            highlighted_color: Style::default(),
             view_mode: false,
             command: String::new(),
         }
@@ -56,7 +54,6 @@ impl<'a> TryView<'a> {
 impl View for TryView<'_> {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let border_color = self.border_color;
-        let highlighted_color = self.highlighted_color;
 
         let cmd_block = ratatui::widgets::Block::default()
             .borders(Borders::ALL)
@@ -70,7 +67,7 @@ impl View for TryView<'_> {
             cmd_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
-                .border_style(highlighted_color)
+                .border_style(border_color)
         };
 
         f.render_widget(cmd_block, cmd_area);
@@ -120,7 +117,7 @@ impl View for TryView<'_> {
             table_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
-                .border_style(highlighted_color)
+                .border_style(border_color)
         } else {
             table_block
         };
@@ -240,13 +237,12 @@ impl View for TryView<'_> {
 
     fn setup(&mut self, config: ViewConfig<'_>) {
         self.border_color = nu_style_to_tui(config.explore_config.table.separator_style);
-        self.highlighted_color = nu_style_to_tui(config.explore_config.highlight);
         self.reactive = config.explore_config.try_reactive;
 
         let mut r = RecordView::new(vec![], vec![]);
         r.setup(config);
 
-        self.table_theme = config.explore_config.table;
+        self.table_config = config.explore_config.table;
 
         if let Some(view) = &mut self.table {
             view.set_orientation(r.get_orientation_current());
