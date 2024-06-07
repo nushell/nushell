@@ -41,7 +41,7 @@ impl ContainerAttributes {
                             "UPPER_SNAKE_CASE" | "SCREAMING_SNAKE_CASE" => Case::UpperSnake,
                             "kebab-case" => Case::Kebab,
                             "COBOL-CASE" | "UPPER-KEBAB-CASE" => Case::Cobol,
-                            "Tain-Case" => Case::Train,
+                            "Train-Case" => Case::Train,
                             "flatcase" => Case::Flat,
                             "UPPERFLATCASE" => Case::UpperFlat,
                             "aLtErNaTiNg CaSe" => Case::Alternating,
