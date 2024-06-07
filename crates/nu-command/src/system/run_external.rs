@@ -96,13 +96,13 @@ impl Command for External {
         // Configure args.
         let args = eval_arguments_from_call(engine_state, stack, call)?;
         #[cfg(windows)]
-        if is_cmd_internal_command(&name.item) {
+        if is_cmd_internal_command(&name_str) {
             use std::os::windows::process::CommandExt;
 
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
-            command.args(["/D", "/C", &name.item]);
+            command.args(["/D", "/C", &name_str]);
             for arg in &args {
                 command.raw_arg(escape_cmd_argument(arg)?);
             }
