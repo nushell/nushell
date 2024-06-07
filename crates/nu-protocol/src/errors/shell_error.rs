@@ -876,6 +876,21 @@ pub enum ShellError {
         span: Span,
     },
 
+    #[cfg(unix)]
+    /// An I/O operation failed.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("program coredump error")]
+    #[diagnostic(code(nu::shell::coredump_error))]
+    CoredumpErrorSpanned {
+        msg: String,
+        signal: i32,
+        #[label("{msg}")]
+        span: Span,
+    },
+
     /// Tried to `cd` to a path that isn't a directory.
     ///
     /// ## Resolution
