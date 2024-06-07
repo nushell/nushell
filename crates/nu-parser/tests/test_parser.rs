@@ -2,7 +2,7 @@ use nu_parser::*;
 use nu_protocol::{
     ast::{Argument, Call, Expr, ExternalArgument, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
 };
 use rstest::rstest;
 
@@ -889,19 +889,33 @@ pub fn test_external_call_head_string(
 }
 
 #[rstest]
-#[case(r"~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case(r"~/.foo/(1)", 2, false, Type::Glob, "unquoted interpolated string")]
 #[case(
     r"~\.foo(2)\(1)",
     4,
     false,
+    Type::Glob,
     "unquoted interpolated string with backslash"
 )]
-#[case(r"^~/.foo/(1)", 2, false, "unquoted interpolated string with caret")]
-#[case(r#"^$"~/.foo/(1)""#, 2, true, "quoted interpolated string with caret")]
+#[case(
+    r"^~/.foo/(1)",
+    2,
+    false,
+    Type::Glob,
+    "unquoted interpolated string with caret"
+)]
+#[case(
+    r#"^$"~/.foo/(1)""#,
+    2,
+    true,
+    Type::String,
+    "quoted interpolated string with caret"
+)]
 pub fn test_external_call_head_interpolated_string(
     #[case] input: &str,
     #[case] subexpr_count: usize,
     #[case] quoted: bool,
+    #[case] expr_ty: Type,
     #[case] tag: &str,
 ) {
     let engine_state = EngineState::new();
@@ -920,7 +934,7 @@ pub fn test_external_call_head_interpolated_string(
         Expr::ExternalCall(name, args) => {
             match &name.expr {
                 Expr::StringInterpolation(exprs, is_quoted) => {
-                    println!("exprs = {exprs:?}, is_quoted = {is_quoted:?}");
+                    assert_eq!(name.ty, expr_ty, "{tag}: expr_ty");
                     assert_eq!(subexpr_count, exprs.len(), "{tag}: subexpr_count");
                     assert_eq!(quoted, *is_quoted, "{tag}: quoted");
                 }
@@ -1140,12 +1154,25 @@ pub fn test_external_call_arg_string(
 }
 
 #[rstest]
-#[case(r"^foo ~/.foo/(1)", 2, false, "unquoted interpolated string")]
-#[case(r#"^foo $"~/.foo/(1)""#, 2, true, "quoted interpolated string")]
+#[case(
+    r"^foo ~/.foo/(1)",
+    2,
+    false,
+    Type::Glob,
+    "unquoted interpolated string"
+)]
+#[case(
+    r#"^foo $"~/.foo/(1)""#,
+    2,
+    true,
+    Type::String,
+    "quoted interpolated string"
+)]
 pub fn test_external_call_arg_interpolated_string(
     #[case] input: &str,
     #[case] subexpr_count: usize,
     #[case] quoted: bool,
+    #[case] expr_ty: Type,
     #[case] tag: &str,
 ) {
     let engine_state = EngineState::new();
@@ -1174,6 +1201,7 @@ pub fn test_external_call_arg_interpolated_string(
             match &args[0] {
                 ExternalArgument::Regular(expr) => match &expr.expr {
                     Expr::StringInterpolation(expressions, is_quoted) => {
+                        assert_eq!(expr.ty, expr_ty, "{tag}: expr_ty");
                         assert_eq!(subexpr_count, expressions.len(), "{tag}: subexpr_count");
                         assert_eq!(quoted, *is_quoted, "{tag}: is_quoted");
                     }

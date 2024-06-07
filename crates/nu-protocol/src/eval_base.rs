@@ -4,7 +4,7 @@ use crate::{
         ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
-    Config, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
+    Config, Range, Record, ShellError, Span, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -276,14 +276,20 @@ pub trait Eval {
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
-            Expr::StringInterpolation(exprs, _) => {
+            Expr::StringInterpolation(exprs, quoted) => {
                 let config = Self::get_config(state, mut_state);
                 let str = exprs
                     .iter()
                     .map(|expr| Self::eval::<D>(state, mut_state, expr).map(|v| v.to_expanded_string(", ", &config)))
                     .collect::<Result<String, _>>()?;
 
-                Ok(Value::string(str, expr.span))
+                // For supporting bare string interpolation to create globs, currently only
+                // implemented for external calls
+                if expr.ty == Type::Glob {
+                    Ok(Value::glob(str, *quoted, expr.span))
+                } else {
+                    Ok(Value::string(str, expr.span))
+                }
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
             Expr::GlobPattern(pattern, quoted) => {

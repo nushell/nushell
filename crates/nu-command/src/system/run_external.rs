@@ -2,10 +2,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
 use nu_path::{dots::expand_ndots, expand_tilde};
 use nu_protocol::{
-    ast::{Expr, Expression},
-    did_you_mean,
-    process::ChildProcess,
-    ByteStream, NuGlob, OutDest,
+    ast::Expression, did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -69,25 +66,30 @@ impl Command for External {
             .expect("eval_argument returned zero-element vec")
             .into_spanned(name_expr.span);
 
+        let name_str: Cow<str> = match &name.item {
+            Value::Glob { val, .. } => Cow::Borrowed(val),
+            Value::String { val, .. } => Cow::Borrowed(val),
+            _ => Cow::Owned(name.item.clone().coerce_into_string()?),
+        };
+
+        let expanded_name = match &name.item {
+            // Expand tilde and ndots on the name if it's a bare string / glob (#13000)
+            Value::Glob { no_expand, .. } if !*no_expand => expand_ndots(expand_tilde(&*name_str)),
+            _ => Path::new(&*name_str).to_owned(),
+        };
+
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's is a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable = if cfg!(windows) && is_cmd_internal_command(&name.item) {
+        let executable = if cfg!(windows) && is_cmd_internal_command(&*name_str) {
             PathBuf::from("cmd.exe")
         } else {
-            // Expand tilde on the name if it's a bare string (#13000)
-            let expanded_name = if is_bare_string(name_expr) {
-                expand_tilde(&name.item)
-            } else {
-                Path::new(&name.item).to_owned()
-            };
-
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
             let Some(executable) = which(expanded_name, &paths, &cwd) else {
                 return Err(command_not_found(
-                    &name.item,
+                    &*name_str,
                     call.head,
                     engine_state,
                     stack,
@@ -236,18 +238,17 @@ pub fn eval_arguments_from_call(
     let cwd = engine_state.cwd(Some(stack))?;
     let mut args: Vec<Spanned<OsString>> = vec![];
     for (expr, spread) in call.rest_iter(1) {
-        if is_bare_string(expr) {
-            // If `expr` is a bare string, perform glob expansion.
-            for arg in eval_argument(engine_state, stack, expr, spread)? {
-                args.extend(
-                    expand_glob(&arg, &cwd, expr.span, ctrlc)?
+        for arg in eval_argument(engine_state, stack, expr, spread)? {
+            match arg {
+                // Expand globs passed to run-external
+                Value::Glob { val, no_expand, .. } if !no_expand => args.extend(
+                    expand_glob(&val, &cwd, expr.span, ctrlc)?
                         .into_iter()
                         .map(|s| s.into_spanned(expr.span)),
-                );
-            }
-        } else {
-            for arg in eval_argument(engine_state, stack, expr, spread)? {
-                args.push(OsString::from(arg).into_spanned(expr.span));
+                ),
+                other => {
+                    args.push(OsString::from(coerce_into_string(other)?).into_spanned(expr.span))
+                }
             }
         }
     }
@@ -263,24 +264,18 @@ fn coerce_into_string(val: Value) -> Result<String, ShellError> {
     }
 }
 
-/// Evaluates an expression, coercing the values to strings.
-///
-/// Note: The parser currently has a special hack that retains surrounding
-/// quotes for string literals in `Expression`, so that we can decide whether
-/// the expression is considered a bare string. The hack doesn't affect string
-/// literals within lists or records. This function will remove the quotes
-/// before evaluating the expression.
+/// Evaluate an argument, returning more than one value if it was a list to be spread.
 fn eval_argument(
     engine_state: &EngineState,
     stack: &mut Stack,
     expr: &Expression,
     spread: bool,
-) -> Result<Vec<String>, ShellError> {
+) -> Result<Vec<Value>, ShellError> {
     let eval = get_eval_expression(engine_state);
     match eval(engine_state, stack, expr)? {
         Value::List { vals, .. } => {
             if spread {
-                vals.into_iter().map(coerce_into_string).collect()
+                Ok(vals)
             } else {
                 Err(ShellError::CannotPassListToExternal {
                     arg: String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).into(),
@@ -292,21 +287,10 @@ fn eval_argument(
             if spread {
                 Err(ShellError::CannotSpreadAsList { span: expr.span })
             } else {
-                Ok(vec![coerce_into_string(value)?])
+                Ok(vec![value])
             }
         }
     }
-}
-
-/// Returns whether an expression is considered a bare string.
-///
-/// Bare strings are defined as string literals that are either unquoted or
-/// quoted by backticks. Raw strings or non-bare string interpolations don't count.
-fn is_bare_string(expr: &Expression) -> bool {
-    matches!(
-        expr.expr,
-        Expr::GlobPattern(_, false) | Expr::StringInterpolation(_, false)
-    )
 }
 
 /// Performs glob expansion on `arg`. If the expansion found no matches or the pattern
@@ -619,52 +603,7 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_protocol::ast::ListItem;
     use nu_test_support::{fs::Stub, playground::Playground};
-
-    #[test]
-    fn test_eval_argument() {
-        fn expression(expr: Expr) -> Expression {
-            Expression::new_unknown(expr, Span::unknown(), Type::Any)
-        }
-
-        fn eval(expr: Expr, spread: bool) -> Result<Vec<String>, ShellError> {
-            let engine_state = EngineState::new();
-            let mut stack = Stack::new();
-            eval_argument(&engine_state, &mut stack, &expression(expr), spread)
-        }
-
-        let actual = eval(Expr::String("".into()), false).unwrap();
-        let expected = &[""];
-        assert_eq!(actual, expected);
-
-        // This previously unquoted, but is no longer necessary
-        let actual = eval(Expr::String("'foo'".into()), false).unwrap();
-        let expected = &["'foo'"];
-        assert_eq!(actual, expected);
-
-        let actual = eval(Expr::RawString("'foo'".into()), false).unwrap();
-        let expected = &["'foo'"];
-        assert_eq!(actual, expected);
-
-        let actual = eval(Expr::List(vec![]), true).unwrap();
-        let expected: &[&str] = &[];
-        assert_eq!(actual, expected);
-
-        let actual = eval(
-            Expr::List(vec![
-                ListItem::Item(expression(Expr::String("'foo'".into()))),
-                ListItem::Item(expression(Expr::String("bar".into()))),
-            ]),
-            true,
-        )
-        .unwrap();
-        let expected = &["'foo'", "bar"];
-        assert_eq!(actual, expected);
-
-        eval(Expr::String("".into()), true).unwrap_err();
-        eval(Expr::List(vec![]), false).unwrap_err();
-    }
 
     #[test]
     fn test_expand_glob() {

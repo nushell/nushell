@@ -337,6 +337,11 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
             trace!("parsing: external string, parts: {contents:?}")
         }
 
+        // Check if the whole thing is quoted. If not, it should be a glob
+        let quoted =
+            (contents.len() >= 3 && contents.starts_with(b"$\"") && contents.ends_with(b"\""))
+                || is_quoted(contents);
+
         // Parse each as its own string
         let exprs: Vec<Expression> = spans
             .into_iter()
@@ -357,7 +362,16 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                     contents
                 })
                 .collect::<String>();
-            Expression::new(working_set, Expr::String(string), span, Type::String)
+            if quoted {
+                Expression::new(working_set, Expr::String(string), span, Type::String)
+            } else {
+                Expression::new(
+                    working_set,
+                    Expr::GlobPattern(string, false),
+                    span,
+                    Type::Glob,
+                )
+            }
         } else {
             // Flatten any string interpolations contained with the exprs.
             let exprs = exprs
@@ -372,7 +386,7 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                 working_set,
                 Expr::StringInterpolation(exprs, false),
                 span,
-                Type::String,
+                if quoted { Type::String } else { Type::Glob },
             )
         }
     } else {

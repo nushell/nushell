@@ -17,7 +17,6 @@ fn better_empty_redirection() {
     assert!(!actual.out.contains('2'));
 }
 
-#[cfg(not(windows))]
 #[test]
 fn explicit_glob() {
     Playground::setup("external with explicit glob", |dirs, sandbox| {
@@ -30,15 +29,15 @@ fn explicit_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ls | glob '*.txt' | length
+                ^nu --testbin cococo ('*.txt' | into glob)
             "#
         ));
 
-        assert_eq!(actual.out, "2");
+        assert!(actual.out.contains("D&D_volume_1.txt"));
+        assert!(actual.out.contains("D&D_volume_2.txt"));
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn bare_word_expand_path_glob() {
     Playground::setup("bare word should do the expansion", |dirs, sandbox| {
@@ -51,7 +50,7 @@ fn bare_word_expand_path_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                ^ls *.txt
+                ^nu --testbin cococo *.txt
             "
         ));
 
@@ -60,7 +59,6 @@ fn bare_word_expand_path_glob() {
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn backtick_expand_path_glob() {
     Playground::setup("backtick should do the expansion", |dirs, sandbox| {
@@ -73,7 +71,7 @@ fn backtick_expand_path_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ls `*.txt`
+                ^nu --testbin cococo `*.txt`
             "#
         ));
 
@@ -82,7 +80,6 @@ fn backtick_expand_path_glob() {
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn single_quote_does_not_expand_path_glob() {
     Playground::setup("single quote do not run the expansion", |dirs, sandbox| {
@@ -95,15 +92,14 @@ fn single_quote_does_not_expand_path_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ls '*.txt'
+                ^nu --testbin cococo '*.txt'
             "#
         ));
 
-        assert!(actual.err.contains("No such file or directory"));
+        assert_eq!(actual.out, "*.txt");
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn double_quote_does_not_expand_path_glob() {
     Playground::setup("double quote do not run the expansion", |dirs, sandbox| {
@@ -116,22 +112,21 @@ fn double_quote_does_not_expand_path_glob() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^ls "*.txt"
+                ^nu --testbin cococo "*.txt"
             "#
         ));
 
-        assert!(actual.err.contains("No such file or directory"));
+        assert_eq!(actual.out, "*.txt");
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn failed_command_with_semicolon_will_not_execute_following_cmds() {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                ^ls *.abc; echo done
+                nu --testbin fail; echo done
             "
         ));
 
@@ -306,21 +301,6 @@ fn external_command_receives_raw_binary_data() {
         let actual =
             nu!(cwd: dirs.test(), pipeline("0x[deadbeef] | nu --testbin input_bytes_length"));
         assert_eq!(actual.out, r#"4"#);
-    })
-}
-
-#[cfg(windows)]
-#[test]
-fn failed_command_with_semicolon_will_not_execute_following_cmds_windows() {
-    Playground::setup("external failed command with semicolon", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                ^cargo asdf; echo done
-            "
-        ));
-
-        assert!(!actual.out.contains("done"));
     })
 }
 
