@@ -63,32 +63,16 @@ fn compute_with_value(
     op: Span,
     right: &Value,
 ) -> Result<Value, ShellError> {
-    match right {
-        Value::Custom { .. } => {
-            let rhs = NuExpression::try_from_value(plugin, right)?;
-            with_operator(
-                (plugin, engine),
-                operator,
-                left,
-                &rhs,
-                lhs_span,
-                right.span(),
-                op,
-            )
-        }
-        _ => {
-            let rhs = NuExpression::try_from_value(plugin, right)?;
-            with_operator(
-                (plugin, engine),
-                operator,
-                left,
-                &rhs,
-                lhs_span,
-                right.span(),
-                op,
-            )
-        }
-    }
+    let rhs = NuExpression::try_from_value(plugin, right)?;
+    with_operator(
+        (plugin, engine),
+        operator,
+        left,
+        &rhs,
+        lhs_span,
+        right.span(),
+        op,
+    )
 }
 
 fn with_operator(
