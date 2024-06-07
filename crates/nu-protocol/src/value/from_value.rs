@@ -16,37 +16,53 @@ use std::{
 ///
 /// # Derivable
 /// This trait can be used with `#[derive]`.
-/// When derived on structs with named fields, it expects a [`Value::Record`]
-/// where each field of the struct maps to a corresponding field in the record.
-/// For structs with unnamed fields, it expects a [`Value::List`], and the
-/// fields are populated in the order they appear in the list.
+/// When derived on structs with named fields, it expects a [`Value::Record`] where each field of
+/// the struct maps to a corresponding field in the record.
+/// For structs with unnamed fields, it expects a [`Value::List`], and the fields are populated in
+/// the order they appear in the list.
 /// Unit structs expect  a [`Value::Nothing`], as they contain no data.
-/// Attempting to convert from a non-matching `Value` type will result in an
-/// error.
-// TODO: explain derive for enums
+/// Attempting to convert from a non-matching `Value` type will result in an error.
+///
+/// Only enums with no fields may derive this trait.
+/// The expected value representation will be the name of the variant as a [`Value::String`].
+/// By default, variant names will be expected in ["snake_case"](convert_case::Case::Snake).
+/// You can customize the case conversion using `#[nu_value(rename_all = "kebab-case")]` on the enum.
+/// All deterministic case conversions provided by [`convert_case::Case`] are supported by
+/// specifying the case name followed by "case".
+///
+/// ```
+/// # use nu_protocol::{FromValue, Value, ShellError};
+/// #[derive(FromValue, Debug, PartialEq)]
+/// #[nu_value(rename_all = "COBOL-CASE")]
+/// enum Bird {
+///     MountainEagle,
+///     ForestOwl,
+///     RiverDuck,
+/// }
+///
+/// assert_eq!(
+///     Bird::from_value(Value::test_string("RIVER-DUCK")).unwrap(),
+///     Bird::RiverDuck
+/// );
+/// ```
 pub trait FromValue: Sized {
     // TODO: instead of ShellError, maybe we could have a FromValueError that implements Into<ShellError>
     /// Loads a value from a [`Value`].
     ///
-    /// This method retrieves a value similarly to how strings are parsed using
-    /// [`FromStr`].
-    /// The operation might fail if the `Value` contains unexpected types or
-    /// structures.
+    /// This method retrieves a value similarly to how strings are parsed using [`FromStr`].
+    /// The operation might fail if the `Value` contains unexpected types or structures.
     fn from_value(v: Value) -> Result<Self, ShellError>;
 
     /// Expected `Value` type.
     ///
-    /// This is used to print out errors of what type of value is expected for
-    /// conversion.
-    /// Even if not used in [`from_value`](FromValue::from_value) this should
-    /// still be implemented so that other implementations like `Option` or
-    /// `Vec` can make use of it.
-    /// It is advised to call this method in `from_value` to ensure that
-    /// expected type in the error is consistent.
+    /// This is used to print out errors of what type of value is expected for conversion.
+    /// Even if not used in [`from_value`](FromValue::from_value) this should still be implemented
+    /// so that other implementations like `Option` or `Vec` can make use of it.
+    /// It is advised to call this method in `from_value` to ensure that expected type in the error
+    /// is consistent.
     ///
-    /// Unlike the default implementation, derived implementations explicitly
-    /// reveal the concrete type, such as [`Type::Record`] or [`Type::List`],
-    /// instead of an opaque type.
+    /// Unlike the default implementation, derived implementations explicitly reveal the concrete
+    /// type, such as [`Type::Record`] or [`Type::List`], instead of an opaque type.
     fn expected_type() -> Type {
         Type::Custom(
             any::type_name::<Self>()

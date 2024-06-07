@@ -22,6 +22,7 @@ brotli = { workspace = true, optional = true }
 byte-unit = { version = "5.1", features = [ "serde" ] }
 chrono = { workspace = true, features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = { workspace = true }
+convert_case = { workspace = true }
 fancy-regex = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }

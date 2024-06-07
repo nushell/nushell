@@ -8,14 +8,34 @@ use crate::{Record, ShellError, Span, Value};
 ///
 /// # Derivable
 /// This trait can be used with `#[derive]`.
-/// When derived on structs with named fields, the resulting value
-/// representation will use [`Value::Record`], where each field of the record
-/// corresponds to a field of the struct.
-/// For structs with unnamed fields, the value representation will be
-/// [`Value::List`], with all fields inserted into a list.
-/// Unit structs will be represented as [`Value::Nothing`] since they contain
-/// no data.
-// TODO: explain derive for enums
+/// When derived on structs with named fields, the resulting value representation will use
+/// [`Value::Record`], where each field of the record corresponds to a field of the struct.
+/// For structs with unnamed fields, the value representation will be [`Value::List`], with all
+/// fields inserted into a list.
+/// Unit structs will be represented as [`Value::Nothing`] since they contain no data.
+///
+/// Only enums with no fields may derive this trait.
+/// The resulting value representation will be the name of the variant as a [`Value::String`].
+/// By default, variant names will be converted to ["snake_case"](convert_case::Case::Snake).
+/// You can customize the case conversion using `#[nu_value(rename_all = "kebab-case")]` on the enum.
+/// All deterministic case conversions provided by [`convert_case::Case`] are supported by
+/// specifying the case name followed by "case".
+///
+/// ```
+/// # use nu_protocol::{IntoValue, Value};
+/// #[derive(IntoValue)]
+/// #[nu_value(rename_all = "COBOL-CASE")]
+/// enum Bird {
+///     MountainEagle,
+///     ForestOwl,
+///     RiverDuck,
+/// }
+///
+/// assert_eq!(
+///     Bird::RiverDuck.into_value_unknown(),
+///     Value::test_string("RIVER-DUCK")
+/// );
+/// ```
 pub trait IntoValue: Sized {
     /// Converts the given value to a [`Value`].
     fn into_value(self, span: Span) -> Value;
