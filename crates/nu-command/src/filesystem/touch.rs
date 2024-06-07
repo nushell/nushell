@@ -35,12 +35,12 @@ impl Command for Touch {
             )
             .switch(
                 "modified",
-                "change the modification time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
+                "change the modification time of the file or directory. If no reference file/directory is given, the current time is used",
                 Some('m'),
             )
             .switch(
                 "access",
-                "change the access time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
+                "change the access time of the file or directory. If no reference file/directory is given, the current time is used",
                 Some('a'),
             )
             .switch(
@@ -187,11 +187,6 @@ impl Command for Touch {
             Example {
                 description: r#"Changes the last modified time of file d and e to "fixture.json"'s last modified time"#,
                 example: r#"touch -m -r fixture.json d e"#,
-                result: None,
-            },
-            Example {
-                description: r#"Changes the last accessed time of "fixture.json" to a date"#,
-                example: r#"touch -a -d "August 24, 2019; 12:30:30" fixture.json"#,
                 result: None,
             },
         ]
