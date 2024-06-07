@@ -189,12 +189,7 @@ $env.config = {
             warn: {}
             info: {}
         },
-        table: {
-            split_line: { fg: "#404040" },
-            selected_cell: { bg: light_blue },
-            selected_row: {},
-            selected_column: {},
-        },
+        selected_cell: { bg: light_blue },
     }
 
     history: {

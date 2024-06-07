@@ -6,6 +6,7 @@ use nu_protocol::{
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
+use pathdiff::diff_paths;
 use std::{
     borrow::Cow,
     ffi::{OsStr, OsString},
@@ -300,54 +301,51 @@ fn expand_glob(
     // We must use `nu_engine::glob_from` here, in order to ensure we get paths from the correct
     // dir
     let glob = NuGlob::Expand(arg.to_owned()).into_spanned(span);
-    let Ok((_prefix, paths)) = nu_engine::glob_from(&glob, cwd, span, None) else {
-        // If an error occurred, return the original input
-        return Ok(vec![arg.into()]);
-    };
+    if let Ok((prefix, matches)) = nu_engine::glob_from(&glob, cwd, span, None) {
+        let mut result: Vec<OsString> = vec![];
 
-    // If the first component of the original `arg` string path was '.', that should be preserved
-    let relative_to_dot = Path::new(arg).starts_with(".");
-
-    let paths = paths
-        // Skip over glob failures. These are usually just inaccessible paths.
-        .flat_map(|path_result| match path_result {
-            Ok(path) => Some(path),
-            Err(err) => {
-                // But internally log them just in case we need to debug this.
-                log::warn!("Error in run_external::expand_glob(): {}", err);
-                None
+        for m in matches {
+            if nu_utils::ctrl_c::was_pressed(interrupt) {
+                return Err(ShellError::InterruptedByUser { span: Some(span) });
             }
-        })
-        // Make the paths relative to the cwd
-        .map(|path| {
-            path.strip_prefix(cwd)
-                .map(|path| path.to_owned())
-                .unwrap_or(path)
-        })
-        // Add './' to relative paths if the original pattern had it
-        .map(|path| {
-            if relative_to_dot && path.is_relative() {
-                Path::new(".").join(path)
+            if let Ok(arg) = m {
+                let arg = resolve_globbed_path_to_cwd_relative(arg, prefix.as_ref(), cwd);
+                result.push(arg.into());
             } else {
-                path
+                result.push(arg.into());
             }
-        })
-        .map(OsString::from)
-        // Abandon if ctrl-c is pressed
-        .map(|path| {
-            if !nu_utils::ctrl_c::was_pressed(interrupt) {
-                Ok(path)
-            } else {
-                Err(ShellError::InterruptedByUser { span: Some(span) })
-            }
-        })
-        .collect::<Result<Vec<OsString>, ShellError>>()?;
+        }
 
-    if !paths.is_empty() {
-        Ok(paths)
+        // FIXME: do we want to special-case this further? We might accidentally expand when they don't
+        // intend to
+        if result.is_empty() {
+            result.push(arg.into());
+        }
+
+        Ok(result)
     } else {
-        // If we failed to match, return the original input
         Ok(vec![arg.into()])
+    }
+}
+
+fn resolve_globbed_path_to_cwd_relative(
+    path: PathBuf,
+    prefix: Option<&PathBuf>,
+    cwd: &Path,
+) -> PathBuf {
+    if let Some(prefix) = prefix {
+        if let Ok(remainder) = path.strip_prefix(prefix) {
+            let new_prefix = if let Some(pfx) = diff_paths(prefix, cwd) {
+                pfx
+            } else {
+                prefix.to_path_buf()
+            };
+            new_prefix.join(remainder)
+        } else {
+            path
+        }
+    } else {
+        path
     }
 }
 
@@ -601,10 +599,6 @@ mod test {
             assert_eq!(actual, expected);
 
             let actual = expand_glob("./*.txt", cwd, Span::unknown(), &None).unwrap();
-            let expected: Vec<OsString> = vec![
-                Path::new(".").join("a.txt").into(),
-                Path::new(".").join("b.txt").into(),
-            ];
             assert_eq!(actual, expected);
 
             let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &None).unwrap();

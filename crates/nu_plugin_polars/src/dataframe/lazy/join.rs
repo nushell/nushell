@@ -189,7 +189,7 @@ impl PluginCommand for LazyJoin {
         let how = if left {
             JoinType::Left
         } else if outer {
-            JoinType::Outer { coalesce: true }
+            JoinType::Outer
         } else if cross {
             JoinType::Cross
         } else {

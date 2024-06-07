@@ -27,7 +27,7 @@ impl Command for FormatDate {
                 SyntaxShape::String,
                 "The desired format date.",
             )
-            .category(Category::Date)
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
