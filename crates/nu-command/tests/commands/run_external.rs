@@ -1,4 +1,3 @@
-#[cfg(not(windows))]
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
