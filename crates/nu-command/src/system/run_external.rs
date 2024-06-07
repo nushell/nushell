@@ -70,19 +70,14 @@ impl Command for External {
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's is a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable = if cfg!(windows) && is_cmd_internal_command(&*name_str) {
+        let executable = if cfg!(windows) && is_cmd_internal_command(&name_str) {
             PathBuf::from("cmd.exe")
         } else {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
             let Some(executable) = which(expanded_name, &paths, &cwd) else {
-                return Err(command_not_found(
-                    &*name_str,
-                    call.head,
-                    engine_state,
-                    stack,
-                ));
+                return Err(command_not_found(&name_str, call.head, engine_state, stack));
             };
             executable
         };
