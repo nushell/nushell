@@ -6,35 +6,8 @@ use syn::{
     spanned::Spanned, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident, Index,
 };
 
-enum DeriveError {
-    Syn(syn::parse::Error),
-    UnsupportedUnions,
-    UnsupportedEnums { fields_span: Span },
-}
-
-impl From<DeriveError> for Diagnostic {
-    fn from(value: DeriveError) -> Self {
-        match value {
-            DeriveError::Syn(e) => Diagnostic::spanned(e.span(), Level::Error, e.to_string()),
-            DeriveError::UnsupportedUnions => Diagnostic::new(
-                Level::Error,
-                "`IntoValue` cannot be derived from unions".to_string(),
-            )
-            .help("consider refactoring to a struct".to_string())
-            .note("if you really need a union, consider opening an issue on Github".to_string()),
-            DeriveError::UnsupportedEnums { fields_span } => Diagnostic::spanned(
-                fields_span,
-                Level::Error,
-                "`IntoValue` can only be derived from plain enums".to_string(),
-            )
-            .help(
-                "consider refactoring your data type to a struct with a plain enum as a field"
-                    .to_string(),
-            )
-            .note("more complex enums could be implemented in the future".to_string()),
-        }
-    }
-}
+struct IntoValue;
+type DeriveError = super::DeriveError<IntoValue>;
 
 pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, impl Into<Diagnostic>> {
     let input: DeriveInput = syn::parse2(input).map_err(DeriveError::Syn)?;
