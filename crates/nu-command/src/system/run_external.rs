@@ -118,7 +118,7 @@ impl Command for External {
             // that command and quit.
             command.args(["/D", "/C", &name.item]);
             for arg in &args {
-                command.raw_arg(escape_cmd_argument(arg)?.as_ref());
+                command.raw_arg(escape_cmd_argument(arg)?);
             }
         } else {
             command.args(args.into_iter().map(|s| s.item));
