@@ -66,14 +66,14 @@ impl<M> From<DeriveError<M>> for Diagnostic {
 
             DeriveError::UnexpectedAttribute { meta_span } => {
                 Diagnostic::spanned(meta_span, Level::Error, "unknown attribute".to_string()).help(
-                    format!("check documenation for `{derive_name}` for valid attributes"),
+                    format!("check documentation for `{derive_name}` for valid attributes"),
                 )
             }
 
             DeriveError::InvalidAttributeValue { value_span, value } => {
                 Diagnostic::spanned(value_span, Level::Error, format!("invalid value {value:?}"))
                     .help(format!(
-                        "check documenation for `{derive_name}` for valid attribute values"
+                        "check documentation for `{derive_name}` for valid attribute values"
                     ))
             }
         }
