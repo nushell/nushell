@@ -607,7 +607,7 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
         // If `arg` contains space or special characters, quote the entire argument by double quotes.
         let mut new_str = OsString::new();
         new_str.push("\"");
-        new_str.push(&arg);
+        new_str.push(arg);
         new_str.push("\"");
         Ok(Cow::Owned(new_str))
     } else {
