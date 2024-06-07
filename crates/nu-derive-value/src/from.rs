@@ -1,11 +1,15 @@
-use convert_case::{Case, Casing};
-use proc_macro2::{Span, TokenStream as TokenStream2};
-use proc_macro_error::{Diagnostic, Level};
+use convert_case::Casing;
+use proc_macro2::TokenStream as TokenStream2;
+use proc_macro_error::Diagnostic;
 use quote::{quote, ToTokens};
-use syn::{spanned::Spanned, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident};
+use syn::{
+    spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
+};
+
+use crate::attributes::{self, ContainerAttributes};
 
 struct FromValue;
-type DeriveError = super::DeriveError<FromValue>;
+type DeriveError = super::error::DeriveError<FromValue>;
 
 pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, impl Into<Diagnostic>> {
     let input: DeriveInput = syn::parse2(input).map_err(DeriveError::Syn)?;
@@ -14,27 +18,36 @@ pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, impl Into<
             input.ident,
             data_struct,
             input.generics,
-        )),
+            input.attrs,
+        )?),
         Data::Enum(data_enum) => Ok(derive_enum_from_value(
             input.ident,
             data_enum,
             input.generics,
+            input.attrs,
         )?),
         Data::Union(_) => Err(DeriveError::UnsupportedUnions),
     }
 }
 
-fn derive_struct_from_value(ident: Ident, data: DataStruct, generics: Generics) -> TokenStream2 {
+fn derive_struct_from_value(
+    ident: Ident,
+    data: DataStruct,
+    generics: Generics,
+    attrs: Vec<Attribute>,
+) -> Result<TokenStream2, DeriveError> {
+    attributes::deny(&attrs)?;
+    attributes::deny_fields(&data.fields)?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let from_value_impl = struct_from_value(&data);
     let expected_type_impl = struct_expected_type(&data.fields);
-    quote! {
+    Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
             #from_value_impl
             #expected_type_impl
         }
-    }
+    })
 }
 
 fn struct_from_value(data: &DataStruct) -> TokenStream2 {
@@ -101,9 +114,10 @@ fn derive_enum_from_value(
     ident: Ident,
     data: DataEnum,
     generics: Generics,
+    attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let from_value_impl = enum_from_value(&data)?;
+    let from_value_impl = enum_from_value(&data, &attrs)?;
     // As variants are hard to type with the current type system, we use the
     // default impl for `expected_type`.
     Ok(quote! {
@@ -114,13 +128,17 @@ fn derive_enum_from_value(
     })
 }
 
-fn enum_from_value(data: &DataEnum) -> Result<TokenStream2, DeriveError> {
+fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2, DeriveError> {
+    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let arms: Vec<TokenStream2> = data
         .variants
         .iter()
         .map(|variant| {
+            attributes::deny(&variant.attrs)?;
             let ident = &variant.ident;
-            let ident_s = format!("{ident}").as_str().to_case(Case::Snake);
+            let ident_s = format!("{ident}")
+                .as_str()
+                .to_case(container_attrs.rename_all);
             match &variant.fields {
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
                     fields_span: fields.span(),
