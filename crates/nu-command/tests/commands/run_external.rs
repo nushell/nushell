@@ -263,12 +263,16 @@ fn external_arg_expand_tilde() {
             "#
         ));
 
-        let home = dirs_next::home_dir()
-            .expect("failed to find home dir")
-            .to_string_lossy()
-            .into_owned();
+        let home = dirs_next::home_dir().expect("failed to find home dir");
 
-        assert_eq!(actual.out, format!("{home}/foo {home}/4"));
+        assert_eq!(
+            actual.out,
+            format!(
+                "{} {}",
+                home.join("foo").display(),
+                home.join("4").display()
+            )
+        );
     })
 }
 
