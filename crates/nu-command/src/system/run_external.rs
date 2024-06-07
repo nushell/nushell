@@ -53,26 +53,15 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
 
-        // Evaluate the command name in the same way the arguments are evaluated. Since this isn't
-        // a spread, it should return a one-element vec.
-        let name_expr = call
-            .positional_nth(0)
-            .ok_or_else(|| ShellError::MissingParameter {
-                param_name: "command".into(),
-                span: call.head,
-            })?;
-        let name = eval_argument(engine_state, stack, name_expr, false)?
-            .pop()
-            .expect("eval_argument returned zero-element vec")
-            .into_spanned(name_expr.span);
+        let name: Value = call.req(engine_state, stack, 0)?;
 
-        let name_str: Cow<str> = match &name.item {
+        let name_str: Cow<str> = match &name {
             Value::Glob { val, .. } => Cow::Borrowed(val),
             Value::String { val, .. } => Cow::Borrowed(val),
-            _ => Cow::Owned(name.item.clone().coerce_into_string()?),
+            _ => Cow::Owned(name.clone().coerce_into_string()?),
         };
 
-        let expanded_name = match &name.item {
+        let expanded_name = match &name {
             // Expand tilde and ndots on the name if it's a bare string / glob (#13000)
             Value::Glob { no_expand, .. } if !*no_expand => expand_ndots(expand_tilde(&*name_str)),
             _ => Path::new(&*name_str).to_owned(),
