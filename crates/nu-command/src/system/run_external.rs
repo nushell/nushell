@@ -10,6 +10,7 @@ use nu_protocol::{
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use std::{
+    borrow::Cow,
     ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
@@ -566,17 +567,18 @@ fn is_cmd_internal_command(name: &str) -> bool {
 }
 
 /// Returns true if a string contains CMD special characters.
-#[cfg(windows)]
-fn has_cmd_special_character(s: &str) -> bool {
-    const SPECIAL_CHARS: &[char] = &['<', '>', '&', '|', '^'];
-    SPECIAL_CHARS.iter().any(|c| s.contains(*c))
+fn has_cmd_special_character(s: impl AsRef<[u8]>) -> bool {
+    s.as_ref()
+        .iter()
+        .any(|b| matches!(b, b'<' | b'>' | b'&' | b'|' | b'^'))
 }
 
 /// Escape an argument for CMD internal commands. The result can be safely passed to `raw_arg()`.
-#[cfg(windows)]
-fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError> {
+#[cfg_attr(not(windows), allow(dead_code))]
+fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellError> {
     let Spanned { item: arg, span } = arg;
-    if arg.contains(['\r', '\n', '%']) {
+    let bytes = arg.as_encoded_bytes();
+    if bytes.iter().any(|b| matches!(b, b'\r' | b'\n' | b'%')) {
         // \r and \n trunacte the rest of the arguments and % can expand environment variables
         Err(ShellError::ExternalCommand {
             label:
@@ -585,12 +587,12 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
             help: "some characters currently cannot be securely escaped".into(),
             span: *span,
         })
-    } else if arg.contains('"') {
+    } else if bytes.contains(&b'"') {
         // If `arg` is already quoted by double quotes, confirm there's no
         // embedded double quotes, then leave it as is.
-        if arg.chars().filter(|c| *c == '"').count() == 2
-            && arg.starts_with('"')
-            && arg.ends_with('"')
+        if bytes.iter().filter(|b| **b == b'"').count() == 2
+            && bytes.starts_with(b"\"")
+            && bytes.ends_with(b"\"")
         {
             Ok(Cow::Borrowed(arg))
         } else {
@@ -601,9 +603,13 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
                 span: *span,
             })
         }
-    } else if arg.contains(' ') || has_cmd_special_character(arg) {
+    } else if bytes.contains(&b' ') || has_cmd_special_character(bytes) {
         // If `arg` contains space or special characters, quote the entire argument by double quotes.
-        Ok(Cow::Owned(format!("\"{arg}\"")))
+        let mut new_str = OsString::new();
+        new_str.push("\"");
+        new_str.push(&arg);
+        new_str.push("\"");
+        Ok(Cow::Owned(new_str))
     } else {
         // FIXME?: what if `arg.is_empty()`?
         Ok(Cow::Borrowed(arg))
