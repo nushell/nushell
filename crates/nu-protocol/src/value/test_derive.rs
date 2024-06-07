@@ -313,3 +313,63 @@ fn enum_incorrect_type() {
     let res = Enum::from_value(value);
     assert!(res.is_err());
 }
+
+// Generate the `Enum` from before but with all possible `rename_all` variants
+macro_rules! enum_rename_all {
+    ($($ident:ident: $case:literal => [$a1:literal, $b2:literal, $c3:literal]),*) => {
+        $(
+            #[derive(Debug, PartialEq, IntoValue, FromValue)]
+            #[nu_value(rename_all = $case)]
+            enum $ident {
+                AlphaOne,
+                BetaTwo,
+                CharlieThree
+            }
+
+            impl $ident {
+                fn make() -> [Self; 3] {
+                    [Self::AlphaOne, Self::BetaTwo, Self::CharlieThree]
+                }
+            
+                fn value() -> Value {
+                    Value::test_list(vec![
+                        Value::test_string($a1),
+                        Value::test_string($b2),
+                        Value::test_string($c3),
+                    ])
+                }
+            }
+        )*
+
+        #[test]
+        fn enum_rename_all_into_value() {$({
+            let expected = $ident::value();
+            let actual = $ident::make().into_value_unknown();
+            assert_eq!(expected, actual);
+        })*}
+        
+        #[test]
+        fn enum_rename_all_from_value() {$({
+            let expected = $ident::make();
+            let actual = <[$ident; 3]>::from_value($ident::value()).unwrap();
+            assert_eq!(expected, actual);
+        })*}
+    }
+}
+
+enum_rename_all! {
+    Upper: "UPPER CASE" => ["ALPHA ONE", "BETA TWO", "CHARLIE THREE"],
+    Lower: "lower case" => ["alpha one", "beta two", "charlie three"],
+    Title: "Title Case" => ["Alpha One", "Beta Two", "Charlie Three"],
+    Toggle: "tOGGLE cASE" => ["aLPHA oNE", "bETA tWO", "cHARLIE tHREE"],
+    Camel: "camelCase" => ["alphaOne", "betaTwo", "charlieThree"],
+    Pascal: "PascalCase" => ["AlphaOne", "BetaTwo", "CharlieThree"],
+    Snake: "snake_case" => ["alpha_one", "beta_two", "charlie_three"],
+    UpperSnake: "UPPER_SNAKE_CASE" => ["ALPHA_ONE", "BETA_TWO", "CHARLIE_THREE"],
+    Kebab: "kebab-case" => ["alpha-one", "beta-two", "charlie-three"],
+    Cobol: "COBOL-CASE" => ["ALPHA-ONE", "BETA-TWO", "CHARLIE-THREE"],
+    Train: "Train-Case" => ["Alpha-One", "Beta-Two", "Charlie-Three"],
+    Flat: "flatcase" => ["alphaone", "betatwo", "charliethree"],
+    UpperFlat: "UPPERFLATCASE" => ["ALPHAONE", "BETATWO", "CHARLIETHREE"],
+    Alternating: "aLtErNaTiNg CaSe" => ["aLpHa OnE", "bEtA tWo", "cHaRlIe ThReE"]
+}
