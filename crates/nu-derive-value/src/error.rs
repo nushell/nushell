@@ -3,6 +3,7 @@ use std::{any, fmt::Debug, marker::PhantomData};
 use proc_macro2::Span;
 use proc_macro_error::{Diagnostic, Level};
 
+#[derive(Debug)]
 pub enum DeriveError<M> {
     /// Marker variant, makes the `M` generic parameter valid.
     _Marker(PhantomData<M>),

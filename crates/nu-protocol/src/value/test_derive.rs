@@ -330,7 +330,7 @@ macro_rules! enum_rename_all {
                 fn make() -> [Self; 3] {
                     [Self::AlphaOne, Self::BetaTwo, Self::CharlieThree]
                 }
-            
+
                 fn value() -> Value {
                     Value::test_list(vec![
                         Value::test_string($a1),
@@ -347,7 +347,7 @@ macro_rules! enum_rename_all {
             let actual = $ident::make().into_value_unknown();
             assert_eq!(expected, actual);
         })*}
-        
+
         #[test]
         fn enum_rename_all_from_value() {$({
             let expected = $ident::make();

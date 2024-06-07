@@ -1,6 +1,5 @@
 use convert_case::Casing;
 use proc_macro2::TokenStream as TokenStream2;
-use proc_macro_error::Diagnostic;
 use quote::{quote, ToTokens};
 use syn::{
     spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
@@ -8,10 +7,11 @@ use syn::{
 
 use crate::attributes::{self, ContainerAttributes};
 
-struct FromValue;
+#[derive(Debug)]
+pub struct FromValue;
 type DeriveError = super::error::DeriveError<FromValue>;
 
-pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, impl Into<Diagnostic>> {
+pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, DeriveError> {
     let input: DeriveInput = syn::parse2(input).map_err(DeriveError::Syn)?;
     match input.data {
         Data::Struct(data_struct) => Ok(derive_struct_from_value(
