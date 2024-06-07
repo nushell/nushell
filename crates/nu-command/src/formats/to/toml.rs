@@ -1,4 +1,4 @@
-use chrono::SecondsFormat;
+use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::PathMember;
 
@@ -49,9 +49,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         Value::Int { val, .. } => toml::Value::Integer(*val),
         Value::Filesize { val, .. } => toml::Value::Integer(*val),
         Value::Duration { val, .. } => toml::Value::String(val.to_string()),
-        Value::Date { val, .. } => {
-            toml::Value::String(val.to_rfc3339_opts(SecondsFormat::AutoSi, false))
-        }
+        Value::Date { val, .. } => toml::Value::Datetime(to_toml_datetime(val)),
         Value::Range { .. } => toml::Value::String("<Range>".to_string()),
         Value::Float { val, .. } => toml::Value::Float(*val),
         Value::String { val, .. } | Value::Glob { val, .. } => toml::Value::String(val.clone()),
@@ -157,6 +155,43 @@ fn to_toml(
     }
 }
 
+/// Convert chrono datetime into a toml::Value datetime.  The latter uses its
+/// own ad-hoc datetime types, which makes this somewhat convoluted.
+fn to_toml_datetime(datetime: &DateTime<FixedOffset>) -> toml::value::Datetime {
+    let date = toml::value::Date {
+        // TODO: figure out what to do with BC dates, because the toml
+        // crate doesn't support them.  Same for large years, which
+        // don't fit in u16.
+        year: datetime.year_ce().1 as u16,
+        // Panic: this is safe, because chrono guarantees that the month
+        // value will be between 1 and 12 and the day will be between 1
+        // and 31
+        month: datetime.month() as u8,
+        day: datetime.day() as u8,
+    };
+
+    let time = toml::value::Time {
+        // Panic: same as before, chorono guarantees that all of the following 3
+        // methods return values less than 65'000
+        hour: datetime.hour() as u8,
+        minute: datetime.minute() as u8,
+        second: datetime.second() as u8,
+        nanosecond: datetime.nanosecond(),
+    };
+
+    let offset = toml::value::Offset::Custom {
+        // Panic: minute timezone offset fits into i16 (that's more than
+        // 1000 hours)
+        minutes: (-datetime.timezone().utc_minus_local() / 60) as i16,
+    };
+
+    toml::value::Datetime {
+        date: Some(date),
+        time: Some(time),
+        offset: Some(offset),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -181,7 +216,20 @@ mod tests {
             Span::test_data(),
         );
 
-        let reference_date = toml::Value::String(String::from("1980-10-12T10:12:44+02:00"));
+        let reference_date = toml::Value::Datetime(toml::value::Datetime {
+            date: Some(toml::value::Date {
+                year: 1980,
+                month: 10,
+                day: 12,
+            }),
+            time: Some(toml::value::Time {
+                hour: 10,
+                minute: 12,
+                second: 44,
+                nanosecond: 0,
+            }),
+            offset: Some(toml::value::Offset::Custom { minutes: 120 }),
+        });
 
         let result = helper(&engine_state, &test_date);
 
