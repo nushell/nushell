@@ -69,36 +69,38 @@ pub trait Eval {
                         RecordItem::Pair(col, val) => {
                             // avoid duplicate cols
                             let col_name = Self::eval::<D>(state, mut_state, col)?.coerce_into_string()?;
+                            let col_span = state.get_span(col.span_id);
                             if let Some(orig_span) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
-                                    second_use: col.span,
+                                    second_use: col_span,
                                     first_use: *orig_span,
                                 });
                             } else {
-                                col_names.insert(col_name.clone(), col.span);
+                                col_names.insert(col_name.clone(), col_span);
                                 record.push(col_name, Self::eval::<D>(state, mut_state, val)?);
                             }
                         }
                         RecordItem::Spread(_, inner) => {
+                            let inner_span = state.get_span(inner.span_id);
                             match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
                                     for (col_name, val) in inner_val.into_owned() {
                                         if let Some(orig_span) = col_names.get(&col_name) {
                                             return Err(ShellError::ColumnDefinedTwice {
                                                 col_name,
-                                                second_use: inner.span,
+                                                second_use: inner_span,
                                                 first_use: *orig_span,
                                             });
                                         } else {
-                                            col_names.insert(col_name.clone(), inner.span);
+                                            col_names.insert(col_name.clone(), inner_span);
                                             record.push(col_name, val);
                                         }
                                     }
                                 }
                                 _ => {
                                     return Err(ShellError::CannotSpreadAsRecord {
-                                        span: inner.span,
+                                        span: inner_span,
                                     })
                                 }
                             }
@@ -116,10 +118,11 @@ pub trait Eval {
                         .iter()
                         .position(|existing| existing == &header)
                     {
+                        let first_use = state.get_span( table.columns[idx].span_id );
                         return Err(ShellError::ColumnDefinedTwice {
                             col_name: header,
                             second_use: expr_span,
-                            first_use: table.columns[idx].span,
+                            first_use,
                         });
                     } else {
                         output_headers.push(header);
@@ -147,7 +150,7 @@ pub trait Eval {
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),
-                    span: value.expr.span,
+                    span: state.get_span(value.expr.span_id),
                     help: None,
                 }),
             },
@@ -193,7 +196,7 @@ pub trait Eval {
                 }
             }
             Expr::BinaryOp(lhs, op, rhs) => {
-                let op_span = op.span;
+                let op_span = state.get_span(op.span_id);
                 let op = eval_operator(op)?;
 
                 match op {
