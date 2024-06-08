@@ -132,7 +132,7 @@ fn hides_environment_from_child() {
         $env.TEST = 1; ^$nu.current-exe -c "hide-env TEST; ^$nu.current-exe -c '$env.TEST'"
     "#);
     assert!(actual.out.is_empty());
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("column_not_found") || actual.err.contains("name_not_found"));
 }
 
 #[test]
