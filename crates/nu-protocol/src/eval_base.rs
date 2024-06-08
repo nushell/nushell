@@ -23,7 +23,7 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         expr: &Expression,
     ) -> Result<Value, ShellError> {
-        let expr_span = state.get_span(expr.span_id);
+        let expr_span = expr.span(&state);
 
         match &expr.expr {
             Expr::Bool(b) => Ok(Value::bool(*b, expr_span)),
@@ -69,7 +69,7 @@ pub trait Eval {
                         RecordItem::Pair(col, val) => {
                             // avoid duplicate cols
                             let col_name = Self::eval::<D>(state, mut_state, col)?.coerce_into_string()?;
-                            let col_span = state.get_span(col.span_id);
+                            let col_span = col.span(&state);
                             if let Some(orig_span) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
@@ -82,7 +82,7 @@ pub trait Eval {
                             }
                         }
                         RecordItem::Spread(_, inner) => {
-                            let inner_span = state.get_span(inner.span_id);
+                            let inner_span = inner.span(&state);
                             match Self::eval::<D>(state, mut_state, inner)? {
                                 Value::Record { val: inner_val, .. } => {
                                     for (col_name, val) in inner_val.into_owned() {
@@ -118,7 +118,7 @@ pub trait Eval {
                         .iter()
                         .position(|existing| existing == &header)
                     {
-                        let first_use = state.get_span( table.columns[idx].span_id );
+                        let first_use = table.columns[idx].span(&state);
                         return Err(ShellError::ColumnDefinedTwice {
                             col_name: header,
                             second_use: expr_span,
@@ -150,7 +150,7 @@ pub trait Eval {
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
                     from_type: x.get_type().to_string(),
-                    span: state.get_span(value.expr.span_id),
+                    span: value.expr.span(&state),
                     help: None,
                 }),
             },
@@ -196,7 +196,7 @@ pub trait Eval {
                 }
             }
             Expr::BinaryOp(lhs, op, rhs) => {
-                let op_span = state.get_span(op.span_id);
+                let op_span = op.span(&state);
                 let op = eval_operator(op)?;
 
                 match op {
