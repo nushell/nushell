@@ -241,7 +241,6 @@ fn format_record(
 ) -> Result<String, ShellError> {
     let config = engine_state.get_config();
     let mut output = String::new();
-    // let eval_expression = get_eval_expression(engine_state);
 
     for op in format_operations {
         match op {
