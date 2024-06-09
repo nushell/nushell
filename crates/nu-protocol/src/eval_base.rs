@@ -302,7 +302,7 @@ pub trait Eval {
             | Expr::ImportPattern(_)
             | Expr::Signature(_)
             | Expr::Operator(_)
-            | Expr::Garbage => Self::unreachable(expr),
+            | Expr::Garbage => Self::unreachable(state, expr),
         }
     }
 
@@ -383,5 +383,5 @@ pub trait Eval {
     fn eval_overlay(state: Self::State<'_>, span: Span) -> Result<Value, ShellError>;
 
     /// For expressions that should never actually be evaluated
-    fn unreachable(expr: &Expression) -> Result<Value, ShellError>;
+    fn unreachable(state: Self::State<'_>, expr: &Expression) -> Result<Value, ShellError>;
 }
