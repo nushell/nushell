@@ -8,7 +8,7 @@ use nu_protocol::{
     IntoSpanned, OutDest, RegId, ShellError, Span, Spanned,
 };
 
-const BLOCK_INPUT: RegId = RegId(1);
+const BLOCK_INPUT: RegId = RegId(0);
 
 /// Compile Nushell pipeline abstract syntax tree (AST) to internal representation (IR) instructions
 /// for evaluation.
@@ -270,7 +270,7 @@ fn compile_call(
     // it.
     enum CompiledArg {
         Positional(RegId, Span),
-        Named(Box<str>, RegId, Span),
+        Named(Box<str>, Option<RegId>, Span),
         Spread(RegId, Span),
     }
 
@@ -294,20 +294,23 @@ fn compile_call(
 
                 Ok(arg_reg)
             })
-            .transpose()?
-            .unwrap_or(RegId(0));
+            .transpose()?;
 
         match arg {
-            Argument::Positional(_) => {
-                compiled_args.push(CompiledArg::Positional(arg_reg, arg.span()))
-            }
+            Argument::Positional(_) => compiled_args.push(CompiledArg::Positional(
+                arg_reg.expect("expr() None in non-Named"),
+                arg.span(),
+            )),
             Argument::Named((name, _, _)) => compiled_args.push(CompiledArg::Named(
                 name.item.as_str().into(),
                 arg_reg,
                 arg.span(),
             )),
             Argument::Unknown(_) => return Err(CompileError::Garbage),
-            Argument::Spread(_) => compiled_args.push(CompiledArg::Spread(arg_reg, arg.span())),
+            Argument::Spread(_) => compiled_args.push(CompiledArg::Spread(
+                arg_reg.expect("expr() None in non-Named"),
+                arg.span(),
+            )),
         }
     }
 
@@ -317,8 +320,11 @@ fn compile_call(
             CompiledArg::Positional(reg, span) => {
                 builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?
             }
-            CompiledArg::Named(name, reg, span) => {
+            CompiledArg::Named(name, Some(reg), span) => {
                 builder.push(Instruction::PushNamed { name, src: reg }.into_spanned(span))?
+            }
+            CompiledArg::Named(name, None, span) => {
+                builder.push(Instruction::PushFlag { name }.into_spanned(span))?
             }
             CompiledArg::Spread(reg, span) => {
                 builder.push(Instruction::AppendRest { src: reg }.into_spanned(span))?
@@ -452,7 +458,7 @@ struct BlockBuilder {
 }
 
 impl BlockBuilder {
-    /// Starts a new block, with the first register (`%1`) allocated as input.
+    /// Starts a new block, with the first register (`%0`) allocated as input.
     fn new() -> Self {
         BlockBuilder {
             instructions: vec![],
@@ -475,10 +481,11 @@ impl BlockBuilder {
                 }
             })
         {
-            Ok(RegId(index as u32 + 1))
+            Ok(RegId(index as u32))
         } else if self.register_allocation_state.len() < (u32::MAX as usize - 2) {
+            let reg_id = RegId(self.register_allocation_state.len() as u32);
             self.register_allocation_state.push(true);
-            Ok(RegId(self.register_allocation_state.len() as u32))
+            Ok(reg_id)
         } else {
             Err(CompileError::RegisterOverflow)
         }
@@ -486,19 +493,15 @@ impl BlockBuilder {
 
     /// Mark a register as used, so that it can be used again by something else.
     fn free_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        if reg_id != RegId(0) {
-            let index = (reg_id.0 - 1) as usize;
+        let index = reg_id.0 as usize;
 
-            if self
-                .register_allocation_state
-                .get(index)
-                .is_some_and(|is_allocated| *is_allocated)
-            {
-                self.register_allocation_state[index] = false;
-                Ok(())
-            } else {
-                Err(CompileError::RegisterUninitialized(reg_id))
-            }
+        if self
+            .register_allocation_state
+            .get(index)
+            .is_some_and(|is_allocated| *is_allocated)
+        {
+            self.register_allocation_state[index] = false;
+            Ok(())
         } else {
             Err(CompileError::RegisterUninitialized(reg_id))
         }
@@ -515,14 +518,8 @@ impl BlockBuilder {
             Instruction::Drain { src } => self.free_register(*src)?,
             Instruction::PushPositional { src } => self.free_register(*src)?,
             Instruction::AppendRest { src } => self.free_register(*src)?,
-            Instruction::PushNamed { name: _, src } => {
-                // RegId zero is ok for src in PushNamed, as it's optional
-                if *src == RegId(0) {
-                    ()
-                } else {
-                    self.free_register(*src)?;
-                }
-            }
+            Instruction::PushFlag { name: _ } => (),
+            Instruction::PushNamed { name: _, src } => self.free_register(*src)?,
             Instruction::RedirectOut { mode } | Instruction::RedirectErr { mode } => match mode {
                 RedirectMode::File { path, .. } => self.free_register(*path)?,
                 _ => (),

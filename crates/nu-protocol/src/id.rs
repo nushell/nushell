@@ -11,23 +11,15 @@ pub type VirtualPathId = usize;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SpanId(pub usize); // more robust ID style used in the new parser
 
-/// An ID for an [IR](crate::ir) register.
+/// An ID for an [IR](crate::ir) register. `%n` is a common shorthand for `RegId(n)`.
 ///
-/// - `RegId(0)` is never allocated and is used to specify absence of an optional operand.
-/// - `RegId(1)` is allocated with the block input at the beginning of a compiled block.
-/// - Others may be freely used as needed.
-///
-/// `%n` is a common shorthand for `RegId(n)`.
+/// Note: `%0` is allocated with the block input at the beginning of a compiled block.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct RegId(pub u32);
 
 impl std::fmt::Display for RegId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.0 != 0 {
-            write!(f, "%{}", self.0)
-        } else {
-            write!(f, "%none")
-        }
+        write!(f, "%{}", self.0)
     }
 }

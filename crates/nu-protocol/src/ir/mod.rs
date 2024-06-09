@@ -43,8 +43,9 @@ pub enum Instruction {
     PushPositional { src: RegId },
     /// Add a list of args to the next call (spread/rest)
     AppendRest { src: RegId },
-    /// Add a named arg to the next call. The `src` is optional. Register id `0` is reserved for
-    /// no-value.
+    /// Add a named arg with no value to the next call.
+    PushFlag { name: Box<str> },
+    /// Add a named arg with a value to the next call.
     PushNamed { name: Box<str>, src: RegId },
     /// Set the redirection for stdout for the next call (only)
     RedirectOut { mode: RedirectMode },
@@ -94,6 +95,9 @@ impl fmt::Display for Instruction {
             }
             Instruction::AppendRest { src } => {
                 write!(f, "{:15} {src}", "append-rest")
+            }
+            Instruction::PushFlag { name } => {
+                write!(f, "{:15} {name:?}", "push-flag")
             }
             Instruction::PushNamed { name, src } => {
                 write!(f, "{:15} {name:?}, {src}", "push-named")
