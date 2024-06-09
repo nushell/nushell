@@ -24,6 +24,10 @@ pub struct RegId(pub u32);
 
 impl std::fmt::Display for RegId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "%{}", self.0)
+        if self.0 != 0 {
+            write!(f, "%{}", self.0)
+        } else {
+            write!(f, "%none")
+        }
     }
 }

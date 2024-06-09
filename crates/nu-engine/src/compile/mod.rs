@@ -97,7 +97,7 @@ fn compile_pipeline(
             &element.expr,
             out_mode,
             err_mode,
-            io_reg,
+            Some(io_reg),
             io_reg,
         )?;
     }
@@ -116,14 +116,14 @@ fn redirection_target_to_mode(
             append,
             span: redir_span,
         } => {
-            let path_reg = builder.nothing()?;
+            let path_reg = builder.next_register()?;
             compile_expression(
                 engine_state,
                 builder,
                 expr,
                 Some(RedirectMode::Capture.into_spanned(*redir_span)),
                 None,
-                path_reg,
+                None,
                 path_reg,
             )?;
             RedirectMode::File {
@@ -168,7 +168,7 @@ fn compile_expression(
     expr: &Expression,
     out_mode: Option<Spanned<RedirectMode>>,
     err_mode: Option<Spanned<RedirectMode>>,
-    in_reg: RegId,
+    in_reg: Option<RegId>,
     out_reg: RegId,
 ) -> Result<(), CompileError> {
     let lit = |builder: &mut BlockBuilder, literal: Literal| {
@@ -190,17 +190,24 @@ fn compile_expression(
         Expr::Var(_) => todo!(),
         Expr::VarDecl(_) => todo!(),
         Expr::Call(call) => {
-            compile_call(engine_state, builder, &call, out_mode, err_mode, in_reg)?;
-            if in_reg != out_reg {
-                builder.push(
-                    Instruction::Move {
-                        dst: out_reg,
-                        src: in_reg,
-                    }
-                    .into_spanned(expr.span),
-                )?;
+            // Ensure that out_reg contains the input value, because a call only uses one register
+            if let Some(in_reg) = in_reg {
+                if in_reg != out_reg {
+                    // Have to move in_reg to out_reg so it can be used
+                    builder.push(
+                        Instruction::Move {
+                            dst: out_reg,
+                            src: in_reg,
+                        }
+                        .into_spanned(call.head),
+                    )?;
+                }
+            } else {
+                // Will have to initialize out_reg with Nothing first
+                builder.load_nothing(out_reg)?;
             }
-            Ok(())
+
+            compile_call(engine_state, builder, &call, out_mode, err_mode, out_reg)
         }
         Expr::ExternalCall(_, _) => todo!(),
         Expr::Operator(_) => todo!(),
@@ -273,7 +280,7 @@ fn compile_call(
         let arg_reg = arg
             .expr()
             .map(|expr| {
-                let arg_reg = builder.nothing()?;
+                let arg_reg = builder.next_register()?;
 
                 compile_expression(
                     engine_state,
@@ -281,7 +288,7 @@ fn compile_call(
                     expr,
                     Some(RedirectMode::Capture.into_spanned(arg.span())),
                     None,
-                    arg_reg,
+                    None,
                     arg_reg,
                 )?;
 
@@ -345,16 +352,16 @@ fn compile_binary_op(
     lhs: &Expression,
     op: Spanned<Operator>,
     rhs: &Expression,
-    in_reg: RegId, // only for $in (TODO)
+    in_reg: Option<RegId>, // only for $in (TODO)
     out_reg: RegId,
 ) -> Result<(), CompileError> {
     // If we aren't worried about clobbering in_reg, we can write straight to out_reg
-    let lhs_reg = if in_reg != out_reg {
+    let lhs_reg = if in_reg != Some(out_reg) {
         out_reg
     } else {
-        builder.nothing()?
+        builder.next_register()?
     };
-    let rhs_reg = builder.nothing()?;
+    let rhs_reg = builder.next_register()?;
 
     compile_expression(
         engine_state,
@@ -539,22 +546,15 @@ impl BlockBuilder {
         Ok(())
     }
 
-    /// Allocate a register for and then load a literal.
-    fn literal(&mut self, literal: Spanned<Literal>) -> Result<RegId, CompileError> {
-        let reg_id = self.next_register()?;
+    /// Initialize a register with [`Nothing`](Literal::Nothing).
+    fn load_nothing(&mut self, reg_id: RegId) -> Result<(), CompileError> {
         self.push(
             Instruction::LoadLiteral {
                 dst: reg_id,
-                lit: literal.item,
+                lit: Literal::Nothing,
             }
-            .into_spanned(literal.span),
-        )?;
-        Ok(reg_id)
-    }
-
-    /// Allocate a register with [`Nothing`](Literal::Nothing).
-    fn nothing(&mut self) -> Result<RegId, CompileError> {
-        self.literal(Literal::Nothing.into_spanned(Span::unknown()))
+            .into_spanned(Span::unknown()),
+        )
     }
 
     /// Consume the builder and produce the final [`IrBlock`].
