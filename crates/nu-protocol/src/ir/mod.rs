@@ -31,11 +31,6 @@ impl fmt::Display for IrBlock {
 pub enum Instruction {
     /// Load a literal value into the `dst` register
     LoadLiteral { dst: RegId, lit: Literal },
-    /// Append a list in `src` to the list in `dst`, modifying `dst`. Used for list spread
-    AppendList { dst: RegId, src: RegId },
-    /// Append a string in `src` to the string in `dst`, modifying `dst`. Used for string
-    /// interpolation
-    AppendString { dst: RegId, src: RegId },
     /// Copy a register (must be a collected value)
     Clone { dst: RegId, src: RegId },
     /// Collect a stream in a register to a value
@@ -44,20 +39,23 @@ pub enum Instruction {
     PushPositional { src: RegId },
     /// Add a list of args to the next call (spread/rest)
     AppendRest { src: RegId },
-    /// Add a named arg to the next call. The `src` is optional, can be `None` if there is no value.
-    PushNamed { name: Box<str>, src: Option<RegId> },
+    /// Add a named arg to the next call. The `src` is optional. Register id `0` is reserved for
+    /// no-value.
+    PushNamed { name: Box<str>, src: RegId },
     /// Clear the argument stack for the next call
     ClearArgs,
     /// Make a call. The input is taken from `src_dst`, and the output is placed in `src_dst`,
     /// overwriting it. The argument stack is used implicitly and cleared when the call ends.
     Call { decl_id: DeclId, src_dst: RegId },
-    /// Do a binary operation on `lhs` (left) and `rhs` (right) and write the result to `dst`.
+    /// Do a binary operation on `lhs_dst` (left) and `rhs` (right) and write the result to
+    /// `lhs_dst`.
     BinaryOp {
-        dst: RegId,
+        lhs_dst: RegId,
         op: Operator,
-        lhs: RegId,
         rhs: RegId,
     },
+    /// Follow a cell path on the `path`
+    FollowCellPath { src_dst: RegId, path: RegId },
     /// Jump to an offset in this block
     Jump { index: usize },
     /// Branch to an offset in this block if the value of the `cond` register is a true boolean,
@@ -73,12 +71,6 @@ impl fmt::Display for Instruction {
             Instruction::LoadLiteral { dst, lit } => {
                 write!(f, "{:15} %{}, {:?}", "load-literal", dst.0, lit)
             }
-            Instruction::AppendList { dst, src } => {
-                write!(f, "{:15} %{}, %{}", "append-list", dst.0, src.0)
-            }
-            Instruction::AppendString { dst, src } => {
-                write!(f, "{:15} %{}, %{}", "append-string", dst.0, src.0)
-            }
             Instruction::Clone { dst, src } => {
                 write!(f, "{:15} %{}, %{}", "clone", dst.0, src.0)
             }
@@ -92,11 +84,7 @@ impl fmt::Display for Instruction {
                 write!(f, "{:15} %{}", "append-rest", src.0)
             }
             Instruction::PushNamed { name, src } => {
-                if let Some(src) = src {
-                    write!(f, "{:15} {:?}, %{}", "push-named", name, src.0)
-                } else {
-                    write!(f, "{:15} {:?}", "push-named", name)
-                }
+                write!(f, "{:15} {:?}, %{}", "push-named", name, src.0)
             }
             Instruction::ClearArgs => {
                 write!(f, "{:15}", "clear-args")
@@ -104,12 +92,11 @@ impl fmt::Display for Instruction {
             Instruction::Call { decl_id, src_dst } => {
                 write!(f, "{:15} decl {}, %{}", "call", decl_id, src_dst.0)
             }
-            Instruction::BinaryOp { dst, lhs, op, rhs } => {
-                write!(
-                    f,
-                    "{:15} %{}, {:?}, %{}, %{}",
-                    "binary-op", dst.0, op, lhs.0, rhs.0
-                )
+            Instruction::BinaryOp { lhs_dst, op, rhs } => {
+                write!(f, "{:15} %{}, {:?}, %{}", "binary-op", lhs_dst.0, op, rhs.0)
+            }
+            Instruction::FollowCellPath { src_dst, path } => {
+                write!(f, "{:15} %{}, %{}", "follow-cell-path", src_dst.0, path.0)
             }
             Instruction::Jump { index } => {
                 write!(f, "{:15} {}", "jump", index)
@@ -155,40 +142,39 @@ fn dummy_test() {
     let ir_block = IrBlock {
         instructions: vec![
             Instruction::LoadLiteral {
-                dst: RegId(0),
+                dst: RegId(1),
                 lit: Literal::String("foo".into()),
             },
-            Instruction::PushPositional { src: RegId(0) },
+            Instruction::PushPositional { src: RegId(1) },
             Instruction::LoadLiteral {
-                dst: RegId(2),
+                dst: RegId(1),
                 lit: Literal::Int(40),
             },
             Instruction::LoadLiteral {
-                dst: RegId(3),
+                dst: RegId(2),
                 lit: Literal::Int(25),
             },
             Instruction::BinaryOp {
-                dst: RegId(1),
+                lhs_dst: RegId(1),
                 op: Operator::Math(Math::Plus),
-                lhs: RegId(2),
-                rhs: RegId(3),
+                rhs: RegId(2),
             },
             Instruction::PushNamed {
                 name: "bar-level".into(),
-                src: Some(RegId(1)),
+                src: RegId(1),
             },
             Instruction::LoadLiteral {
-                dst: RegId(4),
+                dst: RegId(1),
                 lit: Literal::Nothing,
             },
             Instruction::Call {
                 decl_id: 40,
-                src_dst: RegId(4),
+                src_dst: RegId(1),
             },
-            Instruction::Return { src: RegId(4) },
+            Instruction::Return { src: RegId(1) },
         ],
         spans: vec![],
-        register_count: 5,
+        register_count: 2,
     };
     println!("{}", ir_block);
     todo!();
