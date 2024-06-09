@@ -56,12 +56,12 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     }
 
     let expr = if block.pipelines.is_empty() {
-        Expression {
-            expr: Expr::Nothing,
-            span: span.unwrap_or(Span::unknown()),
-            custom_completion: None,
-            ty: Type::Nothing,
-        }
+        Expression::new(
+            &mut working_set,
+            Expr::Nothing,
+            span.unwrap_or(Span::unknown()),
+            Type::Nothing,
+        )
     } else {
         let mut pipeline = Arc::make_mut(&mut block).pipelines.remove(0);
 
@@ -81,12 +81,12 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
         }
 
         if pipeline.elements.is_empty() {
-            Expression {
-                expr: Expr::Nothing,
-                span: span.unwrap_or(Span::unknown()),
-                custom_completion: None,
-                ty: Type::Nothing,
-            }
+            Expression::new(
+                &mut working_set,
+                Expr::Nothing,
+                span.unwrap_or(Span::unknown()),
+                Type::Nothing,
+            )
         } else {
             pipeline.elements.remove(0).expr
         }

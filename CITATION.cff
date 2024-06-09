@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+title: 'Nushell'
+message: >-
+  If you use this software and wish to cite it, 
+  you can use the metadata from this file.
+type: software
+authors:
+  - name: "The Nushell Project Team"
+identifiers:
+  - type: url
+    value: 'https://github.com/nushell/nushell'
+    description: Repository
+repository-code: 'https://github.com/nushell/nushell'
+url: 'https://www.nushell.sh/'
+abstract: >-
+  The goal of the Nushell project is to take the Unix
+  philosophy of shells, where pipes connect simple commands
+  together, and bring it to the modern style of development.
+  Thus, rather than being either a shell, or a programming
+  language, Nushell connects both by bringing a rich
+  programming language and a full-featured shell together
+  into one package.
+keywords:
+  - nushell
+  - shell
+license: MIT

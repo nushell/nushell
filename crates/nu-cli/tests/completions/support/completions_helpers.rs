@@ -62,7 +62,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     );
 
     // Merge environment into the permanent state
-    let merge_result = engine_state.merge_env(&mut stack);
+    let merge_result = engine_state.merge_env(&mut stack, &dir);
     assert!(merge_result.is_ok());
 
     (dir, dir_str, engine_state, stack)
@@ -97,7 +97,7 @@ pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
     );
 
     // Merge environment into the permanent state
-    let merge_result = engine_state.merge_env(&mut stack);
+    let merge_result = engine_state.merge_env(&mut stack, &dir);
     assert!(merge_result.is_ok());
 
     (dir, dir_str, engine_state, stack)
@@ -132,7 +132,7 @@ pub fn new_partial_engine() -> (PathBuf, String, EngineState, Stack) {
     );
 
     // Merge environment into the permanent state
-    let merge_result = engine_state.merge_env(&mut stack);
+    let merge_result = engine_state.merge_env(&mut stack, &dir);
     assert!(merge_result.is_ok());
 
     (dir, dir_str, engine_state, stack)
@@ -173,6 +173,7 @@ pub fn merge_input(
     input: &[u8],
     engine_state: &mut EngineState,
     stack: &mut Stack,
+    dir: PathBuf,
 ) -> Result<(), ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -195,5 +196,5 @@ pub fn merge_input(
     .is_ok());
 
     // Merge environment into the permanent state
-    engine_state.merge_env(stack)
+    engine_state.merge_env(stack, &dir)
 }

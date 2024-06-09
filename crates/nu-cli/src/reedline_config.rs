@@ -1,6 +1,5 @@
 use crate::{menus::NuMenuCompleter, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
-use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
@@ -80,7 +79,7 @@ pub(crate) fn add_menus(
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
-    trace!("add_menus: config: {:#?}", &config);
+    //log::trace!("add_menus: config: {:#?}", &config);
     line_editor = line_editor.clear_menus();
 
     for menu in &config.menus {

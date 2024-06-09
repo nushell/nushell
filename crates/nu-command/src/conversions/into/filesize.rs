@@ -138,6 +138,7 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         ),
     }
 }
+
 fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     // Get the Locale so we know what the thousands separator is
     let locale = get_system_locale();
@@ -148,26 +149,32 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     let clean_string = no_comma_string.trim();
 
     // Hadle negative file size
-    if let Some(stripped_string) = clean_string.strip_prefix('-') {
-        match stripped_string.parse::<bytesize::ByteSize>() {
+    if let Some(stripped_negative_string) = clean_string.strip_prefix('-') {
+        match stripped_negative_string.parse::<bytesize::ByteSize>() {
             Ok(n) => Ok(-(n.as_u64() as i64)),
-            Err(_) => Err(ShellError::CantConvert {
-                to_type: "int".into(),
-                from_type: "string".into(),
-                span,
-                help: None,
-            }),
+            Err(_) => Err(string_convert_error(span)),
+        }
+    } else if let Some(stripped_positive_string) = clean_string.strip_prefix('+') {
+        match stripped_positive_string.parse::<bytesize::ByteSize>() {
+            Ok(n) if stripped_positive_string.starts_with(|c: char| c.is_ascii_digit()) => {
+                Ok(n.as_u64() as i64)
+            }
+            _ => Err(string_convert_error(span)),
         }
     } else {
         match clean_string.parse::<bytesize::ByteSize>() {
-            Ok(n) => Ok(n.0 as i64),
-            Err(_) => Err(ShellError::CantConvert {
-                to_type: "int".into(),
-                from_type: "string".into(),
-                span,
-                help: None,
-            }),
+            Ok(n) => Ok(n.as_u64() as i64),
+            Err(_) => Err(string_convert_error(span)),
         }
+    }
+}
+
+fn string_convert_error(span: Span) -> ShellError {
+    ShellError::CantConvert {
+        to_type: "filesize".into(),
+        from_type: "string".into(),
+        span,
+        help: None,
     }
 }
 
