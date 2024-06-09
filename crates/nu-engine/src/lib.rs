@@ -2,6 +2,7 @@ mod call_ext;
 mod closure_eval;
 pub mod column;
 pub mod command_prelude;
+mod compile;
 pub mod documentation;
 pub mod env;
 mod eval;
@@ -12,6 +13,7 @@ pub mod scope;
 pub use call_ext::CallExt;
 pub use closure_eval::*;
 pub use column::get_columns;
+pub use compile::compile;
 pub use documentation::get_full_help;
 pub use env::*;
 pub use eval::{

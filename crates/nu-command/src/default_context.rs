@@ -154,6 +154,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             TimeIt,
             View,
             ViewFiles,
+            ViewIr,
             ViewSource,
             ViewSpan,
         };
