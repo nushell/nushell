@@ -3024,6 +3024,7 @@ dependencies = [
 name = "nu-engine"
 version = "0.94.3"
 dependencies = [
+ "log",
  "nu-glob",
  "nu-path",
  "nu-protocol",

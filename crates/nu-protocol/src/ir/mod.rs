@@ -74,57 +74,59 @@ pub enum Instruction {
 
 impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const WIDTH: usize = 20;
+
         match self {
             Instruction::LoadLiteral { dst, lit } => {
-                write!(f, "{:15} {dst}, {lit:?}", "load-literal")
+                write!(f, "{:WIDTH$} {dst}, {lit:?}", "load-literal")
             }
             Instruction::Move { dst, src } => {
-                write!(f, "{:15} {dst}, {src}", "move")
+                write!(f, "{:WIDTH$} {dst}, {src}", "move")
             }
             Instruction::Clone { dst, src } => {
-                write!(f, "{:15} {dst}, {src}", "clone")
+                write!(f, "{:WIDTH$} {dst}, {src}", "clone")
             }
             Instruction::Collect { src_dst } => {
-                write!(f, "{:15} {src_dst}", "collect")
+                write!(f, "{:WIDTH$} {src_dst}", "collect")
             }
             Instruction::Drain { src } => {
-                write!(f, "{:15} {src}", "drain")
+                write!(f, "{:WIDTH$} {src}", "drain")
             }
             Instruction::PushPositional { src } => {
-                write!(f, "{:15} {src}", "push-positional")
+                write!(f, "{:WIDTH$} {src}", "push-positional")
             }
             Instruction::AppendRest { src } => {
-                write!(f, "{:15} {src}", "append-rest")
+                write!(f, "{:WIDTH$} {src}", "append-rest")
             }
             Instruction::PushFlag { name } => {
-                write!(f, "{:15} {name:?}", "push-flag")
+                write!(f, "{:WIDTH$} {name:?}", "push-flag")
             }
             Instruction::PushNamed { name, src } => {
-                write!(f, "{:15} {name:?}, {src}", "push-named")
+                write!(f, "{:WIDTH$} {name:?}, {src}", "push-named")
             }
             Instruction::RedirectOut { mode } => {
-                write!(f, "{:15} {mode}", "redirect-out")
+                write!(f, "{:WIDTH$} {mode}", "redirect-out")
             }
             Instruction::RedirectErr { mode } => {
-                write!(f, "{:15} {mode}", "redirect-err")
+                write!(f, "{:WIDTH$} {mode}", "redirect-err")
             }
             Instruction::Call { decl_id, src_dst } => {
-                write!(f, "{:15} decl {decl_id}, {src_dst}", "call")
+                write!(f, "{:WIDTH$} decl {decl_id}, {src_dst}", "call")
             }
             Instruction::BinaryOp { lhs_dst, op, rhs } => {
-                write!(f, "{:15} {lhs_dst}, {op:?}, {rhs}", "binary-op")
+                write!(f, "{:WIDTH$} {lhs_dst}, {op:?}, {rhs}", "binary-op")
             }
             Instruction::FollowCellPath { src_dst, path } => {
-                write!(f, "{:15} {src_dst}, {path}", "follow-cell-path")
+                write!(f, "{:WIDTH$} {src_dst}, {path}", "follow-cell-path")
             }
             Instruction::Jump { index } => {
-                write!(f, "{:15} {index}", "jump")
+                write!(f, "{:WIDTH$} {index}", "jump")
             }
             Instruction::BranchIf { cond, index } => {
-                write!(f, "{:15} {cond}, {index}", "branch-if")
+                write!(f, "{:WIDTH$} {cond}, {index}", "branch-if")
             }
             Instruction::Return { src } => {
-                write!(f, "{:15} {src}", "return")
+                write!(f, "{:WIDTH$} {src}", "return")
             }
         }
     }

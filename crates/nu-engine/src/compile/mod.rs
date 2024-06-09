@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, Expr, Expression, Operator, Pipeline, PipelineRedirection,
+        Argument, Block, Call, CellPath, Expr, Expression, Operator, Pipeline, PipelineRedirection,
         RedirectionSource, RedirectionTarget,
     },
     engine::EngineState,
@@ -15,40 +15,85 @@ const BLOCK_INPUT: RegId = RegId(0);
 pub fn compile(engine_state: &EngineState, block: &Block) -> Result<IrBlock, ShellError> {
     let mut builder = BlockBuilder::new();
 
-    compile_block(engine_state, &mut builder, block, BLOCK_INPUT)
+    compile_block(
+        engine_state,
+        &mut builder,
+        block,
+        RedirectModes::default(),
+        Some(BLOCK_INPUT),
+        BLOCK_INPUT,
+    )
+    .map_err(|err| err.to_shell_error(block.span))?;
+
+    // A complete block has to end with a `return`
+    builder
+        .push(
+            Instruction::Return { src: BLOCK_INPUT }
+                .into_spanned(block.span.unwrap_or(Span::unknown())),
+        )
         .map_err(|err| err.to_shell_error(block.span))?;
 
     Ok(builder.finish())
+}
+
+#[derive(Default)]
+struct RedirectModes {
+    out: Option<Spanned<RedirectMode>>,
+    err: Option<Spanned<RedirectMode>>,
+}
+
+impl RedirectModes {
+    fn capture_out(span: Span) -> Self {
+        RedirectModes {
+            out: Some(RedirectMode::Capture.into_spanned(span)),
+            err: None,
+        }
+    }
 }
 
 fn compile_block(
     engine_state: &EngineState,
     builder: &mut BlockBuilder,
     block: &Block,
-    input: RegId,
+    redirect_modes: RedirectModes,
+    in_reg: Option<RegId>,
+    out_reg: RegId,
 ) -> Result<(), CompileError> {
     let span = block.span.unwrap_or(Span::unknown());
-    let io_reg = input;
+    let mut redirect_modes = Some(redirect_modes);
     if !block.pipelines.is_empty() {
         let last_index = block.pipelines.len() - 1;
         for (index, pipeline) in block.pipelines.iter().enumerate() {
-            compile_pipeline(engine_state, builder, pipeline, span, io_reg)?;
+            compile_pipeline(
+                engine_state,
+                builder,
+                pipeline,
+                span,
+                // the redirect mode only applies to the last pipeline.
+                if index == last_index {
+                    redirect_modes
+                        .take()
+                        .expect("should only take redirect_modes once")
+                } else {
+                    RedirectModes::default()
+                },
+                // input is only passed to the first pipeline.
+                if index == 0 { in_reg } else { None },
+                out_reg,
+            )?;
 
             if index != last_index {
-                // Explicitly drain the I/O reg after each non-final pipeline, and replace
-                // with Nothing, because that's how the semicolon functions.
-                builder.push(Instruction::Drain { src: io_reg }.into_spanned(span))?;
-                builder.push(
-                    Instruction::LoadLiteral {
-                        dst: io_reg,
-                        lit: Literal::Nothing,
-                    }
-                    .into_spanned(span),
-                )?;
+                // Explicitly drain the out reg after each non-final pipeline, because that's how
+                // the semicolon functions.
+                builder.push(Instruction::Drain { src: out_reg }.into_spanned(span))?;
             }
         }
+        Ok(())
+    } else if in_reg.is_none() {
+        builder.load_nothing(out_reg)
+    } else {
+        Ok(())
     }
-    builder.push(Instruction::Return { src: io_reg }.into_spanned(span))
 }
 
 fn compile_pipeline(
@@ -56,50 +101,77 @@ fn compile_pipeline(
     builder: &mut BlockBuilder,
     pipeline: &Pipeline,
     fallback_span: Span,
-    io_reg: RegId,
+    redirect_modes: RedirectModes,
+    in_reg: Option<RegId>,
+    out_reg: RegId,
 ) -> Result<(), CompileError> {
     let mut iter = pipeline.elements.iter().peekable();
+    let mut in_reg = in_reg;
+    let mut redirect_modes = Some(redirect_modes);
     while let Some(element) = iter.next() {
         let span = element.pipe.unwrap_or(fallback_span);
 
         // We have to get the redirection mode from either the explicit redirection in the pipeline
-        // element, or from the next expression if it's specified there.
+        // element, or from the next expression if it's specified there. If this is the last
+        // element, then it's from whatever is passed in as the mode to use.
 
-        let (out_mode_next, err_mode_next) = if let Some(next_element) = iter.peek() {
-            redirect_mode_of_expression(engine_state, &next_element.expr)?
+        let next_redirect_modes = if let Some(next_element) = iter.peek() {
+            redirect_modes_of_expression(engine_state, &next_element.expr, span)?
         } else {
-            (None, None)
+            redirect_modes
+                .take()
+                .expect("should only take redirect_modes once")
         };
 
-        let (out_mode_spec, err_mode_spec) = match &element.redirection {
+        let spec_redirect_modes = match &element.redirection {
             Some(PipelineRedirection::Single { source, target }) => {
                 let mode = redirection_target_to_mode(engine_state, builder, target, false)?;
                 match source {
-                    RedirectionSource::Stdout => (Some(mode), None),
-                    RedirectionSource::Stderr => (None, Some(mode)),
-                    RedirectionSource::StdoutAndStderr => (Some(mode), Some(mode)),
+                    RedirectionSource::Stdout => RedirectModes {
+                        out: Some(mode),
+                        err: None,
+                    },
+                    RedirectionSource::Stderr => RedirectModes {
+                        out: None,
+                        err: Some(mode),
+                    },
+                    RedirectionSource::StdoutAndStderr => RedirectModes {
+                        out: Some(mode),
+                        err: Some(mode),
+                    },
                 }
             }
             Some(PipelineRedirection::Separate { out, err }) => {
                 let out = redirection_target_to_mode(engine_state, builder, out, true)?;
                 let err = redirection_target_to_mode(engine_state, builder, err, true)?;
-                (Some(out), Some(err))
+                RedirectModes {
+                    out: Some(out),
+                    err: Some(err),
+                }
             }
-            None => (None, None),
+            None => RedirectModes {
+                out: None,
+                err: None,
+            },
         };
 
-        let out_mode = out_mode_spec.or(out_mode_next.map(|mode| mode.into_spanned(span)));
-        let err_mode = err_mode_spec.or(err_mode_next.map(|mode| mode.into_spanned(span)));
+        let out_mode = spec_redirect_modes.out.or(next_redirect_modes.out);
+        let err_mode = spec_redirect_modes.err.or(next_redirect_modes.err);
 
         compile_expression(
             engine_state,
             builder,
             &element.expr,
-            out_mode,
-            err_mode,
-            Some(io_reg),
-            io_reg,
+            RedirectModes {
+                out: out_mode,
+                err: err_mode,
+            },
+            in_reg,
+            out_reg,
         )?;
+
+        // The next pipeline element takes input from this output
+        in_reg = Some(out_reg);
     }
     Ok(())
 }
@@ -121,8 +193,7 @@ fn redirection_target_to_mode(
                 engine_state,
                 builder,
                 expr,
-                Some(RedirectMode::Capture.into_spanned(*redir_span)),
-                None,
+                RedirectModes::capture_out(*redir_span),
                 None,
                 path_reg,
             )?;
@@ -141,15 +212,22 @@ fn redirection_target_to_mode(
     })
 }
 
-fn redirect_mode_of_expression(
+fn redirect_modes_of_expression(
     engine_state: &EngineState,
     expression: &Expression,
-) -> Result<(Option<RedirectMode>, Option<RedirectMode>), CompileError> {
+    redir_span: Span,
+) -> Result<RedirectModes, CompileError> {
     let (out, err) = expression.expr.pipe_redirection(&engine_state);
-    Ok((
-        out.map(|out| out_dest_to_redirect_mode(out)).transpose()?,
-        err.map(|err| out_dest_to_redirect_mode(err)).transpose()?,
-    ))
+    Ok(RedirectModes {
+        out: out
+            .map(|out| out_dest_to_redirect_mode(out))
+            .transpose()?
+            .map(|mode| mode.into_spanned(redir_span)),
+        err: err
+            .map(|err| out_dest_to_redirect_mode(err))
+            .transpose()?
+            .map(|mode| mode.into_spanned(redir_span)),
+    })
 }
 
 fn out_dest_to_redirect_mode(out_dest: OutDest) -> Result<RedirectMode, CompileError> {
@@ -166,8 +244,7 @@ fn compile_expression(
     engine_state: &EngineState,
     builder: &mut BlockBuilder,
     expr: &Expression,
-    out_mode: Option<Spanned<RedirectMode>>,
-    err_mode: Option<Spanned<RedirectMode>>,
+    redirect_modes: RedirectModes,
     in_reg: Option<RegId>,
     out_reg: RegId,
 ) -> Result<(), CompileError> {
@@ -207,7 +284,7 @@ fn compile_expression(
                 builder.load_nothing(out_reg)?;
             }
 
-            compile_call(engine_state, builder, &call, out_mode, err_mode, out_reg)
+            compile_call(engine_state, builder, &call, redirect_modes, out_reg)
         }
         Expr::ExternalCall(_, _) => todo!(),
         Expr::Operator(_) => todo!(),
@@ -228,7 +305,17 @@ fn compile_expression(
                 Err(CompileError::UnsupportedOperatorExpression)
             }
         }
-        Expr::Subexpression(_) => todo!(),
+        Expr::Subexpression(block_id) => {
+            let block = engine_state.get_block(*block_id);
+            compile_block(
+                engine_state,
+                builder,
+                &block,
+                redirect_modes,
+                in_reg,
+                out_reg,
+            )
+        }
         Expr::Block(_) => todo!(),
         Expr::Closure(_) => todo!(),
         Expr::MatchBlock(_) => todo!(),
@@ -244,7 +331,33 @@ fn compile_expression(
         Expr::String(s) => lit(builder, Literal::String(s.as_str().into())),
         Expr::RawString(rs) => lit(builder, Literal::RawString(rs.as_str().into())),
         Expr::CellPath(path) => lit(builder, Literal::CellPath(Box::new(path.clone()))),
-        Expr::FullCellPath(_) => todo!(),
+        Expr::FullCellPath(full_cell_path) => {
+            compile_expression(
+                engine_state,
+                builder,
+                &full_cell_path.head,
+                RedirectModes::capture_out(expr.span),
+                in_reg,
+                out_reg,
+            )?;
+            // Only do the follow if this is actually needed
+            if !full_cell_path.tail.is_empty() {
+                let cell_path_reg = builder.literal(
+                    Literal::CellPath(Box::new(CellPath {
+                        members: full_cell_path.tail.clone(),
+                    }))
+                    .into_spanned(expr.span),
+                )?;
+                builder.push(
+                    Instruction::FollowCellPath {
+                        src_dst: out_reg,
+                        path: cell_path_reg,
+                    }
+                    .into_spanned(expr.span),
+                )?;
+            }
+            Ok(())
+        }
         Expr::ImportPattern(_) => todo!(),
         Expr::Overlay(_) => todo!(),
         Expr::Signature(_) => todo!(),
@@ -258,8 +371,7 @@ fn compile_call(
     engine_state: &EngineState,
     builder: &mut BlockBuilder,
     call: &Call,
-    out_mode: Option<Spanned<RedirectMode>>,
-    err_mode: Option<Spanned<RedirectMode>>,
+    redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // It's important that we evaluate the args first before trying to set up the argument
@@ -286,8 +398,7 @@ fn compile_call(
                     engine_state,
                     builder,
                     expr,
-                    Some(RedirectMode::Capture.into_spanned(arg.span())),
-                    None,
+                    RedirectModes::capture_out(arg.span()),
                     None,
                     arg_reg,
                 )?;
@@ -332,11 +443,11 @@ fn compile_call(
         }
     }
 
-    if let Some(mode) = out_mode {
+    if let Some(mode) = redirect_modes.out {
         builder.push(mode.map(|mode| Instruction::RedirectOut { mode }))?;
     }
 
-    if let Some(mode) = err_mode {
+    if let Some(mode) = redirect_modes.err {
         builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
     }
 
@@ -373,8 +484,7 @@ fn compile_binary_op(
         engine_state,
         builder,
         lhs,
-        Some(RedirectMode::Capture.into_spanned(op.span)),
-        None,
+        RedirectModes::capture_out(op.span),
         in_reg,
         lhs_reg,
     )?;
@@ -382,8 +492,7 @@ fn compile_binary_op(
         engine_state,
         builder,
         rhs,
-        Some(RedirectMode::Capture.into_spanned(op.span)),
-        None,
+        RedirectModes::capture_out(op.span),
         in_reg,
         rhs_reg,
     )?;
@@ -491,7 +600,17 @@ impl BlockBuilder {
         }
     }
 
-    /// Mark a register as used, so that it can be used again by something else.
+    /// Mark a register as initialized.
+    fn mark_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
+        if let Some(is_allocated) = self.register_allocation_state.get_mut(reg_id.0 as usize) {
+            *is_allocated = true;
+            Ok(())
+        } else {
+            Err(CompileError::RegisterOverflow)
+        }
+    }
+
+    /// Mark a register as empty, so that it can be used again by something else.
     fn free_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
         let index = reg_id.0 as usize;
 
@@ -503,6 +622,7 @@ impl BlockBuilder {
             self.register_allocation_state[index] = false;
             Ok(())
         } else {
+            log::warn!("register {reg_id} uninitialized, builder = {self:#?}");
             Err(CompileError::RegisterUninitialized(reg_id))
         }
     }
@@ -511,9 +631,12 @@ impl BlockBuilder {
     /// instruction.
     fn push(&mut self, instruction: Spanned<Instruction>) -> Result<(), CompileError> {
         match &instruction.item {
-            Instruction::LoadLiteral { dst: _, lit: _ } => (),
-            Instruction::Move { dst: _, src } => self.free_register(*src)?,
-            Instruction::Clone { dst: _, src: _ } => (),
+            Instruction::LoadLiteral { dst, lit: _ } => self.mark_register(*dst)?,
+            Instruction::Move { dst, src } => {
+                self.free_register(*src)?;
+                self.mark_register(*dst)?;
+            }
+            Instruction::Clone { dst, src: _ } => self.mark_register(*dst)?,
             Instruction::Collect { src_dst: _ } => (),
             Instruction::Drain { src } => self.free_register(*src)?,
             Instruction::PushPositional { src } => self.free_register(*src)?,
@@ -543,15 +666,31 @@ impl BlockBuilder {
         Ok(())
     }
 
-    /// Initialize a register with [`Nothing`](Literal::Nothing).
-    fn load_nothing(&mut self, reg_id: RegId) -> Result<(), CompileError> {
+    /// Load a register with a literal.
+    fn load_literal(
+        &mut self,
+        reg_id: RegId,
+        literal: Spanned<Literal>,
+    ) -> Result<(), CompileError> {
         self.push(
             Instruction::LoadLiteral {
                 dst: reg_id,
-                lit: Literal::Nothing,
+                lit: literal.item,
             }
-            .into_spanned(Span::unknown()),
+            .into_spanned(literal.span),
         )
+    }
+
+    /// Allocate a new register and load a literal into it.
+    fn literal(&mut self, literal: Spanned<Literal>) -> Result<RegId, CompileError> {
+        let reg_id = self.next_register()?;
+        self.load_literal(reg_id, literal)?;
+        Ok(reg_id)
+    }
+
+    /// Initialize a register with [`Nothing`](Literal::Nothing).
+    fn load_nothing(&mut self, reg_id: RegId) -> Result<(), CompileError> {
+        self.load_literal(reg_id, Literal::Nothing.into_spanned(Span::unknown()))
     }
 
     /// Consume the builder and produce the final [`IrBlock`].
