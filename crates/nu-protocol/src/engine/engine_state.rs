@@ -7,7 +7,7 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    BlockId, Category, Config, DeclId, FileId, HistoryConfig, Module, ModuleId, OverlayId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Module, ModuleId, OverlayId,
     ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
@@ -1035,17 +1035,19 @@ impl EngineState {
         SpanId(self.num_spans() - 1)
     }
 
+    /// Find ID of a span (should be avoided if possible)
+    pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
+        self.spans.iter().position(|sp| sp == &span).map(SpanId)
+    }
+}
+
+impl<'a> GetSpan for &'a EngineState {
     /// Get existing span
-    pub fn get_span(&self, span_id: SpanId) -> Span {
+    fn get_span(&self, span_id: SpanId) -> Span {
         *self
             .spans
             .get(span_id.0)
             .expect("internal error: missing span")
-    }
-
-    /// Find ID of a span (should be avoided if possible)
-    pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
-        self.spans.iter().position(|sp| sp == &span).map(SpanId)
     }
 }
 
