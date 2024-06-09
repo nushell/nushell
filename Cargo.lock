@@ -3730,9 +3730,9 @@ dependencies = [
 
 [[package]]
 name = "os_pipe"
-version = "1.1.5"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57119c3b893986491ec9aa85056780d3a0f3cf4da7cc09dd3650dbd6c6738fb9"
+checksum = "29d73ba8daf8fac13b0501d1abeddcfe21ba7401ada61a819144b6c2a4f32209"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
@@ -4819,7 +4819,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.32.0"
-source = "git+https://github.com/ysthakur/reedline?branch=fuzzy-select-underline#a747c7110eb5113c347c99cd6f1ee09d2c4a0084"
+source = "git+https://github.com/ysthakur/reedline?branch=fuzzy-select-underline#f66f07cdc6c1b6a464a81aad9b2d6e62f852be93"
 dependencies = [
  "arboard",
  "chrono",
