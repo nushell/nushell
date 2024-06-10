@@ -1,9 +1,11 @@
-use std::fmt;
-
 use crate::{
     ast::{CellPath, Operator},
+    engine::EngineState,
     BlockId, DeclId, RegId, Span,
 };
+
+mod display;
+pub use display::FmtIrBlock;
 
 #[derive(Debug, Clone)]
 pub struct IrBlock {
@@ -12,18 +14,12 @@ pub struct IrBlock {
     pub register_count: usize,
 }
 
-impl fmt::Display for IrBlock {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(
-            f,
-            "# {} registers, {} instructions",
-            self.register_count,
-            self.instructions.len()
-        )?;
-        for instruction in &self.instructions {
-            writeln!(f, "{}", instruction)?;
+impl IrBlock {
+    pub fn display<'a>(&'a self, engine_state: &'a EngineState) -> FmtIrBlock<'a> {
+        FmtIrBlock {
+            engine_state,
+            ir_block: self,
         }
-        Ok(())
     }
 }
 
@@ -72,66 +68,6 @@ pub enum Instruction {
     Return { src: RegId },
 }
 
-impl fmt::Display for Instruction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const WIDTH: usize = 20;
-
-        match self {
-            Instruction::LoadLiteral { dst, lit } => {
-                write!(f, "{:WIDTH$} {dst}, {lit:?}", "load-literal")
-            }
-            Instruction::Move { dst, src } => {
-                write!(f, "{:WIDTH$} {dst}, {src}", "move")
-            }
-            Instruction::Clone { dst, src } => {
-                write!(f, "{:WIDTH$} {dst}, {src}", "clone")
-            }
-            Instruction::Collect { src_dst } => {
-                write!(f, "{:WIDTH$} {src_dst}", "collect")
-            }
-            Instruction::Drain { src } => {
-                write!(f, "{:WIDTH$} {src}", "drain")
-            }
-            Instruction::PushPositional { src } => {
-                write!(f, "{:WIDTH$} {src}", "push-positional")
-            }
-            Instruction::AppendRest { src } => {
-                write!(f, "{:WIDTH$} {src}", "append-rest")
-            }
-            Instruction::PushFlag { name } => {
-                write!(f, "{:WIDTH$} {name:?}", "push-flag")
-            }
-            Instruction::PushNamed { name, src } => {
-                write!(f, "{:WIDTH$} {name:?}, {src}", "push-named")
-            }
-            Instruction::RedirectOut { mode } => {
-                write!(f, "{:WIDTH$} {mode}", "redirect-out")
-            }
-            Instruction::RedirectErr { mode } => {
-                write!(f, "{:WIDTH$} {mode}", "redirect-err")
-            }
-            Instruction::Call { decl_id, src_dst } => {
-                write!(f, "{:WIDTH$} decl {decl_id}, {src_dst}", "call")
-            }
-            Instruction::BinaryOp { lhs_dst, op, rhs } => {
-                write!(f, "{:WIDTH$} {lhs_dst}, {op:?}, {rhs}", "binary-op")
-            }
-            Instruction::FollowCellPath { src_dst, path } => {
-                write!(f, "{:WIDTH$} {src_dst}, {path}", "follow-cell-path")
-            }
-            Instruction::Jump { index } => {
-                write!(f, "{:WIDTH$} {index}", "jump")
-            }
-            Instruction::BranchIf { cond, index } => {
-                write!(f, "{:WIDTH$} {cond}, {index}", "branch-if")
-            }
-            Instruction::Return { src } => {
-                write!(f, "{:WIDTH$} {src}", "return")
-            }
-        }
-    }
-}
-
 // This is to document/enforce the size of `Instruction` in bytes.
 // We should try to avoid increasing the size of `Instruction`,
 // and PRs that do so will have to change the number below so that it's noted in review.
@@ -176,61 +112,4 @@ pub enum RedirectMode {
         path: RegId,
         append: bool,
     },
-}
-
-impl std::fmt::Display for RedirectMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RedirectMode::Pipe => write!(f, "pipe"),
-            RedirectMode::Capture => write!(f, "capture"),
-            RedirectMode::Null => write!(f, "null"),
-            RedirectMode::Inherit => write!(f, "inherit"),
-            RedirectMode::File { path, append } => write!(f, "file({path}, append={append})"),
-        }
-    }
-}
-
-#[test]
-fn dummy_test() {
-    use crate::ast::Math;
-
-    let ir_block = IrBlock {
-        instructions: vec![
-            Instruction::LoadLiteral {
-                dst: RegId(1),
-                lit: Literal::String("foo".into()),
-            },
-            Instruction::PushPositional { src: RegId(1) },
-            Instruction::LoadLiteral {
-                dst: RegId(1),
-                lit: Literal::Int(40),
-            },
-            Instruction::LoadLiteral {
-                dst: RegId(2),
-                lit: Literal::Int(25),
-            },
-            Instruction::BinaryOp {
-                lhs_dst: RegId(1),
-                op: Operator::Math(Math::Plus),
-                rhs: RegId(2),
-            },
-            Instruction::PushNamed {
-                name: "bar-level".into(),
-                src: RegId(1),
-            },
-            Instruction::LoadLiteral {
-                dst: RegId(1),
-                lit: Literal::Nothing,
-            },
-            Instruction::Call {
-                decl_id: 40,
-                src_dst: RegId(1),
-            },
-            Instruction::Return { src: RegId(1) },
-        ],
-        spans: vec![],
-        register_count: 2,
-    };
-    println!("{}", ir_block);
-    todo!();
 }
