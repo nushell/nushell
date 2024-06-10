@@ -10,7 +10,10 @@ trait IntoTestValue {
     fn into_test_value(self) -> Value;
 }
 
-impl<T> IntoTestValue for T where T: IntoValue {
+impl<T> IntoTestValue for T
+where
+    T: IntoValue,
+{
     fn into_test_value(self) -> Value {
         self.into_value(Span::test_data())
     }
