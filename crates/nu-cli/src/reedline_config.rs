@@ -95,6 +95,7 @@ pub(crate) fn add_menus(
     ];
 
     let mut engine_state = (*engine_state_ref).clone();
+    let mut menu_eval_results = vec![];
 
     for (name, definition) in default_menus {
         if !config
@@ -118,13 +119,27 @@ pub(crate) fn add_menus(
 
             let mut temp_stack = Stack::new().capture();
             let input = PipelineData::Empty;
-            let res = eval_block::<WithoutDebug>(&engine_state, &mut temp_stack, &block, input)?;
+            menu_eval_results.push(eval_block::<WithoutDebug>(
+                &engine_state,
+                &mut temp_stack,
+                &block,
+                input,
+            )?);
+        }
+    }
 
-            if let PipelineData::Value(value, None) = res {
-                for menu in create_menus(&value)? {
-                    line_editor =
-                        add_menu(line_editor, &menu, engine_state_ref.clone(), stack, config)?;
-                }
+    let new_engine_state_ref = Arc::new(engine_state);
+
+    for res in menu_eval_results.into_iter() {
+        if let PipelineData::Value(value, None) = res {
+            for menu in create_menus(&value)? {
+                line_editor = add_menu(
+                    line_editor,
+                    &menu,
+                    new_engine_state_ref.clone(),
+                    stack,
+                    config,
+                )?;
             }
         }
     }
