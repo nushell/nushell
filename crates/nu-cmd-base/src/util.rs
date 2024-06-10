@@ -20,7 +20,7 @@ pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf 
 
 type MakeRangeError = fn(&str, Span) -> ShellError;
 
-/// Returns a inclusively pair of boundary in given `range`.
+/// Returns a inclusive pair of boundary in given `range`.
 pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     match range {
         Range::IntRange(range) => {
