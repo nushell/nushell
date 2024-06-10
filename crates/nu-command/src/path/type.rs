@@ -107,7 +107,7 @@ If the path does not exist, null will be returned."#
 
 fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
     let path = nu_path::expand_path_with(path, &args.pwd, true);
-    match path.metadata() {
+    match path.symlink_metadata() {
         Ok(metadata) => Value::string(get_file_type(&metadata), span),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Value::nothing(span),
         Err(err) => Value::error(err.into_spanned(span).into(), span),
