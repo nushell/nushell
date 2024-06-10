@@ -181,13 +181,6 @@ pub trait TryIntoValue: Sized {
     // TODO: instead of ShellError, maybe we could have a IntoValueError that implements Into<ShellError>
     /// Tries to convert the given value into a `Value`.
     fn try_into_value(self, span: Span) -> Result<Value, ShellError>;
-
-    /// Tries to convert the given value to a `Value` with an unknown `Span`.
-    ///
-    /// Internally this simply calls [`Span::unknown`] for the `span`.
-    fn try_into_value_unknown(self) -> Result<Value, ShellError> {
-        Self::try_into_value(self, Span::unknown())
-    }
 }
 
 impl<T> TryIntoValue for T
