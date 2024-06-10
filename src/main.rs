@@ -125,13 +125,30 @@ fn main() -> Result<()> {
         }
     }
 
+    let default_nushell_completions_path = if let Some(mut path) = nu_path::data_dir() {
+        path.push("nushell");
+        path.push("completions");
+        path
+    } else {
+        std::path::PathBuf::new()
+    };
+
+    let default_nushell_cache_path = if let Some(mut path) = nu_path::cache_dir() {
+        path.push("nushell");
+        path
+    } else {
+        std::path::PathBuf::new()
+    };
+
     let mut default_nu_lib_dirs_path = nushell_config_path.clone();
     default_nu_lib_dirs_path.push("scripts");
     engine_state.add_env_var(
         "NU_LIB_DIRS".to_string(),
-        Value::test_list(vec![Value::test_string(
-            default_nu_lib_dirs_path.to_string_lossy(),
-        )]),
+        Value::test_list(vec![
+            Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
+            Value::test_string(default_nushell_completions_path.to_string_lossy()),
+            Value::test_string(default_nushell_cache_path.to_string_lossy()),
+        ]),
     );
 
     let mut default_nu_plugin_dirs_path = nushell_config_path;

@@ -6,6 +6,14 @@ pub fn home_dir() -> Option<PathBuf> {
     dirs_next::home_dir()
 }
 
+pub fn data_dir() -> Option<PathBuf> {
+    dirs_next::data_dir()
+}
+
+pub fn cache_dir() -> Option<PathBuf> {
+    dirs_next::cache_dir()
+}
+
 pub fn config_dir() -> Option<PathBuf> {
     match std::env::var("XDG_CONFIG_HOME").map(PathBuf::from) {
         Ok(xdg_config) if xdg_config.is_absolute() => {
