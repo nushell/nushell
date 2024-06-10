@@ -39,7 +39,7 @@ impl TableCmd {
 }
 
 impl ViewCommand for TableCmd {
-    type View = RecordView<'static>;
+    type View = RecordView;
 
     fn name(&self) -> &'static str {
         Self::NAME

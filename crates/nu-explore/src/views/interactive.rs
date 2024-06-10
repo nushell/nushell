@@ -22,18 +22,18 @@ use ratatui::{
 };
 use std::cmp::min;
 
-pub struct InteractiveView<'a> {
+pub struct InteractiveView {
     input: Value,
     command: String,
     immediate: bool,
-    table: Option<RecordView<'a>>,
+    table: Option<RecordView>,
     table_theme: TableTheme,
     view_mode: bool,
     border_color: Style,
     highlighted_color: Style,
 }
 
-impl<'a> InteractiveView<'a> {
+impl InteractiveView {
     pub fn new(input: Value) -> Self {
         Self {
             input,
@@ -60,7 +60,7 @@ impl<'a> InteractiveView<'a> {
     }
 }
 
-impl View for InteractiveView<'_> {
+impl View for InteractiveView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let border_color = self.border_color;
         let highlighted_color = self.highlighted_color;
@@ -282,7 +282,7 @@ fn run_command(
     input: &Value,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> Result<RecordView<'static>> {
+) -> Result<RecordView> {
     let pipeline = run_command_with_value(command, input, engine_state, stack)?;
 
     let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));

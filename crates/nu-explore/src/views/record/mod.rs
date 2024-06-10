@@ -23,25 +23,39 @@ use nu_protocol::{
     Record, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 pub use self::tablew::Orientation;
 
 #[derive(Debug, Clone)]
-pub struct RecordView<'a> {
-    layer_stack: Vec<RecordLayer<'a>>,
+pub struct RecordView {
+    layer_stack: Vec<LayerData>,
     mode: UIMode,
     orientation: Orientation,
     theme: TableTheme,
 }
 
-impl<'a> RecordView<'a> {
-    pub fn new(
-        columns: impl Into<Cow<'a, [String]>>,
-        records: impl Into<Cow<'a, [Vec<Value>]>>,
-    ) -> Self {
+#[derive(Debug, Clone)]
+struct LayerData {
+    record: RecordLayer,
+    widget_data: Option<RecordData>,
+}
+
+#[derive(Debug, Clone)]
+struct RecordData {
+    columns: Vec<String>,
+    records: Vec<Vec<NuText>>,
+}
+
+impl RecordView {
+    pub fn new(columns: Vec<String>, records: Vec<Vec<Value>>) -> Self {
+        let layer = LayerData {
+            record: RecordLayer::new(columns, records),
+            widget_data: None,
+        };
+
         Self {
-            layer_stack: vec![RecordLayer::new(columns, records)],
+            layer_stack: vec![layer],
             mode: UIMode::View,
             orientation: Orientation::Top,
             theme: TableTheme::default(),
@@ -110,13 +124,22 @@ impl<'a> RecordView<'a> {
     }
 
     // todo: rename to get_layer
-    pub fn get_layer_last(&self) -> &RecordLayer<'a> {
+    pub fn get_layer_last(&self) -> &RecordLayer {
+        &self.get_layer2().record
+    }
+
+    pub fn get_layer_last_mut(&mut self) -> &mut RecordLayer {
+        &mut self.get_layer2_mut().record
+    }
+
+    // todo: rename to get_layer
+    fn get_layer2(&self) -> &LayerData {
         self.layer_stack
             .last()
             .expect("we guarantee that 1 entry is always in a list")
     }
 
-    pub fn get_layer_last_mut(&mut self) -> &mut RecordLayer<'a> {
+    fn get_layer2_mut(&mut self) -> &mut LayerData {
         self.layer_stack
             .last_mut()
             .expect("we guarantee that 1 entry is always in a list")
@@ -135,7 +158,7 @@ impl<'a> RecordView<'a> {
 
     fn reset_cursors(&mut self) {
         for layer in &mut self.layer_stack {
-            layer.reset_cursor();
+            layer.record.reset_cursor();
         }
     }
 
@@ -183,15 +206,32 @@ impl<'a> RecordView<'a> {
         layer.records[row][column].clone()
     }
 
-    fn create_tablew(&'a self, cfg: ViewConfig<'a>) -> TableW<'a> {
-        let layer = self.get_layer_last();
-        let mut data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
-
-        lscolorize(&layer.columns, &mut data, cfg.lscolors);
-
-        let headers = layer.columns.as_ref();
+    fn create_tablew<'a>(&'a mut self, cfg: ViewConfig<'a>) -> TableW<'a> {
+        let style = self.theme.table;
         let style_computer = cfg.style_computer;
         let (row, column) = self.get_current_offset();
+
+        let layer = self.get_layer2_mut();
+        if layer.widget_data.is_none() {
+            let mut data =
+                convert_records_to_string(&layer.record.records, cfg.nu_config, cfg.style_computer);
+            lscolorize(&layer.record.columns, &mut data, cfg.lscolors);
+
+            let columns = layer
+                .record
+                .columns
+                .iter()
+                .map(|s| make_head_text(s))
+                .collect();
+
+            layer.widget_data = Some(RecordData {
+                records: data,
+                columns,
+            })
+        }
+
+        let headers = &layer.widget_data.as_ref().expect("ok").columns;
+        let data = &layer.widget_data.as_ref().expect("ok").records;
 
         TableW::new(
             headers,
@@ -199,8 +239,8 @@ impl<'a> RecordView<'a> {
             style_computer,
             row,
             column,
-            self.theme.table,
-            layer.orientation,
+            style,
+            layer.record.orientation,
         )
     }
 
@@ -231,11 +271,11 @@ impl<'a> RecordView<'a> {
     }
 }
 
-impl View for RecordView<'_> {
+impl View for RecordView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let mut table_layout = TableWState::default();
-        let table = self.create_tablew(cfg);
-        f.render_stateful_widget(table, area, &mut table_layout);
+        let tablew = self.create_tablew(cfg);
+        f.render_stateful_widget(tablew, area, &mut table_layout);
 
         *layout = table_layout.layout;
 
@@ -376,22 +416,17 @@ enum UIMode {
 }
 
 #[derive(Debug, Clone)]
-pub struct RecordLayer<'a> {
-    columns: Cow<'a, [String]>,
-    records: Cow<'a, [Vec<Value>]>,
+pub struct RecordLayer {
+    columns: Vec<String>,
+    records: Vec<Vec<Value>>,
     orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
     cursor: XYCursor,
 }
 
-impl<'a> RecordLayer<'a> {
-    fn new(
-        columns: impl Into<Cow<'a, [String]>>,
-        records: impl Into<Cow<'a, [Vec<Value>]>>,
-    ) -> Self {
-        let columns = columns.into();
-        let records = records.into();
+impl RecordLayer {
+    fn new(columns: Vec<String>, records: Vec<Vec<Value>>) -> Self {
         let cursor = XYCursor::new(records.len(), columns.len());
 
         Self {
@@ -609,13 +644,13 @@ fn handle_key_event_cursor_mode(
     }
 }
 
-fn create_layer(value: Value) -> Result<RecordLayer<'static>> {
+fn create_layer(value: Value) -> Result<RecordLayer> {
     let (columns, values) = collect_input(value)?;
 
     Ok(RecordLayer::new(columns, values))
 }
 
-fn push_layer(view: &mut RecordView<'_>, mut next_layer: RecordLayer<'static>) {
+fn push_layer(view: &mut RecordView, mut next_layer: RecordLayer) {
     let layer = view.get_layer_last();
     let header = layer.get_column_header();
 
@@ -623,7 +658,11 @@ fn push_layer(view: &mut RecordView<'_>, mut next_layer: RecordLayer<'static>) {
         next_layer.set_name(header);
     }
 
-    view.layer_stack.push(next_layer);
+    let layer = LayerData {
+        record: next_layer,
+        widget_data: None,
+    };
+    view.layer_stack.push(layer);
 }
 
 fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
@@ -638,7 +677,7 @@ fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
 }
 
 /// scroll to the end of the data
-fn tail_data(state: &mut RecordView<'_>, page_size: usize) {
+fn tail_data(state: &mut RecordView, page_size: usize) {
     let layer = state.get_layer_last_mut();
     let count_rows = layer.records.len();
     if count_rows > page_size {
@@ -657,6 +696,7 @@ fn convert_records_to_string(
             row.iter()
                 .map(|value| {
                     let text = value.clone().to_abbreviated_string(cfg);
+                    let text = strip_string(&text);
                     let float_precision = cfg.float_precision as usize;
 
                     make_styled_string(style_computer, text, Some(value), float_precision)
@@ -770,15 +810,12 @@ fn get_percentage(value: usize, max: usize) -> usize {
     ((value as f32 / max as f32) * 100.0).floor() as usize
 }
 
-fn transpose_table(layer: &mut RecordLayer<'_>) {
+fn transpose_table(layer: &mut RecordLayer) {
     let count_rows = layer.records.len();
     let count_columns = layer.columns.len();
 
     if layer.was_transposed {
-        let data = match &mut layer.records {
-            Cow::Owned(data) => data,
-            Cow::Borrowed(_) => unreachable!("must never happen"),
-        };
+        let data = &mut layer.records;
 
         let headers = pop_first_column(data);
         let headers = headers
@@ -791,8 +828,8 @@ fn transpose_table(layer: &mut RecordLayer<'_>) {
 
         let data = _transpose_table(data, count_rows, count_columns - 1);
 
-        layer.records = Cow::Owned(data);
-        layer.columns = Cow::Owned(headers);
+        layer.records = data;
+        layer.columns = headers;
     } else {
         let mut data = _transpose_table(&layer.records, count_rows, count_columns);
 
@@ -802,7 +839,7 @@ fn transpose_table(layer: &mut RecordLayer<'_>) {
             data[column].insert(0, value);
         }
 
-        layer.records = Cow::Owned(data);
+        layer.records = data;
         layer.columns = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
     }
 
@@ -883,4 +920,14 @@ struct CursorStyle {
     selected_cell: Option<NuStyle>,
     selected_column: Option<NuStyle>,
     selected_row: Option<NuStyle>,
+}
+
+fn make_head_text(head: &str) -> String {
+    strip_string(head)
+}
+
+fn strip_string(text: &str) -> String {
+    String::from_utf8(strip_ansi_escapes::strip(text))
+        .map_err(|_| ())
+        .unwrap_or_else(|_| text.to_owned())
 }

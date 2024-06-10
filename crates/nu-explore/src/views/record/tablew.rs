@@ -12,15 +12,12 @@ use ratatui::{
     text::Span,
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
-use std::{
-    borrow::Cow,
-    cmp::{max, Ordering},
-};
+use std::cmp::{max, Ordering};
 
 #[derive(Debug, Clone)]
 pub struct TableW<'a> {
-    columns: Cow<'a, [String]>,
-    data: Cow<'a, [Vec<NuText>]>,
+    columns: &'a [String],
+    data: &'a [Vec<NuText>],
     index_row: usize,
     index_column: usize,
     style: TableStyle,
@@ -50,8 +47,8 @@ pub struct TableStyle {
 impl<'a> TableW<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        columns: impl Into<Cow<'a, [String]>>,
-        data: impl Into<Cow<'a, [Vec<NuText>]>>,
+        columns: &'a [String],
+        data: &'a [Vec<NuText>],
         style_computer: &'a StyleComputer<'a>,
         index_row: usize,
         index_column: usize,
@@ -59,8 +56,8 @@ impl<'a> TableW<'a> {
         head_position: Orientation,
     ) -> Self {
         Self {
-            columns: columns.into(),
-            data: data.into(),
+            columns,
+            data,
             style_computer,
             index_row,
             index_column,
@@ -210,22 +207,25 @@ impl<'a> TableW<'a> {
             }
 
             if show_head {
-                let mut header = [head_row_text(&head, self.style_computer)];
+                let head_style = head_style(&head, self.style_computer);
                 if head_width > use_space as usize {
-                    truncate_str(&mut header[0].0, use_space as usize)
+                    truncate_str(&mut head, use_space as usize)
                 }
+                let head_iter = [(&head, head_style)].into_iter();
 
                 let mut w = width;
                 w += render_space(buf, w, head_y, 1, padding_cell_l);
-                w += render_column(buf, w, head_y, use_space, &header);
+                w += render_column(buf, w, head_y, use_space, head_iter);
                 w += render_space(buf, w, head_y, 1, padding_cell_r);
 
                 let x = w - padding_cell_r - use_space;
-                state.layout.push(&header[0].0, x, head_y, use_space, 1);
+                state.layout.push(&head, x, head_y, use_space, 1);
             }
 
+            let head_rows = column.iter().map(|(t, s)| (t, *s));
+
             width += render_space(buf, width, data_y, data_height, padding_cell_l);
-            width += render_column(buf, width, data_y, use_space, &column);
+            width += render_column(buf, width, data_y, use_space, head_rows);
             width += render_space(buf, width, data_y, data_height, padding_cell_r);
 
             for (row, (text, _)) in column.iter().enumerate() {
@@ -321,10 +321,9 @@ impl<'a> TableW<'a> {
                 return;
             }
 
-            let columns = columns
+            let columns_iter = columns
                 .iter()
-                .map(|s| head_row_text(s, self.style_computer))
-                .collect::<Vec<_>>();
+                .map(|s| (s.clone(), head_style(s, self.style_computer)));
 
             if !show_index {
                 let x = area.x + left_w;
@@ -334,12 +333,12 @@ impl<'a> TableW<'a> {
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, 1, padding_cell_l);
             let x = area.x + left_w;
-            left_w += render_column(buf, x, area.y, columns_width as u16, &columns);
+            left_w += render_column(buf, x, area.y, columns_width as u16, columns_iter);
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, 1, padding_cell_r);
 
             let layout_x = left_w - padding_cell_r - columns_width as u16;
-            for (i, (text, _)) in columns.iter().enumerate() {
+            for (i, text) in columns.iter().enumerate() {
                 state
                     .layout
                     .push(text, layout_x, area.y + i as u16, columns_width as u16, 1);
@@ -384,10 +383,12 @@ impl<'a> TableW<'a> {
                 break;
             }
 
+            let head_rows = column.iter().map(|(t, s)| (t, *s));
+
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, area.height, padding_cell_l);
             let x = area.x + left_w;
-            left_w += render_column(buf, x, area.y, column_width, &column);
+            left_w += render_column(buf, x, area.y, column_width, head_rows);
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, area.height, padding_cell_r);
 
@@ -624,14 +625,14 @@ fn repeat_vertical(
     c: char,
     style: TextStyle,
 ) {
-    let text = std::iter::repeat(c)
-        .take(width as usize)
-        .collect::<String>();
+    let text = String::from(c);
     let style = text_style_to_tui_style(style);
-    let span = Span::styled(text, style);
+    let span = Span::styled(&text, style);
 
     for row in 0..height {
-        buf.set_span(x_offset, y_offset + row, &span, width);
+        for col in 0 .. width {
+            buf.set_span(x_offset + col, y_offset + row, &span, 1);
+        }
     }
 }
 
@@ -680,35 +681,28 @@ fn calculate_column_width(column: &[NuText]) -> usize {
         .unwrap_or(0)
 }
 
-fn render_column(
+fn render_column<T, S>(
     buf: &mut ratatui::buffer::Buffer,
     x: u16,
     y: u16,
     available_width: u16,
-    rows: &[NuText],
-) -> u16 {
-    for (row, (text, style)) in rows.iter().enumerate() {
-        let style = text_style_to_tui_style(*style);
-        let text = strip_string(text);
-        let span = Span::styled(text, style);
+    rows: impl Iterator<Item = (T, S)>,
+) -> u16
+where
+    T: AsRef<str>,
+    S: Into<TextStyle>,
+{
+    for (row, (text, style)) in rows.enumerate() {
+        let style = text_style_to_tui_style(style.into());
+        let span = Span::styled(text.as_ref(), style);
         buf.set_span(x, y + row as u16, &span, available_width);
     }
 
     available_width
 }
 
-fn strip_string(text: &str) -> String {
-    String::from_utf8(strip_ansi_escapes::strip(text))
-        .map_err(|_| ())
-        .unwrap_or_else(|_| text.to_owned())
-}
-
-fn head_row_text(head: &str, style_computer: &StyleComputer) -> NuText {
-    (
-        String::from(head),
-        TextStyle::with_style(
-            Alignment::Center,
-            style_computer.compute("header", &Value::string(head, nu_protocol::Span::unknown())),
-        ),
-    )
+fn head_style(head: &str, style_computer: &StyleComputer) -> TextStyle {
+    let style =
+        style_computer.compute("header", &Value::string(head, nu_protocol::Span::unknown()));
+    TextStyle::with_style(Alignment::Center, style)
 }
