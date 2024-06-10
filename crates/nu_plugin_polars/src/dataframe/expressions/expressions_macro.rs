@@ -5,9 +5,7 @@ use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
-};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
 
 // The structs defined in this file are structs that form part of other commands
 // since they share a similar name
@@ -60,6 +58,7 @@ macro_rules! expr_command {
         mod $test {
             use super::*;
             use crate::test::test_polars_plugin_command;
+            use nu_protocol::ShellError;
 
             #[test]
             fn test_examples() -> Result<(), ShellError> {
@@ -159,22 +158,11 @@ macro_rules! lazy_expr_command {
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let value = input.into_value(call.head);
+                let value = input.into_value(call.head)?;
                 if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
                         .map_err(LabeledError::from)?;
-                    let lazy = NuLazyFrame::new(
-                        lazy.to_polars()
-                            .$func()
-                            .map_err(|e| ShellError::GenericError {
-                                error: "Dataframe Error".into(),
-                                msg: e.to_string(),
-                                help: None,
-                                span: None,
-                                inner: vec![],
-                            })
-                            .map_err(LabeledError::from)?,
-                    );
+                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().$func());
                     lazy.to_pipeline_data(plugin, engine, call.head)
                         .map_err(LabeledError::from)
                 } else {
@@ -191,6 +179,7 @@ macro_rules! lazy_expr_command {
         mod $test {
             use super::*;
             use crate::test::test_polars_plugin_command;
+            use nu_protocol::ShellError;
 
             #[test]
             fn test_examples() -> Result<(), ShellError> {
@@ -239,22 +228,11 @@ macro_rules! lazy_expr_command {
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let value = input.into_value(call.head);
+                let value = input.into_value(call.head)?;
                 if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
                         .map_err(LabeledError::from)?;
-                    let lazy = NuLazyFrame::new(
-                        lazy.to_polars()
-                            .$func($ddof)
-                            .map_err(|e| ShellError::GenericError {
-                                error: "Dataframe Error".into(),
-                                msg: e.to_string(),
-                                help: None,
-                                span: None,
-                                inner: vec![],
-                            })
-                            .map_err(LabeledError::from)?,
-                    );
+                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.to_polars().$func($ddof));
                     lazy.to_pipeline_data(plugin, engine, call.head)
                         .map_err(LabeledError::from)
                 } else {
@@ -270,6 +248,7 @@ macro_rules! lazy_expr_command {
         mod $test {
             use super::*;
             use crate::test::test_polars_plugin_command;
+            use nu_protocol::ShellError;
 
             #[test]
             fn test_examples() -> Result<(), ShellError> {

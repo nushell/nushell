@@ -5,6 +5,7 @@ mod mem;
 mod net;
 mod sys_;
 mod temp;
+mod users;
 
 pub use cpu::SysCpu;
 pub use disks::SysDisks;
@@ -13,10 +14,10 @@ pub use mem::SysMem;
 pub use net::SysNet;
 pub use sys_::Sys;
 pub use temp::SysTemp;
+pub use users::SysUsers;
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, FixedOffset, Local};
 use nu_protocol::{record, Record, Span, Value};
-use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,
 };
@@ -122,7 +123,29 @@ pub fn mem(span: Span) -> Value {
     Value::record(record, span)
 }
 
-pub fn host(span: Span) -> Value {
+pub fn users(span: Span) -> Value {
+    let users = Users::new_with_refreshed_list()
+        .iter()
+        .map(|user| {
+            let groups = user
+                .groups()
+                .iter()
+                .map(|group| Value::string(trim_cstyle_null(group.name()), span))
+                .collect();
+
+            let record = record! {
+                "name" => Value::string(trim_cstyle_null(user.name()), span),
+                "groups" => Value::list(groups, span),
+            };
+
+            Value::record(record, span)
+        })
+        .collect();
+
+    Value::list(users, span)
+}
+
+pub fn host(span: Span) -> Record {
     let mut record = Record::new();
 
     if let Some(name) = System::name() {
@@ -147,40 +170,29 @@ pub fn host(span: Span) -> Value {
         record.push("hostname", Value::string(trim_cstyle_null(hostname), span));
     }
 
-    record.push(
-        "uptime",
-        Value::duration(1000000000 * System::uptime() as i64, span),
-    );
+    let uptime = System::uptime()
+        .saturating_mul(1_000_000_000)
+        .try_into()
+        .unwrap_or(i64::MAX);
 
-    // Creates a new SystemTime from the specified number of whole seconds
-    let d = UNIX_EPOCH + Duration::from_secs(System::boot_time());
-    // Create DateTime from SystemTime
-    let datetime = DateTime::<Local>::from(d);
-    // Convert to local time and then rfc3339
-    let timestamp_str = datetime.with_timezone(datetime.offset()).to_rfc3339();
-    record.push("boot_time", Value::string(timestamp_str, span));
+    record.push("uptime", Value::duration(uptime, span));
 
-    let users = Users::new_with_refreshed_list()
-        .iter()
-        .map(|user| {
-            let groups = user
-                .groups()
-                .iter()
-                .map(|group| Value::string(trim_cstyle_null(group.name()), span))
-                .collect();
+    let boot_time = boot_time()
+        .map(|time| Value::date(time, span))
+        .unwrap_or(Value::nothing(span));
 
-            let record = record! {
-                "name" => Value::string(trim_cstyle_null(user.name()), span),
-                "groups" => Value::list(groups, span),
-            };
+    record.push("boot_time", boot_time);
 
-            Value::record(record, span)
-        })
-        .collect();
+    record
+}
 
-    record.push("sessions", Value::list(users, span));
-
-    Value::record(record, span)
+fn boot_time() -> Option<DateTime<FixedOffset>> {
+    // Broken systems can apparently return really high values.
+    // See: https://github.com/nushell/nushell/issues/10155
+    // First, try to convert u64 to i64, and then try to create a `DateTime`.
+    let secs = System::boot_time().try_into().ok()?;
+    let time = DateTime::from_timestamp(secs, 0)?;
+    Some(time.with_timezone(&Local).fixed_offset())
 }
 
 pub fn temp(span: Span) -> Value {

@@ -27,7 +27,7 @@ impl NuDataFrame {
         let rhs_span = right.span();
         match right {
             Value::Custom { .. } => {
-                let rhs = NuDataFrame::try_from_value(plugin, right)?;
+                let rhs = NuDataFrame::try_from_value_coerce(plugin, right, rhs_span)?;
 
                 match (self.is_series(), rhs.is_series()) {
                     (true, true) => {
@@ -147,7 +147,7 @@ impl NuDataFrame {
                     inner: vec![],
                 })?;
 
-                Ok(NuDataFrame::new(df_new))
+                Ok(NuDataFrame::new(false, df_new))
             }
             Axis::Column => {
                 if self.df.width() != other.df.width() {
@@ -205,7 +205,7 @@ impl NuDataFrame {
                     inner: vec![],
                 })?;
 
-                Ok(NuDataFrame::new(df_new))
+                Ok(NuDataFrame::new(false, df_new))
             }
         }
     }

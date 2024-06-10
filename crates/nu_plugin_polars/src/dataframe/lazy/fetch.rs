@@ -67,10 +67,10 @@ impl PluginCommand for LazyFetch {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let rows: i64 = call.req(0)?;
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
 
-        let eager: NuDataFrame = lazy
+        let mut eager: NuDataFrame = lazy
             .to_polars()
             .fetch(rows as usize)
             .map_err(|e| ShellError::GenericError {
@@ -82,6 +82,8 @@ impl PluginCommand for LazyFetch {
             })?
             .into();
 
+        // mark this as not from lazy so it doesn't get converted back to a lazy frame
+        eager.from_lazy = false;
         eager
             .to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)

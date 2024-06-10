@@ -84,7 +84,7 @@ fn save_append_will_not_overwrite_content() {
 }
 
 #[test]
-fn save_stderr_and_stdout_to_afame_file() {
+fn save_stderr_and_stdout_to_same_file() {
     Playground::setup("save_test_5", |dirs, sandbox| {
         sandbox.with_files(&[]);
 
@@ -405,5 +405,61 @@ fn save_same_file_without_extension_pipeline() {
         assert!(actual
             .err
             .contains("pipeline input and output are the same file"));
+    })
+}
+
+#[test]
+fn save_with_custom_converter() {
+    Playground::setup("save_with_custom_converter", |dirs, _| {
+        let file = dirs.test().join("test.ndjson");
+
+        nu!(cwd: dirs.test(), pipeline(
+            r#"
+                def "to ndjson" []: any -> string { each { to json --raw } | to text } ;
+                {a: 1, b: 2} | save test.ndjson
+            "#
+        ));
+
+        let actual = file_contents(file);
+        assert_eq!(actual, r#"{"a":1,"b":2}"#);
+    })
+}
+
+#[test]
+fn save_same_file_with_collect() {
+    Playground::setup("save_test_20", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline("
+                echo 'world'
+                | save hello;
+                open hello
+                | prepend 'hello'
+                | collect
+                | save --force hello;
+                open hello
+            ")
+        );
+        assert!(actual.status.success());
+        assert_eq!("helloworld", actual.out);
+    })
+}
+
+#[test]
+fn save_same_file_with_collect_and_filter() {
+    Playground::setup("save_test_21", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline("
+                echo 'world'
+                | save hello;
+                open hello
+                | prepend 'hello'
+                | collect
+                | filter { true }
+                | save --force hello;
+                open hello
+            ")
+        );
+        assert!(actual.status.success());
+        assert_eq!("helloworld", actual.out);
     })
 }

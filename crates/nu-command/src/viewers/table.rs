@@ -5,8 +5,9 @@
 use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env::get_config, env_to_string};
+use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    Config, DataSource, ListStream, PipelineMetadata, RawStream, TableMode, ValueIterator,
+    ByteStream, Config, DataSource, ListStream, PipelineMetadata, TableMode, ValueIterator,
 };
 use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
@@ -14,8 +15,12 @@ use nu_table::{
 };
 use nu_utils::get_ls_colors;
 use std::{
-    collections::VecDeque, io::IsTerminal, path::PathBuf, str::FromStr, sync::atomic::AtomicBool,
-    sync::Arc, time::Instant,
+    collections::VecDeque,
+    io::{IsTerminal, Read},
+    path::PathBuf,
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
+    time::Instant,
 };
 use terminal_size::{Height, Width};
 use url::Url;
@@ -360,25 +365,18 @@ fn handle_table_command(
 ) -> Result<PipelineData, ShellError> {
     let span = input.data.span().unwrap_or(input.call.head);
     match input.data {
-        PipelineData::ExternalStream { .. } => Ok(input.data),
+        // Binary streams should behave as if they really are `binary` data, and printed as hex
+        PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
+            PipelineData::ByteStream(pretty_hex_stream(stream, input.call.head), None),
+        ),
+        PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let bytes = format!("{}\n", nu_pretty_hex::pretty_hex(&val)).into_bytes();
             let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = RawStream::new(
-                Box::new([Ok(bytes)].into_iter()),
-                ctrlc,
-                input.call.head,
+            let stream = ByteStream::read_binary(val, input.call.head, ctrlc);
+            Ok(PipelineData::ByteStream(
+                pretty_hex_stream(stream, input.call.head),
                 None,
-            );
-
-            Ok(PipelineData::ExternalStream {
-                stdout: Some(stream),
-                stderr: None,
-                exit_code: None,
-                span: input.call.head,
-                metadata: None,
-                trim_end_newline: false,
-            })
+            ))
         }
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
@@ -413,6 +411,70 @@ fn handle_table_command(
         }
         x => Ok(x),
     }
+}
+
+fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
+    let mut cfg = HexConfig {
+        // We are going to render the title manually first
+        title: true,
+        // If building on 32-bit, the stream size might be bigger than a usize
+        length: stream.known_size().and_then(|sz| sz.try_into().ok()),
+        ..HexConfig::default()
+    };
+
+    // This won't really work for us
+    debug_assert!(cfg.width > 0, "the default hex config width was zero");
+
+    let mut read_buf = Vec::with_capacity(cfg.width);
+
+    let mut reader = if let Some(reader) = stream.reader() {
+        reader
+    } else {
+        // No stream to read from
+        return ByteStream::read_string("".into(), span, None);
+    };
+
+    ByteStream::from_fn(span, None, ByteStreamType::String, move |buffer| {
+        // Turn the buffer into a String we can write to
+        let mut write_buf = std::mem::take(buffer);
+        write_buf.clear();
+        // SAFETY: we just truncated it empty
+        let mut write_buf = unsafe { String::from_utf8_unchecked(write_buf) };
+
+        // Write the title at the beginning
+        if cfg.title {
+            nu_pretty_hex::write_title(&mut write_buf, cfg, true).expect("format error");
+            cfg.title = false;
+
+            // Put the write_buf back into buffer
+            *buffer = write_buf.into_bytes();
+
+            Ok(true)
+        } else {
+            // Read up to `cfg.width` bytes
+            read_buf.clear();
+            (&mut reader)
+                .take(cfg.width as u64)
+                .read_to_end(&mut read_buf)
+                .err_span(span)?;
+
+            if !read_buf.is_empty() {
+                nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))
+                    .expect("format error");
+                write_buf.push('\n');
+
+                // Advance the address offset for next time
+                cfg.address_offset += read_buf.len();
+
+                // Put the write_buf back into buffer
+                *buffer = write_buf.into_bytes();
+
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
+    })
 }
 
 fn handle_record(
@@ -613,16 +675,9 @@ fn handle_row_stream(
         ctrlc.clone(),
         cfg,
     );
-    let stream = RawStream::new(Box::new(paginator), ctrlc, input.call.head, None);
-
-    Ok(PipelineData::ExternalStream {
-        stdout: Some(stream),
-        stderr: None,
-        exit_code: None,
-        span: input.call.head,
-        metadata: None,
-        trim_end_newline: false,
-    })
+    let stream =
+        ByteStream::from_result_iter(paginator, input.call.head, None, ByteStreamType::String);
+    Ok(PipelineData::ByteStream(stream, None))
 }
 
 fn make_clickable_link(

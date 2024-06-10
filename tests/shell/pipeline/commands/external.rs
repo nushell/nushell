@@ -62,6 +62,13 @@ fn automatically_change_directory_with_trailing_slash_and_same_name_as_command()
 }
 
 #[test]
+fn pass_dot_as_external_arguments() {
+    let actual = nu!("nu --testbin cococo .");
+
+    assert_eq!(actual.out, ".");
+}
+
+#[test]
 fn correctly_escape_external_arguments() {
     let actual = nu!("^nu --testbin cococo '$0'");
 
@@ -72,7 +79,9 @@ fn correctly_escape_external_arguments() {
 fn escape_also_escapes_equals() {
     let actual = nu!("^MYFOONAME=MYBARVALUE");
 
-    assert!(actual.err.contains("executable was not found"));
+    assert!(actual
+        .err
+        .contains("Command `MYFOONAME=MYBARVALUE` not found"));
 }
 
 #[test]
@@ -127,7 +136,7 @@ fn command_not_found_error_shows_not_found_1() {
             export extern "foo" [];
             foo
         "#);
-    assert!(actual.err.contains("'foo' was not found"));
+    assert!(actual.err.contains("Command `foo` not found"));
 }
 
 #[test]
@@ -314,6 +323,7 @@ mod external_words {
     use super::nu;
     use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::{pipeline, playground::Playground};
+
     #[test]
     fn relaxed_external_words() {
         let actual = nu!("
@@ -321,6 +331,12 @@ mod external_words {
         ");
 
         assert_eq!(actual.out, "joturner@foo.bar.baz");
+    }
+
+    #[test]
+    fn raw_string_as_external_argument() {
+        let actual = nu!("nu --testbin cococo r#'asdf'#");
+        assert_eq!(actual.out, "asdf");
     }
 
     //FIXME: jt: limitation in testing - can't use single ticks currently
@@ -573,5 +589,19 @@ mod external_command_arguments {
         let actual = nu!("nu --testbin cococo (echo \"a;&$(hello)\")");
 
         assert_eq!(actual.out, "a;&$(hello)");
+    }
+
+    #[test]
+    fn remove_quotes_in_shell_arguments() {
+        let actual = nu!("nu --testbin cococo expression='-r -w'");
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!(r#"nu --testbin cococo expression="-r -w""#);
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!("nu --testbin cococo expression='-r -w'");
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!(r#"nu --testbin cococo expression="-r\" -w""#);
+        assert_eq!(actual.out, r#"expression=-r" -w"#);
+        let actual = nu!(r#"nu --testbin cococo expression='-r\" -w'"#);
+        assert_eq!(actual.out, r#"expression=-r\" -w"#);
     }
 }

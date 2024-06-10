@@ -57,7 +57,7 @@ impl PluginCommand for ExprWhen {
             Example {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
-   | polars into-df
+   | polars into-lazy
    | polars with-column (
     polars when ((polars col a) > 2) 4 | polars otherwise 5 | polars as c
      )
@@ -111,7 +111,7 @@ impl PluginCommand for ExprWhen {
         let then_predicate: Value = call.req(1)?;
         let then_predicate = NuExpression::try_from_value(plugin, &then_predicate)?;
 
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let when_then: NuWhen = match value {
             Value::Nothing { .. } => when(when_predicate.into_polars())
                 .then(then_predicate.into_polars())

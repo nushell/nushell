@@ -7,8 +7,6 @@ mod signals;
 #[cfg(unix)]
 mod terminal;
 mod test_bins;
-#[cfg(test)]
-mod tests;
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
@@ -27,15 +25,14 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
-    PipelineData, RawStream, ShellError, Span, Value, NU_VARIABLE_ID,
+    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned,
+    Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{
-    io::BufReader,
     path::PathBuf,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
@@ -47,8 +44,6 @@ fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
     let engine_state = nu_command::add_shell_command_context(engine_state);
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
-    #[cfg(feature = "dataframe")]
-    let engine_state = nu_cmd_dataframe::add_dataframe_context(engine_state);
     let engine_state = nu_cli::add_cli_context(engine_state);
     nu_explore::add_explore_context(engine_state)
 }
@@ -161,7 +156,10 @@ fn main() -> Result<()> {
 
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
-        .unwrap_or_else(|_| std::process::exit(1));
+        .unwrap_or_else(|err| {
+            report_error_new(&engine_state, &err);
+            std::process::exit(1)
+        });
 
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
@@ -174,6 +172,8 @@ fn main() -> Result<()> {
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
+
+    // Set up logger
     if let Some(level) = parsed_nu_cli_args
         .log_level
         .as_ref()
@@ -193,7 +193,20 @@ fn main() -> Result<()> {
             .map(|target| target.item.clone())
             .unwrap_or_else(|| "stderr".to_string());
 
-        logger(|builder| configure(&level, &target, builder))?;
+        let make_filters = |filters: &Option<Vec<Spanned<String>>>| {
+            filters.as_ref().map(|filters| {
+                filters
+                    .iter()
+                    .map(|filter| filter.item.clone())
+                    .collect::<Vec<String>>()
+            })
+        };
+        let filters = logger::Filters {
+            include: make_filters(&parsed_nu_cli_args.log_include),
+            exclude: make_filters(&parsed_nu_cli_args.log_exclude),
+        };
+
+        logger(|builder| configure(&level, &target, filters, builder))?;
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
         perf(
             "start logging",
@@ -347,22 +360,7 @@ fn main() -> Result<()> {
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
-        let stdin = std::io::stdin();
-        let buf_reader = BufReader::new(stdin);
-
-        PipelineData::ExternalStream {
-            stdout: Some(RawStream::new(
-                Box::new(BufferedReader::new(buf_reader)),
-                Some(ctrlc.clone()),
-                redirect_stdin.span,
-                None,
-            )),
-            stderr: None,
-            exit_code: None,
-            span: redirect_stdin.span,
-            metadata: None,
-            trim_end_newline: false,
-        }
+        PipelineData::ByteStream(ByteStream::stdin(redirect_stdin.span)?, None)
     } else {
         trace!("not redirecting stdin");
         PipelineData::empty()
@@ -378,8 +376,7 @@ fn main() -> Result<()> {
 
     start_time = std::time::Instant::now();
     // Set up the $nu constant before evaluating config files (need to have $nu available in them)
-    let nu_const = create_nu_constant(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    engine_state.generate_nu_constant();
     perf(
         "create_nu_constant",
         start_time,
@@ -453,7 +450,7 @@ fn main() -> Result<()> {
             );
         }
 
-        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc)
+        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc)?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
@@ -462,7 +459,7 @@ fn main() -> Result<()> {
             &commands,
             input,
             entire_start_time,
-        )
+        );
     } else if !script_name.is_empty() {
         run_file(
             &mut engine_state,
@@ -471,8 +468,10 @@ fn main() -> Result<()> {
             script_name,
             args_to_script,
             input,
-        )
+        );
     } else {
-        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
+        run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)?
     }
+
+    Ok(())
 }

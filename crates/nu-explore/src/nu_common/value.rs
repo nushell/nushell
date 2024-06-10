@@ -1,7 +1,7 @@
 use super::NuSpan;
 use anyhow::Result;
 use nu_engine::get_columns;
-use nu_protocol::{record, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
+use nu_protocol::{record, ByteStream, ListStream, PipelineData, PipelineMetadata, Value};
 use std::collections::HashMap;
 
 pub fn collect_pipeline(input: PipelineData) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
@@ -9,16 +9,7 @@ pub fn collect_pipeline(input: PipelineData) -> Result<(Vec<String>, Vec<Vec<Val
         PipelineData::Empty => Ok((vec![], vec![])),
         PipelineData::Value(value, ..) => collect_input(value),
         PipelineData::ListStream(stream, ..) => Ok(collect_list_stream(stream)),
-        PipelineData::ExternalStream {
-            stdout,
-            stderr,
-            exit_code,
-            metadata,
-            span,
-            ..
-        } => Ok(collect_external_stream(
-            stdout, stderr, exit_code, metadata, span,
-        )),
+        PipelineData::ByteStream(stream, metadata) => Ok(collect_byte_stream(stream, metadata)),
     }
 }
 
@@ -42,47 +33,58 @@ fn collect_list_stream(stream: ListStream) -> (Vec<String>, Vec<Vec<Value>>) {
     (cols, data)
 }
 
-fn collect_external_stream(
-    stdout: Option<RawStream>,
-    stderr: Option<RawStream>,
-    exit_code: Option<ListStream>,
+fn collect_byte_stream(
+    stream: ByteStream,
     metadata: Option<PipelineMetadata>,
-    span: NuSpan,
 ) -> (Vec<String>, Vec<Vec<Value>>) {
+    let span = stream.span();
+
     let mut columns = vec![];
     let mut data = vec![];
-    if let Some(stdout) = stdout {
-        let value = stdout.into_string().map_or_else(
-            |error| Value::error(error, span),
-            |string| Value::string(string.item, span),
-        );
 
-        columns.push(String::from("stdout"));
-        data.push(value);
-    }
-    if let Some(stderr) = stderr {
-        let value = stderr.into_string().map_or_else(
-            |error| Value::error(error, span),
-            |string| Value::string(string.item, span),
-        );
+    match stream.into_child() {
+        Ok(child) => match child.wait_with_output() {
+            Ok(output) => {
+                let exit_code = output.exit_status.code();
+                if let Some(stdout) = output.stdout {
+                    columns.push(String::from("stdout"));
+                    data.push(string_or_binary(stdout, span));
+                }
+                if let Some(stderr) = output.stderr {
+                    columns.push(String::from("stderr"));
+                    data.push(string_or_binary(stderr, span));
+                }
+                columns.push(String::from("exit_code"));
+                data.push(Value::int(exit_code.into(), span));
+            }
+            Err(err) => {
+                columns.push("".into());
+                data.push(Value::error(err, span));
+            }
+        },
+        Err(stream) => {
+            let value = stream
+                .into_value()
+                .unwrap_or_else(|err| Value::error(err, span));
 
-        columns.push(String::from("stderr"));
-        data.push(value);
+            columns.push("".into());
+            data.push(value);
+        }
     }
-    if let Some(exit_code) = exit_code {
-        let list = exit_code.into_iter().collect::<Vec<_>>();
-        let val = Value::list(list, span);
 
-        columns.push(String::from("exit_code"));
-        data.push(val);
-    }
     if metadata.is_some() {
         let val = Value::record(record! { "data_source" => Value::string("ls", span) }, span);
-
         columns.push(String::from("metadata"));
         data.push(val);
     }
     (columns, vec![data])
+}
+
+fn string_or_binary(bytes: Vec<u8>, span: NuSpan) -> Value {
+    match String::from_utf8(bytes) {
+        Ok(str) => Value::string(str, span),
+        Err(err) => Value::binary(err.into_bytes(), span),
+    }
 }
 
 /// Try to build column names and a table grid.
@@ -172,10 +174,6 @@ pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect(),
     )
-}
-
-pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
-    Value::record(hm.into_iter().collect(), NuSpan::unknown())
 }
 
 fn unknown_error_value() -> Value {

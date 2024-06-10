@@ -97,7 +97,7 @@ impl PluginCommand for LazyQuantile {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let quantile: f64 = call.req(0)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => {
@@ -132,15 +132,9 @@ fn command(
     quantile: f64,
 ) -> Result<PipelineData, ShellError> {
     let lazy = NuLazyFrame::new(
+        lazy.from_eager,
         lazy.to_polars()
-            .quantile(lit(quantile), QuantileInterpolOptions::default())
-            .map_err(|e| ShellError::GenericError {
-                error: "Dataframe Error".into(),
-                msg: e.to_string(),
-                help: None,
-                span: None,
-                inner: vec![],
-            })?,
+            .quantile(lit(quantile), QuantileInterpolOptions::default()),
     );
 
     lazy.to_pipeline_data(plugin, engine, call.head)

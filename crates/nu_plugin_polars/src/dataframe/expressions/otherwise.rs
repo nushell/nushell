@@ -48,7 +48,7 @@ impl PluginCommand for ExprOtherwise {
             Example {
                 description: "Create a new column for the dataframe",
                 example: r#"[[a b]; [6 2] [1 4] [4 1]]
-   | polars into-df
+   | polars into-lazy
    | polars with-column (
     polars when ((polars col a) > 2) 4 | polars otherwise 5 | polars as c
      )
@@ -99,7 +99,7 @@ impl PluginCommand for ExprOtherwise {
         let otherwise_predicate: Value = call.req(0)?;
         let otherwise_predicate = NuExpression::try_from_value(plugin, &otherwise_predicate)?;
 
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let complete: NuExpression = match NuWhen::try_from_value(plugin, &value)?.when_type {
             NuWhenType::Then(then) => then.otherwise(otherwise_predicate.into_polars()).into(),
             NuWhenType::ChainedThen(chained_when) => chained_when

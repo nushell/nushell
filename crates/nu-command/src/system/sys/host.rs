@@ -26,7 +26,8 @@ impl Command for SysHost {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(super::host(call.head).into_pipeline_data())
+        let host = super::host(call.head);
+        Ok(Value::record(host, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

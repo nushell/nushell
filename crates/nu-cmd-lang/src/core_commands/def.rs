@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Def;
@@ -28,8 +29,8 @@ impl Command for Def {
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -58,6 +59,11 @@ impl Command for Def {
                 description: "Set environment variable by call a custom command",
                 example: r#"def --env foo [] { $env.BAR = "BAZ" }; foo; $env.BAR"#,
                 result: Some(Value::test_string("BAZ")),
+            },
+            Example {
+                description: "cd affects the environment, so '--env' is required to change directory from within a command",
+                example: r#"def --env gohome [] { cd ~ }; gohome; $env.PWD == ('~' | path expand)"#,
+                result: Some(Value::test_string("true")),
             },
             Example {
                 description: "Define a custom wrapper for an external command",

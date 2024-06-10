@@ -127,6 +127,15 @@ fn passes_with_env_env_var_to_external_process() {
 }
 
 #[test]
+fn hides_environment_from_child() {
+    let actual = nu!(r#"
+        $env.TEST = 1; ^$nu.current-exe -c "hide-env TEST; ^$nu.current-exe -c '$env.TEST'"
+    "#);
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("column_not_found") || actual.err.contains("name_not_found"));
+}
+
+#[test]
 fn has_file_pwd() {
     Playground::setup("has_file_pwd", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("spam.nu", "$env.FILE_PWD")]);

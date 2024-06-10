@@ -1,5 +1,8 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::{Argument, Expr, Expression};
+use nu_protocol::{
+    ast::{Argument, Expr, Expression},
+    engine::{CommandType, UNKNOWN_SPAN_ID},
+};
 
 #[derive(Clone)]
 pub struct KnownExternal {
@@ -22,12 +25,8 @@ impl Command for KnownExternal {
         &self.usage
     }
 
-    fn is_known_external(&self) -> bool {
-        true
-    }
-
-    fn is_builtin(&self) -> bool {
-        false
+    fn command_type(&self) -> CommandType {
+        CommandType::External
     }
 
     fn run(
@@ -57,43 +56,49 @@ impl Command for KnownExternal {
         };
 
         let extern_name: Vec<_> = extern_name.split(' ').collect();
+        let call_head_id = engine_state
+            .find_span_id(call.head)
+            .unwrap_or(UNKNOWN_SPAN_ID);
 
-        let arg_extern_name = Expression {
-            expr: Expr::String(extern_name[0].to_string()),
-            span: call.head,
-            ty: Type::String,
-            custom_completion: None,
-        };
+        let arg_extern_name = Expression::new_existing(
+            Expr::String(extern_name[0].to_string()),
+            call.head,
+            call_head_id,
+            Type::String,
+        );
 
         extern_call.add_positional(arg_extern_name);
 
         for subcommand in extern_name.into_iter().skip(1) {
-            extern_call.add_positional(Expression {
-                expr: Expr::String(subcommand.to_string()),
-                span: call.head,
-                ty: Type::String,
-                custom_completion: None,
-            });
+            extern_call.add_positional(Expression::new_existing(
+                Expr::String(subcommand.to_string()),
+                call.head,
+                call_head_id,
+                Type::String,
+            ));
         }
 
         for arg in &call.arguments {
             match arg {
                 Argument::Positional(positional) => extern_call.add_positional(positional.clone()),
                 Argument::Named(named) => {
+                    let named_span_id = engine_state
+                        .find_span_id(named.0.span)
+                        .unwrap_or(UNKNOWN_SPAN_ID);
                     if let Some(short) = &named.1 {
-                        extern_call.add_positional(Expression {
-                            expr: Expr::String(format!("-{}", short.item)),
-                            span: named.0.span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        });
+                        extern_call.add_positional(Expression::new_existing(
+                            Expr::String(format!("-{}", short.item)),
+                            named.0.span,
+                            named_span_id,
+                            Type::String,
+                        ));
                     } else {
-                        extern_call.add_positional(Expression {
-                            expr: Expr::String(format!("--{}", named.0.item)),
-                            span: named.0.span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        });
+                        extern_call.add_positional(Expression::new_existing(
+                            Expr::String(format!("--{}", named.0.item)),
+                            named.0.span,
+                            named_span_id,
+                            Type::String,
+                        ));
                     }
                     if let Some(arg) = &named.2 {
                         extern_call.add_positional(arg.clone());

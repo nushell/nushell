@@ -3,7 +3,6 @@
 mod binary_widget;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -11,22 +10,26 @@ use nu_protocol::{
 use ratatui::layout::Rect;
 
 use crate::{
+    explore::ExploreConfig,
     nu_common::NuText,
     pager::{
         report::{Report, Severity},
-        ConfigMap, Frame, Transition, ViewInfo,
+        Frame, Transition, ViewInfo,
     },
-    util::create_map,
+    views::cursor::Position,
 };
 
-use self::binary_widget::{BinarySettings, BinaryStyle, BinaryWidget, Indent};
+use self::binary_widget::{BinarySettings, BinaryStyle, BinaryWidget};
 
-use super::{cursor::XYCursor, Layout, View, ViewConfig};
+use super::{cursor::WindowCursor2D, Layout, View, ViewConfig};
 
+/// An interactive view that displays binary data in a hex dump format.
+/// Not finished; many aspects are still WIP.
 #[derive(Debug, Clone)]
 pub struct BinaryView {
     data: Vec<u8>,
-    cursor: XYCursor,
+    // HACK: we are only using the vertical dimension of the cursor, should we use a plain old WindowCursor?
+    cursor: WindowCursor2D,
     settings: Settings,
 }
 
@@ -40,7 +43,7 @@ impl BinaryView {
     pub fn new(data: Vec<u8>) -> Self {
         Self {
             data,
-            cursor: XYCursor::default(),
+            cursor: WindowCursor2D::default(),
             settings: Settings::default(),
         }
     }
@@ -86,28 +89,24 @@ impl View for BinaryView {
     }
 
     fn setup(&mut self, cfg: ViewConfig<'_>) {
-        let hm = match cfg.config.get("hex-dump").and_then(create_map) {
-            Some(hm) => hm,
-            None => return,
-        };
-
-        self.settings = settings_from_config(&hm);
+        self.settings = settings_from_config(cfg.explore_config);
 
         let count_rows =
             BinaryWidget::new(&self.data, self.settings.opts, Default::default()).count_lines();
-        self.cursor = XYCursor::new(count_rows, 0);
+        // TODO: refactor View so setup() is fallible and we don't have to panic here
+        self.cursor = WindowCursor2D::new(count_rows, 1).expect("Failed to create XYCursor");
     }
 }
 
 fn create_binary_widget(v: &BinaryView) -> BinaryWidget<'_> {
-    let start_line = v.cursor.row_starts_at();
+    let start_line = v.cursor.window_origin().row;
     let count_elements =
         BinaryWidget::new(&[], v.settings.opts, Default::default()).count_elements();
     let index = start_line * count_elements;
     let data = &v.data[index..];
 
     let mut w = BinaryWidget::new(data, v.settings.opts, v.settings.style.clone());
-    w.set_index_offset(index);
+    w.set_row_offset(index);
 
     w
 }
@@ -179,54 +178,19 @@ fn handle_event_view_mode(view: &mut BinaryView, key: &KeyEvent) -> Option<Trans
     }
 }
 
-fn settings_from_config(config: &ConfigMap) -> Settings {
-    let colors = get_color_map(config);
-
+fn settings_from_config(config: &ExploreConfig) -> Settings {
+    // Most of this is hardcoded for now, add it to the config later if needed
     Settings {
-        opts: BinarySettings::new(
-            !config_get_bool(config, "show_index", true),
-            !config_get_bool(config, "show_ascii", true),
-            !config_get_bool(config, "show_data", true),
-            config_get_usize(config, "segment_size", 2),
-            config_get_usize(config, "count_segments", 8),
-            0,
-        ),
+        opts: BinarySettings::new(2, 8),
         style: BinaryStyle::new(
-            colors.get("color_index").cloned(),
-            Indent::new(
-                config_get_usize(config, "padding_index_left", 2) as u16,
-                config_get_usize(config, "padding_index_right", 2) as u16,
-            ),
-            Indent::new(
-                config_get_usize(config, "padding_data_left", 2) as u16,
-                config_get_usize(config, "padding_data_right", 2) as u16,
-            ),
-            Indent::new(
-                config_get_usize(config, "padding_ascii_left", 2) as u16,
-                config_get_usize(config, "padding_ascii_right", 2) as u16,
-            ),
-            config_get_usize(config, "padding_segment", 1),
-            config_get_bool(config, "split", false),
+            None,
+            config.table.column_padding_left as u16,
+            config.table.column_padding_right as u16,
         ),
     }
 }
 
-fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
-    config
-        .get(key)
-        .and_then(|v| v.as_bool().ok())
-        .unwrap_or(default)
-}
-
-fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
-    config
-        .get(key)
-        .and_then(|v| v.coerce_str().ok())
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(default)
-}
-
-fn create_report(cursor: XYCursor) -> Report {
+fn create_report(cursor: WindowCursor2D) -> Report {
     let covered_percent = report_row_position(cursor);
     let cursor = report_cursor_position(cursor);
     let mode = report_mode_name();
@@ -239,8 +203,8 @@ fn report_mode_name() -> String {
     String::from("VIEW")
 }
 
-fn report_row_position(cursor: XYCursor) -> String {
-    if cursor.row_starts_at() == 0 {
+fn report_row_position(cursor: WindowCursor2D) -> String {
+    if cursor.window_origin().row == 0 {
         return String::from("Top");
     }
 
@@ -256,10 +220,9 @@ fn report_row_position(cursor: XYCursor) -> String {
     }
 }
 
-fn report_cursor_position(cursor: XYCursor) -> String {
-    let rows_seen = cursor.row_starts_at();
-    let columns_seen = cursor.column_starts_at();
-    format!("{rows_seen},{columns_seen}")
+fn report_cursor_position(cursor: WindowCursor2D) -> String {
+    let Position { row, column } = cursor.window_origin();
+    format!("{row},{column}")
 }
 
 fn get_percentage(value: usize, max: usize) -> usize {

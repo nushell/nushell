@@ -5,7 +5,7 @@ use nu_engine::command_prelude::*;
 use super::msgpack::write_value;
 
 const BUFFER_SIZE: usize = 65536;
-const DEFAULT_QUALITY: u32 = 1;
+const DEFAULT_QUALITY: u32 = 3; // 1 can be very bad
 const DEFAULT_WINDOW_SIZE: u32 = 20;
 
 #[derive(Clone)]
@@ -22,7 +22,7 @@ impl Command for ToMsgpackz {
             .named(
                 "quality",
                 SyntaxShape::Int,
-                "Quality of brotli compression (default 1)",
+                "Quality of brotli compression (default 3)",
                 Some('q'),
             )
             .named(
@@ -70,7 +70,7 @@ impl Command for ToMsgpackz {
             .transpose()?;
 
         let value_span = input.span().unwrap_or(call.head);
-        let value = input.into_value(value_span);
+        let value = input.into_value(value_span)?;
         let mut out_buf = vec![];
         let mut out = brotli::CompressorWriter::new(
             &mut out_buf,

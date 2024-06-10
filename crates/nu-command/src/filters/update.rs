@@ -117,7 +117,7 @@ fn update(
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
-                        let mut closure = ClosureEval::new(engine_state, stack, val);
+                        let mut closure = ClosureEval::new(engine_state, stack, *val);
                         for val in vals {
                             update_value_by_closure(
                                 val,
@@ -131,7 +131,7 @@ fn update(
                     (first, _) => {
                         update_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, val),
+                            ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
@@ -175,7 +175,7 @@ fn update(
                 if let Value::Closure { val, .. } = replacement {
                     update_single_value_by_closure(
                         value,
-                        ClosureEvalOnce::new(engine_state, stack, val),
+                        ClosureEvalOnce::new(engine_state, stack, *val),
                         head,
                         path,
                         true,
@@ -189,7 +189,7 @@ fn update(
                     .chain(stream)
                     .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             } else if let Value::Closure { val, .. } = replacement {
-                let mut closure = ClosureEval::new(engine_state, stack, val);
+                let mut closure = ClosureEval::new(engine_state, stack, *val);
                 let stream = stream.map(move |mut value| {
                     let err = update_value_by_closure(
                         &mut value,
@@ -225,8 +225,8 @@ fn update(
             type_name: "empty pipeline".to_string(),
             span: head,
         }),
-        PipelineData::ExternalStream { .. } => Err(ShellError::IncompatiblePathAccess {
-            type_name: "external stream".to_string(),
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
+            type_name: stream.type_().describe().into(),
             span: head,
         }),
     }
@@ -250,7 +250,7 @@ fn update_value_by_closure(
     let new_value = closure
         .add_arg(arg.clone())
         .run_with_input(value_at_path.into_pipeline_data())?
-        .into_value(span);
+        .into_value(span)?;
 
     value.update_data_at_cell_path(cell_path, new_value)
 }
@@ -273,7 +273,7 @@ fn update_single_value_by_closure(
     let new_value = closure
         .add_arg(arg.clone())
         .run_with_input(value_at_path.into_pipeline_data())?
-        .into_value(span);
+        .into_value(span)?;
 
     value.update_data_at_cell_path(cell_path, new_value)
 }

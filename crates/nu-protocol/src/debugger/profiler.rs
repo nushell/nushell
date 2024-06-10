@@ -9,6 +9,7 @@ use crate::{
     engine::EngineState,
     record, PipelineData, ShellError, Span, Value,
 };
+use std::io::BufRead;
 use std::time::Instant;
 
 #[derive(Debug, Clone, Copy)]
@@ -50,11 +51,13 @@ pub struct Profiler {
     collect_expanded_source: bool,
     collect_values: bool,
     collect_exprs: bool,
+    collect_lines: bool,
     elements: Vec<ElementInfo>,
     element_stack: Vec<ElementId>,
 }
 
 impl Profiler {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         max_depth: i64,
         collect_spans: bool,
@@ -62,6 +65,7 @@ impl Profiler {
         collect_expanded_source: bool,
         collect_values: bool,
         collect_exprs: bool,
+        collect_lines: bool,
         span: Span,
     ) -> Self {
         let first = ElementInfo {
@@ -82,6 +86,7 @@ impl Profiler {
             collect_expanded_source,
             collect_values,
             collect_exprs,
+            collect_lines,
             elements: vec![first],
             element_stack: vec![ElementId(0)],
         }
@@ -158,7 +163,7 @@ impl Debugger for Profiler {
         &mut self,
         _engine_state: &EngineState,
         element: &PipelineElement,
-        result: &Result<(PipelineData, bool), ShellError>,
+        result: &Result<PipelineData, ShellError>,
     ) {
         if self.depth > self.max_depth {
             return;
@@ -167,12 +172,10 @@ impl Debugger for Profiler {
         let element_span = element.expr.span;
 
         let out_opt = self.collect_values.then(|| match result {
-            Ok((pipeline_data, _not_sure_what_this_is)) => match pipeline_data {
+            Ok(pipeline_data) => match pipeline_data {
                 PipelineData::Value(val, ..) => val.clone(),
                 PipelineData::ListStream(..) => Value::string("list stream", element_span),
-                PipelineData::ExternalStream { .. } => {
-                    Value::string("external stream", element_span)
-                }
+                PipelineData::ByteStream(..) => Value::string("byte stream", element_span),
                 _ => Value::nothing(element_span),
             },
             Err(e) => Value::error(e.clone(), element_span),
@@ -264,6 +267,31 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
     }
 }
 
+// Find a file name and a line number (indexed from 1) of a span
+fn find_file_of_span(engine_state: &EngineState, span: Span) -> Option<(&str, usize)> {
+    for file in engine_state.files() {
+        if file.covered_span.contains_span(span) {
+            // count the number of lines between file start and the searched span start
+            let chunk =
+                engine_state.get_span_contents(Span::new(file.covered_span.start, span.start));
+            let nlines = chunk.lines().count();
+            // account for leading part of current line being counted as a separate line
+            let line_num = if chunk.last() == Some(&b'\n') {
+                nlines + 1
+            } else {
+                nlines
+            };
+
+            // first line has no previous line, clamp up to `1`
+            let line_num = usize::max(line_num, 1);
+
+            return Some((&file.name, line_num));
+        }
+    }
+
+    None
+}
+
 fn collect_data(
     engine_state: &EngineState,
     profiler: &Profiler,
@@ -278,6 +306,16 @@ fn collect_data(
         "id" => Value::int(element_id.0 as i64, profiler_span),
         "parent_id" => Value::int(parent_id.0 as i64, profiler_span),
     };
+
+    if profiler.collect_lines {
+        if let Some((fname, line_num)) = find_file_of_span(engine_state, element.element_span) {
+            row.push("file", Value::string(fname, profiler_span));
+            row.push("line", Value::int(line_num as i64, profiler_span));
+        } else {
+            row.push("file", Value::nothing(profiler_span));
+            row.push("line", Value::nothing(profiler_span));
+        }
+    }
 
     if profiler.collect_spans {
         let span_start = i64::try_from(element.element_span.start)

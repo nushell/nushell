@@ -84,7 +84,7 @@ impl PolarsPluginObject {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
+        let value = input.into_value(span)?;
         Self::try_from_value(plugin, &value)
     }
 
@@ -242,7 +242,7 @@ pub trait PolarsPluginCustomValue: CustomValue {
 /// Handles the ability for a PolarsObjectType implementations to convert between
 /// their respective CustValue type.
 /// PolarsPluginObjectType's (NuDataFrame, NuLazyFrame) should
-/// implement this trait.  
+/// implement this trait.
 pub trait CustomValueSupport: Cacheable {
     type CV: PolarsPluginCustomValue<PolarsPluginObjectType = Self> + CustomValue + 'static;
 
@@ -301,7 +301,7 @@ pub trait CustomValueSupport: Cacheable {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span);
+        let value = input.into_value(span)?;
         Self::try_from_value(plugin, &value)
     }
 
@@ -323,7 +323,19 @@ pub trait CustomValueSupport: Cacheable {
         engine: &EngineInterface,
         span: Span,
     ) -> Result<Value, ShellError> {
-        Ok(self.cache(plugin, engine, span)?.into_value(span))
+        match self.to_cache_value()? {
+            // if it was from a lazy value, make it lazy again
+            PolarsPluginObject::NuDataFrame(df) if df.from_lazy => {
+                let df = df.lazy();
+                Ok(df.cache(plugin, engine, span)?.into_value(span))
+            }
+            // if it was from an eager value, make it eager again
+            PolarsPluginObject::NuLazyFrame(lf) if lf.from_eager => {
+                let lf = lf.collect(span)?;
+                Ok(lf.cache(plugin, engine, span)?.into_value(span))
+            }
+            _ => Ok(self.cache(plugin, engine, span)?.into_value(span)),
+        }
     }
 
     /// Caches the object, converts it to a it's CustomValue counterpart

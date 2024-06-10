@@ -133,7 +133,7 @@ fn insert(
             if let Value::Closure { val, .. } = replacement {
                 match (cell_path.members.first(), &mut value) {
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
-                        let mut closure = ClosureEval::new(engine_state, stack, val);
+                        let mut closure = ClosureEval::new(engine_state, stack, *val);
                         for val in vals {
                             insert_value_by_closure(
                                 val,
@@ -147,7 +147,7 @@ fn insert(
                     (first, _) => {
                         insert_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, val),
+                            ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
                             &cell_path.members,
                             matches!(first, Some(PathMember::Int { .. })),
@@ -188,9 +188,9 @@ fn insert(
                         let value = stream.next();
                         let end_of_stream = value.is_none();
                         let value = value.unwrap_or(Value::nothing(head));
-                        let new_value = ClosureEvalOnce::new(engine_state, stack, val)
+                        let new_value = ClosureEvalOnce::new(engine_state, stack, *val)
                             .run_with_value(value.clone())?
-                            .into_value(head);
+                            .into_value(head)?;
 
                         pre_elems.push(new_value);
                         if !end_of_stream {
@@ -203,7 +203,7 @@ fn insert(
                     if let Value::Closure { val, .. } = replacement {
                         insert_single_value_by_closure(
                             &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, val),
+                            ClosureEvalOnce::new(engine_state, stack, *val),
                             head,
                             path,
                             true,
@@ -224,7 +224,7 @@ fn insert(
                     .chain(stream)
                     .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
             } else if let Value::Closure { val, .. } = replacement {
-                let mut closure = ClosureEval::new(engine_state, stack, val);
+                let mut closure = ClosureEval::new(engine_state, stack, *val);
                 let stream = stream.map(move |mut value| {
                     let err = insert_value_by_closure(
                         &mut value,
@@ -261,8 +261,8 @@ fn insert(
             type_name: "empty pipeline".to_string(),
             span: head,
         }),
-        PipelineData::ExternalStream { .. } => Err(ShellError::IncompatiblePathAccess {
-            type_name: "external stream".to_string(),
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
+            type_name: stream.type_().describe().into(),
             span: head,
         }),
     }
@@ -284,7 +284,7 @@ fn insert_value_by_closure(
         value.clone()
     };
 
-    let new_value = closure.run_with_value(value_at_path)?.into_value(span);
+    let new_value = closure.run_with_value(value_at_path)?.into_value(span)?;
     value.insert_data_at_cell_path(cell_path, new_value, span)
 }
 
@@ -304,7 +304,7 @@ fn insert_single_value_by_closure(
         value.clone()
     };
 
-    let new_value = closure.run_with_value(value_at_path)?.into_value(span);
+    let new_value = closure.run_with_value(value_at_path)?.into_value(span)?;
     value.insert_data_at_cell_path(cell_path, new_value, span)
 }
 

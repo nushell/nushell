@@ -1,7 +1,7 @@
 use crate::help::highlight_search_in_table;
 use nu_color_config::StyleComputer;
 use nu_engine::{command_prelude::*, scope::ScopeData};
-use nu_protocol::{span, DeclId};
+use nu_protocol::DeclId;
 
 #[derive(Clone)]
 pub struct HelpModules;
@@ -117,7 +117,7 @@ pub fn help_modules(
         let Some(module_id) = engine_state.find_module(name.as_bytes(), &[]) else {
             return Err(ShellError::ModuleNotFoundAtRuntime {
                 mod_name: name,
-                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+                span: Span::merge_many(rest.iter().map(|s| s.span)),
             });
         };
 
@@ -149,6 +149,7 @@ pub fn help_modules(
         if !module.decls.is_empty() || module.main.is_some() {
             let commands: Vec<(Vec<u8>, DeclId)> = engine_state
                 .get_decls_sorted(false)
+                .into_iter()
                 .filter(|(_, id)| !engine_state.get_decl(*id).is_alias())
                 .collect();
 
@@ -186,6 +187,7 @@ pub fn help_modules(
         if !module.decls.is_empty() {
             let aliases: Vec<(Vec<u8>, DeclId)> = engine_state
                 .get_decls_sorted(false)
+                .into_iter()
                 .filter(|(_, id)| engine_state.get_decl(*id).is_alias())
                 .collect();
 

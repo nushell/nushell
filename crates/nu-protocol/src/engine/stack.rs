@@ -7,6 +7,7 @@ use crate::{
 };
 use std::{
     collections::{HashMap, HashSet},
+    fs::File,
     sync::Arc,
 };
 
@@ -74,26 +75,10 @@ impl Stack {
         }
     }
 
-    /// Unwrap a uniquely-owned stack.
-    ///
-    /// In debug mode, this panics if there are multiple references.
-    /// In production this will instead clone the underlying stack.
-    pub fn unwrap_unique(stack_arc: Arc<Stack>) -> Stack {
-        // If you hit an error here, it's likely that you created an extra
-        // Arc pointing to the stack somewhere. Make sure that it gets dropped before
-        // getting here!
-        Arc::try_unwrap(stack_arc).unwrap_or_else(|arc| {
-            // in release mode, we clone the stack, but this can lead to
-            // major performance issues, so we should avoid it
-            debug_assert!(false, "More than one stack reference remaining!");
-            (*arc).clone()
-        })
-    }
-
     /// Create a new child stack from a parent.
     ///
     /// Changes from this child can be merged back into the parent with
-    /// Stack::with_changes_from_child
+    /// [`Stack::with_changes_from_child`]
     pub fn with_parent(parent: Arc<Stack>) -> Stack {
         Stack {
             // here we are still cloning environment variable-related information
@@ -108,19 +93,17 @@ impl Stack {
         }
     }
 
-    /// Take an Arc of a parent (assumed to be unique), and a child, and apply
-    /// all the changes from a child back to the parent.
+    /// Take an [`Arc`] parent, and a child, and apply all the changes from a child back to the parent.
     ///
-    /// Here it is assumed that child was created with a call to Stack::with_parent
-    /// with parent
+    /// Here it is assumed that `child` was created by a call to [`Stack::with_parent`] with `parent`.
+    ///
+    /// For this to be performant and not clone `parent`, `child` should be the only other
+    /// referencer of `parent`.
     pub fn with_changes_from_child(parent: Arc<Stack>, child: Stack) -> Stack {
         // we're going to drop the link to the parent stack on our new stack
         // so that we can unwrap the Arc as a unique reference
-        //
-        // This makes the new_stack be in a bit of a weird state, so we shouldn't call
-        // any structs
         drop(child.parent_stack);
-        let mut unique_stack = Stack::unwrap_unique(parent);
+        let mut unique_stack = Arc::unwrap_or_clone(parent);
 
         unique_stack
             .vars
@@ -591,6 +574,91 @@ impl Stack {
         self.out_dest.pipe_stdout = None;
         self.out_dest.pipe_stderr = None;
         self
+    }
+
+    /// Replaces the default stdout of the stack with a given file.
+    ///
+    /// This method configures the default stdout to redirect to a specified file.
+    /// It is primarily useful for applications using `nu` as a language, where the stdout of
+    /// external commands that are not explicitly piped can be redirected to a file.
+    ///
+    /// # Using Pipes
+    ///
+    /// For use in third-party applications pipes might be very useful as they allow using the
+    /// stdout of external commands for different uses.
+    /// For example the [`os_pipe`](https://docs.rs/os_pipe) crate provides a elegant way to to
+    /// access the stdout.
+    ///
+    /// ```
+    /// # use std::{fs::File, io::{self, Read}, thread, error};
+    /// # use nu_protocol::engine::Stack;
+    /// #
+    /// let (mut reader, writer) = os_pipe::pipe().unwrap();
+    /// // Use a thread to avoid blocking the execution of the called command.
+    /// let reader = thread::spawn(move || {
+    ///     let mut buf: Vec<u8> = Vec::new();
+    ///     reader.read_to_end(&mut buf)?;
+    ///     Ok::<_, io::Error>(buf)
+    /// });
+    ///
+    /// #[cfg(windows)]
+    /// let file = std::os::windows::io::OwnedHandle::from(writer).into();
+    /// #[cfg(unix)]
+    /// let file = std::os::unix::io::OwnedFd::from(writer).into();
+    ///
+    /// let stack = Stack::new().stdout_file(file);
+    ///
+    /// // Execute some nu code.
+    ///
+    /// drop(stack); // drop the stack so that the writer will be dropped too
+    /// let buf = reader.join().unwrap().unwrap();
+    /// // Do with your buffer whatever you want.
+    /// ```
+    pub fn stdout_file(mut self, file: File) -> Self {
+        self.out_dest.stdout = OutDest::File(Arc::new(file));
+        self
+    }
+
+    /// Replaces the default stderr of the stack with a given file.
+    ///
+    /// For more info, see [`stdout_file`](Self::stdout_file).
+    pub fn stderr_file(mut self, file: File) -> Self {
+        self.out_dest.stderr = OutDest::File(Arc::new(file));
+        self
+    }
+
+    /// Set the PWD environment variable to `path`.
+    ///
+    /// This method accepts `path` with trailing slashes, but they're removed
+    /// before writing the value into PWD.
+    pub fn set_cwd(&mut self, path: impl AsRef<std::path::Path>) -> Result<(), ShellError> {
+        // Helper function to create a simple generic error.
+        // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
+        fn error(msg: &str) -> Result<(), ShellError> {
+            Err(ShellError::GenericError {
+                error: msg.into(),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            })
+        }
+
+        let path = path.as_ref();
+
+        if !path.is_absolute() {
+            error("Cannot set $env.PWD to a non-absolute path")
+        } else if !path.exists() {
+            error("Cannot set $env.PWD to a non-existent directory")
+        } else if !path.is_dir() {
+            error("Cannot set $env.PWD to a non-directory")
+        } else {
+            // Strip trailing slashes, if any.
+            let path = nu_path::strip_trailing_slash(path);
+            let value = Value::string(path.to_string_lossy(), Span::unknown());
+            self.add_env_var("PWD".into(), value);
+            Ok(())
+        }
     }
 }
 

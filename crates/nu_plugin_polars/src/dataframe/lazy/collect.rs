@@ -32,8 +32,8 @@ impl PluginCommand for LazyCollect {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "collect a lazy dataframe",
-            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars select [(polars col a) (polars col b)] | polars collect",
+            description: "drop duplicates",
+            example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![
@@ -61,10 +61,12 @@ impl PluginCommand for LazyCollect {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuLazyFrame(lazy) => {
-                let eager = lazy.collect(call.head)?;
+                let mut eager = lazy.collect(call.head)?;
+                // We don't want this converted back to a lazy frame
+                eager.from_lazy = true;
                 Ok(PipelineData::Value(
                     eager
                         .cache(plugin, engine, call.head)?

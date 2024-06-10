@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use std::io::Read;
 
 #[derive(Clone)]
 pub struct Take;
@@ -78,13 +79,30 @@ impl Command for Take {
                 stream.modify(|iter| iter.take(rows_desired)),
                 metadata,
             )),
-            PipelineData::ExternalStream { span, .. } => {
-                Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "list, binary or range".into(),
-                    wrong_type: "raw data".into(),
-                    dst_span: head,
-                    src_span: span,
-                })
+            PipelineData::ByteStream(stream, metadata) => {
+                if stream.type_().is_binary_coercible() {
+                    if let Some(reader) = stream.reader() {
+                        // Just take 'rows' bytes off the stream, mimicking the binary behavior
+                        Ok(PipelineData::ByteStream(
+                            ByteStream::read(
+                                reader.take(rows_desired as u64),
+                                head,
+                                None,
+                                ByteStreamType::Binary,
+                            ),
+                            metadata,
+                        ))
+                    } else {
+                        Ok(PipelineData::Empty)
+                    }
+                } else {
+                    Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
+                        dst_span: head,
+                        src_span: stream.span(),
+                    })
+                }
             }
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),

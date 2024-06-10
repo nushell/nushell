@@ -1,10 +1,10 @@
-use crate::grapheme_flags;
+use crate::{grapheme_flags, grapheme_flags_const};
 use nu_cmd_base::{
     input_handler::{operate, CmdArgument},
     util,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
+use nu_protocol::{engine::StateWorkingSet, Range};
 use std::cmp::Ordering;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -70,11 +70,15 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get part of a string. Note that the start is included but the end is excluded, and that the first character of a string is index 0."
+        "Get part of a string. Note that the first character of a string is index 0."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["slice"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -103,17 +107,48 @@ impl Command for SubCommand {
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
 
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let range: Range = call.req_const(working_set, 0)?;
+
+        let indexes = match util::process_range(&range) {
+            Ok(idxs) => idxs.into(),
+            Err(processing_error) => {
+                return Err(processing_error("could not perform substring", call.head))
+            }
+        };
+
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let args = Arguments {
+            indexes,
+            cell_paths,
+            graphemes: grapheme_flags_const(working_set, call)?,
+        };
+        operate(
+            action,
+            args,
+            input,
+            call.head,
+            working_set.permanent().ctrlc.clone(),
+        )
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description:
                     "Get a substring \"nushell\" from the text \"good nushell\" using a range",
-                example: " 'good nushell' | str substring 5..12",
+                example: " 'good nushell' | str substring 5..11",
                 result: Some(Value::test_string("nushell")),
             },
             Example {
                 description: "Count indexes and split using grapheme clusters",
-                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..6",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..5",
                 result: Some(Value::test_string("ふが")),
             },
         ]

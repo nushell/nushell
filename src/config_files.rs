@@ -1,11 +1,11 @@
-use log::{info, trace};
+use log::warn;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Config, ParseError, PipelineData, Spanned,
+    report_error, report_error_new, Config, ParseError, PipelineData, Spanned,
 };
 use nu_utils::{get_default_config, get_default_env};
 use std::{
@@ -27,18 +27,26 @@ pub(crate) fn read_config_file(
     config_file: Option<Spanned<String>>,
     is_env_config: bool,
 ) {
-    trace!("read_config_file {:?}", &config_file);
+    warn!(
+        "read_config_file() config_file_specified: {:?}, is_env_config: {is_env_config}",
+        &config_file
+    );
     // Load config startup file
     if let Some(file) = config_file {
         let working_set = StateWorkingSet::new(engine_state);
-        #[allow(deprecated)]
-        let cwd = working_set.get_cwd();
 
-        if let Ok(path) = canonicalize_with(&file.item, cwd) {
-            eval_config_contents(path, engine_state, stack);
-        } else {
-            let e = ParseError::FileNotFound(file.item, file.span);
-            report_error(&working_set, &e);
+        match engine_state.cwd_as_string(Some(stack)) {
+            Ok(cwd) => {
+                if let Ok(path) = canonicalize_with(&file.item, cwd) {
+                    eval_config_contents(path, engine_state, stack);
+                } else {
+                    let e = ParseError::FileNotFound(file.item, file.span);
+                    report_error(&working_set, &e);
+                }
+            }
+            Err(e) => {
+                report_error(&working_set, &e);
+            }
         }
     } else if let Some(mut config_path) = nu_path::config_dir() {
         config_path.push(NUSHELL_FOLDER);
@@ -117,21 +125,27 @@ pub(crate) fn read_config_file(
 }
 
 pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut Stack) {
+    warn!(
+        "read_loginshell_file() {}:{}:{}",
+        file!(),
+        line!(),
+        column!()
+    );
+
     // read and execute loginshell file if exists
     if let Some(mut config_path) = nu_path::config_dir() {
         config_path.push(NUSHELL_FOLDER);
         config_path.push(LOGINSHELL_FILE);
 
+        warn!("loginshell_file: {}", config_path.display());
+
         if config_path.exists() {
             eval_config_contents(config_path, engine_state, stack);
         }
     }
-
-    info!("read_loginshell_file {}:{}:{}", file!(), line!(), column!());
 }
 
 pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {
-    trace!("read_default_env_file");
     let config_file = get_default_env();
     eval_source(
         engine_state,
@@ -142,19 +156,22 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
         false,
     );
 
-    info!("read_config_file {}:{}:{}", file!(), line!(), column!());
+    warn!(
+        "read_default_env_file() env_file_contents: {config_file} {}:{}:{}",
+        file!(),
+        line!(),
+        column!()
+    );
+
     // Merge the environment in case env vars changed in the config
-    #[allow(deprecated)]
-    match nu_engine::env::current_dir(engine_state, stack) {
+    match engine_state.cwd(Some(stack)) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
+                report_error_new(engine_state, &e);
             }
         }
         Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
+            report_error_new(engine_state, &e);
         }
     }
 }
@@ -165,10 +182,9 @@ fn eval_default_config(
     config_file: &str,
     is_env_config: bool,
 ) {
-    trace!(
-        "eval_default_config: config_file: {:?}, is_env_config: {}",
-        &config_file,
-        is_env_config
+    warn!(
+        "eval_default_config() config_file_specified: {:?}, is_env_config: {}",
+        &config_file, is_env_config
     );
     println!("Continuing without config file");
     // Just use the contents of "default_config.nu" or "default_env.nu"
@@ -186,17 +202,14 @@ fn eval_default_config(
     );
 
     // Merge the environment in case env vars changed in the config
-    #[allow(deprecated)]
-    match nu_engine::env::current_dir(engine_state, stack) {
+    match engine_state.cwd(Some(stack)) {
         Ok(cwd) => {
             if let Err(e) = engine_state.merge_env(stack, cwd) {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
+                report_error_new(engine_state, &e);
             }
         }
         Err(e) => {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
+            report_error_new(engine_state, &e);
         }
     }
 }
@@ -209,11 +222,9 @@ pub(crate) fn setup_config(
     env_file: Option<Spanned<String>>,
     is_login_shell: bool,
 ) {
-    trace!(
-        "setup_config: config: {:?}, env: {:?}, login: {}",
-        &config_file,
-        &env_file,
-        is_login_shell
+    warn!(
+        "setup_config() config_file_specified: {:?}, env_file_specified: {:?}, login: {}",
+        &config_file, &env_file, is_login_shell
     );
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
@@ -241,12 +252,9 @@ pub(crate) fn set_config_path(
     key: &str,
     config_file: Option<&Spanned<String>>,
 ) {
-    trace!(
-        "set_config_path: cwd: {:?}, default_config: {}, key: {}, config_file: {:?}",
-        &cwd,
-        &default_config_name,
-        &key,
-        &config_file
+    warn!(
+        "set_config_path() cwd: {:?}, default_config: {}, key: {}, config_file_specified: {:?}",
+        &cwd, &default_config_name, &key, &config_file
     );
     let config_path = match config_file {
         Some(s) => canonicalize_with(&s.item, cwd).ok(),

@@ -56,7 +56,7 @@ impl Command for RollUp {
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
         let metadata = input.metadata();
 
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let rotated_value = vertical_rotate_value(value, by, VerticalDirection::Up)?;
 
         Ok(rotated_value.into_pipeline_data().set_metadata(metadata))

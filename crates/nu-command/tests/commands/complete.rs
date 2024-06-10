@@ -24,7 +24,7 @@ fn basic_exit_code() {
 #[test]
 fn error() {
     let actual = nu!("not-found | complete");
-    assert!(actual.err.contains("executable was not found"));
+    assert!(actual.err.contains("Command `not-found` not found"));
 }
 
 #[test]
@@ -91,4 +91,17 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
             assert_eq!(actual.out, expect_body);
         },
     )
+}
+
+#[test]
+fn combined_pipe_redirection() {
+    let actual = nu!("$env.FOO = hello; $env.BAR = world; nu --testbin echo_env_mixed out-err FOO BAR o+e>| complete | get stdout");
+    assert_eq!(actual.out, "helloworld");
+}
+
+#[test]
+fn err_pipe_redirection() {
+    let actual =
+        nu!("$env.FOO = hello; nu --testbin echo_env_stderr FOO e>| complete | get stdout");
+    assert_eq!(actual.out, "hello");
 }

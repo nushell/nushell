@@ -62,10 +62,11 @@ impl Command for Try {
             }
             // external command may fail to run
             Ok(pipeline) => {
-                let (pipeline, external_failed) = pipeline.check_external_failed();
+                let (pipeline, external_failed) = pipeline.check_external_failed()?;
                 if external_failed {
-                    let exit_code = pipeline.drain_with_exit_code()?;
-                    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(exit_code, call.head));
+                    let status = pipeline.drain()?;
+                    let code = status.map(|status| status.code()).unwrap_or(0);
+                    stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(code.into(), call.head));
                     let err_value = Value::nothing(call.head);
                     handle_catch(err_value, catch_block, engine_state, stack, eval_block)
                 } else {

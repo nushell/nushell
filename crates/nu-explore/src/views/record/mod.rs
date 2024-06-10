@@ -1,38 +1,38 @@
-mod tablew;
+mod table_widget;
 
-use self::tablew::{TableStyle, TableW, TableWState};
+use self::table_widget::{TableWidget, TableWidgetState};
 use super::{
-    cursor::XYCursor,
+    cursor::{Position, WindowCursor2D},
     util::{make_styled_string, nu_style_to_tui},
     Layout, View, ViewConfig,
 };
 use crate::{
-    nu_common::{collect_input, lscolorize, NuConfig, NuSpan, NuStyle, NuText},
+    explore::ExploreConfig,
+    nu_common::{collect_input, lscolorize, NuSpan, NuText},
     pager::{
         report::{Report, Severity},
-        ConfigMap, Frame, Transition, ViewInfo,
+        Frame, Transition, ViewInfo,
     },
-    util::create_map,
     views::ElementInfo,
 };
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use nu_color_config::{get_color_map, StyleComputer};
+use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Record, Value,
+    Config, Record, Span, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 use std::collections::HashMap;
 
-pub use self::tablew::Orientation;
+pub use self::table_widget::Orientation;
 
 #[derive(Debug, Clone)]
 pub struct RecordView {
     layer_stack: Vec<LayerData>,
     mode: UIMode,
     orientation: Orientation,
-    theme: TableTheme,
+    cfg: ExploreConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -58,62 +58,16 @@ impl RecordView {
             layer_stack: vec![layer],
             mode: UIMode::View,
             orientation: Orientation::Top,
-            theme: TableTheme::default(),
+            // TODO: It's kind of gross how this temporarily has an incorrect/default config.
+            // See if we can pass correct config in through the constructor
+            cfg: ExploreConfig::default(),
         }
     }
 
     pub fn tail(&mut self, width: u16, height: u16) {
         let page_size =
-            estimate_page_size(Rect::new(0, 0, width, height), self.theme.table.show_header);
+            estimate_page_size(Rect::new(0, 0, width, height), self.cfg.table.show_header);
         tail_data(self, page_size as usize);
-    }
-
-    pub fn set_style_split_line(&mut self, style: NuStyle) {
-        self.theme.table.splitline_style = style
-    }
-
-    pub fn set_style_selected_cell(&mut self, style: NuStyle) {
-        self.theme.cursor.selected_cell = Some(style)
-    }
-
-    pub fn set_style_selected_row(&mut self, style: NuStyle) {
-        self.theme.cursor.selected_row = Some(style)
-    }
-
-    pub fn set_style_selected_column(&mut self, style: NuStyle) {
-        self.theme.cursor.selected_column = Some(style)
-    }
-
-    pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
-        self.theme.table.padding_column_left = left;
-        self.theme.table.padding_column_right = right;
-    }
-
-    pub fn set_padding_index(&mut self, (left, right): (usize, usize)) {
-        self.theme.table.padding_index_left = left;
-        self.theme.table.padding_index_right = right;
-    }
-
-    pub fn get_padding_column(&self) -> (usize, usize) {
-        (
-            self.theme.table.padding_column_left,
-            self.theme.table.padding_column_right,
-        )
-    }
-
-    pub fn get_padding_index(&self) -> (usize, usize) {
-        (
-            self.theme.table.padding_index_left,
-            self.theme.table.padding_index_right,
-        )
-    }
-
-    pub fn get_theme(&self) -> &TableTheme {
-        &self.theme
-    }
-
-    pub fn set_theme(&mut self, theme: TableTheme) {
-        self.theme = theme;
     }
 
     pub fn transpose(&mut self) {
@@ -168,22 +122,22 @@ impl RecordView {
         layer.reset_cursor();
     }
 
-    pub fn get_current_position(&self) -> (usize, usize) {
+    /// Get the current position of the cursor in the table as a whole
+    pub fn get_cursor_position(&self) -> Position {
         let layer = self.get_layer_last();
-        (layer.cursor.row(), layer.cursor.column())
+        layer.cursor.position()
     }
 
-    pub fn get_current_window(&self) -> (usize, usize) {
+    /// Get the current position of the cursor in the window being shown
+    pub fn get_cursor_position_in_window(&self) -> Position {
         let layer = self.get_layer_last();
-        (layer.cursor.row_window(), layer.cursor.column_window())
+        layer.cursor.window_relative_position()
     }
 
-    pub fn get_current_offset(&self) -> (usize, usize) {
+    /// Get the origin of the window being shown. (0,0), top left corner.
+    pub fn get_window_origin(&self) -> Position {
         let layer = self.get_layer_last();
-        (
-            layer.cursor.row_starts_at(),
-            layer.cursor.column_starts_at(),
-        )
+        layer.cursor.window_origin()
     }
 
     pub fn set_cursor_mode(&mut self) {
@@ -195,7 +149,7 @@ impl RecordView {
     }
 
     pub fn get_current_value(&self) -> Value {
-        let (row, column) = self.get_current_position();
+        let Position { row, column } = self.get_cursor_position();
         let layer = self.get_layer_last();
 
         let (row, column) = match layer.orientation {
@@ -203,13 +157,17 @@ impl RecordView {
             Orientation::Left => (column, row),
         };
 
-        layer.records[row][column].clone()
+        if layer.records.len() > row && layer.records[row].len() > column {
+            layer.records[row][column].clone()
+        } else {
+            Value::nothing(Span::unknown())
+        }
     }
 
-    fn create_tablew<'a>(&'a mut self, cfg: ViewConfig<'a>) -> TableW<'a> {
-        let style = self.theme.table;
+    fn create_table_widget<'a>(&'a mut self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
+        let style = self.cfg.table;
         let style_computer = cfg.style_computer;
-        let (row, column) = self.get_current_offset();
+        let Position { row, column } = self.get_window_origin();
 
         let layer = self.get_layer2_mut();
         if layer.widget_data.is_none() {
@@ -233,7 +191,7 @@ impl RecordView {
         let headers = &layer.widget_data.as_ref().expect("ok").columns;
         let data = &layer.widget_data.as_ref().expect("ok").records;
 
-        TableW::new(
+        TableWidget::new(
             headers,
             data,
             style_computer,
@@ -247,11 +205,17 @@ impl RecordView {
     fn update_cursors(&mut self, rows: usize, columns: usize) {
         match self.get_layer_last().orientation {
             Orientation::Top => {
-                self.get_layer_last_mut().cursor.set_window(rows, columns);
+                let _ = self
+                    .get_layer_last_mut()
+                    .cursor
+                    .set_window_size(rows, columns);
             }
 
             Orientation::Left => {
-                self.get_layer_last_mut().cursor.set_window(rows, columns);
+                let _ = self
+                    .get_layer_last_mut()
+                    .cursor
+                    .set_window_size(rows, columns);
             }
         }
     }
@@ -273,27 +237,30 @@ impl RecordView {
 
 impl View for RecordView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
-        let mut table_layout = TableWState::default();
-        let tablew = self.create_tablew(cfg);
-        f.render_stateful_widget(tablew, area, &mut table_layout);
+        let mut table_layout = TableWidgetState::default();
+        // TODO: creating the table widget is O(N) where N is the number of cells in the grid.
+        // Way too slow to do on every draw call!
+        // To make explore work for larger data sets, this needs to be improved.
+        let table = self.create_table_widget(cfg);
+        f.render_stateful_widget(table, area, &mut table_layout);
 
         *layout = table_layout.layout;
 
         self.update_cursors(table_layout.count_rows, table_layout.count_columns);
 
         if self.mode == UIMode::Cursor {
-            let (row, column) = self.get_current_window();
+            let Position { row, column } = self.get_cursor_position_in_window();
             let info = get_element_info(
                 layout,
                 row,
                 column,
                 table_layout.count_rows,
                 self.get_layer_last().orientation,
-                self.theme.table.show_header,
+                self.cfg.table.show_header,
             );
 
             if let Some(info) = info {
-                highlight_cell(f, area, info.clone(), &self.theme.cursor);
+                highlight_selected_cell(f, info.clone(), &self.cfg);
             }
         }
     }
@@ -337,7 +304,7 @@ impl View for RecordView {
 
         let data = convert_records_to_string(
             &self.get_layer_last().records,
-            &NuConfig::default(),
+            &nu_protocol::Config::default(),
             &style_computer,
         );
 
@@ -356,7 +323,9 @@ impl View for RecordView {
 
             for (column, _) in cells.iter().enumerate() {
                 if i == pos {
-                    self.get_layer_last_mut().cursor.set_position(row, column);
+                    self.get_layer_last_mut()
+                        .cursor
+                        .set_window_start_position(row, column);
                     return true;
                 }
 
@@ -373,22 +342,7 @@ impl View for RecordView {
 
     // todo: move the method to Command?
     fn setup(&mut self, cfg: ViewConfig<'_>) {
-        if let Some(hm) = cfg.config.get("table").and_then(create_map) {
-            self.theme = theme_from_config(&hm);
-
-            if let Some(orientation) = hm.get("orientation").and_then(|v| v.coerce_str().ok()) {
-                let orientation = match orientation.as_ref() {
-                    "left" => Some(Orientation::Left),
-                    "top" => Some(Orientation::Top),
-                    _ => None,
-                };
-
-                if let Some(orientation) = orientation {
-                    self.set_orientation(orientation);
-                    self.set_orientation_current(orientation);
-                }
-            }
-        }
+        self.cfg = cfg.explore_config.clone();
     }
 }
 
@@ -422,12 +376,14 @@ pub struct RecordLayer {
     orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
-    cursor: XYCursor,
+    cursor: WindowCursor2D,
 }
 
 impl RecordLayer {
     fn new(columns: Vec<String>, records: Vec<Vec<Value>>) -> Self {
-        let cursor = XYCursor::new(records.len(), columns.len());
+        // TODO: refactor so this is fallible and returns a Result instead of panicking
+        let cursor =
+            WindowCursor2D::new(records.len(), columns.len()).expect("Failed to create cursor");
 
         Self {
             columns,
@@ -463,7 +419,9 @@ impl RecordLayer {
     }
 
     fn reset_cursor(&mut self) {
-        self.cursor = XYCursor::new(self.count_rows(), self.count_columns());
+        // TODO: refactor so this is fallible and returns a Result instead of panicking
+        self.cursor = WindowCursor2D::new(self.count_rows(), self.count_columns())
+            .expect("Failed to create cursor");
     }
 }
 
@@ -681,13 +639,15 @@ fn tail_data(state: &mut RecordView, page_size: usize) {
     let layer = state.get_layer_last_mut();
     let count_rows = layer.records.len();
     if count_rows > page_size {
-        layer.cursor.set_position(count_rows - page_size, 0);
+        layer
+            .cursor
+            .set_window_start_position(count_rows - page_size, 0);
     }
 }
 
 fn convert_records_to_string(
     records: &[Vec<Value>],
-    cfg: &NuConfig,
+    cfg: &Config,
     style_computer: &StyleComputer,
 ) -> Vec<Vec<NuText>> {
     records
@@ -706,31 +666,8 @@ fn convert_records_to_string(
         .collect::<Vec<_>>()
 }
 
-fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorStyle) {
-    // highlight selected column
-    if let Some(style) = theme.selected_column {
-        let highlight_block = Block::default().style(nu_style_to_tui(style));
-        let area = Rect::new(info.area.x, area.y, info.area.width, area.height);
-        f.render_widget(highlight_block.clone(), area);
-    }
-
-    // highlight selected row
-    if let Some(style) = theme.selected_row {
-        let highlight_block = Block::default().style(nu_style_to_tui(style));
-        let area = Rect::new(area.x, info.area.y, area.width, 1);
-        f.render_widget(highlight_block.clone(), area);
-    }
-
-    // highlight selected cell
-    let cell_style = match theme.selected_cell {
-        Some(s) => s,
-        None => {
-            let mut style = nu_ansi_term::Style::new();
-            // light blue chosen somewhat arbitrarily, looks OK but I'm not set on it
-            style.background = Some(nu_ansi_term::Color::LightBlue);
-            style
-        }
-    };
+fn highlight_selected_cell(f: &mut Frame, info: ElementInfo, cfg: &ExploreConfig) {
+    let cell_style = cfg.selected_cell;
     let highlight_block = Block::default().style(nu_style_to_tui(cell_style));
     let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
     f.render_widget(highlight_block.clone(), area)
@@ -779,20 +716,18 @@ fn build_table_as_record(v: &RecordView) -> Value {
     Value::record(record, NuSpan::unknown())
 }
 
-fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {
+fn report_cursor_position(mode: UIMode, cursor: WindowCursor2D) -> String {
     if mode == UIMode::Cursor {
-        let row = cursor.row();
-        let column = cursor.column();
+        let Position { row, column } = cursor.position();
         format!("{row},{column}")
     } else {
-        let rows_seen = cursor.row_starts_at();
-        let columns_seen = cursor.column_starts_at();
-        format!("{rows_seen},{columns_seen}")
+        let Position { row, column } = cursor.window_origin();
+        format!("{row},{column}")
     }
 }
 
-fn report_row_position(cursor: XYCursor) -> String {
-    if cursor.row_starts_at() == 0 {
+fn report_row_position(cursor: WindowCursor2D) -> String {
+    if cursor.window_origin().row == 0 {
         String::from("Top")
     } else {
         let percent_rows = get_percentage(cursor.row(), cursor.row_limit());
@@ -868,58 +803,6 @@ fn _transpose_table(
     }
 
     data
-}
-
-fn theme_from_config(config: &ConfigMap) -> TableTheme {
-    let mut theme = TableTheme::default();
-
-    let colors = get_color_map(config);
-
-    if let Some(s) = colors.get("split_line") {
-        theme.table.splitline_style = *s;
-    }
-
-    theme.cursor.selected_cell = colors.get("selected_cell").cloned();
-    theme.cursor.selected_row = colors.get("selected_row").cloned();
-    theme.cursor.selected_column = colors.get("selected_column").cloned();
-
-    theme.table.show_header = config_get_bool(config, "show_head", true);
-    theme.table.show_index = config_get_bool(config, "show_index", false);
-
-    theme.table.padding_index_left = config_get_usize(config, "padding_index_left", 2);
-    theme.table.padding_index_right = config_get_usize(config, "padding_index_right", 1);
-    theme.table.padding_column_left = config_get_usize(config, "padding_column_left", 2);
-    theme.table.padding_column_right = config_get_usize(config, "padding_column_right", 2);
-
-    theme
-}
-
-fn config_get_bool(config: &ConfigMap, key: &str, default: bool) -> bool {
-    config
-        .get(key)
-        .and_then(|v| v.as_bool().ok())
-        .unwrap_or(default)
-}
-
-fn config_get_usize(config: &ConfigMap, key: &str, default: usize) -> usize {
-    config
-        .get(key)
-        .and_then(|v| v.coerce_str().ok())
-        .and_then(|s| s.parse::<usize>().ok())
-        .unwrap_or(default)
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct TableTheme {
-    table: TableStyle,
-    cursor: CursorStyle,
-}
-
-#[derive(Debug, Default, Clone)]
-struct CursorStyle {
-    selected_cell: Option<NuStyle>,
-    selected_column: Option<NuStyle>,
-    selected_row: Option<NuStyle>,
 }
 
 fn make_head_text(head: &str) -> String {

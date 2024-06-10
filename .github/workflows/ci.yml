@@ -29,76 +29,50 @@ jobs:
         # instead of 14 GB) which is too little for us right now. Revisit when `dfr` commands are
         # removed and we're only building the `polars` plugin instead
         platform: [windows-latest, macos-13, ubuntu-20.04]
-        feature: [default, dataframe]
-        include:
-          - feature: default
-            flags: ""
-          - feature: dataframe
-            flags: "--features=dataframe"
-        exclude:
-          - platform: windows-latest
-            feature: dataframe
-          - platform: macos-13
-            feature: dataframe
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-        with:
-          rustflags: ""
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
 
         # If changing these settings also change toolkit.nu
       - name: Clippy
-        run: cargo clippy --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- $CLIPPY_OPTIONS
+        run: cargo clippy --workspace --exclude nu_plugin_* -- $CLIPPY_OPTIONS
 
         # In tests we don't have to deny unwrap
       - name: Clippy of tests
-        run: cargo clippy --tests --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
+        run: cargo clippy --tests --workspace --exclude nu_plugin_* -- -D warnings
 
       - name: Clippy of benchmarks
-        run: cargo clippy --benches --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
+        run: cargo clippy --benches --workspace --exclude nu_plugin_* -- -D warnings
 
   tests:
     strategy:
       fail-fast: true
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
-        feature: [default, dataframe]
         include:
-          # linux CI cannot handle clipboard feature
           - default-flags: ""
-          - platform:  ubuntu-20.04
+          # linux CI cannot handle clipboard feature
+          - platform: ubuntu-20.04
             default-flags: "--no-default-features --features=default-no-clipboard"
-          - feature: default
-            flags: ""
-          - feature: dataframe
-            flags: "--features=dataframe"
-        exclude:
-          - platform: windows-latest
-            feature: dataframe
-          - platform: macos-latest
-            feature: dataframe
 
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-        with:
-          rustflags: ""
 
       - name: Tests
-        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.default-flags }} ${{ matrix.flags }}
-
+        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.default-flags }}
       - name: Check for clean repo
         shell: bash
         run: |
@@ -121,12 +95,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-        with:
-          rustflags: ""
 
       - name: Install Nushell
         run: cargo install --path . --locked --no-default-features
@@ -174,12 +146,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4.1.4
+      - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
-        with:
-          rustflags: ""
 
       - name: Clippy
         run: cargo clippy --package nu_plugin_* -- $CLIPPY_OPTIONS

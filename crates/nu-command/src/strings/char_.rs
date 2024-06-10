@@ -1,6 +1,6 @@
 use indexmap::{indexmap, IndexMap};
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
+
 use once_cell::sync::Lazy;
 use std::sync::{atomic::AtomicBool, Arc};
 
@@ -235,18 +235,18 @@ impl Command for Char {
 
         // handle -i flag
         if integer {
-            let int_args: Vec<i64> = call.rest_const(working_set, 0)?;
-            handle_integer_flag(int_args, call, call_span)
+            let int_args = call.rest_const(working_set, 0)?;
+            handle_integer_flag(int_args, call_span)
         }
         // handle -u flag
         else if unicode {
-            let string_args: Vec<String> = call.rest_const(working_set, 0)?;
-            handle_unicode_flag(string_args, call, call_span)
+            let string_args = call.rest_const(working_set, 0)?;
+            handle_unicode_flag(string_args, call_span)
         }
         // handle the rest
         else {
-            let string_args: Vec<String> = call.rest_const(working_set, 0)?;
-            handle_the_rest(string_args, call, call_span)
+            let string_args = call.rest_const(working_set, 0)?;
+            handle_the_rest(string_args, call_span)
         }
     }
 
@@ -270,18 +270,18 @@ impl Command for Char {
 
         // handle -i flag
         if integer {
-            let int_args: Vec<i64> = call.rest(engine_state, stack, 0)?;
-            handle_integer_flag(int_args, call, call_span)
+            let int_args = call.rest(engine_state, stack, 0)?;
+            handle_integer_flag(int_args, call_span)
         }
         // handle -u flag
         else if unicode {
-            let string_args: Vec<String> = call.rest(engine_state, stack, 0)?;
-            handle_unicode_flag(string_args, call, call_span)
+            let string_args = call.rest(engine_state, stack, 0)?;
+            handle_unicode_flag(string_args, call_span)
         }
         // handle the rest
         else {
-            let string_args: Vec<String> = call.rest(engine_state, stack, 0)?;
-            handle_the_rest(string_args, call, call_span)
+            let string_args = call.rest(engine_state, stack, 0)?;
+            handle_the_rest(string_args, call_span)
         }
     }
 }
@@ -309,8 +309,7 @@ fn generate_character_list(ctrlc: Option<Arc<AtomicBool>>, call_span: Span) -> P
 }
 
 fn handle_integer_flag(
-    int_args: Vec<i64>,
-    call: &Call,
+    int_args: Vec<Spanned<i64>>,
     call_span: Span,
 ) -> Result<PipelineData, ShellError> {
     if int_args.is_empty() {
@@ -319,20 +318,17 @@ fn handle_integer_flag(
             span: call_span,
         });
     }
-    let mut multi_byte = String::new();
-    for (i, &arg) in int_args.iter().enumerate() {
-        let span = call
-            .positional_nth(i)
-            .expect("Unexpected missing argument")
-            .span;
-        multi_byte.push(integer_to_unicode_char(arg, span)?)
-    }
-    Ok(Value::string(multi_byte, call_span).into_pipeline_data())
+
+    let str = int_args
+        .into_iter()
+        .map(integer_to_unicode_char)
+        .collect::<Result<String, _>>()?;
+
+    Ok(Value::string(str, call_span).into_pipeline_data())
 }
 
 fn handle_unicode_flag(
-    string_args: Vec<String>,
-    call: &Call,
+    string_args: Vec<Spanned<String>>,
     call_span: Span,
 ) -> Result<PipelineData, ShellError> {
     if string_args.is_empty() {
@@ -341,57 +337,53 @@ fn handle_unicode_flag(
             span: call_span,
         });
     }
-    let mut multi_byte = String::new();
-    for (i, arg) in string_args.iter().enumerate() {
-        let span = call
-            .positional_nth(i)
-            .expect("Unexpected missing argument")
-            .span;
-        multi_byte.push(string_to_unicode_char(arg, span)?)
-    }
-    Ok(Value::string(multi_byte, call_span).into_pipeline_data())
+
+    let str = string_args
+        .into_iter()
+        .map(string_to_unicode_char)
+        .collect::<Result<String, _>>()?;
+
+    Ok(Value::string(str, call_span).into_pipeline_data())
 }
 
 fn handle_the_rest(
-    string_args: Vec<String>,
-    call: &Call,
+    string_args: Vec<Spanned<String>>,
     call_span: Span,
 ) -> Result<PipelineData, ShellError> {
-    if string_args.is_empty() {
+    let Some(s) = string_args.first() else {
         return Err(ShellError::MissingParameter {
             param_name: "missing name of the character".into(),
             span: call_span,
         });
-    }
-    let special_character = str_to_character(&string_args[0]);
+    };
+
+    let special_character = str_to_character(&s.item);
+
     if let Some(output) = special_character {
         Ok(Value::string(output, call_span).into_pipeline_data())
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "error finding named character".into(),
-            span: call
-                .positional_nth(0)
-                .expect("Unexpected missing argument")
-                .span,
+            span: s.span,
         })
     }
 }
 
-fn integer_to_unicode_char(value: i64, t: Span) -> Result<char, ShellError> {
-    let decoded_char = value.try_into().ok().and_then(std::char::from_u32);
+fn integer_to_unicode_char(value: Spanned<i64>) -> Result<char, ShellError> {
+    let decoded_char = value.item.try_into().ok().and_then(std::char::from_u32);
 
     if let Some(ch) = decoded_char {
         Ok(ch)
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "not a valid Unicode codepoint".into(),
-            span: t,
+            span: value.span,
         })
     }
 }
 
-fn string_to_unicode_char(s: &str, t: Span) -> Result<char, ShellError> {
-    let decoded_char = u32::from_str_radix(s, 16)
+fn string_to_unicode_char(s: Spanned<String>) -> Result<char, ShellError> {
+    let decoded_char = u32::from_str_radix(&s.item, 16)
         .ok()
         .and_then(std::char::from_u32);
 
@@ -400,7 +392,7 @@ fn string_to_unicode_char(s: &str, t: Span) -> Result<char, ShellError> {
     } else {
         Err(ShellError::TypeMismatch {
             err_message: "error decoding Unicode character".into(),
-            span: t,
+            span: s.span,
         })
     }
 }

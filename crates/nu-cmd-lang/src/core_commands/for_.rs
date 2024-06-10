@@ -1,4 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
+use nu_protocol::engine::CommandType;
+use nu_protocol::ParseWarning;
 
 #[derive(Clone)]
 pub struct For;
@@ -29,7 +31,7 @@ impl Command for For {
             .required("block", SyntaxShape::Block, "The block to run.")
             .switch(
                 "numbered",
-                "return a numbered item ($it.index and $it.item)",
+                "DEPRECATED: return a numbered item ($it.index and $it.item)",
                 Some('n'),
             )
             .creates_scope()
@@ -41,8 +43,8 @@ impl Command for For {
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }
 
-    fn is_parser_keyword(&self) -> bool {
-        true
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -77,6 +79,20 @@ impl Command for For {
         let value = eval_expression(engine_state, stack, keyword_expr)?;
 
         let numbered = call.has_flag(engine_state, stack, "numbered")?;
+        if numbered {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ParseWarning::DeprecatedWarning {
+                    old_command: "--numbered/-n".into(),
+                    new_suggestion: "use `enumerate`".into(),
+                    span: call
+                        .get_named_arg("numbered")
+                        .expect("`get_named_arg` found `--numbered` but still failed")
+                        .span,
+                    url: "See `help for` examples".into(),
+                },
+            );
+        }
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
@@ -121,12 +137,14 @@ impl Command for For {
                         Err(err) => {
                             return Err(err);
                         }
-                        Ok(pipeline) => {
-                            let exit_code = pipeline.drain_with_exit_code()?;
-                            if exit_code != 0 {
-                                return Ok(PipelineData::new_external_stream_with_only_exit_code(
-                                    exit_code,
-                                ));
+                        Ok(data) => {
+                            if let Some(status) = data.drain()? {
+                                let code = status.code();
+                                if code != 0 {
+                                    return Ok(
+                                        PipelineData::new_external_stream_with_only_exit_code(code),
+                                    );
+                                }
                             }
                         }
                     }
@@ -159,12 +177,14 @@ impl Command for For {
                         Err(err) => {
                             return Err(err);
                         }
-                        Ok(pipeline) => {
-                            let exit_code = pipeline.drain_with_exit_code()?;
-                            if exit_code != 0 {
-                                return Ok(PipelineData::new_external_stream_with_only_exit_code(
-                                    exit_code,
-                                ));
+                        Ok(data) => {
+                            if let Some(status) = data.drain()? {
+                                let code = status.code();
+                                if code != 0 {
+                                    return Ok(
+                                        PipelineData::new_external_stream_with_only_exit_code(code),
+                                    );
+                                }
                             }
                         }
                     }
@@ -173,7 +193,7 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                eval_block(&engine_state, stack, block, PipelineData::empty())?.into_value(head);
+                eval_block(&engine_state, stack, block, PipelineData::empty())?.into_value(head)?;
             }
         }
         Ok(PipelineData::empty())
@@ -193,8 +213,7 @@ impl Command for For {
             },
             Example {
                 description: "Number each item and print a message",
-                example:
-                    "for $it in ['bob' 'fred'] --numbered { print $\"($it.index) is ($it.item)\" }",
+                example: r#"for $it in (['bob' 'fred'] | enumerate) { print $"($it.index) is ($it.item)" }"#,
                 result: None,
             },
         ]

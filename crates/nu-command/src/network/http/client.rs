@@ -5,10 +5,9 @@ use base64::{
     Engine,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::{BufferedReader, RawStream};
+use nu_protocol::ByteStream;
 use std::{
     collections::HashMap,
-    io::BufReader,
     path::PathBuf,
     str::FromStr,
     sync::{
@@ -118,22 +117,22 @@ pub fn response_to_buffer(
         _ => None,
     };
 
-    let reader = response.into_reader();
-    let buffered_input = BufReader::new(reader);
+    // Try to guess whether the response is definitely intended to binary or definitely intended to
+    // be UTF-8 text. Otherwise specify `None` and just guess. This doesn't have to be thorough.
+    let content_type_lowercase = response.header("content-type").map(|s| s.to_lowercase());
+    let response_type = match content_type_lowercase.as_deref() {
+        Some("application/octet-stream") => ByteStreamType::Binary,
+        Some(h) if h.contains("charset=utf-8") => ByteStreamType::String,
+        _ => ByteStreamType::Unknown,
+    };
 
-    PipelineData::ExternalStream {
-        stdout: Some(RawStream::new(
-            Box::new(BufferedReader::new(buffered_input)),
-            engine_state.ctrlc.clone(),
-            span,
-            buffer_size,
-        )),
-        stderr: None,
-        exit_code: None,
-        span,
-        metadata: None,
-        trim_end_newline: false,
-    }
+    let reader = response.into_reader();
+
+    PipelineData::ByteStream(
+        ByteStream::read(reader, span, engine_state.ctrlc.clone(), response_type)
+            .with_known_size(buffer_size),
+        None,
+    )
 }
 
 pub fn request_add_authorization_header(
@@ -529,25 +528,25 @@ fn request_handle_response_content(
     if flags.full {
         let response_status = resp.status();
 
-        let request_headers_value = match headers_to_nu(&extract_request_headers(&request), span) {
-            Ok(headers) => headers.into_value(span),
-            Err(_) => Value::nothing(span),
-        };
+        let request_headers_value = headers_to_nu(&extract_request_headers(&request), span)
+            .and_then(|data| data.into_value(span))
+            .unwrap_or(Value::nothing(span));
 
-        let response_headers_value = match headers_to_nu(&extract_response_headers(&resp), span) {
-            Ok(headers) => headers.into_value(span),
-            Err(_) => Value::nothing(span),
-        };
+        let response_headers_value = headers_to_nu(&extract_response_headers(&resp), span)
+            .and_then(|data| data.into_value(span))
+            .unwrap_or(Value::nothing(span));
 
         let headers = record! {
             "request" => request_headers_value,
             "response" => response_headers_value,
         };
 
+        let body = consume_response_body(resp)?.into_value(span)?;
+
         let full_response = Value::record(
             record! {
                 "headers" => Value::record(headers, span),
-                "body" => consume_response_body(resp)?.into_value(span),
+                "body" => body,
                 "status" => Value::int(response_status as i64, span),
             },
             span,

@@ -6,7 +6,7 @@ DIR=$(readlink -f $(dirname "${BASH_SOURCE[0]}"))
 REPO_ROOT=$(dirname $DIR)
 
 echo "---------------------------------------------------------------"
-echo "Building nushell (nu) with dataframes and all the plugins"
+echo "Building nushell (nu) and all the plugins"
 echo "---------------------------------------------------------------"
 echo ""
 
@@ -21,7 +21,7 @@ NU_PLUGINS=(
 echo "Building nushell"
 (
     cd $REPO_ROOT
-    cargo build --features=dataframe --locked
+    cargo build --locked
 )
 
 for plugin in "${NU_PLUGINS[@]}"

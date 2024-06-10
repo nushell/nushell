@@ -30,7 +30,7 @@ pub use interface::{EngineInterface, EngineInterfaceManager};
 
 /// This should be larger than the largest commonly sent message to avoid excessive fragmentation.
 ///
-/// The buffers coming from external streams are typically each 8192 bytes, so double that.
+/// The buffers coming from byte streams are typically each 8192 bytes, so double that.
 #[allow(dead_code)]
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 
@@ -260,7 +260,8 @@ pub fn serve_plugin(plugin: &impl Plugin, encoder: impl PluginEncoder + 'static)
         }
     } else {
         eprintln!(
-            "{}: This plugin must be run from within Nushell.",
+            "{}: This plugin must be run from within Nushell. See `plugin add --help` for details \
+            on how to use plugins.",
             env::current_exe()
                 .map(|path| path.display().to_string())
                 .unwrap_or_else(|_| "plugin".into())

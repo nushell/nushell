@@ -46,6 +46,10 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
         ]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -53,53 +57,67 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
         let encoding: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
+        run(call, input, encoding)
+    }
 
-        match input {
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                span: input_span,
-                ..
-            } => {
-                let bytes: Vec<u8> = stream.into_bytes()?.item;
-                match encoding {
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let encoding: Option<Spanned<String>> = call.opt_const(working_set, 0)?;
+        run(call, input, encoding)
+    }
+}
+
+fn run(
+    call: &Call,
+    input: PipelineData,
+    encoding: Option<Spanned<String>>,
+) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+
+    match input {
+        PipelineData::ByteStream(stream, ..) => {
+            let span = stream.span();
+            let bytes = stream.into_bytes()?;
+            match encoding {
+                Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
+                None => super::encoding::detect_encoding_name(head, span, &bytes)
+                    .map(|encoding| encoding.decode(&bytes).0.into_owned())
+                    .map(|s| Value::string(s, head)),
+            }
+            .map(|val| val.into_pipeline_data())
+        }
+        PipelineData::Value(v, ..) => {
+            let input_span = v.span();
+            match v {
+                Value::Binary { val: bytes, .. } => match encoding {
                     Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
                     None => super::encoding::detect_encoding_name(head, input_span, &bytes)
                         .map(|encoding| encoding.decode(&bytes).0.into_owned())
                         .map(|s| Value::string(s, head)),
                 }
-                .map(|val| val.into_pipeline_data())
+                .map(|val| val.into_pipeline_data()),
+                Value::Error { error, .. } => Err(*error),
+                _ => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "binary".into(),
+                    wrong_type: v.get_type().to_string(),
+                    dst_span: head,
+                    src_span: v.span(),
+                }),
             }
-            PipelineData::Value(v, ..) => {
-                let input_span = v.span();
-                match v {
-                    Value::Binary { val: bytes, .. } => match encoding {
-                        Some(encoding_name) => super::encoding::decode(head, encoding_name, &bytes),
-                        None => super::encoding::detect_encoding_name(head, input_span, &bytes)
-                            .map(|encoding| encoding.decode(&bytes).0.into_owned())
-                            .map(|s| Value::string(s, head)),
-                    }
-                    .map(|val| val.into_pipeline_data()),
-                    Value::Error { error, .. } => Err(*error),
-                    _ => Err(ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "binary".into(),
-                        wrong_type: v.get_type().to_string(),
-                        dst_span: head,
-                        src_span: v.span(),
-                    }),
-                }
-            }
-            // This should be more precise, but due to difficulties in getting spans
-            // from PipelineData::ListData, this is as it is.
-            _ => Err(ShellError::UnsupportedInput {
-                msg: "non-binary input".into(),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: input.span().unwrap_or(head),
-            }),
         }
+        // This should be more precise, but due to difficulties in getting spans
+        // from PipelineData::ListData, this is as it is.
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "non-binary input".into(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: input.span().unwrap_or(head),
+        }),
     }
 }
 

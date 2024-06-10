@@ -54,8 +54,8 @@ impl PluginCommand for LazyJoin {
         vec![
             Example {
                 description: "Join two lazy dataframes",
-                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-df);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-df);
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-lazy);
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy);
     $df_a | polars join $df_b a foo | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -115,7 +115,7 @@ impl PluginCommand for LazyJoin {
             Example {
                 description: "Join one eager dataframe with a lazy dataframe",
                 example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-df);
-    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-df);
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy);
     $df_a | polars join $df_b a foo"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
@@ -189,7 +189,7 @@ impl PluginCommand for LazyJoin {
         let how = if left {
             JoinType::Left
         } else if outer {
-            JoinType::Outer { coalesce: true }
+            JoinType::Outer
         } else if cross {
             JoinType::Cross
         } else {
@@ -228,8 +228,9 @@ impl PluginCommand for LazyJoin {
         let suffix: Option<String> = call.get_flag("suffix")?;
         let suffix = suffix.unwrap_or_else(|| "_x".into());
 
-        let value = input.into_value(call.head);
+        let value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
+        let from_eager = lazy.from_eager;
         let lazy = lazy.to_polars();
 
         let lazy = lazy
@@ -242,7 +243,7 @@ impl PluginCommand for LazyJoin {
             .suffix(suffix)
             .finish();
 
-        let lazy = NuLazyFrame::new(lazy);
+        let lazy = NuLazyFrame::new(from_eager, lazy);
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
     }

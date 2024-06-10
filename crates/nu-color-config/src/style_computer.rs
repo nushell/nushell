@@ -58,11 +58,11 @@ impl<'a> StyleComputer<'a> {
             Some(ComputableStyle::Closure(closure, span)) => {
                 let result = ClosureEvalOnce::new(self.engine_state, self.stack, closure.clone())
                     .debug(false)
-                    .run_with_value(value.clone());
+                    .run_with_value(value.clone())
+                    .and_then(|data| data.into_value(*span));
 
                 match result {
-                    Ok(v) => {
-                        let value = v.into_value(*span);
+                    Ok(value) => {
                         // These should be the same color data forms supported by color_config.
                         match value {
                             Value::Record { .. } => color_record_to_nustyle(&value),
@@ -146,7 +146,10 @@ impl<'a> StyleComputer<'a> {
             let span = value.span();
             match value {
                 Value::Closure { val, .. } => {
-                    map.insert(key.to_string(), ComputableStyle::Closure(val.clone(), span));
+                    map.insert(
+                        key.to_string(),
+                        ComputableStyle::Closure(*val.clone(), span),
+                    );
                 }
                 Value::Record { .. } => {
                     map.insert(

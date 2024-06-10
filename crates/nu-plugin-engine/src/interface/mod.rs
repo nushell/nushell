@@ -519,8 +519,8 @@ impl InterfaceManager for PluginInterfaceManager {
                     .map_data(|data| {
                         let ctrlc = self.get_ctrlc(id)?;
 
-                        // Register the streams in the response
-                        for stream_id in data.stream_ids() {
+                        // Register the stream in the response
+                        if let Some(stream_id) = data.stream_id() {
                             self.recv_stream_started(id, stream_id);
                         }
 
@@ -602,7 +602,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     meta,
                 ))
             }
-            PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
+            PipelineData::Empty | PipelineData::ByteStream(..) => Ok(data),
         }
     }
 
@@ -953,7 +953,7 @@ impl PluginInterface {
 
         let call = PluginCall::CustomValueOp(value.map(|cv| cv.without_source()), op);
         match self.plugin_call(call, None)? {
-            PluginCallResponse::PipelineData(out_data) => Ok(out_data.into_value(span)),
+            PluginCallResponse::PipelineData(out_data) => out_data.into_value(span),
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: format!("Received unexpected response to custom value {op_name}() call"),
@@ -1091,7 +1091,7 @@ impl Interface for PluginInterface {
                     meta,
                 ))
             }
-            PipelineData::Empty | PipelineData::ExternalStream { .. } => Ok(data),
+            PipelineData::Empty | PipelineData::ByteStream(..) => Ok(data),
         }
     }
 }

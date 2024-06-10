@@ -6,14 +6,13 @@ use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{Stack, StateWorkingSet},
     PipelineData, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 pub struct CustomCompletion {
-    engine_state: Arc<EngineState>,
     stack: Stack,
     decl_id: usize,
     line: String,
@@ -21,10 +20,9 @@ pub struct CustomCompletion {
 }
 
 impl CustomCompletion {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack, decl_id: usize, line: String) -> Self {
+    pub fn new(stack: Stack, decl_id: usize, line: String) -> Self {
         Self {
-            engine_state,
-            stack: stack.reset_out_dest().capture(),
+            stack,
             decl_id,
             line,
             sort_by: SortBy::None,
@@ -35,7 +33,8 @@ impl CustomCompletion {
 impl Completer for CustomCompletion {
     fn fetch(
         &mut self,
-        _: &StateWorkingSet,
+        working_set: &StateWorkingSet,
+        _stack: &Stack,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
@@ -47,24 +46,22 @@ impl Completer for CustomCompletion {
 
         // Call custom declaration
         let result = eval_call::<WithoutDebug>(
-            &self.engine_state,
+            working_set.permanent_state,
             &mut self.stack,
             &Call {
                 decl_id: self.decl_id,
                 head: span,
                 arguments: vec![
-                    Argument::Positional(Expression {
-                        span: Span::unknown(),
-                        ty: Type::String,
-                        expr: Expr::String(self.line.clone()),
-                        custom_completion: None,
-                    }),
-                    Argument::Positional(Expression {
-                        span: Span::unknown(),
-                        ty: Type::Int,
-                        expr: Expr::Int(line_pos as i64),
-                        custom_completion: None,
-                    }),
+                    Argument::Positional(Expression::new_unknown(
+                        Expr::String(self.line.clone()),
+                        Span::unknown(),
+                        Type::String,
+                    )),
+                    Argument::Positional(Expression::new_unknown(
+                        Expr::Int(line_pos as i64),
+                        Span::unknown(),
+                        Type::Int,
+                    )),
                 ],
                 parser_info: HashMap::new(),
             },
@@ -75,55 +72,53 @@ impl Completer for CustomCompletion {
 
         // Parse result
         let suggestions = result
-            .map(|pd| {
-                let value = pd.into_value(span);
-                match &value {
-                    Value::Record { val, .. } => {
-                        let completions = val
-                            .get("completions")
-                            .and_then(|val| {
-                                val.as_list()
-                                    .ok()
-                                    .map(|it| map_value_completions(it.iter(), span, offset))
-                            })
-                            .unwrap_or_default();
-                        let options = val.get("options");
+            .and_then(|data| data.into_value(span))
+            .map(|value| match &value {
+                Value::Record { val, .. } => {
+                    let completions = val
+                        .get("completions")
+                        .and_then(|val| {
+                            val.as_list()
+                                .ok()
+                                .map(|it| map_value_completions(it.iter(), span, offset))
+                        })
+                        .unwrap_or_default();
+                    let options = val.get("options");
 
-                        if let Some(Value::Record { val: options, .. }) = &options {
-                            let should_sort = options
-                                .get("sort")
-                                .and_then(|val| val.as_bool().ok())
-                                .unwrap_or(false);
+                    if let Some(Value::Record { val: options, .. }) = &options {
+                        let should_sort = options
+                            .get("sort")
+                            .and_then(|val| val.as_bool().ok())
+                            .unwrap_or(false);
 
-                            if should_sort {
-                                self.sort_by = SortBy::Ascending;
-                            }
-
-                            custom_completion_options = Some(CompletionOptions {
-                                case_sensitive: options
-                                    .get("case_sensitive")
-                                    .and_then(|val| val.as_bool().ok())
-                                    .unwrap_or(true),
-                                positional: options
-                                    .get("positional")
-                                    .and_then(|val| val.as_bool().ok())
-                                    .unwrap_or(true),
-                                match_algorithm: match options.get("completion_algorithm") {
-                                    Some(option) => option
-                                        .coerce_string()
-                                        .ok()
-                                        .and_then(|option| option.try_into().ok())
-                                        .unwrap_or(MatchAlgorithm::Prefix),
-                                    None => completion_options.match_algorithm,
-                                },
-                            });
+                        if should_sort {
+                            self.sort_by = SortBy::Ascending;
                         }
 
-                        completions
+                        custom_completion_options = Some(CompletionOptions {
+                            case_sensitive: options
+                                .get("case_sensitive")
+                                .and_then(|val| val.as_bool().ok())
+                                .unwrap_or(true),
+                            positional: options
+                                .get("positional")
+                                .and_then(|val| val.as_bool().ok())
+                                .unwrap_or(true),
+                            match_algorithm: match options.get("completion_algorithm") {
+                                Some(option) => option
+                                    .coerce_string()
+                                    .ok()
+                                    .and_then(|option| option.try_into().ok())
+                                    .unwrap_or(MatchAlgorithm::Prefix),
+                                None => completion_options.match_algorithm,
+                            },
+                        });
                     }
-                    Value::List { vals, .. } => map_value_completions(vals.iter(), span, offset),
-                    _ => vec![],
+
+                    completions
                 }
+                Value::List { vals, .. } => map_value_completions(vals.iter(), span, offset),
+                _ => vec![],
             })
             .unwrap_or_default();
 

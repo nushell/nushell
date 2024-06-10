@@ -26,9 +26,8 @@ use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    eval_const::create_nu_constant,
     report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value, NU_VARIABLE_ID,
+    Value,
 };
 use nu_utils::{
     filesystem::{have_permission, PermissionResult},
@@ -87,7 +86,7 @@ pub fn evaluate_repl(
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, &unique_stack) {
+    if let Err(e) = convert_env_values(engine_state, &unique_stack) {
         report_error_new(engine_state, &e);
     }
     perf(
@@ -145,8 +144,7 @@ pub fn evaluate_repl(
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
-    let nu_const = create_nu_constant(engine_state, Span::unknown())?;
-    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+    engine_state.generate_nu_constant();
 
     if load_std_lib.is_none() && engine_state.get_config().show_banner {
         eval_source(
@@ -389,7 +387,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_completer(Box::new(NuCompleter::new(
             engine_reference.clone(),
             // STACK-REFERENCE 2
-            Stack::with_parent(stack_arc.clone()),
+            stack_arc.clone(),
         )))
         .with_quick_completions(config.quick_completions)
         .with_partial_completions(config.partial_completions)
@@ -544,7 +542,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let shell_integration_osc633 = config.shell_integration_osc633;
     let shell_integration_reset_application_mode = config.shell_integration_reset_application_mode;
 
-    let mut stack = Stack::unwrap_unique(stack_arc);
+    // TODO: we may clone the stack, this can lead to major performance issues
+    // so we should avoid it or making stack cheaper to clone.
+    let mut stack = Arc::unwrap_or_clone(stack_arc);
 
     perf(
         "line_editor setup",
@@ -620,7 +620,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                         column!(),
                         use_color,
                     );
-                } else {
+                } else if shell_integration_osc133 {
                     start_time = Instant::now();
 
                     run_ansi_sequence(PRE_EXECUTION_MARKER);
@@ -660,9 +660,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                         run_finaliziation_ansi_sequence(
                             &stack,
                             engine_state,
+                            use_color,
                             shell_integration_osc633,
                             shell_integration_osc133,
-                            use_color,
                         );
                     }
                     ReplOperation::RunCommand(cmd) => {
@@ -679,9 +679,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                         run_finaliziation_ansi_sequence(
                             &stack,
                             engine_state,
+                            use_color,
                             shell_integration_osc633,
                             shell_integration_osc133,
-                            use_color,
                         );
                     }
                     // as the name implies, we do nothing in this case
@@ -731,9 +731,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             run_finaliziation_ansi_sequence(
                 &stack,
                 engine_state,
+                use_color,
                 shell_integration_osc633,
                 shell_integration_osc133,
-                use_color,
             );
         }
         Ok(Signal::CtrlD) => {
@@ -742,9 +742,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             run_finaliziation_ansi_sequence(
                 &stack,
                 engine_state,
+                use_color,
                 shell_integration_osc633,
                 shell_integration_osc133,
-                use_color,
             );
 
             println!();
@@ -763,9 +763,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             run_finaliziation_ansi_sequence(
                 &stack,
                 engine_state,
+                use_color,
                 shell_integration_osc633,
                 shell_integration_osc133,
-                use_color,
             );
         }
     }
@@ -872,7 +872,7 @@ fn parse_operation(
     let tokens = lex(s.as_bytes(), 0, &[], &[], false);
     // Check if this is a single call to a directory, if so auto-cd
     #[allow(deprecated)]
-    let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
+    let cwd = nu_engine::env::current_dir_str(engine_state, stack).unwrap_or_default();
     let mut orig = s.clone();
     if orig.starts_with('`') {
         orig = trim_quotes_str(&orig).to_string()
@@ -929,7 +929,10 @@ fn do_auto_cd(
 
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
-    stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
+    if let Err(err) = stack.set_cwd(&path) {
+        report_error_new(engine_state, &err);
+        return;
+    };
     let cwd = Value::string(cwd, span);
 
     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
@@ -1107,9 +1110,9 @@ fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack, u
         let start_time = Instant::now();
 
         // Otherwise, communicate the path as OSC 9;9 from ConEmu (often used for spawning new tabs in the same dir)
+        // This is helpful in Windows Terminal with Duplicate Tab
         run_ansi_sequence(&format!(
-            "\x1b]9;9;{}{}\x1b\\",
-            if path.starts_with('/') { "" } else { "/" },
+            "\x1b]9;9;{}\x1b\\",
             percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
         ));
 
@@ -1298,27 +1301,46 @@ fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorSty
     }
 }
 
-fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState, vscode: bool) -> String {
+fn get_command_finished_marker(
+    stack: &Stack,
+    engine_state: &EngineState,
+    shell_integration_osc633: bool,
+    shell_integration_osc133: bool,
+) -> String {
     let exit_code = stack
         .get_env_var(engine_state, "LAST_EXIT_CODE")
         .and_then(|e| e.as_i64().ok());
 
-    if vscode {
-        // format!("\x1b]633;D;{}\x1b\\", exit_code.unwrap_or(0))
-        format!(
-            "{}{}{}",
-            VSCODE_POST_EXECUTION_MARKER_PREFIX,
-            exit_code.unwrap_or(0),
-            VSCODE_POST_EXECUTION_MARKER_SUFFIX
-        )
-    } else {
-        // format!("\x1b]133;D;{}\x1b\\", exit_code.unwrap_or(0))
+    if shell_integration_osc633 {
+        if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
+            // We're in vscode and we have osc633 enabled
+            format!(
+                "{}{}{}",
+                VSCODE_POST_EXECUTION_MARKER_PREFIX,
+                exit_code.unwrap_or(0),
+                VSCODE_POST_EXECUTION_MARKER_SUFFIX
+            )
+        } else if shell_integration_osc133 {
+            // If we're in VSCode but we don't find the env var, just return the regular markers
+            format!(
+                "{}{}{}",
+                POST_EXECUTION_MARKER_PREFIX,
+                exit_code.unwrap_or(0),
+                POST_EXECUTION_MARKER_SUFFIX
+            )
+        } else {
+            // We're not in vscode, so we don't need to do anything special
+            "\x1b[0m".to_string()
+        }
+    } else if shell_integration_osc133 {
         format!(
             "{}{}{}",
             POST_EXECUTION_MARKER_PREFIX,
             exit_code.unwrap_or(0),
             POST_EXECUTION_MARKER_SUFFIX
         )
+    } else {
+        "\x1b[0m".to_string()
     }
 }
 
@@ -1342,7 +1364,12 @@ fn run_finaliziation_ansi_sequence(
         if stack.get_env_var(engine_state, "TERM_PROGRAM") == Some(Value::test_string("vscode")) {
             let start_time = Instant::now();
 
-            run_ansi_sequence(&get_command_finished_marker(stack, engine_state, true));
+            run_ansi_sequence(&get_command_finished_marker(
+                stack,
+                engine_state,
+                shell_integration_osc633,
+                shell_integration_osc133,
+            ));
 
             perf(
                 "post_execute_marker (633;D) ansi escape sequences",
@@ -1352,10 +1379,15 @@ fn run_finaliziation_ansi_sequence(
                 column!(),
                 use_color,
             );
-        } else {
+        } else if shell_integration_osc133 {
             let start_time = Instant::now();
 
-            run_ansi_sequence(&get_command_finished_marker(stack, engine_state, false));
+            run_ansi_sequence(&get_command_finished_marker(
+                stack,
+                engine_state,
+                shell_integration_osc633,
+                shell_integration_osc133,
+            ));
 
             perf(
                 "post_execute_marker (133;D) ansi escape sequences",
@@ -1369,7 +1401,12 @@ fn run_finaliziation_ansi_sequence(
     } else if shell_integration_osc133 {
         let start_time = Instant::now();
 
-        run_ansi_sequence(&get_command_finished_marker(stack, engine_state, false));
+        run_ansi_sequence(&get_command_finished_marker(
+            stack,
+            engine_state,
+            shell_integration_osc633,
+            shell_integration_osc133,
+        ));
 
         perf(
             "post_execute_marker (133;D) ansi escape sequences",
@@ -1446,4 +1483,137 @@ fn are_session_ids_in_sync() {
         i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
         engine_state.history_session_id
     );
+}
+
+#[cfg(test)]
+mod test_auto_cd {
+    use super::{do_auto_cd, parse_operation, ReplOperation};
+    use nu_protocol::engine::{EngineState, Stack};
+    use std::path::Path;
+    use tempfile::tempdir;
+
+    /// Create a symlink. Works on both Unix and Windows.
+    #[cfg(any(unix, windows))]
+    fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(original, link)
+        }
+        #[cfg(windows)]
+        {
+            if original.as_ref().is_dir() {
+                std::os::windows::fs::symlink_dir(original, link)
+            } else {
+                std::os::windows::fs::symlink_file(original, link)
+            }
+        }
+    }
+
+    /// Run one test case on the auto-cd feature. PWD is initially set to
+    /// `before`, and after `input` is parsed and evaluated, PWD should be
+    /// changed to `after`.
+    #[track_caller]
+    fn check(before: impl AsRef<Path>, input: &str, after: impl AsRef<Path>) {
+        // Setup EngineState and Stack.
+        let mut engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.set_cwd(before).unwrap();
+
+        // Parse the input. It must be an auto-cd operation.
+        let op = parse_operation(input.to_string(), &engine_state, &stack).unwrap();
+        let ReplOperation::AutoCd { cwd, target, span } = op else {
+            panic!("'{}' was not parsed into an auto-cd operation", input)
+        };
+
+        // Perform the auto-cd operation.
+        do_auto_cd(target, cwd, &mut stack, &mut engine_state, span);
+        let updated_cwd = engine_state.cwd(Some(&stack)).unwrap();
+
+        // Check that `updated_cwd` and `after` point to the same place. They
+        // don't have to be byte-wise equal (on Windows, the 8.3 filename
+        // conversion messes things up),
+        let updated_cwd = std::fs::canonicalize(updated_cwd).unwrap();
+        let after = std::fs::canonicalize(after).unwrap();
+        assert_eq!(updated_cwd, after);
+    }
+
+    #[test]
+    fn auto_cd_root() {
+        let tempdir = tempdir().unwrap();
+        let root = if cfg!(windows) { r"C:\" } else { "/" };
+        check(&tempdir, root, root);
+    }
+
+    #[test]
+    fn auto_cd_tilde() {
+        let tempdir = tempdir().unwrap();
+        let home = nu_path::home_dir().unwrap();
+        check(&tempdir, "~", home);
+    }
+
+    #[test]
+    fn auto_cd_dot() {
+        let tempdir = tempdir().unwrap();
+        check(&tempdir, ".", &tempdir);
+    }
+
+    #[test]
+    fn auto_cd_double_dot() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+        check(dir, "..", &tempdir);
+    }
+
+    #[test]
+    fn auto_cd_triple_dot() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo").join("bar");
+        std::fs::create_dir_all(&dir).unwrap();
+        check(dir, "...", &tempdir);
+    }
+
+    #[test]
+    fn auto_cd_relative() {
+        let tempdir = tempdir().unwrap();
+        let foo = tempdir.path().join("foo");
+        let bar = tempdir.path().join("bar");
+        std::fs::create_dir_all(&foo).unwrap();
+        std::fs::create_dir_all(&bar).unwrap();
+
+        let input = if cfg!(windows) { r"..\bar" } else { "../bar" };
+        check(foo, input, bar);
+    }
+
+    #[test]
+    fn auto_cd_trailing_slash() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let input = if cfg!(windows) { r"foo\" } else { "foo/" };
+        check(&tempdir, input, dir);
+    }
+
+    #[test]
+    fn auto_cd_symlink() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+        let link = tempdir.path().join("link");
+        symlink(&dir, &link).unwrap();
+
+        let input = if cfg!(windows) { r".\link" } else { "./link" };
+        check(&tempdir, input, link);
+    }
+
+    #[test]
+    #[should_panic(expected = "was not parsed into an auto-cd operation")]
+    fn auto_cd_nonexistent_directory() {
+        let tempdir = tempdir().unwrap();
+        let dir = tempdir.path().join("foo");
+
+        let input = if cfg!(windows) { r"foo\" } else { "foo/" };
+        check(&tempdir, input, dir);
+    }
 }
