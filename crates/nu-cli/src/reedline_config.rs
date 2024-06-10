@@ -76,7 +76,7 @@ const DEFAULT_HELP_MENU: &str = r#"
 // Adds all menus to line editor
 pub(crate) fn add_menus(
     mut line_editor: Reedline,
-    engine_state: &mut Arc<EngineState>,
+    engine_state_ref: Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -84,7 +84,7 @@ pub(crate) fn add_menus(
     line_editor = line_editor.clear_menus();
 
     for menu in &config.menus {
-        line_editor = add_menu(line_editor, menu, engine_state.clone(), stack, config)?
+        line_editor = add_menu(line_editor, menu, engine_state_ref.clone(), stack, config)?
     }
 
     // Checking if the default menus have been added from the config file
@@ -94,6 +94,8 @@ pub(crate) fn add_menus(
         ("help_menu", DEFAULT_HELP_MENU),
     ];
 
+    let mut engine_state = (*engine_state_ref).clone();
+
     for (name, definition) in default_menus {
         if !config
             .menus
@@ -101,7 +103,7 @@ pub(crate) fn add_menus(
             .any(|menu| menu.name.to_expanded_string("", config) == name)
         {
             let (block, delta) = {
-                let mut working_set = StateWorkingSet::new(engine_state);
+                let mut working_set = StateWorkingSet::new(&engine_state);
                 let output = parse(
                     &mut working_set,
                     Some(name), // format!("entry #{}", entry_num)
@@ -112,18 +114,16 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
-            let _ = Arc::get_mut(engine_state)
-                .expect("no engine state")
-                .merge_delta(delta);
+            engine_state.merge_delta(delta)?;
 
             let mut temp_stack = Stack::new().capture();
             let input = PipelineData::Empty;
-            let res = eval_block::<WithoutDebug>(engine_state, &mut temp_stack, &block, input)?;
+            let res = eval_block::<WithoutDebug>(&engine_state, &mut temp_stack, &block, input)?;
 
             if let PipelineData::Value(value, None) = res {
                 for menu in create_menus(&value)? {
                     line_editor =
-                        add_menu(line_editor, &menu, engine_state.clone(), stack, config)?;
+                        add_menu(line_editor, &menu, engine_state_ref.clone(), stack, config)?;
                 }
             }
         }
