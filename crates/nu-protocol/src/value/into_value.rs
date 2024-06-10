@@ -54,17 +54,13 @@ where
 
 macro_rules! primitive_into_value {
     ($type:ty, $method:ident) => {
-        impl IntoValue for $type {
-            fn into_value(self, span: Span) -> Value {
-                Value::$method(self, span)
-            }
-        }
+        primitive_into_value!($type => $type, $method);
     };
 
-    ($type:ty as $as_type:ty, $method:ident) => {
+    ($type:ty => $as_type:ty, $method:ident) => {
         impl IntoValue for $type {
             fn into_value(self, span: Span) -> Value {
-                Value::$method(self as $as_type, span)
+                Value::$method(<$as_type>::from(self), span)
             }
         }
     };
@@ -72,17 +68,22 @@ macro_rules! primitive_into_value {
 
 primitive_into_value!(bool, bool);
 primitive_into_value!(char, string);
-primitive_into_value!(f32 as f64, float);
+primitive_into_value!(f32 => f64, float);
 primitive_into_value!(f64, float);
-primitive_into_value!(i8 as i64, int);
-primitive_into_value!(i16 as i64, int);
-primitive_into_value!(i32 as i64, int);
+primitive_into_value!(i8 => i64, int);
+primitive_into_value!(i16 => i64, int);
+primitive_into_value!(i32 => i64, int);
 primitive_into_value!(i64, int);
-primitive_into_value!(isize as i64, int);
-primitive_into_value!(u8 as i64, int);
-primitive_into_value!(u16 as i64, int);
-primitive_into_value!(u32 as i64, int);
+primitive_into_value!(u8 => i64, int);
+primitive_into_value!(u16 => i64, int);
+primitive_into_value!(u32 => i64, int);
 // u64 and usize may be truncated as Value only supports i64.
+
+impl IntoValue for isize {
+    fn into_value(self, span: Span) -> Value {
+        Value::int(self as i64, span)
+    }
+}
 
 impl IntoValue for () {
     fn into_value(self, span: Span) -> Value {
