@@ -2849,7 +2849,9 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     trace!("parsing: string, with required delimiters");
 
     let bytes = working_set.get_span_contents(span);
-
+    if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
+        return parse_string_interpolation(working_set, span);
+    }
     // Check for unbalanced quotes:
     {
         let bytes = if bytes.starts_with(b"$") {
@@ -2869,6 +2871,7 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
 
     let (bytes, quoted) = if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
         || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+        || (bytes.starts_with(b"`") && bytes.ends_with(b"`") && bytes.len() > 1)
     {
         (&bytes[1..(bytes.len() - 1)], true)
     } else if (bytes.starts_with(b"$\"") && bytes.ends_with(b"\"") && bytes.len() > 2)
@@ -4669,7 +4672,7 @@ pub fn parse_value(
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
-        SyntaxShape::String => parse_string(working_set, span),
+        SyntaxShape::String => parse_string_strict(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
