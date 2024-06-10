@@ -39,13 +39,6 @@ use crate::{Record, ShellError, Span, Value};
 pub trait IntoValue: Sized {
     /// Converts the given value to a [`Value`].
     fn into_value(self, span: Span) -> Value;
-
-    /// Converts the given value to a [`Value`] with an unknown [`Span`].
-    ///
-    /// Internally this simply calls [`Span::unknown`] for the `span`.
-    fn into_value_unknown(self) -> Value {
-        Self::into_value(self, Span::unknown())
-    }
 }
 
 // Primitive Types

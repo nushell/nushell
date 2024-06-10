@@ -1,10 +1,20 @@
-use crate::{record, FromValue, IntoValue, Record, Value};
+use crate::{record, FromValue, IntoValue, Record, Span, Value};
 use std::collections::HashMap;
 
 // Make nu_protocol available in this namespace, consumers of this crate will
 // have this without such an export.
 // The derive macro fully qualifies paths to "nu_protocol".
 use crate as nu_protocol;
+
+trait IntoTestValue {
+    fn into_test_value(self) -> Value;
+}
+
+impl<T> IntoTestValue for T where T: IntoValue {
+    fn into_test_value(self) -> Value {
+        self.into_value(Span::test_data())
+    }
+}
 
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
 struct NamedFieldsStruct<T>
@@ -80,7 +90,7 @@ impl NamedFieldsStruct<u32> {
             ]),
             "bool" => Value::test_bool(true),
             "char" => Value::test_string('a'),
-            "f32" => Value::test_float(std::f32::consts::PI as f64),
+            "f32" => Value::test_float(std::f32::consts::PI.into()),
             "f64" => Value::test_float(std::f64::consts::E),
             "i8" => Value::test_int(127),
             "i16" => Value::test_int(-32768),
@@ -118,7 +128,7 @@ impl NamedFieldsStruct<u32> {
 #[test]
 fn named_fields_struct_into_value() {
     let expected = NamedFieldsStruct::value();
-    let actual = NamedFieldsStruct::make().into_value_unknown();
+    let actual = NamedFieldsStruct::make().into_test_value();
     assert_eq!(expected, actual);
 }
 
@@ -133,13 +143,13 @@ fn named_fields_struct_from_value() {
 fn named_fields_struct_roundtrip() {
     let expected = NamedFieldsStruct::make();
     let actual =
-        NamedFieldsStruct::from_value(NamedFieldsStruct::make().into_value_unknown()).unwrap();
+        NamedFieldsStruct::from_value(NamedFieldsStruct::make().into_test_value()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = NamedFieldsStruct::value();
     let actual = NamedFieldsStruct::<u32>::from_value(NamedFieldsStruct::value())
         .unwrap()
-        .into_value_unknown();
+        .into_test_value();
     assert_eq!(expected, actual);
 }
 
@@ -180,7 +190,7 @@ impl UnnamedFieldsStruct<f64> {
 #[test]
 fn unnamed_fields_struct_into_value() {
     let expected = UnnamedFieldsStruct::value();
-    let actual = UnnamedFieldsStruct::make().into_value_unknown();
+    let actual = UnnamedFieldsStruct::make().into_test_value();
     assert_eq!(expected, actual);
 }
 
@@ -196,13 +206,13 @@ fn unnamed_fields_struct_from_value() {
 fn unnamed_fields_struct_roundtrip() {
     let expected = UnnamedFieldsStruct::make();
     let actual =
-        UnnamedFieldsStruct::from_value(UnnamedFieldsStruct::make().into_value_unknown()).unwrap();
+        UnnamedFieldsStruct::from_value(UnnamedFieldsStruct::make().into_test_value()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = UnnamedFieldsStruct::value();
     let actual = UnnamedFieldsStruct::<f64>::from_value(UnnamedFieldsStruct::value())
         .unwrap()
-        .into_value_unknown();
+        .into_test_value();
     assert_eq!(expected, actual);
 }
 
@@ -227,7 +237,7 @@ struct UnitStruct;
 #[test]
 fn unit_struct_into_value() {
     let expected = Value::test_nothing();
-    let actual = UnitStruct.into_value_unknown();
+    let actual = UnitStruct.into_test_value();
     assert_eq!(expected, actual);
 }
 
@@ -241,13 +251,13 @@ fn unit_struct_from_value() {
 #[test]
 fn unit_struct_roundtrip() {
     let expected = UnitStruct;
-    let actual = UnitStruct::from_value(UnitStruct.into_value_unknown()).unwrap();
+    let actual = UnitStruct::from_value(UnitStruct.into_test_value()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = Value::test_nothing();
     let actual = UnitStruct::from_value(Value::test_nothing())
         .unwrap()
-        .into_value_unknown();
+        .into_test_value();
     assert_eq!(expected, actual);
 }
 
@@ -275,7 +285,7 @@ impl Enum {
 #[test]
 fn enum_into_value() {
     let expected = Enum::value();
-    let actual = Enum::make().into_value_unknown();
+    let actual = Enum::make().into_test_value();
     assert_eq!(expected, actual);
 }
 
@@ -289,13 +299,13 @@ fn enum_from_value() {
 #[test]
 fn enum_roundtrip() {
     let expected = Enum::make();
-    let actual = <[Enum; 3]>::from_value(Enum::make().into_value_unknown()).unwrap();
+    let actual = <[Enum; 3]>::from_value(Enum::make().into_test_value()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = Enum::value();
     let actual = <[Enum; 3]>::from_value(Enum::value())
         .unwrap()
-        .into_value_unknown();
+        .into_test_value();
     assert_eq!(expected, actual);
 }
 
@@ -344,7 +354,7 @@ macro_rules! enum_rename_all {
         #[test]
         fn enum_rename_all_into_value() {$({
             let expected = $ident::value();
-            let actual = $ident::make().into_value_unknown();
+            let actual = $ident::make().into_test_value();
             assert_eq!(expected, actual);
         })*}
 
