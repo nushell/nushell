@@ -76,7 +76,7 @@ const DEFAULT_HELP_MENU: &str = r#"
 // Adds all menus to line editor
 pub(crate) fn add_menus(
     mut line_editor: Reedline,
-    engine_state: Arc<EngineState>,
+    engine_state: &mut Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -100,8 +100,8 @@ pub(crate) fn add_menus(
             .iter()
             .any(|menu| menu.name.to_expanded_string("", config) == name)
         {
-            let (block, _) = {
-                let mut working_set = StateWorkingSet::new(&engine_state);
+            let (block, delta) = {
+                let mut working_set = StateWorkingSet::new(engine_state);
                 let output = parse(
                     &mut working_set,
                     Some(name), // format!("entry #{}", entry_num)
@@ -112,9 +112,13 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
+            let _ = Arc::get_mut(engine_state)
+                .expect("no engine state")
+                .merge_delta(delta);
+
             let mut temp_stack = Stack::new().capture();
             let input = PipelineData::Empty;
-            let res = eval_block::<WithoutDebug>(&engine_state, &mut temp_stack, &block, input)?;
+            let res = eval_block::<WithoutDebug>(engine_state, &mut temp_stack, &block, input)?;
 
             if let PipelineData::Value(value, None) = res {
                 for menu in create_menus(&value)? {

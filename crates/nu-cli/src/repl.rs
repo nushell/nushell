@@ -345,7 +345,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         use_color,
     );
 
-    let engine_reference = Arc::new(engine_state.clone());
+    let mut engine_reference = Arc::new(engine_state.clone());
     let config = engine_state.get_config();
 
     start_time = std::time::Instant::now();
@@ -428,7 +428,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     start_time = std::time::Instant::now();
     trace!("adding menus");
     line_editor =
-        add_menus(line_editor, engine_reference, &stack_arc, config).unwrap_or_else(|e| {
+        add_menus(line_editor, &mut engine_reference, &stack_arc, config).unwrap_or_else(|e| {
             report_error_new(engine_state, &e);
             Reedline::create()
         });
