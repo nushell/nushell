@@ -5,7 +5,6 @@ use nu_cmd_base::{
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::{engine::StateWorkingSet, Range};
-use std::cmp::Ordering;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -178,7 +177,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             };
 
             if start > end {
-                return Value::string("", head);
+                Value::string("", head)
             } else {
                 Value::string(
                     {
