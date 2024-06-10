@@ -15,6 +15,8 @@ pub struct IrBlock {
 }
 
 impl IrBlock {
+    /// Returns a value that can be formatted with [`Display`](std::fmt::Display) to show a detailed
+    /// listing of the instructions contained within this [`IrBlock`].
     pub fn display<'a>(&'a self, engine_state: &'a EngineState) -> FmtIrBlock<'a> {
         FmtIrBlock {
             engine_state,
