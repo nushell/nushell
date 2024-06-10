@@ -625,7 +625,7 @@ fn repeat_vertical(
     let span = Span::styled(&text, style);
 
     for row in 0..height {
-        for col in 0 .. width {
+        for col in 0..width {
             buf.set_span(x + col, y + row, &span, 1);
         }
     }
