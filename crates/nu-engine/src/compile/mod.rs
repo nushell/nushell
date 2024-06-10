@@ -263,9 +263,9 @@ fn compile_expression(
         Expr::Int(i) => lit(builder, Literal::Int(*i)),
         Expr::Float(f) => lit(builder, Literal::Float(*f)),
         Expr::Binary(bin) => lit(builder, Literal::Binary(bin.as_slice().into())),
-        Expr::Range(_) => todo!(),
-        Expr::Var(_) => todo!(),
-        Expr::VarDecl(_) => todo!(),
+        Expr::Range(_) => Err(CompileError::Todo("Range")),
+        Expr::Var(_) => Err(CompileError::Todo("Var")),
+        Expr::VarDecl(_) => Err(CompileError::Todo("VarDecl")),
         Expr::Call(call) => {
             // Ensure that out_reg contains the input value, because a call only uses one register
             if let Some(in_reg) = in_reg {
@@ -286,10 +286,10 @@ fn compile_expression(
 
             compile_call(engine_state, builder, &call, redirect_modes, out_reg)
         }
-        Expr::ExternalCall(_, _) => todo!(),
-        Expr::Operator(_) => todo!(),
-        Expr::RowCondition(_) => todo!(),
-        Expr::UnaryNot(_) => todo!(),
+        Expr::ExternalCall(_, _) => Err(CompileError::Todo("ExternalCall")),
+        Expr::Operator(_) => Err(CompileError::Todo("Operator")),
+        Expr::RowCondition(_) => Err(CompileError::Todo("RowCondition")),
+        Expr::UnaryNot(_) => Err(CompileError::Todo("UnaryNot")),
         Expr::BinaryOp(lhs, op, rhs) => {
             if let Expr::Operator(ref operator) = op.expr {
                 compile_binary_op(
@@ -316,18 +316,18 @@ fn compile_expression(
                 out_reg,
             )
         }
-        Expr::Block(_) => todo!(),
-        Expr::Closure(_) => todo!(),
-        Expr::MatchBlock(_) => todo!(),
-        Expr::List(_) => todo!(),
-        Expr::Table(_) => todo!(),
-        Expr::Record(_) => todo!(),
-        Expr::Keyword(_) => todo!(),
-        Expr::ValueWithUnit(_) => todo!(),
-        Expr::DateTime(_) => todo!(),
-        Expr::Filepath(_, _) => todo!(),
-        Expr::Directory(_, _) => todo!(),
-        Expr::GlobPattern(_, _) => todo!(),
+        Expr::Block(_) => Err(CompileError::Todo("Block")),
+        Expr::Closure(_) => Err(CompileError::Todo("Closure")),
+        Expr::MatchBlock(_) => Err(CompileError::Todo("MatchBlock")),
+        Expr::List(_) => Err(CompileError::Todo("List")),
+        Expr::Table(_) => Err(CompileError::Todo("Table")),
+        Expr::Record(_) => Err(CompileError::Todo("Record")),
+        Expr::Keyword(_) => Err(CompileError::Todo("Keyword")),
+        Expr::ValueWithUnit(_) => Err(CompileError::Todo("ValueWithUnit")),
+        Expr::DateTime(_) => Err(CompileError::Todo("DateTime")),
+        Expr::Filepath(_, _) => Err(CompileError::Todo("Filepath")),
+        Expr::Directory(_, _) => Err(CompileError::Todo("Directory")),
+        Expr::GlobPattern(_, _) => Err(CompileError::Todo("GlobPattern")),
         Expr::String(s) => lit(builder, Literal::String(s.as_str().into())),
         Expr::RawString(rs) => lit(builder, Literal::RawString(rs.as_str().into())),
         Expr::CellPath(path) => lit(builder, Literal::CellPath(Box::new(path.clone()))),
@@ -358,12 +358,12 @@ fn compile_expression(
             }
             Ok(())
         }
-        Expr::ImportPattern(_) => todo!(),
-        Expr::Overlay(_) => todo!(),
-        Expr::Signature(_) => todo!(),
-        Expr::StringInterpolation(_) => todo!(),
-        Expr::Nothing => todo!(),
-        Expr::Garbage => todo!(),
+        Expr::ImportPattern(_) => Err(CompileError::Todo("ImportPattern")),
+        Expr::Overlay(_) => Err(CompileError::Todo("Overlay")),
+        Expr::Signature(_) => Err(CompileError::Todo("Signature")),
+        Expr::StringInterpolation(_) => Err(CompileError::Todo("StringInterpolation")),
+        Expr::Nothing => Err(CompileError::Todo("Nothing ")),
+        Expr::Garbage => Err(CompileError::Todo("Garbage ")),
     }
 }
 
@@ -528,6 +528,7 @@ enum CompileError {
     InvalidRedirectMode,
     Garbage,
     UnsupportedOperatorExpression,
+    Todo(&'static str),
 }
 
 impl CompileError {
@@ -546,6 +547,9 @@ impl CompileError {
             }
             CompileError::UnsupportedOperatorExpression => {
                 format!("{ice}unsupported operator expression")
+            }
+            CompileError::Todo(msg) => {
+                format!("{ice}TODO: {msg}")
             }
         };
         ShellError::GenericError {
