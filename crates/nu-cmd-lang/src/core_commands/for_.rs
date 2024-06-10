@@ -1,5 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
 use nu_protocol::engine::CommandType;
+use nu_protocol::ParseWarning;
 
 #[derive(Clone)]
 pub struct For;
@@ -30,7 +31,7 @@ impl Command for For {
             .required("block", SyntaxShape::Block, "The block to run.")
             .switch(
                 "numbered",
-                "return a numbered item ($it.index and $it.item)",
+                "DEPRECATED: return a numbered item ($it.index and $it.item)",
                 Some('n'),
             )
             .creates_scope()
@@ -78,6 +79,20 @@ impl Command for For {
         let value = eval_expression(engine_state, stack, keyword_expr)?;
 
         let numbered = call.has_flag(engine_state, stack, "numbered")?;
+        if numbered {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ParseWarning::DeprecatedWarning {
+                    old_command: "--numbered/-n".into(),
+                    new_suggestion: "use `enumerate`".into(),
+                    span: call
+                        .get_named_arg("numbered")
+                        .expect("`get_named_arg` found `--numbered` but still failed")
+                        .span,
+                    url: "See `help for` examples".into(),
+                },
+            );
+        }
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
@@ -198,8 +213,7 @@ impl Command for For {
             },
             Example {
                 description: "Number each item and print a message",
-                example:
-                    "for $it in ['bob' 'fred'] --numbered { print $\"($it.index) is ($it.item)\" }",
+                example: r#"for $it in (['bob' 'fred'] | enumerate) { print $"($it.index) is ($it.item)" }"#,
                 result: None,
             },
         ]
