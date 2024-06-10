@@ -22,7 +22,7 @@ use crate::{Record, ShellError, Span, Value};
 /// specifying the case name followed by "case".
 ///
 /// ```
-/// # use nu_protocol::{IntoValue, Value};
+/// # use nu_protocol::{IntoValue, Value, Span};
 /// #[derive(IntoValue)]
 /// #[nu_value(rename_all = "COBOL-CASE")]
 /// enum Bird {
@@ -32,7 +32,7 @@ use crate::{Record, ShellError, Span, Value};
 /// }
 ///
 /// assert_eq!(
-///     Bird::RiverDuck.into_value_unknown(),
+///     Bird::RiverDuck.into_value(Span::unknown()),
 ///     Value::test_string("RIVER-DUCK")
 /// );
 /// ```
