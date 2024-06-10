@@ -1,11 +1,6 @@
-use crate::SpanId;
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
-
-pub trait GetSpan {
-    fn get_span(&self, span_id: SpanId) -> Span;
-}
 
 /// A spanned area of interest, generic over what kind of thing is of interest
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
