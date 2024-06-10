@@ -270,6 +270,7 @@ fn substring_empty_if_start_index_is_greater_than_end_index() {
             r#"
                  open sample.toml
                  | str substring 6..4 fortune.teller.phone
+                 | get fortune.teller.phone
              "#
         ));
         assert_eq!(actual.out, "")
