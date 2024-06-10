@@ -255,7 +255,7 @@ fn substrings_the_input() {
 }
 
 #[test]
-fn substring_errors_if_start_index_is_greater_than_end_index() {
+fn substring_empty_if_start_index_is_greater_than_end_index() {
     Playground::setup("str_test_9", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
