@@ -272,10 +272,7 @@ fn substring_errors_if_start_index_is_greater_than_end_index() {
                  | str substring 6..4 fortune.teller.phone
              "#
         ));
-
-        assert!(actual
-            .err
-            .contains("End must be greater than or equal to Start"))
+        assert_eq!(actual.out, "")
     })
 }
 
@@ -372,6 +369,21 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
         ));
 
         assert_eq!(actual.out, "arepas");
+    })
+}
+
+#[test]
+fn substring_by_negative_index() {
+    Playground::setup("str_test_13", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), "'apples' | str substring 0..-1",
+        );
+        assert_eq!(actual.out, "apples");
+
+        let actual = nu!(
+            cwd: dirs.test(), "'apples' | str substring 0..<-1",
+        );
+        assert_eq!(actual.out, "apple");
     })
 }
 

@@ -128,48 +128,24 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let range = &args.indexes;
     match input {
         Value::Binary { val, .. } => {
-            use std::cmp::{self, Ordering};
             let len = val.len() as isize;
-
             let start = if range.0 < 0 { range.0 + len } else { range.0 };
+            let end = if range.1 < 0 { range.1 + len } else { range.1 };
 
-            let end = if range.1 < 0 {
-                cmp::max(range.1 + len, 0)
-            } else {
-                range.1
-            };
-
-            if start < len && end >= 0 {
-                match start.cmp(&end) {
-                    Ordering::Equal => Value::binary(vec![], head),
-                    Ordering::Greater => Value::error(
-                        ShellError::TypeMismatch {
-                            err_message: "End must be greater than or equal to Start".to_string(),
-                            span: head,
-                        },
-                        head,
-                    ),
-                    Ordering::Less => Value::binary(
-                        if end == isize::MAX {
-                            val.iter()
-                                .skip(start as usize)
-                                .copied()
-                                .collect::<Vec<u8>>()
-                        } else {
-                            val.iter()
-                                .skip(start as usize)
-                                .take((end - start) as usize)
-                                .copied()
-                                .collect()
-                        },
-                        head,
-                    ),
-                }
-            } else {
+            if start > end {
                 Value::binary(vec![], head)
+            } else {
+                let val_iter = val.iter().skip(start as usize);
+                Value::binary(
+                    if end == isize::MAX {
+                        val_iter.copied().collect::<Vec<u8>>()
+                    } else {
+                        val_iter.take((end - start + 1) as usize).copied().collect()
+                    },
+                    head,
+                )
             }
         }
-
         Value::Error { .. } => input.clone(),
 
         other => Value::error(
