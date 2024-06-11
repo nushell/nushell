@@ -1,7 +1,7 @@
 use crate::{
     ast::{CellPath, Operator},
     engine::EngineState,
-    BlockId, DeclId, RegId, Span,
+    BlockId, DeclId, RegId, Span, VarId,
 };
 
 use serde::{Deserialize, Serialize};
@@ -39,6 +39,17 @@ pub enum Instruction {
     Collect { src_dst: RegId },
     /// Drain the value/stream in a register and discard (e.g. semicolon)
     Drain { src: RegId },
+    /// Load the value of a variable into the `dst` register
+    LoadVariable { dst: RegId, var_id: VarId },
+    /// Store the value of a variable from the `src` register
+    StoreVariable { var_id: VarId, src: RegId },
+    /// Load the value of an environment variable into the `dst` register
+    LoadEnv { dst: RegId, key: Box<str> },
+    /// Load the value of an environment variable into the `dst` register, or `Nothing` if it
+    /// doesn't exist
+    LoadEnvOpt { dst: RegId, key: Box<str> },
+    /// Store the value of an environment variable from the `src` register
+    StoreEnv { key: Box<str>, src: RegId },
     /// Add a positional arg to the next call
     PushPositional { src: RegId },
     /// Add a list of args to the next call (spread/rest)
@@ -61,8 +72,19 @@ pub enum Instruction {
         op: Operator,
         rhs: RegId,
     },
-    /// Follow a cell path on the `path`
+    /// Follow a cell path on the value in `src_dst`, storing the result back to `src_dst`
     FollowCellPath { src_dst: RegId, path: RegId },
+    /// Clone the value at a cell path in `src`, storing the result to `dst`. The original value
+    /// remains in `src`. Must be a collected value.
+    CloneCellPath { dst: RegId, src: RegId, path: RegId },
+    /// Update/insert a cell path to `new_value` on the value in `src_dst`, storing the modified
+    /// value back to `src_dst`
+    UpsertCellPath {
+        src_dst: RegId,
+        path: RegId,
+        new_value: RegId,
+    },
+    /// Update a cell path
     /// Jump to an offset in this block
     Jump { index: usize },
     /// Branch to an offset in this block if the value of the `cond` register is a true boolean,

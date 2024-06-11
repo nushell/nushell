@@ -1,11 +1,11 @@
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, CellPath, Expr, Expression, Operator, Pipeline, PipelineRedirection,
-        RedirectionSource, RedirectionTarget,
+        Argument, Block, Call, CellPath, Expr, Expression, Operator, PathMember, Pipeline,
+        PipelineRedirection, RedirectionSource, RedirectionTarget,
     },
     engine::StateWorkingSet,
     ir::{Instruction, IrBlock, Literal, RedirectMode},
-    IntoSpanned, OutDest, RegId, ShellError, Span, Spanned,
+    IntoSpanned, OutDest, RegId, ShellError, Span, Spanned, ENV_VARIABLE_ID,
 };
 
 const BLOCK_INPUT: RegId = RegId(0);
@@ -264,7 +264,13 @@ fn compile_expression(
         Expr::Float(f) => lit(builder, Literal::Float(*f)),
         Expr::Binary(bin) => lit(builder, Literal::Binary(bin.as_slice().into())),
         Expr::Range(_) => Err(CompileError::Todo("Range")),
-        Expr::Var(_) => Err(CompileError::Todo("Var")),
+        Expr::Var(var_id) => builder.push(
+            Instruction::LoadVariable {
+                dst: out_reg,
+                var_id: *var_id,
+            }
+            .into_spanned(expr.span),
+        ),
         Expr::VarDecl(_) => Err(CompileError::Todo("VarDecl")),
         Expr::Call(call) => {
             // Ensure that out_reg contains the input value, because a call only uses one register
@@ -332,38 +338,42 @@ fn compile_expression(
         Expr::RawString(rs) => lit(builder, Literal::RawString(rs.as_str().into())),
         Expr::CellPath(path) => lit(builder, Literal::CellPath(Box::new(path.clone()))),
         Expr::FullCellPath(full_cell_path) => {
-            compile_expression(
-                working_set,
-                builder,
-                &full_cell_path.head,
-                RedirectModes::capture_out(expr.span),
-                in_reg,
-                out_reg,
-            )?;
-            // Only do the follow if this is actually needed
-            if !full_cell_path.tail.is_empty() {
-                let cell_path_reg = builder.literal(
-                    Literal::CellPath(Box::new(CellPath {
-                        members: full_cell_path.tail.clone(),
-                    }))
-                    .into_spanned(expr.span),
+            if matches!(full_cell_path.head.expr, Expr::Var(ENV_VARIABLE_ID)) {
+                compile_load_env(builder, expr.span, &full_cell_path.tail, out_reg)
+            } else {
+                compile_expression(
+                    working_set,
+                    builder,
+                    &full_cell_path.head,
+                    RedirectModes::capture_out(expr.span),
+                    in_reg,
+                    out_reg,
                 )?;
-                builder.push(
-                    Instruction::FollowCellPath {
-                        src_dst: out_reg,
-                        path: cell_path_reg,
-                    }
-                    .into_spanned(expr.span),
-                )?;
+                // Only do the follow if this is actually needed
+                if !full_cell_path.tail.is_empty() {
+                    let cell_path_reg = builder.literal(
+                        Literal::CellPath(Box::new(CellPath {
+                            members: full_cell_path.tail.clone(),
+                        }))
+                        .into_spanned(expr.span),
+                    )?;
+                    builder.push(
+                        Instruction::FollowCellPath {
+                            src_dst: out_reg,
+                            path: cell_path_reg,
+                        }
+                        .into_spanned(expr.span),
+                    )?;
+                }
+                Ok(())
             }
-            Ok(())
         }
         Expr::ImportPattern(_) => Err(CompileError::Todo("ImportPattern")),
         Expr::Overlay(_) => Err(CompileError::Todo("Overlay")),
         Expr::Signature(_) => Err(CompileError::Todo("Signature")),
         Expr::StringInterpolation(_) => Err(CompileError::Todo("StringInterpolation")),
-        Expr::Nothing => Err(CompileError::Todo("Nothing ")),
-        Expr::Garbage => Err(CompileError::Todo("Garbage ")),
+        Expr::Nothing => Err(CompileError::Todo("Nothing")),
+        Expr::Garbage => Err(CompileError::Todo("Garbage")),
     }
 }
 
@@ -519,6 +529,53 @@ fn compile_binary_op(
     Ok(())
 }
 
+fn compile_load_env(
+    builder: &mut BlockBuilder,
+    span: Span,
+    path: &[PathMember],
+    out_reg: RegId,
+) -> Result<(), CompileError> {
+    if path.is_empty() {
+        builder.push(
+            Instruction::LoadVariable {
+                dst: out_reg,
+                var_id: ENV_VARIABLE_ID,
+            }
+            .into_spanned(span),
+        )
+    } else {
+        let (key, optional) = match &path[0] {
+            PathMember::String { val, optional, .. } => (val.as_str().into(), *optional),
+            PathMember::Int { span, .. } => return Err(CompileError::AccessEnvByInt(*span)),
+        };
+        let tail = &path[1..];
+
+        if optional {
+            builder.push(Instruction::LoadEnvOpt { dst: out_reg, key }.into_spanned(span))?;
+        } else {
+            builder.push(Instruction::LoadEnv { dst: out_reg, key }.into_spanned(span))?;
+        }
+
+        if !tail.is_empty() {
+            let path = builder.literal(
+                Literal::CellPath(Box::new(CellPath {
+                    members: tail.to_vec(),
+                }))
+                .into_spanned(span),
+            )?;
+            builder.push(
+                Instruction::FollowCellPath {
+                    src_dst: out_reg,
+                    path,
+                }
+                .into_spanned(span),
+            )?;
+        }
+
+        Ok(())
+    }
+}
+
 /// An internal compiler error, generally means a Nushell bug rather than an issue with user error
 /// since parsing and typechecking has already passed.
 #[derive(Debug)]
@@ -528,11 +585,12 @@ enum CompileError {
     InvalidRedirectMode,
     Garbage,
     UnsupportedOperatorExpression,
+    AccessEnvByInt(Span),
     Todo(&'static str),
 }
 
 impl CompileError {
-    fn to_shell_error(self, span: Option<Span>) -> ShellError {
+    fn to_shell_error(self, mut span: Option<Span>) -> ShellError {
         let ice = "internal compiler error: ";
         let message = match self {
             CompileError::RegisterOverflow => format!("{ice}register overflow"),
@@ -547,6 +605,10 @@ impl CompileError {
             }
             CompileError::UnsupportedOperatorExpression => {
                 format!("{ice}unsupported operator expression")
+            }
+            CompileError::AccessEnvByInt(local_span) => {
+                span = Some(local_span);
+                format!("{ice}attempted access of $env by integer path")
             }
             CompileError::Todo(msg) => {
                 format!("{ice}TODO: {msg}")
@@ -631,8 +693,8 @@ impl BlockBuilder {
         }
     }
 
-    /// Insert an instruction into the block, automatically freeing any registers consumed by the
-    /// instruction.
+    /// Insert an instruction into the block, automatically marking any registers populated by
+    /// the instruction, and freeing any registers consumed by the instruction.
     fn push(&mut self, instruction: Spanned<Instruction>) -> Result<(), CompileError> {
         match &instruction.item {
             Instruction::LoadLiteral { dst, lit: _ } => self.mark_register(*dst)?,
@@ -643,6 +705,11 @@ impl BlockBuilder {
             Instruction::Clone { dst, src: _ } => self.mark_register(*dst)?,
             Instruction::Collect { src_dst: _ } => (),
             Instruction::Drain { src } => self.free_register(*src)?,
+            Instruction::LoadVariable { dst, var_id: _ } => self.mark_register(*dst)?,
+            Instruction::StoreVariable { var_id: _, src } => self.free_register(*src)?,
+            Instruction::LoadEnv { dst, key: _ } => self.mark_register(*dst)?,
+            Instruction::LoadEnvOpt { dst, key: _ } => self.mark_register(*dst)?,
+            Instruction::StoreEnv { key: _, src } => self.free_register(*src)?,
             Instruction::PushPositional { src } => self.free_register(*src)?,
             Instruction::AppendRest { src } => self.free_register(*src)?,
             Instruction::PushFlag { name: _ } => (),
@@ -661,6 +728,18 @@ impl BlockBuilder {
                 rhs,
             } => self.free_register(*rhs)?,
             Instruction::FollowCellPath { src_dst: _, path } => self.free_register(*path)?,
+            Instruction::CloneCellPath { dst, src: _, path } => {
+                self.mark_register(*dst)?;
+                self.free_register(*path)?;
+            }
+            Instruction::UpsertCellPath {
+                src_dst: _,
+                path,
+                new_value,
+            } => {
+                self.free_register(*path)?;
+                self.free_register(*new_value)?;
+            }
             Instruction::Jump { index: _ } => (),
             Instruction::BranchIf { cond, index: _ } => self.free_register(*cond)?,
             Instruction::Return { src } => self.free_register(*src)?,

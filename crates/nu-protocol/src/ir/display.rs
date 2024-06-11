@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{engine::EngineState, DeclId};
+use crate::{engine::EngineState, DeclId, VarId};
 
 use super::{Instruction, IrBlock, RedirectMode};
 
@@ -60,6 +60,23 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::Drain { src } => {
                 write!(f, "{:WIDTH$} {src}", "drain")
             }
+            Instruction::LoadVariable { dst, var_id } => {
+                let var = FmtVar::new(self.engine_state, *var_id);
+                write!(f, "{:WIDTH$} {dst}, {var}", "load-variable")
+            }
+            Instruction::StoreVariable { var_id, src } => {
+                let var = FmtVar::new(self.engine_state, *var_id);
+                write!(f, "{:WIDTH$} {var}, {src}", "store-variable")
+            }
+            Instruction::LoadEnv { dst, key } => {
+                write!(f, "{:WIDTH$} {dst}, {key:?}", "load-env")
+            }
+            Instruction::LoadEnvOpt { dst, key } => {
+                write!(f, "{:WIDTH$} {dst}, {key:?}", "load-env-opt")
+            }
+            Instruction::StoreEnv { key, src } => {
+                write!(f, "{:WIDTH$} {key:?}, {src}", "store-env")
+            }
             Instruction::PushPositional { src } => {
                 write!(f, "{:WIDTH$} {src}", "push-positional")
             }
@@ -88,6 +105,20 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::FollowCellPath { src_dst, path } => {
                 write!(f, "{:WIDTH$} {src_dst}, {path}", "follow-cell-path")
             }
+            Instruction::CloneCellPath { dst, src, path } => {
+                write!(f, "{:WIDTH$} {dst}, {src}, {path}", "clone-cell-path")
+            }
+            Instruction::UpsertCellPath {
+                src_dst,
+                path,
+                new_value,
+            } => {
+                write!(
+                    f,
+                    "{:WIDTH$} {src_dst}, {path}, {new_value}",
+                    "upsert-cell-path"
+                )
+            }
             Instruction::Jump { index } => {
                 write!(f, "{:WIDTH$} {index}", "jump")
             }
@@ -112,6 +143,30 @@ impl<'a> FmtDecl<'a> {
 impl fmt::Display for FmtDecl<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "decl {} {:?}", self.0, self.1)
+    }
+}
+
+struct FmtVar<'a>(DeclId, Option<&'a str>);
+
+impl<'a> FmtVar<'a> {
+    fn new(engine_state: &'a EngineState, var_id: VarId) -> Self {
+        // Search for the name of the variable
+        let name: Option<&str> = engine_state
+            .active_overlays(&[])
+            .flat_map(|overlay| overlay.vars.iter())
+            .find(|(_, v)| **v == var_id)
+            .map(|(k, _)| std::str::from_utf8(k).unwrap_or("<utf-8 error>"));
+        FmtVar(var_id, name)
+    }
+}
+
+impl fmt::Display for FmtVar<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(name) = self.1 {
+            write!(f, "var {} {:?}", self.0, name)
+        } else {
+            write!(f, "var {}", self.0)
+        }
     }
 }
 
