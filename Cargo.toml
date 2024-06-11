@@ -195,6 +195,7 @@ reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 
 crossterm = { workspace = true }
 ctrlc = { workspace = true }
+dirs-next = { workspace = true }
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 mimalloc = { version = "0.1.42", default-features = false, optional = true }

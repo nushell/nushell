@@ -149,6 +149,38 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         },
     );
 
+    record.push(
+        "data-dir",
+        if let Some(path) = nu_path::data_dir() {
+            let mut canon_data_path = canonicalize_path(engine_state, &path);
+            canon_data_path.push("nushell");
+            Value::string(canon_data_path.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError {
+                    msg: "Could not get data path".into(),
+                },
+                span,
+            )
+        },
+    );
+
+    record.push(
+        "cache-dir",
+        if let Some(path) = nu_path::cache_dir() {
+            let mut canon_cache_path = canonicalize_path(engine_state, &path);
+            canon_cache_path.push("nushell");
+            Value::string(canon_cache_path.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError {
+                    msg: "Could not get cache path".into(),
+                },
+                span,
+            )
+        },
+    );
+
     record.push("temp-path", {
         let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
         Value::string(canon_temp_path.to_string_lossy(), span)
