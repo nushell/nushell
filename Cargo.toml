@@ -244,7 +244,6 @@ default = ["default-no-clipboard", "system-clipboard"]
 # See https://github.com/nushell/nushell/pull/11535
 default-no-clipboard = [
   "plugin",
-  "which-support",
   "trash-support",
   "sqlite",
   "mimalloc",
@@ -264,7 +263,6 @@ system-clipboard = [
 ]
 
 # Stable (Default)
-which-support = ["nu-command/which-support", "nu-cmd-lang/which-support"]
 trash-support = ["nu-command/trash-support", "nu-cmd-lang/trash-support"]
 
 # SQLite commands for nushell
