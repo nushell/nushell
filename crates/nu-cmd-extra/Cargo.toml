@@ -32,10 +32,6 @@ serde_urlencoded = { workspace = true }
 v_htmlescape = { workspace = true }
 itertools = { workspace = true }
 
-[features]
-extra = ["default"]
-default = []
-
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.94.3" }
 nu-command = { path = "../nu-command", version = "0.94.3" }
