@@ -37,6 +37,12 @@ fn non_string_in_record() -> TestResult {
 }
 
 #[test]
+fn unbalance_string() -> TestResult {
+    fail_test(r#""aaaab"cc"#, "unclosed \"")?;
+    fail_test(r#"'aaaab'cc"#, "unclosed '")
+}
+
+#[test]
 fn string_in_valuestream() -> TestResult {
     run_test(
         r#"

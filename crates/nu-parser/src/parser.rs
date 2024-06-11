@@ -2831,6 +2831,17 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
         return parse_string_interpolation(working_set, span);
     }
+    // Check for unbalanced quotes:
+   {
+        if bytes.starts_with(b"\"") && (bytes.len() == 1 || !bytes.ends_with(b"\"")) {
+            working_set.error(ParseError::Unclosed("\"".into(), span));
+            return garbage(working_set, span);
+        }
+        if bytes.starts_with(b"\'") && (bytes.len() == 1 || !bytes.ends_with(b"\'")) {
+            working_set.error(ParseError::Unclosed("\'".into(), span));
+            return garbage(working_set, span);
+        }
+    }
 
     let (s, err) = unescape_unquote_string(bytes, span);
     if let Some(err) = err {
