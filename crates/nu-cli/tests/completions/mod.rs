@@ -766,10 +766,10 @@ fn variables_completions() {
     assert_eq!(17, suggestions.len());
 
     let expected: Vec<String> = vec![
-        "cache-path".into(),
+        "cache-dir".into(),
         "config-path".into(),
         "current-exe".into(),
-        "data-path".into(),
+        "data-dir".into(),
         "default-config-dir".into(),
         "env-path".into(),
         "history-enabled".into(),

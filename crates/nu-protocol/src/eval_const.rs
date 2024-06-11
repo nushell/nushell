@@ -150,9 +150,10 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     );
 
     record.push(
-        "data-path",
+        "data-dir",
         if let Some(path) = nu_path::data_dir() {
-            let canon_data_path = canonicalize_path(engine_state, &path);
+            let mut canon_data_path = canonicalize_path(engine_state, &path);
+            canon_data_path.push("nushell");
             Value::string(canon_data_path.to_string_lossy(), span)
         } else {
             Value::error(
@@ -165,9 +166,10 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     );
 
     record.push(
-        "cache-path",
+        "cache-dir",
         if let Some(path) = nu_path::cache_dir() {
-            let canon_cache_path = canonicalize_path(engine_state, &path);
+            let mut canon_cache_path = canonicalize_path(engine_state, &path);
+            canon_cache_path.push("nushell");
             Value::string(canon_cache_path.to_string_lossy(), span)
         } else {
             Value::error(
