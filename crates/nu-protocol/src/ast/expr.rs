@@ -5,7 +5,9 @@ use super::{
     Call, CellPath, Expression, ExternalArgument, FullCellPath, Keyword, MatchPattern, Operator,
     Range, Table, ValueWithUnit,
 };
-use crate::{ast::ImportPattern, engine::EngineState, BlockId, OutDest, Signature, Span, VarId};
+use crate::{
+    ast::ImportPattern, engine::StateWorkingSet, BlockId, OutDest, Signature, Span, VarId,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
@@ -55,17 +57,17 @@ const _: () = assert!(std::mem::size_of::<Expr>() <= 40);
 impl Expr {
     pub fn pipe_redirection(
         &self,
-        engine_state: &EngineState,
+        working_set: &StateWorkingSet,
     ) -> (Option<OutDest>, Option<OutDest>) {
         // Usages of `$in` will be wrapped by a `collect` call by the parser,
         // so we do not have to worry about that when considering
         // which of the expressions below may consume pipeline output.
         match self {
-            Expr::Call(call) => engine_state.get_decl(call.decl_id).pipe_redirection(),
-            Expr::Subexpression(block_id) | Expr::Block(block_id) => engine_state
+            Expr::Call(call) => working_set.get_decl(call.decl_id).pipe_redirection(),
+            Expr::Subexpression(block_id) | Expr::Block(block_id) => working_set
                 .get_block(*block_id)
-                .pipe_redirection(engine_state),
-            Expr::FullCellPath(cell_path) => cell_path.head.expr.pipe_redirection(engine_state),
+                .pipe_redirection(working_set),
+            Expr::FullCellPath(cell_path) => cell_path.head.expr.pipe_redirection(working_set),
             Expr::Bool(_)
             | Expr::Int(_)
             | Expr::Float(_)

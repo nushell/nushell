@@ -37,7 +37,7 @@ impl Command for ViewIr {
         })?;
 
         let block = engine_state.get_block(block_id);
-        let ir_block = compile(engine_state, &block)?;
+        let ir_block = compile(&StateWorkingSet::new(engine_state), &block)?;
 
         let formatted = format!("{}", ir_block.display(engine_state));
         Ok(Value::string(formatted, call.head).into_pipeline_data())

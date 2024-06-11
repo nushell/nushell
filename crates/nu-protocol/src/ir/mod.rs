@@ -4,10 +4,12 @@ use crate::{
     BlockId, DeclId, RegId, Span,
 };
 
+use serde::{Deserialize, Serialize};
+
 mod display;
 pub use display::FmtIrBlock;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IrBlock {
     pub instructions: Vec<Instruction>,
     pub spans: Vec<Span>,
@@ -25,7 +27,7 @@ impl IrBlock {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Instruction {
     /// Load a literal value into the `dst` register
     LoadLiteral { dst: RegId, lit: Literal },
@@ -76,7 +78,7 @@ pub enum Instruction {
 const _: () = assert!(std::mem::size_of::<Instruction>() <= 32);
 
 /// A literal value that can be embedded in an instruction.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Literal {
     Bool(bool),
     Int(i64),
@@ -103,7 +105,7 @@ pub enum Literal {
 ///    piped into.
 ///
 /// Not setting it uses the default, determined by [`Stack`](crate::engine::Stack).
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum RedirectMode {
     Pipe,
     Capture,

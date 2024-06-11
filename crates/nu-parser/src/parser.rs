@@ -11,9 +11,9 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DidYouMean, Flag,
-    ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
-    IN_VARIABLE_ID,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, report_error, BlockId, DidYouMean,
+    Flag, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 use std::{
     borrow::Cow,
@@ -5674,6 +5674,15 @@ pub fn parse_block(
     let errors = type_check::check_block_input_output(working_set, &block);
     if !errors.is_empty() {
         working_set.parse_errors.extend_from_slice(&errors);
+    }
+
+    if !is_subexpression {
+        match nu_engine::compile(working_set, &block) {
+            Ok(ir_block) => {
+                block.ir_block = Some(ir_block);
+            }
+            Err(err) => report_error(working_set, &err),
+        }
     }
 
     block

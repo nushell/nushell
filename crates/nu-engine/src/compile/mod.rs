@@ -3,7 +3,7 @@ use nu_protocol::{
         Argument, Block, Call, CellPath, Expr, Expression, Operator, Pipeline, PipelineRedirection,
         RedirectionSource, RedirectionTarget,
     },
-    engine::EngineState,
+    engine::StateWorkingSet,
     ir::{Instruction, IrBlock, Literal, RedirectMode},
     IntoSpanned, OutDest, RegId, ShellError, Span, Spanned,
 };
@@ -12,11 +12,11 @@ const BLOCK_INPUT: RegId = RegId(0);
 
 /// Compile Nushell pipeline abstract syntax tree (AST) to internal representation (IR) instructions
 /// for evaluation.
-pub fn compile(engine_state: &EngineState, block: &Block) -> Result<IrBlock, ShellError> {
+pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, ShellError> {
     let mut builder = BlockBuilder::new();
 
     compile_block(
-        engine_state,
+        working_set,
         &mut builder,
         block,
         RedirectModes::default(),
@@ -52,7 +52,7 @@ impl RedirectModes {
 }
 
 fn compile_block(
-    engine_state: &EngineState,
+    working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     block: &Block,
     redirect_modes: RedirectModes,
@@ -65,7 +65,7 @@ fn compile_block(
         let last_index = block.pipelines.len() - 1;
         for (index, pipeline) in block.pipelines.iter().enumerate() {
             compile_pipeline(
-                engine_state,
+                working_set,
                 builder,
                 pipeline,
                 span,
@@ -97,7 +97,7 @@ fn compile_block(
 }
 
 fn compile_pipeline(
-    engine_state: &EngineState,
+    working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     pipeline: &Pipeline,
     fallback_span: Span,
@@ -116,7 +116,7 @@ fn compile_pipeline(
         // element, then it's from whatever is passed in as the mode to use.
 
         let next_redirect_modes = if let Some(next_element) = iter.peek() {
-            redirect_modes_of_expression(engine_state, &next_element.expr, span)?
+            redirect_modes_of_expression(working_set, &next_element.expr, span)?
         } else {
             redirect_modes
                 .take()
@@ -125,7 +125,7 @@ fn compile_pipeline(
 
         let spec_redirect_modes = match &element.redirection {
             Some(PipelineRedirection::Single { source, target }) => {
-                let mode = redirection_target_to_mode(engine_state, builder, target, false)?;
+                let mode = redirection_target_to_mode(working_set, builder, target, false)?;
                 match source {
                     RedirectionSource::Stdout => RedirectModes {
                         out: Some(mode),
@@ -142,8 +142,8 @@ fn compile_pipeline(
                 }
             }
             Some(PipelineRedirection::Separate { out, err }) => {
-                let out = redirection_target_to_mode(engine_state, builder, out, true)?;
-                let err = redirection_target_to_mode(engine_state, builder, err, true)?;
+                let out = redirection_target_to_mode(working_set, builder, out, true)?;
+                let err = redirection_target_to_mode(working_set, builder, err, true)?;
                 RedirectModes {
                     out: Some(out),
                     err: Some(err),
@@ -159,7 +159,7 @@ fn compile_pipeline(
         let err_mode = spec_redirect_modes.err.or(next_redirect_modes.err);
 
         compile_expression(
-            engine_state,
+            working_set,
             builder,
             &element.expr,
             RedirectModes {
@@ -177,7 +177,7 @@ fn compile_pipeline(
 }
 
 fn redirection_target_to_mode(
-    engine_state: &EngineState,
+    working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     target: &RedirectionTarget,
     separate: bool,
@@ -190,7 +190,7 @@ fn redirection_target_to_mode(
         } => {
             let path_reg = builder.next_register()?;
             compile_expression(
-                engine_state,
+                working_set,
                 builder,
                 expr,
                 RedirectModes::capture_out(*redir_span),
@@ -213,11 +213,11 @@ fn redirection_target_to_mode(
 }
 
 fn redirect_modes_of_expression(
-    engine_state: &EngineState,
+    working_set: &StateWorkingSet,
     expression: &Expression,
     redir_span: Span,
 ) -> Result<RedirectModes, CompileError> {
-    let (out, err) = expression.expr.pipe_redirection(&engine_state);
+    let (out, err) = expression.expr.pipe_redirection(&working_set);
     Ok(RedirectModes {
         out: out
             .map(|out| out_dest_to_redirect_mode(out))
@@ -241,7 +241,7 @@ fn out_dest_to_redirect_mode(out_dest: OutDest) -> Result<RedirectMode, CompileE
 }
 
 fn compile_expression(
-    engine_state: &EngineState,
+    working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     expr: &Expression,
     redirect_modes: RedirectModes,
@@ -284,7 +284,7 @@ fn compile_expression(
                 builder.load_nothing(out_reg)?;
             }
 
-            compile_call(engine_state, builder, &call, redirect_modes, out_reg)
+            compile_call(working_set, builder, &call, redirect_modes, out_reg)
         }
         Expr::ExternalCall(_, _) => Err(CompileError::Todo("ExternalCall")),
         Expr::Operator(_) => Err(CompileError::Todo("Operator")),
@@ -293,7 +293,7 @@ fn compile_expression(
         Expr::BinaryOp(lhs, op, rhs) => {
             if let Expr::Operator(ref operator) = op.expr {
                 compile_binary_op(
-                    engine_state,
+                    working_set,
                     builder,
                     &lhs,
                     operator.clone().into_spanned(op.span),
@@ -306,9 +306,9 @@ fn compile_expression(
             }
         }
         Expr::Subexpression(block_id) => {
-            let block = engine_state.get_block(*block_id);
+            let block = working_set.get_block(*block_id);
             compile_block(
-                engine_state,
+                working_set,
                 builder,
                 &block,
                 redirect_modes,
@@ -333,7 +333,7 @@ fn compile_expression(
         Expr::CellPath(path) => lit(builder, Literal::CellPath(Box::new(path.clone()))),
         Expr::FullCellPath(full_cell_path) => {
             compile_expression(
-                engine_state,
+                working_set,
                 builder,
                 &full_cell_path.head,
                 RedirectModes::capture_out(expr.span),
@@ -368,7 +368,7 @@ fn compile_expression(
 }
 
 fn compile_call(
-    engine_state: &EngineState,
+    working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
     redirect_modes: RedirectModes,
@@ -395,7 +395,7 @@ fn compile_call(
                 let arg_reg = builder.next_register()?;
 
                 compile_expression(
-                    engine_state,
+                    working_set,
                     builder,
                     expr,
                     RedirectModes::capture_out(arg.span()),
@@ -464,7 +464,7 @@ fn compile_call(
 }
 
 fn compile_binary_op(
-    engine_state: &EngineState,
+    working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     lhs: &Expression,
     op: Spanned<Operator>,
@@ -481,7 +481,7 @@ fn compile_binary_op(
     let rhs_reg = builder.next_register()?;
 
     compile_expression(
-        engine_state,
+        working_set,
         builder,
         lhs,
         RedirectModes::capture_out(op.span),
@@ -489,7 +489,7 @@ fn compile_binary_op(
         lhs_reg,
     )?;
     compile_expression(
-        engine_state,
+        working_set,
         builder,
         rhs,
         RedirectModes::capture_out(op.span),
