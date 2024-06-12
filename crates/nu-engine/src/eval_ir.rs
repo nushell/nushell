@@ -20,24 +20,19 @@ pub fn eval_ir_block<D: DebugContext>(
 
         // Allocate required space for registers. We prefer to allocate on the stack, but will
         // allocate on the heap if it's over the compiled maximum size
+        //
+        // Keep in mind that there is some code generated for each variant; at least at the moment
+        // it doesn't seem like LLVM is able to optimize this away
         let result = match ir_block.register_count {
-            0 => eval_ir_block_static::<D, 0>(engine_state, stack, &block_span, ir_block, input),
-            1 => eval_ir_block_static::<D, 1>(engine_state, stack, &block_span, ir_block, input),
-            2 => eval_ir_block_static::<D, 2>(engine_state, stack, &block_span, ir_block, input),
-            3 => eval_ir_block_static::<D, 3>(engine_state, stack, &block_span, ir_block, input),
-            4 => eval_ir_block_static::<D, 4>(engine_state, stack, &block_span, ir_block, input),
-            5 => eval_ir_block_static::<D, 5>(engine_state, stack, &block_span, ir_block, input),
-            6 => eval_ir_block_static::<D, 6>(engine_state, stack, &block_span, ir_block, input),
-            7 => eval_ir_block_static::<D, 7>(engine_state, stack, &block_span, ir_block, input),
-            8 => eval_ir_block_static::<D, 8>(engine_state, stack, &block_span, ir_block, input),
-            9 => eval_ir_block_static::<D, 9>(engine_state, stack, &block_span, ir_block, input),
-            10 => eval_ir_block_static::<D, 10>(engine_state, stack, &block_span, ir_block, input),
-            11 => eval_ir_block_static::<D, 11>(engine_state, stack, &block_span, ir_block, input),
-            12 => eval_ir_block_static::<D, 12>(engine_state, stack, &block_span, ir_block, input),
-            13 => eval_ir_block_static::<D, 13>(engine_state, stack, &block_span, ir_block, input),
-            14 => eval_ir_block_static::<D, 14>(engine_state, stack, &block_span, ir_block, input),
-            15 => eval_ir_block_static::<D, 15>(engine_state, stack, &block_span, ir_block, input),
-            16 => eval_ir_block_static::<D, 16>(engine_state, stack, &block_span, ir_block, input),
+            c if c <= 4 => {
+                eval_ir_block_static::<D, 4>(engine_state, stack, &block_span, ir_block, input)
+            }
+            c if c <= 8 => {
+                eval_ir_block_static::<D, 8>(engine_state, stack, &block_span, ir_block, input)
+            }
+            c if c <= 16 => {
+                eval_ir_block_static::<D, 16>(engine_state, stack, &block_span, ir_block, input)
+            }
             _ => eval_ir_block_dynamic::<D>(engine_state, stack, &block_span, ir_block, input),
         };
 
@@ -64,7 +59,11 @@ fn eval_ir_block_static<D: DebugContext, const N: usize>(
     ir_block: &IrBlock,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    log::trace!("entering block with {} registers on stack", N);
+    log::trace!(
+        "entering block with {} registers on stack ({} requested)",
+        N,
+        ir_block.register_count
+    );
     const EMPTY: PipelineData = PipelineData::Empty;
     let mut array = [EMPTY; N];
     let mut ctx = EvalContext {
