@@ -64,6 +64,7 @@ fn eval_ir_block_static<D: DebugContext, const N: usize>(
     ir_block: &IrBlock,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    log::trace!("entering block with {} registers on stack", N);
     const EMPTY: PipelineData = PipelineData::Empty;
     let mut array = [EMPTY; N];
     let mut ctx = EvalContext {
@@ -82,6 +83,10 @@ fn eval_ir_block_dynamic<D: DebugContext>(
     ir_block: &IrBlock,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    log::trace!(
+        "entering block with {} registers on heap",
+        ir_block.register_count
+    );
     let mut vec = Vec::with_capacity(ir_block.register_count);
     vec.extend(std::iter::repeat_with(|| PipelineData::Empty).take(ir_block.register_count));
     let mut ctx = EvalContext {
@@ -102,6 +107,7 @@ struct EvalContext<'a> {
 impl<'a> EvalContext<'a> {
     /// Replace the contents of a register with a new value
     fn put_reg(&mut self, reg_id: RegId, new_value: PipelineData) -> PipelineData {
+        log::trace!("{reg_id} = {new_value:?}");
         std::mem::replace(&mut self.registers[reg_id.0 as usize], new_value)
     }
 
@@ -128,6 +134,7 @@ fn eval_ir_block_impl<D: DebugContext>(
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
+        log::trace!("{pc:-4}: {}", instruction.display(ctx.engine_state));
         match do_instruction(ctx, instruction, span)? {
             InstructionResult::Continue => {
                 pc += 1;
