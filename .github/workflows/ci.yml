@@ -36,7 +36,7 @@ jobs:
       - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
+        uses: actions-rust-lang/setup-rust-toolchain@v1.9.0
 
       - name: cargo fmt
         run: cargo fmt --all -- --check
@@ -69,7 +69,7 @@ jobs:
       - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
+        uses: actions-rust-lang/setup-rust-toolchain@v1.9.0
 
       - name: Tests
         run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.default-flags }}
@@ -98,7 +98,7 @@ jobs:
       - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
+        uses: actions-rust-lang/setup-rust-toolchain@v1.9.0
 
       - name: Install Nushell
         run: cargo install --path . --locked --no-default-features
@@ -149,7 +149,7 @@ jobs:
       - uses: actions/checkout@v4.1.6
 
       - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
+        uses: actions-rust-lang/setup-rust-toolchain@v1.9.0
 
       - name: Clippy
         run: cargo clippy --package nu_plugin_* -- $CLIPPY_OPTIONS
