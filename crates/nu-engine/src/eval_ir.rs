@@ -24,13 +24,13 @@ pub fn eval_ir_block<D: DebugContext>(
         // Keep in mind that there is some code generated for each variant; at least at the moment
         // it doesn't seem like LLVM is able to optimize this away
         let result = match ir_block.register_count {
-            c if c <= 4 => {
+            0..=4 => {
                 eval_ir_block_static::<D, 4>(engine_state, stack, &block_span, ir_block, input)
             }
-            c if c <= 8 => {
+            5..=8 => {
                 eval_ir_block_static::<D, 8>(engine_state, stack, &block_span, ir_block, input)
             }
-            c if c <= 16 => {
+            9..=16 => {
                 eval_ir_block_static::<D, 16>(engine_state, stack, &block_span, ir_block, input)
             }
             _ => eval_ir_block_dynamic::<D>(engine_state, stack, &block_span, ir_block, input),
