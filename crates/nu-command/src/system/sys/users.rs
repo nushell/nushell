@@ -1,4 +1,6 @@
+use super::trim_cstyle_null;
 use nu_engine::command_prelude::*;
+use sysinfo::Users;
 
 #[derive(Clone)]
 pub struct SysUsers;
@@ -25,7 +27,7 @@ impl Command for SysUsers {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(super::users(call.head).into_pipeline_data())
+        Ok(users(call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -35,4 +37,26 @@ impl Command for SysUsers {
             result: None,
         }]
     }
+}
+
+fn users(span: Span) -> Value {
+    let users = Users::new_with_refreshed_list()
+        .iter()
+        .map(|user| {
+            let groups = user
+                .groups()
+                .iter()
+                .map(|group| Value::string(trim_cstyle_null(group.name()), span))
+                .collect();
+
+            let record = record! {
+                "name" => Value::string(trim_cstyle_null(user.name()), span),
+                "groups" => Value::list(groups, span),
+            };
+
+            Value::record(record, span)
+        })
+        .collect();
+
+    Value::list(users, span)
 }
