@@ -11,6 +11,8 @@ use std::{
     sync::Arc,
 };
 
+use super::RegisterBufCache;
+
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
 
@@ -41,6 +43,8 @@ pub struct Stack {
     pub env_hidden: HashMap<String, HashSet<String>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
+    /// Cached register buffers for IR evaluation
+    pub register_buf_cache: RegisterBufCache,
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -68,6 +72,7 @@ impl Stack {
             env_vars: Vec::new(),
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
+            register_buf_cache: RegisterBufCache::new(),
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -85,6 +90,7 @@ impl Stack {
             env_vars: parent.env_vars.clone(),
             env_hidden: parent.env_hidden.clone(),
             active_overlays: parent.active_overlays.clone(),
+            register_buf_cache: RegisterBufCache::new(),
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
@@ -254,6 +260,7 @@ impl Stack {
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
+            register_buf_cache: RegisterBufCache::new(),
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
@@ -284,6 +291,7 @@ impl Stack {
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
+            register_buf_cache: RegisterBufCache::new(),
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],

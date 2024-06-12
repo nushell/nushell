@@ -18,24 +18,20 @@ pub fn eval_ir_block<D: DebugContext>(
 
         let block_span = block.span;
 
-        // Allocate required space for registers. We prefer to allocate on the stack, but will
-        // allocate on the heap if it's over the compiled maximum size
-        //
-        // Keep in mind that there is some code generated for each variant; at least at the moment
-        // it doesn't seem like LLVM is able to optimize this away
-        //
-        // This is organized like a tree to try to make sure we do the fewest number of branches
-        let result = if ir_block.register_count <= 8 {
-            if ir_block.register_count <= 4 {
-                eval_ir_block_static::<D, 4>(engine_state, stack, &block_span, ir_block, input)
-            } else {
-                eval_ir_block_static::<D, 8>(engine_state, stack, &block_span, ir_block, input)
-            }
-        } else if ir_block.register_count <= 16 {
-            eval_ir_block_static::<D, 16>(engine_state, stack, &block_span, ir_block, input)
-        } else {
-            eval_ir_block_dynamic::<D>(engine_state, stack, &block_span, ir_block, input)
-        };
+        let mut registers = stack.register_buf_cache.acquire(ir_block.register_count);
+
+        let result = eval_ir_block_impl::<D>(
+            &mut EvalContext {
+                engine_state,
+                stack,
+                registers: &mut registers[..],
+            },
+            &block_span,
+            ir_block,
+            input,
+        );
+
+        stack.register_buf_cache.release(registers);
 
         D::leave_block(engine_state, block);
 
@@ -50,51 +46,6 @@ pub fn eval_ir_block<D: DebugContext>(
             inner: vec![],
         })
     }
-}
-
-/// Eval an IR block with stack-allocated registers, the size of which must be known statically.
-fn eval_ir_block_static<D: DebugContext, const N: usize>(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block_span: &Option<Span>,
-    ir_block: &IrBlock,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    log::trace!(
-        "entering block with {} registers on stack ({} requested)",
-        N,
-        ir_block.register_count
-    );
-    const EMPTY: PipelineData = PipelineData::Empty;
-    let mut array = [EMPTY; N];
-    let mut ctx = EvalContext {
-        engine_state,
-        stack,
-        registers: &mut array[..],
-    };
-    eval_ir_block_impl::<D>(&mut ctx, block_span, ir_block, input)
-}
-
-/// Eval an IR block with heap-allocated registers.
-fn eval_ir_block_dynamic<D: DebugContext>(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block_span: &Option<Span>,
-    ir_block: &IrBlock,
-    input: PipelineData,
-) -> Result<PipelineData, ShellError> {
-    log::trace!(
-        "entering block with {} registers on heap",
-        ir_block.register_count
-    );
-    let mut vec = Vec::with_capacity(ir_block.register_count);
-    vec.extend(std::iter::repeat_with(|| PipelineData::Empty).take(ir_block.register_count));
-    let mut ctx = EvalContext {
-        engine_state,
-        stack,
-        registers: &mut vec[..],
-    };
-    eval_ir_block_impl::<D>(&mut ctx, block_span, ir_block, input)
 }
 
 /// All of the pointers necessary for evaluation

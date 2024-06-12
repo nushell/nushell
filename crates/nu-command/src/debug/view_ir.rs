@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, compile};
+use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
 pub struct ViewIr;
@@ -10,33 +11,26 @@ impl Command for ViewIr {
 
     fn signature(&self) -> Signature {
         Signature::new(self.name()).required(
-            "block",
-            SyntaxShape::Block,
-            "the block to see compiled code for",
+            "closure",
+            SyntaxShape::Closure(None),
+            "the closure to see compiled code for",
         )
     }
 
     fn usage(&self) -> &str {
-        "View the compiled IR code for a block"
+        "View the compiled IR code for a block of code"
     }
 
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let expr = call
-            .positional_nth(0)
-            .ok_or_else(|| ShellError::AccessEmptyContent { span: call.head })?;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let block_id = expr.as_block().ok_or_else(|| ShellError::TypeMismatch {
-            err_message: "expected block".into(),
-            span: expr.span,
-        })?;
-
-        let block = engine_state.get_block(block_id);
+        let block = engine_state.get_block(closure.block_id);
         let ir_block = compile(&StateWorkingSet::new(engine_state), &block)?;
 
         let formatted = format!("{}", ir_block.display(engine_state));
