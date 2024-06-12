@@ -35,9 +35,9 @@ impl<'a> fmt::Display for FmtIrBlock<'a> {
     }
 }
 
-struct FmtInstruction<'a> {
-    engine_state: &'a EngineState,
-    instruction: &'a Instruction,
+pub struct FmtInstruction<'a> {
+    pub(super) engine_state: &'a EngineState,
+    pub(super) instruction: &'a Instruction,
 }
 
 impl<'a> fmt::Display for FmtInstruction<'a> {

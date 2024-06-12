@@ -1,4 +1,6 @@
-use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
+use nu_engine::{
+    command_prelude::*, get_eval_block_with_early_return, get_eval_ir_block, redirect_env,
+};
 use nu_protocol::{
     engine::Closure,
     process::{ChildPipe, ChildProcess, ExitStatus},
@@ -49,6 +51,12 @@ impl Command for Do {
                 "catch errors as the closure runs, and return them",
                 Some('c'),
             )
+            // FIXME: for testing only
+            .switch(
+                "use-ir",
+                "use the compiled IR instead of evaluating the expression",
+                None,
+            )
             .switch(
                 "env",
                 "keep the environment defined inside the command",
@@ -78,6 +86,7 @@ impl Command for Do {
         let ignore_program_errors = ignore_all_errors
             || call.has_flag(engine_state, caller_stack, "ignore-program-errors")?;
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
+        let use_ir = call.has_flag(engine_state, caller_stack, "use-ir")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
         let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(block.captures);
@@ -85,7 +94,12 @@ impl Command for Do {
 
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
-        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
+        let eval_ir_block = get_eval_ir_block(engine_state);
+        let result = if use_ir {
+            eval_ir_block(engine_state, &mut callee_stack, block, input)
+        } else {
+            eval_block_with_early_return(engine_state, &mut callee_stack, block, input)
+        };
 
         if has_env {
             // Merge the block's environment to the current stack

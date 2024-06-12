@@ -7,6 +7,7 @@ pub mod documentation;
 pub mod env;
 mod eval;
 mod eval_helpers;
+mod eval_ir;
 mod glob_from;
 pub mod scope;
 
@@ -21,4 +22,5 @@ pub use eval::{
     eval_expression_with_input, eval_subexpression, eval_variable, redirect_env,
 };
 pub use eval_helpers::*;
+pub use eval_ir::eval_ir_block;
 pub use glob_from::glob_from;

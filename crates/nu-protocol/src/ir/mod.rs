@@ -1,13 +1,13 @@
 use crate::{
     ast::{CellPath, Operator},
     engine::EngineState,
-    BlockId, DeclId, RegId, Span, VarId,
+    BlockId, DeclId, RegId, Span, Spanned, VarId,
 };
 
 use serde::{Deserialize, Serialize};
 
 mod display;
-pub use display::FmtIrBlock;
+pub use display::{FmtInstruction, FmtIrBlock};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IrBlock {
@@ -94,6 +94,17 @@ pub enum Instruction {
     Return { src: RegId },
 }
 
+impl Instruction {
+    /// Returns a value that can be formatted with [`Display`](std::fmt::Display) to show a detailed
+    /// listing of the instruction.
+    pub fn display<'a>(&'a self, engine_state: &'a EngineState) -> FmtInstruction<'a> {
+        FmtInstruction {
+            engine_state,
+            instruction: self,
+        }
+    }
+}
+
 // This is to document/enforce the size of `Instruction` in bytes.
 // We should try to avoid increasing the size of `Instruction`,
 // and PRs that do so will have to change the number below so that it's noted in review.
@@ -108,7 +119,7 @@ pub enum Literal {
     Binary(Box<[u8]>),
     Block(BlockId),
     Closure(BlockId),
-    List(Box<[Literal]>),
+    List(Box<[Spanned<Literal>]>),
     Filepath { val: Box<str>, no_expand: bool },
     Directory { val: Box<str>, no_expand: bool },
     GlobPattern { val: Box<str>, no_expand: bool },
