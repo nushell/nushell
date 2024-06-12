@@ -127,7 +127,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SysTemp,
             SysUsers,
             UName,
-
+            Which,
         };
 
         // Help
@@ -171,8 +171,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             target_os = "windows"
         ))]
         bind_command! { Ps };
-
-        bind_command! { Which };
 
         // Strings
         bind_command! {
