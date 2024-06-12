@@ -557,10 +557,7 @@ impl<Form: PathForm> fmt::Debug for Path<Form> {
 impl<Form: PathForm> Clone for Box<Path<Form>> {
     #[inline]
     fn clone(&self) -> Self {
-        // Safety: `Path<Form>` is a repr(transparent) wrapper around `std::path::Path`.
-        let path: Box<std::path::Path> = self.inner.into();
-        let ptr = Box::into_raw(path) as *mut Path<Form>;
-        unsafe { Box::from_raw(ptr) }
+        std_box_to_box(self.inner.into())
     }
 }
 
@@ -1017,10 +1014,31 @@ impl<'a, Form: PathForm> IntoIterator for &'a PathBuf<Form> {
 }
 
 #[inline]
+fn box_to_box_unchecked<From: PathForm, To: PathForm>(path: Box<Path<From>>) -> Box<Path<To>> {
+    // Safety: `Path<From>` and `Path<To>` differ only by PhantomData tag.
+    let ptr = Box::into_raw(path) as *mut Path<To>;
+    unsafe { Box::from_raw(ptr) }
+}
+
+#[inline]
 fn std_box_to_box<Form: PathForm>(path: Box<std::path::Path>) -> Box<Path<Form>> {
     // Safety: `Path<From>` is a repr(transparent) wrapper around `std::path::Path`.
     let ptr = Box::into_raw(path) as *mut Path<Form>;
     unsafe { Box::from_raw(ptr) }
+}
+
+#[inline]
+fn std_arc_to_arc<Form: PathForm>(path: Arc<std::path::Path>) -> Arc<Path<Form>> {
+    // Safety: `Path<From>` is a repr(transparent) wrapper around `std::path::Path`.
+    let ptr = Arc::into_raw(path) as *mut Path<Form>;
+    unsafe { Arc::from_raw(ptr) }
+}
+
+#[inline]
+fn std_rc_to_rc<Form: PathForm>(path: Rc<std::path::Path>) -> Rc<Path<Form>> {
+    // Safety: `Path<From>` is a repr(transparent) wrapper around `std::path::Path`.
+    let ptr = Rc::into_raw(path) as *mut Path<Form>;
+    unsafe { Rc::from_raw(ptr) }
 }
 
 /*
@@ -1166,9 +1184,7 @@ impl_from!([CanonicalPathBuf] => AbsolutePathBuf |buf| { buf.cast_into() });
 
 #[inline]
 fn box_to_box<From: PathCast<To>, To: PathForm>(path: Box<Path<From>>) -> Box<Path<To>> {
-    // Safety: `Path<From>` and `Path<To>` differ only by PhantomData tag.
-    let ptr = Box::into_raw(path) as *mut Path<To>;
-    unsafe { Box::from_raw(ptr) }
+    box_to_box_unchecked(path)
 }
 impl_from!([Box<RelativePath>, Box<AbsolutePath>, Box<CanonicalPath>] => Box<Path>
     |path| { box_to_box(path) }
@@ -1220,10 +1236,7 @@ impl_from!([Cow<'_, CanonicalPath>] => Box<AbsolutePath> |cow| { cow_to_box(cow)
 
 #[inline]
 fn buf_to_arc<From: PathCast<To>, To: PathForm>(buf: PathBuf<From>) -> Arc<Path<To>> {
-    // Safety: `Path<To>` is a repr(transparent) wrapper around `std::path::Path`.
-    let arc: Arc<std::path::Path> = buf.inner.into();
-    let ptr = Arc::into_raw(arc) as *const Path<To>;
-    unsafe { Arc::from_raw(ptr) }
+    std_arc_to_arc(buf.inner.into())
 }
 impl_from!(<Form> PathBuf<Form> => Arc<Path<Form>> |buf| { buf_to_arc(buf) });
 impl_from!([RelativePathBuf, AbsolutePathBuf, CanonicalPathBuf] => Arc<Path>
@@ -1233,10 +1246,7 @@ impl_from!([CanonicalPathBuf] => Arc<AbsolutePath> |buf| { buf_to_arc(buf) });
 
 #[inline]
 fn buf_to_rc<From: PathCast<To>, To: PathForm>(buf: PathBuf<From>) -> Rc<Path<To>> {
-    // Safety: `Path<To>` is a repr(transparent) wrapper around `std::path::Path`.
-    let rc: Rc<std::path::Path> = buf.inner.into();
-    let ptr = Rc::into_raw(rc) as *const Path<To>;
-    unsafe { Rc::from_raw(ptr) }
+    std_rc_to_rc(buf.inner.into())
 }
 impl_from!(<Form> PathBuf<Form> => Rc<Path<Form>> |buf| { buf_to_rc(buf) });
 impl_from!([RelativePathBuf, AbsolutePathBuf, CanonicalPathBuf] => Rc<Path>
@@ -1304,20 +1314,14 @@ impl<'a, Source: PathCast<To>, To: PathForm> From<&'a PathBuf<Source>> for Cow<'
 impl<Source: PathCast<To>, To: PathForm> From<&Path<Source>> for Arc<Path<To>> {
     #[inline]
     fn from(path: &Path<Source>) -> Self {
-        // Safety: `Path<Source>` is a repr(transparent) wrapper around `std::path::Path`.
-        let arc: Arc<std::path::Path> = path.inner.into();
-        let ptr = Arc::into_raw(arc) as *const Path<To>;
-        unsafe { Arc::from_raw(ptr) }
+        std_arc_to_arc(path.inner.into())
     }
 }
 
 impl<Source: PathCast<To>, To: PathForm> From<&Path<Source>> for Rc<Path<To>> {
     #[inline]
     fn from(path: &Path<Source>) -> Self {
-        // Safety: `Path<Source>` is a repr(transparent) wrapper around `std::path::Path`.
-        let rc: Rc<std::path::Path> = path.inner.into();
-        let ptr = Rc::into_raw(rc) as *const Path<To>;
-        unsafe { Rc::from_raw(ptr) }
+        std_rc_to_rc(path.inner.into())
     }
 }
 
@@ -1595,9 +1599,7 @@ impl TryFrom<Box<Path>> for Box<RelativePath> {
     #[inline]
     fn try_from(path: Box<Path>) -> Result<Self, Self::Error> {
         if path.is_relative() {
-            // Safety: `Path` and `RelativePath` differ only by PhantomData tag.
-            let ptr = Box::into_raw(path) as *mut RelativePath;
-            Ok(unsafe { Box::from_raw(ptr) })
+            Ok(box_to_box_unchecked(path))
         } else {
             Err(path)
         }
@@ -1610,9 +1612,7 @@ impl TryFrom<Box<Path>> for Box<AbsolutePath> {
     #[inline]
     fn try_from(path: Box<Path>) -> Result<Self, Self::Error> {
         if path.is_absolute() {
-            // Safety: `Path` and `AbsolutePath` differ only by PhantomData tag.
-            let ptr = Box::into_raw(path) as *mut AbsolutePath;
-            Ok(unsafe { Box::from_raw(ptr) })
+            Ok(box_to_box_unchecked(path))
         } else {
             Err(path)
         }
