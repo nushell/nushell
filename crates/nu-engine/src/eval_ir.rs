@@ -23,17 +23,18 @@ pub fn eval_ir_block<D: DebugContext>(
         //
         // Keep in mind that there is some code generated for each variant; at least at the moment
         // it doesn't seem like LLVM is able to optimize this away
-        let result = match ir_block.register_count {
-            0..=4 => {
+        //
+        // This is organized like a tree to try to make sure we do the fewest number of branches
+        let result = if ir_block.register_count <= 8 {
+            if ir_block.register_count <= 4 {
                 eval_ir_block_static::<D, 4>(engine_state, stack, &block_span, ir_block, input)
-            }
-            5..=8 => {
+            } else {
                 eval_ir_block_static::<D, 8>(engine_state, stack, &block_span, ir_block, input)
             }
-            9..=16 => {
-                eval_ir_block_static::<D, 16>(engine_state, stack, &block_span, ir_block, input)
-            }
-            _ => eval_ir_block_dynamic::<D>(engine_state, stack, &block_span, ir_block, input),
+        } else if ir_block.register_count <= 16 {
+            eval_ir_block_static::<D, 16>(engine_state, stack, &block_span, ir_block, input)
+        } else {
+            eval_ir_block_dynamic::<D>(engine_state, stack, &block_span, ir_block, input)
         };
 
         D::leave_block(engine_state, block);
