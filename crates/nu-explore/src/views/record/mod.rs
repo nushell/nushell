@@ -338,15 +338,14 @@ enum UIMode {
 #[derive(Debug, Clone)]
 pub struct RecordLayer {
     column_names: Vec<String>,
-    // the sole reason we keep values so we could return original value.
-    // if it's being peaked.
-    //
-    // if not we could accept an iterator over it.
+    // These are the raw records in the current layer. The sole reason we keep this around is so we can return the original value
+    // if it's being peeked. Otherwise we could accept an iterator over it.
     // or if it could be Clonable we could do that anyway;
     // cause it would keep memory footprint lower while keep everything working
     // (yee would make return O(n); we would need to traverse iterator once again; but maybe worth it)
     record_values: Vec<Vec<Value>>,
-    // it's an Optional so we could not have any configurations passed at creation stage.
+    // This is the text representation of the record values (the actual text that will be displayed to users).
+    // It's an Option because we need configuration to set it and we (currently) don't have access to configuration when things are created.
     record_text: Option<Vec<Vec<NuText>>>,
     orientation: Orientation,
     name: Option<String>,
@@ -360,7 +359,7 @@ impl RecordLayer {
         let cursor =
             WindowCursor2D::new(records.len(), columns.len()).expect("Failed to create cursor");
 
-        let column_names = columns.iter().map(|s| make_head_text(s)).collect();
+        let column_names = columns.iter().map(|s| strip_string(s)).collect();
 
         Self {
             column_names,
@@ -780,10 +779,6 @@ fn _transpose_table(
     }
 
     data
-}
-
-fn make_head_text(head: &str) -> String {
-    strip_string(head)
 }
 
 fn strip_string(text: &str) -> String {
