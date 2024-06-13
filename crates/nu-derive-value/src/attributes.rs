@@ -29,22 +29,26 @@ impl ContainerAttributes {
                 let ident = meta.path.require_ident()?;
                 match ident.to_string().as_str() {
                     "rename_all" => {
+                        // The matched case are all useful variants from `convert_case` with aliases
+                        // that `serde` uses.
                         let case: LitStr = meta.value()?.parse()?;
                         let case = match case.value().as_str() {
-                            "UPPER CASE" => Case::Upper,
-                            "lower case" => Case::Lower,
+                            "UPPER CASE" | "UPPER WITH SPACES CASE" => Case::Upper,
+                            "lower case" | "lower with spaces case" => Case::Lower,
                             "Title Case" => Case::Title,
-                            "tOGGLE cASE" => Case::Toggle,
                             "camelCase" => Case::Camel,
                             "PascalCase" | "UpperCamelCase" => Case::Pascal,
                             "snake_case" => Case::Snake,
                             "UPPER_SNAKE_CASE" | "SCREAMING_SNAKE_CASE" => Case::UpperSnake,
                             "kebab-case" => Case::Kebab,
-                            "COBOL-CASE" | "UPPER-KEBAB-CASE" => Case::Cobol,
+                            "COBOL-CASE" | "UPPER-KEBAB-CASE" | "SCREAMING-KEBA-CASE" => {
+                                Case::Cobol
+                            }
                             "Train-Case" => Case::Train,
-                            "flatcase" => Case::Flat,
-                            "UPPERFLATCASE" => Case::UpperFlat,
-                            "aLtErNaTiNg CaSe" => Case::Alternating,
+                            "flatcase" | "lowercase" => Case::Flat,
+                            "UPPERFLATCASE" | "UPPERCASE" => Case::UpperFlat,
+                            // Although very funny, we don't support `Case::{Toggle, Alternating}`,
+                            // as we see no real benefit.
                             c => {
                                 err = Err(DeriveError::InvalidAttributeValue {
                                     value_span: case.span(),

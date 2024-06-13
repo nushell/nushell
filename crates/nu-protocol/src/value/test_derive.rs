@@ -327,7 +327,7 @@ fn enum_incorrect_type() {
     assert!(res.is_err());
 }
 
-// Generate the `Enum` from before but with all possible `rename_all` variants
+// Generate the `Enum` from before but with all possible `rename_all` variants.
 macro_rules! enum_rename_all {
     ($($ident:ident: $case:literal => [$a1:literal, $b2:literal, $c3:literal]),*) => {
         $(
@@ -374,7 +374,6 @@ enum_rename_all! {
     Upper: "UPPER CASE" => ["ALPHA ONE", "BETA TWO", "CHARLIE THREE"],
     Lower: "lower case" => ["alpha one", "beta two", "charlie three"],
     Title: "Title Case" => ["Alpha One", "Beta Two", "Charlie Three"],
-    Toggle: "tOGGLE cASE" => ["aLPHA oNE", "bETA tWO", "cHARLIE tHREE"],
     Camel: "camelCase" => ["alphaOne", "betaTwo", "charlieThree"],
     Pascal: "PascalCase" => ["AlphaOne", "BetaTwo", "CharlieThree"],
     Snake: "snake_case" => ["alpha_one", "beta_two", "charlie_three"],
@@ -383,6 +382,5 @@ enum_rename_all! {
     Cobol: "COBOL-CASE" => ["ALPHA-ONE", "BETA-TWO", "CHARLIE-THREE"],
     Train: "Train-Case" => ["Alpha-One", "Beta-Two", "Charlie-Three"],
     Flat: "flatcase" => ["alphaone", "betatwo", "charliethree"],
-    UpperFlat: "UPPERFLATCASE" => ["ALPHAONE", "BETATWO", "CHARLIETHREE"],
-    Alternating: "aLtErNaTiNg CaSe" => ["aLpHa OnE", "bEtA tWo", "cHaRlIe ThReE"]
+    UpperFlat: "UPPERFLATCASE" => ["ALPHAONE", "BETATWO", "CHARLIETHREE"]
 }

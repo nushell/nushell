@@ -18,8 +18,11 @@ use crate::{Record, ShellError, Span, Value};
 /// The resulting value representation will be the name of the variant as a [`Value::String`].
 /// By default, variant names will be converted to ["snake_case"](convert_case::Case::Snake).
 /// You can customize the case conversion using `#[nu_value(rename_all = "kebab-case")]` on the enum.
-/// All deterministic case conversions provided by [`convert_case::Case`] are supported by
-/// specifying the case name followed by "case".
+/// All deterministic and useful case conversions provided by [`convert_case::Case`] are supported
+/// by specifying the case name followed by "case".
+/// Also all values for
+/// [`#[serde(rename_all = "...")]`](https://serde.rs/container-attrs.html#rename_all) are valid
+/// here.
 ///
 /// ```
 /// # use nu_protocol::{IntoValue, Value, Span};
