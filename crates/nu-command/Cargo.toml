@@ -134,7 +134,6 @@ workspace = true
 plugin = ["nu-parser/plugin"]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]
-which-support = []
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.94.3" }
