@@ -41,7 +41,7 @@ impl ContainerAttributes {
                             "snake_case" => Case::Snake,
                             "UPPER_SNAKE_CASE" | "SCREAMING_SNAKE_CASE" => Case::UpperSnake,
                             "kebab-case" => Case::Kebab,
-                            "COBOL-CASE" | "UPPER-KEBAB-CASE" | "SCREAMING-KEBA-CASE" => {
+                            "COBOL-CASE" | "UPPER-KEBAB-CASE" | "SCREAMING-KEBAB-CASE" => {
                                 Case::Cobol
                             }
                             "Train-Case" => Case::Train,
