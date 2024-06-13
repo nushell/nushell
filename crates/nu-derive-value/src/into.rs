@@ -12,6 +12,15 @@ use crate::attributes::{self, ContainerAttributes};
 pub struct IntoValue;
 type DeriveError = super::error::DeriveError<IntoValue>;
 
+/// Inner implementation of the `#[derive(IntoValue)]` macro for structs and enums.
+///
+/// Uses `proc_macro2::TokenStream` for better testing support, unlike `proc_macro::TokenStream`.
+///
+/// This function directs the `IntoValue` trait derivation to the correct implementation based on
+/// the input type:
+/// - For structs: [`struct_into_value`]
+/// - For enums: [`enum_into_value`]
+/// - Unions are not supported and will return an error.
 pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, DeriveError> {
     let input: DeriveInput = syn::parse2(input).map_err(DeriveError::Syn)?;
     match input.data {
@@ -31,6 +40,69 @@ pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, DeriveErro
     }
 }
 
+/// Implements the `#[derive(IntoValue)]` macro for structs.
+///
+/// Automatically derives the `IntoValue` trait for any struct where each field implements
+/// `IntoValue`.
+/// For structs with named fields, the derived implementation creates a `Value::Record` using the
+/// struct fields as keys.
+/// Each field value is converted using the `IntoValue::into_value` method.
+/// For structs with unnamed fields, this generates a `Value::List` with each field in the list.
+/// For unit structs, this generates `Value::Nothing`, because there is no data.
+///
+/// Note: The helper attribute `#[nu_value(...)]` is currently not allowed on structs.
+///
+/// # Examples
+///
+/// These examples show what the macro would generate.
+///
+/// Struct with named fields:
+/// ```rust
+/// #[derive(IntoValue)]
+/// struct Pet {
+///     name: String,
+///     age: u8,
+///     favorite_toy: Option<String>,
+/// }
+///
+/// impl nu_protocol::IntoValue for Pet {
+///     fn into_value(self, span: nu_protocol::Span) -> nu_protocol::Value {
+///         nu_protocol::Value::record(nu_protocol::record! {
+///             "name" => nu_protocol::IntoValue::into_value(self.name, span),
+///             "age" => nu_protocol::IntoValue::into_value(self.age, span),
+///             "favorite_toy" => nu_protocol::IntoValue::into_value(self.favorite_toy, span),
+///         }, span)
+///     }
+/// }
+/// ```
+///
+/// Struct with unnamed fields:
+/// ```rust
+/// #[derive(IntoValue)]
+/// struct Color(u8, u8, u8);
+///
+/// impl nu_protocol::IntoValue for Color {
+///     fn into_value(self, span: nu_protocol::Span) -> nu_protocol::Value {
+///         nu_protocol::Value::list(vec![
+///             nu_protocol::IntoValue::into_value(self.0, span),
+///             nu_protocol::IntoValue::into_value(self.1, span),
+///             nu_protocol::IntoValue::into_value(self.2, span),
+///         ], span)
+///     }
+/// }
+/// ```
+///
+/// Unit struct:
+/// ```rust
+/// #[derive(IntoValue)]
+/// struct Unicorn;
+///
+/// impl nu_protocol::IntoValue for Unicorn {
+///     fn into_value(self, span: nu_protocol::Span) -> nu_protocol::Value {
+///         nu_protocol::Value::nothing(span)
+///     }
+/// }
+/// ```
 fn struct_into_value(
     ident: Ident,
     data: DataStruct,
@@ -46,7 +118,7 @@ fn struct_into_value(
                 .iter()
                 .map(|field| field.ident.as_ref().expect("named has idents"))
                 .map(|ident| quote!(self.#ident));
-            fields_to_record(&data.fields, accessor)
+            fields_return_value(&data.fields, accessor)
         }
         Fields::Unnamed(fields) => {
             let accessor = fields
@@ -55,7 +127,7 @@ fn struct_into_value(
                 .enumerate()
                 .map(|(n, _)| Index::from(n))
                 .map(|index| quote!(self.#index));
-            fields_to_record(&data.fields, accessor)
+            fields_return_value(&data.fields, accessor)
         }
         Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
     };
@@ -70,6 +142,35 @@ fn struct_into_value(
     })
 }
 
+/// Implements the `#[derive(IntoValue)]` macro for enums.
+///
+/// This function implements the derive macro `IntoValue` for enums.
+/// Currently, only unit enum variants are supported as it is not clear how other types of enums
+/// should be represented in a `Value`.
+/// For simple enums, we represent the enum as a `Value::String`. For other types of variants, we return an error.
+/// The variant name will be case-converted as described by the `#[nu_value(rename_all = "...")]` helper attribute.
+/// If no attribute is used, the default is `case_convert::Case::Snake`.
+/// The implementation matches over all variants, uses the appropriate variant name, and constructs a `Value::String`.
+///
+/// This is how such a derived implementation looks:
+/// ```rust
+/// #[derive(IntoValue)]
+/// enum Weather {
+///     Sunny,
+///     Cloudy,
+///     Raining
+/// }
+///
+/// impl nu_protocol::IntoValue for Weather {
+///     fn into_value(self, span: nu_protocol::Span) -> nu_protocol::Value {
+///         match self {
+///             Self::Sunny => nu_protocol::Value::string("sunny", span),
+///             Self::Cloudy => nu_protocol::Value::string("cloudy", span),
+///             Self::Raining => nu_protocol::Value::string("raining", span),
+///         }
+///     }
+/// }
+/// ```
 fn enum_into_value(
     ident: Ident,
     data: DataEnum,
@@ -113,7 +214,25 @@ fn enum_into_value(
     })
 }
 
-fn fields_to_record(
+/// Constructs the final `Value` that the macro generates.
+///
+/// This function handles the construction of the final `Value` that the macro generates.
+/// It is currently only used for structs but may be used for enums in the future.
+/// The function takes two parameters: the `fields`, which allow iterating over each field of a data
+/// type, and the `accessor`.
+/// The fields determine whether we need to generate a `Value::Record`, `Value::List`, or
+/// `Value::Nothing`.
+/// For named fields, they are also directly used to generate the record key.
+///
+/// The `accessor` parameter generalizes how the data is accessed.
+/// For named fields, this is usually the name of the fields preceded by `self` in a struct, and
+/// maybe something else for enums.
+/// For unnamed fields, this should be an iterator similar to the one with named fields, but
+/// accessing tuple fields, so we get `self.n`.
+/// For unit structs, this parameter is ignored.
+/// By using the accessor like this, we can have the same code for structs and enums with data
+/// variants in the future.
+fn fields_return_value(
     fields: &Fields,
     accessor: impl Iterator<Item = impl ToTokens>,
 ) -> TokenStream2 {
@@ -140,7 +259,7 @@ fn fields_to_record(
                 fields.unnamed.iter().zip(accessor).map(
                     |(_, accessor)| quote!(nu_protocol::IntoValue::into_value(#accessor, span)),
                 );
-            quote!(nu_protocol::Value::list(vec![#(#items),*], span))
+            quote!(nu_protocol::Value::list(std::vec![#(#items),*], span))
         }
         Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
     }

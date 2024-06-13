@@ -9,6 +9,9 @@ version = "0.94.3"
 
 [lib]
 proc-macro = true
+# we can only use exposed macros in doctests really, 
+# so we cannot test anything useful in a doctest
+doctest = false 
 
 [dependencies]
 proc-macro2 = { workspace = true }
