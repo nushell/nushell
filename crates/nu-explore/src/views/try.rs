@@ -16,21 +16,21 @@ use ratatui::{
 };
 use std::cmp::min;
 
-pub struct TryView<'a> {
+pub struct TryView {
     input: Value,
     command: String,
-    reactive: bool,
-    table: Option<RecordView<'a>>,
+    immediate: bool,
+    table: Option<RecordView>,
     view_mode: bool,
     border_color: Style,
 }
 
-impl<'a> TryView<'a> {
+impl TryView {
     pub fn new(input: Value) -> Self {
         Self {
             input,
             table: None,
-            reactive: false,
+            immediate: false,
             border_color: Style::default(),
             view_mode: false,
             command: String::new(),
@@ -48,7 +48,7 @@ impl<'a> TryView<'a> {
     }
 }
 
-impl View for TryView<'_> {
+impl View for TryView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let border_color = self.border_color;
 
@@ -178,7 +178,7 @@ impl View for TryView<'_> {
                 if !self.command.is_empty() {
                     self.command.pop();
 
-                    if self.reactive {
+                    if self.immediate {
                         match self.try_run(engine_state, stack) {
                             Ok(_) => info.report = Some(Report::default()),
                             Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
@@ -191,7 +191,7 @@ impl View for TryView<'_> {
             KeyCode::Char(c) => {
                 self.command.push(*c);
 
-                if self.reactive {
+                if self.immediate {
                     match self.try_run(engine_state, stack) {
                         Ok(_) => info.report = Some(Report::default()),
                         Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
@@ -235,7 +235,7 @@ impl View for TryView<'_> {
 
     fn setup(&mut self, config: ViewConfig<'_>) {
         self.border_color = nu_style_to_tui(config.explore_config.table.separator_style);
-        self.reactive = config.explore_config.try_reactive;
+        self.immediate = config.explore_config.try_reactive;
 
         let mut r = RecordView::new(vec![], vec![]);
         r.setup(config);
@@ -253,7 +253,7 @@ fn run_command(
     input: &Value,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> Result<RecordView<'static>> {
+) -> Result<RecordView> {
     let pipeline = run_command_with_value(command, input, engine_state, stack)?;
 
     let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));

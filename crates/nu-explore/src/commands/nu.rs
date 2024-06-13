@@ -27,7 +27,7 @@ impl NuCmd {
 }
 
 impl ViewCommand for NuCmd {
-    type View = NuView<'static>;
+    type View = NuView;
 
     fn name(&self) -> &'static str {
         Self::NAME
@@ -72,12 +72,12 @@ impl ViewCommand for NuCmd {
     }
 }
 
-pub enum NuView<'a> {
-    Records(RecordView<'a>),
+pub enum NuView {
+    Records(RecordView),
     Preview(Preview),
 }
 
-impl View for NuView<'_> {
+impl View for NuView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         match self {
             NuView::Records(v) => v.draw(f, area, cfg, layout),
