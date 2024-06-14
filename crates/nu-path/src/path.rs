@@ -1063,17 +1063,17 @@ macro_rules! impl_as_ref {
 
 // === To and from crate types ===
 
-impl<From: PathCast<To>, To: PathForm> AsRef<Path<To>> for Path<From> {
+impl<Form: PathForm> AsRef<Path<Form>> for Path<Form> {
     #[inline]
-    fn as_ref(&self) -> &Path<To> {
-        self.cast()
+    fn as_ref(&self) -> &Path<Form> {
+        self
     }
 }
 
-impl<From: PathCast<To>, To: PathForm> AsRef<Path<To>> for PathBuf<From> {
+impl<Form: PathForm> AsRef<Path<Form>> for PathBuf<Form> {
     #[inline]
-    fn as_ref(&self) -> &Path<To> {
-        self.cast()
+    fn as_ref(&self) -> &Path<Form> {
+        self
     }
 }
 
