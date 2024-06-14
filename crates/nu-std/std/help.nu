@@ -658,7 +658,7 @@ def build-command-page [command: record] {
             $"  > ($example.example | nu-highlight)"
             (if not ($example.result | is-empty) {
                 $example.result
-                | table
+                | table -e
                 | to text
                 | if ($example.result | describe) == "binary" { str join } else { lines }
                 | each {|line|
