@@ -115,24 +115,33 @@ impl<'a> Call<'a> {
         self.positional_iter().nth(index)
     }
 
-    pub fn rest_iter(&self) -> impl Iterator<Item = &Value> {
-        self.arg_refs().filter_map(|arg| match arg {
-            ArgRef::Spread(value) => Some(value),
-            _ => None,
-        })
+    /// Returns every argument to the rest parameter, as well as whether each argument
+    /// is spread or a normal positional argument (true for spread, false for normal)
+    pub fn rest_iter(&self, start: usize) -> impl Iterator<Item = (&Value, bool)> {
+        self.arg_refs()
+            .filter_map(|arg| match arg {
+                ArgRef::Positional(value) => Some((value, false)),
+                ArgRef::Spread(value) => Some((value, true)),
+                _ => None,
+            })
+            .skip(start)
     }
 
-    pub fn rest_iter_flattened(&self) -> Result<Vec<Value>, ShellError> {
+    pub fn rest_iter_flattened(&self, start: usize) -> Result<Vec<Value>, ShellError> {
         let mut acc = vec![];
-        for rest_val in self.rest_iter() {
-            match rest_val {
-                Value::List { vals, .. } => acc.extend(vals.iter().cloned()),
-                Value::Error { error, .. } => return Err(ShellError::clone(error)),
-                _ => {
-                    return Err(ShellError::CannotSpreadAsList {
-                        span: rest_val.span(),
-                    })
+        for (rest_val, spread) in self.rest_iter(start) {
+            if spread {
+                match rest_val {
+                    Value::List { vals, .. } => acc.extend(vals.iter().cloned()),
+                    Value::Error { error, .. } => return Err(ShellError::clone(error)),
+                    _ => {
+                        return Err(ShellError::CannotSpreadAsList {
+                            span: rest_val.span(),
+                        })
+                    }
                 }
+            } else {
+                acc.push(rest_val.clone());
             }
         }
         Ok(acc)

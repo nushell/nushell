@@ -6,11 +6,11 @@ use crate::{ast, ir, Span};
 #[derive(Debug, Clone)]
 pub struct Call<'a> {
     pub head: Span,
-    inner: CallImpl<'a>,
+    pub inner: CallImpl<'a>,
 }
 
 #[derive(Debug, Clone)]
-enum CallImpl<'a> {
+pub enum CallImpl<'a> {
     Ast(&'a ast::Call),
     Ir(ir::Call<'a>),
 }
