@@ -1880,16 +1880,16 @@ impl TryFrom<String> for AbsolutePathBuf {
 
 // === Between crate types ===
 
-impl<From: PathCast<To>, To: PathForm> PartialEq<Path<To>> for Path<From> {
-    fn eq(&self, other: &Path<To>) -> bool {
+impl<Form: PathForm> PartialEq for Path<Form> {
+    fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
 impl<Form: PathForm> Eq for Path<Form> {}
 
-impl<From: PathCast<To>, To: PathForm> PartialOrd<Path<To>> for Path<From> {
-    fn partial_cmp(&self, other: &Path<To>) -> Option<Ordering> {
+impl<Form: PathForm> PartialOrd for Path<Form> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.inner.cmp(&other.inner))
     }
 }
@@ -1906,16 +1906,16 @@ impl<Form: PathForm> Hash for Path<Form> {
     }
 }
 
-impl<From: PathCast<To>, To: PathForm> PartialEq<PathBuf<To>> for PathBuf<From> {
-    fn eq(&self, other: &PathBuf<To>) -> bool {
+impl<Form: PathForm> PartialEq for PathBuf<Form> {
+    fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
 impl<Form: PathForm> Eq for PathBuf<Form> {}
 
-impl<From: PathCast<To>, To: PathForm> PartialOrd<PathBuf<To>> for PathBuf<From> {
-    fn partial_cmp(&self, other: &PathBuf<To>) -> Option<Ordering> {
+impl<Form: PathForm> PartialOrd for PathBuf<Form> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.inner.cmp(&other.inner))
     }
 }
@@ -2001,6 +2001,24 @@ macro_rules! impl_cmp_cast {
         }
     };
 }
+
+impl_cmp_cast!(<> Path, RelativePath);
+impl_cmp_cast!(<> Path, AbsolutePath);
+impl_cmp_cast!(<> Path, CanonicalPath);
+impl_cmp_cast!(<> AbsolutePath, CanonicalPath);
+impl_cmp_cast!(<> PathBuf, RelativePathBuf);
+impl_cmp_cast!(<> PathBuf, AbsolutePathBuf);
+impl_cmp_cast!(<> PathBuf, CanonicalPathBuf);
+impl_cmp_cast!(<> AbsolutePathBuf, CanonicalPathBuf);
+
+impl_cmp_cast!(<'a> &'a Path, RelativePath);
+impl_cmp_cast!(<'a> &'a Path, AbsolutePath);
+impl_cmp_cast!(<'a> &'a Path, CanonicalPath);
+impl_cmp_cast!(<'a> &'a AbsolutePath, CanonicalPath);
+impl_cmp_cast!(<'a> Path, &'a RelativePath);
+impl_cmp_cast!(<'a> Path, &'a AbsolutePath);
+impl_cmp_cast!(<'a> Path, &'a CanonicalPath);
+impl_cmp_cast!(<'a> AbsolutePath, &'a CanonicalPath);
 
 impl_cmp_cast!(<> PathBuf, RelativePath);
 impl_cmp_cast!(<> PathBuf, AbsolutePath);
