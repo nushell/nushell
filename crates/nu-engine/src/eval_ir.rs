@@ -85,7 +85,10 @@ fn eval_ir_block_impl<D: DebugContext>(
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
-        log::trace!("{pc:-4}: {}", instruction.display(ctx.engine_state));
+        log::trace!(
+            "{pc:-4}: {}",
+            instruction.display(ctx.engine_state, &ir_block.call_args)
+        );
         match do_instruction(ctx, instruction, span)? {
             InstructionResult::Continue => {
                 pc += 1;
@@ -159,13 +162,14 @@ fn do_instruction(
         Instruction::LoadEnv { dst, key } => todo!(),
         Instruction::LoadEnvOpt { dst, key } => todo!(),
         Instruction::StoreEnv { key, src } => todo!(),
-        Instruction::PushPositional { src } => todo!(),
-        Instruction::AppendRest { src } => todo!(),
-        Instruction::PushFlag { name } => todo!(),
-        Instruction::PushNamed { name, src } => todo!(),
         Instruction::RedirectOut { mode } => todo!(),
         Instruction::RedirectErr { mode } => todo!(),
-        Instruction::Call { decl_id, src_dst } => todo!(),
+        Instruction::Call {
+            decl_id,
+            src_dst,
+            args_start,
+            args_len,
+        } => todo!(),
         Instruction::BinaryOp { lhs_dst, op, rhs } => binary_op(ctx, *lhs_dst, op, *rhs, *span),
         Instruction::FollowCellPath { src_dst, path } => todo!(),
         Instruction::CloneCellPath { dst, src, path } => todo!(),

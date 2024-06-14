@@ -4,7 +4,7 @@ use nu_protocol::{
         PipelineRedirection, RedirectionSource, RedirectionTarget,
     },
     engine::StateWorkingSet,
-    ir::{Instruction, IrBlock, Literal, RedirectMode},
+    ir::{CallArg, Instruction, IrBlock, Literal, RedirectMode},
     IntoSpanned, OutDest, RegId, ShellError, Span, Spanned, ENV_VARIABLE_ID,
 };
 
@@ -390,13 +390,7 @@ fn compile_call(
     // We could technically compile anything that isn't another call safely without worrying about
     // the argument state, but we'd have to check all of that first and it just isn't really worth
     // it.
-    enum CompiledArg {
-        Positional(RegId, Span),
-        Named(Box<str>, Option<RegId>, Span),
-        Spread(RegId, Span),
-    }
-
-    let mut compiled_args = vec![];
+    let mut call_args = vec![];
 
     for arg in &call.arguments {
         let arg_reg = arg
@@ -418,41 +412,28 @@ fn compile_call(
             .transpose()?;
 
         match arg {
-            Argument::Positional(_) => compiled_args.push(CompiledArg::Positional(
+            Argument::Positional(_) => call_args.push(CallArg::Positional(
                 arg_reg.expect("expr() None in non-Named"),
-                arg.span(),
             )),
-            Argument::Named((name, _, _)) => compiled_args.push(CompiledArg::Named(
-                name.item.as_str().into(),
-                arg_reg,
-                arg.span(),
-            )),
+            Argument::Named((name, _, _)) => call_args.push({
+                if let Some(arg_reg) = arg_reg {
+                    CallArg::Named(name.item.as_str().into(), arg_reg)
+                } else {
+                    CallArg::Flag(name.item.as_str().into())
+                }
+            }),
             Argument::Unknown(_) => return Err(CompileError::Garbage),
-            Argument::Spread(_) => compiled_args.push(CompiledArg::Spread(
-                arg_reg.expect("expr() None in non-Named"),
-                arg.span(),
-            )),
-        }
-    }
-
-    // Now that the args are all compiled, set up the call state (argument stack and redirections)
-    for arg in compiled_args {
-        match arg {
-            CompiledArg::Positional(reg, span) => {
-                builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?
-            }
-            CompiledArg::Named(name, Some(reg), span) => {
-                builder.push(Instruction::PushNamed { name, src: reg }.into_spanned(span))?
-            }
-            CompiledArg::Named(name, None, span) => {
-                builder.push(Instruction::PushFlag { name }.into_spanned(span))?
-            }
-            CompiledArg::Spread(reg, span) => {
-                builder.push(Instruction::AppendRest { src: reg }.into_spanned(span))?
+            Argument::Spread(_) => {
+                call_args.push(CallArg::Spread(arg_reg.expect("expr() None in non-Named")))
             }
         }
     }
 
+    let args_start = builder.call_args.len();
+    let args_len = call_args.len();
+    builder.call_args.extend(call_args);
+
+    // If redirections are needed for the call, set those up with extra instructions
     if let Some(mode) = redirect_modes.out {
         builder.push(mode.map(|mode| Instruction::RedirectOut { mode }))?;
     }
@@ -466,6 +447,8 @@ fn compile_call(
         Instruction::Call {
             decl_id: call.decl_id,
             src_dst: io_reg,
+            args_start: if args_len > 0 { args_start } else { 0 },
+            args_len,
         }
         .into_spanned(call.head),
     )?;
@@ -629,6 +612,7 @@ impl CompileError {
 struct BlockBuilder {
     instructions: Vec<Instruction>,
     spans: Vec<Span>,
+    call_args: Vec<CallArg>,
     register_allocation_state: Vec<bool>,
 }
 
@@ -638,6 +622,7 @@ impl BlockBuilder {
         BlockBuilder {
             instructions: vec![],
             spans: vec![],
+            call_args: vec![],
             register_allocation_state: vec![true],
         }
     }
@@ -696,6 +681,11 @@ impl BlockBuilder {
     /// Insert an instruction into the block, automatically marking any registers populated by
     /// the instruction, and freeing any registers consumed by the instruction.
     fn push(&mut self, instruction: Spanned<Instruction>) -> Result<(), CompileError> {
+        // We have to mark any registers that may have been free before the instruction, and free
+        // any registers that are consumed by the instructions and will be free after.
+        //
+        // In the case of an src_dst type register, where it's assumed initialized before and is
+        // also replaced with a new value after the instruction, nothing needs to be done.
         match &instruction.item {
             Instruction::LoadLiteral { dst, lit: _ } => self.mark_register(*dst)?,
             Instruction::Move { dst, src } => {
@@ -710,10 +700,6 @@ impl BlockBuilder {
             Instruction::LoadEnv { dst, key: _ } => self.mark_register(*dst)?,
             Instruction::LoadEnvOpt { dst, key: _ } => self.mark_register(*dst)?,
             Instruction::StoreEnv { key: _, src } => self.free_register(*src)?,
-            Instruction::PushPositional { src } => self.free_register(*src)?,
-            Instruction::AppendRest { src } => self.free_register(*src)?,
-            Instruction::PushFlag { name: _ } => (),
-            Instruction::PushNamed { name: _, src } => self.free_register(*src)?,
             Instruction::RedirectOut { mode } | Instruction::RedirectErr { mode } => match mode {
                 RedirectMode::File { path, .. } => self.free_register(*path)?,
                 _ => (),
@@ -721,7 +707,22 @@ impl BlockBuilder {
             Instruction::Call {
                 decl_id: _,
                 src_dst: _,
-            } => (),
+                args_start,
+                args_len,
+            } => {
+                if *args_len > 0 {
+                    // Free registers used by call arguments. This instruction can use a variable
+                    // number of arguments, described by the sliced values in the `call_args` array.
+                    for index in 0..*args_len {
+                        match &self.call_args[*args_start + index] {
+                            CallArg::Positional(reg) => self.free_register(*reg)?,
+                            CallArg::Spread(reg) => self.free_register(*reg)?,
+                            CallArg::Flag(_) => (),
+                            CallArg::Named(_, reg) => self.free_register(*reg)?,
+                        }
+                    }
+                }
+            }
             Instruction::BinaryOp {
                 lhs_dst: _,
                 op: _,
@@ -781,6 +782,7 @@ impl BlockBuilder {
         IrBlock {
             instructions: self.instructions,
             spans: self.spans,
+            call_args: self.call_args,
             register_count: self.register_allocation_state.len(),
         }
     }
