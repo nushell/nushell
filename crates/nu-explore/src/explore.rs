@@ -34,6 +34,7 @@ impl Command for Explore {
                 None,
             )
             .switch("index", "Show row indexes when viewing a list", Some('i'))
+            .switch("show-lines", "Show lines between columns/rows", None)
             .switch(
                 "tail",
                 "Start with the viewport scrolled to the bottom",
@@ -62,6 +63,7 @@ impl Command for Explore {
         let show_index: bool = call.has_flag(engine_state, stack, "index")?;
         let tail: bool = call.has_flag(engine_state, stack, "tail")?;
         let peek_value: bool = call.has_flag(engine_state, stack, "peek")?;
+        let sep_lines: bool = call.has_flag(engine_state, stack, "show-lines")?;
 
         let ctrlc = engine_state.ctrlc.clone();
         let nu_config = engine_state.get_config();
@@ -70,6 +72,7 @@ impl Command for Explore {
         let mut explore_config = ExploreConfig::from_nu_config(nu_config);
         explore_config.table.show_header = show_head;
         explore_config.table.show_index = show_index;
+        explore_config.table.show_separator_lines = sep_lines;
         explore_config.table.separator_style = lookup_color(&style_computer, "separator");
 
         let lscolors = create_lscolors(engine_state, stack);
@@ -245,6 +248,7 @@ pub struct TableConfig {
     pub separator_style: Style,
     pub show_index: bool,
     pub show_header: bool,
+    pub show_separator_lines: bool,
     pub column_padding_left: usize,
     pub column_padding_right: usize,
 }

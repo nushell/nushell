@@ -88,6 +88,7 @@ impl StatefulWidget for TableWidget<'_> {
 
 // todo: refactoring these to methods as they have quite a bit in common.
 impl<'a> TableWidget<'a> {
+    // header at the top; header is always 1 line
     fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
         let padding_l = self.config.column_padding_left as u16;
         let padding_r = self.config.column_padding_right as u16;
@@ -162,6 +163,20 @@ impl<'a> TableWidget<'a> {
         }
 
         for col in self.index_column..self.columns.len() {
+            let print_sep =
+                self.config.show_separator_lines && state.count_columns > 0 && width < area.width;
+            if print_sep {
+                width += render_vertical_line_with_split(
+                    buf,
+                    width,
+                    data_y,
+                    data_height,
+                    show_head,
+                    false,
+                    separator_s,
+                );
+            }
+
             let mut column = create_column(data, col);
             let column_width = calculate_column_width(&column);
 
@@ -200,6 +215,7 @@ impl<'a> TableWidget<'a> {
                 }
                 let head_iter = [(&head, head_style)].into_iter();
 
+                // we don't change width here cause the whole column have the same width; so we add it when we print data
                 let mut w = width;
                 w += render_space(buf, w, head_y, 1, padding_l);
                 w += render_column(buf, w, head_y, use_space, head_iter);
@@ -209,10 +225,10 @@ impl<'a> TableWidget<'a> {
                 state.layout.push(&head, x, head_y, use_space, 1);
             }
 
-            let head_rows = column.iter().map(|(t, s)| (t, *s));
+            let column_rows = column.iter().map(|(t, s)| (t, *s));
 
             width += render_space(buf, width, data_y, data_height, padding_l);
-            width += render_column(buf, width, data_y, use_space, head_rows);
+            width += render_column(buf, width, data_y, use_space, column_rows);
             width += render_space(buf, width, data_y, data_height, padding_r);
 
             for (row, (text, _)) in column.iter().enumerate() {
@@ -255,6 +271,7 @@ impl<'a> TableWidget<'a> {
         }
     }
 
+    // header at the left; header is always 1 line
     fn render_table_vertical(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
         if area.width == 0 || area.height == 0 {
             return;
@@ -353,12 +370,29 @@ impl<'a> TableWidget<'a> {
         state.count_rows = columns.len();
         state.count_columns = 0;
 
+        // note: is there a time where we would have more then 1 column?
+        // seems like not really; cause it's literally KV table, or am I wrong?
+
         for col in self.index_column..self.data.len() {
             let mut column =
                 self.data[col][self.index_row..self.index_row + columns.len()].to_vec();
             let column_width = calculate_column_width(&column);
             if column_width > u16::MAX as usize {
                 break;
+            }
+
+            let print_sep =
+                self.config.show_separator_lines && state.count_columns > 0 && left_w < area.width;
+            if print_sep {
+                left_w += render_vertical_line_with_split(
+                    buf,
+                    area.x + left_w,
+                    area.y,
+                    area.height,
+                    false,
+                    false,
+                    separator_s,
+                );
             }
 
             let column_width = column_width as u16;
