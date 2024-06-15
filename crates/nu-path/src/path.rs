@@ -1065,7 +1065,7 @@ macro_rules! impl_as_ref {
 
 impl<Form: PathForm> AsRef<Path<Form>> for Path<Form> {
     #[inline]
-    fn as_ref(&self) -> &Path<Form> {
+    fn as_ref(&self) -> &Self {
         self
     }
 }
@@ -1328,21 +1328,21 @@ impl<Source: PathCast<To>, To: PathForm> From<&Path<Source>> for Rc<Path<To>> {
 impl<T: ?Sized + AsRef<RelativePath>> From<&T> for RelativePathBuf {
     #[inline]
     fn from(s: &T) -> Self {
-        s.as_ref().into()
+        Self::new_unchecked(s.as_ref().into())
     }
 }
 
 impl<T: ?Sized + AsRef<AbsolutePath>> From<&T> for AbsolutePathBuf {
     #[inline]
     fn from(s: &T) -> Self {
-        s.as_ref().into()
+        Self::new_unchecked(s.as_ref().into())
     }
 }
 
 impl<T: ?Sized + AsRef<CanonicalPath>> From<&T> for CanonicalPathBuf {
     #[inline]
     fn from(s: &T) -> Self {
-        s.as_ref().into()
+        Self::new_unchecked(s.as_ref().into())
     }
 }
 
