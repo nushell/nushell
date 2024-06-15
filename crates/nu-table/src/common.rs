@@ -24,7 +24,7 @@ pub fn create_nu_table_config(
         with_header: out.with_header,
         split_color: Some(lookup_separator_color(comp)),
         trim: config.trim_strategy.clone(),
-        header_on_border: config.table_move_header,
+        header_on_border: config.table_header_on_border,
         expand,
     }
 }
