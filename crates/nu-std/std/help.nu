@@ -771,6 +771,11 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
 
     let modules = (try { modules $target_item --find $find })
     if not ($modules | is-empty) { return $modules }
+    
+    if ($find | is-not-empty) {
+        print -e $"No help results found mentioning: ($find)"
+        return []
+    }
 
     let span = (metadata $item | get span)
     error make {
