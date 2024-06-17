@@ -176,7 +176,7 @@ pub fn eval_call<D: DebugContext>(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        decl.run(engine_state, caller_stack, call, input)
+        decl.run(engine_state, caller_stack, &call.into(), input)
     }
 }
 
@@ -223,7 +223,7 @@ fn eval_external(
         }
     }
 
-    command.run(engine_state, stack, &call, input)
+    command.run(engine_state, stack, &(&call).into(), input)
 }
 
 pub fn eval_expression<D: DebugContext>(

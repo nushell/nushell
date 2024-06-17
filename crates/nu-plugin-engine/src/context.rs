@@ -1,8 +1,7 @@
 use crate::util::MutableCow;
 use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce};
 use nu_protocol::{
-    ast::Call,
-    engine::{Closure, EngineState, Redirection, Stack},
+    engine::{Call, Closure, EngineState, Redirection, Stack},
     Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
 };
 use std::{
@@ -56,7 +55,7 @@ pub struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,
-    call: Cow<'a, Call>,
+    call: Cow<'a, Call<'a>>,
 }
 
 impl<'a> PluginExecutionCommandContext<'a> {

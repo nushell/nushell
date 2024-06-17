@@ -1,5 +1,7 @@
 use super::{EngineState, Stack, StateWorkingSet};
-use crate::{ast::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
+use crate::{
+    ast, engine::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature,
+};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +54,7 @@ pub trait Command: Send + Sync + CommandClone {
     fn run_const(
         &self,
         working_set: &StateWorkingSet,
-        call: &Call,
+        call: &ast::Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Err(ShellError::MissingConstEvalImpl { span: call.head })

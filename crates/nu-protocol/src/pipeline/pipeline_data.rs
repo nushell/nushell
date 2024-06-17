@@ -568,7 +568,7 @@ impl PipelineData {
                         self.write_all_and_flush(engine_state, no_newline, to_stderr)
                     } else {
                         let call = Call::new(Span::new(0, 0));
-                        let table = command.run(engine_state, stack, &call, self)?;
+                        let table = command.run(engine_state, stack, &(&call).into(), self)?;
                         table.write_all_and_flush(engine_state, no_newline, to_stderr)
                     }
                 } else {
