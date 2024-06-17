@@ -921,6 +921,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3021,6 +3030,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-derive-value"
+version = "0.94.3"
+dependencies = [
+ "convert_case",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.60",
+]
+
+[[package]]
 name = "nu-engine"
 version = "0.94.3"
 dependencies = [
@@ -3209,11 +3229,13 @@ dependencies = [
  "byte-unit",
  "chrono",
  "chrono-humanize",
+ "convert_case",
  "fancy-regex",
  "indexmap",
  "lru",
  "miette",
  "nix",
+ "nu-derive-value",
  "nu-path",
  "nu-system",
  "nu-test-support",
