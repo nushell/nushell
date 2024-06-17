@@ -1192,7 +1192,7 @@ pub fn parse_export_in_block(
         "export alias" => parse_alias(working_set, lite_command, None),
         "export def" => parse_def(working_set, lite_command, None).0,
         "export const" => parse_const(working_set, &lite_command.parts[1..]),
-        "export use" => parse_use(working_set, lite_command).0,
+        "export use" => parse_use(working_set, lite_command, None).0,
         "export module" => parse_module(working_set, lite_command, None).0,
         "export extern" => parse_extern(working_set, lite_command, None),
         _ => {
@@ -1759,7 +1759,7 @@ pub fn parse_module_block(
                     ))
                 }
                 b"use" => {
-                    let (pipeline, _) = parse_use(working_set, command);
+                    let (pipeline, _) = parse_use(working_set, command, Some(&mut module));
 
                     block.pipelines.push(pipeline)
                 }
@@ -2228,6 +2228,7 @@ pub fn parse_module(
 pub fn parse_use(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    user_module: Option<&mut Module>,
 ) -> (Pipeline, Vec<Exportable>) {
     let spans = &lite_command.parts;
 
@@ -2420,6 +2421,16 @@ pub fn parse_use(
 
     import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
 
+    if let Some(m) = user_module {
+        m.add_usage_modules(
+            definitions
+                .modules
+                .iter()
+                .map(|(_, id)| *id)
+                .collect::<Vec<ModuleId>>()
+                .as_slice(),
+        )
+    }
     // Extend the current scope with the module's exportables
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);

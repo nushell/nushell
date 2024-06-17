@@ -2,6 +2,7 @@ use crate::{
     ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, ModuleId, ParseError, Span,
     Value, VarId,
 };
+use std::path::PathBuf;
 
 use indexmap::IndexMap;
 
@@ -35,6 +36,8 @@ pub struct Module {
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
+    pub use_modules: Vec<ModuleId>,
+    pub file: Option<PathBuf>,
 }
 
 impl Module {
@@ -47,6 +50,8 @@ impl Module {
             env_block: None,
             main: None,
             span: None,
+            use_modules: vec![],
+            file: None,
         }
     }
 
@@ -59,6 +64,8 @@ impl Module {
             env_block: None,
             main: None,
             span: Some(span),
+            use_modules: vec![],
+            file: None,
         }
     }
 
@@ -80,6 +87,12 @@ impl Module {
 
     pub fn add_env_block(&mut self, block_id: BlockId) {
         self.env_block = Some(block_id);
+    }
+
+    pub fn add_usage_modules(&mut self, module_id: &[ModuleId]) {
+        for m in module_id {
+            self.use_modules.push(*m)
+        }
     }
 
     pub fn has_decl(&self, name: &[u8]) -> bool {
