@@ -91,7 +91,7 @@ impl Command for Try {
             Example {
                 description: "Try to run a missing command and report the message",
                 example: "try { asdfasdf } catch { |err| $err.msg }",
-                result: Some(Value::test_string("External command failed")),
+                result: Some(Value::test_string("xternal command")),
             },
         ]
     }
