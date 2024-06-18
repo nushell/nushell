@@ -138,7 +138,7 @@ fn command(
 #[cfg(test)]
 pub mod test {
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{Span, Value};
+    use nu_protocol::{Span, Value, TryIntoValue};
     use uuid::Uuid;
 
     use crate::PolarsPlugin;
@@ -171,7 +171,7 @@ pub mod test {
 
         assert!(tmp_file.exists());
 
-        let value = pipeline_data.into_value(Span::test_data())?;
+        let value = pipeline_data.try_into_value(Span::test_data())?;
         let list = value.as_list()?;
         assert_eq!(list.len(), 1);
         let msg = list.first().expect("should have a value").as_str()?;

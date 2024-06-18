@@ -83,7 +83,7 @@ fn as_uuid(s: &str, span: Span) -> Result<Uuid, ShellError> {
 mod test {
     use nu_command::{First, Get};
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::Span;
+    use nu_protocol::{Span, TryIntoValue};
 
     use super::*;
 
@@ -94,7 +94,7 @@ mod test {
             .add_decl(Box::new(First))?
             .add_decl(Box::new(Get))?
             .eval("let df = ([[a b];[1 2] [3 4]] | polars into-df); polars store-ls | get key | first | polars store-rm $in")?;
-        let value = pipeline_data.into_value(Span::test_data())?;
+        let value = pipeline_data.try_into_value(Span::test_data())?;
         let msg = value
             .as_list()?
             .first()
