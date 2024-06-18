@@ -304,15 +304,13 @@ mod test {
     #[test]
     fn test_gather_env_vars() {
         let mut engine_state = EngineState::new();
-        let symbols = r##" !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"##.to_string();
+        let symbols = r##" !"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"##;
 
-        let foo_key = "FOO".to_string();
-        let symbols_key = "SYMBOLS".to_string();
         gather_env_vars(
             [
-                (foo_key.clone(), "foo".into()),
-                (symbols_key.clone(), symbols.into()),
-                (symbols.clone()(), "symbols".into()),
+                ("FOO".into(), "foo".into()),
+                ("SYMBOLS".into(), symbols.into()),
+                (symbols.into(), "symbols".into()),
             ]
             .into_iter(),
             &mut engine_state,
@@ -321,12 +319,16 @@ mod test {
 
         let env = engine_state.render_env_vars();
 
-        assert!(matches!(env.get(&foo_key), Some(&Value::String { val, .. }) if val == "foo"));
         assert!(
-            matches!(env.get(&symbols_key), Some(&Value::String { val, .. }) if val == symbols)
+            matches!(env.get(&"FOO".to_string()), Some(&Value::String { val, .. }) if val == "foo")
         );
-        assert!(matches!(env.get(&symbols), Some(&Value::String { val, .. }) if val == "symbols"));
-        assert!(env.get(&"PWD").is_some());
+        assert!(
+            matches!(env.get(&"SYMBOLS".to_string()), Some(&Value::String { val, .. }) if val == symbols)
+        );
+        assert!(
+            matches!(env.get(&symbols.to_string()), Some(&Value::String { val, .. }) if val == "symbols")
+        );
+        assert!(env.get(&"PWD".to_string()).is_some());
         assert_eq!(env.len(), 4);
     }
 }
