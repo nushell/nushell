@@ -301,7 +301,7 @@ impl_from_value_for_uint!(u64, i64::MAX); // u64::Max would be -1 as i64
 #[cfg(target_pointer_width = "64")]
 impl_from_value_for_uint!(usize, i64::MAX);
 #[cfg(target_pointer_width = "32")]
-impl_from_value_for_uint!(usize, usize::MAX);
+impl_from_value_for_uint!(usize, usize::MAX as i64);
 
 impl FromValue for () {
     fn from_value(v: Value) -> Result<Self, ShellError> {
