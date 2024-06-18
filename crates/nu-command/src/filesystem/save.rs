@@ -7,7 +7,7 @@ use nu_protocol::{
     ast::{Expr, Expression},
     byte_stream::copy_with_interrupt,
     process::ChildPipe,
-    ByteStreamSource, DataSource, OutDest, PipelineMetadata,
+    ByteStreamSource, DataSource, OutDest, PipelineMetadata, TryIntoValue,
 };
 use std::{
     fs::File,
@@ -378,7 +378,7 @@ fn input_to_bytes(
         input
     };
 
-    value_to_bytes(input.into_value(span)?)
+    value_to_bytes(input.try_into_value(span)?)
 }
 
 /// Convert given data into content of file of specified extension if

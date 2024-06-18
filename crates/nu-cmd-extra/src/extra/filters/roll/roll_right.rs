@@ -1,5 +1,6 @@
 use super::{horizontal_rotate_value, HorizontalDirection};
 use nu_engine::command_prelude::*;
+use nu_protocol::TryIntoValue;
 
 #[derive(Clone)]
 pub struct RollRight;
@@ -94,7 +95,7 @@ impl Command for RollRight {
         let metadata = input.metadata();
 
         let cells_only = call.has_flag(engine_state, stack, "cells-only")?;
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let rotated_value =
             horizontal_rotate_value(value, by, cells_only, &HorizontalDirection::Right)?;
 

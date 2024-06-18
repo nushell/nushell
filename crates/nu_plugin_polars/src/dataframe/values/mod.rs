@@ -13,7 +13,9 @@ pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
 pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
 use nu_plugin::EngineInterface;
-use nu_protocol::{ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, Value};
+use nu_protocol::{
+    ast::Operator, CustomValue, PipelineData, ShellError, Span, Spanned, TryIntoValue, Value,
+};
 pub use nu_schema::{str_to_dtype, NuSchema};
 pub use nu_when::{NuWhen, NuWhenCustomValue, NuWhenType};
 use uuid::Uuid;
@@ -84,7 +86,7 @@ impl PolarsPluginObject {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         Self::try_from_value(plugin, &value)
     }
 
@@ -107,8 +109,10 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuWhen(w) => w.id,
         }
     }
+}
 
-    pub fn into_value(self, span: Span) -> Value {
+impl nu_protocol::IntoValue for PolarsPluginObject {
+    fn into_value(self, span: Span) -> Value {
         match self {
             PolarsPluginObject::NuDataFrame(df) => df.into_value(span),
             PolarsPluginObject::NuLazyFrame(lf) => lf.into_value(span),
@@ -301,7 +305,7 @@ pub trait CustomValueSupport: Cacheable {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         Self::try_from_value(plugin, &value)
     }
 

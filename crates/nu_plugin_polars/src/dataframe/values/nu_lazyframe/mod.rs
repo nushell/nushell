@@ -7,7 +7,7 @@ use super::{
     PolarsPluginType,
 };
 use core::fmt;
-use nu_protocol::{record, PipelineData, ShellError, Span, Value};
+use nu_protocol::{record, PipelineData, ShellError, Span, TryIntoValue, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -111,7 +111,7 @@ impl NuLazyFrame {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         Self::try_from_value_coerce(plugin, &value)
     }
 }

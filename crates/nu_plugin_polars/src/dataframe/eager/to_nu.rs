@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    SyntaxShape, TryIntoValue, Type, Value,
 };
 
 use crate::{
@@ -90,7 +90,7 @@ impl PluginCommand for ToNu {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
             dataframe_command(plugin, call, value)
         } else {

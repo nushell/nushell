@@ -173,7 +173,7 @@ fn reject(
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: HashSet<usize> = HashSet::new();
     let metadata = input.metadata();
-    let val = input.into_value(span)?;
+    let val = input.try_into_value(span)?;
     let mut val = val;
     let mut new_columns = vec![];
     let mut new_rows = vec![];

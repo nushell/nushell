@@ -81,7 +81,7 @@ impl Command for TakeWhile {
             .take_while(move |value| {
                 closure
                     .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(head))
+                    .and_then(|data| data.try_into_value(head))
                     .map(|cond| cond.is_true())
                     .unwrap_or(false)
             })

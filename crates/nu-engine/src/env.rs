@@ -3,7 +3,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{Call, Expr},
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, ShellError, Span, Value, VarId,
+    Config, ShellError, Span, TryIntoValue, Value, VarId,
 };
 use std::{
     collections::HashMap,
@@ -357,7 +357,7 @@ fn get_converted_value(
                     .debug(false)
                     .run_with_value(orig_val.clone())
             })
-            .and_then(|data| data.into_value(orig_val.span()))
+            .and_then(|data| data.try_into_value(orig_val.span()))
             .map_or_else(ConversionResult::ConversionError, ConversionResult::Ok)
     } else {
         ConversionResult::CellPathError

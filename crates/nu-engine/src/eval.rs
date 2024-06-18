@@ -10,7 +10,7 @@ use nu_protocol::{
     engine::{Closure, EngineState, Redirection, Stack},
     eval_base::Eval,
     ByteStreamSource, Config, FromValue, IntoPipelineData, OutDest, PipelineData, ShellError, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    Spanned, TryIntoValue, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
@@ -275,7 +275,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
                     let stack = &mut stack.start_capture();
                     // FIXME: protect this collect with ctrl-c
                     input = eval_subexpression::<D>(engine_state, stack, block, input)?
-                        .into_value(*span)?
+                        .try_into_value(*span)?
                         .follow_cell_path(&full_cell_path.tail, false)?
                         .into_pipeline_data()
                 } else {
@@ -704,7 +704,7 @@ impl Eval for EvalRuntime {
         _: Span,
     ) -> Result<Value, ShellError> {
         // FIXME: protect this collect with ctrl-c
-        eval_call::<D>(engine_state, stack, call, PipelineData::empty())?.into_value(call.head)
+        eval_call::<D>(engine_state, stack, call, PipelineData::empty())?.try_into_value(call.head)
     }
 
     fn eval_external_call(
@@ -716,7 +716,7 @@ impl Eval for EvalRuntime {
     ) -> Result<Value, ShellError> {
         let span = head.span(&engine_state);
         // FIXME: protect this collect with ctrl-c
-        eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span)
+        eval_external(engine_state, stack, head, args, PipelineData::empty())?.try_into_value(span)
     }
 
     fn eval_subexpression<D: DebugContext>(
@@ -727,7 +727,8 @@ impl Eval for EvalRuntime {
     ) -> Result<Value, ShellError> {
         let block = engine_state.get_block(block_id);
         // FIXME: protect this collect with ctrl-c
-        eval_subexpression::<D>(engine_state, stack, block, PipelineData::empty())?.into_value(span)
+        eval_subexpression::<D>(engine_state, stack, block, PipelineData::empty())?
+            .try_into_value(span)
     }
 
     fn regex_match(

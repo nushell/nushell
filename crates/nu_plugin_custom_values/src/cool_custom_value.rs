@@ -1,4 +1,4 @@
-use nu_protocol::{ast, CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast, CustomValue, IntoValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -12,10 +12,6 @@ impl CoolCustomValue {
         Self {
             cool: content.to_owned(),
         }
-    }
-
-    pub fn into_value(self, span: Span) -> Value {
-        Value::custom(Box::new(self), span)
     }
 
     pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
@@ -40,6 +36,12 @@ impl CoolCustomValue {
                 help: None,
             }),
         }
+    }
+}
+
+impl IntoValue for CoolCustomValue {
+    fn into_value(self, span: Span) -> Value {
+        Value::custom(Box::new(self), span)
     }
 }
 

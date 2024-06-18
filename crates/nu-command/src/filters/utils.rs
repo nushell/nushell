@@ -2,7 +2,7 @@ use nu_engine::{CallExt, ClosureEval};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Stack},
-    IntoPipelineData, PipelineData, ShellError, Span, Value,
+    IntoPipelineData, PipelineData, ShellError, Span, TryIntoValue, Value,
 };
 
 pub fn chain_error_with_input(
@@ -36,7 +36,10 @@ pub fn boolean_fold(
             break;
         }
 
-        let pred = closure.run_with_value(value)?.into_value(head)?.is_true();
+        let pred = closure
+            .run_with_value(value)?
+            .try_into_value(head)?
+            .is_true();
 
         if pred == accumulator {
             return Ok(Value::bool(accumulator, head).into_pipeline_data());

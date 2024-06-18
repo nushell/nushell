@@ -2,7 +2,7 @@ use nu_plugin::*;
 use nu_plugin_test_support::PluginTest;
 use nu_protocol::{
     Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signature,
-    Span, Type, Value,
+    Span, TryIntoValue, Type, Value,
 };
 
 struct LowercasePlugin;
@@ -73,7 +73,7 @@ fn test_lowercase_using_eval_with() -> Result<(), ShellError> {
 
     assert_eq!(
         Value::test_list(vec![Value::test_string("hello world")]),
-        result.into_value(Span::test_data())?
+        result.try_into_value(Span::test_data())?
     );
 
     Ok(())

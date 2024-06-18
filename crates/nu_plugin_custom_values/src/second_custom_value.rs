@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use nu_protocol::{CustomValue, ShellError, Span, Value};
+use nu_protocol::{CustomValue, IntoValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -13,10 +13,6 @@ impl SecondCustomValue {
         Self {
             something: content.to_owned(),
         }
-    }
-
-    pub fn into_value(self, span: Span) -> Value {
-        Value::custom(Box::new(self), span)
     }
 
     pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
@@ -38,6 +34,12 @@ impl SecondCustomValue {
                 help: None,
             }),
         }
+    }
+}
+
+impl IntoValue for SecondCustomValue {
+    fn into_value(self, span: Span) -> Value {
+        Value::custom(Box::new(self), span)
     }
 }
 

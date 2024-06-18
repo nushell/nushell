@@ -1,12 +1,12 @@
-use nu_protocol::{CustomValue, LabeledError, ShellError, Span, Value};
+use nu_protocol::{CustomValue, IntoValue, LabeledError, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
 /// References a stored handle within the plugin
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HandleCustomValue(pub u64);
 
-impl HandleCustomValue {
-    pub fn into_value(self, span: Span) -> Value {
+impl IntoValue for HandleCustomValue {
+    fn into_value(self, span: Span) -> Value {
         Value::custom(Box::new(self), span)
     }
 }

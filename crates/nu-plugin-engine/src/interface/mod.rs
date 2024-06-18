@@ -12,7 +12,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginSignature, ShellError, Span,
-    Spanned, Value,
+    Spanned, TryIntoValue, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap},
@@ -953,7 +953,7 @@ impl PluginInterface {
 
         let call = PluginCall::CustomValueOp(value.map(|cv| cv.without_source()), op);
         match self.plugin_call(call, None)? {
-            PluginCallResponse::PipelineData(out_data) => out_data.into_value(span),
+            PluginCallResponse::PipelineData(out_data) => out_data.try_into_value(span),
             PluginCallResponse::Error(err) => Err(err.into()),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: format!("Received unexpected response to custom value {op_name}() call"),

@@ -1,6 +1,8 @@
 use crate::{second_custom_value::SecondCustomValue, CustomValuePlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, Example, LabeledError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, IntoValue, LabeledError, Signature, Span, SyntaxShape, Value,
+};
 
 pub struct Generate2;
 

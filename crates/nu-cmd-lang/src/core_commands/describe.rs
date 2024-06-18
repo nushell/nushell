@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, ByteStreamSource, PipelineMetadata};
+use nu_protocol::{engine::StateWorkingSet, ByteStreamSource, IntoValue, PipelineMetadata};
 
 #[derive(Clone)]
 pub struct Describe;
@@ -195,7 +195,8 @@ fn run(
                 let subtype = if options.no_collect {
                     Value::string("any", head)
                 } else {
-                    describe_value(stream.into_value(), head, engine_state)
+                    let span = stream.span();
+                    describe_value(stream.into_value(span), head, engine_state)
                 };
                 Value::record(
                     record! {
@@ -209,7 +210,8 @@ fn run(
             } else if options.no_collect {
                 Value::string("stream", head)
             } else {
-                let value = stream.into_value();
+                let span = stream.span();
+                let value = stream.into_value(span);
                 let base_description = value.get_type().to_string();
                 Value::string(format!("{} (stream)", base_description), head)
             }
@@ -232,7 +234,7 @@ enum Description {
     Record(Record),
 }
 
-impl Description {
+impl IntoValue for Description {
     fn into_value(self, span: Span) -> Value {
         match self {
             Description::String(ty) => Value::string(ty, span),

@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
+use nu_protocol::{ast::Operator, CustomValue, IntoValue, ShellError, Span, Value};
 use nu_utils::SharedCow;
 
 use serde::{Deserialize, Serialize};
@@ -109,11 +109,6 @@ impl PluginCustomValue {
         }))
     }
 
-    /// Create a [`Value`] containing this custom value.
-    pub fn into_value(self, span: Span) -> Value {
-        Value::custom(Box::new(self), span)
-    }
-
     /// The name of the type of the custom value as defined by the plugin (`type_name()`)
     pub fn name(&self) -> &str {
         &self.0.name
@@ -217,5 +212,11 @@ impl PluginCustomValue {
                 _ => Ok(()),
             }
         })
+    }
+}
+
+impl IntoValue for PluginCustomValue {
+    fn into_value(self, span: Span) -> Value {
+        Value::custom(Box::new(self), span)
     }
 }

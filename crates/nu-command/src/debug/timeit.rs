@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression_with_input};
+use nu_protocol::TryIntoValue;
 use std::time::Instant;
 
 #[derive(Clone)]
@@ -58,7 +59,7 @@ impl Command for TimeIt {
         } else {
             PipelineData::empty()
         }
-        .into_value(call.head)?;
+        .try_into_value(call.head)?;
 
         let end_time = Instant::now();
 

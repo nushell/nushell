@@ -3,7 +3,8 @@ use crate::{
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
+    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, TryIntoValue, Value,
+    VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -349,7 +350,7 @@ impl Eval for EvalConst {
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
         // TODO: eval.rs uses call.head for the span rather than expr.span
-        eval_const_call(working_set, call, PipelineData::empty())?.into_value(span)
+        eval_const_call(working_set, call, PipelineData::empty())?.try_into_value(span)
     }
 
     fn eval_external_call(
@@ -371,7 +372,8 @@ impl Eval for EvalConst {
     ) -> Result<Value, ShellError> {
         // TODO: Allow debugging const eval
         let block = working_set.get_block(block_id);
-        eval_const_subexpression(working_set, block, PipelineData::empty(), span)?.into_value(span)
+        eval_const_subexpression(working_set, block, PipelineData::empty(), span)?
+            .try_into_value(span)
     }
 
     fn regex_match(

@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, TryIntoValue};
 
 #[derive(Clone)]
 pub struct Where;
@@ -60,7 +60,7 @@ not supported."#
             .filter_map(move |value| {
                 match closure
                     .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(head))
+                    .and_then(|data| data.try_into_value(head))
                 {
                     Ok(cond) => cond.is_true().then_some(value),
                     Err(err) => Some(Value::error(err, head)),

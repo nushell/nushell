@@ -129,7 +129,7 @@ with 'transpose' first."#
                                 }
                                 Some(Value::list(vals, span))
                             }
-                            Ok(data) => Some(data.into_value(head).unwrap_or_else(|err| {
+                            Ok(data) => Some(data.try_into_value(head).unwrap_or_else(|err| {
                                 Value::error(chain_error_with_input(err, is_error, span), span)
                             })),
                             Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -160,7 +160,7 @@ with 'transpose' first."#
                             let is_error = value.is_error();
                             match closure
                                 .run_with_value(value)
-                                .and_then(|data| data.into_value(head))
+                                .and_then(|data| data.try_into_value(head))
                             {
                                 Ok(value) => Some(value),
                                 Err(ShellError::Continue { span }) => Some(Value::nothing(span)),

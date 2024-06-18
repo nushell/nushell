@@ -1,6 +1,6 @@
 use nu_protocol::{
     Example, IntoSpanned, LabeledError, PipelineData, PluginExample, PluginSignature, ShellError,
-    Signature, Value,
+    Signature, TryIntoValue, Value,
 };
 
 use crate::{EngineInterface, EvaluatedCall, Plugin};
@@ -313,7 +313,7 @@ where
         // Unwrap the PipelineData from input, consuming the potential stream, and pass it to the
         // simpler signature in Plugin
         let span = input.span().unwrap_or(call.head);
-        let input_value = input.into_value(span)?;
+        let input_value = input.try_into_value(span)?;
         // Wrap the output in PipelineData::Value
         <Self as SimplePluginCommand>::run(self, plugin, engine, call, &input_value)
             .map(|value| PipelineData::Value(value, None))

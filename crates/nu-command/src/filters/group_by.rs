@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, TryIntoValue};
 
 #[derive(Clone)]
 pub struct GroupBy;
@@ -207,7 +207,7 @@ fn group_closure(
     for value in values {
         let key = closure
             .run_with_value(value.clone())?
-            .into_value(span)?
+            .try_into_value(span)?
             .coerce_into_string()?;
 
         groups.entry(key).or_default().push(value);

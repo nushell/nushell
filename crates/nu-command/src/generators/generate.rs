@@ -1,6 +1,6 @@
 use itertools::unfold;
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, TryIntoValue};
 
 #[derive(Clone)]
 pub struct Generate;
@@ -159,7 +159,7 @@ used as the next argument to the closure, otherwise generation stops.
 
                 Ok(other) => {
                     let error = other
-                        .into_value(head)
+                        .try_into_value(head)
                         .map(|val| ShellError::GenericError {
                             error: "Invalid block return".into(),
                             msg: format!("Expected record, found {}", val.get_type()),

@@ -7,7 +7,7 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, TryIntoValue, Value};
 use polars::{
     chunked_array::ops::SortMultipleOptions,
     prelude::{DataFrame, DataType, IntoLazy, PolarsObject, Series},
@@ -533,7 +533,7 @@ impl NuDataFrame {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         Self::try_from_value_coerce(plugin, &value, span)
     }
 }

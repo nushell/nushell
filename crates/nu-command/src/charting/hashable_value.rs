@@ -1,5 +1,5 @@
 use chrono::{DateTime, FixedOffset};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{IntoValue, ShellError, Span, Value};
 use std::hash::{Hash, Hasher};
 
 /// A subset of [`Value`](crate::Value), which is hashable.
@@ -112,18 +112,19 @@ impl HashableValue {
             }),
         }
     }
+}
 
-    /// Convert from self to nu's core data type `Value`.
-    pub fn into_value(self) -> Value {
+impl IntoValue for HashableValue {
+    fn into_value(self, span: Span) -> Value {
         match self {
-            HashableValue::Bool { val, span } => Value::bool(val, span),
-            HashableValue::Int { val, span } => Value::int(val, span),
-            HashableValue::Filesize { val, span } => Value::filesize(val, span),
-            HashableValue::Duration { val, span } => Value::duration(val, span),
-            HashableValue::Date { val, span } => Value::date(val, span),
-            HashableValue::Float { val, span } => Value::float(f64::from_ne_bytes(val), span),
-            HashableValue::String { val, span } => Value::string(val, span),
-            HashableValue::Binary { val, span } => Value::binary(val, span),
+            HashableValue::Bool { val, .. } => Value::bool(val, span),
+            HashableValue::Int { val, .. } => Value::int(val, span),
+            HashableValue::Filesize { val, .. } => Value::filesize(val, span),
+            HashableValue::Duration { val, .. } => Value::duration(val, span),
+            HashableValue::Date { val, .. } => Value::date(val, span),
+            HashableValue::Float { val, .. } => Value::float(f64::from_ne_bytes(val), span),
+            HashableValue::String { val, .. } => Value::string(val, span),
+            HashableValue::Binary { val, .. } => Value::binary(val, span),
         }
     }
 }
@@ -289,7 +290,7 @@ mod test {
             assert_eq!(
                 HashableValue::from_value(val, Span::unknown())
                     .unwrap()
-                    .into_value(),
+                    .into_value(span),
                 expected_val
             );
         }

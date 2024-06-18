@@ -6,8 +6,8 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Type, Value,
 };
 
 #[derive(Clone)]
@@ -72,7 +72,7 @@ impl PluginCommand for LazyFilter {
     ) -> Result<PipelineData, LabeledError> {
         let expr_value: Value = call.req(0)?;
         let filter_expr = NuExpression::try_from_value(plugin, &expr_value)?;
-        let pipeline_value = input.into_value(call.head)?;
+        let pipeline_value = input.try_into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
         command(plugin, engine, call, lazy, filter_expr).map_err(LabeledError::from)
     }

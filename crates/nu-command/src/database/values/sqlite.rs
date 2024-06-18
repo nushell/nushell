@@ -2,7 +2,9 @@ use super::definitions::{
     db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
     db_index::DbIndex, db_table::DbTable,
 };
-use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Span, Spanned, Value};
+use nu_protocol::{
+    CustomValue, IntoValue, PipelineData, Record, ShellError, Span, Spanned, TryIntoValue, Value,
+};
 use rusqlite::{
     types::ValueRef, Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement,
     ToSql,
@@ -91,13 +93,8 @@ impl SQLiteDatabase {
     }
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         Self::try_from_value(value)
-    }
-
-    pub fn into_value(self, span: Span) -> Value {
-        let db = Box::new(self);
-        Value::custom(db, span)
     }
 
     pub fn query(
@@ -347,6 +344,13 @@ impl SQLiteDatabase {
         }
 
         Ok(indexes)
+    }
+}
+
+impl IntoValue for SQLiteDatabase {
+    fn into_value(self, span: Span) -> Value {
+        let db = Box::new(self);
+        Value::custom(db, span)
     }
 }
 

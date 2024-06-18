@@ -4,7 +4,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
-    SyntaxShape, Type, Value,
+    SyntaxShape, TryIntoValue, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -51,7 +51,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
             &Call::new(Span::unknown()),
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
-            let result = output.into_value(Span::unknown());
+            let result = output.try_into_value(Span::unknown());
             if let Ok(s) = result.and_then(Value::coerce_into_string) {
                 return s; // successfully highlighted string
             }
@@ -277,7 +277,7 @@ fn get_documentation(
                 Value::string(example.example, Span::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
-                    let result = output.into_value(Span::unknown());
+                    let result = output.try_into_value(Span::unknown());
                     match result.and_then(Value::coerce_into_string) {
                         Ok(s) => {
                             let _ = write!(long_desc, "\n  > {s}\n");

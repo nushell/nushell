@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
 use nu_protocol::engine::CommandType;
-use nu_protocol::ParseWarning;
+use nu_protocol::{ParseWarning, TryIntoValue};
 
 #[derive(Clone)]
 pub struct For;
@@ -193,7 +193,8 @@ impl Command for For {
             x => {
                 stack.add_var(var_id, x);
 
-                eval_block(&engine_state, stack, block, PipelineData::empty())?.into_value(head)?;
+                eval_block(&engine_state, stack, block, PipelineData::empty())?
+                    .try_into_value(head)?;
             }
         }
         Ok(PipelineData::empty())

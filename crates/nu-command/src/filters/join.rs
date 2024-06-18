@@ -75,7 +75,7 @@ impl Command for Join {
         let join_type = join_type(engine_state, stack, call)?;
 
         // FIXME: we should handle ListStreams properly instead of collecting
-        let collected_input = input.into_value(span)?;
+        let collected_input = input.try_into_value(span)?;
 
         match (&collected_input, &table_2, &l_on, &r_on) {
             (

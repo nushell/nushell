@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, TryIntoValue};
 
 #[derive(Clone)]
 pub struct TakeUntil;
@@ -81,7 +81,7 @@ impl Command for TakeUntil {
             .take_while(move |value| {
                 closure
                     .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(head))
+                    .and_then(|data| data.try_into_value(head))
                     .map(|cond| cond.is_false())
                     .unwrap_or(false)
             })

@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use nu_engine::command_prelude::*;
+use nu_protocol::TryIntoValue;
 
 use super::msgpack::write_value;
 
@@ -70,7 +71,7 @@ impl Command for ToMsgpackz {
             .transpose()?;
 
         let value_span = input.span().unwrap_or(call.head);
-        let value = input.into_value(value_span)?;
+        let value = input.try_into_value(value_span)?;
         let mut out_buf = vec![];
         let mut out = brotli::CompressorWriter::new(
             &mut out_buf,

@@ -17,8 +17,8 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     ast::{Math, Operator},
     engine::Closure,
-    ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
-    PluginSignature, ShellError, Span, Spanned, Value,
+    ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, IntoValue,
+    PipelineData, PluginSignature, ShellError, Span, Spanned, TryIntoValue, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -1066,7 +1066,7 @@ fn interface_run() -> Result<(), ShellError> {
 
     assert_eq!(
         Value::test_int(number),
-        result.into_value(Span::test_data())?,
+        result.try_into_value(Span::test_data())?,
     );
     assert!(test.has_unconsumed_write());
     Ok(())
@@ -1115,7 +1115,7 @@ fn interface_prepare_pipeline_data_accepts_normal_values() -> Result<(), ShellEr
         match interface.prepare_pipeline_data(PipelineData::Value(value.clone(), None), &state) {
             Ok(data) => assert_eq!(
                 value.get_type(),
-                data.into_value(Span::test_data())?.get_type(),
+                data.try_into_value(Span::test_data())?.get_type(),
             ),
             Err(err) => panic!("failed to accept {value:?}: {err}"),
         }

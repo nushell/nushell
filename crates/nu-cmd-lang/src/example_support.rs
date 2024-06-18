@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::Block,
     debugger::WithoutDebug,
     engine::{StateDelta, StateWorkingSet},
-    Range,
+    Range, TryIntoValue,
 };
 use std::{
     sync::Arc,
@@ -123,7 +123,7 @@ pub fn eval_block(
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
-        .and_then(|data| data.into_value(Span::test_data()))
+        .and_then(|data| data.try_into_value(Span::test_data()))
         .unwrap_or_else(|err| panic!("test eval error in `{}`: {:?}", "TODO", err))
 }
 

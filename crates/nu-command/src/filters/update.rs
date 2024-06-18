@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, TryIntoValue};
 
 #[derive(Clone)]
 pub struct Update;
@@ -250,7 +250,7 @@ fn update_value_by_closure(
     let new_value = closure
         .add_arg(arg.clone())
         .run_with_input(value_at_path.into_pipeline_data())?
-        .into_value(span)?;
+        .try_into_value(span)?;
 
     value.update_data_at_cell_path(cell_path, new_value)
 }
@@ -273,7 +273,7 @@ fn update_single_value_by_closure(
     let new_value = closure
         .add_arg(arg.clone())
         .run_with_input(value_at_path.into_pipeline_data())?
-        .into_value(span)?;
+        .try_into_value(span)?;
 
     value.update_data_at_cell_path(cell_path, new_value)
 }

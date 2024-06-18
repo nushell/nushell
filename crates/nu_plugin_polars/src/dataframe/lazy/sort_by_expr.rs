@@ -6,8 +6,8 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Type, Value,
 };
 use polars::chunked_array::ops::SortMultipleOptions;
 
@@ -145,7 +145,7 @@ impl PluginCommand for LazySortBy {
             maintain_order,
         };
 
-        let pipeline_value = input.into_value(call.head)?;
+        let pipeline_value = input.try_into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
         let lazy = NuLazyFrame::new(
             lazy.from_eager,

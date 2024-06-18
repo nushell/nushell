@@ -2,7 +2,7 @@
 
 use nu_plugin::*;
 use nu_plugin_test_support::PluginTest;
-use nu_protocol::{Example, LabeledError, ShellError, Signature, Type, Value};
+use nu_protocol::{Example, LabeledError, ShellError, Signature, TryIntoValue, Type, Value};
 
 struct HelloPlugin;
 struct Hello;
@@ -80,7 +80,7 @@ fn test_requiring_nu_cmd_lang_commands() -> Result<(), ShellError> {
 
     let result = PluginTest::new("hello", HelloPlugin.into())?
         .eval("do { let greeting = hello; $greeting }")?
-        .into_value(Span::test_data())?;
+        .try_into_value(Span::test_data())?;
 
     assert_eq!(Value::test_string("Hello, World!"), result);
 

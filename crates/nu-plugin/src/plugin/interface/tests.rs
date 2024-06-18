@@ -10,7 +10,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     engine::Closure, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData,
-    LabeledError, PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
+    LabeledError, PipelineData, PluginSignature, ShellError, Span, Spanned, TryIntoValue, Value,
 };
 use std::{
     collections::HashMap,
@@ -1039,7 +1039,7 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
             true,
             false,
         )?
-        .into_value(Span::test_data())?;
+        .try_into_value(Span::test_data())?;
 
     assert_eq!(Value::test_int(2), result);
 

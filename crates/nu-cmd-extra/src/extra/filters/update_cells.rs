@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::{engine::Closure, PipelineIterator};
+use nu_protocol::{engine::Closure, PipelineIterator, TryIntoValue};
 use std::collections::HashSet;
 
 #[derive(Clone)]
@@ -152,7 +152,7 @@ impl Iterator for UpdateCellIterator {
 fn eval_value(closure: &mut ClosureEval, span: Span, value: Value) -> Value {
     closure
         .run_with_value(value)
-        .and_then(|data| data.into_value(span))
+        .and_then(|data| data.try_into_value(span))
         .unwrap_or_else(|err| Value::error(err, span))
 }
 

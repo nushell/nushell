@@ -3,7 +3,8 @@ use std::cmp::Ordering;
 use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, SimplePluginCommand};
 use nu_plugin_test_support::PluginTest;
 use nu_protocol::{
-    CustomValue, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    CustomValue, Example, IntoValue, LabeledError, PipelineData, ShellError, Signature, Span,
+    TryIntoValue, Type, Value,
 };
 
 use serde::{Deserialize, Serialize};
@@ -11,8 +12,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq)]
 struct CustomU32(u32);
 
-impl CustomU32 {
-    pub fn into_value(self, span: Span) -> Value {
+impl IntoValue for CustomU32 {
+    fn into_value(self, span: Span) -> Value {
         Value::custom(Box::new(self), span)
     }
 }
@@ -143,7 +144,7 @@ fn test_into_int_from_u32() -> Result<(), ShellError> {
             "into int from u32",
             PipelineData::Value(CustomU32(42).into_value(Span::test_data()), None),
         )?
-        .into_value(Span::test_data())?;
+        .try_into_value(Span::test_data())?;
     assert_eq!(Value::test_int(42), result);
     Ok(())
 }

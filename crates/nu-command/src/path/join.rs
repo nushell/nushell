@@ -1,6 +1,6 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::{engine::StateWorkingSet, IntoValue};
 use std::path::{Path, PathBuf};
 
 struct Arguments {
@@ -171,10 +171,13 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
 
     match input {
         PipelineData::Value(val, md) => Ok(PipelineData::Value(handle_value(val, args, head), md)),
-        PipelineData::ListStream(stream, ..) => Ok(PipelineData::Value(
-            handle_value(stream.into_value(), args, head),
-            metadata,
-        )),
+        PipelineData::ListStream(stream, ..) => {
+            let span = stream.span();
+            Ok(PipelineData::Value(
+                handle_value(stream.into_value(span), args, head),
+                metadata,
+            ))
+        }
         PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
         _ => Err(ShellError::UnsupportedInput {
             msg: "Input value cannot be joined".to_string(),

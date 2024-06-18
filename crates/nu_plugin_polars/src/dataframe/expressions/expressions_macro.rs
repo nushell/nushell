@@ -5,7 +5,9 @@ use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use crate::values::CustomValueSupport;
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, Span, Type, Value};
+use nu_protocol::{
+    Category, Example, LabeledError, PipelineData, Signature, Span, TryIntoValue, Type, Value,
+};
 
 // The structs defined in this file are structs that form part of other commands
 // since they share a similar name
@@ -158,7 +160,7 @@ macro_rules! lazy_expr_command {
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let value = input.into_value(call.head)?;
+                let value = input.try_into_value(call.head)?;
                 if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
                         .map_err(LabeledError::from)?;
@@ -228,7 +230,7 @@ macro_rules! lazy_expr_command {
                 call: &EvaluatedCall,
                 input: PipelineData,
             ) -> Result<PipelineData, LabeledError> {
-                let value = input.into_value(call.head)?;
+                let value = input.try_into_value(call.head)?;
                 if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)
                         .map_err(LabeledError::from)?;
