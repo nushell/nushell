@@ -157,7 +157,7 @@ impl fmt::Display for FmtCallArgs<'_> {
         f.write_char('[')?;
         for index in 0..self.args_len {
             if index != 0 {
-                f.write_str(", ")?;
+                f.write_char(' ')?;
             }
             if let Some(arg) = self.call_args.get(self.args_start + index) {
                 match arg {
