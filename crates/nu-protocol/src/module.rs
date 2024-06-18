@@ -36,7 +36,7 @@ pub struct Module {
     pub env_block: Option<BlockId>, // `export-env { ... }` block
     pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
-    pub use_modules: Vec<ModuleId>,
+    pub imported_modules: Vec<ModuleId>, // use other_module.nu
     pub file: Option<PathBuf>,
 }
 
@@ -50,7 +50,7 @@ impl Module {
             env_block: None,
             main: None,
             span: None,
-            use_modules: vec![],
+            imported_modules: vec![],
             file: None,
         }
     }
@@ -64,7 +64,7 @@ impl Module {
             env_block: None,
             main: None,
             span: Some(span),
-            use_modules: vec![],
+            imported_modules: vec![],
             file: None,
         }
     }
@@ -89,9 +89,9 @@ impl Module {
         self.env_block = Some(block_id);
     }
 
-    pub fn add_usage_modules(&mut self, module_id: &[ModuleId]) {
+    pub fn track_imported_modules(&mut self, module_id: &[ModuleId]) {
         for m in module_id {
-            self.use_modules.push(*m)
+            self.imported_modules.push(*m)
         }
     }
 

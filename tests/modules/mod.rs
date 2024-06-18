@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
@@ -759,4 +759,46 @@ fn nested_list_export_works() {
     let inp = &[module, "use spam [sausage eggs]", "eggs bacon"];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "bacon");
+}
+
+#[test]
+fn reload_submodules() {
+    Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export module animals.nu"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+            "use voice.nu",
+            "(voice animals cat) == 'woem'",
+        ];
+
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+
+        assert_eq!(actual.out, "true");
+    });
+}
+
+#[test]
+fn use_submodules() {
+    Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export use animals.nu"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+            "use voice.nu",
+            "(voice animals cat) == 'woem'",
+        ];
+
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+
+        assert_eq!(actual.out, "true");
+    });
 }

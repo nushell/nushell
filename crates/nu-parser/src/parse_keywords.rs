@@ -1211,6 +1211,7 @@ pub fn parse_export_in_module(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: &[u8],
+    module: &mut Module,
 ) -> (Pipeline, Vec<Exportable>) {
     let spans = &lite_command.parts[..];
 
@@ -1416,7 +1417,7 @@ pub fn parse_export_in_module(
                     pipe: lite_command.pipe,
                     redirection: lite_command.redirection.clone(),
                 };
-                let (pipeline, exportables) = parse_use(working_set, &lite_command);
+                let (pipeline, exportables) = parse_use(working_set, &lite_command, Some(module));
 
                 let export_use_decl_id = if let Some(id) = working_set.find_decl(b"export use") {
                     id
@@ -1774,7 +1775,7 @@ pub fn parse_module_block(
                 }
                 b"export" => {
                     let (pipe, exportables) =
-                        parse_export_in_module(working_set, command, module_name);
+                        parse_export_in_module(working_set, command, module_name, &mut module);
 
                     for exportable in exportables {
                         match exportable {
@@ -1922,23 +1923,38 @@ fn parse_module_file(
 
     // Check if we've parsed the module before.
     if let Some(module_id) = working_set.find_module_by_span(new_span) {
-        return Some(module_id);
+        let module = working_set.get_module(module_id);
+        // check if it contains submodules with a file name.
+        let has_export_submodules = module
+            .submodules
+            .iter()
+            .any(|(_, m)| working_set.get_module(*m).file.is_some());
+        // check if it's using other modules with a file name.
+        let has_use_submodules = module
+            .imported_modules
+            .iter()
+            .any(|m| working_set.get_module(*m).file.is_some());
+        if !(has_export_submodules || has_use_submodules) {
+            return Some(module_id);
+        }
     }
 
     // Add the file to the stack of files being processed.
-    if let Err(e) = working_set.files.push(path.path_buf(), path_span) {
+    let path_buf = path.path_buf();
+    if let Err(e) = working_set.files.push(path_buf.clone(), path_span) {
         working_set.error(e);
         return None;
     }
 
     // Parse the module
-    let (block, module, module_comments) =
+    let (block, mut module, module_comments) =
         parse_module_block(working_set, new_span, module_name.as_bytes());
 
     // Remove the file from the stack of files being processed.
     working_set.files.pop();
 
     let _ = working_set.add_block(Arc::new(block));
+    module.file = Some(path_buf);
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
     Some(module_id)
@@ -2422,7 +2438,7 @@ pub fn parse_use(
     import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
 
     if let Some(m) = user_module {
-        m.add_usage_modules(
+        m.track_imported_modules(
             definitions
                 .modules
                 .iter()
