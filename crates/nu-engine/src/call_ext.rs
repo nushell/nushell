@@ -191,15 +191,15 @@ impl CallExt for Call {
     }
 }
 
-impl CallExt for ir::Call<'_> {
+impl CallExt for ir::Call {
     fn has_flag(
         &self,
         _engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         flag_name: &str,
     ) -> Result<bool, ShellError> {
         Ok(self
-            .named_iter()
+            .named_iter(stack)
             .find(|(name, _)| *name == flag_name)
             .is_some())
     }
@@ -207,10 +207,10 @@ impl CallExt for ir::Call<'_> {
     fn get_flag<T: FromValue>(
         &self,
         _engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         name: &str,
     ) -> Result<Option<T>, ShellError> {
-        if let Some(val) = self.get_named_arg(name) {
+        if let Some(val) = self.get_named_arg(stack, name) {
             T::from_value(val.clone()).map(Some)
         } else {
             Ok(None)
@@ -220,10 +220,10 @@ impl CallExt for ir::Call<'_> {
     fn rest<T: FromValue>(
         &self,
         _engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
-        self.rest_iter_flattened(starting_pos)?
+        self.rest_iter_flattened(stack, starting_pos)?
             .into_iter()
             .map(T::from_value)
             .collect()
@@ -232,10 +232,10 @@ impl CallExt for ir::Call<'_> {
     fn opt<T: FromValue>(
         &self,
         _engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        self.positional_iter()
+        self.positional_iter(stack)
             .nth(pos)
             .cloned()
             .map(T::from_value)
@@ -258,11 +258,11 @@ impl CallExt for ir::Call<'_> {
     ) -> Result<T, ShellError> {
         if let Some(val) = self.opt(engine_state, stack, pos)? {
             Ok(val)
-        } else if self.positional_len() == 0 {
+        } else if self.positional_len(stack) == 0 {
             Err(ShellError::AccessEmptyContent { span: *self.head })
         } else {
             Err(ShellError::AccessBeyondEnd {
-                max_idx: self.positional_len() - 1,
+                max_idx: self.positional_len(stack) - 1,
                 span: *self.head,
             })
         }
@@ -278,6 +278,19 @@ impl CallExt for ir::Call<'_> {
     }
 }
 
+/// Creates a `CallExt` trait object from the `engine::Call` reference, for easier implementation
+///
+/// XXX: this doesn't work
+#[inline(always)]
+const fn proxy(call: &engine::Call<'_>) -> &dyn CallExt {
+    match &call.inner {
+        CallImpl::AstRef(ast_call) => ast_call,
+        CallImpl::AstArc(ast_call) => &ast_call,
+        CallImpl::IrRef(ir_call) => ir_call,
+        CallImpl::IrArc(ir_call) => &ir_call,
+    }
+}
+
 impl CallExt for engine::Call<'_> {
     fn has_flag(
         &self,
@@ -285,10 +298,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         flag_name: &str,
     ) -> Result<bool, ShellError> {
-        match &self.inner {
-            CallImpl::Ast(ast_call) => ast_call.has_flag(engine_state, stack, flag_name),
-            CallImpl::Ir(ir_call) => ir_call.has_flag(engine_state, stack, flag_name),
-        }
+        proxy(self).has_flag(engine_state, stack, flag_name)
     }
 
     fn get_flag<T: FromValue>(
@@ -297,10 +307,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         name: &str,
     ) -> Result<Option<T>, ShellError> {
-        match &self.inner {
-            CallImpl::Ast(ast_call) => ast_call.get_flag(engine_state, stack, name),
-            CallImpl::Ir(ir_call) => ir_call.get_flag(engine_state, stack, name),
-        }
+        proxy(self).get_flag(engine_state, stack, name)
     }
 
     fn rest<T: FromValue>(
@@ -309,10 +316,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
-        match &self.inner {
-            CallImpl::Ast(ast_call) => ast_call.rest(engine_state, stack, starting_pos),
-            CallImpl::Ir(ir_call) => ir_call.rest(engine_state, stack, starting_pos),
-        }
+        proxy(self).rest(engine_state, stack, starting_pos)
     }
 
     fn opt<T: FromValue>(
@@ -321,10 +325,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        match &self.inner {
-            CallImpl::Ast(ast_call) => ast_call.opt(engine_state, stack, pos),
-            CallImpl::Ir(ir_call) => ir_call.opt(engine_state, stack, pos),
-        }
+        proxy(self).opt(engine_state, stack, pos)
     }
 
     fn opt_const<T: FromValue>(
@@ -332,10 +333,7 @@ impl CallExt for engine::Call<'_> {
         working_set: &StateWorkingSet,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        match &self.inner {
-            CallImpl::Ast(ast_call) => ast_call.opt_const(working_set, pos),
-            CallImpl::Ir(ir_call) => ir_call.opt_const(working_set, pos),
-        }
+        proxy(self).opt_const(working_set, pos)
     }
 
     fn req<T: FromValue>(
@@ -344,10 +342,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
-        match &self.inner {
-            CallImpl::Ast(ast_call) => ast_call.req(engine_state, stack, pos),
-            CallImpl::Ir(ir_call) => ir_call.req(engine_state, stack, pos),
-        }
+        proxy(self).req(engine_state, stack, pos)
     }
 
     fn req_parser_info<T: FromValue>(
@@ -356,9 +351,6 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         name: &str,
     ) -> Result<T, ShellError> {
-        match &self.inner {
-            CallImpl::Ast(ast_call) => ast_call.req_parser_info(engine_state, stack, name),
-            CallImpl::Ir(ir_call) => ir_call.req_parser_info(engine_state, stack, name),
-        }
+        proxy(self).req_parser_info(engine_state, stack, name)
     }
 }

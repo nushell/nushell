@@ -1,3 +1,4 @@
+mod argument;
 mod cached_file;
 mod call;
 mod call_info;
@@ -16,6 +17,7 @@ mod variable;
 
 pub use cached_file::CachedFile;
 
+pub use argument::*;
 pub use call::*;
 pub use call_info::*;
 pub use capture_block::*;

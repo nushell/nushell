@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-use super::RegisterBufCache;
+use super::{ArgumentStack, RegisterBufCache};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
@@ -45,6 +45,8 @@ pub struct Stack {
     pub active_overlays: Vec<String>,
     /// Cached register buffers for IR evaluation
     pub register_buf_cache: RegisterBufCache,
+    /// Argument stack for IR evaluation
+    pub argument_stack: ArgumentStack,
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -73,6 +75,7 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             register_buf_cache: RegisterBufCache::new(),
+            argument_stack: ArgumentStack::new(),
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -91,6 +94,7 @@ impl Stack {
             env_hidden: parent.env_hidden.clone(),
             active_overlays: parent.active_overlays.clone(),
             register_buf_cache: RegisterBufCache::new(),
+            argument_stack: ArgumentStack::new(),
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
@@ -261,6 +265,7 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             register_buf_cache: RegisterBufCache::new(),
+            argument_stack: ArgumentStack::new(),
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
@@ -292,6 +297,7 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             register_buf_cache: RegisterBufCache::new(),
+            argument_stack: ArgumentStack::new(),
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
