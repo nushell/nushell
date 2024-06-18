@@ -14,19 +14,8 @@ pub use display::{FmtInstruction, FmtIrBlock};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IrBlock {
-    /// Instructions to execute in sequence in the block.
-    ///
-    /// Execution starts at index zero. A [`Return`](Instruction::Return) instruction must be
-    /// present.
     pub instructions: Vec<Instruction>,
-    /// Spans for each instruction. Indexes are matched 1:1 with the instructions, so this can be
-    /// zipped if desired.
     pub spans: Vec<Span>,
-    /// Array that describes arguments for [`Call`](Instruction::Call) instructions, sliced into by
-    /// the `args_start` and `args_len` fields.
-    pub call_args: Vec<CallArg>,
-    /// The number of registers to allocate at runtime. This number is statically determined during
-    /// compilation, and can't be adjusted dynamically.
     pub register_count: usize,
 }
 
@@ -64,21 +53,21 @@ pub enum Instruction {
     LoadEnvOpt { dst: RegId, key: Box<str> },
     /// Store the value of an environment variable from the `src` register
     StoreEnv { key: Box<str>, src: RegId },
+    /// Add a positional arg to the next call
+    PushPositional { src: RegId },
+    /// Add a list of args to the next call (spread/rest)
+    AppendRest { src: RegId },
+    /// Add a named arg with no value to the next call.
+    PushFlag { name: Box<str> },
+    /// Add a named arg with a value to the next call.
+    PushNamed { name: Box<str>, src: RegId },
     /// Set the redirection for stdout for the next call (only)
     RedirectOut { mode: RedirectMode },
     /// Set the redirection for stderr for the next call (only)
     RedirectErr { mode: RedirectMode },
     /// Make a call. The input is taken from `src_dst`, and the output is placed in `src_dst`,
-    /// overwriting it.
-    ///
-    /// Call arguments are specified by the `args_start` and `args_len` fields, which point at a
-    /// range of values within the `arguments` array, and both may be zero for a zero-arg call.
-    Call {
-        decl_id: DeclId,
-        src_dst: RegId,
-        args_start: usize,
-        args_len: usize,
-    },
+    /// overwriting it. The argument stack is used implicitly and cleared when the call ends.
+    Call { decl_id: DeclId, src_dst: RegId },
     /// Do a binary operation on `lhs_dst` (left) and `rhs` (right) and write the result to
     /// `lhs_dst`.
     BinaryOp {
@@ -111,14 +100,9 @@ pub enum Instruction {
 impl Instruction {
     /// Returns a value that can be formatted with [`Display`](std::fmt::Display) to show a detailed
     /// listing of the instruction.
-    pub fn display<'a>(
-        &'a self,
-        engine_state: &'a EngineState,
-        call_args: &'a [CallArg],
-    ) -> FmtInstruction<'a> {
+    pub fn display<'a>(&'a self, engine_state: &'a EngineState) -> FmtInstruction<'a> {
         FmtInstruction {
             engine_state,
-            call_args,
             instruction: self,
         }
     }
@@ -146,17 +130,6 @@ pub enum Literal {
     RawString(Box<str>),
     CellPath(Box<CellPath>),
     Nothing,
-}
-
-/// Describes an argument made to a call. This enum is contained within the `arguments` array of an
-/// [`IrBlock`], which is referenced into by [`Instruction::Call`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CallArg {
-    Positional(RegId),
-    Spread(RegId),
-    /// Like `Named`, but with no value. Smaller than using an `Option`.
-    Flag(Box<str>),
-    Named(Box<str>, RegId),
 }
 
 /// A redirection mode for the next call. See [`OutDest`](crate::OutDest).

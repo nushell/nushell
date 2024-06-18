@@ -1,8 +1,8 @@
-use std::fmt::{self, Write};
+use std::fmt;
 
 use crate::{engine::EngineState, DeclId, VarId};
 
-use super::{CallArg, Instruction, IrBlock, Literal, RedirectMode};
+use super::{Instruction, IrBlock, RedirectMode};
 
 pub struct FmtIrBlock<'a> {
     pub(super) engine_state: &'a EngineState,
@@ -27,7 +27,6 @@ impl<'a> fmt::Display for FmtIrBlock<'a> {
                 index,
                 FmtInstruction {
                     engine_state: self.engine_state,
-                    call_args: &self.ir_block.call_args,
                     instruction
                 }
             )?;
@@ -38,7 +37,6 @@ impl<'a> fmt::Display for FmtIrBlock<'a> {
 
 pub struct FmtInstruction<'a> {
     pub(super) engine_state: &'a EngineState,
-    pub(super) call_args: &'a [CallArg],
     pub(super) instruction: &'a Instruction,
 }
 
@@ -48,7 +46,7 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
 
         match self.instruction {
             Instruction::LoadLiteral { dst, lit } => {
-                write!(f, "{:WIDTH$} {dst}, {lit}", "load-literal")
+                write!(f, "{:WIDTH$} {dst}, {lit:?}", "load-literal")
             }
             Instruction::Move { dst, src } => {
                 write!(f, "{:WIDTH$} {dst}, {src}", "move")
@@ -79,25 +77,27 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::StoreEnv { key, src } => {
                 write!(f, "{:WIDTH$} {key:?}, {src}", "store-env")
             }
+            Instruction::PushPositional { src } => {
+                write!(f, "{:WIDTH$} {src}", "push-positional")
+            }
+            Instruction::AppendRest { src } => {
+                write!(f, "{:WIDTH$} {src}", "append-rest")
+            }
+            Instruction::PushFlag { name } => {
+                write!(f, "{:WIDTH$} {name:?}", "push-flag")
+            }
+            Instruction::PushNamed { name, src } => {
+                write!(f, "{:WIDTH$} {name:?}, {src}", "push-named")
+            }
             Instruction::RedirectOut { mode } => {
                 write!(f, "{:WIDTH$} {mode}", "redirect-out")
             }
             Instruction::RedirectErr { mode } => {
                 write!(f, "{:WIDTH$} {mode}", "redirect-err")
             }
-            Instruction::Call {
-                decl_id,
-                src_dst,
-                args_start,
-                args_len,
-            } => {
+            Instruction::Call { decl_id, src_dst } => {
                 let decl = FmtDecl::new(self.engine_state, *decl_id);
-                let args = FmtCallArgs {
-                    call_args: self.call_args,
-                    args_start: *args_start,
-                    args_len: *args_len,
-                };
-                write!(f, "{:WIDTH$} {decl}, {src_dst}, {args}", "call")
+                write!(f, "{:WIDTH$} {decl}, {src_dst}", "call")
             }
             Instruction::BinaryOp { lhs_dst, op, rhs } => {
                 write!(f, "{:WIDTH$} {lhs_dst}, {op:?}, {rhs}", "binary-op")
@@ -146,34 +146,6 @@ impl fmt::Display for FmtDecl<'_> {
     }
 }
 
-struct FmtCallArgs<'a> {
-    call_args: &'a [CallArg],
-    args_start: usize,
-    args_len: usize,
-}
-
-impl fmt::Display for FmtCallArgs<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_char('[')?;
-        for index in 0..self.args_len {
-            if index != 0 {
-                f.write_char(' ')?;
-            }
-            if let Some(arg) = self.call_args.get(self.args_start + index) {
-                match arg {
-                    CallArg::Positional(reg) => write!(f, "{reg}")?,
-                    CallArg::Spread(reg) => write!(f, "...{reg}")?,
-                    CallArg::Flag(name) => write!(f, "--{name}")?,
-                    CallArg::Named(name, reg) => write!(f, "--{name} {reg}")?,
-                }
-            } else {
-                f.write_str("<missing>")?;
-            }
-        }
-        f.write_char(']')
-    }
-}
-
 struct FmtVar<'a>(DeclId, Option<&'a str>);
 
 impl<'a> FmtVar<'a> {
@@ -206,15 +178,6 @@ impl std::fmt::Display for RedirectMode {
             RedirectMode::Null => write!(f, "null"),
             RedirectMode::Inherit => write!(f, "inherit"),
             RedirectMode::File { path, append } => write!(f, "file({path}, append={append})"),
-        }
-    }
-}
-
-impl std::fmt::Display for Literal {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Literal::CellPath(cell_path) => write!(f, "CellPath({})", cell_path),
-            _ => write!(f, "{:?}", self),
         }
     }
 }
