@@ -2,12 +2,12 @@ use crate::{
     exportable::Exportable,
     parse_block,
     parser::{parse_redirection, redirecting_builtin_error},
-    parser_path::ParserPath,
     type_check::{check_block_input_output, type_compatible},
 };
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
+use nu_protocol::parser_path::ParserPath;
 use nu_protocol::{
     ast::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
@@ -1925,23 +1925,44 @@ fn parse_module_file(
     if let Some(module_id) = working_set.find_module_by_span(new_span) {
         let module = working_set.get_module(module_id);
         // check if it contains submodules with a file name.
-        let has_export_submodules = module
-            .submodules
-            .iter()
-            .any(|(_, m)| working_set.get_module(*m).file.is_some());
+        let has_export_submodules = module.submodules.iter().any(|(_, m)| {
+            let submodule = working_set.get_module(*m);
+            if let Some((file_path, file_id)) = &submodule.file {
+                let existing_contents = working_set.get_contents_of_file(*file_id);
+                let file_contents = file_path.read(working_set);
+
+                if let (Some(existing), Some(new)) = (existing_contents, file_contents) {
+                    existing != new
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        });
         // check if it's using other modules with a file name.
-        let has_use_submodules = module
-            .imported_modules
-            .iter()
-            .any(|m| working_set.get_module(*m).file.is_some());
+        let has_use_submodules = module.imported_modules.iter().any(|m| {
+            let imported_modules = working_set.get_module(*m);
+            if let Some((file_path, file_id)) = &imported_modules.file {
+                let existing_contents = working_set.get_contents_of_file(*file_id);
+                let file_contents = file_path.read(working_set);
+
+                if let (Some(existing), Some(new)) = (existing_contents, file_contents) {
+                    existing != new
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        });
         if !(has_export_submodules || has_use_submodules) {
             return Some(module_id);
         }
     }
 
     // Add the file to the stack of files being processed.
-    let path_buf = path.path_buf();
-    if let Err(e) = working_set.files.push(path_buf.clone(), path_span) {
+    if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
         working_set.error(e);
         return None;
     }
@@ -1954,7 +1975,7 @@ fn parse_module_file(
     working_set.files.pop();
 
     let _ = working_set.add_block(Arc::new(block));
-    module.file = Some(path_buf);
+    module.file = Some((path, file_id));
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
     Some(module_id)

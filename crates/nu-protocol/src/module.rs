@@ -1,9 +1,9 @@
 use crate::{
-    ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, ModuleId, ParseError, Span,
-    Value, VarId,
+    ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, FileId, ModuleId,
+    ParseError, Span, Value, VarId,
 };
-use std::path::PathBuf;
 
+use crate::parser_path::ParserPath;
 use indexmap::IndexMap;
 
 pub struct ResolvedImportPattern {
@@ -37,7 +37,7 @@ pub struct Module {
     pub main: Option<DeclId>,       // `export def main`
     pub span: Option<Span>,
     pub imported_modules: Vec<ModuleId>, // use other_module.nu
-    pub file: Option<PathBuf>,
+    pub file: Option<(ParserPath, FileId)>,
 }
 
 impl Module {
