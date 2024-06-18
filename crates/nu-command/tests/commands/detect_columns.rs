@@ -31,12 +31,12 @@ fn detect_columns_with_legacy_and_flag_c() {
         (
             "$\"c1 c2 c3 c4 c5(char nl)a b c d e\"",
             "[[c1,c3,c4,c5]; ['a b',c,d,e]]",
-            "0..0",
+            "0..1",
         ),
         (
             "$\"c1 c2 c3 c4 c5(char nl)a b c d e\"",
             "[[c1,c2,c3,c4]; [a,b,c,'d e']]",
-            "(-2)..(-2)",
+            "(-2)..(-1)",
         ),
         (
             "$\"c1 c2 c3 c4 c5(char nl)a b c d e\"",
@@ -72,10 +72,10 @@ drwxr-xr-x  2 root root 4.0K Mar 20 08:28 =(char nl)
 drwxr-xr-x  4 root root 4.0K Mar 20 08:18 ~(char nl)
 -rw-r--r--  1 root root 3.0K Mar 20 07:23 ~asdf(char nl)\"";
     let expected = "[
-['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column8'];
-['drwxr-xr-x', '2', 'root', 'root', '4.0K', 'Mar 20 08:28', '='],
-['drwxr-xr-x', '4', 'root', 'root', '4.0K', 'Mar 20 08:18', '~'],
-['-rw-r--r--',  '1', 'root', 'root', '3.0K', 'Mar 20 07:23', '~asdf']
+['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column7', 'column8'];
+['drwxr-xr-x', '2', 'root', 'root', '4.0K', 'Mar 20', '08:28', '='],
+['drwxr-xr-x', '4', 'root', 'root', '4.0K', 'Mar 20', '08:18', '~'],
+['-rw-r--r--',  '1', 'root', 'root', '3.0K', 'Mar 20', '07:23', '~asdf']
 ]";
     let range = "5..6";
     let cmd = format!(
