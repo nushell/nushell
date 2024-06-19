@@ -181,6 +181,44 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         },
     );
 
+    // Create a system level directory for nushell scripts, modules, completions, etc
+    // that can be changed by setting the NU_VENDOR_AUTOLOAD_DIR env var on any platform
+    // OR if NU_VENDOR_AUTOLOAD_DIR is not set for non-windows systems, the PREFIX env var
+    // can be used as PREFIX/nushell/vendor/autoload
+    record.push(
+        "vendor-autoload-dir",
+        // pseudo code
+        // if env var NU_VENDOR_AUTOLOAD_DIR is set, in any platform, use it
+        // if not, if windows, use ALLUSERPROFILE\nushell\vendor\autoload
+        // if not, if non-windows, if env var PREFIX is set, use PREFIX/share/nushell/vendor/autoload
+        // if not, use the default /usr/share/nushell/vendor/autoload
+
+        // check to see if NU_VENDOR_AUTOLOAD_DIR env var is set, if not, use the default
+        option_env!("NU_VENDOR_AUTOLOAD_DIR")
+            .map(String::from)
+            .or_else(|| {
+                if cfg!(windows) {
+                    let all_user_profile = match engine_state.get_env_var("ALLUSERPROFILE") {
+                        Some(v) => format!(
+                            "{}\\nushell\\vendor\\autoload",
+                            v.coerce_string().unwrap_or("C:\\ProgramData".into())
+                        ),
+                        None => "C:\\ProgramData\\nushell\\vendor\\autoload".into(),
+                    };
+                    Some(all_user_profile)
+                } else {
+                    // In non-Windows environments, if NU_VENDOR_AUTOLOAD_DIR is not set
+                    // check to see if PREFIX env var is set, and use it as PREFIX/nushell/vendor/autoload
+                    // otherwise default to /usr/share/nushell/vendor/autoload
+                    option_env!("PREFIX").map(String::from).map_or_else(
+                        || Some("/usr/share/nushell/vendor/autoload".into()),
+                        |prefix| Some(format!("{}/nushell/vendor/autoload", prefix)),
+                    )
+                }
+            })
+            .map_or_else(|| Value::nothing(span), |s| Value::string(s, span)),
+    );
+
     record.push("temp-path", {
         let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
         Value::string(canon_temp_path.to_string_lossy(), span)
