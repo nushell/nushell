@@ -92,7 +92,7 @@ fn command(
 #[cfg(test)]
 pub mod test {
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{Span, Value, TryIntoValue};
+    use nu_protocol::{Span, TryIntoValue, Value};
     use uuid::Uuid;
 
     use crate::PolarsPlugin;
