@@ -183,8 +183,8 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     // Create a system level directory for nushell scripts, modules, completions, etc
     // that can be changed by setting the NU_VENDOR_AUTOLOAD_DIR env var on any platform
-    // OR if NU_VENDOR_AUTOLOAD_DIR is not set for non-windows systems, the PREFIX env var
-    // can be used as PREFIX/nushell/vendor/autoload
+    // before nushell is compiled OR if NU_VENDOR_AUTOLOAD_DIR is not set for non-windows
+    // systems, the PREFIX env var can be set before compile and used as PREFIX/nushell/vendor/autoload
     record.push(
         "vendor-autoload-dir",
         // pseudo code
