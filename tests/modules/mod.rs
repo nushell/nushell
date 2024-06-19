@@ -775,9 +775,17 @@ fn reload_submodules() {
             "use voice.nu",
             "(voice animals cat) == 'woem'",
         ];
-
         let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
 
+        // should also verify something unchanged if `use voice`.
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'meow'}" | save -f animals.nu"#,
+            "use voice",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
         assert_eq!(actual.out, "true");
     });
 }
@@ -796,9 +804,17 @@ fn use_submodules() {
             "use voice.nu",
             "(voice animals cat) == 'woem'",
         ];
-
         let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
 
+        // should also verify something unchanged if `use voice`.
+        let inp = [
+            "use voice.nu",
+            r#""export def cat [] {'meow'}" | save -f animals.nu"#,
+            "use voice",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
         assert_eq!(actual.out, "true");
     });
 }
