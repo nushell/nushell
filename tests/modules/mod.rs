@@ -784,7 +784,7 @@ fn reload_submodules() {
 
 #[test]
 fn use_submodules() {
-    Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
+    Playground::setup("use_submodules", |dirs, sandbox| {
         sandbox.with_files(&[
             FileWithContent("voice.nu", r#"export use animals.nu"#),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),

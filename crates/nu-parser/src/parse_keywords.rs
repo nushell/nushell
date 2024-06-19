@@ -1211,7 +1211,7 @@ pub fn parse_export_in_module(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: &[u8],
-    module: &mut Module,
+    parent_module: &mut Module,
 ) -> (Pipeline, Vec<Exportable>) {
     let spans = &lite_command.parts[..];
 
@@ -1417,7 +1417,8 @@ pub fn parse_export_in_module(
                     pipe: lite_command.pipe,
                     redirection: lite_command.redirection.clone(),
                 };
-                let (pipeline, exportables) = parse_use(working_set, &lite_command, Some(module));
+                let (pipeline, exportables) =
+                    parse_use(working_set, &lite_command, Some(parent_module));
 
                 let export_use_decl_id = if let Some(id) = working_set.find_decl(b"export use") {
                     id
@@ -2265,7 +2266,7 @@ pub fn parse_module(
 pub fn parse_use(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
-    user_module: Option<&mut Module>,
+    parent_module: Option<&mut Module>,
 ) -> (Pipeline, Vec<Exportable>) {
     let spans = &lite_command.parts;
 
@@ -2458,7 +2459,7 @@ pub fn parse_use(
 
     import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
 
-    if let Some(m) = user_module {
+    if let Some(m) = parent_module {
         m.track_imported_modules(
             definitions
                 .modules
