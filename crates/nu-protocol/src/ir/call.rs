@@ -175,7 +175,7 @@ impl CallBuilder {
             self.inner.args_base = stack.argument_stack.get_base();
         }
         self.inner.args_len += 1;
-        self.inner.span.end = self.inner.span.end.max(argument.span().end);
+        self.inner.span = self.inner.span.append(argument.span());
         stack.argument_stack.push(argument);
         self
     }

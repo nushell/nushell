@@ -339,7 +339,7 @@ fn get_theme_flag(
 struct CmdInput<'a> {
     engine_state: &'a EngineState,
     stack: &'a mut Stack,
-    call: &'a Call,
+    call: &'a Call<'a>,
     data: PipelineData,
 }
 
@@ -347,7 +347,7 @@ impl<'a> CmdInput<'a> {
     fn new(
         engine_state: &'a EngineState,
         stack: &'a mut Stack,
-        call: &'a Call,
+        call: &'a Call<'a>,
         data: PipelineData,
     ) -> Self {
         Self {

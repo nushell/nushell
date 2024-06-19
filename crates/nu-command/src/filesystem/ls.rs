@@ -110,7 +110,7 @@ impl Command for Ls {
         };
 
         let pattern_arg = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
-        let input_pattern_arg = if call.rest_iter(0).count() == 0 {
+        let input_pattern_arg = if !call.has_positional_args(stack, 0) {
             None
         } else {
             Some(pattern_arg)

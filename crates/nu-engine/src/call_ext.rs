@@ -4,7 +4,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{self, EngineState, Stack, StateWorkingSet},
     eval_const::eval_constant,
-    ir, FromValue, ShellError, Value,
+    ir, FromValue, ShellError, Span, Value,
 };
 
 pub trait CallExt {
@@ -22,6 +22,9 @@ pub trait CallExt {
         stack: &mut Stack,
         name: &str,
     ) -> Result<Option<T>, ShellError>;
+
+    /// Efficiently get the span of a flag argument
+    fn get_flag_span(&self, stack: &Stack, name: &str) -> Option<Span>;
 
     fn rest<T: FromValue>(
         &self,
@@ -105,6 +108,10 @@ impl CallExt for ast::Call {
         } else {
             Ok(None)
         }
+    }
+
+    fn get_flag_span(&self, _stack: &Stack, name: &str) -> Option<Span> {
+        self.get_named_arg(name).map(|arg| arg.span)
     }
 
     fn rest<T: FromValue>(
@@ -224,6 +231,11 @@ impl CallExt for ir::Call {
         }
     }
 
+    fn get_flag_span(&self, stack: &Stack, name: &str) -> Option<Span> {
+        self.named_iter(stack)
+            .find_map(|(i_name, _)| (i_name.item == name).then_some(i_name.span))
+    }
+
     fn rest<T: FromValue>(
         &self,
         _engine_state: &EngineState,
@@ -315,6 +327,10 @@ impl CallExt for engine::Call<'_> {
         name: &str,
     ) -> Result<Option<T>, ShellError> {
         proxy!(self.get_flag(engine_state, stack, name))
+    }
+
+    fn get_flag_span(&self, stack: &Stack, name: &str) -> Option<Span> {
+        proxy!(self.get_flag_span(stack, name))
     }
 
     fn rest<T: FromValue>(

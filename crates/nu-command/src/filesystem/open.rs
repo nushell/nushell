@@ -57,7 +57,7 @@ impl Command for Open {
         let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         let eval_block = get_eval_block(engine_state);
 
-        if paths.is_empty() && call.rest_iter(0).next().is_none() {
+        if paths.is_empty() && !call.has_positional_args(stack, 0) {
             // try to use path from pipeline input if there were no positional or spread args
             let (filename, span) = match input {
                 PipelineData::Value(val, ..) => {

@@ -21,6 +21,18 @@ pub enum CallImpl<'a> {
 }
 
 impl Call<'_> {
+    /// Returns a new AST call with the given span. This is often used by commands that need an
+    /// empty call to pass to a command. It's not easily possible to add anything to this.
+    pub fn new(span: Span) -> Self {
+        // this is using the boxed variant, which isn't so efficient... but this is only temporary
+        // anyway.
+        Call {
+            head: span,
+            decl_id: 0,
+            inner: CallImpl::AstBox(Box::new(ast::Call::new(span))),
+        }
+    }
+
     /// Convert the `Call` from any lifetime into `'static`, by cloning the data within onto the
     /// heap.
     pub fn to_owned(&self) -> Call<'static> {
@@ -83,6 +95,16 @@ impl Call<'_> {
     ) -> Result<Vec<T>, ShellError> {
         self.assert_ast_call()?
             .rest_const(working_set, starting_pos)
+    }
+
+    /// Returns a span covering the call's arguments.
+    pub fn arguments_span(&self) -> Span {
+        match &self.inner {
+            CallImpl::AstRef(call) => call.arguments_span(),
+            CallImpl::AstBox(call) => call.arguments_span(),
+            CallImpl::IrRef(call) => call.arguments_span(),
+            CallImpl::IrBox(call) => call.arguments_span(),
+        }
     }
 
     /// Returns a span covering the whole call.

@@ -244,6 +244,7 @@ pub fn path_str(
 }
 
 pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
+// FIXME: this should be possible on IR calls
 pub fn get_dirs_var_from_call(call: &Call) -> Option<VarId> {
     call.get_parser_info(DIR_VAR_PARSER_INFO).and_then(|x| {
         if let Expr::Var(id) = x.expr {

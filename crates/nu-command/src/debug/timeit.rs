@@ -39,6 +39,8 @@ impl Command for TimeIt {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // FIXME: get working with IR. I don't think this should actually be so AST dependent
+        let call = call.assert_ast_call()?;
         let command_to_run = call.positional_nth(0);
 
         // Get the start time after all other computation has been done.

@@ -1,7 +1,7 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
 use nu_protocol::{
-    ast::{Expr, Expression},
+    ast::{self, Expr, Expression},
     did_you_mean,
     process::ChildProcess,
     ByteStream, NuGlob, OutDest,
@@ -45,6 +45,9 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // FIXME: this currently only works with AST calls, but I think #13089 totally fixes that
+        // so if I can merge that, this should just work fine
+        let call = call.assert_ast_call()?;
         let cwd = engine_state.cwd(Some(stack))?;
 
         // Evaluate the command name in the same way the arguments are evaluated. Since this isn't
@@ -236,7 +239,7 @@ fn remove_quotes(s: &str) -> Cow<'_, str> {
 pub fn eval_arguments_from_call(
     engine_state: &EngineState,
     stack: &mut Stack,
-    call: &Call,
+    call: &ast::Call,
 ) -> Result<Vec<Spanned<String>>, ShellError> {
     let ctrlc = &engine_state.ctrlc;
     let cwd = engine_state.cwd(Some(stack))?;
