@@ -591,36 +591,25 @@ enum CompileError {
 
 impl CompileError {
     fn to_shell_error(self, mut span: Option<Span>) -> ShellError {
-        let ice = "internal compiler error: ";
         let message = match self {
-            CompileError::RegisterOverflow => format!("{ice}register overflow"),
+            CompileError::RegisterOverflow => format!("register overflow"),
             CompileError::RegisterUninitialized(reg_id) => {
-                format!("{ice}register {reg_id} is uninitialized when used, possibly reused")
+                format!("register {reg_id} is uninitialized when used, possibly reused")
             }
             CompileError::InvalidRedirectMode => {
-                format!("{ice}invalid redirect mode: File should not be specified by commands")
+                "invalid redirect mode: File should not be specified by commands".into()
             }
-            CompileError::Garbage => {
-                format!("{ice}encountered garbage, likely due to parse error")
-            }
-            CompileError::UnsupportedOperatorExpression => {
-                format!("{ice}unsupported operator expression")
-            }
+            CompileError::Garbage => "encountered garbage, likely due to parse error".into(),
+            CompileError::UnsupportedOperatorExpression => "unsupported operator expression".into(),
             CompileError::AccessEnvByInt(local_span) => {
                 span = Some(local_span);
-                format!("{ice}attempted access of $env by integer path")
+                "attempted access of $env by integer path".into()
             }
             CompileError::Todo(msg) => {
-                format!("{ice}TODO: {msg}")
+                format!("TODO: {msg}")
             }
         };
-        ShellError::GenericError {
-            error: message,
-            msg: "while compiling this code".into(),
-            span,
-            help: Some("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were compiling if able".into()),
-            inner: vec![]
-        }
+        ShellError::IrCompileError { message, span }
     }
 }
 
