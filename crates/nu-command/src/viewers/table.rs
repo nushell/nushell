@@ -170,7 +170,10 @@ impl Command for Table {
                     }),
                     Value::test_record(record! {
                         "a" =>  Value::test_int(3),
-                        "b" =>  Value::test_int(4),
+                        "b" =>  Value::test_list(vec![
+                            Value::test_int(4),
+                            Value::test_int(4),
+                        ])
                     }),
                 ])),
             },

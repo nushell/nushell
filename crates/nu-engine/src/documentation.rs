@@ -4,7 +4,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Type, Value, Spanned
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -296,6 +296,15 @@ fn get_documentation(
         }
 
         if let Some(result) = &example.result {
+            let mut table_expand_call = Call::new(Span::unknown());
+            table_expand_call.add_named((
+                Spanned {
+                    item: "expand".to_string(),
+                    span: Span::unknown()
+                },
+                None,
+                None,
+            ));
             let table = engine_state
                 .find_decl("table".as_bytes(), &[])
                 .and_then(|decl_id| {
@@ -304,7 +313,7 @@ fn get_documentation(
                         .run(
                             engine_state,
                             stack,
-                            &Call::new(Span::new(0, 0)),
+                            &table_expand_call,
                             PipelineData::Value(result.clone(), None),
                         )
                         .ok()
