@@ -46,6 +46,7 @@ impl Command for Mut {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let call = call.assert_ast_call()?; // FIXME
         let var_id = call
             .positional_nth(0)
             .expect("checked through parser")

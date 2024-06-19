@@ -38,6 +38,7 @@ impl Command for Try {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let call = call.assert_ast_call()?; // FIXME
         let try_block = call
             .positional_nth(0)
             .expect("checked through parser")

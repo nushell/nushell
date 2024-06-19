@@ -53,6 +53,7 @@ impl Command for For {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let call = call.assert_ast_call()?; // FIXME
         let head = call.head;
         let var_id = call
             .positional_nth(0)

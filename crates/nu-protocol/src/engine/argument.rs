@@ -5,12 +5,12 @@ use crate::{Span, Value};
 pub enum Argument {
     /// A positional argument
     Positional {
-        val: Value,
         span: Span,
+        val: Value,
     },
     Spread {
-        vals: Value,
         span: Span,
+        vals: Value,
     },
     /// A named argument with no value, e.g. `--flag`
     Flag {

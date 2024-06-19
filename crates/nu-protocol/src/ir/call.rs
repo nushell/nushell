@@ -1,6 +1,6 @@
 use crate::{
-    engine::{Argument, Stack},
-    ShellError, Span, Value,
+    engine::{self, Argument, Stack},
+    ShellError, Span, Spanned, Value,
 };
 
 /// Contains the information for a call being made to a declared command.
@@ -10,6 +10,8 @@ pub struct Call {
     pub decl_id: usize,
     /// The span encompassing the command name, before the arguments.
     pub head: Span,
+    /// The span encompassing the command name and all arguments.
+    pub span: Span,
     /// The base index of the arguments for this call within the
     /// [argument stack](crate::engine::ArgumentStack).
     pub args_base: usize,
@@ -20,6 +22,19 @@ pub struct Call {
 }
 
 impl Call {
+    /// Build a new call with arguments.
+    pub fn build(decl_id: usize, head: Span) -> CallBuilder {
+        CallBuilder {
+            inner: Call {
+                decl_id,
+                head,
+                span: head,
+                args_base: 0,
+                args_len: 0,
+            },
+        }
+    }
+
     /// Get the arguments for this call from the arguments stack.
     pub fn arguments<'a>(&self, stack: &'a Stack) -> &'a [Argument] {
         stack.argument_stack.get_args(self.args_base, self.args_len)
@@ -31,15 +46,9 @@ impl Call {
     ///
     /// If there are one or more arguments the span encompasses the start of the first argument to
     /// end of the last argument
-    pub fn arguments_span(&self, stack: &Stack) -> Span {
+    pub fn arguments_span(&self) -> Span {
         let past = self.head.past();
-
-        let args = self.arguments(stack);
-
-        let start = args.first().map(|a| a.span()).unwrap_or(past).start;
-        let end = args.last().map(|a| a.span()).unwrap_or(past).end;
-
-        Span::new(start, end)
+        Span::new(past.start, self.span.end)
     }
 
     pub fn named_len(&self, stack: &Stack) -> usize {
@@ -52,12 +61,26 @@ impl Call {
     pub fn named_iter<'a>(
         &self,
         stack: &'a Stack,
-    ) -> impl Iterator<Item = (&'a str, Option<&'a Value>)> + 'a {
+    ) -> impl Iterator<Item = (Spanned<&'a str>, Option<&'a Value>)> + 'a {
         self.arguments(stack).iter().filter_map(
-            |arg: &Argument| -> Option<(&str, Option<&Value>)> {
+            |arg: &Argument| -> Option<(Spanned<&str>, Option<&Value>)> {
                 match arg {
-                    Argument::Flag { name, .. } => Some((&name, None)),
-                    Argument::Named { name, val, .. } => Some((&name, Some(val))),
+                    Argument::Flag { name, span, .. } => Some((
+                        Spanned {
+                            item: name,
+                            span: *span,
+                        },
+                        None,
+                    )),
+                    Argument::Named {
+                        name, span, val, ..
+                    } => Some((
+                        Spanned {
+                            item: name,
+                            span: *span,
+                        },
+                        Some(val),
+                    )),
                     _ => None,
                 }
             },
@@ -66,7 +89,7 @@ impl Call {
 
     pub fn get_named_arg<'a>(&self, stack: &'a Stack, flag_name: &str) -> Option<&'a Value> {
         self.named_iter(stack)
-            .find_map(|(name, val)| (name == flag_name).then_some(val))
+            .find_map(|(name, val)| (name.item == flag_name).then_some(val))
             .flatten()
     }
 
@@ -129,11 +152,93 @@ impl Call {
         Ok(acc)
     }
 
-    pub fn span(&self, stack: &Stack) -> Span {
-        let mut span = self.head;
-        for arg in self.arguments(stack).iter() {
-            span.end = span.end.max(arg.span().end);
+    /// Returns a span encompassing the entire call.
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    /// Resets the [`Stack`] to its state before the call was made.
+    pub fn leave(&self, stack: &mut Stack) {
+        stack.argument_stack.leave_frame(self.args_base);
+    }
+}
+
+/// Utility struct for building a [`Call`] with arguments on the [`Stack`].
+pub struct CallBuilder {
+    inner: Call,
+}
+
+impl CallBuilder {
+    /// Add an argument to the [`Stack`] and reference it from the [`Call`].
+    pub fn add_argument(&mut self, stack: &mut Stack, argument: Argument) -> &mut Self {
+        if self.inner.args_len == 0 {
+            self.inner.args_base = stack.argument_stack.get_base();
         }
-        span
+        self.inner.args_len += 1;
+        self.inner.span.end = self.inner.span.end.max(argument.span().end);
+        stack.argument_stack.push(argument);
+        self
+    }
+
+    /// Add a positional argument to the [`Stack`] and reference it from the [`Call`].
+    pub fn add_positional(&mut self, stack: &mut Stack, span: Span, val: Value) -> &mut Self {
+        self.add_argument(stack, Argument::Positional { span, val })
+    }
+
+    /// Add a spread argument to the [`Stack`] and reference it from the [`Call`].
+    pub fn add_spread(&mut self, stack: &mut Stack, span: Span, vals: Value) -> &mut Self {
+        self.add_argument(stack, Argument::Spread { span, vals })
+    }
+
+    /// Add a flag (no-value named) argument to the [`Stack`] and reference it from the [`Call`].
+    pub fn add_flag(&mut self, stack: &mut Stack, name: impl AsRef<str>, span: Span) -> &mut Self {
+        self.add_argument(
+            stack,
+            Argument::Flag {
+                name: name.as_ref().into(),
+                span,
+            },
+        )
+    }
+
+    /// Add a named argument to the [`Stack`] and reference it from the [`Call`].
+    pub fn add_named(
+        &mut self,
+        stack: &mut Stack,
+        name: impl AsRef<str>,
+        span: Span,
+        val: Value,
+    ) -> &mut Self {
+        self.add_argument(
+            stack,
+            Argument::Named {
+                name: name.as_ref().into(),
+                span,
+                val,
+            },
+        )
+    }
+
+    /// Produce the finished [`Call`] from the builder.
+    ///
+    /// The call should be entered / run before any other calls are constructed, because the
+    /// argument stack will be reset when they exit.
+    pub fn finish(&self) -> Call {
+        self.inner.clone()
+    }
+
+    /// Run a closure with the [`Call`] as an [`engine::Call`] reference, and then clean up the
+    /// arguments that were added to the [`Stack`] after.
+    ///
+    /// For convenience. Calls [`Call::leave`] after the closure ends.
+    pub fn with<T>(
+        self,
+        stack: &mut Stack,
+        f: impl FnOnce(&mut Stack, &engine::Call<'_>) -> T,
+    ) -> T {
+        let call = engine::Call::from(&self.inner);
+        let result = f(stack, &call);
+        self.inner.leave(stack);
+        result
     }
 }

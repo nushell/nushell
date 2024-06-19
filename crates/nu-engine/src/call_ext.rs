@@ -1,8 +1,8 @@
 use crate::eval_expression;
 use nu_protocol::{
-    ast::Call,
+    ast,
     debugger::WithoutDebug,
-    engine::{self, CallImpl, EngineState, Stack, StateWorkingSet},
+    engine::{self, EngineState, Stack, StateWorkingSet},
     eval_const::eval_constant,
     ir, FromValue, ShellError, Value,
 };
@@ -56,9 +56,12 @@ pub trait CallExt {
         stack: &mut Stack,
         name: &str,
     ) -> Result<T, ShellError>;
+
+    /// True if the command has any positional or rest arguments, excluding before the given index.
+    fn has_positional_args(&self, stack: &Stack, starting_pos: usize) -> bool;
 }
 
-impl CallExt for Call {
+impl CallExt for ast::Call {
     fn has_flag(
         &self,
         engine_state: &EngineState,
@@ -189,6 +192,10 @@ impl CallExt for Call {
             })
         }
     }
+
+    fn has_positional_args(&self, _stack: &Stack, starting_pos: usize) -> bool {
+        self.rest_iter(starting_pos).next().is_some()
+    }
 }
 
 impl CallExt for ir::Call {
@@ -200,7 +207,7 @@ impl CallExt for ir::Call {
     ) -> Result<bool, ShellError> {
         Ok(self
             .named_iter(stack)
-            .find(|(name, _)| *name == flag_name)
+            .find(|(name, _)| name.item == flag_name)
             .is_some())
     }
 
@@ -259,11 +266,11 @@ impl CallExt for ir::Call {
         if let Some(val) = self.opt(engine_state, stack, pos)? {
             Ok(val)
         } else if self.positional_len(stack) == 0 {
-            Err(ShellError::AccessEmptyContent { span: *self.head })
+            Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
             Err(ShellError::AccessBeyondEnd {
                 max_idx: self.positional_len(stack) - 1,
-                span: *self.head,
+                span: self.head,
             })
         }
     }
@@ -276,19 +283,19 @@ impl CallExt for ir::Call {
     ) -> Result<T, ShellError> {
         todo!("req_parser_info is not yet implemented on ir::Call")
     }
+
+    fn has_positional_args(&self, stack: &Stack, starting_pos: usize) -> bool {
+        self.rest_iter(stack, starting_pos).next().is_some()
+    }
 }
 
-/// Creates a `CallExt` trait object from the `engine::Call` reference, for easier implementation
-///
-/// XXX: this doesn't work
-#[inline(always)]
-const fn proxy(call: &engine::Call<'_>) -> &dyn CallExt {
-    match &call.inner {
-        CallImpl::AstRef(ast_call) => ast_call,
-        CallImpl::AstArc(ast_call) => &ast_call,
-        CallImpl::IrRef(ir_call) => ir_call,
-        CallImpl::IrArc(ir_call) => &ir_call,
-    }
+macro_rules! proxy {
+    ($self:ident . $method:ident ($($param:expr),*)) => (match &$self.inner {
+        engine::CallImpl::AstRef(call) => call.$method($($param),*),
+        engine::CallImpl::AstBox(call) => call.$method($($param),*),
+        engine::CallImpl::IrRef(call) => call.$method($($param),*),
+        engine::CallImpl::IrBox(call) => call.$method($($param),*),
+    })
 }
 
 impl CallExt for engine::Call<'_> {
@@ -298,7 +305,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         flag_name: &str,
     ) -> Result<bool, ShellError> {
-        proxy(self).has_flag(engine_state, stack, flag_name)
+        proxy!(self.has_flag(engine_state, stack, flag_name))
     }
 
     fn get_flag<T: FromValue>(
@@ -307,7 +314,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         name: &str,
     ) -> Result<Option<T>, ShellError> {
-        proxy(self).get_flag(engine_state, stack, name)
+        proxy!(self.get_flag(engine_state, stack, name))
     }
 
     fn rest<T: FromValue>(
@@ -316,7 +323,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
-        proxy(self).rest(engine_state, stack, starting_pos)
+        proxy!(self.rest(engine_state, stack, starting_pos))
     }
 
     fn opt<T: FromValue>(
@@ -325,7 +332,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        proxy(self).opt(engine_state, stack, pos)
+        proxy!(self.opt(engine_state, stack, pos))
     }
 
     fn opt_const<T: FromValue>(
@@ -333,7 +340,7 @@ impl CallExt for engine::Call<'_> {
         working_set: &StateWorkingSet,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        proxy(self).opt_const(working_set, pos)
+        proxy!(self.opt_const(working_set, pos))
     }
 
     fn req<T: FromValue>(
@@ -342,7 +349,7 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
-        proxy(self).req(engine_state, stack, pos)
+        proxy!(self.req(engine_state, stack, pos))
     }
 
     fn req_parser_info<T: FromValue>(
@@ -351,6 +358,10 @@ impl CallExt for engine::Call<'_> {
         stack: &mut Stack,
         name: &str,
     ) -> Result<T, ShellError> {
-        proxy(self).req_parser_info(engine_state, stack, name)
+        proxy!(self.req_parser_info(engine_state, stack, name))
+    }
+
+    fn has_positional_args(&self, stack: &Stack, starting_pos: usize) -> bool {
+        proxy!(self.has_positional_args(stack, starting_pos))
     }
 }

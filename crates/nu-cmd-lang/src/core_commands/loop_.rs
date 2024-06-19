@@ -27,6 +27,7 @@ impl Command for Loop {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let call = call.assert_ast_call()?; // FIXME
         let block_id = call
             .positional_nth(0)
             .expect("checked through parser")

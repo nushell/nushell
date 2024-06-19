@@ -55,7 +55,7 @@ pub struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,
-    call: Cow<'a, Call<'a>>,
+    call: Call<'a>,
 }
 
 impl<'a> PluginExecutionCommandContext<'a> {
@@ -63,13 +63,13 @@ impl<'a> PluginExecutionCommandContext<'a> {
         identity: Arc<PluginIdentity>,
         engine_state: &'a EngineState,
         stack: &'a mut Stack,
-        call: &'a Call,
+        call: &'a Call<'a>,
     ) -> PluginExecutionCommandContext<'a> {
         PluginExecutionCommandContext {
             identity,
             engine_state: Cow::Borrowed(engine_state),
             stack: MutableCow::Borrowed(stack),
-            call: Cow::Borrowed(call),
+            call: call.clone(),
         }
     }
 }
@@ -218,7 +218,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             identity: self.identity.clone(),
             engine_state: Cow::Owned(self.engine_state.clone().into_owned()),
             stack: self.stack.owned(),
-            call: Cow::Owned(self.call.clone().into_owned()),
+            call: self.call.to_owned(),
         })
     }
 }

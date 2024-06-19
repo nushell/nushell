@@ -51,6 +51,7 @@ impl Command for If {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let call = call.assert_ast_call()?; // FIXME
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block = call
             .positional_nth(1)
@@ -90,6 +91,7 @@ impl Command for If {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let call = call.assert_ast_call()?; // FIXME
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block = call
             .positional_nth(1)

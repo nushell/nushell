@@ -35,6 +35,7 @@ impl Command for Metadata {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let call = call.assert_ast_call()?; // FIXME
         let arg = call.positional_nth(0);
         let head = call.head;
 

@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, get_eval_expression};
 use nu_protocol::{
-    ast::{Argument, Block, Expr, Expression},
+    ast::{self, Argument, Block, Expr, Expression},
     engine::Closure,
 };
 
@@ -106,7 +106,7 @@ pub fn get_pipeline_elements(
 fn get_arguments(
     engine_state: &EngineState,
     stack: &mut Stack,
-    call: &Call,
+    call: &ast::Call,
     eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
 ) -> Vec<Value> {
     let mut arg_value = vec![];

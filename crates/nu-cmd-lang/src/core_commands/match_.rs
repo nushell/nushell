@@ -34,6 +34,7 @@ impl Command for Match {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let call = call.assert_ast_call()?; // FIXME
         let value: Value = call.req(engine_state, stack, 0)?;
         let matches = call
             .positional_nth(1)

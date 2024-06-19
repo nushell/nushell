@@ -54,6 +54,7 @@ This command is a parser keyword. For details, check:
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let call = call.assert_ast_call()?; // FIXME
         let Some(Expression {
             expr: Expr::ImportPattern(import_pattern),
             ..

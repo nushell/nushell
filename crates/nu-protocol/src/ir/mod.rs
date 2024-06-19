@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 mod call;
 mod display;
 
-pub use call::Call;
+pub use call::*;
 pub use display::{FmtInstruction, FmtIrBlock};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
