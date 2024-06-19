@@ -211,7 +211,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
                     // check to see if PREFIX env var is set, and use it as PREFIX/nushell/vendor/autoload
                     // otherwise default to /usr/share/nushell/vendor/autoload
                     option_env!("PREFIX").map(String::from).map_or_else(
-                        || Some("/usr/local/nushell/vendor/autoload".into()),
+                        || Some("/usr/local/share/nushell/vendor/autoload".into()),
                         |prefix| Some(format!("{}/share/nushell/vendor/autoload", prefix)),
                     )
                 }
