@@ -1,13 +1,13 @@
 use crate::{
     engine::{self, Argument, Stack},
-    ShellError, Span, Spanned, Value,
+    DeclId, ShellError, Span, Spanned, Value,
 };
 
 /// Contains the information for a call being made to a declared command.
 #[derive(Debug, Clone)]
 pub struct Call {
     /// The declaration ID of the command to be invoked.
-    pub decl_id: usize,
+    pub decl_id: DeclId,
     /// The span encompassing the command name, before the arguments.
     pub head: Span,
     /// The span encompassing the command name and all arguments.
@@ -23,7 +23,7 @@ pub struct Call {
 
 impl Call {
     /// Build a new call with arguments.
-    pub fn build(decl_id: usize, head: Span) -> CallBuilder {
+    pub fn build(decl_id: DeclId, head: Span) -> CallBuilder {
         CallBuilder {
             inner: Call {
                 decl_id,

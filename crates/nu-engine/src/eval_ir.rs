@@ -1,9 +1,9 @@
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
-    engine::{Closure, EngineState, Stack},
-    ir::{Instruction, IrBlock, Literal},
-    PipelineData, RegId, ShellError, Span, Value,
+    engine::{Argument, Closure, EngineState, Stack},
+    ir::{Call, Instruction, IrBlock, Literal},
+    DeclId, PipelineData, RegId, ShellError, Span, Value,
 };
 
 /// Evaluate the compiled representation of a [`Block`].
@@ -18,12 +18,14 @@ pub fn eval_ir_block<D: DebugContext>(
 
         let block_span = block.span;
 
+        let args_base = stack.argument_stack.get_base();
         let mut registers = stack.register_buf_cache.acquire(ir_block.register_count);
 
         let result = eval_ir_block_impl::<D>(
             &mut EvalContext {
                 engine_state,
                 stack,
+                args_base,
                 registers: &mut registers[..],
             },
             &block_span,
@@ -52,6 +54,8 @@ pub fn eval_ir_block<D: DebugContext>(
 struct EvalContext<'a> {
     engine_state: &'a EngineState,
     stack: &'a mut Stack,
+    /// Base index on the argument stack to reset to after a call
+    args_base: usize,
     registers: &'a mut [PipelineData],
 }
 
@@ -65,6 +69,13 @@ impl<'a> EvalContext<'a> {
     /// Replace the contents of a register with `Empty` and then return the value that it contained
     fn take_reg(&mut self, reg_id: RegId) -> PipelineData {
         self.put_reg(reg_id, PipelineData::Empty)
+    }
+
+    /// Take and implicitly collect a register to a value
+    fn collect_reg(&mut self, reg_id: RegId) -> Result<Value, ShellError> {
+        let pipeline_data = self.take_reg(reg_id);
+        let span = pipeline_data.span().unwrap_or(Span::unknown());
+        pipeline_data.into_value(span)
     }
 }
 
@@ -86,7 +97,7 @@ fn eval_ir_block_impl<D: DebugContext>(
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
         log::trace!("{pc:-4}: {}", instruction.display(ctx.engine_state));
-        match do_instruction(ctx, instruction, span)? {
+        match eval_instruction(ctx, instruction, span)? {
             InstructionResult::Continue => {
                 pc += 1;
             }
@@ -121,7 +132,7 @@ enum InstructionResult {
 }
 
 /// Perform an instruction
-fn do_instruction(
+fn eval_instruction(
     ctx: &mut EvalContext<'_>,
     instruction: &Instruction,
     span: &Span,
@@ -159,13 +170,50 @@ fn do_instruction(
         Instruction::LoadEnv { dst, key } => todo!(),
         Instruction::LoadEnvOpt { dst, key } => todo!(),
         Instruction::StoreEnv { key, src } => todo!(),
-        Instruction::PushPositional { src } => todo!(),
-        Instruction::AppendRest { src } => todo!(),
-        Instruction::PushFlag { name } => todo!(),
-        Instruction::PushNamed { name, src } => todo!(),
-        Instruction::RedirectOut { mode } => todo!(),
-        Instruction::RedirectErr { mode } => todo!(),
-        Instruction::Call { decl_id, src_dst } => todo!(),
+        Instruction::PushPositional { src } => {
+            let val = ctx.collect_reg(*src)?;
+            ctx.stack
+                .argument_stack
+                .push(Argument::Positional { span: *span, val });
+            Ok(InstructionResult::Continue)
+        }
+        Instruction::AppendRest { src } => {
+            let vals = ctx.collect_reg(*src)?;
+            ctx.stack
+                .argument_stack
+                .push(Argument::Spread { span: *span, vals });
+            Ok(InstructionResult::Continue)
+        }
+        Instruction::PushFlag { name } => {
+            ctx.stack.argument_stack.push(Argument::Flag {
+                name: name.clone(),
+                span: *span,
+            });
+            Ok(InstructionResult::Continue)
+        }
+        Instruction::PushNamed { name, src } => {
+            let val = ctx.collect_reg(*src)?;
+            ctx.stack.argument_stack.push(Argument::Named {
+                name: name.clone(),
+                span: *span,
+                val,
+            });
+            Ok(InstructionResult::Continue)
+        }
+        Instruction::RedirectOut { mode } => {
+            log::warn!("TODO: RedirectOut");
+            Ok(InstructionResult::Continue)
+        }
+        Instruction::RedirectErr { mode } => {
+            log::warn!("TODO: RedirectErr");
+            Ok(InstructionResult::Continue)
+        }
+        Instruction::Call { decl_id, src_dst } => {
+            let input = ctx.take_reg(*src_dst);
+            let result = eval_call(ctx, *decl_id, *span, input)?;
+            ctx.put_reg(*src_dst, result);
+            Ok(InstructionResult::Continue)
+        }
         Instruction::BinaryOp { lhs_dst, op, rhs } => binary_op(ctx, *lhs_dst, op, *rhs, *span),
         Instruction::FollowCellPath { src_dst, path } => todo!(),
         Instruction::CloneCellPath { dst, src, path } => todo!(),
@@ -308,4 +356,34 @@ fn binary_op(
     ctx.put_reg(lhs_dst, PipelineData::Value(result, None));
 
     Ok(InstructionResult::Continue)
+}
+
+/// Evaluate a call
+fn eval_call(
+    ctx: &mut EvalContext<'_>,
+    decl_id: DeclId,
+    head: Span,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    // TODO: handle block eval
+    let args_len = ctx.stack.argument_stack.get_len(ctx.args_base);
+    let decl = ctx.engine_state.get_decl(decl_id);
+    // should this be precalculated? ideally we just use the call builder...
+    let span = ctx
+        .stack
+        .argument_stack
+        .get_args(ctx.args_base, args_len)
+        .into_iter()
+        .fold(head, |span, arg| span.append(arg.span()));
+    let call = Call {
+        decl_id,
+        head,
+        span,
+        args_base: ctx.args_base,
+        args_len,
+    };
+    let result = decl.run(ctx.engine_state, ctx.stack, &(&call).into(), input);
+    // Important that this runs:
+    ctx.stack.argument_stack.leave_frame(ctx.args_base);
+    result
 }
