@@ -35,7 +35,7 @@ use signals::ctrlc_protection;
 use std::{
     path::PathBuf,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{atomic::AtomicBool, Mutex, Arc},
 };
 
 fn get_engine_state() -> EngineState {
@@ -75,8 +75,9 @@ fn main() -> Result<()> {
     }
 
     let ctrlc = Arc::new(AtomicBool::new(false));
+    let ctrlc_bus = Arc::new(Mutex::new(bus::Bus::new(1)));
     // TODO: make this conditional in the future
-    ctrlc_protection(&mut engine_state, &ctrlc);
+    ctrlc_protection(&mut engine_state, &ctrlc, &ctrlc_bus);
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If

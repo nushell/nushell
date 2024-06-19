@@ -517,6 +517,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
 
 [[package]]
+name = "bus"
+version = "2.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b7118d0221d84fada881b657c2ddb7cd55108db79c8764c9ee212c0c259b783"
+dependencies = [
+ "crossbeam-channel",
+ "num_cpus",
+ "parking_lot_core",
+]
+
+[[package]]
 name = "byte-unit"
 version = "5.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2765,6 +2776,7 @@ name = "nu"
 version = "0.94.3"
 dependencies = [
  "assert_cmd",
+ "bus",
  "crossterm",
  "ctrlc",
  "dirs-next",
@@ -3226,6 +3238,7 @@ name = "nu-protocol"
 version = "0.94.3"
 dependencies = [
  "brotli",
+ "bus",
  "byte-unit",
  "chrono",
  "chrono-humanize",

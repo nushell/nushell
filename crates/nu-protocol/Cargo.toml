@@ -33,6 +33,7 @@ serde = { workspace = true, default-features = false }
 thiserror = "1.0"
 typetag = "0.2"
 os_pipe = { workspace = true, features = ["io_safety"] }
+bus = "2.4.1"
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true, default-features = false, features = ["signal"] }

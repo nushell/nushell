@@ -85,6 +85,7 @@ pub struct EngineState {
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
+    pub ctrlc_bus: Option<Arc<Mutex<bus::Bus<()>>>>,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
@@ -145,6 +146,7 @@ impl EngineState {
                 false,
             ),
             ctrlc: None,
+            ctrlc_bus: None,
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
                     .into_iter()
