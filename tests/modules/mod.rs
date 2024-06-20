@@ -787,6 +787,20 @@ fn reload_submodules() {
         ];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
         assert_eq!(actual.out, "true");
+
+        // should also works if we use members directly.
+        sandbox.with_files(&[
+            FileWithContent("voice.nu", r#"export module animals.nu"#),
+            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
+        ]);
+        let inp = [
+            "use voice.nu animals cat",
+            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+            "use voice.nu animals cat",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
     });
 }
 
