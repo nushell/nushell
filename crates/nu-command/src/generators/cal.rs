@@ -86,7 +86,7 @@ impl Command for Cal {
                 result: None,
             },
             Example {
-                description: "How many Friday the 13ths occurred in 2015",
+                description: "How many 'Friday the Thirteenths' occurred in 2015?",
                 example: "cal --as-table --full-year 2015 | where fr == 13 | length",
                 result: None,
             },
