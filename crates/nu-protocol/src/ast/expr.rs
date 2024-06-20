@@ -32,8 +32,11 @@ pub enum Expr {
     Keyword(Box<Keyword>),
     ValueWithUnit(Box<ValueWithUnit>),
     DateTime(chrono::DateTime<FixedOffset>),
+    /// The boolean is `true` if the string is quoted.
     Filepath(String, bool),
+    /// The boolean is `true` if the string is quoted.
     Directory(String, bool),
+    /// The boolean is `true` if the string is quoted.
     GlobPattern(String, bool),
     String(String),
     RawString(String),
@@ -43,6 +46,8 @@ pub enum Expr {
     Overlay(Option<BlockId>), // block ID of the overlay's origin module
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
+    /// The boolean is `true` if the string is quoted.
+    GlobInterpolation(Vec<Expression>, bool),
     Nothing,
     Garbage,
 }
@@ -84,6 +89,7 @@ impl Expr {
             | Expr::RawString(_)
             | Expr::CellPath(_)
             | Expr::StringInterpolation(_)
+            | Expr::GlobInterpolation(_, _)
             | Expr::Nothing => {
                 // These expressions do not use the output of the pipeline in any meaningful way,
                 // so we can discard the previous output by redirecting it to `Null`.
