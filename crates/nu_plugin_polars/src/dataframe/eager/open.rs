@@ -1,5 +1,6 @@
 use crate::{
     dataframe::values::NuSchema,
+    perf,
     values::{CustomValueSupport, NuLazyFrame},
     PolarsPlugin,
 };
@@ -378,7 +379,10 @@ fn from_jsonl(
         .get_flag("schema")?
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
+
     if call.has_flag("lazy")? {
+        let start_time = std::time::Instant::now();
+
         let df = LazyJsonLineReader::new(file_path)
             .with_infer_schema_length(infer_schema)
             .with_schema(maybe_schema.map(|s| s.into()))
@@ -390,6 +394,16 @@ fn from_jsonl(
                 help: None,
                 inner: vec![],
             })?;
+
+        perf(
+            engine,
+            "Lazy json lines dataframe open",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
+
         let df = NuLazyFrame::new(false, df);
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
@@ -410,6 +424,8 @@ fn from_jsonl(
             None => reader,
         };
 
+        let start_time = std::time::Instant::now();
+
         let df: NuDataFrame = reader
             .finish()
             .map_err(|e| ShellError::GenericError {
@@ -420,6 +436,15 @@ fn from_jsonl(
                 inner: vec![],
             })?
             .into();
+
+        perf(
+            engine,
+            "Eager json lines dataframe open",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
 
         df.cache_and_to_value(plugin, engine, call.head)
     }
@@ -484,6 +509,7 @@ fn from_csv(
             Some(r) => csv_reader.with_skip_rows(r),
         };
 
+        let start_time = std::time::Instant::now();
         let df: NuLazyFrame = csv_reader
             .finish()
             .map_err(|e| ShellError::GenericError {
@@ -495,8 +521,18 @@ fn from_csv(
             })?
             .into();
 
+        perf(
+            engine,
+            "Lazy CSV dataframe open",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
+
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
+        let start_time = std::time::Instant::now();
         let df = CsvReadOptions::default()
             .with_has_header(!no_header)
             .with_infer_schema_length(infer_schema)
@@ -529,6 +565,16 @@ fn from_csv(
                 help: None,
                 inner: vec![],
             })?;
+
+        perf(
+            engine,
+            "Eager CSV dataframe open",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
+
         let df = NuDataFrame::new(false, df);
         df.cache_and_to_value(plugin, engine, call.head)
     }

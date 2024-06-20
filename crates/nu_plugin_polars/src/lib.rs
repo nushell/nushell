@@ -8,23 +8,87 @@ use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 mod cache;
 pub mod dataframe;
 pub use dataframe::*;
-use nu_protocol::{ast::Operator, CustomValue, LabeledError, Spanned, Value};
+use nu_protocol::{ast::Operator, CustomValue, LabeledError, ShellError, Span, Spanned, Value};
 
 use crate::{
     eager::eager_commands, expressions::expr_commands, lazy::lazy_commands,
     series::series_commands, values::PolarsPluginCustomValue,
 };
 
+pub trait EngineWrapper {
+    fn get_env_var(&self, key: &str) -> Option<String>;
+    fn use_color(&self) -> bool;
+    fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError>;
+}
+
+impl EngineWrapper for &EngineInterface {
+    fn get_env_var(&self, key: &str) -> Option<String> {
+        EngineInterface::get_env_var(self, key)
+            .ok()
+            .flatten()
+            .map(|x| match x {
+                Value::String { val, .. } => val,
+                _ => "".to_string(),
+            })
+    }
+
+    fn use_color(&self) -> bool {
+        self.get_config()
+            .ok()
+            .and_then(|config| config.color_config.get("use_color").cloned())
+            .unwrap_or(Value::bool(false, Span::unknown()))
+            .is_true()
+    }
+
+    fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
+        EngineInterface::set_gc_disabled(self, disabled)
+    }
+}
+
 #[macro_export]
 macro_rules! plugin_debug {
-    ($($arg:tt)*) => {{
-        if std::env::var("POLARS_PLUGIN_DEBUG")
-            .ok()
-            .filter(|x| x == "1" || x == "true")
+    ($env_var_provider:tt, $($arg:tt)*) => {{
+        if $env_var_provider.get_env_var("POLARS_PLUGIN_DEBUG")
+            .filter(|s|  s == "1" || s == "true")
             .is_some() {
             eprintln!($($arg)*);
         }
     }};
+}
+
+pub fn perf(
+    env: impl EngineWrapper,
+    msg: &str,
+    dur: std::time::Instant,
+    file: &str,
+    line: u32,
+    column: u32,
+) {
+    if env
+        .get_env_var("POLARS_PLUGIN_PERF")
+        .filter(|s| s == "1" || s == "true")
+        .is_some()
+    {
+        if env.use_color() {
+            eprintln!(
+                "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
+                file,
+                line,
+                column,
+                msg,
+                dur.elapsed(),
+            );
+        } else {
+            eprintln!(
+                "perf: {}:{}:{} {} took {:?}",
+                file,
+                line,
+                column,
+                msg,
+                dur.elapsed(),
+            );
+        }
+    }
 }
 
 #[derive(Default)]
@@ -52,7 +116,7 @@ impl Plugin for PolarsPlugin {
     ) -> Result<(), LabeledError> {
         if !self.disable_cache_drop {
             let id = CustomValueType::try_from_custom_value(custom_value)?.id();
-            let _ = self.cache.remove(Some(engine), &id, false);
+            let _ = self.cache.remove(engine, &id, false);
         }
         Ok(())
     }
@@ -193,6 +257,22 @@ pub mod test {
         }
     }
 
+    struct TestEngineWrapper;
+
+    impl EngineWrapper for TestEngineWrapper {
+        fn get_env_var(&self, key: &str) -> Option<String> {
+            std::env::var(key).ok()
+        }
+
+        fn use_color(&self) -> bool {
+            false
+        }
+
+        fn set_gc_disabled(&self, _disabled: bool) -> Result<(), ShellError> {
+            Ok(())
+        }
+    }
+
     pub fn test_polars_plugin_command(command: &impl PluginCommand) -> Result<(), ShellError> {
         test_polars_plugin_command_with_decls(command, vec![])
     }
@@ -212,7 +292,7 @@ pub mod test {
                     let id = obj.id();
                     plugin
                         .cache
-                        .insert(None, id, obj, Span::test_data())
+                        .insert(TestEngineWrapper {}, id, obj, Span::test_data())
                         .unwrap();
                 }
             }
