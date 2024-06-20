@@ -81,9 +81,15 @@ impl Command for Cal {
                 result: None,
             },
             Example {
-                description: "This month's calendar with the week starting on monday",
+                description: "This month's calendar with the week starting on Monday",
                 example: "cal --week-start mo",
                 result: None,
+            },
+            Example {
+                description: "How many Friday the 13ths occurred in 2015",
+                example: "cal --as-table --full-year 2015 | where {$it.fr == 13} | length",
+                result: None,
+                //result: Some(Value::test_int(3)),
             },
         ]
     }
