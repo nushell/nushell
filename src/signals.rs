@@ -12,7 +12,6 @@ pub(crate) fn ctrlc_protection(
     {
         let ctrlc = ctrlc.clone();
         let subscribers = subscribers.clone();
-
         ctrlc::set_handler(move || {
             ctrlc.store(true, Ordering::SeqCst);
             if let Ok(mut subscribers) = subscribers.lock() {
