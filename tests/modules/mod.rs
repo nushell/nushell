@@ -797,7 +797,7 @@ fn reload_submodules() {
             "use voice.nu animals cat",
             r#""export def cat [] {'woem'}" | save -f animals.nu"#,
             "use voice.nu animals cat",
-            "(voice animals cat) == 'woem'",
+            "(cat) == 'woem'",
         ];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
         assert_eq!(actual.out, "true");
