@@ -297,7 +297,7 @@ fn get_documentation(
 
         if let Some(result) = &example.result {
             let mut table_call = Call::new(Span::unknown());
-            if *&example.example.ends_with("--collapse") {
+            if example.example.ends_with("--collapse") {
                 // collapse the result
                 table_call.add_named((
                     Spanned {
