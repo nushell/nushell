@@ -1,6 +1,10 @@
 use alphanumeric_sort::compare_str;
-use nu_engine::column::nonexistent_column;
-use nu_protocol::{ShellError, Span, Value};
+use nu_engine::ClosureEval;
+use nu_protocol::{
+    ast::CellPath,
+    engine::{Closure, EngineState, Stack},
+    PipelineData, ShellError, Span, Value,
+};
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
@@ -8,12 +12,17 @@ use std::cmp::Ordering;
 // Eventually it would be nice to find a better home for it; sorting logic is only coupled
 // to commands for historical reasons.
 
+pub enum Comparator {
+    Closure(Closure, EngineState, Stack),
+    CellPath(CellPath),
+}
+
 /// Sort a value. This only makes sense for lists and list-like things,
 /// so for everything else we just return the value as-is.
 /// CustomValues are converted to their base value and then sorted.
 pub fn sort_value(
     val: &Value,
-    sort_columns: Vec<String>,
+    comparators: Vec<Comparator>,
     ascending: bool,
     insensitive: bool,
     natural: bool,
@@ -22,7 +31,7 @@ pub fn sort_value(
     match val {
         Value::List { vals, .. } => {
             let mut vals = vals.clone();
-            sort(&mut vals, sort_columns, span, insensitive, natural)?;
+            sort(&mut vals, comparators, span, insensitive, natural)?;
 
             if !ascending {
                 vals.reverse();
@@ -32,7 +41,7 @@ pub fn sort_value(
         }
         Value::Custom { val, .. } => {
             let base_val = val.to_base_value(span)?;
-            sort_value(&base_val, sort_columns, ascending, insensitive, natural)
+            sort_value(&base_val, comparators, ascending, insensitive, natural)
         }
         _ => Ok(val.to_owned()),
     }
@@ -42,14 +51,14 @@ pub fn sort_value(
 /// avoids cloning, but it does not work for CustomValues; they are returned as-is.
 pub fn sort_value_in_place(
     val: &mut Value,
-    sort_columns: Vec<String>,
+    comparators: Vec<Comparator>,
     ascending: bool,
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
     let span = val.span();
     if let Value::List { vals, .. } = val {
-        sort(vals, sort_columns, span, insensitive, natural)?;
+        sort(vals, comparators, span, insensitive, natural)?;
         if !ascending {
             vals.reverse();
         }
@@ -59,175 +68,137 @@ pub fn sort_value_in_place(
 
 pub fn sort(
     vec: &mut [Value],
-    sort_columns: Vec<String>,
+    comparators: Vec<Comparator>,
     span: Span,
     insensitive: bool,
     natural: bool,
 ) -> Result<(), ShellError> {
-    let val_span = vec.first().map(|v| v.span()).unwrap_or(span);
-    match vec.first() {
-        Some(Value::Record { val: record, .. }) => {
-            if sort_columns.is_empty() {
-                // This uses the same format as the 'requires a column name' error in split_by.rs
-                return Err(ShellError::GenericError {
-                    error: "expected name".into(),
-                    msg: "requires a column name to sort table data".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                });
-            }
-
-            if let Some(nonexistent) = nonexistent_column(&sort_columns, record.columns()) {
-                return Err(ShellError::CantFindColumn {
-                    col_name: nonexistent,
-                    span,
-                    src_span: val_span,
-                });
-            }
-
-            // check to make sure each value in each column in the record
-            // that we asked for is a string. So, first collect all the columns
-            // that we asked for into vals, then later make sure they're all
-            // strings.
-            let mut vals = vec![];
-            for item in vec.iter() {
-                for col in &sort_columns {
-                    let val = item
-                        .get_data_by_key(col)
-                        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-                    vals.push(val);
-                }
-            }
-
-            let should_sort_case_insensitively = insensitive
-                && vals
-                    .iter()
-                    .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
-
-            let should_sort_case_naturally = natural
-                && vals
-                    .iter()
-                    .all(|x| matches!(x.get_type(), nu_protocol::Type::String));
-
-            vec.sort_by(|a, b| {
-                compare(
-                    a,
-                    b,
-                    &sort_columns,
-                    span,
-                    should_sort_case_insensitively,
-                    should_sort_case_naturally,
-                )
-            });
-        }
-        _ => {
-            vec.sort_by(|a, b| {
-                if insensitive {
-                    let span_a = a.span();
-                    let span_b = b.span();
-                    let folded_left = match a {
-                        Value::String { val, .. } => Value::string(val.to_folded_case(), span_a),
-                        _ => a.clone(),
-                    };
-
-                    let folded_right = match b {
-                        Value::String { val, .. } => Value::string(val.to_folded_case(), span_b),
-                        _ => b.clone(),
-                    };
-
-                    if natural {
-                        match (
-                            folded_left.coerce_into_string(),
-                            folded_right.coerce_into_string(),
-                        ) {
-                            (Ok(left), Ok(right)) => compare_str(left, right),
-                            _ => Ordering::Equal,
-                        }
-                    } else {
-                        folded_left
-                            .partial_cmp(&folded_right)
-                            .unwrap_or(Ordering::Equal)
-                    }
-                } else if natural {
-                    match (a.coerce_str(), b.coerce_str()) {
-                        (Ok(left), Ok(right)) => compare_str(left, right),
-                        _ => Ordering::Equal,
-                    }
-                } else {
-                    a.partial_cmp(b).unwrap_or(Ordering::Equal)
-                }
-            });
-        }
+    if comparators.is_empty() {
+        // This uses the same format as the 'requires a column name' error in split_by.rs
+        return Err(ShellError::GenericError {
+            error: "expected name".into(),
+            msg: "requires a cell path or closure to sort data".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        });
     }
-    Ok(())
+
+    // to apply insensitive or natural sorting, all values must be strings
+    let string_sort: bool = comparators.iter().all(|cmp| {
+        let Comparator::CellPath(cell_path) = cmp else {
+            // closures shouldn't affect whether cell paths are sorted naturally/insensitively
+            return true;
+        };
+        vec.iter().all(|value| {
+            let inner = value.clone().follow_cell_path(&cell_path.members, false);
+            matches!(inner, Ok(Value::String { .. }))
+        })
+    });
+
+    // allow the comparator function to indicate error
+    // by mutating this option captured by the closure,
+    // since sort_by closure must be infallible
+    let mut compare_err: Option<ShellError> = None;
+
+    vec.sort_by(|a, b| {
+        compare(
+            a,
+            b,
+            &comparators,
+            span,
+            insensitive && string_sort,
+            natural && string_sort,
+            &mut compare_err,
+        )
+    });
+
+    if let Some(err) = compare_err {
+        Err(err)
+    } else {
+        Ok(())
+    }
 }
 
 pub fn compare(
     left: &Value,
     right: &Value,
-    columns: &[String],
+    comparators: &[Comparator],
     span: Span,
     insensitive: bool,
     natural: bool,
+    error: &mut Option<ShellError>,
 ) -> Ordering {
-    for column in columns {
-        let left_value = left.get_data_by_key(column);
-
-        let left_res = match left_value {
-            Some(left_res) => left_res,
-            None => Value::nothing(span),
-        };
-
-        let right_value = right.get_data_by_key(column);
-
-        let right_res = match right_value {
-            Some(right_res) => right_res,
-            None => Value::nothing(span),
-        };
-
-        let result = if insensitive {
-            let span_left = left_res.span();
-            let span_right = right_res.span();
-            let folded_left = match left_res {
-                Value::String { val, .. } => Value::string(val.to_folded_case(), span_left),
-                _ => left_res,
-            };
-
-            let folded_right = match right_res {
-                Value::String { val, .. } => Value::string(val.to_folded_case(), span_right),
-                _ => right_res,
-            };
-            if natural {
-                match (
-                    folded_left.coerce_into_string(),
-                    folded_right.coerce_into_string(),
-                ) {
-                    (Ok(left), Ok(right)) => compare_str(left, right),
-                    _ => Ordering::Equal,
-                }
-            } else {
-                folded_left
-                    .partial_cmp(&folded_right)
-                    .unwrap_or(Ordering::Equal)
+    for cmp in comparators.iter() {
+        let result = match cmp {
+            Comparator::CellPath(cell_path) => {
+                compare_cell_path(left, right, cell_path, insensitive, natural)
             }
-        } else if natural {
-            match (
-                left_res.coerce_into_string(),
-                right_res.coerce_into_string(),
-            ) {
-                (Ok(left), Ok(right)) => compare_str(left, right),
-                _ => Ordering::Equal,
+            Comparator::Closure(closure, engine_state, stack) => {
+                let closure_eval = ClosureEval::new(engine_state, stack, closure.clone());
+                compare_closure(left, right, closure_eval, span)
             }
-        } else {
-            left_res.partial_cmp(&right_res).unwrap_or(Ordering::Equal)
         };
-        if result != Ordering::Equal {
-            return result;
+        match result {
+            Ok(Ordering::Equal) => {}
+            Ok(ordering) => return ordering,
+            Err(err) => {
+                // don't bother continuing through the remaining comparators as we've hit an error
+                // don't overwrite if there's an existing error
+                error.get_or_insert(err);
+                return Ordering::Equal;
+            }
         }
     }
-
     Ordering::Equal
+}
+
+pub fn compare_cell_path(
+    left: &Value,
+    right: &Value,
+    cell_path: &CellPath,
+    insensitive: bool,
+    natural: bool,
+) -> Result<Ordering, ShellError> {
+    let left = left.clone().follow_cell_path(&cell_path.members, false)?;
+    let right = right.clone().follow_cell_path(&cell_path.members, false)?;
+
+    if insensitive || natural {
+        let mut left_str = left.coerce_into_string()?;
+        let mut right_str = right.coerce_into_string()?;
+        if insensitive {
+            left_str = left_str.to_folded_case();
+            right_str = right_str.to_folded_case();
+        }
+
+        if natural {
+            Ok(compare_str(left_str, right_str))
+        } else {
+            Ok(left_str.partial_cmp(&right_str).unwrap_or(Ordering::Equal))
+        }
+    } else {
+        Ok(left.partial_cmp(&right).unwrap_or(Ordering::Equal))
+    }
+}
+
+pub fn compare_closure(
+    left: &Value,
+    right: &Value,
+    mut closure_eval: ClosureEval,
+    span: Span,
+) -> Result<Ordering, ShellError> {
+    closure_eval
+        .add_arg(left.clone())
+        .add_arg(right.clone())
+        .run_with_input(PipelineData::Empty)
+        .and_then(|data| data.into_value(span))
+        .map(|val| {
+            if val.is_true() {
+                Ordering::Less
+            } else {
+                Ordering::Greater
+            }
+        })
 }
 
 #[cfg(test)]

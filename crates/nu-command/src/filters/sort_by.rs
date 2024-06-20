@@ -1,5 +1,7 @@
 use nu_engine::command_prelude::*;
 
+use crate::Comparator;
+
 #[derive(Clone)]
 pub struct SortBy;
 
@@ -18,16 +20,23 @@ impl Command for SortBy {
                 (Type::record(), Type::table()),
                 (Type::table(), Type::table()),
             ])
-            .rest("columns", SyntaxShape::Any, "The column(s) to sort by.")
+            .rest(
+                "comparator",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::CellPath,
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
+                ]),
+                "The cell path(s) or closure(s) to compare elements by.",
+            )
             .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",
-                "Sort string-based columns case-insensitively",
+                "Sort string-based data case-insensitively",
                 Some('i'),
             )
             .switch(
                 "natural",
-                "Sort alphanumeric string-based columns naturally (1, 9, 10, 99, 100, ...)",
+                "Sort alphanumeric string-based data naturally (1, 9, 10, 99, 100, ...)",
                 Some('n'),
             )
             .allow_variants_without_examples(true)
@@ -79,21 +88,44 @@ impl Command for SortBy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
+        let comparator_vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;
         let metadata = input.metadata();
         let mut vec: Vec<_> = input.into_iter_strict(head)?.collect();
 
-        if columns.is_empty() {
+        if comparator_vals.is_empty() {
             return Err(ShellError::MissingParameter {
-                param_name: "columns".into(),
+                param_name: "comparator".into(),
                 span: head,
             });
         }
 
-        crate::sort(&mut vec, columns, head, insensitive, natural)?;
+        let mut comparators = vec![];
+        for val in comparator_vals.into_iter() {
+            match val {
+                Value::CellPath { val, .. } => {
+                    comparators.push(Comparator::CellPath(val));
+                }
+                Value::Closure { val, .. } => {
+                    comparators.push(Comparator::Closure(
+                        *val,
+                        engine_state.clone(),
+                        stack.clone(),
+                    ));
+                }
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message:
+                            "Cannot sort using a value which is not a cell path or closure".into(),
+                        span: val.span(),
+                    })
+                }
+            }
+        }
+
+        crate::sort(&mut vec, comparators, head, insensitive, natural)?;
 
         if reverse {
             vec.reverse()
