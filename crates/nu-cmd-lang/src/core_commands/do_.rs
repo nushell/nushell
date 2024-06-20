@@ -234,9 +234,19 @@ impl Command for Do {
                 result: Some(Value::test_int(177)),
             },
             Example {
-                description: "Run the closure, with input",
-                example: r#"77 | do {|x| 100 + $in }"#,
-                result: None, // TODO: returns 177
+                description: "Run the closure, with pipeline input",
+                example: r#"77 | do {100 + $in }"#,
+                result: Some(Value::test_int(177)),
+            },
+            Example {
+                description: "Run the closure, with a default parameter value",
+                example: r#"77 | do {|x=100| $x + $in }"#,
+                result: Some(Value::test_int(177)),
+            },
+            Example {
+                description: "Run the closure, with two positional parameters",
+                example: r#"do {|x,y| $x + $y } 77 100"#,
+                result: Some(Value::test_int(177)),
             },
             Example {
                 description: "Run the closure and keep changes to the environment",
