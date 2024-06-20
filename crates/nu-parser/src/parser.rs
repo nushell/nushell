@@ -261,7 +261,9 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
         };
         let mut spans = vec![];
         let mut state = State::Bare { from: 0 };
-        for (index, &ch) in contents.iter().enumerate() {
+        let mut index = 0;
+        while index < contents.len() {
+            let ch = contents[index];
             match &mut state {
                 State::Bare { from } => match ch {
                     b'"' | b'\'' => {
@@ -276,6 +278,23 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                             escaped: false,
                             depth: 1,
                         };
+                    }
+                    b'$' => {
+                        if let Some(&quote_char @ (b'"' | b'\'')) = contents.get(index + 1) {
+                            // Start a dollar quote (interpolated string)
+                            if index != *from {
+                                spans.push(make_span(*from, index));
+                            }
+                            state = State::Quote {
+                                from: index,
+                                quote_char,
+                                escaped: false,
+                                depth: 1,
+                            };
+                            // Skip over two chars (the dollar sign and the quote)
+                            index += 2;
+                            continue;
+                        }
                     }
                     // Continue to consume
                     _ => (),
@@ -316,6 +335,7 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
                     }
                 },
             }
+            index += 1;
         }
 
         // Add the final span

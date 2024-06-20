@@ -184,6 +184,20 @@ fn external_arg_with_non_option_like_embedded_quotes() {
 }
 
 #[test]
+fn external_arg_with_string_interpolation() {
+    Playground::setup("external arg with string interpolation", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                ^nu --testbin cococo foo=(2 + 2) $"foo=(2 + 2)" foo=$"(2 + 2)"
+            "#
+        ));
+
+        assert_eq!(actual.out, "foo=4 foo=4 foo=4");
+    })
+}
+
+#[test]
 fn external_arg_with_variable_name() {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
