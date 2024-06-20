@@ -715,6 +715,29 @@ fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[Exte
     }
 }
 
+fn check_external_call_interpolation(
+    tag: &str,
+    subexpr_count: usize,
+    quoted: bool,
+    expr: &Expression,
+) -> bool {
+    match &expr.expr {
+        Expr::StringInterpolation(exprs) => {
+            assert!(quoted, "{tag}: quoted");
+            assert_eq!(expr.ty, Type::String, "{tag}: expr.ty");
+            assert_eq!(subexpr_count, exprs.len(), "{tag}: subexpr_count");
+            true
+        }
+        Expr::GlobInterpolation(exprs, is_quoted) => {
+            assert_eq!(quoted, *is_quoted, "{tag}: quoted");
+            assert_eq!(expr.ty, Type::Glob, "{tag}: expr.ty");
+            assert_eq!(subexpr_count, exprs.len(), "{tag}: subexpr_count");
+            true
+        }
+        _ => false,
+    }
+}
+
 #[rstest]
 #[case("foo-external-call", "foo-external-call", "bare word")]
 #[case("^foo-external-call", "foo-external-call", "bare word with caret")]
@@ -859,45 +882,24 @@ pub fn test_external_call_head_string(
 }
 
 #[rstest]
-#[case(r"~/.foo/(1)", 2, false, Type::Glob, "unquoted interpolated string")]
+#[case(r"~/.foo/(1)", 2, false, "unquoted interpolated string")]
 #[case(
     r"~\.foo(2)\(1)",
     4,
     false,
-    Type::Glob,
     "unquoted interpolated string with backslash"
 )]
-#[case(
-    r"^~/.foo/(1)",
-    2,
-    false,
-    Type::Glob,
-    "unquoted interpolated string with caret"
-)]
-#[case(
-    r#"^$"~/.foo/(1)""#,
-    2,
-    true,
-    Type::String,
-    "quoted interpolated string with caret"
-)]
+#[case(r"^~/.foo/(1)", 2, false, "unquoted interpolated string with caret")]
+#[case(r#"^$"~/.foo/(1)""#, 2, true, "quoted interpolated string with caret")]
 pub fn test_external_call_head_interpolated_string(
     #[case] input: &str,
     #[case] subexpr_count: usize,
     #[case] quoted: bool,
-    #[case] expr_ty: Type,
     #[case] tag: &str,
 ) {
     test_external_call(input, tag, |name, args| {
-        match &name.expr {
-            Expr::StringInterpolation(exprs, is_quoted) => {
-                assert_eq!(name.ty, expr_ty, "{tag}: expr_ty");
-                assert_eq!(subexpr_count, exprs.len(), "{tag}: subexpr_count");
-                assert_eq!(quoted, *is_quoted, "{tag}: quoted");
-            }
-            other => {
-                panic!("{tag}: Unexpected expression in command name position: {other:?}");
-            }
+        if !check_external_call_interpolation(tag, subexpr_count, quoted, name) {
+            panic!("{tag}: Unexpected expression in command name position: {name:?}");
         }
         assert_eq!(0, args.len());
     })
@@ -1058,25 +1060,12 @@ pub fn test_external_call_arg_string(
 }
 
 #[rstest]
-#[case(
-    r"^foo ~/.foo/(1)",
-    2,
-    false,
-    Type::Glob,
-    "unquoted interpolated string"
-)]
-#[case(
-    r#"^foo $"~/.foo/(1)""#,
-    2,
-    true,
-    Type::String,
-    "quoted interpolated string"
-)]
+#[case(r"^foo ~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case(r#"^foo $"~/.foo/(1)""#, 2, true, "quoted interpolated string")]
 pub fn test_external_call_arg_interpolated_string(
     #[case] input: &str,
     #[case] subexpr_count: usize,
     #[case] quoted: bool,
-    #[case] expr_ty: Type,
     #[case] tag: &str,
 ) {
     test_external_call(input, tag, |name, args| {
@@ -1090,16 +1079,11 @@ pub fn test_external_call_arg_interpolated_string(
         }
         assert_eq!(1, args.len());
         match &args[0] {
-            ExternalArgument::Regular(expr) => match &expr.expr {
-                Expr::StringInterpolation(expressions, is_quoted) => {
-                    assert_eq!(expr.ty, expr_ty, "{tag}: expr_ty");
-                    assert_eq!(subexpr_count, expressions.len(), "{tag}: subexpr_count");
-                    assert_eq!(quoted, *is_quoted, "{tag}: is_quoted");
+            ExternalArgument::Regular(expr) => {
+                if !check_external_call_interpolation(tag, subexpr_count, quoted, expr) {
+                    panic!("Unexpected expression in command arg position: {expr:?}")
                 }
-                other => {
-                    panic!("Unexpected expression in command arg position: {other:?}")
-                }
-            },
+            }
             other @ ExternalArgument::Spread(..) => {
                 panic!("Unexpected external spread argument in command arg position: {other:?}")
             }
@@ -1267,8 +1251,7 @@ mod string {
             assert!(element.redirection.is_none());
 
             let subexprs: Vec<&Expr> = match &element.expr.expr {
-                Expr::StringInterpolation(expressions, quoted) => {
-                    assert!(quoted);
+                Expr::StringInterpolation(expressions) => {
                     expressions.iter().map(|e| &e.expr).collect()
                 }
                 _ => panic!("Expected an `Expr::StringInterpolation`"),
@@ -1297,8 +1280,7 @@ mod string {
             assert!(element.redirection.is_none());
 
             let subexprs: Vec<&Expr> = match &element.expr.expr {
-                Expr::StringInterpolation(expressions, quoted) => {
-                    assert!(quoted);
+                Expr::StringInterpolation(expressions) => {
                     expressions.iter().map(|e| &e.expr).collect()
                 }
                 _ => panic!("Expected an `Expr::StringInterpolation`"),
@@ -1325,8 +1307,7 @@ mod string {
             assert!(element.redirection.is_none());
 
             let subexprs: Vec<&Expr> = match &element.expr.expr {
-                Expr::StringInterpolation(expressions, quoted) => {
-                    assert!(quoted);
+                Expr::StringInterpolation(expressions) => {
                     expressions.iter().map(|e| &e.expr).collect()
                 }
                 _ => panic!("Expected an `Expr::StringInterpolation`"),
@@ -1355,8 +1336,7 @@ mod string {
             assert!(element.redirection.is_none());
 
             let subexprs: Vec<&Expr> = match &element.expr.expr {
-                Expr::StringInterpolation(expressions, quoted) => {
-                    assert!(quoted);
+                Expr::StringInterpolation(expressions) => {
                     expressions.iter().map(|e| &e.expr).collect()
                 }
                 _ => panic!("Expected an `Expr::StringInterpolation`"),
@@ -1388,8 +1368,7 @@ mod string {
 
             let subexprs: Vec<&Expr> = match &element.expr.expr {
                 Expr::BinaryOp(_, _, rhs) => match &rhs.expr {
-                    Expr::StringInterpolation(expressions, quoted) => {
-                        assert!(!quoted);
+                    Expr::StringInterpolation(expressions) => {
                         expressions.iter().map(|e| &e.expr).collect()
                     }
                     _ => panic!("Expected an `Expr::StringInterpolation`"),

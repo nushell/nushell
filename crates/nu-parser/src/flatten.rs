@@ -26,6 +26,7 @@ pub enum FlatShape {
     Flag,
     Float,
     Garbage,
+    GlobInterpolation,
     GlobPattern,
     Int,
     InternalCall(DeclId),
@@ -67,6 +68,7 @@ impl FlatShape {
             FlatShape::Flag => "shape_flag",
             FlatShape::Float => "shape_float",
             FlatShape::Garbage => "shape_garbage",
+            FlatShape::GlobInterpolation => "shape_glob_interpolation",
             FlatShape::GlobPattern => "shape_globpattern",
             FlatShape::Int => "shape_int",
             FlatShape::InternalCall(_) => "shape_internalcall",
@@ -410,7 +412,28 @@ fn flatten_expression_into(
                 output.push((Span::new(last_end, outer_span.end), FlatShape::List));
             }
         }
-        Expr::StringInterpolation(exprs, quoted) => {
+        Expr::StringInterpolation(exprs) => {
+            let mut flattened = vec![];
+            for expr in exprs {
+                flatten_expression_into(working_set, expr, &mut flattened);
+            }
+
+            if let Some(first) = flattened.first() {
+                if first.0.start != expr.span.start {
+                    // If we aren't a bare word interpolation, also highlight the outer quotes
+                    output.push((
+                        Span::new(expr.span.start, expr.span.start + 2),
+                        FlatShape::StringInterpolation,
+                    ));
+                    flattened.push((
+                        Span::new(expr.span.end - 1, expr.span.end),
+                        FlatShape::StringInterpolation,
+                    ));
+                }
+            }
+            output.extend(flattened);
+        }
+        Expr::GlobInterpolation(exprs, quoted) => {
             let mut flattened = vec![];
             for expr in exprs {
                 flatten_expression_into(working_set, expr, &mut flattened);
@@ -420,11 +443,11 @@ fn flatten_expression_into(
                 // If we aren't a bare word interpolation, also highlight the outer quotes
                 output.push((
                     Span::new(expr.span.start, expr.span.start + 2),
-                    FlatShape::StringInterpolation,
+                    FlatShape::GlobInterpolation,
                 ));
                 flattened.push((
                     Span::new(expr.span.end - 1, expr.span.end),
-                    FlatShape::StringInterpolation,
+                    FlatShape::GlobInterpolation,
                 ));
             }
             output.extend(flattened);

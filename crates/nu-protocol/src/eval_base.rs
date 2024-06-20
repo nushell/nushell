@@ -4,7 +4,7 @@ use crate::{
         ExternalArgument, ListItem, Math, Operator, RecordItem,
     },
     debugger::DebugContext,
-    Config, GetSpan, Range, Record, ShellError, Span, Type, Value, VarId, ENV_VARIABLE_ID,
+    Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::{borrow::Cow, collections::HashMap};
 
@@ -281,20 +281,23 @@ pub trait Eval {
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr_span)
             }
-            Expr::StringInterpolation(exprs, quoted) => {
+            Expr::StringInterpolation(exprs) => {
                 let config = Self::get_config(state, mut_state);
                 let str = exprs
                     .iter()
                     .map(|expr| Self::eval::<D>(state, mut_state, expr).map(|v| v.to_expanded_string(", ", &config)))
                     .collect::<Result<String, _>>()?;
 
-                // For supporting bare string interpolation to create globs, currently only
-                // implemented for external calls
-                if expr.ty == Type::Glob {
-                    Ok(Value::glob(str, *quoted, expr_span))
-                } else {
-                    Ok(Value::string(str, expr_span))
-                }
+                Ok(Value::string(str, expr_span))
+            }
+            Expr::GlobInterpolation(exprs, quoted) => {
+                let config = Self::get_config(state, mut_state);
+                let str = exprs
+                    .iter()
+                    .map(|expr| Self::eval::<D>(state, mut_state, expr).map(|v| v.to_expanded_string(", ", &config)))
+                    .collect::<Result<String, _>>()?;
+
+                Ok(Value::glob(str, *quoted, expr_span))
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr_span),
             Expr::GlobPattern(pattern, quoted) => {

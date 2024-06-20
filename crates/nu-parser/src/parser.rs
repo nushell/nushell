@@ -377,17 +377,27 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
             let exprs = exprs
                 .into_iter()
                 .flat_map(|expr| match expr.expr {
-                    Expr::StringInterpolation(subexprs, _) => subexprs,
+                    Expr::StringInterpolation(subexprs) => subexprs,
                     _ => vec![expr],
                 })
                 .collect();
-            // Make a string interpolation out of the expressions.
-            Expression::new(
-                working_set,
-                Expr::StringInterpolation(exprs, false),
-                span,
-                if quoted { Type::String } else { Type::Glob },
-            )
+            // Make an interpolation out of the expressions. Use `GlobInterpolation` if it's a bare
+            // word, so that the unquoted state can get passed through to `run-external`.
+            if quoted {
+                Expression::new(
+                    working_set,
+                    Expr::StringInterpolation(exprs),
+                    span,
+                    Type::String,
+                )
+            } else {
+                Expression::new(
+                    working_set,
+                    Expr::GlobInterpolation(exprs, false),
+                    span,
+                    Type::Glob,
+                )
+            }
         }
     } else {
         parse_glob_pattern(working_set, span)
@@ -2005,7 +2015,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 
     Expression::new(
         working_set,
-        Expr::StringInterpolation(output, double_quote),
+        Expr::StringInterpolation(output),
         span,
         Type::String,
     )
@@ -6143,7 +6153,7 @@ pub fn discover_captures_in_expr(
         }
         Expr::String(_) => {}
         Expr::RawString(_) => {}
-        Expr::StringInterpolation(exprs, _) => {
+        Expr::StringInterpolation(exprs) | Expr::GlobInterpolation(exprs, _) => {
             for expr in exprs {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }

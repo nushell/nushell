@@ -45,8 +45,9 @@ pub enum Expr {
     ImportPattern(Box<ImportPattern>),
     Overlay(Option<BlockId>), // block ID of the overlay's origin module
     Signature(Box<Signature>),
+    StringInterpolation(Vec<Expression>),
     /// The boolean is `true` if the string is quoted.
-    StringInterpolation(Vec<Expression>, bool),
+    GlobInterpolation(Vec<Expression>, bool),
     Nothing,
     Garbage,
 }
@@ -87,7 +88,8 @@ impl Expr {
             | Expr::String(_)
             | Expr::RawString(_)
             | Expr::CellPath(_)
-            | Expr::StringInterpolation(_, _)
+            | Expr::StringInterpolation(_)
+            | Expr::GlobInterpolation(_, _)
             | Expr::Nothing => {
                 // These expressions do not use the output of the pipeline in any meaningful way,
                 // so we can discard the previous output by redirecting it to `Null`.
