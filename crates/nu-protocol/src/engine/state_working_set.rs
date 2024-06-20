@@ -4,8 +4,8 @@ use crate::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility,
     },
-    BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
-    SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError, ParseWarning,
+    Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -1019,8 +1019,10 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.spans.push(span);
         SpanId(num_permanent_spans + self.delta.spans.len() - 1)
     }
+}
 
-    pub fn get_span(&self, span_id: SpanId) -> Span {
+impl<'a> GetSpan for &'a StateWorkingSet<'a> {
+    fn get_span(&self, span_id: SpanId) -> Span {
         let num_permanent_spans = self.permanent_state.num_spans();
         if span_id.0 < num_permanent_spans {
             self.permanent_state.get_span(span_id)

@@ -289,6 +289,8 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     if !with_std {
         command.arg("--no-std-lib");
     }
+    // Use plain errors to help make error text matching more consistent
+    command.args(["--error-style", "plain"]);
     command
         .arg(format!("-c {}", escape_quote_string(&commands)))
         .stdout(Stdio::piped())
@@ -375,6 +377,8 @@ where
         .envs(envs)
         .arg("--commands")
         .arg(command)
+        // Use plain errors to help make error text matching more consistent
+        .args(["--error-style", "plain"])
         .arg("--config")
         .arg(temp_config_file)
         .arg("--env-config")

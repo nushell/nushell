@@ -36,7 +36,6 @@ fn picks_up_env_keys_when_entering_trusted_directory() {
     })
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 #[serial]
 fn picks_up_and_lets_go_env_keys_when_entering_trusted_directory_with_implied_cd() {
@@ -433,7 +432,6 @@ fn given_a_hierarchy_of_trusted_directories_going_back_restores_overwritten_vari
     })
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 #[serial]
 fn local_config_env_var_present_and_removed_correctly() {
@@ -487,7 +485,6 @@ fn local_config_env_var_present_and_removed_correctly() {
     });
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 #[serial]
 fn local_config_env_var_gets_overwritten() {
@@ -553,7 +550,6 @@ fn local_config_env_var_gets_overwritten() {
     });
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 #[serial]
 fn autoenv_test_entry_scripts() {
@@ -601,7 +597,6 @@ fn autoenv_test_entry_scripts() {
     });
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 #[serial]
 fn autoenv_test_exit_scripts() {

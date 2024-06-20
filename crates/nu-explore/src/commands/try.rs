@@ -22,7 +22,7 @@ impl TryCmd {
 }
 
 impl ViewCommand for TryCmd {
-    type View = TryView<'static>;
+    type View = TryView;
 
     fn name(&self) -> &'static str {
         Self::NAME

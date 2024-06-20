@@ -25,7 +25,6 @@ shadow-rs = { version = "0.28", default-features = false }
 
 [features]
 mimalloc = []
-which-support = []
 trash-support = []
 sqlite = []
 static-link-openssl = []

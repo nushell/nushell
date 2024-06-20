@@ -160,11 +160,6 @@ fn features_enabled() -> Vec<String> {
 
     // NOTE: There should be another way to know features on.
 
-    #[cfg(feature = "which-support")]
-    {
-        names.push("which".to_string());
-    }
-
     #[cfg(feature = "trash-support")]
     {
         names.push("trash".to_string());
