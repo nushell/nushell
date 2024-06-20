@@ -17,7 +17,7 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_tokens), help("Try removing them."))]
     ExtraTokens(#[label = "extra tokens"] Span),
 
-    #[error("Invaild characters after closing delimiter")]
+    #[error("Invalid characters after closing delimiter")]
     #[diagnostic(
         code(nu::parser::extra_token_after_closing_delimiter),
         help("Try removing them.")
