@@ -3,8 +3,8 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
-    SyntaxShape, Type, Value, Spanned
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId, Spanned,
+    SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -300,7 +300,7 @@ fn get_documentation(
             table_expand_call.add_named((
                 Spanned {
                     item: "expand".to_string(),
-                    span: Span::unknown()
+                    span: Span::unknown(),
                 },
                 None,
                 None,
