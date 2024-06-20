@@ -2,7 +2,6 @@ use crate::{
     exportable::Exportable,
     parse_block,
     parser::{parse_redirection, redirecting_builtin_error},
-    parser_path::ParserPath,
     type_check::{check_block_input_output, type_compatible},
 };
 use itertools::Itertools;
@@ -13,6 +12,7 @@ use nu_protocol::{
         Argument, Block, Call, Expr, Expression, ImportPattern, ImportPatternHead,
         ImportPatternMember, Pipeline, PipelineElement,
     },
+    parser_path::ParserPath,
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
     Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg, ResolvedImportPattern,
