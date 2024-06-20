@@ -75,9 +75,10 @@ fn main() -> Result<()> {
     }
 
     let ctrlc = Arc::new(AtomicBool::new(false));
-    let ctrlc_bus = Arc::new(Mutex::new(bus::Bus::new(1)));
+    let subscribers = Arc::new(Mutex::new(Vec::new()));
+
     // TODO: make this conditional in the future
-    ctrlc_protection(&mut engine_state, &ctrlc, &ctrlc_bus);
+    ctrlc_protection(&mut engine_state, &ctrlc, &subscribers);
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If

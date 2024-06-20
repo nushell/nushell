@@ -1,25 +1,29 @@
 use nu_protocol::engine::EngineState;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc, Mutex,
+    mpsc, Arc, Mutex,
 };
 
 pub(crate) fn ctrlc_protection(
     engine_state: &mut EngineState,
     ctrlc: &Arc<AtomicBool>,
-    tx: &Arc<Mutex<bus::Bus<()>>>,
+    subscribers: &Arc<Mutex<Vec<mpsc::Sender<()>>>>,
 ) {
-    let handler_ctrlc = ctrlc.clone();
-    let handler_tx = tx.clone();
+    {
+        let ctrlc = ctrlc.clone();
+        let subscribers = subscribers.clone();
 
-    ctrlc::set_handler(move || {
-        handler_ctrlc.store(true, Ordering::SeqCst);
-        if let Ok(mut bus) = handler_tx.lock() {
-            let _ = bus.try_broadcast(());
-        }
-    })
-    .expect("Error setting Ctrl-C handler");
+        ctrlc::set_handler(move || {
+            ctrlc.store(true, Ordering::SeqCst);
+            if let Ok(subscribers) = subscribers.lock() {
+                for subscriber in subscribers.iter() {
+                    let _ = subscriber.send(());
+                }
+            }
+        })
+        .expect("Error setting Ctrl-C handler");
+    }
 
     engine_state.ctrlc = Some(ctrlc.clone());
-    engine_state.ctrlc_bus = Some(tx.clone());
+    engine_state.ctrlc_tx = Some(subscribers.clone());
 }

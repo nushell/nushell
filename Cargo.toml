@@ -208,7 +208,6 @@ mimalloc = { version = "0.1.42", default-features = false, optional = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"
-bus = "2.4.1"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
