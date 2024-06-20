@@ -15,10 +15,8 @@ pub(crate) fn ctrlc_protection(
 
         ctrlc::set_handler(move || {
             ctrlc.store(true, Ordering::SeqCst);
-            if let Ok(subscribers) = subscribers.lock() {
-                for subscriber in subscribers.iter() {
-                    let _ = subscriber.send(());
-                }
+            if let Ok(mut subscribers) = subscribers.lock() {
+                subscribers.retain(|sender| sender.send(()).is_ok());
             }
         })
         .expect("Error setting Ctrl-C handler");
