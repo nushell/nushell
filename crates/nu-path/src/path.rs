@@ -90,6 +90,27 @@ impl<Form: PathForm> Path<Form> {
         unsafe { &*ptr }
     }
 
+    /// Attempt to create a new [`Path`] from a reference of another type.
+    ///
+    /// This is a convenience method instead of having to use `try_into` with a type annotation.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{AbsolutePath, RelativePath};
+    ///
+    /// assert!(AbsolutePath::try_new("foo.txt").is_err());
+    /// assert!(RelativePath::try_new("foo.txt").is_ok());
+    /// ```
+    #[inline]
+    pub fn try_new<'a, T>(path: &'a T) -> Result<&'a Self, <&'a T as TryInto<&'a Self>>::Error>
+    where
+        T: ?Sized,
+        &'a T: TryInto<&'a Self>,
+    {
+        path.try_into()
+    }
+
     /// Returns the underlying [`OsStr`] slice.
     ///
     /// # Examples
@@ -472,7 +493,7 @@ impl<Form: PathForm> Path<Form> {
     /// ```
     /// use nu_path::{Path, RelativePath};
     ///
-    /// let relative: &RelativePath = "test.txt".try_into().unwrap();
+    /// let relative = RelativePath::try_new("test.txt").unwrap();
     /// let p: &Path = relative.cast();
     /// assert_eq!(p, relative);
     /// ```
@@ -492,7 +513,7 @@ impl<Form: PathForm> Path<Form> {
     /// ```
     /// use nu_path::{Path, RelativePath};
     ///
-    /// let p: &RelativePath = "test.txt".try_into().unwrap();
+    /// let p = RelativePath::try_new("test.txt").unwrap();
     /// assert_eq!(Path::new("test.txt"), p.as_any());
     /// ```
     #[inline]
@@ -743,7 +764,7 @@ impl<Form: IsAbsolute> Path<Form> {
     #[cfg_attr(windows, doc = "```no_run")]
     /// use nu_path::AbsolutePath;
     ///
-    /// let p: &AbsolutePath = "/test".try_into().unwrap();
+    /// let p = AbsolutePath::try_new("/test").unwrap();
     /// assert_eq!(std::path::Path::new("/test"), p.as_std_path());
     /// ```
     #[inline]
@@ -759,7 +780,7 @@ impl<Form: IsAbsolute> Path<Form> {
     #[cfg_attr(windows, doc = "```no_run")]
     /// use nu_path::AbsolutePath;
     ///
-    /// let path: &AbsolutePath = "/foo".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/foo").unwrap();
     /// assert_eq!(path.to_std_path_buf(), std::path::PathBuf::from("/foo"));
     /// ```
     #[inline]
@@ -778,7 +799,7 @@ impl<Form: IsAbsolute> Path<Form> {
     /// ```no_run
     /// use nu_path::AbsolutePath;
     ///
-    /// let path: &AbsolutePath = "/Minas/tirith".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/Minas/tirith").unwrap();
     /// let metadata = path.metadata().expect("metadata call failed");
     /// println!("{:?}", metadata.file_type());
     /// ```
@@ -799,7 +820,7 @@ impl<Form: IsAbsolute> Path<Form> {
     /// ```no_run
     /// use nu_path::AbsolutePath;
     ///
-    /// let path: &AbsolutePath = "/laputa".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/laputa").unwrap();
     /// for entry in path.read_dir().expect("read_dir call failed") {
     ///     if let Ok(entry) = entry {
     ///         println!("{:?}", entry.path());
@@ -826,7 +847,7 @@ impl<Form: IsAbsolute> Path<Form> {
     /// ```no_run
     /// use nu_path::AbsolutePath;
     ///
-    /// let path: &AbsolutePath = "/does_not_exist".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/does_not_exist").unwrap();
     /// assert!(!path.exists());
     /// ```
     #[inline]
@@ -846,10 +867,10 @@ impl<Form: IsAbsolute> Path<Form> {
     /// ```no_run
     /// use nu_path::AbsolutePath;
     ///
-    /// let path: &AbsolutePath = "/is_a_directory/".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/is_a_directory/").unwrap();
     /// assert_eq!(path.is_file(), false);
     ///
-    /// let path: &AbsolutePath = "/a_file.txt".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/a_file.txt").unwrap();
     /// assert_eq!(path.is_file(), true);
     /// ```
     ///
@@ -876,10 +897,10 @@ impl<Form: IsAbsolute> Path<Form> {
     /// ```no_run
     /// use nu_path::AbsolutePath;
     ///
-    /// let path: &AbsolutePath = "/is_a_directory/".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/is_a_directory/").unwrap();
     /// assert_eq!(path.is_dir(), true);
     ///
-    /// let path: &AbsolutePath = "/a_file.txt".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/a_file.txt").unwrap();
     /// assert_eq!(path.is_dir(), false);
     /// ```
     #[inline]
@@ -901,7 +922,7 @@ impl AbsolutePath {
     /// ```no_run
     /// use nu_path::{AbsolutePath, PathBuf};
     ///
-    /// let path: &AbsolutePath = "/foo/test/../test/bar.rs".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/foo/test/../test/bar.rs").unwrap();
     /// assert_eq!(path.canonicalize().unwrap(), PathBuf::from("/foo/test/bar.rs"));
     /// ```
     #[cfg(not(windows))]
@@ -924,7 +945,7 @@ impl AbsolutePath {
     /// ```no_run
     /// use nu_path::{AbsolutePath, PathBuf};
     ///
-    /// let path: &AbsolutePath = "/foo/test/../test/bar.rs".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/foo/test/../test/bar.rs").unwrap();
     /// assert_eq!(path.canonicalize().unwrap(), PathBuf::from("/foo/test/bar.rs"));
     /// ```
     #[cfg(windows)]
@@ -944,7 +965,7 @@ impl AbsolutePath {
     /// ```no_run
     /// use nu_path::AbsolutePath;
     ///
-    /// let path: &AbsolutePath = "/laputa/sky_castle.rs".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/laputa/sky_castle.rs").unwrap();
     /// let path_link = path.read_link().expect("read_link call failed");
     /// ```
     #[inline]
@@ -972,10 +993,10 @@ impl AbsolutePath {
     /// ```no_run
     /// use nu_path::AbsolutePath;
     ///
-    /// let path: &AbsolutePath = "/does_not_exist".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/does_not_exist").unwrap();
     /// assert!(!path.try_exists().unwrap());
     ///
-    /// let path: &AbsolutePath = "/root/secret_file.txt".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/root/secret_file.txt").unwrap();
     /// assert!(path.try_exists().is_err());
     /// ```
     #[inline]
@@ -998,7 +1019,7 @@ impl AbsolutePath {
     /// use nu_path::AbsolutePath;
     /// use std::os::unix::fs::symlink;
     ///
-    /// let link_path: &AbsolutePath = "/link".try_into().unwrap();
+    /// let link_path = AbsolutePath::try_new("/link").unwrap();
     /// symlink("/origin_does_not_exist/", link_path).unwrap();
     /// assert_eq!(link_path.is_symlink(), true);
     /// assert_eq!(link_path.exists(), false);
@@ -1017,7 +1038,7 @@ impl AbsolutePath {
     /// ```no_run
     /// use nu_path::AbsolutePath;
     ///
-    /// let path: &AbsolutePath = "/Minas/tirith".try_into().unwrap();
+    /// let path = AbsolutePath::try_new("/Minas/tirith").unwrap();
     /// let metadata = path.symlink_metadata().expect("symlink_metadata call failed");
     /// println!("{:?}", metadata.file_type());
     /// ```
@@ -1035,7 +1056,7 @@ impl CanonicalPath {
     /// ```no_run
     /// use nu_path::AbsolutePath;
     ///
-    /// let absolute: &AbsolutePath = "/test".try_into().unwrap();
+    /// let absolute = AbsolutePath::try_new("/test").unwrap();
     /// let p = absolute.canonicalize().unwrap();
     /// assert_eq!(absolute, p.as_absolute());
     /// ```
@@ -1286,7 +1307,7 @@ impl<Form: PathForm> PathBuf<Form> {
     /// # Examples
     ///
     /// ```
-    /// use nu_path::{RelativePathBuf, PathBuf};
+    /// use nu_path::{PathBuf, RelativePathBuf};
     ///
     /// let p = RelativePathBuf::try_from("test.txt").unwrap();
     /// assert_eq!(PathBuf::from("test.txt"), p.into_any());
