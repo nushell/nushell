@@ -470,11 +470,11 @@ impl<Form: PathForm> Path<Form> {
     /// # Examples
     ///
     /// ```
-    /// use nu_path::{Path, AbsolutePath};
+    /// use nu_path::{Path, RelativePath};
     ///
-    /// let absolute: &AbsolutePath = "/test".try_into().unwrap();
-    /// let p: &Path = absolute.cast();
-    /// assert_eq!(p, absolute);
+    /// let relative: &RelativePath = "test.txt".try_into().unwrap();
+    /// let p: &Path = relative.cast();
+    /// assert_eq!(p, relative);
     /// ```
     #[inline]
     pub fn cast<To>(&self) -> &Path<To>
@@ -490,10 +490,10 @@ impl<Form: PathForm> Path<Form> {
     /// # Examples
     ///
     /// ```
-    /// use nu_path::{Path, AbsolutePath};
+    /// use nu_path::{Path, RelativePath};
     ///
-    /// let p: &AbsolutePath = "/test".try_into().unwrap();
-    /// assert_eq!(Path::new("/test"), p.as_any());
+    /// let p: &RelativePath = "test.txt".try_into().unwrap();
+    /// assert_eq!(Path::new("test.txt"), p.as_any());
     /// ```
     #[inline]
     pub fn as_any(&self) -> &Path {
@@ -593,7 +593,7 @@ impl Path {
     /// ```
     /// use nu_path::Path;
     ///
-    /// assert!(Path::new("/test").try_absolute().is_ok());
+    /// assert!(Path::new("test.txt").try_absolute().is_err());
     /// ```
     #[inline]
     pub fn try_absolute(&self) -> Result<&AbsolutePath, &RelativePath> {
@@ -739,7 +739,8 @@ impl<Form: IsAbsolute> Path<Form> {
     ///
     /// # Examples
     ///
-    /// ```
+    #[cfg_attr(not(windows), doc = "```")]
+    #[cfg_attr(windows, doc = "```no_run")]
     /// use nu_path::AbsolutePath;
     ///
     /// let p: &AbsolutePath = "/test".try_into().unwrap();
@@ -754,7 +755,8 @@ impl<Form: IsAbsolute> Path<Form> {
     ///
     /// # Examples
     ///
-    /// ```
+    #[cfg_attr(not(windows), doc = "```")]
+    #[cfg_attr(windows, doc = "```no_run")]
     /// use nu_path::AbsolutePath;
     ///
     /// let path: &AbsolutePath = "/foo".try_into().unwrap();
@@ -1264,9 +1266,9 @@ impl<Form: PathForm> PathBuf<Form> {
     /// # Examples
     ///
     /// ```
-    /// use nu_path::{PathBuf, AbsolutePathBuf};
+    /// use nu_path::{PathBuf, RelativePathBuf};
     ///
-    /// let p = AbsolutePathBuf::try_from("/test").unwrap();
+    /// let p = RelativePathBuf::try_from("test.txt").unwrap();
     /// let p: PathBuf = p.cast_into();
     /// assert_eq!(PathBuf::from("/test"), p);
     /// ```
@@ -1284,10 +1286,10 @@ impl<Form: PathForm> PathBuf<Form> {
     /// # Examples
     ///
     /// ```
-    /// use nu_path::{AbsolutePathBuf, PathBuf};
+    /// use nu_path::{RelativePathBuf, PathBuf};
     ///
-    /// let p = AbsolutePathBuf::try_from("/test").unwrap();
-    /// assert_eq!(PathBuf::from("/test"), p.into_any());
+    /// let p = RelativePathBuf::try_from("test.txt").unwrap();
+    /// assert_eq!(PathBuf::from("test.txt"), p.into_any());
     /// ```
     #[inline]
     pub fn into_any(self) -> PathBuf {
@@ -1385,7 +1387,7 @@ impl PathBuf {
     /// ```
     /// use nu_path::PathBuf;
     ///
-    /// assert!(PathBuf::from("/test").try_into_absolute().is_ok());
+    /// assert!(PathBuf::from("test.txt").try_into_absolute().is_err());
     /// ```
     #[inline]
     pub fn try_into_absolute(self) -> Result<AbsolutePathBuf, Self> {
@@ -1559,7 +1561,8 @@ impl<Form: IsAbsolute> PathBuf<Form> {
     ///
     /// # Examples
     ///
-    /// ```
+    #[cfg_attr(not(windows), doc = "```")]
+    #[cfg_attr(windows, doc = "```no_run")]
     /// use nu_path::AbsolutePathBuf;
     ///
     /// let p = AbsolutePathBuf::try_from("/test").unwrap();
