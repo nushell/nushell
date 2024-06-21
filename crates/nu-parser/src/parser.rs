@@ -2834,10 +2834,10 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     // Check for unbalanced quotes:
     {
         if bytes.starts_with(b"\"")
-            && (bytes.into_iter().filter(|ch| **ch == b'"').count() > 1 && !bytes.ends_with(b"\""))
+            && (bytes.iter().filter(|ch| **ch == b'"').count() > 1 && !bytes.ends_with(b"\""))
         {
             let close_delimiter_index = bytes
-                .into_iter()
+                .iter()
                 .skip(1)
                 .position(|ch| *ch == b'"')
                 .expect("Already check input bytes contains at least two double quotes");
@@ -2848,10 +2848,10 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
         }
 
         if bytes.starts_with(b"\'")
-            && (bytes.into_iter().filter(|ch| **ch == b'\'').count() > 1 && !bytes.ends_with(b"\'"))
+            && (bytes.iter().filter(|ch| **ch == b'\'').count() > 1 && !bytes.ends_with(b"\'"))
         {
             let close_delimiter_index = bytes
-                .into_iter()
+                .iter()
                 .skip(1)
                 .position(|ch| *ch == b'\'')
                 .expect("Already check input bytes contains at least two double quotes");
