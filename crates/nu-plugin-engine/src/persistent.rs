@@ -11,7 +11,7 @@ use nu_protocol::{
 };
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{mpsc, Arc, Mutex},
 };
 
 /// A box that can keep a plugin that was spawned persistent for further uses. The plugin may or
@@ -51,6 +51,8 @@ struct RunningPlugin {
     /// Garbage collector for the plugin
     gc: PluginGc,
 }
+
+type CtrlcSubscribers = Arc<Mutex<Vec<mpsc::Sender<()>>>>;
 
 impl PersistentPlugin {
     /// Create a new persistent plugin. The plugin will not be spawned immediately.
@@ -180,7 +182,6 @@ impl PersistentPlugin {
         let gc = PluginGc::new(mutable.gc_config.clone(), &self)?;
         // I need the current EngineState here
         eprintln!("gc.sender: {:?}", gc.clone_sender());
-
 
         let pid = child.id();
         let interface = make_plugin_interface(
