@@ -131,7 +131,7 @@ impl RecordView {
             Orientation::Left => (column, row),
         };
 
-        if row >= layer.count_rows() || column >= layer.count_columns() {
+        if row >= layer.record_values.len() || column >= layer.column_names.len() {
             // actually must never happen; unless cursor works incorrectly
             // if being sure about cursor it can be deleted;
             return Value::nothing(Span::unknown());
@@ -610,7 +610,7 @@ fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
 /// scroll to the end of the data
 fn tail_data(state: &mut RecordView, page_size: usize) {
     let layer = state.get_layer_last_mut();
-    let count_rows = layer.count_rows();
+    let count_rows = layer.record_values.len();
     if count_rows > page_size {
         layer
             .cursor
@@ -722,43 +722,66 @@ fn get_percentage(value: usize, max: usize) -> usize {
 }
 
 fn transpose_table(layer: &mut RecordLayer) {
+    if layer.was_transposed {
+        transpose_from(layer);
+    } else {
+        transpose_to(layer);
+    }
+
+    layer.was_transposed = !layer.was_transposed;
+}
+
+fn transpose_from(layer: &mut RecordLayer) {
     let count_rows = layer.record_values.len();
     let count_columns = layer.column_names.len();
 
-    if layer.was_transposed {
-        let headers = pop_first_column(&mut layer.record_values);
-        let headers = headers
-            .into_iter()
-            .map(|value| match value {
-                Value::String { val, .. } => val,
-                _ => unreachable!("must never happen"),
-            })
-            .collect();
+    if let Some(data) = &mut layer.record_text {
+        pop_first_column(data);
+        *data = _transpose_table(data, count_rows, count_columns - 1);
+    }
 
-        let data = _transpose_table(&layer.record_values, count_rows, count_columns - 1);
+    let headers = pop_first_column(&mut layer.record_values);
+    let headers = headers
+        .into_iter()
+        .map(|value| match value {
+            Value::String { val, .. } => val,
+            _ => unreachable!("must never happen"),
+        })
+        .collect();
 
-        layer.record_values = data;
-        layer.column_names = headers;
+    let data = _transpose_table(&layer.record_values, count_rows, count_columns - 1);
 
-        return;
+    layer.record_values = data;
+    layer.column_names = headers;
+}
+
+fn transpose_to(layer: &mut RecordLayer) {
+    let count_rows = layer.record_values.len();
+    let count_columns = layer.column_names.len();
+
+    if let Some(data) = &mut layer.record_text {
+        *data = _transpose_table(data, count_rows, count_columns);
+        for (column, column_name) in layer.column_names.iter().enumerate() {
+            let value = (column_name.to_owned(), Default::default());
+            data[column].insert(0, value);
+        }
     }
 
     let mut data = _transpose_table(&layer.record_values, count_rows, count_columns);
-
     for (column, column_name) in layer.column_names.iter().enumerate() {
         let value = Value::string(column_name, NuSpan::unknown());
-
         data[column].insert(0, value);
     }
 
     layer.record_values = data;
     layer.column_names = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
-
-    layer.was_transposed = !layer.was_transposed;
 }
 
-fn pop_first_column(values: &mut [Vec<Value>]) -> Vec<Value> {
-    let mut data = vec![Value::default(); values.len()];
+fn pop_first_column<T>(values: &mut [Vec<T>]) -> Vec<T>
+where
+    T: Default + Clone,
+{
+    let mut data = vec![T::default(); values.len()];
     for (row, values) in values.iter_mut().enumerate() {
         data[row] = values.remove(0);
     }
@@ -766,12 +789,11 @@ fn pop_first_column(values: &mut [Vec<Value>]) -> Vec<Value> {
     data
 }
 
-fn _transpose_table(
-    values: &[Vec<Value>],
-    count_rows: usize,
-    count_columns: usize,
-) -> Vec<Vec<Value>> {
-    let mut data = vec![vec![Value::default(); count_rows]; count_columns];
+fn _transpose_table<T>(values: &[Vec<T>], count_rows: usize, count_columns: usize) -> Vec<Vec<T>>
+where
+    T: Clone + Default,
+{
+    let mut data = vec![vec![T::default(); count_rows]; count_columns];
     for (row, values) in values.iter().enumerate() {
         for (column, value) in values.iter().enumerate() {
             data[column][row].clone_from(value);
