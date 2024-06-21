@@ -87,7 +87,7 @@ impl CustomValue for CoolCustomValue {
         } else {
             Err(ShellError::CantFindColumn {
                 col_name: column_name,
-                span: path_span,
+                span: Some(path_span),
                 src_span: self_span,
             })
         }

@@ -229,14 +229,24 @@ impl Command for Do {
                 result: None,
             },
             Example {
-                description: "Run the closure, with a positional parameter",
-                example: r#"do {|x| 100 + $x } 77"#,
+                description: "Run the closure with a positional, type-checked parameter",
+                example: r#"do {|x:int| 100 + $x } 77"#,
                 result: Some(Value::test_int(177)),
             },
             Example {
-                description: "Run the closure, with input",
-                example: r#"77 | do {|x| 100 + $in }"#,
-                result: None, // TODO: returns 177
+                description: "Run the closure with pipeline input",
+                example: r#"77 | do { 100 + $in }"#,
+                result: Some(Value::test_int(177)),
+            },
+            Example {
+                description: "Run the closure with a default parameter value",
+                example: r#"77 | do {|x=100| $x + $in }"#,
+                result: Some(Value::test_int(177)),
+            },
+            Example {
+                description: "Run the closure with two positional parameters",
+                example: r#"do {|x,y| $x + $y } 77 100"#,
+                result: Some(Value::test_int(177)),
             },
             Example {
                 description: "Run the closure and keep changes to the environment",
@@ -298,9 +308,7 @@ fn bind_args_to(
     if let Some(rest_positional) = &signature.rest_positional {
         let mut rest_items = vec![];
 
-        for result in
-            val_iter.skip(signature.required_positional.len() + signature.optional_positional.len())
-        {
+        for result in val_iter {
             rest_items.push(result);
         }
 

@@ -539,9 +539,17 @@ fn dynamic_closure_optional_arg() {
 fn dynamic_closure_rest_args() {
     let actual = nu!(r#"let closure = {|...args| $args | str join ""}; do $closure 1 2 3"#);
     assert_eq!(actual.out, "123");
+
+    let actual = nu!(
+        r#"let closure = {|required, ...args| $"($required), ($args | str join "")"}; do $closure 1 2 3"#
+    );
+    assert_eq!(actual.out, "1, 23");
+    let actual = nu!(
+        r#"let closure = {|required, optional?, ...args| $"($required), ($optional), ($args | str join "")"}; do $closure 1 2 3"#
+    );
+    assert_eq!(actual.out, "1, 2, 3");
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 fn argument_subexpression_reports_errors() {
     let actual = nu!("echo (ferris_is_not_here.exe)");
@@ -989,7 +997,9 @@ fn hide_alias_hides_alias() {
         "
     ));
 
-    assert!(actual.err.contains("did you mean 'all'?"));
+    assert!(
+        actual.err.contains("Command `ll` not found") && actual.err.contains("Did you mean `all`?")
+    );
 }
 
 mod parse {
@@ -1035,7 +1045,7 @@ mod parse {
     fn ensure_backticks_are_bareword_command() {
         let actual = nu!("`8abc123`");
 
-        assert!(actual.err.contains("was not found"),);
+        assert!(actual.err.contains("Command `8abc123` not found"),);
     }
 }
 
@@ -1146,5 +1156,8 @@ fn command_not_found_error_shows_not_found_2() {
             export def --wrapped my-foo [...rest] { foo };
             my-foo
         "#);
-    assert!(actual.err.contains("did you mean"));
+    assert!(
+        actual.err.contains("Command `foo` not found")
+            && actual.err.contains("Did you mean `for`?")
+    );
 }

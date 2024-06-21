@@ -10,7 +10,6 @@ struct Arguments {
     substring: String,
     cell_paths: Option<Vec<CellPath>>,
     case_insensitive: bool,
-    not_contain: bool,
 }
 
 impl CmdArgument for Arguments {
@@ -40,7 +39,6 @@ impl Command for SubCommand {
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
-            .switch("not", "DEPRECATED OPTION: does not contain", Some('n'))
             .category(Category::Strings)
     }
 
@@ -52,6 +50,10 @@ impl Command for SubCommand {
         vec!["substring", "match", "find", "search"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -59,9 +61,25 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if call.has_flag(engine_state, stack, "not")? {
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let args = Arguments {
+            substring: call.req::<String>(engine_state, stack, 0)?,
+            cell_paths,
+            case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
+        };
+        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        if call.has_flag_const(working_set, "not")? {
             nu_protocol::report_error_new(
-                engine_state,
+                working_set.permanent(),
                 &ShellError::GenericError {
                     error: "Deprecated option".into(),
                     msg: "`str contains --not {string}` is deprecated and will be removed in 0.95."
@@ -73,15 +91,20 @@ impl Command for SubCommand {
             );
         }
 
-        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments {
-            substring: call.req::<String>(engine_state, stack, 0)?,
+            substring: call.req_const::<String>(working_set, 0)?,
             cell_paths,
-            case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
-            not_contain: call.has_flag(engine_state, stack, "not")?,
+            case_insensitive: call.has_flag_const(working_set, "ignore-case")?,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(
+            action,
+            args,
+            input,
+            call.head,
+            working_set.permanent().ctrlc.clone(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -142,7 +165,6 @@ fn action(
     input: &Value,
     Arguments {
         case_insensitive,
-        not_contain,
         substring,
         ..
     }: &Arguments,
@@ -150,23 +172,11 @@ fn action(
 ) -> Value {
     match input {
         Value::String { val, .. } => Value::bool(
-            match case_insensitive {
-                true => {
-                    if *not_contain {
-                        !val.to_folded_case()
-                            .contains(substring.to_folded_case().as_str())
-                    } else {
-                        val.to_folded_case()
-                            .contains(substring.to_folded_case().as_str())
-                    }
-                }
-                false => {
-                    if *not_contain {
-                        !val.contains(substring)
-                    } else {
-                        val.contains(substring)
-                    }
-                }
+            if *case_insensitive {
+                val.to_folded_case()
+                    .contains(substring.to_folded_case().as_str())
+            } else {
+                val.contains(substring)
             },
             head,
         ),

@@ -125,7 +125,6 @@ mod upsert;
 mod url;
 mod use_;
 mod where_;
-#[cfg(feature = "which-support")]
 mod which;
 mod while_;
 mod with_env;

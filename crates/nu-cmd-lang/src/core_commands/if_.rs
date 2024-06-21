@@ -122,6 +122,10 @@ impl Command for If {
         }
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["else", "conditional"]
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {

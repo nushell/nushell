@@ -72,12 +72,12 @@ drwxr-xr-x  2 root root 4.0K Mar 20 08:28 =(char nl)
 drwxr-xr-x  4 root root 4.0K Mar 20 08:18 ~(char nl)
 -rw-r--r--  1 root root 3.0K Mar 20 07:23 ~asdf(char nl)\"";
     let expected = "[
-['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column8'];
-['drwxr-xr-x', '2', 'root', 'root', '4.0K', 'Mar 20 08:28', '='],
-['drwxr-xr-x', '4', 'root', 'root', '4.0K', 'Mar 20 08:18', '~'],
-['-rw-r--r--',  '1', 'root', 'root', '3.0K', 'Mar 20 07:23', '~asdf']
+['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column7', 'column8'];
+['drwxr-xr-x', '2', 'root', 'root', '4.0K', 'Mar 20', '08:28', '='],
+['drwxr-xr-x', '4', 'root', 'root', '4.0K', 'Mar 20', '08:18', '~'],
+['-rw-r--r--',  '1', 'root', 'root', '3.0K', 'Mar 20', '07:23', '~asdf']
 ]";
-    let range = "5..7";
+    let range = "5..6";
     let cmd = format!(
         "({} | detect columns -c {} -s 1 --no-headers) == {}",
         pipeline(body),

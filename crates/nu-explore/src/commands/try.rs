@@ -1,5 +1,5 @@
 use super::ViewCommand;
-use crate::views::InteractiveView;
+use crate::views::TryView;
 use anyhow::Result;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -22,7 +22,7 @@ impl TryCmd {
 }
 
 impl ViewCommand for TryCmd {
-    type View = InteractiveView<'static>;
+    type View = TryView;
 
     fn name(&self) -> &'static str {
         Self::NAME
@@ -45,7 +45,7 @@ impl ViewCommand for TryCmd {
         value: Option<Value>,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
-        let mut view = InteractiveView::new(value);
+        let mut view = TryView::new(value);
         view.init(self.command.clone());
         view.try_run(engine_state, stack)?;
 

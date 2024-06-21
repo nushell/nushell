@@ -255,7 +255,7 @@ fn substrings_the_input() {
 }
 
 #[test]
-fn substring_errors_if_start_index_is_greater_than_end_index() {
+fn substring_empty_if_start_index_is_greater_than_end_index() {
     Playground::setup("str_test_9", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -269,13 +269,11 @@ fn substring_errors_if_start_index_is_greater_than_end_index() {
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring 6..5 fortune.teller.phone
+                 | str substring 6..4 fortune.teller.phone
+                 | get fortune.teller.phone
              "#
         ));
-
-        assert!(actual
-            .err
-            .contains("End must be greater than or equal to Start"))
+        assert_eq!(actual.out, "")
     })
 }
 
@@ -342,7 +340,7 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
             cwd: dirs.test(), pipeline(
             r#"
                  open sample.toml
-                 | str substring ..2 package.name
+                 | str substring ..1 package.name
                  | get package.name
              "#
         ));
@@ -372,6 +370,21 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
         ));
 
         assert_eq!(actual.out, "arepas");
+    })
+}
+
+#[test]
+fn substring_by_negative_index() {
+    Playground::setup("str_test_13", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(), "'apples' | str substring 0..-1",
+        );
+        assert_eq!(actual.out, "apples");
+
+        let actual = nu!(
+            cwd: dirs.test(), "'apples' | str substring 0..<-1",
+        );
+        assert_eq!(actual.out, "apple");
     })
 }
 

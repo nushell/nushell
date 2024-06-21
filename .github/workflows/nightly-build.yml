@@ -27,7 +27,7 @@ jobs:
     # if: github.repository == 'nushell/nightly'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.1.5
+        uses: actions/checkout@v4.1.7
         if: github.repository == 'nushell/nightly'
         with:
           ref: main
@@ -36,7 +36,7 @@ jobs:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.10
+        uses: hustcer/setup-nu@v3.11
         if: github.repository == 'nushell/nightly'
         with:
           version: 0.93.0
@@ -112,7 +112,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v4.1.5
+    - uses: actions/checkout@v4.1.7
       with:
         ref: main
         fetch-depth: 0
@@ -122,13 +122,13 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
+      uses: actions-rust-lang/setup-rust-toolchain@v1.9.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec: Error 0xc0000135`
       with:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.10
+      uses: hustcer/setup-nu@v3.11
       with:
         version: 0.93.0
 
@@ -181,12 +181,12 @@ jobs:
       - name: Waiting for Release
         run: sleep 1800
 
-      - uses: actions/checkout@v4.1.5
+      - uses: actions/checkout@v4.1.7
         with:
           ref: main
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.10
+        uses: hustcer/setup-nu@v3.11
         with:
           version: 0.93.0
 

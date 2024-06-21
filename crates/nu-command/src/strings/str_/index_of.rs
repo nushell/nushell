@@ -1,10 +1,10 @@
-use crate::grapheme_flags;
+use crate::{grapheme_flags, grapheme_flags_const};
 use nu_cmd_base::{
     input_handler::{operate, CmdArgument},
     util,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
+use nu_protocol::{engine::StateWorkingSet, Range};
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
@@ -72,6 +72,10 @@ impl Command for SubCommand {
         vec!["match", "find", "search"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -90,6 +94,31 @@ impl Command for SubCommand {
             graphemes: grapheme_flags(engine_state, stack, call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let substring: Spanned<String> = call.req_const(working_set, 0)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let args = Arguments {
+            substring: substring.item,
+            range: call.get_flag_const(working_set, "range")?,
+            end: call.has_flag_const(working_set, "end")?,
+            cell_paths,
+            graphemes: grapheme_flags_const(working_set, call)?,
+        };
+        operate(
+            action,
+            args,
+            input,
+            call.head,
+            working_set.permanent().ctrlc.clone(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -405,7 +434,7 @@ mod tests {
         let range = Range::new(
             Value::int(0, Span::test_data()),
             Value::int(1, Span::test_data()),
-            Value::int(3, Span::test_data()),
+            Value::int(2, Span::test_data()),
             RangeInclusion::Inclusive,
             Span::test_data(),
         )

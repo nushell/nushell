@@ -116,17 +116,8 @@ fn command(
     call: &EvaluatedCall,
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let polars_lazy = lazy
-        .to_polars()
-        .median()
-        .map_err(|e| ShellError::GenericError {
-            error: format!("Error in median operation: {e}"),
-            msg: "".into(),
-            help: None,
-            span: None,
-            inner: vec![],
-        })?;
-    let lazy = NuLazyFrame::new(polars_lazy);
+    let polars_lazy = lazy.to_polars().median();
+    let lazy = NuLazyFrame::new(lazy.from_eager, polars_lazy);
     lazy.to_pipeline_data(plugin, engine, call.head)
 }
 

@@ -1,7 +1,7 @@
 use crate::{
     ast::{Argument, Block, Expr, ExternalArgument, ImportPattern, MatchPattern, RecordItem},
     engine::StateWorkingSet,
-    BlockId, DeclId, Signature, Span, Type, VarId, IN_VARIABLE_ID,
+    BlockId, DeclId, GetSpan, Signature, Span, SpanId, Type, VarId, IN_VARIABLE_ID,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -10,15 +10,18 @@ use std::sync::Arc;
 pub struct Expression {
     pub expr: Expr,
     pub span: Span,
+    pub span_id: SpanId,
     pub ty: Type,
     pub custom_completion: Option<DeclId>,
 }
 
 impl Expression {
-    pub fn garbage(span: Span) -> Expression {
+    pub fn garbage(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+        let span_id = working_set.add_span(span);
         Expression {
             expr: Expr::Garbage,
             span,
+            span_id,
             ty: Type::Any,
             custom_completion: None,
         }
@@ -229,7 +232,7 @@ impl Expression {
                 }
                 false
             }
-            Expr::StringInterpolation(items) => {
+            Expr::StringInterpolation(items) | Expr::GlobInterpolation(items, _) => {
                 for i in items {
                     if i.has_in_variable(working_set) {
                         return true;
@@ -438,7 +441,7 @@ impl Expression {
             Expr::Signature(_) => {}
             Expr::String(_) => {}
             Expr::RawString(_) => {}
-            Expr::StringInterpolation(items) => {
+            Expr::StringInterpolation(items) | Expr::GlobInterpolation(items, _) => {
                 for i in items {
                     i.replace_span(working_set, replaced, new_span)
                 }
@@ -470,5 +473,50 @@ impl Expression {
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
         }
+    }
+
+    pub fn new(working_set: &mut StateWorkingSet, expr: Expr, span: Span, ty: Type) -> Expression {
+        let span_id = working_set.add_span(span);
+        Expression {
+            expr,
+            span,
+            span_id,
+            ty,
+            custom_completion: None,
+        }
+    }
+
+    pub fn new_existing(expr: Expr, span: Span, span_id: SpanId, ty: Type) -> Expression {
+        Expression {
+            expr,
+            span,
+            span_id,
+            ty,
+            custom_completion: None,
+        }
+    }
+
+    pub fn new_unknown(expr: Expr, span: Span, ty: Type) -> Expression {
+        Expression {
+            expr,
+            span,
+            span_id: SpanId(0),
+            ty,
+            custom_completion: None,
+        }
+    }
+
+    pub fn with_span_id(self, span_id: SpanId) -> Expression {
+        Expression {
+            expr: self.expr,
+            span: self.span,
+            span_id,
+            ty: self.ty,
+            custom_completion: self.custom_completion,
+        }
+    }
+
+    pub fn span(&self, state: &impl GetSpan) -> Span {
+        state.get_span(self.span_id)
     }
 }

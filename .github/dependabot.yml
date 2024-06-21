@@ -18,6 +18,14 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
+    groups:
+      # Only update polars as a whole as there are many subcrates that need to
+      # be updated at once. We explicitly depend on some of them, so batch their
+      # updates to not take up dependabot PR slots with dysfunctional PRs
+      polars:
+        patterns:
+          - "polars"
+          - "polars-*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

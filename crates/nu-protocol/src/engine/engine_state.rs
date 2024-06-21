@@ -7,8 +7,8 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    BlockId, Category, Config, DeclId, FileId, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Module, ModuleId, OverlayId,
+    ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -81,6 +81,7 @@ pub struct EngineState {
     // especially long, so it helps
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
     pub(super) modules: Arc<Vec<Arc<Module>>>,
+    pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
@@ -115,6 +116,9 @@ pub const IN_VARIABLE_ID: usize = 1;
 pub const ENV_VARIABLE_ID: usize = 2;
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
+// The first span is unknown span
+pub const UNKNOWN_SPAN_ID: SpanId = SpanId(0);
+
 impl EngineState {
     pub fn new() -> Self {
         Self {
@@ -132,6 +136,7 @@ impl EngineState {
             modules: Arc::new(vec![Arc::new(Module::new(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
+            spans: vec![Span::unknown()],
             usage: Usage::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
@@ -184,6 +189,7 @@ impl EngineState {
         self.files.extend(delta.files);
         self.virtual_paths.extend(delta.virtual_paths);
         self.vars.extend(delta.vars);
+        self.spans.extend(delta.spans);
         self.usage.merge_with(delta.usage);
 
         // Avoid potentially cloning the Arcs if we aren't adding anything
@@ -565,6 +571,9 @@ impl EngineState {
         self.modules.len()
     }
 
+    pub fn num_spans(&self) -> usize {
+        self.spans.len()
+    }
     pub fn print_vars(&self) {
         for var in self.vars.iter().enumerate() {
             println!("var{}: {:?}", var.0, var.1);
@@ -1018,6 +1027,27 @@ impl EngineState {
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
             )));
         }
+    }
+
+    /// Add new span and return its ID
+    pub fn add_span(&mut self, span: Span) -> SpanId {
+        self.spans.push(span);
+        SpanId(self.num_spans() - 1)
+    }
+
+    /// Find ID of a span (should be avoided if possible)
+    pub fn find_span_id(&self, span: Span) -> Option<SpanId> {
+        self.spans.iter().position(|sp| sp == &span).map(SpanId)
+    }
+}
+
+impl<'a> GetSpan for &'a EngineState {
+    /// Get existing span
+    fn get_span(&self, span_id: SpanId) -> Span {
+        *self
+            .spans
+            .get(span_id.0)
+            .expect("internal error: missing span")
     }
 }
 

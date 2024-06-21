@@ -149,6 +149,78 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         },
     );
 
+    record.push(
+        "data-dir",
+        if let Some(path) = nu_path::data_dir() {
+            let mut canon_data_path = canonicalize_path(engine_state, &path);
+            canon_data_path.push("nushell");
+            Value::string(canon_data_path.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError {
+                    msg: "Could not get data path".into(),
+                },
+                span,
+            )
+        },
+    );
+
+    record.push(
+        "cache-dir",
+        if let Some(path) = nu_path::cache_dir() {
+            let mut canon_cache_path = canonicalize_path(engine_state, &path);
+            canon_cache_path.push("nushell");
+            Value::string(canon_cache_path.to_string_lossy(), span)
+        } else {
+            Value::error(
+                ShellError::IOError {
+                    msg: "Could not get cache path".into(),
+                },
+                span,
+            )
+        },
+    );
+
+    // Create a system level directory for nushell scripts, modules, completions, etc
+    // that can be changed by setting the NU_VENDOR_AUTOLOAD_DIR env var on any platform
+    // before nushell is compiled OR if NU_VENDOR_AUTOLOAD_DIR is not set for non-windows
+    // systems, the PREFIX env var can be set before compile and used as PREFIX/nushell/vendor/autoload
+    record.push(
+        "vendor-autoload-dir",
+        // pseudo code
+        // if env var NU_VENDOR_AUTOLOAD_DIR is set, in any platform, use it
+        // if not, if windows, use ALLUSERPROFILE\nushell\vendor\autoload
+        // if not, if non-windows, if env var PREFIX is set, use PREFIX/share/nushell/vendor/autoload
+        // if not, use the default /usr/share/nushell/vendor/autoload
+
+        // check to see if NU_VENDOR_AUTOLOAD_DIR env var is set, if not, use the default
+        Value::string(
+            option_env!("NU_VENDOR_AUTOLOAD_DIR")
+                .map(String::from)
+                .unwrap_or_else(|| {
+                    if cfg!(windows) {
+                        let all_user_profile = match engine_state.get_env_var("ALLUSERPROFILE") {
+                            Some(v) => format!(
+                                "{}\\nushell\\vendor\\autoload",
+                                v.coerce_string().unwrap_or("C:\\ProgramData".into())
+                            ),
+                            None => "C:\\ProgramData\\nushell\\vendor\\autoload".into(),
+                        };
+                        all_user_profile
+                    } else {
+                        // In non-Windows environments, if NU_VENDOR_AUTOLOAD_DIR is not set
+                        // check to see if PREFIX env var is set, and use it as PREFIX/nushell/vendor/autoload
+                        // otherwise default to /usr/share/nushell/vendor/autoload
+                        option_env!("PREFIX").map(String::from).map_or_else(
+                            || "/usr/local/share/nushell/vendor/autoload".into(),
+                            |prefix| format!("{}/share/nushell/vendor/autoload", prefix),
+                        )
+                    }
+                }),
+            span,
+        ),
+    );
+
     record.push("temp-path", {
         let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
         Value::string(canon_temp_path.to_string_lossy(), span)
@@ -251,7 +323,7 @@ pub fn eval_constant_with_input(
         Expr::Call(call) => eval_const_call(working_set, call, input),
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-            eval_const_subexpression(working_set, block, input, expr.span)
+            eval_const_subexpression(working_set, block, input, expr.span(&working_set))
         }
         _ => eval_constant(working_set, expr).map(|v| PipelineData::Value(v, None)),
     }
@@ -379,7 +451,9 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span })
     }
 
-    fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant { span: expr.span })
+    fn unreachable(working_set: &StateWorkingSet, expr: &Expression) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant {
+            span: expr.span(&working_set),
+        })
     }
 }

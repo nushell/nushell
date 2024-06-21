@@ -557,12 +557,12 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
-    #[error("Cannot find column")]
+    #[error("Cannot find column '{col_name}'")]
     #[diagnostic(code(nu::shell::column_not_found))]
     CantFindColumn {
         col_name: String,
         #[label = "cannot find column '{col_name}'"]
-        span: Span,
+        span: Option<Span>,
         #[label = "value originates here"]
         src_span: Span,
     },
@@ -872,6 +872,21 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::io_error))]
     IOErrorSpanned {
         msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
+
+    #[cfg(unix)]
+    /// An I/O operation failed.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("program coredump error")]
+    #[diagnostic(code(nu::shell::coredump_error))]
+    CoredumpErrorSpanned {
+        msg: String,
+        signal: i32,
         #[label("{msg}")]
         span: Span,
     },
