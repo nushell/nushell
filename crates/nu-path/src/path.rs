@@ -1270,7 +1270,7 @@ impl<Form: PathForm> PathBuf<Form> {
     ///
     /// let p = RelativePathBuf::try_from("test.txt").unwrap();
     /// let p: PathBuf = p.cast_into();
-    /// assert_eq!(PathBuf::from("/test"), p);
+    /// assert_eq!(PathBuf::from("test.txt"), p);
     /// ```
     #[inline]
     pub fn cast_into<To>(self) -> PathBuf<To>
