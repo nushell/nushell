@@ -1,5 +1,5 @@
 use crate::PersistentPlugin;
-use nu_protocol::{PluginGcConfig, RegisteredPlugin};
+use nu_protocol::{engine::ctrlc, PluginGcConfig, RegisteredPlugin};
 use std::{
     sync::{mpsc, Arc, Weak},
     thread,
@@ -14,6 +14,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct PluginGc {
     sender: mpsc::Sender<PluginGcMsg>,
+    _ctrlc_guard: Arc<Option<ctrlc::HandlerGuard>>,
 }
 
 impl PluginGc {
@@ -21,6 +22,7 @@ impl PluginGc {
     pub fn new(
         config: PluginGcConfig,
         plugin: &Arc<PersistentPlugin>,
+        ctrlc_handlers: Option<ctrlc::CtrlcHandlers>,
     ) -> std::io::Result<PluginGc> {
         let (sender, receiver) = mpsc::channel();
 
@@ -37,7 +39,14 @@ impl PluginGc {
             .name(format!("plugin gc ({})", plugin.identity().name()))
             .spawn(move || state.run(receiver))?;
 
-        Ok(PluginGc { sender })
+        let guard = ctrlc_handlers.map(|ctrlc_handlers| {
+            let sender = sender.clone();
+            ctrlc_handlers.add(Box::new(move || {
+                let _ = sender.send(PluginGcMsg::Ctrlc);
+            }))
+        });
+
+        Ok(PluginGc { sender, _ctrlc_guard: Arc::new(guard) })
     }
 
     /// Update the garbage collector config

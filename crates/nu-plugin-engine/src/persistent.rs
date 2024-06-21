@@ -1,5 +1,4 @@
 use crate::{
-    gc::PluginGcMsg,
     init::{create_command, make_plugin_interface},
     PluginGc,
 };
@@ -180,14 +179,7 @@ impl PersistentPlugin {
         })?;
 
         // Start the plugin garbage collector
-        let gc = PluginGc::new(mutable.gc_config.clone(), &self)?;
-
-        if let Some(ref ctrlc_handlers) = ctrlc_handlers {
-            let tx = gc.clone_sender();
-            ctrlc_handlers.add(Box::new(move || {
-                let _ = tx.send(PluginGcMsg::Ctrlc);
-            }));
-        }
+        let gc = PluginGc::new(mutable.gc_config.clone(), &self, ctrlc_handlers.clone())?;
 
         let pid = child.id();
         let interface = make_plugin_interface(
