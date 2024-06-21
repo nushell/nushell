@@ -99,6 +99,10 @@ pub struct PolarsPlugin {
 }
 
 impl Plugin for PolarsPlugin {
+    fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         let mut commands: Vec<Box<dyn PluginCommand<Plugin = Self>>> = vec![Box::new(PolarsCmd)];
         commands.append(&mut eager_commands());

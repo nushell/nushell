@@ -7,6 +7,7 @@
 # language without adding any extra dependencies to our tests.
 
 const NUSHELL_VERSION = "0.94.3"
+const PLUGIN_VERSION = "0.1.0" # bump if you change commands!
 
 def main [--stdio] {
   if ($stdio) {
@@ -229,6 +230,13 @@ def handle_input []: any -> nothing {
     }
     { Call: [$id, $plugin_call] } => {
       match $plugin_call {
+        "Metadata" => {
+          write_response $id {
+            Metadata: {
+              version: $PLUGIN_VERSION
+            }
+          }
+        }
         "Signature" => {
           write_response $id { Signature: $SIGNATURES }
         }

@@ -116,11 +116,18 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
         Value::string(features_enabled().join(", "), span),
     );
 
-    // Get a list of plugin names
+    // Get a list of plugin names and versions if present
     let installed_plugins = engine_state
         .plugins()
         .iter()
-        .map(|x| x.identity().name())
+        .map(|x| {
+            let name = x.identity().name();
+            if let Some(version) = x.metadata().and_then(|m| m.version) {
+                format!("{name} {version}")
+            } else {
+                name.into()
+            }
+        })
         .collect::<Vec<_>>();
 
     record.push(
