@@ -121,6 +121,7 @@ impl<Form: PathForm> Path<Form> {
     /// let os_str = Path::new("foo.txt").as_os_str();
     /// assert_eq!(os_str, std::ffi::OsStr::new("foo.txt"));
     /// ```
+    #[must_use]
     #[inline]
     pub fn as_os_str(&self) -> &OsStr {
         self.inner.as_os_str()
@@ -206,6 +207,7 @@ impl<Form: PathForm> Path<Form> {
     /// let great_grand_parent = grand_parent.and_then(Path::parent);
     /// assert_eq!(great_grand_parent, None);
     /// ```
+    #[must_use]
     #[inline]
     pub fn parent(&self) -> Option<&Self> {
         self.inner.parent().map(Self::new_unchecked)
@@ -262,6 +264,7 @@ impl<Form: PathForm> Path<Form> {
     /// assert_eq!(None, Path::new("foo.txt/..").file_name());
     /// assert_eq!(None, Path::new("/").file_name());
     /// ```
+    #[must_use]
     #[inline]
     pub fn file_name(&self) -> Option<&OsStr> {
         self.inner.file_name()
@@ -320,6 +323,7 @@ impl<Form: PathForm> Path<Form> {
     ///
     /// assert!(!Path::new("/etc/foo.rs").starts_with("/etc/foo"));
     /// ```
+    #[must_use]
     #[inline]
     pub fn starts_with<F: PathForm>(&self, base: impl AsRef<Path<F>>) -> bool {
         self.inner.starts_with(&base.as_ref().inner)
@@ -343,6 +347,7 @@ impl<Form: PathForm> Path<Form> {
     /// assert!(!path.ends_with("/resolv.conf"));
     /// assert!(!path.ends_with("conf")); // use .extension() instead
     /// ```
+    #[must_use]
     #[inline]
     pub fn ends_with<F: PathForm>(&self, child: impl AsRef<Path<F>>) -> bool {
         self.inner.ends_with(&child.as_ref().inner)
@@ -365,6 +370,7 @@ impl<Form: PathForm> Path<Form> {
     /// assert_eq!("foo", Path::new("foo.rs").file_stem().unwrap());
     /// assert_eq!("foo.tar", Path::new("foo.tar.gz").file_stem().unwrap());
     /// ```
+    #[must_use]
     #[inline]
     pub fn file_stem(&self) -> Option<&OsStr> {
         self.inner.file_stem()
@@ -388,6 +394,7 @@ impl<Form: PathForm> Path<Form> {
     /// assert_eq!("rs", Path::new("foo.rs").extension().unwrap());
     /// assert_eq!("gz", Path::new("foo.tar.gz").extension().unwrap());
     /// ```
+    #[must_use]
     #[inline]
     pub fn extension(&self) -> Option<&OsStr> {
         self.inner.extension()
@@ -564,6 +571,7 @@ impl Path {
     /// path.as_mut_os_str().make_ascii_lowercase();
     /// assert_eq!(path, Path::new("foo.txt"));
     /// ```
+    #[must_use]
     #[inline]
     pub fn as_mut_os_str(&mut self) -> &mut OsStr {
         self.inner.as_mut_os_str()
@@ -585,6 +593,7 @@ impl Path {
     ///
     /// assert!(!Path::new("foo.txt").is_absolute());
     /// ```
+    #[must_use]
     #[inline]
     pub fn is_absolute(&self) -> bool {
         self.inner.is_absolute()
@@ -601,6 +610,7 @@ impl Path {
     ///
     /// assert!(Path::new("foo.txt").is_relative());
     /// ```
+    #[must_use]
     #[inline]
     pub fn is_relative(&self) -> bool {
         self.inner.is_relative()
@@ -656,6 +666,7 @@ impl<Form: PathJoin> Path<Form> {
     /// assert_eq!(Path::new("/etc").join("passwd"), PathBuf::from("/etc/passwd"));
     /// assert_eq!(Path::new("/etc").join("/bin/sh"), PathBuf::from("/bin/sh"));
     /// ```
+    #[must_use]
     #[inline]
     pub fn join<F: MaybeRelative>(&self, path: impl AsRef<Path<F>>) -> PathBuf<Form::Output> {
         PathBuf::new_unchecked(self.inner.join(&path.as_ref().inner))
@@ -749,6 +760,7 @@ impl<Form: MaybeRelative> Path<Form> {
     ///
     /// assert!(Path::new("/etc/passwd").has_root());
     /// ```
+    #[must_use]
     #[inline]
     pub fn has_root(&self) -> bool {
         self.inner.has_root()
@@ -850,6 +862,7 @@ impl<Form: IsAbsolute> Path<Form> {
     /// let path = AbsolutePath::try_new("/does_not_exist").unwrap();
     /// assert!(!path.exists());
     /// ```
+    #[must_use]
     #[inline]
     pub fn exists(&self) -> bool {
         self.inner.exists()
@@ -880,6 +893,7 @@ impl<Form: IsAbsolute> Path<Form> {
     /// to test the source can be read (or written to) is to open it. Only using `is_file` can
     /// break workflows like `diff <( prog_a )` on a Unix-like system for example.
     /// See [`std::fs::File::open`] or [`std::fs::OpenOptions::open`] for more information.
+    #[must_use]
     #[inline]
     pub fn is_file(&self) -> bool {
         self.inner.is_file()
@@ -903,6 +917,7 @@ impl<Form: IsAbsolute> Path<Form> {
     /// let path = AbsolutePath::try_new("/a_file.txt").unwrap();
     /// assert_eq!(path.is_dir(), false);
     /// ```
+    #[must_use]
     #[inline]
     pub fn is_dir(&self) -> bool {
         self.inner.is_dir()
@@ -1024,6 +1039,7 @@ impl AbsolutePath {
     /// assert_eq!(link_path.is_symlink(), true);
     /// assert_eq!(link_path.exists(), false);
     /// ```
+    #[must_use]
     #[inline]
     pub fn is_symlink(&self) -> bool {
         self.inner.is_symlink()
@@ -1186,6 +1202,7 @@ impl<Form: PathForm> PathBuf<Form> {
     /// let p = PathBuf::from("/test");
     /// assert_eq!(Path::new("/test"), p.as_path());
     /// ```
+    #[must_use]
     #[inline]
     pub fn as_path(&self) -> &Path<Form> {
         Path::new_unchecked(&self.inner)
@@ -1235,6 +1252,7 @@ impl<Form: PathForm> PathBuf<Form> {
     }
 
     /// Returns the [`capacity`](OsString::capacity) of the underlying [`OsString`].
+    #[must_use]
     #[inline]
     pub fn capacity(&self) -> usize {
         self.inner.capacity()
@@ -1328,6 +1346,7 @@ impl PathBuf {
     ///
     /// let path = PathBuf::new();
     /// ```
+    #[must_use]
     #[inline]
     pub fn new() -> Self {
         Self::new_unchecked(std::path::PathBuf::new())
@@ -1350,6 +1369,7 @@ impl PathBuf {
     /// assert_eq!(capacity, path.capacity());
     /// ```
     #[inline]
+    #[must_use]
     pub fn with_capacity(capacity: usize) -> Self {
         Self::new_unchecked(std::path::PathBuf::with_capacity(capacity))
     }
@@ -1370,6 +1390,7 @@ impl PathBuf {
     /// path.as_mut_os_string().push("baz");
     /// assert_eq!(path, Path::new("/foo/barbaz"));
     /// ```
+    #[must_use]
     #[inline]
     pub fn as_mut_os_string(&mut self) -> &mut OsString {
         self.inner.as_mut_os_string()
