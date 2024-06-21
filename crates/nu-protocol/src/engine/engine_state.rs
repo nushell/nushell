@@ -2,6 +2,7 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
+        ctrlc::CtrlcHandlers,
         usage::{build_usage, Usage},
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
@@ -18,7 +19,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
-        mpsc, Arc, Mutex, MutexGuard, PoisonError,
+        Arc, Mutex, MutexGuard, PoisonError,
     },
 };
 
@@ -85,7 +86,7 @@ pub struct EngineState {
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
-    pub ctrlc_tx: Option<Arc<Mutex<Vec<mpsc::Sender<()>>>>>,
+    pub ctrlc_handlers: Option<CtrlcHandlers>,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
@@ -146,7 +147,7 @@ impl EngineState {
                 false,
             ),
             ctrlc: None,
-            ctrlc_tx: None,
+            ctrlc_handlers: None,
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
                     .into_iter()

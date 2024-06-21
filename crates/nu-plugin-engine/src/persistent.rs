@@ -7,12 +7,12 @@ use crate::{
 use super::{PluginInterface, PluginSource};
 use nu_plugin_core::CommunicationMode;
 use nu_protocol::{
-    engine::{EngineState, Stack},
+    engine::{ctrlc::CtrlcHandlers, EngineState, Stack},
     PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
 };
 use std::{
     collections::HashMap,
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex},
 };
 
 /// A box that can keep a plugin that was spawned persistent for further uses. The plugin may or
@@ -53,8 +53,6 @@ struct RunningPlugin {
     gc: PluginGc,
 }
 
-type CtrlcSubscribers = Arc<Mutex<Vec<mpsc::Sender<()>>>>;
-
 impl PersistentPlugin {
     /// Create a new persistent plugin. The plugin will not be spawned immediately.
     pub fn new(identity: PluginIdentity, gc_config: PluginGcConfig) -> PersistentPlugin {
@@ -75,7 +73,7 @@ impl PersistentPlugin {
     pub fn get(
         self: Arc<Self>,
         envs: impl FnOnce() -> Result<HashMap<String, String>, ShellError>,
-        ctrlc_subscribers: Option<CtrlcSubscribers>,
+        ctrlc_handlers: Option<CtrlcHandlers>,
     ) -> Result<PluginInterface, ShellError> {
         let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
             msg: format!(
@@ -97,7 +95,7 @@ impl PersistentPlugin {
             // TODO: We should probably store the envs somewhere, in case we have to launch without
             // envs (e.g. from a custom value)
             let envs = envs()?;
-            let result = self.clone().spawn(&envs, &mut mutable, ctrlc_subscribers);
+            let result = self.clone().spawn(&envs, &mut mutable, ctrlc_handlers.clone());
 
             // Check if we were using an alternate communication mode and may need to fall back to
             // stdio.
@@ -112,7 +110,7 @@ impl PersistentPlugin {
                     mutable.preferred_mode);
                 // Reset to stdio and try again, but this time don't catch any error
                 mutable.preferred_mode = Some(PreferredCommunicationMode::Stdio);
-                self.clone().spawn(&envs, &mut mutable, ctrlc_subscribers)?;
+                self.clone().spawn(&envs, &mut mutable, ctrlc_handlers)?;
             }
 
             Ok(mutable
@@ -131,7 +129,7 @@ impl PersistentPlugin {
         self: Arc<Self>,
         envs: &HashMap<String, String>,
         mutable: &mut MutableState,
-        ctrlc_subscribers: Option<CtrlcSubscribers>,
+        ctrlc_handlers: Option<CtrlcHandlers>,
     ) -> Result<(), ShellError> {
         // Make sure `running` is set to None to begin
         if let Some(running) = mutable.running.take() {
@@ -184,13 +182,11 @@ impl PersistentPlugin {
         // Start the plugin garbage collector
         let gc = PluginGc::new(mutable.gc_config.clone(), &self)?;
 
-        if let Some(ctrlc_subscribers) = ctrlc_subscribers {
-            if let Some(ctrlc_subscribers) = ctrlc_subscribers.lock().ok() {
-                let tx = gc.clone_sender();
-                let tx = tx.map_input(|()| PluginGcMsg::Ctrlc);
-
-                ctrlc_subscribers.push(tx);
-            }
+        if let Some(ref ctrlc_handlers) = ctrlc_handlers {
+            let tx = gc.clone_sender();
+            ctrlc_handlers.add(Box::new(move || {
+                let _ = tx.send(PluginGcMsg::Ctrlc);
+            }));
         }
 
         let pid = child.id();
@@ -219,7 +215,7 @@ impl PersistentPlugin {
             gc.stop_tracking();
             // Set the mode and try again
             mutable.preferred_mode = Some(PreferredCommunicationMode::LocalSocket);
-            return self.spawn(envs, mutable, ctrlc_subscribers);
+            return self.spawn(envs, mutable, ctrlc_handlers);
         }
 
         mutable.running = Some(RunningPlugin { interface, gc });
@@ -317,9 +313,9 @@ impl GetPlugin for PersistentPlugin {
         self: Arc<Self>,
         mut context: Option<(&EngineState, &mut Stack)>,
     ) -> Result<PluginInterface, ShellError> {
-        let ctrlc_subscribers = context
+        let ctrlc_handlers = context
             .as_ref()
-            .and_then(|(engine_state, _)| engine_state.ctrlc_tx.clone());
+            .and_then(|(engine_state, _)| engine_state.ctrlc_handlers.clone());
         self.get(
             || {
                 // Get envs from the context if provided.
@@ -336,61 +332,7 @@ impl GetPlugin for PersistentPlugin {
 
                 Ok(envs.unwrap_or_default())
             },
-            ctrlc_subscribers,
+            ctrlc_handlers,
         )
-    }
-}
-
-use std::fmt;
-use std::sync::mpsc::{SendError, Sender};
-
-trait SenderExt<T> {
-    type Err;
-
-    fn send(&self, t: T) -> Result<(), SendError<Self::Err>>;
-
-    fn map_input<NewT, F>(self, func: F) -> Map<Self, F>
-    where
-        Self: Sized,
-        F: Fn(NewT) -> T,
-    {
-        Map { sender: self, func }
-    }
-}
-
-impl<T> SenderExt<T> for Sender<T> {
-    type Err = T;
-
-    fn send(&self, value: T) -> Result<(), SendError<Self::Err>> {
-        self.send(value)
-    }
-}
-
-#[derive(Clone, Copy)]
-pub struct Map<S, F> {
-    sender: S,
-    func: F,
-}
-
-impl<S, F> fmt::Debug for Map<S, F>
-where
-    S: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Map")
-            .field("sender", &self.sender)
-            .field("func", &"<function>")
-            .finish()
-    }
-}
-
-impl<S: SenderExt<U>, F, T, U> SenderExt<T> for Map<S, F>
-where
-    F: Fn(T) -> U,
-{
-    type Err = S::Err;
-
-    fn send(&self, value: T) -> Result<(), SendError<Self::Err>> {
-        self.sender.send((self.func)(value))
     }
 }

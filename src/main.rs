@@ -35,7 +35,7 @@ use signals::ctrlc_protection;
 use std::{
     path::PathBuf,
     str::FromStr,
-    sync::{atomic::AtomicBool, Mutex, Arc},
+    sync::{atomic::AtomicBool, Arc},
 };
 
 fn get_engine_state() -> EngineState {
@@ -74,11 +74,8 @@ fn main() -> Result<()> {
         report_error_new(&engine_state, &err);
     }
 
-    let ctrlc = Arc::new(AtomicBool::new(false));
-    let subscribers = Arc::new(Mutex::new(Vec::new()));
-
     // TODO: make this conditional in the future
-    ctrlc_protection(&mut engine_state, &ctrlc, &subscribers);
+    ctrlc_protection(&mut engine_state);
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
@@ -463,6 +460,10 @@ fn main() -> Result<()> {
             );
         }
 
+        let ctrlc = engine_state
+            .ctrlc
+            .clone()
+            .unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
         LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc)?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
