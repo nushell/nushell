@@ -48,6 +48,7 @@ let dark_theme = {
     shape_float: purple_bold
     # shapes are used to change the cli syntax highlighting
     shape_garbage: { fg: white bg: red attr: b}
+    shape_glob_interpolation: cyan_bold
     shape_globpattern: cyan_bold
     shape_int: purple_bold
     shape_internalcall: cyan_bold
