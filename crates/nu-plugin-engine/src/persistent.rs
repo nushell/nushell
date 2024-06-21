@@ -178,6 +178,9 @@ impl PersistentPlugin {
 
         // Start the plugin garbage collector
         let gc = PluginGc::new(mutable.gc_config.clone(), &self)?;
+        // I need the current EngineState here
+        eprintln!("gc.sender: {:?}", gc.clone_sender());
+
 
         let pid = child.id();
         let interface = make_plugin_interface(

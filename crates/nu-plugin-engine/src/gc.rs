@@ -85,16 +85,26 @@ impl PluginGc {
     pub fn exited(&self) {
         let _ = self.sender.send(PluginGcMsg::Exited);
     }
+
+    /// Tell the GC that our process received a Ctrl-C signal
+    pub fn ctrlc(&self) {
+        let _ = self.sender.send(PluginGcMsg::Ctrlc);
+    }
+
+    pub fn clone_sender(&self) -> mpsc::Sender<PluginGcMsg> {
+        self.sender.clone()
+    }
 }
 
 #[derive(Debug)]
-enum PluginGcMsg {
+pub enum PluginGcMsg {
     SetConfig(PluginGcConfig),
     Flush(mpsc::Sender<()>),
     AddLocks(i64),
     SetDisabled(bool),
     StopTracking,
     Exited,
+    Ctrlc,
 }
 
 #[derive(Debug)]
@@ -159,6 +169,9 @@ impl PluginGcState {
             PluginGcMsg::Exited => {
                 // Exit and stop the plugin
                 return Some(true);
+            }
+            PluginGcMsg::Ctrlc => {
+                eprintln!("Ctrl-C received, plugin: `{}`", self.name);
             }
         }
         None
