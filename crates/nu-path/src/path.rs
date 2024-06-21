@@ -91,12 +91,30 @@ impl<Form: PathForm> Path<Form> {
     }
 
     /// Returns the underlying [`OsStr`] slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let os_str = Path::new("foo.txt").as_os_str();
+    /// assert_eq!(os_str, std::ffi::OsStr::new("foo.txt"));
+    /// ```
     #[inline]
     pub fn as_os_str(&self) -> &OsStr {
         self.inner.as_os_str()
     }
 
     /// Returns a [`str`] slice if the [`Path`] is valid unicode.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let path = Path::new("foo.txt");
+    /// assert_eq!(path.to_str(), Some("foo.txt"));
+    /// ```
     #[inline]
     pub fn to_str(&self) -> Option<&str> {
         self.inner.to_str()
@@ -105,12 +123,35 @@ impl<Form: PathForm> Path<Form> {
     /// Converts a [`Path`] to a `Cow<str>`.
     ///
     /// Any non-Unicode sequences are replaced with `U+FFFD REPLACEMENT CHARACTER`.
+    ///
+    /// # Examples
+    ///
+    /// Calling `to_string_lossy` on a [`Path`] with valid unicode:
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let path = Path::new("foo.txt");
+    /// assert_eq!(path.to_string_lossy(), "foo.txt");
+    /// ```
+    ///
+    /// Had `path` contained invalid unicode, the `to_string_lossy` call might have returned
+    /// `"fo�.txt"`.
     #[inline]
     pub fn to_string_lossy(&self) -> Cow<'_, str> {
         self.inner.to_string_lossy()
     }
 
     /// Converts a [`Path`] to an owned [`PathBuf`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// let path_buf = Path::new("foo.txt").to_path_buf();
+    /// assert_eq!(path_buf, PathBuf::from("foo.txt"));
+    /// ```
     #[inline]
     pub fn to_path_buf(&self) -> PathBuf<Form> {
         PathBuf::new_unchecked(self.inner.to_path_buf())
@@ -122,6 +163,28 @@ impl<Form: PathForm> Path<Form> {
     ///
     /// Returns [`None`] if the path terminates in a root or prefix, or if it's
     /// the empty string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let path = Path::new("/foo/bar");
+    /// let parent = path.parent().unwrap();
+    /// assert_eq!(parent, Path::new("/foo"));
+    ///
+    /// let grand_parent = parent.parent().unwrap();
+    /// assert_eq!(grand_parent, Path::new("/"));
+    /// assert_eq!(grand_parent.parent(), None);
+    ///
+    /// let relative_path = Path::new("foo/bar");
+    /// let parent = relative_path.parent();
+    /// assert_eq!(parent, Some(Path::new("foo")));
+    /// let grand_parent = parent.and_then(Path::parent);
+    /// assert_eq!(grand_parent, Some(Path::new("")));
+    /// let great_grand_parent = grand_parent.and_then(Path::parent);
+    /// assert_eq!(great_grand_parent, None);
+    /// ```
     #[inline]
     pub fn parent(&self) -> Option<&Self> {
         self.inner.parent().map(Self::new_unchecked)
@@ -134,6 +197,25 @@ impl<Form: PathForm> Path<Form> {
     /// `&self.parent().unwrap()`, `&self.parent().unwrap().parent().unwrap()` and so on.
     /// If the [`parent`](Path::parent) method returns [`None`], the iterator will do likewise.
     /// The iterator will always yield at least one value, namely `&self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let mut ancestors = Path::new("/foo/bar").ancestors();
+    /// assert_eq!(ancestors.next().unwrap(), Path::new("/foo/bar"));
+    /// assert_eq!(ancestors.next().unwrap(), Path::new("/foo"));
+    /// assert_eq!(ancestors.next().unwrap(), Path::new("/"));
+    /// assert_eq!(ancestors.next(), None);
+    ///
+    /// let mut ancestors = Path::new("../foo/bar").ancestors();
+    /// assert_eq!(ancestors.next().unwrap(), Path::new("../foo/bar"));
+    /// assert_eq!(ancestors.next().unwrap(), Path::new("../foo"));
+    /// assert_eq!(ancestors.next().unwrap(), Path::new(".."));
+    /// assert_eq!(ancestors.next().unwrap(), Path::new(""));
+    /// assert_eq!(ancestors.next(), None);
+    /// ```
     #[inline]
     pub fn ancestors(&self) -> std::path::Ancestors<'_> {
         self.inner.ancestors()
@@ -145,12 +227,46 @@ impl<Form: PathForm> Path<Form> {
     /// is the directory name.
     ///
     /// Returns [`None`] if the path terminates in `..`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    /// use std::ffi::OsStr;
+    ///
+    /// assert_eq!(Some(OsStr::new("bin")), Path::new("/usr/bin/").file_name());
+    /// assert_eq!(Some(OsStr::new("foo.txt")), Path::new("tmp/foo.txt").file_name());
+    /// assert_eq!(Some(OsStr::new("foo.txt")), Path::new("foo.txt/.").file_name());
+    /// assert_eq!(Some(OsStr::new("foo.txt")), Path::new("foo.txt/.//").file_name());
+    /// assert_eq!(None, Path::new("foo.txt/..").file_name());
+    /// assert_eq!(None, Path::new("/").file_name());
+    /// ```
     #[inline]
     pub fn file_name(&self) -> Option<&OsStr> {
         self.inner.file_name()
     }
 
     /// Returns a relative path that, when joined onto `base`, yields `self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// let path = Path::new("/test/haha/foo.txt");
+    ///
+    /// assert_eq!(path.strip_prefix("/").unwrap(), Path::new("test/haha/foo.txt"));
+    /// assert_eq!(path.strip_prefix("/test").unwrap(), Path::new("haha/foo.txt"));
+    /// assert_eq!(path.strip_prefix("/test/").unwrap(), Path::new("haha/foo.txt"));
+    /// assert_eq!(path.strip_prefix("/test/haha/foo.txt").unwrap(), Path::new(""));
+    /// assert_eq!(path.strip_prefix("/test/haha/foo.txt/").unwrap(), Path::new(""));
+    ///
+    /// assert!(path.strip_prefix("test").is_err());
+    /// assert!(path.strip_prefix("/haha").is_err());
+    ///
+    /// let prefix = PathBuf::from("/test/");
+    /// assert_eq!(path.strip_prefix(prefix).unwrap(), Path::new("haha/foo.txt"));
+    /// ```
     #[inline]
     pub fn strip_prefix<F: PathForm>(
         &self,
@@ -164,6 +280,25 @@ impl<Form: PathForm> Path<Form> {
     /// Determines whether `base` is a prefix of `self`.
     ///
     /// Only considers whole path components to match.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let path = Path::new("/etc/passwd");
+    ///
+    /// assert!(path.starts_with("/etc"));
+    /// assert!(path.starts_with("/etc/"));
+    /// assert!(path.starts_with("/etc/passwd"));
+    /// assert!(path.starts_with("/etc/passwd/")); // extra slash is okay
+    /// assert!(path.starts_with("/etc/passwd///")); // multiple extra slashes are okay
+    ///
+    /// assert!(!path.starts_with("/e"));
+    /// assert!(!path.starts_with("/etc/passwd.txt"));
+    ///
+    /// assert!(!Path::new("/etc/foo.rs").starts_with("/etc/foo"));
+    /// ```
     #[inline]
     pub fn starts_with<F: PathForm>(&self, base: impl AsRef<Path<F>>) -> bool {
         self.inner.starts_with(&base.as_ref().inner)
@@ -172,6 +307,21 @@ impl<Form: PathForm> Path<Form> {
     /// Determines whether `child` is a suffix of `self`.
     ///
     /// Only considers whole path components to match.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let path = Path::new("/etc/resolv.conf");
+    ///
+    /// assert!(path.ends_with("resolv.conf"));
+    /// assert!(path.ends_with("etc/resolv.conf"));
+    /// assert!(path.ends_with("/etc/resolv.conf"));
+    ///
+    /// assert!(!path.ends_with("/resolv.conf"));
+    /// assert!(!path.ends_with("conf")); // use .extension() instead
+    /// ```
     #[inline]
     pub fn ends_with<F: PathForm>(&self, child: impl AsRef<Path<F>>) -> bool {
         self.inner.ends_with(&child.as_ref().inner)
@@ -185,6 +335,15 @@ impl<Form: PathForm> Path<Form> {
     /// * The entire file name if there is no embedded `.`;
     /// * The entire file name if the file name begins with `.` and has no other `.`s within;
     /// * Otherwise, the portion of the file name before the final `.`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// assert_eq!("foo", Path::new("foo.rs").file_stem().unwrap());
+    /// assert_eq!("foo.tar", Path::new("foo.tar.gz").file_stem().unwrap());
+    /// ```
     #[inline]
     pub fn file_stem(&self) -> Option<&OsStr> {
         self.inner.file_stem()
@@ -199,6 +358,15 @@ impl<Form: PathForm> Path<Form> {
     /// * [`None`], if there is no embedded `.`;
     /// * [`None`], if the file name begins with `.` and has no other `.`s within;
     /// * Otherwise, the portion of the file name after the final `.`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// assert_eq!("rs", Path::new("foo.rs").extension().unwrap());
+    /// assert_eq!("gz", Path::new("foo.tar.gz").extension().unwrap());
+    /// ```
     #[inline]
     pub fn extension(&self) -> Option<&OsStr> {
         self.inner.extension()
@@ -221,6 +389,21 @@ impl<Form: PathForm> Path<Form> {
     /// Note that no other normalization takes place; in particular, `a/c`
     /// and `a/b/../c` are distinct, to account for the possibility that `b`
     /// is a symbolic link (so its parent isn't `a`).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    /// use std::path::Component;
+    /// use std::ffi::OsStr;
+    ///
+    /// let mut components = Path::new("/tmp/foo.txt").components();
+    ///
+    /// assert_eq!(components.next(), Some(Component::RootDir));
+    /// assert_eq!(components.next(), Some(Component::Normal(OsStr::new("tmp"))));
+    /// assert_eq!(components.next(), Some(Component::Normal(OsStr::new("foo.txt"))));
+    /// assert_eq!(components.next(), None)
+    /// ```
     #[inline]
     pub fn components(&self) -> std::path::Components<'_> {
         self.inner.components()
@@ -230,6 +413,19 @@ impl<Form: PathForm> Path<Form> {
     ///
     /// For more information about the particulars of how the path is separated into components,
     /// see [`components`](Path::components).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    /// use std::ffi::OsStr;
+    ///
+    /// let mut it = Path::new("/tmp/foo.txt").iter();
+    /// assert_eq!(it.next(), Some(OsStr::new(&std::path::MAIN_SEPARATOR.to_string())));
+    /// assert_eq!(it.next(), Some(OsStr::new("tmp")));
+    /// assert_eq!(it.next(), Some(OsStr::new("foo.txt")));
+    /// assert_eq!(it.next(), None)
+    /// ```
     #[inline]
     pub fn iter(&self) -> std::path::Iter<'_> {
         self.inner.iter()
@@ -239,6 +435,16 @@ impl<Form: PathForm> Path<Form> {
     /// that may contain non-Unicode data. This may perform lossy conversion,
     /// depending on the platform. If you would like an implementation which escapes the path
     /// please use [`Debug`](fmt::Debug) instead.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let path = Path::new("/tmp/foo.rs");
+    ///
+    /// println!("{}", path.display());
+    /// ```
     #[inline]
     pub fn display(&self) -> std::path::Display<'_> {
         self.inner.display()
@@ -260,6 +466,16 @@ impl<Form: PathForm> Path<Form> {
     /// - [`Relative`], [`Absolute`], or [`Canonical`] into [`Any`].
     /// - [`Canonical`] into [`Absolute`].
     /// - Any form into itself.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, AbsolutePath};
+    ///
+    /// let absolute: &AbsolutePath = "/test".try_into().unwrap();
+    /// let p: &Path = absolute.cast();
+    /// assert_eq!(p, absolute);
+    /// ```
     #[inline]
     pub fn cast<To>(&self) -> &Path<To>
     where
@@ -270,6 +486,15 @@ impl<Form: PathForm> Path<Form> {
     }
 
     /// Returns a reference to a path with its form as [`Any`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, AbsolutePath};
+    ///
+    /// let p: &AbsolutePath = "/test".try_into().unwrap();
+    /// assert_eq!(Path::new("/test"), p.as_any());
+    /// ```
     #[inline]
     pub fn as_any(&self) -> &Path {
         Path::new_unchecked(self)
@@ -280,12 +505,44 @@ impl Path {
     /// Create a new [`Path`] by wrapping a string slice.
     ///
     /// This is a cost-free conversion.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// Path::new("foo.txt");
+    /// ```
+    ///
+    /// You can create [`Path`]s from [`String`]s, or even other [`Path`]s:
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let string = String::from("foo.txt");
+    /// let from_string = Path::new(&string);
+    /// let from_path = Path::new(&from_string);
+    /// assert_eq!(from_string, from_path);
+    /// ```
     #[inline]
     pub fn new<P: AsRef<OsStr> + ?Sized>(path: &P) -> &Self {
         Self::new_unchecked(path)
     }
 
     /// Returns a mutable reference to the underlying [`OsStr`] slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// let mut path = PathBuf::from("Foo.TXT");
+    ///
+    /// assert_ne!(path, Path::new("foo.txt"));
+    ///
+    /// path.as_mut_os_str().make_ascii_lowercase();
+    /// assert_eq!(path, Path::new("foo.txt"));
+    /// ```
     #[inline]
     pub fn as_mut_os_str(&mut self) -> &mut OsStr {
         self.inner.as_mut_os_str()
@@ -299,6 +556,14 @@ impl Path {
     ///
     /// * On Windows, a path is absolute if it has a prefix and starts with the root:
     /// `c:\windows` is absolute, while `c:temp` and `\temp` are not.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// assert!(!Path::new("foo.txt").is_absolute());
+    /// ```
     #[inline]
     pub fn is_absolute(&self) -> bool {
         self.inner.is_absolute()
@@ -307,6 +572,14 @@ impl Path {
     // Returns `true` if the [`Path`] is relative, i.e., not absolute.
     ///
     /// See [`is_absolute`](Path::is_absolute)'s documentation for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// assert!(Path::new("foo.txt").is_relative());
+    /// ```
     #[inline]
     pub fn is_relative(&self) -> bool {
         self.inner.is_relative()
@@ -314,6 +587,14 @@ impl Path {
 
     /// Returns an `Ok` [`AbsolutePath`] if the [`Path`] is absolute.
     /// Otherwise, returns an `Err` [`RelativePath`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// assert!(Path::new("/test").try_absolute().is_ok());
+    /// ```
     #[inline]
     pub fn try_absolute(&self) -> Result<&AbsolutePath, &RelativePath> {
         self.is_absolute()
@@ -323,6 +604,14 @@ impl Path {
 
     /// Returns an `Ok` [`RelativePath`] if the [`Path`] is relative.
     /// Otherwise, returns an `Err` [`AbsolutePath`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// assert!(Path::new("test.txt").try_relative().is_ok());
+    /// ```
     #[inline]
     pub fn try_relative(&self) -> Result<&RelativePath, &AbsolutePath> {
         self.is_relative()
@@ -337,6 +626,15 @@ impl<Form: PathJoin> Path<Form> {
     /// If `path` is absolute, it replaces the current path.
     ///
     /// See [`PathBuf::push`] for more details on what it means to adjoin a path.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// assert_eq!(Path::new("/etc").join("passwd"), PathBuf::from("/etc/passwd"));
+    /// assert_eq!(Path::new("/etc").join("/bin/sh"), PathBuf::from("/bin/sh"));
+    /// ```
     #[inline]
     pub fn join<F: MaybeRelative>(&self, path: impl AsRef<Path<F>>) -> PathBuf<Form::Output> {
         PathBuf::new_unchecked(self.inner.join(&path.as_ref().inner))
@@ -347,6 +645,19 @@ impl<Form: PathSet> Path<Form> {
     /// Creates an owned [`PathBuf`] like `self` but with the given file name.
     ///
     /// See [`PathBuf::set_file_name`] for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// let path = Path::new("/tmp/foo.png");
+    /// assert_eq!(path.with_file_name("bar"), PathBuf::from("/tmp/bar"));
+    /// assert_eq!(path.with_file_name("bar.txt"), PathBuf::from("/tmp/bar.txt"));
+    ///
+    /// let path = Path::new("/tmp");
+    /// assert_eq!(path.with_file_name("var"), PathBuf::from("/var"));
+    /// ```
     #[inline]
     pub fn with_file_name(&self, file_name: impl AsRef<OsStr>) -> PathBuf<Form> {
         PathBuf::new_unchecked(self.inner.with_file_name(file_name))
@@ -355,6 +666,20 @@ impl<Form: PathSet> Path<Form> {
     /// Creates an owned [`PathBuf`] like `self` but with the given extension.
     ///
     /// See [`PathBuf::set_extension`] for more details.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// let path = Path::new("foo.rs");
+    /// assert_eq!(path.with_extension("txt"), PathBuf::from("foo.txt"));
+    ///
+    /// let path = Path::new("foo.tar.gz");
+    /// assert_eq!(path.with_extension(""), PathBuf::from("foo.tar"));
+    /// assert_eq!(path.with_extension("xz"), PathBuf::from("foo.tar.xz"));
+    /// assert_eq!(path.with_extension("").with_extension("txt"), PathBuf::from("foo.txt"));
+    /// ```
     #[inline]
     pub fn with_extension(&self, extension: impl AsRef<OsStr>) -> PathBuf<Form> {
         PathBuf::new_unchecked(self.inner.with_extension(extension))
@@ -373,6 +698,15 @@ impl<Form: MaybeRelative> Path<Form> {
     ///
     /// Instead, you should probably join this path onto the emulated current working directory.
     /// Any [`AbsolutePath`] or [`CanonicalPath`] will also suffice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// let p = Path::new("test.txt");
+    /// assert_eq!(std::path::Path::new("test.txt"), p.as_relative_std_path());
+    /// ```
     #[inline]
     pub fn as_relative_std_path(&self) -> &std::path::Path {
         &self.inner
@@ -386,6 +720,14 @@ impl<Form: MaybeRelative> Path<Form> {
     ///     * has no prefix and begins with a separator, e.g., `\windows`
     ///     * has a prefix followed by a separator, e.g., `c:\windows` but not `c:windows`
     ///     * has any non-disk prefix, e.g., `\\server\share`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::Path;
+    ///
+    /// assert!(Path::new("/etc/passwd").has_root());
+    /// ```
     #[inline]
     pub fn has_root(&self) -> bool {
         self.inner.has_root()
@@ -394,12 +736,30 @@ impl<Form: MaybeRelative> Path<Form> {
 
 impl<Form: IsAbsolute> Path<Form> {
     /// Returns the underlying [`std::path::Path`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let p: &AbsolutePath = "/test".try_into().unwrap();
+    /// assert_eq!(std::path::Path::new("/test"), p.as_std_path());
+    /// ```
     #[inline]
     pub fn as_std_path(&self) -> &std::path::Path {
         &self.inner
     }
 
     /// Converts a [`Path`] to an owned [`std::path::PathBuf`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let path: &AbsolutePath = "/foo".try_into().unwrap();
+    /// assert_eq!(path.to_std_path_buf(), std::path::PathBuf::from("/foo"));
+    /// ```
     #[inline]
     pub fn to_std_path_buf(&self) -> std::path::PathBuf {
         self.inner.to_path_buf()
@@ -410,6 +770,16 @@ impl<Form: IsAbsolute> Path<Form> {
     /// This function will traverse symbolic links to query information about the destination file.
     ///
     /// This is an alias to [`std::fs::metadata`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let path: &AbsolutePath = "/Minas/tirith".try_into().unwrap();
+    /// let metadata = path.metadata().expect("metadata call failed");
+    /// println!("{:?}", metadata.file_type());
+    /// ```
     #[inline]
     pub fn metadata(&self) -> io::Result<fs::Metadata> {
         self.inner.metadata()
@@ -421,6 +791,19 @@ impl<Form: IsAbsolute> Path<Form> {
     /// New errors may be encountered after an iterator is initially constructed.
     ///
     /// This is an alias to [`std::fs::read_dir`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let path: &AbsolutePath = "/laputa".try_into().unwrap();
+    /// for entry in path.read_dir().expect("read_dir call failed") {
+    ///     if let Ok(entry) = entry {
+    ///         println!("{:?}", entry.path());
+    ///     }
+    /// }
+    /// ```
     #[inline]
     pub fn read_dir(&self) -> io::Result<fs::ReadDir> {
         self.inner.read_dir()
@@ -435,6 +818,15 @@ impl<Form: IsAbsolute> Path<Form> {
     ///
     /// If you cannot access the metadata of the file, e.g. because of a permission error
     /// or broken symbolic links, this will return `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let path: &AbsolutePath = "/does_not_exist".try_into().unwrap();
+    /// assert!(!path.exists());
+    /// ```
     #[inline]
     pub fn exists(&self) -> bool {
         self.inner.exists()
@@ -446,6 +838,25 @@ impl<Form: IsAbsolute> Path<Form> {
     ///
     /// If you cannot access the metadata of the file, e.g. because of a permission error
     /// or broken symbolic links, this will return `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let path: &AbsolutePath = "/is_a_directory/".try_into().unwrap();
+    /// assert_eq!(path.is_file(), false);
+    ///
+    /// let path: &AbsolutePath = "/a_file.txt".try_into().unwrap();
+    /// assert_eq!(path.is_file(), true);
+    /// ```
+    ///
+    /// # See Also
+    ///
+    /// When the goal is simply to read from (or write to) the source, the most reliable way
+    /// to test the source can be read (or written to) is to open it. Only using `is_file` can
+    /// break workflows like `diff <( prog_a )` on a Unix-like system for example.
+    /// See [`std::fs::File::open`] or [`std::fs::OpenOptions::open`] for more information.
     #[inline]
     pub fn is_file(&self) -> bool {
         self.inner.is_file()
@@ -457,6 +868,18 @@ impl<Form: IsAbsolute> Path<Form> {
     ///
     /// If you cannot access the metadata of the file, e.g. because of a permission error
     /// or broken symbolic links, this will return `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let path: &AbsolutePath = "/is_a_directory/".try_into().unwrap();
+    /// assert_eq!(path.is_dir(), true);
+    ///
+    /// let path: &AbsolutePath = "/a_file.txt".try_into().unwrap();
+    /// assert_eq!(path.is_dir(), false);
+    /// ```
     #[inline]
     pub fn is_dir(&self) -> bool {
         self.inner.is_dir()
@@ -470,6 +893,15 @@ impl AbsolutePath {
     /// On Windows, this will also simplify to a winuser path.
     ///
     /// This is an alias to [`std::fs::canonicalize`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::{AbsolutePath, PathBuf};
+    ///
+    /// let path: &AbsolutePath = "/foo/test/../test/bar.rs".try_into().unwrap();
+    /// assert_eq!(path.canonicalize().unwrap(), PathBuf::from("/foo/test/bar.rs"));
+    /// ```
     #[cfg(not(windows))]
     #[inline]
     pub fn canonicalize(&self) -> io::Result<CanonicalPathBuf> {
@@ -484,6 +916,15 @@ impl AbsolutePath {
     /// On Windows, this will also simplify to a winuser path.
     ///
     /// This is an alias to [`std::fs::canonicalize`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::{AbsolutePath, PathBuf};
+    ///
+    /// let path: &AbsolutePath = "/foo/test/../test/bar.rs".try_into().unwrap();
+    /// assert_eq!(path.canonicalize().unwrap(), PathBuf::from("/foo/test/bar.rs"));
+    /// ```
     #[cfg(windows)]
     pub fn canonicalize(&self) -> io::Result<CanonicalPathBuf> {
         use omnipath::WinPathExt;
@@ -495,6 +936,15 @@ impl AbsolutePath {
     /// Reads a symbolic link, returning the file that the link points to.
     ///
     /// This is an alias to [`std::fs::read_link`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let path: &AbsolutePath = "/laputa/sky_castle.rs".try_into().unwrap();
+    /// let path_link = path.read_link().expect("read_link call failed");
+    /// ```
     #[inline]
     pub fn read_link(&self) -> io::Result<AbsolutePathBuf> {
         self.inner.read_link().map(PathBuf::new_unchecked)
@@ -511,9 +961,21 @@ impl AbsolutePath {
     /// If its existence can neither be confirmed nor denied, it will propagate an `Err` instead.
     /// This can be the case if e.g. listing permission is denied on one of the parent directories.
     ///
-    /// Note that while this avoids some pitfalls of the [`exist`](Path::exists) method,
+    /// Note that while this avoids some pitfalls of the [`exists`](Path::exists) method,
     /// it still can not prevent time-of-check to time-of-use (TOCTOU) bugs.
     /// You should only use it in scenarios where those bugs are not an issue.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let path: &AbsolutePath = "/does_not_exist".try_into().unwrap();
+    /// assert!(!path.try_exists().unwrap());
+    ///
+    /// let path: &AbsolutePath = "/root/secret_file.txt".try_into().unwrap();
+    /// assert!(path.try_exists().is_err());
+    /// ```
     #[inline]
     pub fn try_exists(&self) -> io::Result<bool> {
         self.inner.try_exists()
@@ -526,6 +988,19 @@ impl AbsolutePath {
     ///
     /// If you cannot access the directory containing the file, e.g., because of a permission error,
     /// this will return false.
+    ///
+    /// # Examples
+    ///
+    #[cfg_attr(unix, doc = "```no_run")]
+    #[cfg_attr(not(unix), doc = "```ignore")]
+    /// use nu_path::AbsolutePath;
+    /// use std::os::unix::fs::symlink;
+    ///
+    /// let link_path: &AbsolutePath = "/link".try_into().unwrap();
+    /// symlink("/origin_does_not_exist/", link_path).unwrap();
+    /// assert_eq!(link_path.is_symlink(), true);
+    /// assert_eq!(link_path.exists(), false);
+    /// ```
     #[inline]
     pub fn is_symlink(&self) -> bool {
         self.inner.is_symlink()
@@ -534,6 +1009,16 @@ impl AbsolutePath {
     /// Queries the metadata about a file without following symlinks.
     ///
     /// This is an alias to [`std::fs::symlink_metadata`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let path: &AbsolutePath = "/Minas/tirith".try_into().unwrap();
+    /// let metadata = path.symlink_metadata().expect("symlink_metadata call failed");
+    /// println!("{:?}", metadata.file_type());
+    /// ```
     #[inline]
     pub fn symlink_metadata(&self) -> io::Result<fs::Metadata> {
         self.inner.symlink_metadata()
@@ -542,6 +1027,16 @@ impl AbsolutePath {
 
 impl CanonicalPath {
     /// Returns a [`CanonicalPath`] as a [`AbsolutePath`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePath;
+    ///
+    /// let absolute: &AbsolutePath = "/test".try_into().unwrap();
+    /// let p = absolute.canonicalize().unwrap();
+    /// assert_eq!(absolute, p.as_absolute());
+    /// ```
     #[inline]
     pub fn as_absolute(&self) -> &AbsolutePath {
         self.cast()
@@ -659,6 +1154,15 @@ impl<Form: PathForm> PathBuf<Form> {
     }
 
     /// Coerces to a [`Path`] slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// let p = PathBuf::from("/test");
+    /// assert_eq!(Path::new("/test"), p.as_path());
+    /// ```
     #[inline]
     pub fn as_path(&self) -> &Path<Form> {
         Path::new_unchecked(&self.inner)
@@ -668,12 +1172,34 @@ impl<Form: PathForm> PathBuf<Form> {
     ///
     /// Returns `false` and does nothing if [`self.parent`](Path::parent) is [`None`].
     /// Otherwise, returns `true`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// let mut p = PathBuf::from("/spirited/away.rs");
+    ///
+    /// p.pop();
+    /// assert_eq!(Path::new("/spirited"), p);
+    /// p.pop();
+    /// assert_eq!(Path::new("/"), p);
+    /// ```
     #[inline]
     pub fn pop(&mut self) -> bool {
         self.inner.pop()
     }
 
     /// Consumes the [`PathBuf`], returning its internal [`OsString`] storage.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::PathBuf;
+    ///
+    /// let p = PathBuf::from("/the/head");
+    /// let os_str = p.into_os_string();
+    /// ```
     #[inline]
     pub fn into_os_string(self) -> OsString {
         self.inner.into_os_string()
@@ -734,6 +1260,16 @@ impl<Form: PathForm> PathBuf<Form> {
     /// - [`Relative`], [`Absolute`], or [`Canonical`] into [`Any`].
     /// - [`Canonical`] into [`Absolute`].
     /// - Any form into itself.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{PathBuf, AbsolutePathBuf};
+    ///
+    /// let p = AbsolutePathBuf::try_from("/test").unwrap();
+    /// let p: PathBuf = p.cast_into();
+    /// assert_eq!(PathBuf::from("/test"), p);
+    /// ```
     #[inline]
     pub fn cast_into<To>(self) -> PathBuf<To>
     where
@@ -744,6 +1280,15 @@ impl<Form: PathForm> PathBuf<Form> {
     }
 
     /// Consumes a [`PathBuf`], returning it with form [`Any`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{AbsolutePathBuf, PathBuf};
+    ///
+    /// let p = AbsolutePathBuf::try_from("/test").unwrap();
+    /// assert_eq!(PathBuf::from("/test"), p.into_any());
+    /// ```
     #[inline]
     pub fn into_any(self) -> PathBuf {
         PathBuf::new_unchecked(self.inner)
@@ -752,6 +1297,14 @@ impl<Form: PathForm> PathBuf<Form> {
 
 impl PathBuf {
     /// Creates an empty [`PathBuf`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::PathBuf;
+    ///
+    /// let path = PathBuf::new();
+    /// ```
     #[inline]
     pub fn new() -> Self {
         Self::new_unchecked(std::path::PathBuf::new())
@@ -759,12 +1312,41 @@ impl PathBuf {
 
     /// Creates a new [`PathBuf`] with a given capacity used to create the internal [`OsString`].
     /// See [`with_capacity`](OsString::with_capacity) defined on [`OsString`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::PathBuf;
+    ///
+    /// let mut path = PathBuf::with_capacity(10);
+    /// let capacity = path.capacity();
+    ///
+    /// // This push is done without reallocating
+    /// path.push(r"C:\");
+    ///
+    /// assert_eq!(capacity, path.capacity());
+    /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self::new_unchecked(std::path::PathBuf::with_capacity(capacity))
     }
 
     /// Returns a mutable reference to the underlying [`OsString`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// let mut path = PathBuf::from("/foo");
+    ///
+    /// path.push("bar");
+    /// assert_eq!(path, Path::new("/foo/bar"));
+    ///
+    /// // OsString's `push` does not add a separator.
+    /// path.as_mut_os_string().push("baz");
+    /// assert_eq!(path, Path::new("/foo/barbaz"));
+    /// ```
     #[inline]
     pub fn as_mut_os_string(&mut self) -> &mut OsString {
         self.inner.as_mut_os_string()
@@ -778,6 +1360,14 @@ impl PathBuf {
 
     /// Consumes a [`PathBuf`], returning an `Ok` [`RelativePathBuf`] if the [`PathBuf`]
     /// is relative. Otherwise, returns the original [`PathBuf`] as an `Err`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::PathBuf;
+    ///
+    /// assert!(PathBuf::from("test.txt").try_into_relative().is_ok());
+    /// ```
     #[inline]
     pub fn try_into_relative(self) -> Result<RelativePathBuf, Self> {
         if self.inner.is_relative() {
@@ -789,6 +1379,14 @@ impl PathBuf {
 
     /// Consumes a [`PathBuf`], returning an `Ok` [`AbsolutePathBuf`] if the [`PathBuf`]
     /// is absolute. Otherwise, returns the original [`PathBuf`] as an `Err`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::PathBuf;
+    ///
+    /// assert!(PathBuf::from("/test").try_into_absolute().is_ok());
+    /// ```
     #[inline]
     pub fn try_into_absolute(self) -> Result<AbsolutePathBuf, Self> {
         if self.inner.is_absolute() {
@@ -815,6 +1413,28 @@ impl<Form: PathPush> PathBuf<Form> {
     ///
     /// Consider using [`Path::join`] if you need a new [`PathBuf`] instead of
     /// using this function on a cloned [`PathBuf`].
+    ///
+    /// # Examples
+    ///
+    /// Pushing a relative path extends the existing path:
+    ///
+    /// ```
+    /// use nu_path::PathBuf;
+    ///
+    /// let mut path = PathBuf::from("/tmp");
+    /// path.push("file.bk");
+    /// assert_eq!(path, PathBuf::from("/tmp/file.bk"));
+    /// ```
+    ///
+    /// Pushing an absolute path replaces the existing path:
+    ///
+    /// ```
+    /// use nu_path::PathBuf;
+    ///
+    /// let mut path = PathBuf::from("/tmp");
+    /// path.push("/etc");
+    /// assert_eq!(path, PathBuf::from("/etc"));
+    /// ```
     #[inline]
     pub fn push<R: MaybeRelative>(&mut self, path: impl AsRef<Path<R>>) {
         self.inner.push(&path.as_ref().inner)
@@ -830,6 +1450,25 @@ impl<Form: PathSet> PathBuf<Form> {
     /// Otherwise it is equivalent to calling [`pop`](PathBuf::pop) and then pushing `file_name`.
     /// The new path will be a sibling of the original path.
     /// (That is, it will have the same parent.)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::PathBuf;
+    ///
+    /// let mut buf = PathBuf::from("/");
+    /// assert!(buf.file_name() == None);
+    ///
+    /// buf.set_file_name("foo.txt");
+    /// assert!(buf == PathBuf::from("/foo.txt"));
+    /// assert!(buf.file_name().is_some());
+    ///
+    /// buf.set_file_name("bar.txt");
+    /// assert!(buf == PathBuf::from("/bar.txt"));
+    ///
+    /// buf.set_file_name("baz");
+    /// assert!(buf == PathBuf::from("/baz"));
+    /// ```
     #[inline]
     pub fn set_file_name(&mut self, file_name: impl AsRef<OsStr>) {
         self.inner.set_file_name(file_name)
@@ -855,6 +1494,32 @@ impl<Form: PathSet> PathBuf<Form> {
     ///
     /// If the file stem contains internal dots and `extension` is empty, part of the
     /// old file stem will be considered the new [`self.extension`](Path::extension).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::{Path, PathBuf};
+    ///
+    /// let mut p = PathBuf::from("/feel/the");
+    ///
+    /// p.set_extension("force");
+    /// assert_eq!(Path::new("/feel/the.force"), p.as_path());
+    ///
+    /// p.set_extension("dark.side");
+    /// assert_eq!(Path::new("/feel/the.dark.side"), p.as_path());
+    ///
+    /// p.set_extension("cookie");
+    /// assert_eq!(Path::new("/feel/the.dark.cookie"), p.as_path());
+    ///
+    /// p.set_extension("");
+    /// assert_eq!(Path::new("/feel/the.dark"), p.as_path());
+    ///
+    /// p.set_extension("");
+    /// assert_eq!(Path::new("/feel/the"), p.as_path());
+    ///
+    /// p.set_extension("");
+    /// assert_eq!(Path::new("/feel/the"), p.as_path());
+    /// ```
     #[inline]
     pub fn set_extension(&mut self, extension: impl AsRef<OsStr>) -> bool {
         self.inner.set_extension(extension)
@@ -874,6 +1539,15 @@ impl<Form: MaybeRelative> PathBuf<Form> {
     ///
     /// Instead, you should probably join this path onto the emulated current working directory.
     /// Any [`AbsolutePath`] or [`CanonicalPath`] will also suffice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::PathBuf;
+    ///
+    /// let p = PathBuf::from("test.txt");
+    /// assert_eq!(std::path::PathBuf::from("test.txt"), p.into_relative_std_path_buf());
+    /// ```
     #[inline]
     pub fn into_relative_std_path_buf(self) -> std::path::PathBuf {
         self.inner
@@ -882,6 +1556,15 @@ impl<Form: MaybeRelative> PathBuf<Form> {
 
 impl<Form: IsAbsolute> PathBuf<Form> {
     /// Consumes a [`PathBuf`] and returns the underlying [`std::path::PathBuf`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use nu_path::AbsolutePathBuf;
+    ///
+    /// let p = AbsolutePathBuf::try_from("/test").unwrap();
+    /// assert_eq!(std::path::PathBuf::from("/test"), p.into_std_path_buf());
+    /// ```
     #[inline]
     pub fn into_std_path_buf(self) -> std::path::PathBuf {
         self.inner
@@ -890,6 +1573,16 @@ impl<Form: IsAbsolute> PathBuf<Form> {
 
 impl CanonicalPathBuf {
     /// Consumes a [`CanonicalPathBuf`] and returns an [`AbsolutePathBuf`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use nu_path::AbsolutePathBuf;
+    ///
+    /// let absolute = AbsolutePathBuf::try_from("/test").unwrap();
+    /// let p = absolute.canonicalize().unwrap();
+    /// assert_eq!(absolute, p.into_absolute());
+    /// ```
     #[inline]
     pub fn into_absolute(self) -> AbsolutePathBuf {
         self.cast_into()
