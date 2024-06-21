@@ -924,7 +924,7 @@ impl<Form: PathForm> Deref for PathBuf<Form> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        self.as_ref()
+        self.as_path()
     }
 }
 
