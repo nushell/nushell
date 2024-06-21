@@ -1,4 +1,5 @@
 use crate::{
+    gc::PluginGcMsg,
     init::{create_command, make_plugin_interface},
     PluginGc,
 };
@@ -74,6 +75,7 @@ impl PersistentPlugin {
     pub fn get(
         self: Arc<Self>,
         envs: impl FnOnce() -> Result<HashMap<String, String>, ShellError>,
+        ctrlc_subscribers: Option<CtrlcSubscribers>,
     ) -> Result<PluginInterface, ShellError> {
         let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
             msg: format!(
@@ -95,7 +97,7 @@ impl PersistentPlugin {
             // TODO: We should probably store the envs somewhere, in case we have to launch without
             // envs (e.g. from a custom value)
             let envs = envs()?;
-            let result = self.clone().spawn(&envs, &mut mutable);
+            let result = self.clone().spawn(&envs, &mut mutable, ctrlc_subscribers);
 
             // Check if we were using an alternate communication mode and may need to fall back to
             // stdio.
@@ -110,7 +112,7 @@ impl PersistentPlugin {
                     mutable.preferred_mode);
                 // Reset to stdio and try again, but this time don't catch any error
                 mutable.preferred_mode = Some(PreferredCommunicationMode::Stdio);
-                self.clone().spawn(&envs, &mut mutable)?;
+                self.clone().spawn(&envs, &mut mutable, ctrlc_subscribers)?;
             }
 
             Ok(mutable
@@ -129,6 +131,7 @@ impl PersistentPlugin {
         self: Arc<Self>,
         envs: &HashMap<String, String>,
         mutable: &mut MutableState,
+        ctrlc_subscribers: Option<CtrlcSubscribers>,
     ) -> Result<(), ShellError> {
         // Make sure `running` is set to None to begin
         if let Some(running) = mutable.running.take() {
@@ -180,8 +183,15 @@ impl PersistentPlugin {
 
         // Start the plugin garbage collector
         let gc = PluginGc::new(mutable.gc_config.clone(), &self)?;
-        // I need the current EngineState here
-        eprintln!("gc.sender: {:?}", gc.clone_sender());
+
+        if let Some(ctrlc_subscribers) = ctrlc_subscribers {
+            if let Some(ctrlc_subscribers) = ctrlc_subscribers.lock().ok() {
+                let tx = gc.clone_sender();
+                let tx = tx.map_input(|()| PluginGcMsg::Ctrlc);
+
+                ctrlc_subscribers.push(tx);
+            }
+        }
 
         let pid = child.id();
         let interface = make_plugin_interface(
@@ -209,7 +219,7 @@ impl PersistentPlugin {
             gc.stop_tracking();
             // Set the mode and try again
             mutable.preferred_mode = Some(PreferredCommunicationMode::LocalSocket);
-            return self.spawn(envs, mutable);
+            return self.spawn(envs, mutable, ctrlc_subscribers);
         }
 
         mutable.running = Some(RunningPlugin { interface, gc });
@@ -307,20 +317,80 @@ impl GetPlugin for PersistentPlugin {
         self: Arc<Self>,
         mut context: Option<(&EngineState, &mut Stack)>,
     ) -> Result<PluginInterface, ShellError> {
-        self.get(|| {
-            // Get envs from the context if provided.
-            let envs = context
-                .as_mut()
-                .map(|(engine_state, stack)| {
-                    // We need the current environment variables for `python` based plugins. Or
-                    // we'll likely have a problem when a plugin is implemented in a virtual Python
-                    // environment.
-                    let stack = &mut stack.start_capture();
-                    nu_engine::env::env_to_strings(engine_state, stack)
-                })
-                .transpose()?;
+        let ctrlc_subscribers = context
+            .as_ref()
+            .and_then(|(engine_state, _)| engine_state.ctrlc_tx.clone());
+        self.get(
+            || {
+                // Get envs from the context if provided.
+                let envs = context
+                    .as_mut()
+                    .map(|(engine_state, stack)| {
+                        // We need the current environment variables for `python` based plugins. Or
+                        // we'll likely have a problem when a plugin is implemented in a virtual Python
+                        // environment.
+                        let stack = &mut stack.start_capture();
+                        nu_engine::env::env_to_strings(engine_state, stack)
+                    })
+                    .transpose()?;
 
-            Ok(envs.unwrap_or_default())
-        })
+                Ok(envs.unwrap_or_default())
+            },
+            ctrlc_subscribers,
+        )
+    }
+}
+
+use std::fmt;
+use std::sync::mpsc::{SendError, Sender};
+
+trait SenderExt<T> {
+    type Err;
+
+    fn send(&self, t: T) -> Result<(), SendError<Self::Err>>;
+
+    fn map_input<NewT, F>(self, func: F) -> Map<Self, F>
+    where
+        Self: Sized,
+        F: Fn(NewT) -> T,
+    {
+        Map { sender: self, func }
+    }
+}
+
+impl<T> SenderExt<T> for Sender<T> {
+    type Err = T;
+
+    fn send(&self, value: T) -> Result<(), SendError<Self::Err>> {
+        self.send(value)
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct Map<S, F> {
+    sender: S,
+    func: F,
+}
+
+impl<S, F> fmt::Debug for Map<S, F>
+where
+    S: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Map")
+            .field("sender", &self.sender)
+            .field("func", &"<function>")
+            .finish()
+    }
+}
+
+impl<S: SenderExt<U>, F, T, U> SenderExt<T> for Map<S, F>
+where
+    F: Fn(T) -> U,
+{
+    type Err = S::Err;
+
+    fn send(&self, value: T) -> Result<(), SendError<Self::Err>> {
+        self.sender.send((self.func)(value))
     }
 }

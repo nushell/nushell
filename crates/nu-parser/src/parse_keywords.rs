@@ -3742,7 +3742,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
                 let signatures = plugin
                     .clone()
-                    .get(get_envs)
+                    .get(get_envs, None)
                     .and_then(|p| p.get_signature())
                     .map_err(|err| {
                         log::warn!("Error getting signatures: {err:?}");
