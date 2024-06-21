@@ -6,7 +6,7 @@ use crate::{
 use super::{PluginInterface, PluginSource};
 use nu_plugin_core::CommunicationMode;
 use nu_protocol::{
-    engine::{ctrlc::CtrlcHandlers, EngineState, Stack},
+    engine::{ctrlc, EngineState, Stack},
     PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
 };
 use std::{
@@ -72,7 +72,7 @@ impl PersistentPlugin {
     pub fn get(
         self: Arc<Self>,
         envs: impl FnOnce() -> Result<HashMap<String, String>, ShellError>,
-        ctrlc_handlers: Option<CtrlcHandlers>,
+        ctrlc_handlers: Option<ctrlc::Handlers>,
     ) -> Result<PluginInterface, ShellError> {
         let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
             msg: format!(
@@ -94,7 +94,9 @@ impl PersistentPlugin {
             // TODO: We should probably store the envs somewhere, in case we have to launch without
             // envs (e.g. from a custom value)
             let envs = envs()?;
-            let result = self.clone().spawn(&envs, &mut mutable, ctrlc_handlers.clone());
+            let result = self
+                .clone()
+                .spawn(&envs, &mut mutable, ctrlc_handlers.clone());
 
             // Check if we were using an alternate communication mode and may need to fall back to
             // stdio.
@@ -128,7 +130,7 @@ impl PersistentPlugin {
         self: Arc<Self>,
         envs: &HashMap<String, String>,
         mutable: &mut MutableState,
-        ctrlc_handlers: Option<CtrlcHandlers>,
+        ctrlc_handlers: Option<ctrlc::Handlers>,
     ) -> Result<(), ShellError> {
         // Make sure `running` is set to None to begin
         if let Some(running) = mutable.running.take() {

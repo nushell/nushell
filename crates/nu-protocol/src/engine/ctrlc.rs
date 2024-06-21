@@ -7,18 +7,18 @@ use std::sync::{
 type CtrlcHandler = Box<dyn Fn() + Send + Sync>;
 
 #[derive(Clone)]
-pub struct CtrlcHandlers {
+pub struct Handlers {
     handlers: Arc<Mutex<Vec<(usize, CtrlcHandler)>>>,
     next_id: Arc<AtomicUsize>,
 }
 
 #[derive(Clone)]
-pub struct HandlerGuard {
+pub struct Guard {
     id: usize,
     handlers: Arc<Mutex<Vec<(usize, CtrlcHandler)>>>,
 }
 
-impl Drop for HandlerGuard {
+impl Drop for Guard {
     fn drop(&mut self) {
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.retain(|(id, _)| *id != self.id);
@@ -26,27 +26,25 @@ impl Drop for HandlerGuard {
     }
 }
 
-impl Debug for HandlerGuard {
+impl Debug for Guard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HandlerGuard")
-            .field("id", &self.id)
-            .finish()
+        f.debug_struct("Guard").field("id", &self.id).finish()
     }
 }
 
-impl CtrlcHandlers {
-    pub fn new() -> CtrlcHandlers {
+impl Handlers {
+    pub fn new() -> Handlers {
         let handlers = Arc::new(Mutex::new(vec![]));
         let next_id = Arc::new(AtomicUsize::new(0));
-        CtrlcHandlers { handlers, next_id }
+        Handlers { handlers, next_id }
     }
 
-    pub fn add(&self, handler: CtrlcHandler) -> HandlerGuard {
+    pub fn add(&self, handler: CtrlcHandler) -> Guard {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.push((id, handler));
         }
-        HandlerGuard {
+        Guard {
             id,
             handlers: Arc::clone(&self.handlers),
         }
@@ -61,15 +59,15 @@ impl CtrlcHandlers {
     }
 }
 
-impl Default for CtrlcHandlers {
+impl Default for Handlers {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl std::fmt::Debug for CtrlcHandlers {
+impl Debug for Handlers {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CtrlcHandlers")
+        f.debug_struct("Handlers")
             .field("handlers", &self.handlers.lock().unwrap().len())
             .finish()
     }

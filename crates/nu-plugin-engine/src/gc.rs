@@ -14,7 +14,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct PluginGc {
     sender: mpsc::Sender<PluginGcMsg>,
-    _ctrlc_guard: Arc<Option<ctrlc::HandlerGuard>>,
+    _ctrlc_guard: Arc<Option<ctrlc::Guard>>,
 }
 
 impl PluginGc {
@@ -22,7 +22,7 @@ impl PluginGc {
     pub fn new(
         config: PluginGcConfig,
         plugin: &Arc<PersistentPlugin>,
-        ctrlc_handlers: Option<ctrlc::CtrlcHandlers>,
+        ctrlc_handlers: Option<ctrlc::Handlers>,
     ) -> std::io::Result<PluginGc> {
         let (sender, receiver) = mpsc::channel();
 

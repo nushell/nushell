@@ -1,4 +1,4 @@
-use nu_protocol::engine::{ctrlc::CtrlcHandlers, EngineState};
+use nu_protocol::engine::{ctrlc::Handlers, EngineState};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
@@ -7,7 +7,7 @@ use std::sync::{
 pub(crate) fn ctrlc_protection(engine_state: &mut EngineState) {
 
     let ctrlc = Arc::new(AtomicBool::new(false));
-    let handlers = CtrlcHandlers::new();
+    let handlers = Handlers::new();
 
     {
         let ctrlc = ctrlc.clone();

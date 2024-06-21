@@ -2,7 +2,7 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
-        ctrlc::CtrlcHandlers,
+        ctrlc,
         usage::{build_usage, Usage},
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
@@ -86,7 +86,7 @@ pub struct EngineState {
     usage: Usage,
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
-    pub ctrlc_handlers: Option<CtrlcHandlers>,
+    pub ctrlc_handlers: Option<ctrlc::Handlers>,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
