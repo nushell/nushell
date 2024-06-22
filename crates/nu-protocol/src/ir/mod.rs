@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     ast::{CellPath, Operator},
     engine::EngineState,
@@ -58,9 +60,16 @@ pub enum Instruction {
     /// Add a list of args to the next call (spread/rest)
     AppendRest { src: RegId },
     /// Add a named arg with no value to the next call.
-    PushFlag { name: Box<str> },
+    PushFlag {
+        #[serde(with = "serde_arc_str")]
+        name: Arc<str>,
+    },
     /// Add a named arg with a value to the next call.
-    PushNamed { name: Box<str>, src: RegId },
+    PushNamed {
+        #[serde(with = "serde_arc_str")]
+        name: Arc<str>,
+        src: RegId,
+    },
     /// Set the redirection for stdout for the next call (only)
     RedirectOut { mode: RedirectMode },
     /// Set the redirection for stderr for the next call (only)
@@ -152,4 +161,25 @@ pub enum RedirectMode {
         path: RegId,
         append: bool,
     },
+}
+
+/// Just a hack to allow `Arc<str>` to be serialized and deserialized
+mod serde_arc_str {
+    use serde::{Deserialize, Serialize};
+    use std::sync::Arc;
+
+    pub fn serialize<S>(string: &Arc<str>, ser: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        string.as_ref().serialize(ser)
+    }
+
+    pub fn deserialize<'de, D>(de: D) -> Result<Arc<str>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let string: &'de str = Deserialize::deserialize(de)?;
+        Ok(string.into())
+    }
 }

@@ -892,7 +892,7 @@ impl Eval for EvalRuntime {
 ///
 /// An automatic environment variable cannot be assigned to by user code.
 /// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
-fn is_automatic_env_var(var: &str) -> bool {
+pub(crate) fn is_automatic_env_var(var: &str) -> bool {
     let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
     names.iter().any(|&name| {
         if cfg!(windows) {

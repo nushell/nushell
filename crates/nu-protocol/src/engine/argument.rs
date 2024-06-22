@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{Span, Value};
 
 /// Represents a fully evaluated argument to a call.
@@ -14,12 +16,12 @@ pub enum Argument {
     },
     /// A named argument with no value, e.g. `--flag`
     Flag {
-        name: Box<str>,
+        name: Arc<str>,
         span: Span,
     },
     /// A named argument with a value, e.g. `--flag value` or `--flag=`
     Named {
-        name: Box<str>,
+        name: Arc<str>,
         span: Span,
         val: Value,
     },

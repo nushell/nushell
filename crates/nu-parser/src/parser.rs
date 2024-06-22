@@ -5676,7 +5676,7 @@ pub fn parse_block(
         working_set.parse_errors.extend_from_slice(&errors);
     }
 
-    if !is_subexpression {
+    if !is_subexpression && errors.is_empty() {
         match nu_engine::compile(working_set, &block) {
             Ok(ir_block) => {
                 block.ir_block = Some(ir_block);

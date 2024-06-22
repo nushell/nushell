@@ -1376,14 +1376,31 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     ///
     /// The IR compiler is in very early development, so code that can't be compiled is quite
     /// expected. If you think it should be working, please report it to us.
-    #[error("internal compiler error: {message}")]
+    #[error("internal compiler error: {msg}")]
     #[diagnostic(
         code(nu::shell::ir_compile_error),
         help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were compiling if able")
     )]
     IrCompileError {
-        message: String,
+        msg: String,
         #[label = "while compiling this code"]
+        span: Option<Span>,
+    },
+
+    /// An unexpected error occurred during IR evaluation.
+    ///
+    /// ## Resolution
+    ///
+    /// This is most likely a correctness issue with the IR compiler or evaluator. Please file a
+    /// bug with the minimum code needed to reproduce the issue, if possible.
+    #[error("IR evaluation error: {msg}")]
+    #[diagnostic(
+        code(nu::shell::ir_eval_error),
+        help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were running if able")
+    )]
+    IrEvalError {
+        msg: String,
+        #[label = "while running this code"]
         span: Option<Span>,
     },
 }

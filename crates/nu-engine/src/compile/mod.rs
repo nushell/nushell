@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nu_protocol::{
     ast::{
         Argument, Block, Call, CellPath, Expr, Expression, Operator, PathMember, Pipeline,
@@ -322,8 +324,8 @@ fn compile_expression(
                 out_reg,
             )
         }
-        Expr::Block(_) => Err(CompileError::Todo("Block")),
-        Expr::Closure(_) => Err(CompileError::Todo("Closure")),
+        Expr::Block(block_id) => lit(builder, Literal::Block(*block_id)),
+        Expr::Closure(block_id) => lit(builder, Literal::Closure(*block_id)),
         Expr::MatchBlock(_) => Err(CompileError::Todo("MatchBlock")),
         Expr::List(_) => Err(CompileError::Todo("List")),
         Expr::Table(_) => Err(CompileError::Todo("Table")),
@@ -331,9 +333,27 @@ fn compile_expression(
         Expr::Keyword(_) => Err(CompileError::Todo("Keyword")),
         Expr::ValueWithUnit(_) => Err(CompileError::Todo("ValueWithUnit")),
         Expr::DateTime(_) => Err(CompileError::Todo("DateTime")),
-        Expr::Filepath(_, _) => Err(CompileError::Todo("Filepath")),
-        Expr::Directory(_, _) => Err(CompileError::Todo("Directory")),
-        Expr::GlobPattern(_, _) => Err(CompileError::Todo("GlobPattern")),
+        Expr::Filepath(path, no_expand) => lit(
+            builder,
+            Literal::Filepath {
+                val: path.as_str().into(),
+                no_expand: *no_expand,
+            },
+        ),
+        Expr::Directory(path, no_expand) => lit(
+            builder,
+            Literal::Directory {
+                val: path.as_str().into(),
+                no_expand: *no_expand,
+            },
+        ),
+        Expr::GlobPattern(path, no_expand) => lit(
+            builder,
+            Literal::GlobPattern {
+                val: path.as_str().into(),
+                no_expand: *no_expand,
+            },
+        ),
         Expr::String(s) => lit(builder, Literal::String(s.as_str().into())),
         Expr::RawString(rs) => lit(builder, Literal::RawString(rs.as_str().into())),
         Expr::CellPath(path) => lit(builder, Literal::CellPath(Box::new(path.clone()))),
@@ -372,8 +392,8 @@ fn compile_expression(
         Expr::Overlay(_) => Err(CompileError::Todo("Overlay")),
         Expr::Signature(_) => Err(CompileError::Todo("Signature")),
         Expr::StringInterpolation(_) => Err(CompileError::Todo("StringInterpolation")),
-        Expr::Nothing => Err(CompileError::Todo("Nothing")),
-        Expr::Garbage => Err(CompileError::Todo("Garbage")),
+        Expr::Nothing => lit(builder, Literal::Nothing),
+        Expr::Garbage => Err(CompileError::Garbage),
     }
 }
 
@@ -392,7 +412,7 @@ fn compile_call(
     // it.
     enum CompiledArg {
         Positional(RegId, Span),
-        Named(Box<str>, Option<RegId>, Span),
+        Named(Arc<str>, Option<RegId>, Span),
         Spread(RegId, Span),
     }
 
@@ -609,7 +629,7 @@ impl CompileError {
                 format!("TODO: {msg}")
             }
         };
-        ShellError::IrCompileError { message, span }
+        ShellError::IrCompileError { msg: message, span }
     }
 }
 

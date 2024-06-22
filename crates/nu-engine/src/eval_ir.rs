@@ -1,10 +1,16 @@
+use std::fs::File;
+
+use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
-    engine::{Argument, Closure, EngineState, Stack},
-    ir::{Call, Instruction, IrBlock, Literal},
-    DeclId, PipelineData, RegId, ShellError, Span, Value,
+    engine::{Argument, Closure, EngineState, Redirection, Stack},
+    ir::{Call, Instruction, IrBlock, Literal, RedirectMode},
+    DeclId, IntoPipelineData, IntoSpanned, OutDest, PipelineData, RegId, ShellError, Span, Value,
+    VarId,
 };
+
+use crate::eval::is_automatic_env_var;
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
@@ -26,6 +32,8 @@ pub fn eval_ir_block<D: DebugContext>(
                 engine_state,
                 stack,
                 args_base,
+                redirect_out: None,
+                redirect_err: None,
                 registers: &mut registers[..],
             },
             &block_span,
@@ -56,6 +64,10 @@ struct EvalContext<'a> {
     stack: &'a mut Stack,
     /// Base index on the argument stack to reset to after a call
     args_base: usize,
+    /// State set by redirect-out
+    redirect_out: Option<Redirection>,
+    /// State set by redirect-err
+    redirect_err: Option<Redirection>,
     registers: &'a mut [PipelineData],
 }
 
@@ -72,10 +84,10 @@ impl<'a> EvalContext<'a> {
     }
 
     /// Take and implicitly collect a register to a value
-    fn collect_reg(&mut self, reg_id: RegId) -> Result<Value, ShellError> {
-        let pipeline_data = self.take_reg(reg_id);
-        let span = pipeline_data.span().unwrap_or(Span::unknown());
-        pipeline_data.into_value(span)
+    fn collect_reg(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
+        let data = self.take_reg(reg_id);
+        let span = data.span().unwrap_or(fallback_span);
+        data.into_value(span)
     }
 }
 
@@ -110,16 +122,13 @@ fn eval_ir_block_impl<D: DebugContext>(
         }
     }
 
-    // FIXME: change to non-generic error
-    Err(ShellError::GenericError {
-        error: format!(
+    // Fell out of the loop, without encountering a Return.
+    Err(ShellError::IrEvalError {
+        msg: format!(
             "Program counter out of range (pc={pc}, len={len})",
             len = ir_block.instructions.len(),
         ),
-        msg: "while evaluating this block".into(),
         span: block_span.clone(),
-        help: Some("this indicates a compiler bug".into()),
-        inner: vec![],
     })
 }
 
@@ -137,12 +146,14 @@ fn eval_instruction(
     instruction: &Instruction,
     span: &Span,
 ) -> Result<InstructionResult, ShellError> {
+    use self::InstructionResult::*;
+
     match instruction {
         Instruction::LoadLiteral { dst, lit } => load_literal(ctx, *dst, lit, *span),
         Instruction::Move { dst, src } => {
             let val = ctx.take_reg(*src);
             ctx.put_reg(*dst, val);
-            Ok(InstructionResult::Continue)
+            Ok(Continue)
         }
         Instruction::Clone { dst, src } => {
             let data1 = ctx.take_reg(*src);
@@ -161,68 +172,172 @@ fn eval_instruction(
             };
             ctx.put_reg(*src, data1);
             ctx.put_reg(*dst, data2);
-            Ok(InstructionResult::Continue)
+            Ok(Continue)
         }
-        Instruction::Collect { src_dst } => todo!(),
-        Instruction::Drain { src } => todo!(),
-        Instruction::LoadVariable { dst, var_id } => todo!(),
-        Instruction::StoreVariable { var_id, src } => todo!(),
-        Instruction::LoadEnv { dst, key } => todo!(),
-        Instruction::LoadEnvOpt { dst, key } => todo!(),
-        Instruction::StoreEnv { key, src } => todo!(),
+        Instruction::Collect { src_dst } => {
+            let data = ctx.take_reg(*src_dst);
+            let value = collect(data, *span)?;
+            ctx.put_reg(*src_dst, value);
+            Ok(Continue)
+        }
+        Instruction::Drain { src } => {
+            let data = ctx.take_reg(*src);
+            if let Some(exit_status) = data.drain()? {
+                ctx.stack.add_env_var(
+                    "LAST_EXIT_CODE".into(),
+                    Value::int(exit_status.code() as i64, *span),
+                );
+            }
+            Ok(Continue)
+        }
+        Instruction::LoadVariable { dst, var_id } => {
+            let value = get_var(ctx, *var_id, *span)?;
+            ctx.put_reg(*dst, value.into_pipeline_data());
+            Ok(Continue)
+        }
+        Instruction::StoreVariable { var_id, src } => {
+            let value = ctx.collect_reg(*src, *span)?;
+            ctx.stack.add_var(*var_id, value);
+            Ok(Continue)
+        }
+        Instruction::LoadEnv { dst, key } => {
+            if let Some(value) = ctx.stack.get_env_var(ctx.engine_state, key) {
+                ctx.put_reg(*dst, value.into_pipeline_data());
+                Ok(Continue)
+            } else {
+                Err(ShellError::EnvVarNotFoundAtRuntime {
+                    envvar_name: key.clone().into(),
+                    span: *span,
+                })
+            }
+        }
+        Instruction::LoadEnvOpt { dst, key } => {
+            let value = ctx
+                .stack
+                .get_env_var(ctx.engine_state, key)
+                .unwrap_or(Value::nothing(*span));
+            ctx.put_reg(*dst, value.into_pipeline_data());
+            Ok(Continue)
+        }
+        Instruction::StoreEnv { key, src } => {
+            let value = ctx.collect_reg(*src, *span)?;
+            if !is_automatic_env_var(key) {
+                ctx.stack.add_env_var(key.clone().into(), value);
+                Ok(Continue)
+            } else {
+                Err(ShellError::AutomaticEnvVarSetManually {
+                    envvar_name: key.clone().into(),
+                    span: *span,
+                })
+            }
+        }
         Instruction::PushPositional { src } => {
-            let val = ctx.collect_reg(*src)?;
+            let val = ctx.collect_reg(*src, *span)?;
             ctx.stack
                 .argument_stack
                 .push(Argument::Positional { span: *span, val });
-            Ok(InstructionResult::Continue)
+            Ok(Continue)
         }
         Instruction::AppendRest { src } => {
-            let vals = ctx.collect_reg(*src)?;
+            let vals = ctx.collect_reg(*src, *span)?;
             ctx.stack
                 .argument_stack
                 .push(Argument::Spread { span: *span, vals });
-            Ok(InstructionResult::Continue)
+            Ok(Continue)
         }
         Instruction::PushFlag { name } => {
             ctx.stack.argument_stack.push(Argument::Flag {
                 name: name.clone(),
                 span: *span,
             });
-            Ok(InstructionResult::Continue)
+            Ok(Continue)
         }
         Instruction::PushNamed { name, src } => {
-            let val = ctx.collect_reg(*src)?;
+            let val = ctx.collect_reg(*src, *span)?;
             ctx.stack.argument_stack.push(Argument::Named {
                 name: name.clone(),
                 span: *span,
                 val,
             });
-            Ok(InstructionResult::Continue)
+            Ok(Continue)
         }
         Instruction::RedirectOut { mode } => {
-            log::warn!("TODO: RedirectOut");
-            Ok(InstructionResult::Continue)
+            let out_dest = eval_redirection(ctx, mode, *span)?;
+            ctx.redirect_out = Some(out_dest);
+            Ok(Continue)
         }
         Instruction::RedirectErr { mode } => {
-            log::warn!("TODO: RedirectErr");
-            Ok(InstructionResult::Continue)
+            let out_dest = eval_redirection(ctx, mode, *span)?;
+            ctx.redirect_err = Some(out_dest);
+            Ok(Continue)
         }
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
             let result = eval_call(ctx, *decl_id, *span, input)?;
             ctx.put_reg(*src_dst, result);
-            Ok(InstructionResult::Continue)
+            Ok(Continue)
         }
         Instruction::BinaryOp { lhs_dst, op, rhs } => binary_op(ctx, *lhs_dst, op, *rhs, *span),
-        Instruction::FollowCellPath { src_dst, path } => todo!(),
-        Instruction::CloneCellPath { dst, src, path } => todo!(),
+        Instruction::FollowCellPath { src_dst, path } => {
+            let data = ctx.take_reg(*src_dst);
+            let path = ctx.take_reg(*path);
+            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
+                let value = data.follow_cell_path(&path.members, *span, true)?;
+                ctx.put_reg(*src_dst, value.into_pipeline_data());
+                Ok(Continue)
+            } else {
+                Err(ShellError::TypeMismatch {
+                    err_message: "cell path".into(),
+                    span: path.span().unwrap_or(*span),
+                })
+            }
+        }
+        Instruction::CloneCellPath { dst, src, path } => {
+            let data = ctx.take_reg(*src);
+            let path = ctx.take_reg(*path);
+            if let PipelineData::Value(value, _) = &data {
+                if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
+                    // TODO: make follow_cell_path() not have to take ownership, probably using Cow
+                    let value = value.clone().follow_cell_path(&path.members, true)?;
+                    ctx.put_reg(*src, data);
+                    ctx.put_reg(*dst, value.into_pipeline_data());
+                    Ok(Continue)
+                } else {
+                    Err(ShellError::TypeMismatch {
+                        err_message: "cell path".into(),
+                        span: path.span().unwrap_or(*span),
+                    })
+                }
+            } else {
+                Err(ShellError::IrEvalError {
+                    msg: "must collect value before clone-cell-path".into(),
+                    span: Some(*span),
+                })
+            }
+        }
         Instruction::UpsertCellPath {
             src_dst,
             path,
             new_value,
-        } => todo!(),
-        Instruction::Jump { index } => Ok(InstructionResult::Branch(*index)),
+        } => {
+            let data = ctx.take_reg(*src_dst);
+            let metadata = data.metadata();
+            // Change the span because we're modifying it
+            let mut value = data.into_value(*span)?;
+            let path = ctx.take_reg(*path);
+            let new_value = ctx.collect_reg(*new_value, *span)?;
+            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
+                value.upsert_data_at_cell_path(&path.members, new_value)?;
+                ctx.put_reg(*src_dst, value.into_pipeline_data_with_metadata(metadata));
+                Ok(Continue)
+            } else {
+                Err(ShellError::TypeMismatch {
+                    err_message: "cell path".into(),
+                    span: path.span().unwrap_or(*span),
+                })
+            }
+        }
+        Instruction::Jump { index } => Ok(Branch(*index)),
         Instruction::BranchIf { cond, index } => {
             let data = ctx.take_reg(*cond);
             let data_span = data.span();
@@ -233,12 +348,12 @@ fn eval_instruction(
                 });
             };
             if val {
-                Ok(InstructionResult::Branch(*index))
+                Ok(Branch(*index))
             } else {
-                Ok(InstructionResult::Continue)
+                Ok(Continue)
             }
         }
-        Instruction::Return { src } => Ok(InstructionResult::Return(*src)),
+        Instruction::Return { src } => Ok(Return(*src)),
     }
 }
 
@@ -264,7 +379,6 @@ fn literal_value(
         Literal::Int(i) => Value::int(*i, span),
         Literal::Float(f) => Value::float(*f, span),
         Literal::Binary(bin) => Value::binary(bin.clone(), span),
-        // FIXME: should really represent as `Value::Closure`?
         Literal::Block(block_id) => Value::closure(
             Closure {
                 block_id: *block_id,
@@ -272,8 +386,21 @@ fn literal_value(
             },
             span,
         ),
-        // TODO: look up the block and get the captures
-        Literal::Closure(_block_id) => todo!(),
+        Literal::Closure(block_id) => {
+            let block = ctx.engine_state.get_block(*block_id);
+            let captures = block
+                .captures
+                .iter()
+                .map(|var_id| get_var(ctx, *var_id, span).map(|val| (*var_id, val)))
+                .collect::<Result<Vec<_>, ShellError>>()?;
+            Value::closure(
+                Closure {
+                    block_id: *block_id,
+                    captures,
+                },
+                span,
+            )
+        }
         Literal::List(literals) => {
             let mut vec = Vec::with_capacity(literals.len());
             for elem in literals.iter() {
@@ -281,9 +408,35 @@ fn literal_value(
             }
             Value::list(vec, span)
         }
-        Literal::Filepath { val, no_expand } => todo!(),
-        Literal::Directory { val, no_expand } => todo!(),
-        Literal::GlobPattern { val, no_expand } => todo!(),
+        Literal::Filepath {
+            val: path,
+            no_expand,
+        } => {
+            if *no_expand {
+                Value::string(path.as_ref(), span)
+            } else {
+                let cwd = ctx.engine_state.cwd(Some(ctx.stack))?;
+                let path = expand_path_with(path.as_ref(), cwd, true);
+
+                Value::string(path.to_string_lossy(), span)
+            }
+        }
+        Literal::Directory {
+            val: path,
+            no_expand,
+        } => {
+            if path.as_ref() == "-" {
+                Value::string("-", span)
+            } else if *no_expand {
+                Value::string(path.as_ref(), span)
+            } else {
+                let cwd = ctx.engine_state.cwd(Some(ctx.stack)).unwrap_or_default();
+                let path = expand_path_with(path.as_ref(), cwd, true);
+
+                Value::string(path.to_string_lossy(), span)
+            }
+        }
+        Literal::GlobPattern { val, no_expand } => Value::glob(val.as_ref(), *no_expand, span),
         Literal::String(s) => Value::string(s.clone(), span),
         Literal::RawString(s) => Value::string(s.clone(), span),
         Literal::CellPath(path) => Value::cell_path(CellPath::clone(&path), span),
@@ -298,12 +451,8 @@ fn binary_op(
     rhs: RegId,
     span: Span,
 ) -> Result<InstructionResult, ShellError> {
-    let lhs_data = ctx.take_reg(lhs_dst);
-    let rhs_data = ctx.take_reg(rhs);
-    let lhs_span = lhs_data.span().unwrap_or(span);
-    let rhs_span = rhs_data.span().unwrap_or(span);
-    let lhs_val = lhs_data.into_value(lhs_span)?;
-    let rhs_val = rhs_data.into_value(rhs_span)?;
+    let lhs_val = ctx.collect_reg(lhs_dst, span)?;
+    let rhs_val = ctx.collect_reg(rhs, span)?;
 
     // FIXME: there should be a span for both the operator and for the expr?
     let op_span = span;
@@ -365,25 +514,81 @@ fn eval_call(
     head: Span,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let EvalContext {
+        engine_state,
+        stack,
+        args_base,
+        redirect_out,
+        redirect_err,
+        ..
+    } = ctx;
+
     // TODO: handle block eval
-    let args_len = ctx.stack.argument_stack.get_len(ctx.args_base);
-    let decl = ctx.engine_state.get_decl(decl_id);
+    let args_len = stack.argument_stack.get_len(*args_base);
+    let decl = engine_state.get_decl(decl_id);
+
+    // Set up redirect modes
+    let mut stack = stack.push_redirection(redirect_out.take(), redirect_err.take());
+
     // should this be precalculated? ideally we just use the call builder...
-    let span = ctx
-        .stack
+    let span = stack
         .argument_stack
-        .get_args(ctx.args_base, args_len)
+        .get_args(*args_base, args_len)
         .into_iter()
         .fold(head, |span, arg| span.append(arg.span()));
     let call = Call {
         decl_id,
         head,
         span,
-        args_base: ctx.args_base,
+        args_base: *args_base,
         args_len,
     };
-    let result = decl.run(ctx.engine_state, ctx.stack, &(&call).into(), input);
+
+    // Run the call
+    let result = decl.run(engine_state, &mut stack, &(&call).into(), input);
     // Important that this runs:
-    ctx.stack.argument_stack.leave_frame(ctx.args_base);
+    stack.argument_stack.leave_frame(ctx.args_base);
     result
+}
+
+/// Get variable from [`Stack`] or [`EngineState`]
+fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, ShellError> {
+    ctx.stack.get_var(var_id, span).or_else(|err| {
+        if let Some(const_val) = ctx.engine_state.get_var(var_id).const_val.clone() {
+            Ok(const_val.with_span(span))
+        } else {
+            Err(err)
+        }
+    })
+}
+
+/// Helper to collect values into [`PipelineData`], preserving original span and metadata
+fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, ShellError> {
+    let span = data.span().unwrap_or(fallback_span);
+    let metadata = data.metadata();
+    let value = data.into_value(span)?;
+    Ok(PipelineData::Value(value, metadata))
+}
+
+/// Set up an [`Redirection`] from a [`RedirectMode`]
+fn eval_redirection(
+    ctx: &mut EvalContext<'_>,
+    mode: &RedirectMode,
+    span: Span,
+) -> Result<Redirection, ShellError> {
+    match mode {
+        RedirectMode::Pipe => Ok(Redirection::Pipe(OutDest::Pipe)),
+        RedirectMode::Capture => Ok(Redirection::Pipe(OutDest::Capture)),
+        RedirectMode::Null => Ok(Redirection::Pipe(OutDest::Null)),
+        RedirectMode::Inherit => Ok(Redirection::Pipe(OutDest::Inherit)),
+        RedirectMode::File { path, append } => {
+            let path = ctx.collect_reg(*path, span)?;
+            let file = File::options()
+                .write(true)
+                .append(*append)
+                .open(path.as_str()?)
+                .map_err(|err| err.into_spanned(span))?;
+            Ok(Redirection::File(file.into()))
+        }
+    }
 }
