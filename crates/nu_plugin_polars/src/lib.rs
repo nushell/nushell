@@ -15,6 +15,8 @@ use crate::{
     series::series_commands, values::PolarsPluginCustomValue,
 };
 
+use nu_utils::utils::perf as nu_utils_perf;
+
 pub trait EngineWrapper {
     fn get_env_var(&self, key: &str) -> Option<String>;
     fn use_color(&self) -> bool;
@@ -45,50 +47,22 @@ impl EngineWrapper for &EngineInterface {
     }
 }
 
-#[macro_export]
-macro_rules! plugin_debug {
-    ($env_var_provider:tt, $($arg:tt)*) => {{
-        if $env_var_provider.get_env_var("POLARS_PLUGIN_DEBUG")
-            .filter(|s|  s == "1" || s == "true")
-            .is_some() {
-            eprintln!($($arg)*);
-        }
-    }};
-}
-
 pub fn perf(
     env: impl EngineWrapper,
     msg: &str,
-    dur: std::time::Instant,
+    start_time: std::time::Instant,
     file: &str,
     line: u32,
     column: u32,
 ) {
-    if env
-        .get_env_var("POLARS_PLUGIN_PERF")
-        .filter(|s| s == "1" || s == "true")
-        .is_some()
-    {
-        if env.use_color() {
-            eprintln!(
-                "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
-                file,
-                line,
-                column,
-                msg,
-                dur.elapsed(),
-            );
-        } else {
-            eprintln!(
-                "perf: {}:{}:{} {} took {:?}",
-                file,
-                line,
-                column,
-                msg,
-                dur.elapsed(),
-            );
-        }
-    }
+    nu_utils_perf(
+        msg,
+        start_time,
+        file,
+        line,
+        column,
+        env.use_color(),
+    );
 }
 
 #[derive(Default)]
