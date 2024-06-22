@@ -8,7 +8,7 @@ mod private {
     // This ensures that all possible [`PathForm`]s can only be defined here and will:
     // - be zero sized (enforced anyways by the `repr(transparent)` on `Path`)
     // - have a no-op [`Drop`] implementation
-    pub trait Sealed {
+    pub trait Sealed: 'static {
         fn invariants_satisfied<P: AsRef<OsStr> + ?Sized>(path: &P) -> bool;
     }
 }

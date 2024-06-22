@@ -11,6 +11,7 @@ use std::{
     fmt, fs,
     hash::{Hash, Hasher},
     io,
+    iter::FusedIterator,
     marker::PhantomData,
     ops::{Deref, DerefMut},
     path::StripPrefixError,
@@ -305,21 +306,24 @@ impl<Form: PathForm> Path<Form> {
     /// use nu_path::Path;
     ///
     /// let mut ancestors = Path::new("/foo/bar").ancestors();
-    /// assert_eq!(ancestors.next().unwrap(), Path::new("/foo/bar"));
-    /// assert_eq!(ancestors.next().unwrap(), Path::new("/foo"));
-    /// assert_eq!(ancestors.next().unwrap(), Path::new("/"));
+    /// assert_eq!(ancestors.next(), Some(Path::new("/foo/bar")));
+    /// assert_eq!(ancestors.next(), Some(Path::new("/foo")));
+    /// assert_eq!(ancestors.next(), Some(Path::new("/")));
     /// assert_eq!(ancestors.next(), None);
     ///
     /// let mut ancestors = Path::new("../foo/bar").ancestors();
-    /// assert_eq!(ancestors.next().unwrap(), Path::new("../foo/bar"));
-    /// assert_eq!(ancestors.next().unwrap(), Path::new("../foo"));
-    /// assert_eq!(ancestors.next().unwrap(), Path::new(".."));
-    /// assert_eq!(ancestors.next().unwrap(), Path::new(""));
+    /// assert_eq!(ancestors.next(), Some(Path::new("../foo/bar")));
+    /// assert_eq!(ancestors.next(), Some(Path::new("../foo")));
+    /// assert_eq!(ancestors.next(), Some(Path::new("..")));
+    /// assert_eq!(ancestors.next(), Some(Path::new("")));
     /// assert_eq!(ancestors.next(), None);
     /// ```
     #[inline]
-    pub fn ancestors(&self) -> std::path::Ancestors<'_> {
-        self.inner.ancestors()
+    pub fn ancestors(&self) -> Ancestors<'_, Form> {
+        Ancestors {
+            _form: PhantomData,
+            inner: self.inner.ancestors(),
+        }
     }
 
     /// Returns the final component of a [`Path`], if there is one.
@@ -1201,6 +1205,22 @@ impl<'a, Form: PathForm> IntoIterator for &'a Path<Form> {
         self.iter()
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct Ancestors<'a, Form: PathForm> {
+    _form: PhantomData<Form>,
+    inner: std::path::Ancestors<'a>,
+}
+
+impl<'a, Form: PathForm> Iterator for Ancestors<'a, Form> {
+    type Item = &'a Path<Form>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(Path::new_unchecked)
+    }
+}
+
+impl<Form: PathForm> FusedIterator for Ancestors<'_, Form> {}
 
 /// A wrapper around [`std::path::PathBuf`] with extra invariants determined by its `Form`.
 ///
