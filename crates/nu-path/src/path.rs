@@ -110,7 +110,8 @@ pub type RelativePath = Path<Relative>;
 /// [`AbsolutePath`]s can be created by using [`try_absolute`](Path::try_absolute) on a [`Path`]
 /// or by using [`try_new`](AbsolutePath::try_new).
 ///
-/// ```
+#[cfg_attr(not(windows), doc = "```")]
+#[cfg_attr(windows, doc = "```no_run")]
 /// use nu_path::{AbsolutePath, Path};
 ///
 /// let path1 = Path::new("/foo").try_absolute().unwrap();
@@ -122,7 +123,8 @@ pub type RelativePath = Path<Relative>;
 /// You can also use `AbsolutePath::try_from` or `try_into`.
 /// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
 ///
-/// ```
+#[cfg_attr(not(windows), doc = "```")]
+#[cfg_attr(windows, doc = "```no_run")]
 /// use nu_path::{AbsolutePath, Path};
 ///
 /// let path1 = Path::new("/foo");
@@ -1314,7 +1316,8 @@ pub type RelativePathBuf = PathBuf<Relative>;
 /// [`AbsolutePathBuf`]s can be created by using [`try_into_absolute`](PathBuf::try_into_absolute)
 /// on a [`PathBuf`] or by using [`to_path_buf`](Path::to_path_buf) on an [`AbsolutePath`].
 ///
-/// ```
+#[cfg_attr(not(windows), doc = "```")]
+#[cfg_attr(windows, doc = "```no_run")]
 /// use nu_path::{AbsolutePath, AbsolutePathBuf, PathBuf};
 ///
 /// let path_buf1 = PathBuf::from("/foo");
@@ -1329,7 +1332,8 @@ pub type RelativePathBuf = PathBuf<Relative>;
 /// You can also use `AbsolutePathBuf::try_from` or `try_into`.
 /// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
 ///
-/// ```
+#[cfg_attr(not(windows), doc = "```")]
+#[cfg_attr(windows, doc = "```no_run")]
 /// use nu_path::{AbsolutePathBuf, Path};
 ///
 /// let path1 = AbsolutePathBuf::try_from("/foo").unwrap();
