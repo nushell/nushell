@@ -1206,10 +1206,32 @@ impl<'a, Form: PathForm> IntoIterator for &'a Path<Form> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+/// An iterator over [`Path`] and its ancestors.
+///
+/// This `struct` is created by the [`ancestors`](Path::ancestors) method on [`Path`].
+/// See its documentation for more.
+///
+/// # Examples
+///
+/// ```
+/// use nu_path::Path;
+///
+/// let path = Path::new("/foo/bar");
+///
+/// for ancestor in path.ancestors() {
+///     println!("{}", ancestor.display());
+/// }
+/// ```
+#[derive(Clone, Copy)]
 pub struct Ancestors<'a, Form: PathForm> {
     _form: PhantomData<Form>,
     inner: std::path::Ancestors<'a>,
+}
+
+impl<Form: PathForm> fmt::Debug for Ancestors<'_, Form> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.inner, f)
+    }
 }
 
 impl<'a, Form: PathForm> Iterator for Ancestors<'a, Form> {
