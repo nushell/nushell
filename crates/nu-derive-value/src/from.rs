@@ -477,7 +477,6 @@ fn parse_value_via_fields(fields: &Fields, self_ident: impl ToTokens) -> TokenSt
     match fields {
         Fields::Named(fields) => {
             let fields = fields.named.iter().map(|field| {
-                // TODO: handle missing fields for Options as None
                 let ident = field.ident.as_ref().expect("named has idents");
                 let ident_s = ident.to_string();
                 let ty = &field.ty;
