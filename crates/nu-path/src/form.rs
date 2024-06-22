@@ -1,10 +1,16 @@
+use std::ffi::OsStr;
+
 mod private {
+    use std::ffi::OsStr;
+
     // This trait should not be extended by external crates in order to uphold safety guarantees.
     // As such, this trait is put inside a private module to prevent external impls.
     // This ensures that all possible [`PathForm`]s can only be defined here and will:
     // - be zero sized (enforced anyways by the `repr(transparent)` on `Path`)
     // - have a no-op [`Drop`] implementation
-    pub trait Sealed {}
+    pub trait Sealed {
+        fn invariants_satisfied<P: AsRef<OsStr> + ?Sized>(path: &P) -> bool;
+    }
 }
 
 /// A marker trait for the different kinds of path forms.
@@ -26,7 +32,11 @@ impl PathForm for Canonical {}
 /// trailing slashes, dot components (`..` or `.`), and repeated path separators.
 pub struct Any;
 
-impl private::Sealed for Any {}
+impl private::Sealed for Any {
+    fn invariants_satisfied<P: AsRef<OsStr> + ?Sized>(_: &P) -> bool {
+        true
+    }
+}
 
 /// A strictly relative path.
 ///
@@ -34,7 +44,11 @@ impl private::Sealed for Any {}
 /// trailing slashes, dot components (`..` or `.`), and repeated path separators.
 pub struct Relative;
 
-impl private::Sealed for Relative {}
+impl private::Sealed for Relative {
+    fn invariants_satisfied<P: AsRef<OsStr> + ?Sized>(path: &P) -> bool {
+        std::path::Path::new(path).is_relative()
+    }
+}
 
 /// An absolute path.
 ///
@@ -42,14 +56,22 @@ impl private::Sealed for Relative {}
 /// trailing slashes, dot components (`..` or `.`), and repeated path separators.
 pub struct Absolute;
 
-impl private::Sealed for Absolute {}
+impl private::Sealed for Absolute {
+    fn invariants_satisfied<P: AsRef<OsStr> + ?Sized>(path: &P) -> bool {
+        std::path::Path::new(path).is_absolute()
+    }
+}
 
 // A canonical path.
 //
 // An absolute path with all intermediate components normalized and symbolic links resolved.
 pub struct Canonical;
 
-impl private::Sealed for Canonical {}
+impl private::Sealed for Canonical {
+    fn invariants_satisfied<P: AsRef<OsStr> + ?Sized>(_: &P) -> bool {
+        true
+    }
+}
 
 /// A marker trait for [`PathForm`]s that may be relative paths.
 /// This includes only the [`Any`] and [`Relative`] path forms.

@@ -161,6 +161,7 @@ impl<Form: PathForm> Path<Form> {
     /// Create a new path of any form without validating invariants.
     #[inline]
     fn new_unchecked<P: AsRef<OsStr> + ?Sized>(path: &P) -> &Self {
+        debug_assert!(Form::invariants_satisfied(path));
         // Safety: `Path<Form>` is a repr(transparent) wrapper around `std::path::Path`.
         let path = std::path::Path::new(path.as_ref());
         let ptr = std::ptr::from_ref(path) as *const Self;
@@ -705,9 +706,11 @@ impl Path {
     /// ```
     #[inline]
     pub fn try_absolute(&self) -> Result<&AbsolutePath, &RelativePath> {
-        self.is_absolute()
-            .then_some(AbsolutePath::new_unchecked(&self.inner))
-            .ok_or(RelativePath::new_unchecked(&self.inner))
+        if self.is_absolute() {
+            Ok(AbsolutePath::new_unchecked(&self.inner))
+        } else {
+            Err(RelativePath::new_unchecked(&self.inner))
+        }
     }
 
     /// Returns an `Ok` [`RelativePath`] if the [`Path`] is relative.
@@ -722,9 +725,11 @@ impl Path {
     /// ```
     #[inline]
     pub fn try_relative(&self) -> Result<&RelativePath, &AbsolutePath> {
-        self.is_relative()
-            .then_some(RelativePath::new_unchecked(&self.inner))
-            .ok_or(AbsolutePath::new_unchecked(&self.inner))
+        if self.is_relative() {
+            Ok(RelativePath::new_unchecked(&self.inner))
+        } else {
+            Err(AbsolutePath::new_unchecked(&self.inner))
+        }
     }
 }
 
@@ -1372,6 +1377,7 @@ impl<Form: PathForm> PathBuf<Form> {
     /// Create a new [`PathBuf`] of any form without validiting invariants.
     #[inline]
     pub(crate) fn new_unchecked(buf: std::path::PathBuf) -> Self {
+        debug_assert!(Form::invariants_satisfied(&buf));
         Self {
             _form: PhantomData,
             inner: buf,
