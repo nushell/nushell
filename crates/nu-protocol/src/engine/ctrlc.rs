@@ -4,18 +4,18 @@ use std::sync::{
     Arc, Mutex,
 };
 
-type CtrlcHandler = Box<dyn Fn() + Send + Sync>;
+type Handler = Box<dyn Fn() + Send + Sync>;
 
 #[derive(Clone)]
 pub struct Handlers {
-    handlers: Arc<Mutex<Vec<(usize, CtrlcHandler)>>>,
+    handlers: Arc<Mutex<Vec<(usize, Handler)>>>,
     next_id: Arc<AtomicUsize>,
 }
 
 #[derive(Clone)]
 pub struct Guard {
     id: usize,
-    handlers: Arc<Mutex<Vec<(usize, CtrlcHandler)>>>,
+    handlers: Arc<Mutex<Vec<(usize, Handler)>>>,
 }
 
 impl Drop for Guard {
@@ -39,7 +39,7 @@ impl Handlers {
         Handlers { handlers, next_id }
     }
 
-    pub fn add(&self, handler: CtrlcHandler) -> Guard {
+    pub fn add(&self, handler: Handler) -> Guard {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.push((id, handler));

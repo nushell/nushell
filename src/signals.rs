@@ -5,7 +5,6 @@ use std::sync::{
 };
 
 pub(crate) fn ctrlc_protection(engine_state: &mut EngineState) {
-
     let ctrlc = Arc::new(AtomicBool::new(false));
     let handlers = Handlers::new();
 
