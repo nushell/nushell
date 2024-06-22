@@ -32,8 +32,18 @@ use std::{
 /// If the `Form` is not specified, then it defaults to [`Any`], so [`Path`] and [`Path<Any>`]
 /// are one in the same.
 ///
-/// To create a [`Path`] with [`Any`] form, use the [`Path::new`] method or use `as_ref` on
-/// a type from the [`std::path`] module like [`std::path::Path`] or [`std::path::PathBuf`].
+/// # Converting to [`std::path`] types
+///
+/// [`Path`]s with form [`Any`] cannot be easily referenced as a [`std::path::Path`] by design.
+/// Other Nushell crates need to account for the emulated current working directory
+/// before passing a path to functions in [`std`] or other third party crates.
+/// You can [`join`](Path::join) a [`Path`] onto an [`AbsolutePath`] or a [`CanonicalPath`].
+/// This will return an [`AbsolutePathBuf`] which can be easily referenced as a [`std::path::Path`].
+/// If you really mean it, you can instead use [`as_relative_std_path`](Path::as_relative_std_path)
+/// to get the underlying [`std::path::Path`] from a [`Path`].
+/// But this may cause third-party code to use [`std::env::current_dir`] to resolve
+/// the path which is almost always incorrect behavior. Extra care is needed to ensure that this
+/// is not the case after using [`as_relative_std_path`](Path::as_relative_std_path).
 #[repr(transparent)]
 pub struct Path<Form: PathForm = Any> {
     _form: PhantomData<Form>,
@@ -44,40 +54,105 @@ pub struct Path<Form: PathForm = Any> {
 ///
 /// I.e., this path is guaranteed to never be absolute.
 ///
-/// [`RelativePath`]s can be created by using [`try_relative`](Path::try_relative)
-/// on a [`Path`] or using [`strip_prefix`](Path::strip_prefix) on a [`Path`] of any form.
-/// You can also use `RelativePath::try_from` or `try_into`.
-/// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
-///
 /// [`RelativePath`]s cannot be easily converted into a [`std::path::Path`] by design.
 /// Other Nushell crates need to account for the emulated current working directory
 /// before passing a path to functions in [`std`] or other third party crates.
-/// You can use a [`RelativePath`] as input to `join` on an [`AbsolutePath`] or [`CanonicalPath`].
-/// This will return an [`AbsolutePathBuf`] which can be referenced as and easily converted to
-/// a [`std::path::Path`]. If you really mean it, you can use
-/// [`as_relative_std_path`](RelativePath::as_relative_std_path) to get the underlying
-/// [`std::path::Path`] from a [`RelativePath`].
+/// You can [`join`](Path::join) a [`RelativePath`] onto an [`AbsolutePath`] or a [`CanonicalPath`].
+/// This will return an [`AbsolutePathBuf`] which can be referenced as a [`std::path::Path`].
+/// If you really mean it, you can use [`as_relative_std_path`](RelativePath::as_relative_std_path)
+/// to get the underlying [`std::path::Path`] from a [`RelativePath`].
+/// But this may cause third-party code to use [`std::env::current_dir`] to resolve
+/// the path which is almost always incorrect behavior. Extra care is needed to ensure that this
+/// is not the case after using [`as_relative_std_path`](RelativePath::as_relative_std_path).
+///
+/// # Examples
+///
+/// [`RelativePath`]s can be created by using [`try_relative`](Path::try_relative)
+/// on a [`Path`], by using [`try_new`](Path::try_new), or by using
+/// [`strip_prefix`](Path::strip_prefix) on a [`Path`] of any form.
+///
+/// ```
+/// use nu_path::{Path, RelativePath};
+///
+/// let path1 = Path::new("foo.txt");
+/// let path1 = path1.try_relative().unwrap();
+///
+/// let path2 = RelativePath::try_new("foo.txt").unwrap();
+///
+/// let path3 = Path::new("/prefix/foo.txt").strip_prefix("/prefix").unwrap();
+///
+/// assert_eq!(path1, path2);
+/// assert_eq!(path2, path3);
+/// ```
+///
+/// You can also use `RelativePath::try_from` or `try_into`.
+/// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
+///
+/// ```
+/// use nu_path::{Path, RelativePath};
+///
+/// let path1 = Path::new("foo.txt");
+/// let path1: &RelativePath = path1.try_into().unwrap();
+///
+/// let path2 = std::path::Path::new("foo.txt");
+/// let path2: &RelativePath = path2.try_into().unwrap();
+///
+/// assert_eq!(path1, path2)
+/// ```
 pub type RelativePath = Path<Relative>;
 
 /// A path that is strictly absolute.
 ///
 /// I.e., this path is guaranteed to never be relative.
 ///
-/// [`AbsolutePath`]s can be created by using [`try_absolute`](Path::try_absolute) on a [`Path`].
+/// # Examples
+///
+/// [`AbsolutePath`]s can be created by using [`try_absolute`](Path::try_absolute) on a [`Path`]
+/// or by using [`try_new`](AbsolutePath::try_new).
+///
+/// ```
+/// use nu_path::{AbsolutePath, Path};
+///
+/// let path1 = Path::new("/foo").try_absolute().unwrap();
+/// let path2 = AbsolutePath::try_new("/foo").unwrap();
+///
+/// assert_eq!(path1, path2);
+/// ```
+///
 /// You can also use `AbsolutePath::try_from` or `try_into`.
 /// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
 ///
-/// References to [`CanonicalPath`]s can be converted to [`AbsolutePath`] references using
-/// `as_ref`, [`cast`](Path::cast), or [`as_absolute`](CanonicalPath::as_absolute).
+/// ```
+/// use nu_path::{AbsolutePath, Path};
+///
+/// let path1 = Path::new("/foo");
+/// let path1: &AbsolutePath = path1.try_into().unwrap();
+///
+/// let path2 = std::path::Path::new("/foo");
+/// let path2: &AbsolutePath = path2.try_into().unwrap();
+///
+/// assert_eq!(path1, path2)
+/// ```
 pub type AbsolutePath = Path<Absolute>;
 
 /// An absolute, canonical path.
 ///
-/// [`CanonicalPath`]s can only be created by using [`canonicalize`](Path::canonicalize) on
-/// an [`AbsolutePath`].
+/// # Examples
 ///
-/// References to [`CanonicalPath`]s can be converted to [`AbsolutePath`] references using
-/// `as_ref`, [`cast`](Path::cast), or [`as_absolute`](CanonicalPath::as_absolute).
+/// [`CanonicalPath`]s can only be created by using [`canonicalize`](Path::canonicalize) on
+/// an [`AbsolutePath`]. References to [`CanonicalPath`]s can be converted to
+/// [`AbsolutePath`] references using `as_ref`, [`cast`](Path::cast),
+/// or [`as_absolute`](CanonicalPath::as_absolute).
+///
+/// ```no_run
+/// use nu_path::AbsolutePath;
+///
+/// let path = AbsolutePath::try_new("/foo").unwrap();
+///
+/// let canonical = path.canonicalize().expect("canonicalization failed");
+///
+/// assert_eq!(path, canonical.as_absolute());
+/// ```
 pub type CanonicalPath = Path<Canonical>;
 
 impl<Form: PathForm> Path<Form> {
@@ -1130,13 +1205,45 @@ impl<'a, Form: PathForm> IntoIterator for &'a Path<Form> {
 /// - [`AbsolutePathBuf`] (same as [`PathBuf<Absolute>`])
 /// - [`CanonicalPathBuf`] (same as [`PathBuf<Canonical>`])
 ///
-/// If the `Form` is not specified, then it defaults to [`Any`], so [`PathBuf`] and [`PathBuf<Any>`]
-/// are one in the same.
+/// If the `Form` is not specified, then it defaults to [`Any`],
+/// so [`PathBuf`] and [`PathBuf<Any>`] are one in the same.
 ///
-/// To create a [`PathBuf`] with [`Any`] form, use the [`PathBuf::new`] method
-/// or use one of the many `From` implementations (e.g., from [`std::path::PathBuf`]).
-/// Of course, you can also convert a [`Path`] (of any form) to an owned [`PathBuf`]
-/// via [`to_path_buf`](Path::to_path_buf).
+/// # Examples
+///
+/// To create a [`PathBuf`] with [`Any`] form, you can use the same techniques as when creating
+/// a [`std::path::PathBuf`].
+///
+/// ```
+/// use nu_path::PathBuf;
+///
+/// let path = PathBuf::from(r"C:\windows\system32.dll");
+///
+/// let mut path1 = PathBuf::new();
+/// path1.push(r"C:\");
+/// path1.push("windows");
+/// path1.push("system32");
+/// path1.set_extension("dll");
+///
+/// let path2: PathBuf = [r"C:\", "windows", "system32.dll"].iter().collect();
+///
+/// assert_eq!(path1, path2);
+/// ```
+///
+/// # Converting to [`std::path`] types
+///
+/// [`PathBuf`]s with form [`Any`] cannot be easily referenced as a [`std::path::Path`]
+/// or converted to a [`std::path::PathBuf`] by design.
+/// Other Nushell crates need to account for the emulated current working directory
+/// before passing a path to functions in [`std`] or other third party crates.
+/// You can [`join`](Path::join) a [`Path`] onto an [`AbsolutePath`] or a [`CanonicalPath`].
+/// This will return an [`AbsolutePathBuf`] which can be easily referenced as a [`std::path::Path`].
+/// If you really mean it, you can instead use [`as_relative_std_path`](Path::as_relative_std_path)
+/// or [`into_relative_std_path_buf`](PathBuf::into_relative_std_path_buf)
+/// to get the underlying [`std::path::Path`] or [`std::path::PathBuf`] from a [`PathBuf`].
+/// But this may cause third-party code to use [`std::env::current_dir`] to resolve
+/// the path which is almost always incorrect behavior. Extra care is needed to ensure that this
+/// is not the case after using [`as_relative_std_path`](Path::as_relative_std_path)
+/// or [`into_relative_std_path_buf`](PathBuf::into_relative_std_path_buf).
 #[repr(transparent)]
 pub struct PathBuf<Form: PathForm = Any> {
     _form: PhantomData<Form>,
@@ -1147,39 +1254,114 @@ pub struct PathBuf<Form: PathForm = Any> {
 ///
 /// I.e., this path buf is guaranteed to never be absolute.
 ///
-/// [`RelativePathBuf`]s can be created by using [`try_into_relative`](PathBuf::try_into_relative)
-/// on a [`PathBuf`] or by using [`to_path_buf`](Path::to_path_buf) on a [`RelativePath`].
-/// You can also use `RelativePathBuf::try_from` or `try_into`.
-/// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
-///
-/// [`RelativePathBuf`]s cannot be easily referenced as a [`std::path::Path`] by design.
+/// [`RelativePathBuf`]s cannot be easily referenced as a [`std::path::Path`]
+/// or converted to a [`std::path::PathBuf`] by design.
 /// Other Nushell crates need to account for the emulated current working directory
 /// before passing a path to functions in [`std`] or other third party crates.
-/// You can use a [`RelativePath`] as input to `join` on an [`AbsolutePath`] or [`CanonicalPath`].
-/// This will return an [`AbsolutePathBuf`] which can be referenced as and easily converted to
-/// a [`std::path::Path`]. If you really mean it, you can use
+/// You can [`join`](Path::join) a [`RelativePath`] onto an [`AbsolutePath`] or a [`CanonicalPath`].
+/// This will return an [`AbsolutePathBuf`] which can be easily referenced as a [`std::path::Path`].
+/// If you really mean it, you can instead use
 /// [`as_relative_std_path`](RelativePath::as_relative_std_path)
 /// or [`into_relative_std_path_buf`](RelativePathBuf::into_relative_std_path_buf)
 /// to get the underlying [`std::path::Path`] or [`std::path::PathBuf`] from a [`RelativePathBuf`].
+/// But this may cause third-party code to use [`std::env::current_dir`] to resolve
+/// the path which is almost always incorrect behavior. Extra care is needed to ensure that this
+/// is not the case after using [`as_relative_std_path`](RelativePath::as_relative_std_path)
+/// or [`into_relative_std_path_buf`](RelativePathBuf::into_relative_std_path_buf).
+///
+/// # Examples
+///
+/// [`RelativePathBuf`]s can be created by using [`try_into_relative`](PathBuf::try_into_relative)
+/// on a [`PathBuf`] or by using [`to_path_buf`](Path::to_path_buf) on a [`RelativePath`].
+///
+/// ```
+/// use nu_path::{PathBuf, RelativePath, RelativePathBuf};
+///
+/// let path_buf = PathBuf::from("foo.txt");
+/// let path_buf = path_buf.try_into_relative().unwrap();
+///
+/// let path = RelativePath::try_new("foo.txt").unwrap();
+/// let path_buf2 = path.to_path_buf();
+///
+/// assert_eq!(path_buf, path_buf2);
+/// ```
+///
+/// You can also use `RelativePathBuf::try_from` or `try_into`.
+/// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
+///
+/// ```
+/// use nu_path::{Path, RelativePathBuf};
+///
+/// let path1 = RelativePathBuf::try_from("foo.txt").unwrap();
+///
+/// let path2 = Path::new("foo.txt");
+/// let path2 = RelativePathBuf::try_from(path2).unwrap();
+///
+/// let path3 = std::path::PathBuf::from("foo.txt");
+/// let path3: RelativePathBuf = path3.try_into().unwrap();
+///
+/// assert_eq!(path1, path2);
+/// assert_eq!(path2, path3);
+/// ```
 pub type RelativePathBuf = PathBuf<Relative>;
 
 /// A path buf that is strictly absolute.
 ///
 /// I.e., this path buf is guaranteed to never be relative.
 ///
+/// # Examples
+///
 /// [`AbsolutePathBuf`]s can be created by using [`try_into_absolute`](PathBuf::try_into_absolute)
 /// on a [`PathBuf`] or by using [`to_path_buf`](Path::to_path_buf) on an [`AbsolutePath`].
+///
+/// ```
+/// use nu_path::{AbsolutePath, AbsolutePathBuf, PathBuf};
+///
+/// let path_buf1 = PathBuf::from("/foo");
+/// let path_buf1 = path_buf1.try_into_absolute().unwrap();
+///
+/// let path = AbsolutePath::try_new("/foo").unwrap();
+/// let path_buf2 = path.to_path_buf();
+///
+/// assert_eq!(path_buf1, path_buf2);
+/// ```
+///
 /// You can also use `AbsolutePathBuf::try_from` or `try_into`.
 /// This supports attempted conversions from [`Path`] as well as types in [`std::path`].
+///
+/// ```
+/// use nu_path::{AbsolutePathBuf, Path};
+///
+/// let path1 = AbsolutePathBuf::try_from("/foo").unwrap();
+///
+/// let path2 = Path::new("/foo");
+/// let path2 = AbsolutePathBuf::try_from(path2).unwrap();
+///
+/// let path3 = std::path::PathBuf::from("/foo");
+/// let path3: AbsolutePathBuf = path3.try_into().unwrap();
+///
+/// assert_eq!(path1, path2);
+/// assert_eq!(path2, path3);
+/// ```
 pub type AbsolutePathBuf = PathBuf<Absolute>;
 
 /// An absolute, canonical path buf.
 ///
-/// [`CanonicalPathBuf`]s can only be created by using [`canonicalize`](Path::canonicalize) on
-/// an [`AbsolutePath`].
+/// # Examples
 ///
-/// [`CanonicalPathBuf`]s can be converted to [`AbsolutePathBuf`]s via
+/// [`CanonicalPathBuf`]s can only be created by using [`canonicalize`](Path::canonicalize) on
+/// an [`AbsolutePath`]. [`CanonicalPathBuf`]s can be converted back to [`AbsolutePathBuf`]s via
 /// [`into_absolute`](CanonicalPathBuf::into_absolute).
+///
+/// ```no_run
+/// use nu_path::AbsolutePathBuf;
+///
+/// let path = AbsolutePathBuf::try_from("/foo").unwrap();
+///
+/// let canonical = path.canonicalize().expect("canonicalization failed");
+///
+/// assert_eq!(path, canonical.into_absolute());
+/// ```
 pub type CanonicalPathBuf = PathBuf<Canonical>;
 
 impl<Form: PathForm> PathBuf<Form> {
