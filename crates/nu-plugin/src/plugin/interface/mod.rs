@@ -322,6 +322,10 @@ impl InterfaceManager for EngineInterfaceManager {
                     });
                 self.send_engine_call_response(id, response)
             }
+            PluginInput::Ctrlc => {
+                eprintln!("Received Ctrl-C!");
+                Ok(())
+            }
         }
     }
 

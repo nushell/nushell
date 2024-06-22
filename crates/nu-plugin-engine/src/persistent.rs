@@ -50,6 +50,8 @@ struct RunningPlugin {
     interface: PluginInterface,
     /// Garbage collector for the plugin
     gc: PluginGc,
+    /// todo: docs
+    _ctrlc_guard: Option<ctrlc::Guard>,
 }
 
 impl PersistentPlugin {
@@ -212,7 +214,14 @@ impl PersistentPlugin {
             return self.spawn(envs, mutable, ctrlc_handlers);
         }
 
-        mutable.running = Some(RunningPlugin { interface, gc });
+        let guard = ctrlc_handlers.map(|ctrlc_handlers| {
+            let interface = interface.clone();
+            ctrlc_handlers.add(Box::new(move || {
+                let _ = interface.ctrlc();
+            }))
+        });
+
+        mutable.running = Some(RunningPlugin { interface, gc, _ctrlc_guard: guard});
         Ok(())
     }
 
