@@ -4,7 +4,7 @@ use std::sync::{
     Arc, Mutex,
 };
 
-type Handler = Box<dyn Fn() + Send + Sync>;
+pub type Handler = Box<dyn Fn() + Send + Sync>;
 
 #[derive(Clone)]
 pub struct Handlers {
@@ -20,6 +20,7 @@ pub struct Guard {
 
 impl Drop for Guard {
     fn drop(&mut self) {
+        eprintln!("Dropping guard: {:?}", self);
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.retain(|(id, _)| *id != self.id);
         }
@@ -44,6 +45,7 @@ impl Handlers {
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.push((id, handler));
         }
+        eprintln!("Adding guard: {:?}", id);
         Guard {
             id,
             handlers: Arc::clone(&self.handlers),
