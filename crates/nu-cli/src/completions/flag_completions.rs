@@ -1,4 +1,4 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::{completion_common::sort_completions, Completer, CompletionOptions};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::{Stack, StateWorkingSet},
@@ -90,7 +90,11 @@ impl Completer for FlagCompletion {
                 }
             }
 
-            return output;
+            return sort_completions(
+                &String::from_utf8_lossy(&prefix),
+                output,
+                self.get_sort_by(),
+            );
         }
 
         vec![]

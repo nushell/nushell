@@ -1,15 +1,20 @@
-use crate::completions::{matches, CompletionOptions};
+use crate::{
+    completions::{matches, CompletionOptions},
+    SemanticSuggestion,
+};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Span,
+    levenshtein_distance, Span,
 };
 use nu_utils::get_ls_colors;
 use std::path::{
     is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
 };
+
+use super::SortBy;
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -255,4 +260,29 @@ pub fn adjust_if_intermediate(
         span,
         readjusted,
     }
+}
+
+/// # Arguments
+/// * `prefix` - What the user's typed, for sorting by Levenshtein distance
+pub fn sort_completions(
+    prefix: &str,
+    mut items: Vec<SemanticSuggestion>,
+    sort_by: SortBy,
+) -> Vec<SemanticSuggestion> {
+    // Sort items
+    match sort_by {
+        SortBy::LevenshteinDistance => {
+            items.sort_by(|a, b| {
+                let a_distance = levenshtein_distance(prefix, &a.suggestion.value);
+                let b_distance = levenshtein_distance(prefix, &b.suggestion.value);
+                a_distance.cmp(&b_distance)
+            });
+        }
+        SortBy::Ascending => {
+            items.sort_by(|a, b| a.suggestion.value.cmp(&b.suggestion.value));
+        }
+        SortBy::None => {}
+    };
+
+    items
 }
