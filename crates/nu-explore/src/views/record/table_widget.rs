@@ -88,6 +88,7 @@ impl StatefulWidget for TableWidget<'_> {
 
 // todo: refactoring these to methods as they have quite a bit in common.
 impl<'a> TableWidget<'a> {
+    // header at the top; header is always 1 line
     fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
         let padding_l = self.config.column_padding_left as u16;
         let padding_r = self.config.column_padding_right as u16;
@@ -130,25 +131,16 @@ impl<'a> TableWidget<'a> {
         }
 
         if show_index {
-            let area = Rect::new(width, data_y, area.width, data_height);
             width += render_index(
                 buf,
-                area,
+                Rect::new(width, data_y, area.width, data_height),
                 self.style_computer,
                 self.index_row,
                 padding_l,
                 padding_r,
             );
 
-            width += render_vertical_line_with_split(
-                buf,
-                width,
-                data_y,
-                data_height,
-                show_head,
-                false,
-                separator_s,
-            );
+            width += render_split_line(buf, width, area.y, area.height, show_head, separator_s);
         }
 
         // if there is more data than we can show, add an ellipsis to the column headers to hint at that
@@ -162,6 +154,11 @@ impl<'a> TableWidget<'a> {
         }
 
         for col in self.index_column..self.columns.len() {
+            let need_split_line = state.count_columns > 0 && width < area.width;
+            if need_split_line {
+                width += render_split_line(buf, width, area.y, area.height, show_head, separator_s);
+            }
+
             let mut column = create_column(data, col);
             let column_width = calculate_column_width(&column);
 
@@ -200,6 +197,7 @@ impl<'a> TableWidget<'a> {
                 }
                 let head_iter = [(&head, head_style)].into_iter();
 
+                // we don't change width here cause the whole column have the same width; so we add it when we print data
                 let mut w = width;
                 w += render_space(buf, w, head_y, 1, padding_l);
                 w += render_column(buf, w, head_y, use_space, head_iter);
@@ -209,10 +207,10 @@ impl<'a> TableWidget<'a> {
                 state.layout.push(&head, x, head_y, use_space, 1);
             }
 
-            let head_rows = column.iter().map(|(t, s)| (t, *s));
+            let column_rows = column.iter().map(|(t, s)| (t, *s));
 
             width += render_space(buf, width, data_y, data_height, padding_l);
-            width += render_column(buf, width, data_y, use_space, head_rows);
+            width += render_column(buf, width, data_y, use_space, column_rows);
             width += render_space(buf, width, data_y, data_height, padding_r);
 
             for (row, (text, _)) in column.iter().enumerate() {
@@ -235,15 +233,7 @@ impl<'a> TableWidget<'a> {
         }
 
         if width < area.width {
-            width += render_vertical_line_with_split(
-                buf,
-                width,
-                data_y,
-                data_height,
-                show_head,
-                false,
-                separator_s,
-            );
+            width += render_split_line(buf, width, area.y, area.height, show_head, separator_s);
         }
 
         let rest = area.width.saturating_sub(width);
@@ -255,6 +245,7 @@ impl<'a> TableWidget<'a> {
         }
     }
 
+    // header at the left; header is always 1 line
     fn render_table_vertical(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
         if area.width == 0 || area.height == 0 {
             return;
@@ -353,12 +344,22 @@ impl<'a> TableWidget<'a> {
         state.count_rows = columns.len();
         state.count_columns = 0;
 
+        // note: is there a time where we would have more then 1 column?
+        // seems like not really; cause it's literally KV table, or am I wrong?
+
         for col in self.index_column..self.data.len() {
             let mut column =
                 self.data[col][self.index_row..self.index_row + columns.len()].to_vec();
             let column_width = calculate_column_width(&column);
             if column_width > u16::MAX as usize {
                 break;
+            }
+
+            // see KV comment; this block might never got used
+            let need_split_line = state.count_columns > 0 && left_w < area.width;
+            if need_split_line {
+                render_vertical_line(buf, area.x + left_w, area.y, area.height, separator_s);
+                left_w += 1;
             }
 
             let column_width = column_width as u16;
@@ -555,6 +556,51 @@ fn render_index(
     width
 }
 
+fn render_split_line(
+    buf: &mut Buffer,
+    x: u16,
+    y: u16,
+    height: u16,
+    has_head: bool,
+    style: NuStyle,
+) -> u16 {
+    if has_head {
+        render_vertical_split_line(buf, x, y, height, &[0], &[2], &[], style);
+    } else {
+        render_vertical_split_line(buf, x, y, height, &[], &[], &[], style);
+    }
+
+    1
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_vertical_split_line(
+    buf: &mut Buffer,
+    x: u16,
+    y: u16,
+    height: u16,
+    top_slit: &[u16],
+    inner_slit: &[u16],
+    bottom_slit: &[u16],
+    style: NuStyle,
+) -> u16 {
+    render_vertical_line(buf, x, y, height, style);
+
+    for &y in top_slit {
+        render_top_connector(buf, x, y, style);
+    }
+
+    for &y in inner_slit {
+        render_inner_connector(buf, x, y, style);
+    }
+
+    for &y in bottom_slit {
+        render_bottom_connector(buf, x, y, style);
+    }
+
+    1
+}
+
 fn render_vertical_line_with_split(
     buf: &mut Buffer,
     x: u16,
@@ -665,6 +711,12 @@ fn render_top_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
 fn render_bottom_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
     let style = nu_style_to_tui(style);
     let span = Span::styled("┴", style);
+    buf.set_span(x, y, &span, 1);
+}
+
+fn render_inner_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
+    let style = nu_style_to_tui(style);
+    let span = Span::styled("┼", style);
     buf.set_span(x, y, &span, 1);
 }
 

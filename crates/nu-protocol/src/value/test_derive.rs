@@ -171,6 +171,62 @@ fn named_fields_struct_incorrect_type() {
     assert!(res.is_err());
 }
 
+#[derive(IntoValue, FromValue, Debug, PartialEq, Default)]
+struct ALotOfOptions {
+    required: bool,
+    float: Option<f64>,
+    int: Option<i64>,
+    value: Option<Value>,
+    nested: Option<Nestee>,
+}
+
+#[test]
+fn missing_options() {
+    let value = Value::test_record(Record::new());
+    let res: Result<ALotOfOptions, _> = ALotOfOptions::from_value(value);
+    assert!(res.is_err());
+
+    let value = Value::test_record(record! {"required" => Value::test_bool(true)});
+    let expected = ALotOfOptions {
+        required: true,
+        ..Default::default()
+    };
+    let actual = ALotOfOptions::from_value(value).unwrap();
+    assert_eq!(expected, actual);
+
+    let value = Value::test_record(record! {
+        "required" => Value::test_bool(true),
+        "float" => Value::test_float(std::f64::consts::PI),
+    });
+    let expected = ALotOfOptions {
+        required: true,
+        float: Some(std::f64::consts::PI),
+        ..Default::default()
+    };
+    let actual = ALotOfOptions::from_value(value).unwrap();
+    assert_eq!(expected, actual);
+
+    let value = Value::test_record(record! {
+        "required" => Value::test_bool(true),
+        "int" => Value::test_int(12),
+        "nested" => Value::test_record(record! {
+            "u32" => Value::test_int(34),
+        }),
+    });
+    let expected = ALotOfOptions {
+        required: true,
+        int: Some(12),
+        nested: Some(Nestee {
+            u32: 34,
+            some: None,
+            none: None,
+        }),
+        ..Default::default()
+    };
+    let actual = ALotOfOptions::from_value(value).unwrap();
+    assert_eq!(expected, actual);
+}
+
 #[derive(IntoValue, FromValue, Debug, PartialEq)]
 struct UnnamedFieldsStruct<T>(u32, String, T)
 where

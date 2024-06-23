@@ -3,6 +3,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
     spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
+    Type,
 };
 
 use crate::attributes::{self, ContainerAttributes};
@@ -116,15 +117,11 @@ fn derive_struct_from_value(
 ///                         src_span: span
 ///                     })?,
 ///             )?,
-///             favorite_toy: <Option<String> as nu_protocol::FromValue>::from_value(
-///                 record
-///                     .remove("favorite_toy")
-///                     .ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
-///                         col_name: std::string::ToString::to_string("favorite_toy"),
-///                         span: std::option::Option::None,
-///                         src_span: span
-///                     })?,
-///             )?,          
+///             favorite_toy: record
+///                 .remove("favorite_toy")
+///                 .map(|v| <#ty as nu_protocol::FromValue>::from_value(v))
+///                 .transpose()?
+///                 .flatten(),         
 ///         })
 ///     }
 /// }
@@ -480,20 +477,29 @@ fn parse_value_via_fields(fields: &Fields, self_ident: impl ToTokens) -> TokenSt
     match fields {
         Fields::Named(fields) => {
             let fields = fields.named.iter().map(|field| {
-                // TODO: handle missing fields for Options as None
                 let ident = field.ident.as_ref().expect("named has idents");
                 let ident_s = ident.to_string();
                 let ty = &field.ty;
-                quote! {
-                    #ident: <#ty as nu_protocol::FromValue>::from_value(
-                        record
+                match type_is_option(ty) {
+                    true => quote! {
+                        #ident: record
                             .remove(#ident_s)
-                            .ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
-                                col_name: std::string::ToString::to_string(#ident_s),
-                                span: std::option::Option::None,
-                                src_span: span
-                            })?,
-                    )?
+                            .map(|v| <#ty as nu_protocol::FromValue>::from_value(v))
+                            .transpose()?
+                            .flatten()
+                    },
+
+                    false => quote! {
+                        #ident: <#ty as nu_protocol::FromValue>::from_value(
+                            record
+                                .remove(#ident_s)
+                                .ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
+                                    col_name: std::string::ToString::to_string(#ident_s),
+                                    span: std::option::Option::None,
+                                    src_span: span
+                                })?,
+                        )?
+                    },
                 }
             });
             quote! {
@@ -536,4 +542,26 @@ fn parse_value_via_fields(fields: &Fields, self_ident: impl ToTokens) -> TokenSt
             }
         },
     }
+}
+
+const FULLY_QUALIFIED_OPTION: &str = "std::option::Option";
+const PARTIALLY_QUALIFIED_OPTION: &str = "option::Option";
+const PRELUDE_OPTION: &str = "Option";
+
+/// Check if the field type is an `Option`.
+///
+/// This function checks if a given type is an `Option`.
+/// We assume that an `Option` is [`std::option::Option`] because we can't see the whole code and
+/// can't ask the compiler itself.
+/// If the `Option` type isn't `std::option::Option`, the user will get a compile error due to a
+/// type mismatch.
+/// It's very unusual for people to override `Option`, so this should rarely be an issue.
+///
+/// When [rust#63084](https://github.com/rust-lang/rust/issues/63084) is resolved, we can use
+/// [`std::any::type_name`] for a static assertion check to get a more direct error messages.
+fn type_is_option(ty: &Type) -> bool {
+    let s = ty.to_token_stream().to_string();
+    s.starts_with(PRELUDE_OPTION)
+        || s.starts_with(PARTIALLY_QUALIFIED_OPTION)
+        || s.starts_with(FULLY_QUALIFIED_OPTION)
 }

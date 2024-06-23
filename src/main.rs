@@ -401,7 +401,7 @@ fn main() -> Result<()> {
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
         use nu_plugin_engine::{GetPlugin, PluginDeclaration};
-        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity};
+        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity, RegisteredPlugin};
 
         // Load any plugins specified with --plugins
         start_time = std::time::Instant::now();
@@ -420,8 +420,14 @@ fn main() -> Result<()> {
             // Create the plugin and add it to the working set
             let plugin = nu_plugin_engine::add_plugin_to_working_set(&mut working_set, &identity)?;
 
-            // Spawn the plugin to get its signatures, and then add the commands to the working set
-            for signature in plugin.clone().get_plugin(None)?.get_signature()? {
+            // Spawn the plugin to get the metadata and signatures
+            let interface = plugin.clone().get_plugin(None)?;
+
+            // Set its metadata
+            plugin.set_metadata(Some(interface.get_metadata()?));
+
+            // Add the commands from the signature to the working set
+            for signature in interface.get_signature()? {
                 let decl = PluginDeclaration::new(plugin.clone(), signature);
                 working_set.add_decl(Box::new(decl));
             }

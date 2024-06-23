@@ -138,6 +138,7 @@ impl Highlighter for NuHighlighter {
 
                 FlatShape::Filepath => add_colored_token(&shape.1, next_token),
                 FlatShape::Directory => add_colored_token(&shape.1, next_token),
+                FlatShape::GlobInterpolation => add_colored_token(&shape.1, next_token),
                 FlatShape::GlobPattern => add_colored_token(&shape.1, next_token),
                 FlatShape::Variable(_) | FlatShape::VarDecl(_) => {
                     add_colored_token(&shape.1, next_token)
@@ -452,15 +453,17 @@ fn find_matching_block_end_in_expr(
                 }
             }
 
-            Expr::StringInterpolation(exprs) => exprs.iter().find_map(|expr| {
-                find_matching_block_end_in_expr(
-                    line,
-                    working_set,
-                    expr,
-                    global_span_offset,
-                    global_cursor_offset,
-                )
-            }),
+            Expr::StringInterpolation(exprs) | Expr::GlobInterpolation(exprs, _) => {
+                exprs.iter().find_map(|expr| {
+                    find_matching_block_end_in_expr(
+                        line,
+                        working_set,
+                        expr,
+                        global_span_offset,
+                        global_cursor_offset,
+                    )
+                })
+            }
 
             Expr::List(list) => {
                 if expr_last == global_cursor_offset {

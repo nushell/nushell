@@ -1,5 +1,6 @@
 use crate::{
     dataframe::values::NuSchema,
+    perf,
     values::{CustomValueSupport, NuLazyFrame},
     PolarsPlugin,
 };
@@ -19,14 +20,19 @@ use std::{
     sync::Arc,
 };
 
-use polars::prelude::{
-    CsvEncoding, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader, LazyFrame,
-    ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
+use polars::{
+    lazy::frame::LazyJsonLineReader,
+    prelude::{
+        CsvEncoding, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
+        LazyFrame, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
+    },
 };
 
 use polars_io::{
     avro::AvroReader, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions,
 };
+
+const DEFAULT_INFER_SCHEMA: usize = 100;
 
 #[derive(Clone)]
 pub struct OpenDataFrame;
@@ -370,41 +376,82 @@ fn from_jsonl(
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
-    let infer_schema: Option<usize> = call.get_flag("infer-schema")?;
+    let infer_schema: usize = call
+        .get_flag("infer-schema")?
+        .unwrap_or(DEFAULT_INFER_SCHEMA);
     let maybe_schema = call
         .get_flag("schema")?
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
-    let file = File::open(file_path).map_err(|e| ShellError::GenericError {
-        error: "Error opening file".into(),
-        msg: e.to_string(),
-        span: Some(file_span),
-        help: None,
-        inner: vec![],
-    })?;
 
-    let buf_reader = BufReader::new(file);
-    let reader = JsonReader::new(buf_reader)
-        .with_json_format(JsonFormat::JsonLines)
-        .infer_schema_len(infer_schema);
+    if call.has_flag("lazy")? {
+        let start_time = std::time::Instant::now();
 
-    let reader = match maybe_schema {
-        Some(schema) => reader.with_schema(schema.into()),
-        None => reader,
-    };
+        let df = LazyJsonLineReader::new(file_path)
+            .with_infer_schema_length(Some(infer_schema))
+            .with_schema(maybe_schema.map(|s| s.into()))
+            .finish()
+            .map_err(|e| ShellError::GenericError {
+                error: format!("Json lines reader error: {e}"),
+                msg: "".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?;
 
-    let df: NuDataFrame = reader
-        .finish()
-        .map_err(|e| ShellError::GenericError {
-            error: "Json lines reader error".into(),
-            msg: format!("{e:?}"),
-            span: Some(call.head),
+        perf(
+            engine,
+            "Lazy json lines dataframe open",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
+
+        let df = NuLazyFrame::new(false, df);
+        df.cache_and_to_value(plugin, engine, call.head)
+    } else {
+        let file = File::open(file_path).map_err(|e| ShellError::GenericError {
+            error: "Error opening file".into(),
+            msg: e.to_string(),
+            span: Some(file_span),
             help: None,
             inner: vec![],
-        })?
-        .into();
+        })?;
+        let buf_reader = BufReader::new(file);
+        let reader = JsonReader::new(buf_reader)
+            .with_json_format(JsonFormat::JsonLines)
+            .infer_schema_len(Some(infer_schema));
 
-    df.cache_and_to_value(plugin, engine, call.head)
+        let reader = match maybe_schema {
+            Some(schema) => reader.with_schema(schema.into()),
+            None => reader,
+        };
+
+        let start_time = std::time::Instant::now();
+
+        let df: NuDataFrame = reader
+            .finish()
+            .map_err(|e| ShellError::GenericError {
+                error: "Json lines reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?
+            .into();
+
+        perf(
+            engine,
+            "Eager json lines dataframe open",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
+
+        df.cache_and_to_value(plugin, engine, call.head)
+    }
 }
 
 fn from_csv(
@@ -416,7 +463,9 @@ fn from_csv(
 ) -> Result<Value, ShellError> {
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
-    let infer_schema: Option<usize> = call.get_flag("infer-schema")?;
+    let infer_schema: usize = call
+        .get_flag("infer-schema")?
+        .unwrap_or(DEFAULT_INFER_SCHEMA);
     let skip_rows: Option<usize> = call.get_flag("skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
@@ -456,16 +505,14 @@ fn from_csv(
             None => csv_reader,
         };
 
-        let csv_reader = match infer_schema {
-            None => csv_reader,
-            Some(r) => csv_reader.with_infer_schema_length(Some(r)),
-        };
+        let csv_reader = csv_reader.with_infer_schema_length(Some(infer_schema));
 
         let csv_reader = match skip_rows {
             None => csv_reader,
             Some(r) => csv_reader.with_skip_rows(r),
         };
 
+        let start_time = std::time::Instant::now();
         let df: NuLazyFrame = csv_reader
             .finish()
             .map_err(|e| ShellError::GenericError {
@@ -477,11 +524,21 @@ fn from_csv(
             })?
             .into();
 
+        perf(
+            engine,
+            "Lazy CSV dataframe open",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
+
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
+        let start_time = std::time::Instant::now();
         let df = CsvReadOptions::default()
             .with_has_header(!no_header)
-            .with_infer_schema_length(infer_schema)
+            .with_infer_schema_length(Some(infer_schema))
             .with_skip_rows(skip_rows.unwrap_or_default())
             .with_schema(maybe_schema.map(|s| s.into()))
             .with_columns(columns.map(Arc::new))
@@ -511,6 +568,16 @@ fn from_csv(
                 help: None,
                 inner: vec![],
             })?;
+
+        perf(
+            engine,
+            "Eager CSV dataframe open",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+        );
+
         let df = NuDataFrame::new(false, df);
         df.cache_and_to_value(plugin, engine, call.head)
     }
