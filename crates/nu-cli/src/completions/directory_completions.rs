@@ -36,7 +36,7 @@ impl Completer for DirectoryCompletion {
 
         // Filter only the folders
         #[allow(deprecated)]
-        let output: Vec<_> = directory_completion(
+        let items: Vec<_> = directory_completion(
             span,
             &prefix,
             &working_set.permanent_state.current_work_dir(),
@@ -62,13 +62,6 @@ impl Completer for DirectoryCompletion {
         })
         .collect();
 
-        output
-    }
-
-    // Sort results prioritizing the non hidden folders
-    fn sort(&self, items: Vec<SemanticSuggestion>, prefix: Vec<u8>) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(&prefix).to_string();
-
         // Sort items
         let mut sorted_items = items;
 
@@ -84,8 +77,8 @@ impl Completer for DirectoryCompletion {
             }
             SortBy::LevenshteinDistance => {
                 sorted_items.sort_by(|a, b| {
-                    let a_distance = levenshtein_distance(&prefix_str, &a.suggestion.value);
-                    let b_distance = levenshtein_distance(&prefix_str, &b.suggestion.value);
+                    let a_distance = levenshtein_distance(&prefix, &a.suggestion.value);
+                    let b_distance = levenshtein_distance(&prefix, &b.suggestion.value);
                     a_distance.cmp(&b_distance)
                 });
             }

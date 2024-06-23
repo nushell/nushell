@@ -40,7 +40,7 @@ impl Completer for FileCompletion {
         } = adjust_if_intermediate(&prefix, working_set, span);
 
         #[allow(deprecated)]
-        let output: Vec<_> = complete_item(
+        let items: Vec<_> = complete_item(
             readjusted,
             span,
             &prefix,
@@ -67,12 +67,7 @@ impl Completer for FileCompletion {
         })
         .collect();
 
-        output
-    }
-
-    // Sort results prioritizing the non hidden folders
-    fn sort(&self, items: Vec<SemanticSuggestion>, prefix: Vec<u8>) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(&prefix).to_string();
+        // Sort results prioritizing the non hidden folders
 
         // Sort items
         let mut sorted_items = items;
@@ -89,8 +84,8 @@ impl Completer for FileCompletion {
             }
             SortBy::LevenshteinDistance => {
                 sorted_items.sort_by(|a, b| {
-                    let a_distance = levenshtein_distance(&prefix_str, &a.suggestion.value);
-                    let b_distance = levenshtein_distance(&prefix_str, &b.suggestion.value);
+                    let a_distance = levenshtein_distance(&prefix, &a.suggestion.value);
+                    let b_distance = levenshtein_distance(&prefix, &b.suggestion.value);
                     a_distance.cmp(&b_distance)
                 });
             }
