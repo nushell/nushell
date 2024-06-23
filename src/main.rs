@@ -25,8 +25,8 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned,
-    Value,
+    engine::{ctrlc, EngineState},
+    report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
@@ -75,7 +75,9 @@ fn main() -> Result<()> {
     }
 
     // TODO: make this conditional in the future
-    ctrlc_protection(&mut engine_state);
+    let ctrlc_bool = Arc::new(AtomicBool::new(false));
+    let ctrlc_handlers = ctrlc::Handlers::new();
+    ctrlc_protection(&mut engine_state, &ctrlc_bool, &ctrlc_handlers);
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
@@ -460,11 +462,7 @@ fn main() -> Result<()> {
             );
         }
 
-        let ctrlc = engine_state
-            .ctrlc
-            .clone()
-            .unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
-        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc)?
+        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc_bool)?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,

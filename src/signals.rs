@@ -4,20 +4,21 @@ use std::sync::{
     Arc,
 };
 
-pub(crate) fn ctrlc_protection(engine_state: &mut EngineState) {
-    let ctrlc = Arc::new(AtomicBool::new(false));
-    let handlers = Handlers::new();
-
+pub(crate) fn ctrlc_protection(
+    engine_state: &mut EngineState,
+    ctrlc_bool: &Arc<AtomicBool>,
+    ctrlc_handlers: &Handlers,
+) {
     {
-        let ctrlc = ctrlc.clone();
-        let handlers = handlers.clone();
+        let ctrlc_bool = ctrlc_bool.clone();
+        let ctrlc_handlers = ctrlc_handlers.clone();
         ctrlc::set_handler(move || {
-            ctrlc.store(true, Ordering::SeqCst);
-            handlers.run();
+            ctrlc_bool.store(true, Ordering::SeqCst);
+            ctrlc_handlers.run();
         })
         .expect("Error setting Ctrl-C handler");
     }
 
-    engine_state.ctrlc = Some(ctrlc);
-    engine_state.ctrlc_handlers = Some(handlers);
+    engine_state.ctrlc = Some(ctrlc_bool.clone());
+    engine_state.ctrlc_handlers = Some(ctrlc_handlers.clone());
 }
