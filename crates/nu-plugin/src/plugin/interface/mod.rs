@@ -501,7 +501,8 @@ impl EngineInterface {
         self.state.writer.is_stdout()
     }
 
-    /// todo: docs
+    /// Register a closure which will be called when the engine receives a Ctrl-C signal. Returns a
+    /// RAII guard that will keep the closure alive until it is dropped.
     pub fn register_ctrlc_handler(&self, handler: ctrlc::Handler) -> ctrlc::Guard {
         self.state.ctrlc_handlers.register(handler)
     }

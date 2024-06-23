@@ -50,7 +50,7 @@ struct RunningPlugin {
     interface: PluginInterface,
     /// Garbage collector for the plugin
     gc: PluginGc,
-    /// todo: docs
+    /// RAII guard for this plugin's ctrl-c handler
     _ctrlc_guard: Option<ctrlc::Guard>,
 }
 
