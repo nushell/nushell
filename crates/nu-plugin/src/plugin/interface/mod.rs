@@ -59,7 +59,7 @@ struct EngineInterfaceState {
         mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
-    /// todo: docs
+    /// Registered Ctrl-C handlers
     ctrlc_handlers: ctrlc::Handlers,
 }
 
