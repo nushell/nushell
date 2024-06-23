@@ -903,5 +903,19 @@ fn use_nested_submodules() {
         ];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
         assert_eq!(actual.out, "true");
+
+        sandbox.with_files(&[
+            FileWithContent("animals.nu", r#"export use nested_animals.nu cat"#),
+            FileWithContent("nested_animals.nu", "export def cat [] { 'meow' }"),
+        ]);
+        let inp = [
+            "module voice { export module animals.nu }",
+            "use voice",
+            r#""export def cat [] {'woem'}" | save -f nested_animals.nu"#,
+            "use voice.nu",
+            "(voice animals cat) == 'woem'",
+        ];
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        assert_eq!(actual.out, "true");
     })
 }

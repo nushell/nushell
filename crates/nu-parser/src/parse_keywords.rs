@@ -1886,6 +1886,48 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
+fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+    let module = working_set.get_module(module_id);
+
+    fn submodule_need_reloading(working_set: &StateWorkingSet, submodule_id: ModuleId) -> bool {
+        let submodule = working_set.get_module(submodule_id);
+        let submodule_changed = if let Some((file_path, file_id)) = &submodule.file {
+            let existing_contents = working_set.get_contents_of_file(*file_id);
+            let file_contents = file_path.read(working_set);
+
+            if let (Some(existing), Some(new)) = (existing_contents, file_contents) {
+                existing != new
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if submodule_changed {
+            true
+        } else {
+            module_needs_reloading(working_set, submodule_id)
+        }
+    }
+
+    let export_submodule_changed = module
+        .submodules
+        .iter()
+        .any(|(_, submodule_id)| submodule_need_reloading(working_set, *submodule_id));
+
+    if export_submodule_changed {
+        return true;
+    }
+
+    let private_submodule_changed = module
+        .imported_modules
+        .iter()
+        .any(|submodule_id| submodule_need_reloading(working_set, *submodule_id));
+
+    private_submodule_changed
+}
+
 /// Parse a module from a file.
 ///
 /// The module name is inferred from the stem of the file, unless specified in `name_override`.
@@ -1924,25 +1966,13 @@ fn parse_module_file(
 
     // Check if we've parsed the module before.
     if let Some(module_id) = working_set.find_module_by_span(new_span) {
-        let module = working_set.get_module(module_id);
-        // check if it contains submodules with a file name.
-        let has_export_submodules = module
-            .submodules
-            .iter()
-            .any(|(_, m)| working_set.get_module(*m).file.is_some());
-        // check if it's using other modules with a file name.
-        let has_use_submodules = module
-            .imported_modules
-            .iter()
-            .any(|m| working_set.get_module(*m).file.is_some());
-        if !(has_export_submodules || has_use_submodules) {
+        if !module_needs_reloading(working_set, module_id) {
             return Some(module_id);
         }
     }
 
     // Add the file to the stack of files being processed.
-    let path_buf = path.path_buf();
-    if let Err(e) = working_set.files.push(path_buf.clone(), path_span) {
+    if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
         working_set.error(e);
         return None;
     }
@@ -1955,7 +1985,7 @@ fn parse_module_file(
     working_set.files.pop();
 
     let _ = working_set.add_block(Arc::new(block));
-    module.file = Some(path_buf);
+    module.file = Some((path, file_id));
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
     Some(module_id)
