@@ -374,10 +374,7 @@ impl<Form: PathForm> Path<Form> {
     /// assert_eq!(path.strip_prefix(prefix).unwrap(), Path::new("haha/foo.txt"));
     /// ```
     #[inline]
-    pub fn strip_prefix<F: PathForm>(
-        &self,
-        base: impl AsRef<Path<F>>,
-    ) -> Result<&RelativePath, StripPrefixError> {
+    pub fn strip_prefix(&self, base: impl AsRef<Path>) -> Result<&RelativePath, StripPrefixError> {
         self.inner
             .strip_prefix(&base.as_ref().inner)
             .map(RelativePath::new_unchecked)
@@ -407,7 +404,7 @@ impl<Form: PathForm> Path<Form> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn starts_with<F: PathForm>(&self, base: impl AsRef<Path<F>>) -> bool {
+    pub fn starts_with(&self, base: impl AsRef<Path>) -> bool {
         self.inner.starts_with(&base.as_ref().inner)
     }
 
@@ -431,7 +428,7 @@ impl<Form: PathForm> Path<Form> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn ends_with<F: PathForm>(&self, child: impl AsRef<Path<F>>) -> bool {
+    pub fn ends_with(&self, child: impl AsRef<Path>) -> bool {
         self.inner.ends_with(&child.as_ref().inner)
     }
 
@@ -754,7 +751,7 @@ impl<Form: PathJoin> Path<Form> {
     /// ```
     #[must_use]
     #[inline]
-    pub fn join<F: MaybeRelative>(&self, path: impl AsRef<Path<F>>) -> PathBuf<Form::Output> {
+    pub fn join(&self, path: impl AsRef<Path>) -> PathBuf<Form::Output> {
         PathBuf::new_unchecked(self.inner.join(&path.as_ref().inner))
     }
 }
@@ -1714,7 +1711,7 @@ impl<Form: PathPush> PathBuf<Form> {
     /// assert_eq!(path, PathBuf::from("/etc"));
     /// ```
     #[inline]
-    pub fn push<R: MaybeRelative>(&mut self, path: impl AsRef<Path<R>>) {
+    pub fn push(&mut self, path: impl AsRef<Path>) {
         self.inner.push(&path.as_ref().inner)
     }
 }
@@ -2035,17 +2032,17 @@ macro_rules! impl_as_ref {
 
 // === To and from crate types ===
 
-impl<Form: PathForm> AsRef<Path<Form>> for Path<Form> {
+impl<From: PathCast<To>, To: PathForm> AsRef<Path<To>> for Path<From> {
     #[inline]
-    fn as_ref(&self) -> &Self {
-        self
+    fn as_ref(&self) -> &Path<To> {
+        self.cast()
     }
 }
 
-impl<Form: PathForm> AsRef<Path<Form>> for PathBuf<Form> {
+impl<From: PathCast<To>, To: PathForm> AsRef<Path<To>> for PathBuf<From> {
     #[inline]
-    fn as_ref(&self) -> &Path<Form> {
-        self
+    fn as_ref(&self) -> &Path<To> {
+        self.cast()
     }
 }
 
