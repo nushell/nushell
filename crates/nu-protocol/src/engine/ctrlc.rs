@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicU64, Ordering},
     Arc, Mutex,
 };
 
@@ -8,14 +8,15 @@ pub type Handler = Box<dyn Fn() + Send + Sync>;
 
 #[derive(Clone)]
 pub struct Handlers {
-    handlers: Arc<Mutex<Vec<(usize, Handler)>>>,
-    next_id: Arc<AtomicUsize>,
+    handlers: Arc<Mutex<Vec<(u64, Handler)>>>,
+    // we use an u64 so an overflow is impractical
+    next_id: Arc<AtomicU64>,
 }
 
 #[derive(Clone)]
 pub struct Guard {
-    id: usize,
-    handlers: Arc<Mutex<Vec<(usize, Handler)>>>,
+    id: u64,
+    handlers: Arc<Mutex<Vec<(u64, Handler)>>>,
 }
 
 impl Drop for Guard {
@@ -36,7 +37,7 @@ impl Debug for Guard {
 impl Handlers {
     pub fn new() -> Handlers {
         let handlers = Arc::new(Mutex::new(vec![]));
-        let next_id = Arc::new(AtomicUsize::new(0));
+        let next_id = Arc::new(AtomicU64::new(0));
         Handlers { handlers, next_id }
     }
 
