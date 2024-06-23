@@ -1,5 +1,5 @@
 use crate::PersistentPlugin;
-use nu_protocol::{engine::ctrlc, PluginGcConfig, RegisteredPlugin};
+use nu_protocol::{PluginGcConfig, RegisteredPlugin};
 use std::{
     sync::{mpsc, Arc, Weak},
     thread,
@@ -14,7 +14,6 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct PluginGc {
     sender: mpsc::Sender<PluginGcMsg>,
-    _ctrlc_guard: Arc<Option<ctrlc::Guard>>,
 }
 
 impl PluginGc {
@@ -22,7 +21,6 @@ impl PluginGc {
     pub fn new(
         config: PluginGcConfig,
         plugin: &Arc<PersistentPlugin>,
-        ctrlc_handlers: Option<ctrlc::Handlers>,
     ) -> std::io::Result<PluginGc> {
         let (sender, receiver) = mpsc::channel();
 
@@ -39,14 +37,7 @@ impl PluginGc {
             .name(format!("plugin gc ({})", plugin.identity().name()))
             .spawn(move || state.run(receiver))?;
 
-        let guard = ctrlc_handlers.map(|ctrlc_handlers| {
-            let sender = sender.clone();
-            ctrlc_handlers.add(Box::new(move || {
-                let _ = sender.send(PluginGcMsg::Ctrlc);
-            }))
-        });
-
-        Ok(PluginGc { sender, _ctrlc_guard: Arc::new(guard) })
+        Ok(PluginGc { sender })
     }
 
     /// Update the garbage collector config
@@ -94,26 +85,16 @@ impl PluginGc {
     pub fn exited(&self) {
         let _ = self.sender.send(PluginGcMsg::Exited);
     }
-
-    /// Tell the GC that our process received a Ctrl-C signal
-    pub fn ctrlc(&self) {
-        let _ = self.sender.send(PluginGcMsg::Ctrlc);
-    }
-
-    pub fn clone_sender(&self) -> mpsc::Sender<PluginGcMsg> {
-        self.sender.clone()
-    }
 }
 
 #[derive(Debug)]
-pub enum PluginGcMsg {
+enum PluginGcMsg {
     SetConfig(PluginGcConfig),
     Flush(mpsc::Sender<()>),
     AddLocks(i64),
     SetDisabled(bool),
     StopTracking,
     Exited,
-    Ctrlc,
 }
 
 #[derive(Debug)]
@@ -178,9 +159,6 @@ impl PluginGcState {
             PluginGcMsg::Exited => {
                 // Exit and stop the plugin
                 return Some(true);
-            }
-            PluginGcMsg::Ctrlc => {
-                eprintln!("Ctrl-C received, plugin: `{}`", self.name);
             }
         }
         None

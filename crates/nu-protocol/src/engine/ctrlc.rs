@@ -40,7 +40,7 @@ impl Handlers {
         Handlers { handlers, next_id }
     }
 
-    pub fn add(&self, handler: Handler) -> Guard {
+    pub fn register(&self, handler: Handler) -> Guard {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.push((id, handler));

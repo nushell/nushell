@@ -183,7 +183,7 @@ impl PersistentPlugin {
         })?;
 
         // Start the plugin garbage collector
-        let gc = PluginGc::new(mutable.gc_config.clone(), &self, ctrlc_handlers.clone())?;
+        let gc = PluginGc::new(mutable.gc_config.clone(), &self)?;
 
         let pid = child.id();
         let interface = make_plugin_interface(
@@ -216,7 +216,7 @@ impl PersistentPlugin {
 
         let guard = ctrlc_handlers.map(|ctrlc_handlers| {
             let interface = interface.clone();
-            ctrlc_handlers.add(Box::new(move || {
+            ctrlc_handlers.register(Box::new(move || {
                 let _ = interface.ctrlc();
             }))
         });

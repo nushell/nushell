@@ -503,7 +503,7 @@ impl EngineInterface {
 
     /// todo: docs
     pub fn register_ctrlc_handler(&self, handler: ctrlc::Handler) -> ctrlc::Guard {
-        self.state.ctrlc_handlers.add(handler)
+        self.state.ctrlc_handlers.register(handler)
     }
 
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
