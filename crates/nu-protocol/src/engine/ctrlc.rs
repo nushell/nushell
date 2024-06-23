@@ -66,14 +66,6 @@ impl Default for Handlers {
     }
 }
 
-impl Debug for Handlers {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Handlers")
-            .field("handlers", &self.handlers.lock().unwrap().len())
-            .finish()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
