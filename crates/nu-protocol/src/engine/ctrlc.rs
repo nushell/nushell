@@ -21,7 +21,6 @@ pub struct Guard {
 
 impl Drop for Guard {
     fn drop(&mut self) {
-        eprintln!("Dropping guard: {:?}", self);
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.retain(|(id, _)| *id != self.id);
         }
@@ -46,7 +45,6 @@ impl Handlers {
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.push((id, handler));
         }
-        eprintln!("Adding guard: {:?}", id);
         Guard {
             id,
             handlers: Arc::clone(&self.handlers),
@@ -73,5 +71,57 @@ impl Debug for Handlers {
         f.debug_struct("Handlers")
             .field("handlers", &self.handlers.lock().unwrap().len())
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::AtomicBool;
+
+    #[test]
+    fn test_multiple_handlers() {
+        let handlers = Handlers::new();
+        let called1 = Arc::new(AtomicBool::new(false));
+        let called2 = Arc::new(AtomicBool::new(false));
+
+        let called1_clone = Arc::clone(&called1);
+        let called2_clone = Arc::clone(&called2);
+
+        let _guard1 = handlers.register(Box::new(move || {
+            called1_clone.store(true, Ordering::SeqCst);
+        }));
+        let _guard2 = handlers.register(Box::new(move || {
+            called2_clone.store(true, Ordering::SeqCst);
+        }));
+
+        handlers.run();
+
+        assert!(called1.load(Ordering::SeqCst));
+        assert!(called2.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn test_guard_drop() {
+        let handlers = Handlers::new();
+        let called = Arc::new(AtomicBool::new(false));
+        let called_clone = Arc::clone(&called);
+
+        let guard = handlers.register(Box::new(move || {
+            called_clone.store(true, Ordering::Relaxed);
+        }));
+
+        // Ensure the handler is registered
+        assert_eq!(handlers.handlers.lock().unwrap().len(), 1);
+
+        drop(guard);
+
+        // Ensure the handler is removed after dropping the guard
+        assert_eq!(handlers.handlers.lock().unwrap().len(), 0);
+
+        handlers.run();
+
+        // Ensure the handler is not called after being dropped
+        assert!(!called.load(Ordering::Relaxed));
     }
 }
