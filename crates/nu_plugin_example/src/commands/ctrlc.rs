@@ -36,12 +36,12 @@ impl PluginCommand for Ctrlc {
     ) -> Result<PipelineData, LabeledError> {
         let barrier = Arc::new(Barrier::new(2));
 
-        let _guard = {
+        let _guard = engine.register_ctrlc_handler(Box::new({
             let barrier = barrier.clone();
-            engine.register_ctrlc_handler(Box::new(move || {
+            move || {
                 barrier.wait();
-            }))
-        };
+            }
+        }));
 
         eprintln!("waiting for ctrl-c signal...");
         barrier.wait();
