@@ -74,9 +74,9 @@ fn main() -> Result<()> {
         report_error_new(&engine_state, &err);
     }
 
-    // TODO: make this conditional in the future
     let ctrlc_bool = Arc::new(AtomicBool::new(false));
     let ctrlc_handlers = ctrlc::Handlers::new();
+    // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state, &ctrlc_bool, &ctrlc_handlers);
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
