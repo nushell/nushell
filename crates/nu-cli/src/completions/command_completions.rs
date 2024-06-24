@@ -198,7 +198,11 @@ impl Completer for CommandCompletion {
         };
 
         if !subcommands.is_empty() {
-            return subcommands;
+            return sort_suggestions(
+                &String::from_utf8_lossy(&prefix),
+                subcommands,
+                self.get_sort_by(),
+            );
         }
 
         let config = working_set.get_config();
@@ -223,10 +227,9 @@ impl Completer for CommandCompletion {
             vec![]
         };
 
-        let all_suggestions = subcommands.into_iter().chain(commands).collect::<Vec<_>>();
         sort_suggestions(
             &String::from_utf8_lossy(&prefix),
-            all_suggestions,
+            commands,
             self.get_sort_by(),
         )
     }
