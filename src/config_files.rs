@@ -206,15 +206,12 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
 
         if autoload_dir.exists() {
             let entries = read_and_sort_directory(&autoload_dir);
-            match entries {
-                Ok(entries) => {
-                    for entry in entries {
-                        let path = autoload_dir.join(entry);
-                        warn!("AutoLoading: {:?}", path);
-                        eval_config_contents(path, engine_state, stack);
-                    }
+            if let Ok(entries) = entries {
+                for entry in entries {
+                    let path = autoload_dir.join(entry);
+                    warn!("AutoLoading: {:?}", path);
+                    eval_config_contents(path, engine_state, stack);
                 }
-                Err(_) => {}
             }
         }
     }
