@@ -1,14 +1,14 @@
 use crate::completions::{
     completion_common::{adjust_if_intermediate, complete_item, AdjustView},
-    Completer, CompletionOptions, SortBy,
+    Completer, CompletionOptions,
 };
 use nu_ansi_term::Style;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    levenshtein_distance, Span,
+    Span,
 };
 use reedline::Suggestion;
-use std::path::{Path, MAIN_SEPARATOR as SEP};
+use std::path::Path;
 
 use super::SemanticSuggestion;
 
@@ -62,34 +62,11 @@ impl Completer for DirectoryCompletion {
         })
         .collect();
 
-        // Sort items
-        let mut sorted_items = items;
-
-        match self.get_sort_by() {
-            SortBy::Ascending => {
-                sorted_items.sort_by(|a, b| {
-                    // Ignore trailing slashes in folder names when sorting
-                    a.suggestion
-                        .value
-                        .trim_end_matches(SEP)
-                        .cmp(b.suggestion.value.trim_end_matches(SEP))
-                });
-            }
-            SortBy::LevenshteinDistance => {
-                sorted_items.sort_by(|a, b| {
-                    let a_distance = levenshtein_distance(&prefix, &a.suggestion.value);
-                    let b_distance = levenshtein_distance(&prefix, &b.suggestion.value);
-                    a_distance.cmp(&b_distance)
-                });
-            }
-            _ => (),
-        }
-
         // Separate the results between hidden and non hidden
         let mut hidden: Vec<SemanticSuggestion> = vec![];
         let mut non_hidden: Vec<SemanticSuggestion> = vec![];
 
-        for item in sorted_items.into_iter() {
+        for item in items.into_iter() {
             let item_path = Path::new(&item.suggestion.value);
 
             if let Some(value) = item_path.file_name() {

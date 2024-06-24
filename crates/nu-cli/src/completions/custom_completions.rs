@@ -12,7 +12,7 @@ use nu_protocol::{
 use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;
 
-use super::completion_common::sort_completions;
+use super::completion_common::sort_suggestions;
 
 pub struct CustomCompletion {
     stack: Stack,
@@ -129,7 +129,7 @@ impl Completer for CustomCompletion {
         } else {
             filter(&prefix, suggestions, completion_options)
         };
-        sort_completions(
+        sort_suggestions(
             &String::from_utf8_lossy(&prefix),
             suggestions,
             self.get_sort_by(),

@@ -9,7 +9,7 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 
-use super::{completion_common::sort_completions, SemanticSuggestion};
+use super::{completion_common::sort_suggestions, SemanticSuggestion};
 
 pub struct CommandCompletion {
     flattened: Vec<(Span, FlatShape)>,
@@ -224,7 +224,7 @@ impl Completer for CommandCompletion {
         };
 
         let all_suggestions = subcommands.into_iter().chain(commands).collect::<Vec<_>>();
-        sort_completions(
+        sort_suggestions(
             &String::from_utf8_lossy(&prefix),
             all_suggestions,
             self.get_sort_by(),
