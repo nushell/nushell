@@ -662,11 +662,11 @@ fn file_completion_quoted() {
     let suggestions = completer.complete(target_dir, target_dir.len());
 
     let expected_paths: Vec<String> = vec![
-        "\'[a] bc.txt\'".to_string(),
         "`--help`".to_string(),
         "`-42`".to_string(),
         "`-inf`".to_string(),
         "`4.2`".to_string(),
+        "\'[a] bc.txt\'".to_string(),
         "`te st.txt`".to_string(),
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
