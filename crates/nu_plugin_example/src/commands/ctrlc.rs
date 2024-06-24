@@ -1,4 +1,4 @@
-use std::sync::{Arc, Barrier};
+use std::sync::mpsc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, LabeledError, PipelineData, Signature};
@@ -34,17 +34,13 @@ impl PluginCommand for Ctrlc {
         _call: &EvaluatedCall,
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let barrier = Arc::new(Barrier::new(2));
-
-        let _guard = engine.register_ctrlc_handler(Box::new({
-            let barrier = barrier.clone();
-            move || {
-                barrier.wait();
-            }
+        let (sender, receiver) = mpsc::channel::<()>();
+        let _guard = engine.register_ctrlc_handler(Box::new(move || {
+            let _ = sender.send(());
         }));
 
         eprintln!("waiting for ctrl-c signal...");
-        barrier.wait();
+        receiver.recv().expect("handler went away");
         eprintln!("peace.");
 
         Ok(PipelineData::Empty)
