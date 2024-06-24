@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{did_you_mean, engine::CommandType};
+use nu_protocol::did_you_mean;
 
 #[derive(Clone)]
 pub struct HideEnv;
@@ -27,15 +27,6 @@ impl Command for HideEnv {
 
     fn usage(&self) -> &str {
         "Hide environment variables in the current scope."
-    }
-
-    fn extra_usage(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
-    }
-
-    fn command_type(&self) -> CommandType {
-        CommandType::Keyword
     }
 
     fn run(
