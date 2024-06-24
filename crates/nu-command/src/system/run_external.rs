@@ -627,7 +627,7 @@ mod test {
             assert_eq!(actual, expected);
 
             let actual = expand_glob("./a.txt", cwd, Span::unknown(), &None).unwrap();
-            let expected: Vec<OsString> = vec![Path::new(".").join("a.txt").into()];
+            let expected = &["./a.txt"];
             assert_eq!(actual, expected);
 
             let actual = expand_glob("[*.txt", cwd, Span::unknown(), &None).unwrap();
