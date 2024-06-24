@@ -149,9 +149,13 @@ pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
             Expected: {expected:#?}\n"
         )
     }
-    expected.iter().zip(suggestions).for_each(|it| {
-        assert_eq!(it.0, &it.1.value);
-    });
+    assert_eq!(
+        expected,
+        suggestions
+            .into_iter()
+            .map(|it| it.value)
+            .collect::<Vec<_>>()
+    );
 }
 
 // append the separator to the converted path
