@@ -175,18 +175,30 @@ impl Command for Ls {
             },
             Example {
                 description: "List files and directories whose name do not contain 'bar'",
-                example: "ls -s | where name !~ bar",
+                example: "ls | where name !~ bar",
                 result: None,
             },
             Example {
-                description: "List all dirs in your home directory",
+                description: "List the full path of all dirs in your home directory",
                 example: "ls -a ~ | where type == dir",
                 result: None,
             },
             Example {
                 description:
-                    "List all dirs in your home directory which have not been modified in 7 days",
+                    "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days",
                 example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
+                result: None,
+            },
+            Example {
+                description:
+                    "Recursively list all files and subdirectories under the current directory using a glob pattern",
+                example: "ls -a **/*",
+                result: None,
+            },
+            Example {
+                description:
+                    "Recursively list *.rs and *.toml files using the glob command",
+                example: "ls ...(glob **/*.{rs,toml})",
                 result: None,
             },
             Example {
