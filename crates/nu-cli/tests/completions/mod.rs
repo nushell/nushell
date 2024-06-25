@@ -276,9 +276,10 @@ fn partial_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        folder(dir.join("partial_a")),
-        folder(dir.join("partial_b")),
-        folder(dir.join("partial_c")),
+        folder(dir.join("partial")),
+        folder(dir.join("partial-a")),
+        folder(dir.join("partial-b")),
+        folder(dir.join("partial-c")),
     ];
 
     // Match the results
@@ -292,13 +293,14 @@ fn partial_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.join("partial_a").join("have_ext.exe")),
-        file(dir.join("partial_a").join("have_ext.txt")),
-        file(dir.join("partial_a").join("hello")),
-        file(dir.join("partial_a").join("hola")),
-        file(dir.join("partial_b").join("hello_b")),
-        file(dir.join("partial_b").join("hi_b")),
-        file(dir.join("partial_c").join("hello_c")),
+        file(dir.join("partial").join("hello.txt")),
+        file(dir.join("partial-a").join("have_ext.exe")),
+        file(dir.join("partial-a").join("have_ext.txt")),
+        file(dir.join("partial-a").join("hello")),
+        file(dir.join("partial-a").join("hola")),
+        file(dir.join("partial-b").join("hello_b")),
+        file(dir.join("partial-b").join("hi_b")),
+        file(dir.join("partial-c").join("hello_c")),
     ];
 
     // Match the results
@@ -311,14 +313,15 @@ fn partial_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.join("partial_a").join("anotherfile")),
-        file(dir.join("partial_a").join("have_ext.exe")),
-        file(dir.join("partial_a").join("have_ext.txt")),
-        file(dir.join("partial_a").join("hello")),
-        file(dir.join("partial_a").join("hola")),
-        file(dir.join("partial_b").join("hello_b")),
-        file(dir.join("partial_b").join("hi_b")),
-        file(dir.join("partial_c").join("hello_c")),
+        file(dir.join("partial").join("hello.txt")),
+        file(dir.join("partial-a").join("anotherfile")),
+        file(dir.join("partial-a").join("have_ext.exe")),
+        file(dir.join("partial-a").join("have_ext.txt")),
+        file(dir.join("partial-a").join("hello")),
+        file(dir.join("partial-a").join("hola")),
+        file(dir.join("partial-b").join("hello_b")),
+        file(dir.join("partial-b").join("hi_b")),
+        file(dir.join("partial-c").join("hello_c")),
     ];
 
     // Match the results
@@ -343,19 +346,25 @@ fn partial_completions() {
     // Create the expected values
     let expected_paths: Vec<String> = vec![
         file(
-            dir.join("partial_a")
+            dir.join("partial")
                 .join("..")
                 .join("final_partial")
                 .join("somefile"),
         ),
         file(
-            dir.join("partial_b")
+            dir.join("partial-a")
                 .join("..")
                 .join("final_partial")
                 .join("somefile"),
         ),
         file(
-            dir.join("partial_c")
+            dir.join("partial-b")
+                .join("..")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-c")
                 .join("..")
                 .join("final_partial")
                 .join("somefile"),
@@ -366,28 +375,28 @@ fn partial_completions() {
     match_suggestions(expected_paths, suggestions);
 
     // Test completion for all files under directories whose names begin with "pa"
-    let file_str = file(dir.join("partial_a").join("have"));
+    let file_str = file(dir.join("partial-a").join("have"));
     let target_file = format!("rm {file_str}");
     let suggestions = completer.complete(&target_file, target_file.len());
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.join("partial_a").join("have_ext.exe")),
-        file(dir.join("partial_a").join("have_ext.txt")),
+        file(dir.join("partial-a").join("have_ext.exe")),
+        file(dir.join("partial-a").join("have_ext.txt")),
     ];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
 
     // Test completion for all files under directories whose names begin with "pa"
-    let file_str = file(dir.join("partial_a").join("have_ext."));
+    let file_str = file(dir.join("partial-a").join("have_ext."));
     let file_dir = format!("rm {file_str}");
     let suggestions = completer.complete(&file_dir, file_dir.len());
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.join("partial_a").join("have_ext.exe")),
-        file(dir.join("partial_a").join("have_ext.txt")),
+        file(dir.join("partial-a").join("have_ext.exe")),
+        file(dir.join("partial-a").join("have_ext.txt")),
     ];
 
     // Match the results
