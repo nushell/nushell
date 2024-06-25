@@ -32,6 +32,8 @@ use polars_io::{
     avro::AvroReader, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions,
 };
 
+const DEFAULT_INFER_SCHEMA: usize = 100;
+
 #[derive(Clone)]
 pub struct OpenDataFrame;
 
@@ -374,7 +376,9 @@ fn from_jsonl(
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
-    let infer_schema: Option<usize> = call.get_flag("infer-schema")?;
+    let infer_schema: usize = call
+        .get_flag("infer-schema")?
+        .unwrap_or(DEFAULT_INFER_SCHEMA);
     let maybe_schema = call
         .get_flag("schema")?
         .map(|schema| NuSchema::try_from(&schema))
@@ -384,7 +388,7 @@ fn from_jsonl(
         let start_time = std::time::Instant::now();
 
         let df = LazyJsonLineReader::new(file_path)
-            .with_infer_schema_length(infer_schema)
+            .with_infer_schema_length(Some(infer_schema))
             .with_schema(maybe_schema.map(|s| s.into()))
             .finish()
             .map_err(|e| ShellError::GenericError {
@@ -414,7 +418,7 @@ fn from_jsonl(
         let buf_reader = BufReader::new(file);
         let reader = JsonReader::new(buf_reader)
             .with_json_format(JsonFormat::JsonLines)
-            .infer_schema_len(infer_schema);
+            .infer_schema_len(Some(infer_schema));
 
         let reader = match maybe_schema {
             Some(schema) => reader.with_schema(schema.into()),
@@ -453,7 +457,9 @@ fn from_csv(
 ) -> Result<Value, ShellError> {
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
-    let infer_schema: Option<usize> = call.get_flag("infer-schema")?;
+    let infer_schema: usize = call
+        .get_flag("infer-schema")?
+        .unwrap_or(DEFAULT_INFER_SCHEMA);
     let skip_rows: Option<usize> = call.get_flag("skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
@@ -493,10 +499,7 @@ fn from_csv(
             None => csv_reader,
         };
 
-        let csv_reader = match infer_schema {
-            None => csv_reader,
-            Some(r) => csv_reader.with_infer_schema_length(Some(r)),
-        };
+        let csv_reader = csv_reader.with_infer_schema_length(Some(infer_schema));
 
         let csv_reader = match skip_rows {
             None => csv_reader,
@@ -522,7 +525,7 @@ fn from_csv(
         let start_time = std::time::Instant::now();
         let df = CsvReadOptions::default()
             .with_has_header(!no_header)
-            .with_infer_schema_length(infer_schema)
+            .with_infer_schema_length(Some(infer_schema))
             .with_skip_rows(skip_rows.unwrap_or_default())
             .with_schema(maybe_schema.map(|s| s.into()))
             .with_columns(columns.map(Arc::new))

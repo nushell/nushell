@@ -230,6 +230,38 @@ fn external_command_escape_args() {
 }
 
 #[test]
+fn external_command_ndots_args() {
+    let actual = nu!(r#"
+        nu --testbin cococo foo/. foo/.. foo/... foo/./bar foo/../bar foo/.../bar ./bar ../bar .../bar
+    "#);
+
+    assert_eq!(
+        actual.out,
+        if cfg!(windows) {
+            // Windows is a bit weird right now, where if ndots has to fix something it's going to
+            // change everything to backslashes too. Would be good to fix that
+            r"foo/. foo/.. foo\..\.. foo/./bar foo/../bar foo\..\..\bar ./bar ../bar ..\..\bar"
+        } else {
+            r"foo/. foo/.. foo/../.. foo/./bar foo/../bar foo/../../bar ./bar ../bar ../../bar"
+        }
+    );
+}
+
+#[test]
+fn external_command_url_args() {
+    // If ndots is not handled correctly, we can lose the double forward slashes that are needed
+    // here
+    let actual = nu!(r#"
+        nu --testbin cococo http://example.com http://example.com/.../foo //foo
+    "#);
+
+    assert_eq!(
+        actual.out,
+        "http://example.com http://example.com/.../foo //foo"
+    );
+}
+
+#[test]
 #[cfg_attr(
     not(target_os = "linux"),
     ignore = "only runs on Linux, where controlling the HOME var is reliable"
