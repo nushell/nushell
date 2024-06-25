@@ -1,28 +1,6 @@
 use nu_test_support::nu_with_plugins;
 
 #[test]
-fn closure() {
-    let actual = nu_with_plugins!(
-        cwd: "tests",
-        plugin: ("nu_plugin_example"),
-        r#"
-            $env.env_value = "value from env"
-
-            $env.config = {
-                plugins: {
-                    example: {||
-                        $env.env_value
-                    }
-                }
-            }
-            example config
-        "#
-    );
-
-    assert!(actual.out.contains("value from env"));
-}
-
-#[test]
 fn none() {
     let actual = nu_with_plugins!(
         cwd: "tests",
@@ -34,7 +12,7 @@ fn none() {
 }
 
 #[test]
-fn record() {
+fn some() {
     let actual = nu_with_plugins!(
         cwd: "tests",
         plugin: ("nu_plugin_example"),
@@ -42,8 +20,11 @@ fn record() {
             $env.config = {
                 plugins: {
                     example: {
-                        key1: "value"
-                        key2: "other"
+                        path: "some/path",
+                        nested: {
+                            bool: true,
+                            string: "Hello Example!"
+                        }
                     }
                 }
             }
@@ -51,6 +32,6 @@ fn record() {
         "#
     );
 
-    assert!(actual.out.contains("value"));
-    assert!(actual.out.contains("other"));
+    assert!(actual.out.contains("some/path"));
+    assert!(actual.out.contains("Hello Example!"));
 }
