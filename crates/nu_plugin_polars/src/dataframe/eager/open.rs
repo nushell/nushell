@@ -1,10 +1,10 @@
 use crate::{
     dataframe::values::NuSchema,
-    perf,
     values::{CustomValueSupport, NuLazyFrame},
-    PolarsPlugin,
+    EngineWrapper, PolarsPlugin,
 };
 use nu_path::expand_path_with;
+use nu_utils::perf;
 
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
@@ -395,13 +395,10 @@ fn from_jsonl(
                 inner: vec![],
             })?;
 
-        perf(
-            engine,
+        perf!(
             "Lazy json lines dataframe open",
             start_time,
-            file!(),
-            line!(),
-            column!(),
+            engine.use_color()
         );
 
         let df = NuLazyFrame::new(false, df);
@@ -437,13 +434,10 @@ fn from_jsonl(
             })?
             .into();
 
-        perf(
-            engine,
+        perf!(
             "Eager json lines dataframe open",
             start_time,
-            file!(),
-            line!(),
-            column!(),
+            engine.use_color()
         );
 
         df.cache_and_to_value(plugin, engine, call.head)
@@ -521,14 +515,7 @@ fn from_csv(
             })?
             .into();
 
-        perf(
-            engine,
-            "Lazy CSV dataframe open",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-        );
+        perf!("Lazy CSV dataframe open", start_time, engine.use_color());
 
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
@@ -566,14 +553,7 @@ fn from_csv(
                 inner: vec![],
             })?;
 
-        perf(
-            engine,
-            "Eager CSV dataframe open",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-        );
+        perf!("Eager CSV dataframe open", start_time, engine.use_color());
 
         let df = NuDataFrame::new(false, df);
         df.cache_and_to_value(plugin, engine, call.head)

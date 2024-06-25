@@ -12,7 +12,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     report_error_new, PipelineData, Spanned,
 };
-use nu_utils::utils::perf;
+use nu_utils::perf;
 
 pub(crate) fn run_commands(
     engine_state: &mut EngineState,
@@ -35,13 +35,10 @@ pub(crate) fn run_commands(
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file, NUSHELL_FOLDER);
 
-        perf(
+        perf!(
             "read plugins",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
 
         let start_time = std::time::Instant::now();
@@ -57,13 +54,10 @@ pub(crate) fn run_commands(
             config_files::read_default_env_file(engine_state, &mut stack)
         }
 
-        perf(
+        perf!(
             "read env.nu",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
 
         let start_time = std::time::Instant::now();
@@ -77,13 +71,10 @@ pub(crate) fn run_commands(
             );
         }
 
-        perf(
+        perf!(
             "read config.nu",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
 
         // If we have a login shell parameter, read the login file
@@ -92,13 +83,10 @@ pub(crate) fn run_commands(
             config_files::read_loginshell_file(engine_state, &mut stack);
         }
 
-        perf(
+        perf!(
             "read login.nu",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
     }
 
@@ -123,13 +111,10 @@ pub(crate) fn run_commands(
         report_error_new(engine_state, &err);
         std::process::exit(1);
     }
-    perf(
+    perf!(
         "evaluate_commands",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 }
 
@@ -153,13 +138,10 @@ pub(crate) fn run_file(
         let start_time = std::time::Instant::now();
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file, NUSHELL_FOLDER);
-        perf(
+        perf!(
             "read plugins",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
 
         let start_time = std::time::Instant::now();
@@ -174,13 +156,10 @@ pub(crate) fn run_file(
         } else {
             config_files::read_default_env_file(engine_state, &mut stack)
         }
-        perf(
+        perf!(
             "read env.nu",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
 
         let start_time = std::time::Instant::now();
@@ -192,13 +171,10 @@ pub(crate) fn run_file(
                 false,
             );
         }
-        perf(
+        perf!(
             "read config.nu",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
     }
 
@@ -216,13 +192,10 @@ pub(crate) fn run_file(
         report_error_new(engine_state, &err);
         std::process::exit(1);
     }
-    perf(
+    perf!(
         "evaluate_file",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 
     let start_time = std::time::Instant::now();
@@ -235,13 +208,10 @@ pub(crate) fn run_file(
             }
         }
     }
-    perf(
+    perf!(
         "get exit code",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 }
 
@@ -268,13 +238,10 @@ pub(crate) fn run_repl(
 
     // Reload use_color from config in case it's different from the default value
     let use_color = engine_state.get_config().use_ansi_coloring;
-    perf(
+    perf!(
         "setup_config",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 
     let start_time = std::time::Instant::now();
@@ -286,13 +253,10 @@ pub(crate) fn run_repl(
         parsed_nu_cli_args.no_std_lib,
         entire_start_time,
     );
-    perf(
+    perf!(
         "evaluate_repl",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 
     ret_val

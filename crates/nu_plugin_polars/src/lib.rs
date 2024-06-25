@@ -15,8 +15,6 @@ use crate::{
     series::series_commands, values::PolarsPluginCustomValue,
 };
 
-use nu_utils::utils::perf as nu_utils_perf;
-
 pub trait EngineWrapper {
     fn get_env_var(&self, key: &str) -> Option<String>;
     fn use_color(&self) -> bool;
@@ -45,24 +43,6 @@ impl EngineWrapper for &EngineInterface {
     fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
         EngineInterface::set_gc_disabled(self, disabled)
     }
-}
-
-pub fn perf(
-    env: impl EngineWrapper,
-    msg: &str,
-    start_time: std::time::Instant,
-    file: &str,
-    line: u32,
-    column: u32,
-) {
-    nu_utils_perf(
-        msg,
-        start_time,
-        file,
-        line,
-        column,
-        env.use_color(),
-    );
 }
 
 #[derive(Default)]

@@ -29,7 +29,7 @@ use nu_protocol::{
     Value,
 };
 use nu_std::load_standard_library;
-use nu_utils::utils::perf;
+use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{
@@ -219,13 +219,10 @@ fn main() -> Result<()> {
 
         logger(|builder| configure(&level, &target, filters, builder))?;
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
-        perf(
+        perf!(
             "start logging",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
     }
 
@@ -245,26 +242,20 @@ fn main() -> Result<()> {
         "env-path",
         parsed_nu_cli_args.env_file.as_ref(),
     );
-    perf(
+    perf!(
         "set_config_path",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 
     #[cfg(unix)]
     {
         start_time = std::time::Instant::now();
         terminal::acquire(engine_state.is_interactive);
-        perf(
+        perf!(
             "acquire_terminal",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
     }
 
@@ -279,25 +270,19 @@ fn main() -> Result<()> {
 
         engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
     }
-    perf(
+    perf!(
         "NU_LIB_DIRS setup",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 
     start_time = std::time::Instant::now();
     // First, set up env vars as strings only
     gather_parent_env_vars(&mut engine_state, &init_cwd);
-    perf(
+    perf!(
         "gather env vars",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 
     engine_state.add_env_var(
@@ -359,13 +344,10 @@ fn main() -> Result<()> {
         }
         std::process::exit(0)
     }
-    perf(
+    perf!(
         "run test_bins",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 
     start_time = std::time::Instant::now();
@@ -376,25 +358,19 @@ fn main() -> Result<()> {
         trace!("not redirecting stdin");
         PipelineData::empty()
     };
-    perf(
+    perf!(
         "redirect stdin",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 
     start_time = std::time::Instant::now();
     // Set up the $nu constant before evaluating config files (need to have $nu available in them)
     engine_state.generate_nu_constant();
-    perf(
+    perf!(
         "create_nu_constant",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
+        use_color
     );
 
     #[cfg(feature = "plugin")]
@@ -433,25 +409,19 @@ fn main() -> Result<()> {
         }
         engine_state.merge_delta(working_set.render())?;
 
-        perf(
+        perf!(
             "load plugins specified in --plugins",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         )
     }
 
     start_time = std::time::Instant::now();
     if parsed_nu_cli_args.lsp {
-        perf(
+        perf!(
             "lsp starting",
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
+            use_color
         );
 
         if parsed_nu_cli_args.no_config_file.is_none() {
