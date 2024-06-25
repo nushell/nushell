@@ -129,15 +129,7 @@ impl Completer for CustomCompletion {
         } else {
             filter(&prefix, suggestions, completion_options)
         };
-        sort_suggestions(
-            &String::from_utf8_lossy(&prefix),
-            suggestions,
-            self.get_sort_by(),
-        )
-    }
-
-    fn get_sort_by(&self) -> SortBy {
-        self.sort_by
+        sort_suggestions(&String::from_utf8_lossy(&prefix), suggestions, self.sort_by)
     }
 }
 

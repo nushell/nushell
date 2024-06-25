@@ -1,4 +1,4 @@
-use crate::completions::{CompletionOptions, SortBy};
+use crate::completions::CompletionOptions;
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
     Span,
@@ -19,10 +19,6 @@ pub trait Completer {
         pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion>;
-
-    fn get_sort_by(&self) -> SortBy {
-        SortBy::Ascending
-    }
 }
 
 #[derive(Debug, Default, PartialEq)]

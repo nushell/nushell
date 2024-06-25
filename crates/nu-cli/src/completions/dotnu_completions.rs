@@ -1,4 +1,4 @@
-use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
+use crate::completions::{file_path_completion, Completer, CompletionOptions};
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
     Span,
@@ -132,9 +132,5 @@ impl Completer for DotNuCompletion {
             .collect();
 
         output
-    }
-
-    fn get_sort_by(&self) -> SortBy {
-        SortBy::LevenshteinDistance
     }
 }

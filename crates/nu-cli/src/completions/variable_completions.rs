@@ -9,7 +9,9 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::str;
 
-use super::completion_common::sort_suggestions;
+use super::{completion_common::sort_suggestions, SortBy};
+
+const SORT_BY: SortBy = SortBy::Ascending;
 
 #[derive(Clone)]
 pub struct VariableCompletion {
@@ -72,7 +74,7 @@ impl Completer for VariableCompletion {
                             }
                         }
 
-                        return sort_suggestions(&prefix_str, output, self.get_sort_by());
+                        return sort_suggestions(&prefix_str, output, SORT_BY);
                     }
                 } else {
                     // No nesting provided, return all env vars
@@ -96,7 +98,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return sort_suggestions(&prefix_str, output, self.get_sort_by());
+                    return sort_suggestions(&prefix_str, output, SORT_BY);
                 }
             }
 
@@ -120,7 +122,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return sort_suggestions(&prefix_str, output, self.get_sort_by());
+                    return sort_suggestions(&prefix_str, output, SORT_BY);
                 }
             }
 
@@ -142,7 +144,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return sort_suggestions(&prefix_str, output, self.get_sort_by());
+                    return sort_suggestions(&prefix_str, output, SORT_BY);
                 }
             }
         }

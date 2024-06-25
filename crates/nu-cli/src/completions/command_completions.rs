@@ -201,7 +201,7 @@ impl Completer for CommandCompletion {
             return sort_suggestions(
                 &String::from_utf8_lossy(&prefix),
                 subcommands,
-                self.get_sort_by(),
+                SortBy::Ascending,
             );
         }
 
@@ -230,12 +230,8 @@ impl Completer for CommandCompletion {
         sort_suggestions(
             &String::from_utf8_lossy(&prefix),
             commands,
-            self.get_sort_by(),
+            SortBy::LevenshteinDistance,
         )
-    }
-
-    fn get_sort_by(&self) -> SortBy {
-        SortBy::LevenshteinDistance
     }
 }
 
