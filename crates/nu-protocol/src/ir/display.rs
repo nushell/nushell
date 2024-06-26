@@ -116,7 +116,6 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
                 write!(f, "{:WIDTH$} {src_dst}, {item}", "list-push")
             }
             Instruction::RecordInsert { src_dst, key, val } => {
-                let key = FmtData(self.data, *key);
                 write!(f, "{:WIDTH$} {src_dst}, {key}, {val}", "record-insert")
             }
             Instruction::BinaryOp { lhs_dst, op, rhs } => {

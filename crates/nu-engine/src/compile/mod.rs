@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, CellPath, Expr, Expression, Operator, PathMember, Pipeline,
-        PipelineRedirection, RedirectionSource, RedirectionTarget,
+        Argument, Block, Call, CellPath, Expr, Expression, ListItem, Math, Operator, PathMember,
+        Pipeline, PipelineRedirection, RecordItem, RedirectionSource, RedirectionTarget,
     },
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, IrBlock, Literal, RedirectMode},
@@ -36,7 +36,7 @@ pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, 
     Ok(builder.finish())
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct RedirectModes {
     out: Option<Spanned<RedirectMode>>,
     err: Option<Spanned<RedirectMode>>,
@@ -47,6 +47,13 @@ impl RedirectModes {
         RedirectModes {
             out: Some(RedirectMode::Capture.into_spanned(span)),
             err: None,
+        }
+    }
+
+    fn with_capture_out(&self, span: Span) -> Self {
+        RedirectModes {
+            out: Some(RedirectMode::Capture.into_spanned(span)),
+            err: self.err.clone(),
         }
     }
 }
@@ -328,9 +335,170 @@ fn compile_expression(
         Expr::Block(block_id) => lit(builder, Literal::Block(*block_id)),
         Expr::Closure(block_id) => lit(builder, Literal::Closure(*block_id)),
         Expr::MatchBlock(_) => Err(CompileError::Todo("MatchBlock")),
-        Expr::List(_) => Err(CompileError::Todo("List")),
-        Expr::Table(_) => Err(CompileError::Todo("Table")),
-        Expr::Record(_) => Err(CompileError::Todo("Record")),
+        Expr::List(items) => {
+            // Guess capacity based on items (does not consider spread as more than 1)
+            lit(
+                builder,
+                Literal::List {
+                    capacity: items.len(),
+                },
+            )?;
+            for item in items {
+                match item {
+                    ListItem::Item(expr) => {
+                        // Add each item using push-list
+                        let item_reg = builder.next_register()?;
+                        compile_expression(
+                            working_set,
+                            builder,
+                            expr,
+                            redirect_modes.with_capture_out(expr.span),
+                            None,
+                            item_reg,
+                        )?;
+                        builder.push(
+                            Instruction::ListPush {
+                                src_dst: out_reg,
+                                item: item_reg,
+                            }
+                            .into_spanned(expr.span),
+                        )?;
+                    }
+                    ListItem::Spread(spread_span, expr) => {
+                        // Implement a spread as a ++ binary operation
+                        let rhs_reg = builder.next_register()?;
+                        compile_expression(
+                            working_set,
+                            builder,
+                            expr,
+                            redirect_modes.with_capture_out(expr.span),
+                            None,
+                            rhs_reg,
+                        )?;
+                        builder.push(
+                            Instruction::BinaryOp {
+                                lhs_dst: out_reg,
+                                op: Operator::Math(Math::Append),
+                                rhs: rhs_reg,
+                            }
+                            .into_spanned(*spread_span),
+                        )?;
+                    }
+                }
+            }
+            Ok(())
+        }
+        Expr::Table(table) => {
+            lit(
+                builder,
+                Literal::List {
+                    capacity: table.rows.len(),
+                },
+            )?;
+
+            // Evaluate the columns
+            let column_registers = table
+                .columns
+                .iter()
+                .map(|column| {
+                    let reg = builder.next_register()?;
+                    compile_expression(
+                        working_set,
+                        builder,
+                        column,
+                        redirect_modes.with_capture_out(column.span),
+                        None,
+                        reg,
+                    )?;
+                    Ok(reg)
+                })
+                .collect::<Result<Vec<RegId>, CompileError>>()?;
+
+            // Build records for each row
+            for row in table.rows.iter() {
+                let row_reg = builder.next_register()?;
+                builder.load_literal(
+                    row_reg,
+                    Literal::Record {
+                        capacity: table.columns.len(),
+                    }
+                    .into_spanned(expr.span),
+                )?;
+                for (column_reg, item) in column_registers.iter().zip(row.iter()) {
+                    let column_reg = builder.clone_reg(*column_reg, item.span)?;
+                    let item_reg = builder.next_register()?;
+                    compile_expression(
+                        working_set,
+                        builder,
+                        item,
+                        redirect_modes.with_capture_out(item.span),
+                        None,
+                        item_reg,
+                    )?;
+                    builder.push(
+                        Instruction::RecordInsert {
+                            src_dst: out_reg,
+                            key: column_reg,
+                            val: item_reg,
+                        }
+                        .into_spanned(item.span),
+                    )?;
+                }
+            }
+
+            // Free the column registers, since they aren't needed anymore
+            for reg in column_registers {
+                builder.free_register(reg)?;
+            }
+
+            Ok(())
+        }
+        Expr::Record(items) => {
+            lit(
+                builder,
+                Literal::Record {
+                    capacity: items.len(),
+                },
+            )?;
+
+            for item in items {
+                match item {
+                    RecordItem::Pair(key, val) => {
+                        // Add each item using record-insert
+                        let key_reg = builder.next_register()?;
+                        let val_reg = builder.next_register()?;
+                        compile_expression(
+                            working_set,
+                            builder,
+                            key,
+                            redirect_modes.with_capture_out(expr.span),
+                            None,
+                            key_reg,
+                        )?;
+                        compile_expression(
+                            working_set,
+                            builder,
+                            val,
+                            redirect_modes.with_capture_out(expr.span),
+                            None,
+                            val_reg,
+                        )?;
+                        builder.push(
+                            Instruction::RecordInsert {
+                                src_dst: out_reg,
+                                key: key_reg,
+                                val: val_reg,
+                            }
+                            .into_spanned(expr.span),
+                        )?;
+                    }
+                    RecordItem::Spread(spread_span, expr) => {
+                        return Err(CompileError::Todo("Record with spread"))
+                    }
+                }
+            }
+            Ok(())
+        }
         Expr::Keyword(_) => Err(CompileError::Todo("Keyword")),
         Expr::ValueWithUnit(_) => Err(CompileError::Todo("ValueWithUnit")),
         Expr::DateTime(_) => Err(CompileError::Todo("DateTime")),
@@ -757,9 +925,12 @@ impl BlockBuilder {
             Instruction::ListPush { src_dst: _, item } => self.free_register(*item)?,
             Instruction::RecordInsert {
                 src_dst: _,
-                key: _,
+                key,
                 val,
-            } => self.free_register(*val)?,
+            } => {
+                self.free_register(*key)?;
+                self.free_register(*val)?;
+            }
             Instruction::BinaryOp {
                 lhs_dst: _,
                 op: _,
@@ -827,6 +998,13 @@ impl BlockBuilder {
         } else {
             Err(CompileError::DataOverflow)
         }
+    }
+
+    /// Clone a register with a `clone` instruction.
+    fn clone_reg(&mut self, src: RegId, span: Span) -> Result<RegId, CompileError> {
+        let dst = self.next_register()?;
+        self.push(Instruction::Clone { dst, src }.into_spanned(span))?;
+        Ok(dst)
     }
 
     /// Consume the builder and produce the final [`IrBlock`].

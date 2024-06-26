@@ -306,10 +306,11 @@ fn eval_instruction(
         }
         Instruction::RecordInsert { src_dst, key, val } => {
             let record_value = ctx.collect_reg(*src_dst, *span)?;
+            let key = ctx.collect_reg(*key, *span)?;
             let val = ctx.collect_reg(*val, *span)?;
             let record_span = record_value.span();
             let mut record = record_value.into_record()?;
-            record.insert(ctx.get_str(*key, *span)?, val);
+            record.insert(key.coerce_into_string()?, val);
             ctx.put_reg(
                 *src_dst,
                 Value::record(record, record_span).into_pipeline_data(),

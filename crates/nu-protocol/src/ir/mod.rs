@@ -93,7 +93,7 @@ pub enum Instruction {
     /// Insert a key-value pair into a record. Any existing value for the key is overwritten.
     RecordInsert {
         src_dst: RegId,
-        key: DataSlice,
+        key: RegId,
         val: RegId,
     },
     /// Do a binary operation on `lhs_dst` (left) and `rhs` (right) and write the result to
