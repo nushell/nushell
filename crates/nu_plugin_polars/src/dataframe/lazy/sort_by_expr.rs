@@ -140,7 +140,7 @@ impl PluginCommand for LazySortBy {
 
         let sort_options = SortMultipleOptions {
             descending: reverse,
-            nulls_last,
+            nulls_last: vec![nulls_last],
             multithreaded: true,
             maintain_order,
         };
