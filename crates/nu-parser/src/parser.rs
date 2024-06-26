@@ -934,15 +934,12 @@ pub fn parse_internal_call(
     let output = signature.get_output_type();
 
     // storing the var ID for later due to borrowing issues
-    let lib_dirs_var_id = if decl.is_builtin() {
-        match decl.name() {
-            "use" | "overlay use" | "source-env" | "nu-check" => {
-                find_dirs_var(working_set, LIB_DIRS_VAR)
-            }
-            _ => None,
+    let lib_dirs_var_id = match decl.name() {
+        "use" | "overlay use" | "source-env" if decl.is_keyword() => {
+            find_dirs_var(working_set, LIB_DIRS_VAR)
         }
-    } else {
-        None
+        "nu-check" if decl.is_builtin() => find_dirs_var(working_set, LIB_DIRS_VAR),
+        _ => None,
     };
 
     // The index into the positional parameter in the definition

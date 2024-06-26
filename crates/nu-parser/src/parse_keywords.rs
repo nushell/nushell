@@ -42,32 +42,44 @@ use crate::{
 };
 
 /// These parser keywords can be aliased
-pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[b"overlay hide", b"overlay new", b"overlay use"];
+pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
+    b"if",
+    b"match",
+    b"try",
+    b"overlay",
+    b"overlay hide",
+    b"overlay new",
+    b"overlay use",
+];
 
 pub const RESERVED_VARIABLE_NAMES: [&str; 3] = ["in", "nu", "env"];
 
 /// These parser keywords cannot be aliased (either not possible, or support not yet added)
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
-    b"export",
-    b"def",
-    b"export def",
-    b"for",
-    b"extern",
-    b"export extern",
     b"alias",
-    b"export alias",
-    b"export-env",
+    b"const",
+    b"def",
+    b"extern",
     b"module",
     b"use",
+    b"export",
+    b"export alias",
+    b"export const",
+    b"export def",
+    b"export extern",
+    b"export module",
     b"export use",
-    b"hide",
-    // b"overlay",
-    // b"overlay hide",
-    // b"overlay new",
-    // b"overlay use",
+    b"for",
+    b"loop",
+    b"while",
+    b"return",
+    b"break",
+    b"continue",
     b"let",
-    b"const",
     b"mut",
+    b"hide",
+    b"export-env",
+    b"source-env",
     b"source",
     b"where",
     b"register",
