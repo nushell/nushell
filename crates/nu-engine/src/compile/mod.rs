@@ -1,12 +1,10 @@
-use std::sync::Arc;
-
 use nu_protocol::{
     ast::{
         Argument, Block, Call, CellPath, Expr, Expression, Operator, PathMember, Pipeline,
         PipelineRedirection, RedirectionSource, RedirectionTarget,
     },
     engine::StateWorkingSet,
-    ir::{Instruction, IrBlock, Literal, RedirectMode},
+    ir::{DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     IntoSpanned, OutDest, RegId, ShellError, Span, Spanned, ENV_VARIABLE_ID,
 };
 
@@ -264,7 +262,10 @@ fn compile_expression(
         Expr::Bool(b) => lit(builder, Literal::Bool(*b)),
         Expr::Int(i) => lit(builder, Literal::Int(*i)),
         Expr::Float(f) => lit(builder, Literal::Float(*f)),
-        Expr::Binary(bin) => lit(builder, Literal::Binary(bin.as_slice().into())),
+        Expr::Binary(bin) => {
+            let data_slice = builder.data(bin)?;
+            lit(builder, Literal::Binary(data_slice))
+        }
         Expr::Range(_) => Err(CompileError::Todo("Range")),
         Expr::Var(var_id) => builder.push(
             Instruction::LoadVariable {
@@ -333,29 +334,44 @@ fn compile_expression(
         Expr::Keyword(_) => Err(CompileError::Todo("Keyword")),
         Expr::ValueWithUnit(_) => Err(CompileError::Todo("ValueWithUnit")),
         Expr::DateTime(_) => Err(CompileError::Todo("DateTime")),
-        Expr::Filepath(path, no_expand) => lit(
-            builder,
-            Literal::Filepath {
-                val: path.as_str().into(),
-                no_expand: *no_expand,
-            },
-        ),
-        Expr::Directory(path, no_expand) => lit(
-            builder,
-            Literal::Directory {
-                val: path.as_str().into(),
-                no_expand: *no_expand,
-            },
-        ),
-        Expr::GlobPattern(path, no_expand) => lit(
-            builder,
-            Literal::GlobPattern {
-                val: path.as_str().into(),
-                no_expand: *no_expand,
-            },
-        ),
-        Expr::String(s) => lit(builder, Literal::String(s.as_str().into())),
-        Expr::RawString(rs) => lit(builder, Literal::RawString(rs.as_str().into())),
+        Expr::Filepath(path, no_expand) => {
+            let val = builder.data(path)?;
+            lit(
+                builder,
+                Literal::Filepath {
+                    val,
+                    no_expand: *no_expand,
+                },
+            )
+        }
+        Expr::Directory(path, no_expand) => {
+            let val = builder.data(path)?;
+            lit(
+                builder,
+                Literal::Directory {
+                    val,
+                    no_expand: *no_expand,
+                },
+            )
+        }
+        Expr::GlobPattern(path, no_expand) => {
+            let val = builder.data(path)?;
+            lit(
+                builder,
+                Literal::GlobPattern {
+                    val,
+                    no_expand: *no_expand,
+                },
+            )
+        }
+        Expr::String(s) => {
+            let data_slice = builder.data(s)?;
+            lit(builder, Literal::String(data_slice))
+        }
+        Expr::RawString(rs) => {
+            let data_slice = builder.data(rs)?;
+            lit(builder, Literal::RawString(data_slice))
+        }
         Expr::CellPath(path) => lit(builder, Literal::CellPath(Box::new(path.clone()))),
         Expr::FullCellPath(full_cell_path) => {
             if matches!(full_cell_path.head.expr, Expr::Var(ENV_VARIABLE_ID)) {
@@ -411,9 +427,9 @@ fn compile_call(
     // We could technically compile anything that isn't another call safely without worrying about
     // the argument state, but we'd have to check all of that first and it just isn't really worth
     // it.
-    enum CompiledArg {
+    enum CompiledArg<'a> {
         Positional(RegId, Span),
-        Named(Arc<str>, Option<RegId>, Span),
+        Named(&'a str, Option<RegId>, Span),
         Spread(RegId, Span),
     }
 
@@ -443,11 +459,9 @@ fn compile_call(
                 arg_reg.expect("expr() None in non-Named"),
                 arg.span(),
             )),
-            Argument::Named((name, _, _)) => compiled_args.push(CompiledArg::Named(
-                name.item.as_str().into(),
-                arg_reg,
-                arg.span(),
-            )),
+            Argument::Named((name, _, _)) => {
+                compiled_args.push(CompiledArg::Named(name.item.as_str(), arg_reg, arg.span()))
+            }
             Argument::Unknown(_) => return Err(CompileError::Garbage),
             Argument::Spread(_) => compiled_args.push(CompiledArg::Spread(
                 arg_reg.expect("expr() None in non-Named"),
@@ -463,9 +477,11 @@ fn compile_call(
                 builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?
             }
             CompiledArg::Named(name, Some(reg), span) => {
+                let name = builder.data(name)?;
                 builder.push(Instruction::PushNamed { name, src: reg }.into_spanned(span))?
             }
             CompiledArg::Named(name, None, span) => {
+                let name = builder.data(name)?;
                 builder.push(Instruction::PushFlag { name }.into_spanned(span))?
             }
             CompiledArg::Spread(reg, span) => {
@@ -566,7 +582,7 @@ fn compile_load_env(
         )
     } else {
         let (key, optional) = match &path[0] {
-            PathMember::String { val, optional, .. } => (val.as_str().into(), *optional),
+            PathMember::String { val, optional, .. } => (builder.data(val)?, *optional),
             PathMember::Int { span, .. } => return Err(CompileError::AccessEnvByInt(*span)),
         };
         let tail = &path[1..];
@@ -603,6 +619,7 @@ fn compile_load_env(
 enum CompileError {
     RegisterOverflow,
     RegisterUninitialized(RegId),
+    DataOverflow,
     InvalidRedirectMode,
     Garbage,
     UnsupportedOperatorExpression,
@@ -616,6 +633,9 @@ impl CompileError {
             CompileError::RegisterOverflow => format!("register overflow"),
             CompileError::RegisterUninitialized(reg_id) => {
                 format!("register {reg_id} is uninitialized when used, possibly reused")
+            }
+            CompileError::DataOverflow => {
+                format!("block contains too much string data: maximum 4 GiB exceeded")
             }
             CompileError::InvalidRedirectMode => {
                 "invalid redirect mode: File should not be specified by commands".into()
@@ -639,6 +659,7 @@ impl CompileError {
 struct BlockBuilder {
     instructions: Vec<Instruction>,
     spans: Vec<Span>,
+    data: Vec<u8>,
     register_allocation_state: Vec<bool>,
 }
 
@@ -648,6 +669,7 @@ impl BlockBuilder {
         BlockBuilder {
             instructions: vec![],
             spans: vec![],
+            data: vec![],
             register_allocation_state: vec![true],
         }
     }
@@ -732,6 +754,12 @@ impl BlockBuilder {
                 decl_id: _,
                 src_dst: _,
             } => (),
+            Instruction::ListPush { src_dst: _, item } => self.free_register(*item)?,
+            Instruction::RecordInsert {
+                src_dst: _,
+                key: _,
+                val,
+            } => self.free_register(*val)?,
             Instruction::BinaryOp {
                 lhs_dst: _,
                 op: _,
@@ -786,11 +814,27 @@ impl BlockBuilder {
         self.load_literal(reg_id, Literal::Nothing.into_spanned(Span::unknown()))
     }
 
+    /// Add data to the `data` array and return a [`DataSlice`] referencing it.
+    fn data(&mut self, data: impl AsRef<[u8]>) -> Result<DataSlice, CompileError> {
+        let start = self.data.len();
+        if start + data.as_ref().len() < u32::MAX as usize {
+            let slice = DataSlice {
+                start: start as u32,
+                len: data.as_ref().len() as u32,
+            };
+            self.data.extend_from_slice(data.as_ref());
+            Ok(slice)
+        } else {
+            Err(CompileError::DataOverflow)
+        }
+    }
+
     /// Consume the builder and produce the final [`IrBlock`].
     fn finish(self) -> IrBlock {
         IrBlock {
             instructions: self.instructions,
             spans: self.spans,
+            data: self.data.into(),
             register_count: self.register_allocation_state.len(),
         }
     }

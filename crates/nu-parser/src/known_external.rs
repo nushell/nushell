@@ -159,17 +159,28 @@ fn ir_call_to_extern_call(
     // Add the arguments, reformatting named arguments into string positionals
     for index in 0..call.args_len {
         match &call.arguments(stack)[index] {
-            engine::Argument::Flag { name, span } => {
+            engine::Argument::Flag { data, name, span } => {
                 let name_arg = engine::Argument::Positional {
                     span: *span,
-                    val: Value::string(name.as_ref(), *span),
+                    val: Value::string(
+                        std::str::from_utf8(&data[*name]).expect("invalid flag name"),
+                        *span,
+                    ),
                 };
                 extern_call.add_argument(stack, name_arg);
             }
-            engine::Argument::Named { name, span, val } => {
+            engine::Argument::Named {
+                data,
+                name,
+                span,
+                val,
+            } => {
                 let name_arg = engine::Argument::Positional {
                     span: *span,
-                    val: Value::string(name.as_ref(), *span),
+                    val: Value::string(
+                        std::str::from_utf8(&data[*name]).expect("invalid arg name"),
+                        *span,
+                    ),
                 };
                 let val_arg = engine::Argument::Positional {
                     span: *span,

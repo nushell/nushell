@@ -1,7 +1,11 @@
+use std::sync::Arc;
+
 use crate::{
     engine::{self, Argument, Stack},
     DeclId, ShellError, Span, Spanned, Value,
 };
+
+use super::DataSlice;
 
 /// Contains the information for a call being made to a declared command.
 #[derive(Debug, Clone)]
@@ -59,24 +63,30 @@ impl Call {
     }
 
     pub fn named_iter<'a>(
-        &self,
+        &'a self,
         stack: &'a Stack,
     ) -> impl Iterator<Item = (Spanned<&'a str>, Option<&'a Value>)> + 'a {
         self.arguments(stack).iter().filter_map(
             |arg: &Argument| -> Option<(Spanned<&str>, Option<&Value>)> {
                 match arg {
-                    Argument::Flag { name, span, .. } => Some((
+                    Argument::Flag {
+                        data, name, span, ..
+                    } => Some((
                         Spanned {
-                            item: name,
+                            item: std::str::from_utf8(&data[*name]).expect("invalid arg name"),
                             span: *span,
                         },
                         None,
                     )),
                     Argument::Named {
-                        name, span, val, ..
+                        data,
+                        name,
+                        span,
+                        val,
+                        ..
                     } => Some((
                         Spanned {
-                            item: name,
+                            item: std::str::from_utf8(&data[*name]).expect("invalid arg name"),
                             span: *span,
                         },
                         Some(val),
@@ -88,8 +98,20 @@ impl Call {
     }
 
     pub fn get_named_arg<'a>(&self, stack: &'a Stack, flag_name: &str) -> Option<&'a Value> {
-        self.named_iter(stack)
-            .find_map(|(name, val)| (name.item == flag_name).then_some(val))
+        // Optimized to avoid str::from_utf8()
+        self.arguments(stack)
+            .iter()
+            .find_map(|arg: &Argument| -> Option<Option<&Value>> {
+                match arg {
+                    Argument::Flag { data, name, .. } if &data[*name] == flag_name.as_bytes() => {
+                        Some(None)
+                    }
+                    Argument::Named {
+                        data, name, val, ..
+                    } if &data[*name] == flag_name.as_bytes() => Some(Some(val)),
+                    _ => None,
+                }
+            })
             .flatten()
     }
 
@@ -192,13 +214,12 @@ impl CallBuilder {
 
     /// Add a flag (no-value named) argument to the [`Stack`] and reference it from the [`Call`].
     pub fn add_flag(&mut self, stack: &mut Stack, name: impl AsRef<str>, span: Span) -> &mut Self {
-        self.add_argument(
-            stack,
-            Argument::Flag {
-                name: name.as_ref().into(),
-                span,
-            },
-        )
+        let data: Arc<[u8]> = name.as_ref().as_bytes().into();
+        let name = DataSlice {
+            start: 0,
+            len: data.len().try_into().expect("flag name too big"),
+        };
+        self.add_argument(stack, Argument::Flag { data, name, span })
     }
 
     /// Add a named argument to the [`Stack`] and reference it from the [`Call`].
@@ -209,10 +230,16 @@ impl CallBuilder {
         span: Span,
         val: Value,
     ) -> &mut Self {
+        let data: Arc<[u8]> = name.as_ref().as_bytes().into();
+        let name = DataSlice {
+            start: 0,
+            len: data.len().try_into().expect("arg name too big"),
+        };
         self.add_argument(
             stack,
             Argument::Named {
-                name: name.as_ref().into(),
+                data,
+                name,
                 span,
                 val,
             },

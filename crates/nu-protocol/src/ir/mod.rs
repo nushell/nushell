@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
-    ast::{CellPath, Operator},
+    ast::{CellPath, Operator, RangeInclusion},
     engine::EngineState,
-    BlockId, DeclId, RegId, Span, Spanned, VarId,
+    BlockId, DeclId, RegId, Span, VarId,
 };
 
 use serde::{Deserialize, Serialize};
@@ -18,6 +18,8 @@ pub use display::{FmtInstruction, FmtIrBlock};
 pub struct IrBlock {
     pub instructions: Vec<Instruction>,
     pub spans: Vec<Span>,
+    #[serde(with = "serde_arc_u8_array")]
+    pub data: Arc<[u8]>,
     pub register_count: usize,
 }
 
@@ -29,6 +31,22 @@ impl IrBlock {
             engine_state,
             ir_block: self,
         }
+    }
+}
+
+/// A slice into the `data` array of a block. This is a compact and cache-friendly way to store
+/// string data that a block uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct DataSlice {
+    pub start: u32,
+    pub len: u32,
+}
+
+impl std::ops::Index<DataSlice> for [u8] {
+    type Output = [u8];
+
+    fn index(&self, index: DataSlice) -> &Self::Output {
+        &self[index.start as usize..(index.start as usize + index.len as usize)]
     }
 }
 
@@ -49,27 +67,20 @@ pub enum Instruction {
     /// Store the value of a variable from the `src` register
     StoreVariable { var_id: VarId, src: RegId },
     /// Load the value of an environment variable into the `dst` register
-    LoadEnv { dst: RegId, key: Box<str> },
+    LoadEnv { dst: RegId, key: DataSlice },
     /// Load the value of an environment variable into the `dst` register, or `Nothing` if it
     /// doesn't exist
-    LoadEnvOpt { dst: RegId, key: Box<str> },
+    LoadEnvOpt { dst: RegId, key: DataSlice },
     /// Store the value of an environment variable from the `src` register
-    StoreEnv { key: Box<str>, src: RegId },
+    StoreEnv { key: DataSlice, src: RegId },
     /// Add a positional arg to the next call
     PushPositional { src: RegId },
     /// Add a list of args to the next call (spread/rest)
     AppendRest { src: RegId },
     /// Add a named arg with no value to the next call.
-    PushFlag {
-        #[serde(with = "serde_arc_str")]
-        name: Arc<str>,
-    },
+    PushFlag { name: DataSlice },
     /// Add a named arg with a value to the next call.
-    PushNamed {
-        #[serde(with = "serde_arc_str")]
-        name: Arc<str>,
-        src: RegId,
-    },
+    PushNamed { name: DataSlice, src: RegId },
     /// Set the redirection for stdout for the next call (only)
     RedirectOut { mode: RedirectMode },
     /// Set the redirection for stderr for the next call (only)
@@ -77,6 +88,14 @@ pub enum Instruction {
     /// Make a call. The input is taken from `src_dst`, and the output is placed in `src_dst`,
     /// overwriting it. The argument stack is used implicitly and cleared when the call ends.
     Call { decl_id: DeclId, src_dst: RegId },
+    /// Push a value onto the end of a list. Used to construct list literals.
+    ListPush { src_dst: RegId, item: RegId },
+    /// Insert a key-value pair into a record. Any existing value for the key is overwritten.
+    RecordInsert {
+        src_dst: RegId,
+        key: DataSlice,
+        val: RegId,
+    },
     /// Do a binary operation on `lhs_dst` (left) and `rhs` (right) and write the result to
     /// `lhs_dst`.
     BinaryOp {
@@ -96,7 +115,6 @@ pub enum Instruction {
         path: RegId,
         new_value: RegId,
     },
-    /// Update a cell path
     /// Jump to an offset in this block
     Jump { index: usize },
     /// Branch to an offset in this block if the value of the `cond` register is a true boolean,
@@ -109,10 +127,15 @@ pub enum Instruction {
 impl Instruction {
     /// Returns a value that can be formatted with [`Display`](std::fmt::Display) to show a detailed
     /// listing of the instruction.
-    pub fn display<'a>(&'a self, engine_state: &'a EngineState) -> FmtInstruction<'a> {
+    pub fn display<'a>(
+        &'a self,
+        engine_state: &'a EngineState,
+        data: &'a [u8],
+    ) -> FmtInstruction<'a> {
         FmtInstruction {
             engine_state,
             instruction: self,
+            data,
         }
     }
 }
@@ -128,15 +151,35 @@ pub enum Literal {
     Bool(bool),
     Int(i64),
     Float(f64),
-    Binary(Box<[u8]>),
+    Binary(DataSlice),
     Block(BlockId),
     Closure(BlockId),
-    List(Box<[Spanned<Literal>]>),
-    Filepath { val: Box<str>, no_expand: bool },
-    Directory { val: Box<str>, no_expand: bool },
-    GlobPattern { val: Box<str>, no_expand: bool },
-    String(Box<str>),
-    RawString(Box<str>),
+    Range {
+        start: RegId,
+        step: RegId,
+        end: RegId,
+        inclusion: RangeInclusion,
+    },
+    List {
+        capacity: usize,
+    },
+    Record {
+        capacity: usize,
+    },
+    Filepath {
+        val: DataSlice,
+        no_expand: bool,
+    },
+    Directory {
+        val: DataSlice,
+        no_expand: bool,
+    },
+    GlobPattern {
+        val: DataSlice,
+        no_expand: bool,
+    },
+    String(DataSlice),
+    RawString(DataSlice),
     CellPath(Box<CellPath>),
     Nothing,
 }
@@ -163,23 +206,23 @@ pub enum RedirectMode {
     },
 }
 
-/// Just a hack to allow `Arc<str>` to be serialized and deserialized
-mod serde_arc_str {
+/// Just a hack to allow `Arc<[u8]>` to be serialized and deserialized
+mod serde_arc_u8_array {
     use serde::{Deserialize, Serialize};
     use std::sync::Arc;
 
-    pub fn serialize<S>(string: &Arc<str>, ser: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(data: &Arc<[u8]>, ser: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        string.as_ref().serialize(ser)
+        data.as_ref().serialize(ser)
     }
 
-    pub fn deserialize<'de, D>(de: D) -> Result<Arc<str>, D::Error>
+    pub fn deserialize<'de, D>(de: D) -> Result<Arc<[u8]>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let string: &'de str = Deserialize::deserialize(de)?;
-        Ok(string.into())
+        let data: &'de [u8] = Deserialize::deserialize(de)?;
+        Ok(data.into())
     }
 }

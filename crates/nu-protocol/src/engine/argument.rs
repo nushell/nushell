@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{Span, Value};
+use crate::{ir::DataSlice, Span, Value};
 
 /// Represents a fully evaluated argument to a call.
 #[derive(Debug, Clone)]
@@ -16,12 +16,14 @@ pub enum Argument {
     },
     /// A named argument with no value, e.g. `--flag`
     Flag {
-        name: Arc<str>,
+        data: Arc<[u8]>,
+        name: DataSlice,
         span: Span,
     },
     /// A named argument with a value, e.g. `--flag value` or `--flag=`
     Named {
-        name: Arc<str>,
+        data: Arc<[u8]>,
+        name: DataSlice,
         span: Span,
         val: Value,
     },

@@ -1,13 +1,13 @@
-use std::fs::File;
+use std::{fs::File, sync::Arc};
 
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, Redirection, Stack},
-    ir::{Call, Instruction, IrBlock, Literal, RedirectMode},
-    DeclId, IntoPipelineData, IntoSpanned, OutDest, PipelineData, RegId, ShellError, Span, Value,
-    VarId,
+    ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
+    DeclId, IntoPipelineData, IntoSpanned, OutDest, PipelineData, Range, Record, RegId, ShellError,
+    Span, Value, VarId,
 };
 
 use crate::eval::is_automatic_env_var;
@@ -31,6 +31,7 @@ pub fn eval_ir_block<D: DebugContext>(
             &mut EvalContext {
                 engine_state,
                 stack,
+                data: &ir_block.data,
                 args_base,
                 redirect_out: None,
                 redirect_err: None,
@@ -62,6 +63,7 @@ pub fn eval_ir_block<D: DebugContext>(
 struct EvalContext<'a> {
     engine_state: &'a EngineState,
     stack: &'a mut Stack,
+    data: &'a Arc<[u8]>,
     /// Base index on the argument stack to reset to after a call
     args_base: usize,
     /// State set by redirect-out
@@ -89,6 +91,14 @@ impl<'a> EvalContext<'a> {
         let span = data.span().unwrap_or(fallback_span);
         data.into_value(span)
     }
+
+    /// Get a string from data or produce evaluation error if it's invalid UTF-8
+    fn get_str(&self, slice: DataSlice, error_span: Span) -> Result<&'a str, ShellError> {
+        std::str::from_utf8(&self.data[slice]).map_err(|_| ShellError::IrEvalError {
+            msg: format!("data slice does not refer to valid UTF-8: {slice:?}"),
+            span: Some(error_span),
+        })
+    }
 }
 
 /// Eval an IR block on the provided slice of registers.
@@ -108,7 +118,10 @@ fn eval_ir_block_impl<D: DebugContext>(
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
-        log::trace!("{pc:-4}: {}", instruction.display(ctx.engine_state));
+        log::trace!(
+            "{pc:-4}: {}",
+            instruction.display(ctx.engine_state, ctx.data)
+        );
         match eval_instruction(ctx, instruction, span)? {
             InstructionResult::Continue => {
                 pc += 1;
@@ -201,17 +214,19 @@ fn eval_instruction(
             Ok(Continue)
         }
         Instruction::LoadEnv { dst, key } => {
+            let key = ctx.get_str(*key, *span)?;
             if let Some(value) = ctx.stack.get_env_var(ctx.engine_state, key) {
                 ctx.put_reg(*dst, value.into_pipeline_data());
                 Ok(Continue)
             } else {
                 Err(ShellError::EnvVarNotFoundAtRuntime {
-                    envvar_name: key.clone().into(),
+                    envvar_name: key.into(),
                     span: *span,
                 })
             }
         }
         Instruction::LoadEnvOpt { dst, key } => {
+            let key = ctx.get_str(*key, *span)?;
             let value = ctx
                 .stack
                 .get_env_var(ctx.engine_state, key)
@@ -220,13 +235,14 @@ fn eval_instruction(
             Ok(Continue)
         }
         Instruction::StoreEnv { key, src } => {
+            let key = ctx.get_str(*key, *span)?;
             let value = ctx.collect_reg(*src, *span)?;
             if !is_automatic_env_var(key) {
-                ctx.stack.add_env_var(key.clone().into(), value);
+                ctx.stack.add_env_var(key.into(), value);
                 Ok(Continue)
             } else {
                 Err(ShellError::AutomaticEnvVarSetManually {
-                    envvar_name: key.clone().into(),
+                    envvar_name: key.into(),
                     span: *span,
                 })
             }
@@ -247,7 +263,8 @@ fn eval_instruction(
         }
         Instruction::PushFlag { name } => {
             ctx.stack.argument_stack.push(Argument::Flag {
-                name: name.clone(),
+                data: ctx.data.clone(),
+                name: *name,
                 span: *span,
             });
             Ok(Continue)
@@ -255,7 +272,8 @@ fn eval_instruction(
         Instruction::PushNamed { name, src } => {
             let val = ctx.collect_reg(*src, *span)?;
             ctx.stack.argument_stack.push(Argument::Named {
-                name: name.clone(),
+                data: ctx.data.clone(),
+                name: *name,
                 span: *span,
                 val,
             });
@@ -275,6 +293,27 @@ fn eval_instruction(
             let input = ctx.take_reg(*src_dst);
             let result = eval_call(ctx, *decl_id, *span, input)?;
             ctx.put_reg(*src_dst, result);
+            Ok(Continue)
+        }
+        Instruction::ListPush { src_dst, item } => {
+            let list_value = ctx.collect_reg(*src_dst, *span)?;
+            let item = ctx.collect_reg(*item, *span)?;
+            let list_span = list_value.span();
+            let mut list = list_value.into_list()?;
+            list.push(item);
+            ctx.put_reg(*src_dst, Value::list(list, list_span).into_pipeline_data());
+            Ok(Continue)
+        }
+        Instruction::RecordInsert { src_dst, key, val } => {
+            let record_value = ctx.collect_reg(*src_dst, *span)?;
+            let val = ctx.collect_reg(*val, *span)?;
+            let record_span = record_value.span();
+            let mut record = record_value.into_record()?;
+            record.insert(ctx.get_str(*key, *span)?, val);
+            ctx.put_reg(
+                *src_dst,
+                Value::record(record, record_span).into_pipeline_data(),
+            );
             Ok(Continue)
         }
         Instruction::BinaryOp { lhs_dst, op, rhs } => binary_op(ctx, *lhs_dst, op, *rhs, *span),
@@ -378,7 +417,7 @@ fn literal_value(
         Literal::Bool(b) => Value::bool(*b, span),
         Literal::Int(i) => Value::int(*i, span),
         Literal::Float(f) => Value::float(*f, span),
-        Literal::Binary(bin) => Value::binary(bin.clone(), span),
+        Literal::Binary(bin) => Value::binary(&ctx.data[*bin], span),
         Literal::Block(block_id) => Value::closure(
             Closure {
                 block_id: *block_id,
@@ -401,22 +440,30 @@ fn literal_value(
                 span,
             )
         }
-        Literal::List(literals) => {
-            let mut vec = Vec::with_capacity(literals.len());
-            for elem in literals.iter() {
-                vec.push(literal_value(ctx, &elem.item, elem.span)?);
-            }
-            Value::list(vec, span)
+        Literal::Range {
+            start,
+            step,
+            end,
+            inclusion,
+        } => {
+            let start = ctx.collect_reg(*start, span)?;
+            let step = ctx.collect_reg(*step, span)?;
+            let end = ctx.collect_reg(*end, span)?;
+            let range = Range::new(start, step, end, *inclusion, span)?;
+            Value::range(range, span)
         }
+        Literal::List { capacity } => Value::list(Vec::with_capacity(*capacity), span),
+        Literal::Record { capacity } => Value::record(Record::with_capacity(*capacity), span),
         Literal::Filepath {
             val: path,
             no_expand,
         } => {
+            let path = ctx.get_str(*path, span)?;
             if *no_expand {
-                Value::string(path.as_ref(), span)
+                Value::string(path, span)
             } else {
                 let cwd = ctx.engine_state.cwd(Some(ctx.stack))?;
-                let path = expand_path_with(path.as_ref(), cwd, true);
+                let path = expand_path_with(path, cwd, true);
 
                 Value::string(path.to_string_lossy(), span)
             }
@@ -425,20 +472,23 @@ fn literal_value(
             val: path,
             no_expand,
         } => {
-            if path.as_ref() == "-" {
+            let path = ctx.get_str(*path, span)?;
+            if path == "-" {
                 Value::string("-", span)
             } else if *no_expand {
-                Value::string(path.as_ref(), span)
+                Value::string(path, span)
             } else {
                 let cwd = ctx.engine_state.cwd(Some(ctx.stack)).unwrap_or_default();
-                let path = expand_path_with(path.as_ref(), cwd, true);
+                let path = expand_path_with(path, cwd, true);
 
                 Value::string(path.to_string_lossy(), span)
             }
         }
-        Literal::GlobPattern { val, no_expand } => Value::glob(val.as_ref(), *no_expand, span),
-        Literal::String(s) => Value::string(s.clone(), span),
-        Literal::RawString(s) => Value::string(s.clone(), span),
+        Literal::GlobPattern { val, no_expand } => {
+            Value::glob(ctx.get_str(*val, span)?, *no_expand, span)
+        }
+        Literal::String(s) => Value::string(ctx.get_str(*s, span)?, span),
+        Literal::RawString(s) => Value::string(ctx.get_str(*s, span)?, span),
         Literal::CellPath(path) => Value::cell_path(CellPath::clone(&path), span),
         Literal::Nothing => Value::nothing(span),
     })
