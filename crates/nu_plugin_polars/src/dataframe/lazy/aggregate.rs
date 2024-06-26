@@ -195,6 +195,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Len
         | Expr::Nth(_)
         | Expr::SubPlan(_, _)
+        | Expr::IndexColumn(_)
         | Expr::Selector(_) => None,
     }
 }

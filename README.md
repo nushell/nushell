@@ -52,7 +52,7 @@ To use `Nu` in GitHub Action, check [setup-nu](https://github.com/marketplace/ac
 
 Detailed installation instructions can be found in the [installation chapter of the book](https://www.nushell.sh/book/installation.html). Nu is available via many package managers:
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
+[![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg?columns=3)](https://repology.org/project/nushell/versions)
 
 For details about which platforms the Nushell team actively supports, see [our platform support policy](devdocs/PLATFORM_SUPPORT.md).
 
@@ -222,6 +222,7 @@ Please submit an issue or PR to be added to this list.
 -   [clap](https://github.com/clap-rs/clap/tree/master/clap_complete_nushell)
 -   [Dorothy](http://github.com/bevry/dorothy)
 -   [Direnv](https://github.com/direnv/direnv/blob/master/docs/hook.md#nushell)
+-   [x-cmd](https://x-cmd.com/mod/nu)
 
 ## Contributing
 

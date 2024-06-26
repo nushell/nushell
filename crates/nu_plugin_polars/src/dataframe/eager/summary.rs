@@ -189,53 +189,19 @@ fn command(
         .map(|col| {
             let count = col.len() as f64;
 
-            let sum = col.sum_as_series().ok().and_then(|series| {
-                series
-                    .cast(&DataType::Float64)
-                    .ok()
-                    .and_then(|ca| match ca.get(0) {
-                        Ok(AnyValue::Float64(v)) => Some(v),
-                        _ => None,
-                    })
-            });
-
-            let mean = match col.mean_as_series().get(0) {
-                Ok(AnyValue::Float64(v)) => Some(v),
-                _ => None,
-            };
-
-            let median = match col.median_as_series() {
-                Ok(v) => match v.get(0) {
-                    Ok(AnyValue::Float64(v)) => Some(v),
-                    _ => None,
-                },
-                _ => None,
-            };
-
-            let std = match col.std_as_series(0) {
-                Ok(v) => match v.get(0) {
-                    Ok(AnyValue::Float64(v)) => Some(v),
-                    _ => None,
-                },
-                _ => None,
-            };
-
-            let min = col.min_as_series().ok().and_then(|series| {
-                series
-                    .cast(&DataType::Float64)
-                    .ok()
-                    .and_then(|ca| match ca.get(0) {
-                        Ok(AnyValue::Float64(v)) => Some(v),
-                        _ => None,
-                    })
-            });
+            let sum = col.sum::<f64>().ok();
+            let mean = col.mean();
+            let median = col.median();
+            let std = col.std(0);
+            let min = col.min::<f64>().ok().flatten();
 
             let mut quantiles = quantiles
                 .clone()
                 .into_iter()
                 .map(|q| {
-                    col.quantile_as_series(q, QuantileInterpolOptions::default())
+                    col.quantile_reduce(q, QuantileInterpolOptions::default())
                         .ok()
+                        .map(|s| s.into_series("quantile"))
                         .and_then(|ca| ca.cast(&DataType::Float64).ok())
                         .and_then(|ca| match ca.get(0) {
                             Ok(AnyValue::Float64(v)) => Some(v),
@@ -244,15 +210,7 @@ fn command(
                 })
                 .collect::<Vec<Option<f64>>>();
 
-            let max = col.max_as_series().ok().and_then(|series| {
-                series
-                    .cast(&DataType::Float64)
-                    .ok()
-                    .and_then(|ca| match ca.get(0) {
-                        Ok(AnyValue::Float64(v)) => Some(v),
-                        _ => None,
-                    })
-            });
+            let max = col.max::<f64>().ok().flatten();
 
             let mut descriptors = vec![Some(count), sum, mean, median, std, min];
             descriptors.append(&mut quantiles);

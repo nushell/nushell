@@ -28,11 +28,10 @@ struct Cursor {
 
 impl Cursor {
     /// Constructor to create a new Cursor
-    pub fn new(size: usize) -> Result<Self> {
-        if size == 0 {
-            bail!("Size cannot be zero");
-        }
-        Ok(Cursor { position: 0, size })
+    pub fn new(size: usize) -> Self {
+        // In theory we should not be able to create a cursor with size 0, but in practice
+        // it's easier to allow that for empty lists etc. instead of propagating errors
+        Cursor { position: 0, size }
     }
 
     /// The max position the cursor can be at
@@ -88,7 +87,7 @@ mod tests {
     #[test]
     fn test_cursor_set_position() {
         // from 0 to 9
-        let mut cursor = Cursor::new(10).unwrap();
+        let mut cursor = Cursor::new(10);
         cursor.set_position(5);
         assert_eq!(cursor.position, 5);
 
@@ -99,7 +98,7 @@ mod tests {
     #[test]
     fn test_cursor_move_forward() {
         // from 0 to 9
-        let mut cursor = Cursor::new(10).unwrap();
+        let mut cursor = Cursor::new(10);
         assert_eq!(cursor.position, 0);
         cursor.move_forward(3);
         assert_eq!(cursor.position, 3);
@@ -111,7 +110,7 @@ mod tests {
     #[test]
     fn test_cursor_move_backward() {
         // from 0 to 9
-        let mut cursor = Cursor::new(10).unwrap();
+        let mut cursor = Cursor::new(10);
         cursor.move_backward(3);
         assert_eq!(cursor.position, 0);
 

@@ -1,4 +1,6 @@
+use super::trim_cstyle_null;
 use nu_engine::command_prelude::*;
+use sysinfo::Networks;
 
 #[derive(Clone)]
 pub struct SysNet;
@@ -26,7 +28,7 @@ impl Command for SysNet {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(super::net(call.head).into_pipeline_data())
+        Ok(net(call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -36,4 +38,21 @@ impl Command for SysNet {
             result: None,
         }]
     }
+}
+
+fn net(span: Span) -> Value {
+    let networks = Networks::new_with_refreshed_list()
+        .iter()
+        .map(|(iface, data)| {
+            let record = record! {
+                "name" => Value::string(trim_cstyle_null(iface), span),
+                "sent" => Value::filesize(data.total_transmitted() as i64, span),
+                "recv" => Value::filesize(data.total_received() as i64, span),
+            };
+
+            Value::record(record, span)
+        })
+        .collect();
+
+    Value::list(networks, span)
 }

@@ -550,7 +550,6 @@ fn dynamic_closure_rest_args() {
     assert_eq!(actual.out, "1, 2, 3");
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 fn argument_subexpression_reports_errors() {
     let actual = nu!("echo (ferris_is_not_here.exe)");

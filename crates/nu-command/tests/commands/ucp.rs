@@ -906,7 +906,7 @@ fn test_cp_debug_default() {
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         if !actual
             .out
-            .contains("copy offload: unknown, reflink: unsupported, sparse detection: no")
+            .contains("copy offload: yes, reflink: unsupported, sparse detection: no")
         {
             panic!("{}", format!("Failure: stdout was \n{}", actual.out));
         }

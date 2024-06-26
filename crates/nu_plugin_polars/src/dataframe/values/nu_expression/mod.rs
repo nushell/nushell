@@ -155,7 +155,10 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             span,
         )),
         Expr::Columns(columns) => {
-            let value = columns.iter().map(|col| Value::string(col, span)).collect();
+            let value = columns
+                .iter()
+                .map(|col| Value::string(col.to_string(), span))
+                .collect();
             Ok(Value::record(
                 record! {
                     "expr" => Value::string("columns", span),
@@ -411,6 +414,12 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         // I am not sure what we can meaningfully do with this at this time.
         Expr::Selector(_) => Err(ShellError::UnsupportedInput {
             msg: "Expressions of type Selector to Nu Values is not yet supported".to_string(),
+            input: format!("Expression is {expr:?}"),
+            msg_span: span,
+            input_span: Span::unknown(),
+        }),
+        Expr::IndexColumn(_) => Err(ShellError::UnsupportedInput {
+            msg: "Expressions of type IndexColumn to Nu Values is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
             input_span: Span::unknown(),

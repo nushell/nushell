@@ -17,6 +17,7 @@ extend-ignore-re = [
     "--find ba\\b",
     "0x\\[ba be\\]",
     "\\)BaR'",
+    "fo�.txt",
 ]
 
 [type.rust.extend-words]

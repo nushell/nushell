@@ -1,7 +1,7 @@
 use crate::completions::{matches, CompletionOptions};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
-use nu_path::home_dir;
+use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span,
@@ -185,9 +185,14 @@ pub fn complete_item(
     .map(|p| {
         let path = original_cwd.apply(p);
         let style = ls_colors.as_ref().map(|lsc| {
-            lsc.style_for_path_with_metadata(&path, std::fs::symlink_metadata(&path).ok().as_ref())
-                .map(lscolors::Style::to_nu_ansi_term_style)
-                .unwrap_or_default()
+            lsc.style_for_path_with_metadata(
+                &path,
+                std::fs::symlink_metadata(expand_to_real_path(&path))
+                    .ok()
+                    .as_ref(),
+            )
+            .map(lscolors::Style::to_nu_ansi_term_style)
+            .unwrap_or_default()
         });
         (span, escape_path(path, want_directory), style)
     })

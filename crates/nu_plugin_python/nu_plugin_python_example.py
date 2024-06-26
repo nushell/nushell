@@ -27,7 +27,8 @@ import sys
 import json
 
 
-NUSHELL_VERSION = "0.94.3"
+NUSHELL_VERSION = "0.95.1"
+PLUGIN_VERSION = "0.1.0" # bump if you change commands!
 
 
 def signatures():
@@ -228,7 +229,13 @@ def handle_input(input):
         exit(0)
     elif "Call" in input:
         [id, plugin_call] = input["Call"]
-        if plugin_call == "Signature":
+        if plugin_call == "Metadata":
+            write_response(id, {
+                "Metadata": {
+                    "version": PLUGIN_VERSION,
+                }
+            })
+        elif plugin_call == "Signature":
             write_response(id, signatures())
         elif "Run" in plugin_call:
             process_call(id, plugin_call["Run"])
