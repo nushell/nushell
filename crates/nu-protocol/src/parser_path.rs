@@ -1,4 +1,4 @@
-use nu_protocol::engine::{StateWorkingSet, VirtualPath};
+use crate::engine::{StateWorkingSet, VirtualPath};
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},

@@ -64,7 +64,9 @@ impl Command for External {
 
         let expanded_name = match &name {
             // Expand tilde and ndots on the name if it's a bare string / glob (#13000)
-            Value::Glob { no_expand, .. } if !*no_expand => expand_ndots(expand_tilde(&*name_str)),
+            Value::Glob { no_expand, .. } if !*no_expand => {
+                expand_ndots_safe(expand_tilde(&*name_str))
+            }
             _ => Path::new(&*name_str).to_owned(),
         };
 
@@ -294,7 +296,7 @@ fn expand_glob(
     // For an argument that doesn't include the GLOB_CHARS, just do the `expand_tilde`
     // and `expand_ndots` expansion
     if !arg.contains(GLOB_CHARS) {
-        let path = expand_ndots(expand_tilde(arg));
+        let path = expand_ndots_safe(expand_tilde(arg));
         return Ok(vec![path.into()]);
     }
 
@@ -582,6 +584,21 @@ fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellE
     }
 }
 
+/// Expand ndots, but only if it looks like it probably contains them, because there is some lossy
+/// path normalization that happens.
+fn expand_ndots_safe(path: impl AsRef<Path>) -> PathBuf {
+    let string = path.as_ref().to_string_lossy();
+
+    // Use ndots if it contains at least `...`, since that's the minimum trigger point, and don't
+    // use it if it contains ://, because that looks like a URL scheme and the path normalization
+    // will mess with that.
+    if string.contains("...") && !string.contains("://") {
+        expand_ndots(path)
+    } else {
+        path.as_ref().to_owned()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -610,7 +627,7 @@ mod test {
             assert_eq!(actual, expected);
 
             let actual = expand_glob("./a.txt", cwd, Span::unknown(), &None).unwrap();
-            let expected: Vec<OsString> = vec![Path::new(".").join("a.txt").into()];
+            let expected = &["./a.txt"];
             assert_eq!(actual, expected);
 
             let actual = expand_glob("[*.txt", cwd, Span::unknown(), &None).unwrap();

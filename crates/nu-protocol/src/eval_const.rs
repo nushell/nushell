@@ -194,31 +194,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         // if not, use the default /usr/share/nushell/vendor/autoload
 
         // check to see if NU_VENDOR_AUTOLOAD_DIR env var is set, if not, use the default
-        Value::string(
-            option_env!("NU_VENDOR_AUTOLOAD_DIR")
-                .map(String::from)
-                .unwrap_or_else(|| {
-                    if cfg!(windows) {
-                        let all_user_profile = match engine_state.get_env_var("ALLUSERPROFILE") {
-                            Some(v) => format!(
-                                "{}\\nushell\\vendor\\autoload",
-                                v.coerce_string().unwrap_or("C:\\ProgramData".into())
-                            ),
-                            None => "C:\\ProgramData\\nushell\\vendor\\autoload".into(),
-                        };
-                        all_user_profile
-                    } else {
-                        // In non-Windows environments, if NU_VENDOR_AUTOLOAD_DIR is not set
-                        // check to see if PREFIX env var is set, and use it as PREFIX/nushell/vendor/autoload
-                        // otherwise default to /usr/share/nushell/vendor/autoload
-                        option_env!("PREFIX").map(String::from).map_or_else(
-                            || "/usr/local/share/nushell/vendor/autoload".into(),
-                            |prefix| format!("{}/share/nushell/vendor/autoload", prefix),
-                        )
-                    }
-                }),
-            span,
-        ),
+        if let Some(path) = get_vendor_autoload_dir(engine_state) {
+            Value::string(path.to_string_lossy(), span)
+        } else {
+            Value::error(ShellError::ConfigDirNotFound { span: Some(span) }, span)
+        },
     );
 
     record.push("temp-path", {
@@ -273,6 +253,41 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     );
 
     Value::record(record, span)
+}
+
+pub fn get_vendor_autoload_dir(engine_state: &EngineState) -> Option<PathBuf> {
+    // pseudo code
+    // if env var NU_VENDOR_AUTOLOAD_DIR is set, in any platform, use it
+    // if not, if windows, use ALLUSERPROFILE\nushell\vendor\autoload
+    // if not, if non-windows, if env var PREFIX is set, use PREFIX/share/nushell/vendor/autoload
+    // if not, use the default /usr/share/nushell/vendor/autoload
+
+    // check to see if NU_VENDOR_AUTOLOAD_DIR env var is set, if not, use the default
+    Some(
+        option_env!("NU_VENDOR_AUTOLOAD_DIR")
+            .map(String::from)
+            .unwrap_or_else(|| {
+                if cfg!(windows) {
+                    let all_user_profile = match engine_state.get_env_var("ALLUSERPROFILE") {
+                        Some(v) => format!(
+                            "{}\\nushell\\vendor\\autoload",
+                            v.coerce_string().unwrap_or("C:\\ProgramData".into())
+                        ),
+                        None => "C:\\ProgramData\\nushell\\vendor\\autoload".into(),
+                    };
+                    all_user_profile
+                } else {
+                    // In non-Windows environments, if NU_VENDOR_AUTOLOAD_DIR is not set
+                    // check to see if PREFIX env var is set, and use it as PREFIX/nushell/vendor/autoload
+                    // otherwise default to /usr/share/nushell/vendor/autoload
+                    option_env!("PREFIX").map(String::from).map_or_else(
+                        || "/usr/local/share/nushell/vendor/autoload".into(),
+                        |prefix| format!("{}/share/nushell/vendor/autoload", prefix),
+                    )
+                }
+            })
+            .into(),
+    )
 }
 
 fn eval_const_call(

@@ -11,7 +11,7 @@ license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
 rust-version = "1.77.2"
-version = "0.94.3"
+version = "0.95.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -172,7 +172,7 @@ uu_mv = "0.0.26"
 uu_whoami = "0.0.26"
 uu_uname = "0.0.26"
 uucore = "0.0.26"
-uuid = "1.8.0"
+uuid = "1.9.1"
 v_htmlescape = "0.15.0"
 wax = "0.6"
 which = "6.0.0"
@@ -180,22 +180,22 @@ windows = "0.54"
 winreg = "0.52"
 
 [dependencies]
-nu-cli = { path = "./crates/nu-cli", version = "0.94.3" }
-nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.94.3" }
-nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.94.3" }
-nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.94.3", optional = true }
-nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.94.3" }
-nu-command = { path = "./crates/nu-command", version = "0.94.3" }
-nu-engine = { path = "./crates/nu-engine", version = "0.94.3" }
-nu-explore = { path = "./crates/nu-explore", version = "0.94.3" }
-nu-lsp = { path = "./crates/nu-lsp/", version = "0.94.3" }
-nu-parser = { path = "./crates/nu-parser", version = "0.94.3" }
-nu-path = { path = "./crates/nu-path", version = "0.94.3" }
-nu-plugin-engine = { path = "./crates/nu-plugin-engine", optional = true, version = "0.94.3" }
-nu-protocol = { path = "./crates/nu-protocol", version = "0.94.3" }
-nu-std = { path = "./crates/nu-std", version = "0.94.3" }
-nu-system = { path = "./crates/nu-system", version = "0.94.3" }
-nu-utils = { path = "./crates/nu-utils", version = "0.94.3" }
+nu-cli = { path = "./crates/nu-cli", version = "0.95.1" }
+nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.95.1" }
+nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.95.1" }
+nu-cmd-plugin = { path = "./crates/nu-cmd-plugin", version = "0.95.1", optional = true }
+nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.95.1" }
+nu-command = { path = "./crates/nu-command", version = "0.95.1" }
+nu-engine = { path = "./crates/nu-engine", version = "0.95.1" }
+nu-explore = { path = "./crates/nu-explore", version = "0.95.1" }
+nu-lsp = { path = "./crates/nu-lsp/", version = "0.95.1" }
+nu-parser = { path = "./crates/nu-parser", version = "0.95.1" }
+nu-path = { path = "./crates/nu-path", version = "0.95.1" }
+nu-plugin-engine = { path = "./crates/nu-plugin-engine", optional = true, version = "0.95.1" }
+nu-protocol = { path = "./crates/nu-protocol", version = "0.95.1" }
+nu-std = { path = "./crates/nu-std", version = "0.95.1" }
+nu-system = { path = "./crates/nu-system", version = "0.95.1" }
+nu-utils = { path = "./crates/nu-utils", version = "0.95.1" }
 
 reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 
@@ -225,9 +225,9 @@ nix = { workspace = true, default-features = false, features = [
 ] }
 
 [dev-dependencies]
-nu-test-support = { path = "./crates/nu-test-support", version = "0.94.3" }
-nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.94.3" }
-nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.94.3" }
+nu-test-support = { path = "./crates/nu-test-support", version = "0.95.1" }
+nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.95.1" }
+nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.95.1" }
 assert_cmd = "2.0"
 dirs-next = { workspace = true }
 tango-bench = "0.5"
