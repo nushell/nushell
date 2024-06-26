@@ -5377,7 +5377,7 @@ pub fn parse_builtin_commands(
         }
         b"alias" => parse_alias(working_set, lite_command, None),
         b"module" => parse_module(working_set, lite_command, None).0,
-        b"use" => parse_use(working_set, lite_command).0,
+        b"use" => parse_use(working_set, lite_command, None).0,
         b"overlay" => {
             if let Some(redirection) = lite_command.redirection.as_ref() {
                 working_set.error(redirecting_builtin_error("overlay", redirection));
