@@ -17,6 +17,7 @@ nu-system = { path = "../nu-system", version = "0.95.1" }
 nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.95.1" }
 nu-plugin-core = { path = "../nu-plugin-core", version = "0.95.1", default-features = false }
 
+real_parent = { workspace = true }
 serde = { workspace = true }
 log = { workspace = true }
 

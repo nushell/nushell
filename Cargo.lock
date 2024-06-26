@@ -2794,6 +2794,7 @@ dependencies = [
  "nu-utils",
  "openssl",
  "pretty_assertions",
+ "real_parent",
  "reedline",
  "rstest",
  "serde_json",
@@ -2840,6 +2841,7 @@ dependencies = [
  "nu-utils",
  "once_cell",
  "percent-encoding",
+ "real_parent",
  "reedline",
  "rstest",
  "sysinfo",
@@ -2895,6 +2897,7 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-utils",
+ "real_parent",
  "shadow-rs",
 ]
 
@@ -2992,6 +2995,7 @@ dependencies = [
  "quickcheck_macros",
  "rand",
  "rayon",
+ "real_parent",
  "regex",
  "rmp",
  "roxmltree",
@@ -3049,6 +3053,7 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
+ "real_parent",
 ]
 
 [[package]]
@@ -3126,6 +3131,7 @@ dependencies = [
  "nu-path",
  "nu-plugin-engine",
  "nu-protocol",
+ "real_parent",
  "rstest",
  "serde_json",
 ]
@@ -3178,6 +3184,7 @@ dependencies = [
  "nu-plugin-protocol",
  "nu-protocol",
  "nu-system",
+ "real_parent",
  "serde",
  "typetag",
  "windows 0.54.0",
@@ -3244,6 +3251,7 @@ dependencies = [
  "num-format",
  "os_pipe",
  "pretty_assertions",
+ "real_parent",
  "rmp-serde",
  "rstest",
  "serde",
@@ -3280,6 +3288,7 @@ dependencies = [
  "ntapi",
  "once_cell",
  "procfs",
+ "real_parent",
  "sysinfo",
  "windows 0.54.0",
 ]
@@ -3374,6 +3383,7 @@ dependencies = [
  "git2",
  "nu-plugin",
  "nu-protocol",
+ "real_parent",
 ]
 
 [[package]]
@@ -4792,6 +4802,12 @@ dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
 ]
+
+[[package]]
+name = "real_parent"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03ad1715ba6758e16005557a376d29beb8edbfc0a8c272a5412b2044d997ca7f"
 
 [[package]]
 name = "recursive"

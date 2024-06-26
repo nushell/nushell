@@ -21,6 +21,7 @@ bytesize = { workspace = true }
 chrono = { default-features = false, features = ['std'], workspace = true }
 itertools = { workspace = true }
 log = { workspace = true }
+real_parent = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

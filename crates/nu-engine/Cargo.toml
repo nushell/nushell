@@ -15,6 +15,7 @@ nu-protocol = { path = "../nu-protocol", features = ["plugin"], version = "0.95.
 nu-path = { path = "../nu-path", version = "0.95.1" }
 nu-glob = { path = "../nu-glob", version = "0.95.1" }
 nu-utils = { path = "../nu-utils", version = "0.95.1" }
+real_parent = { workspace = true }
 
 [features]
 plugin = []

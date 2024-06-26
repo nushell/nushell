@@ -136,6 +136,7 @@ quote = "1.0"
 rand = "0.8"
 ratatui = "0.26"
 rayon = "1.10"
+real_parent = "0.3.0"
 reedline = "0.32.0"
 regex = "1.9.5"
 rmp = "0.8"
@@ -232,6 +233,7 @@ assert_cmd = "2.0"
 dirs-next = { workspace = true }
 tango-bench = "0.5"
 pretty_assertions = { workspace = true }
+real_parent = { workspace = true }
 rstest = { workspace = true, default-features = false }
 serial_test = "3.1"
 tempfile = { workspace = true }

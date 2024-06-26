@@ -1,4 +1,5 @@
 use crate::engine::{StateWorkingSet, VirtualPath};
+use real_parent::PathExt;
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -57,11 +58,11 @@ impl ParserPath {
         }
     }
 
-    pub fn parent(&self) -> Option<&Path> {
+    pub fn parent(&self) -> Option<PathBuf> {
         match self {
-            ParserPath::RealPath(p) => p.parent(),
-            ParserPath::VirtualFile(p, _) => p.parent(),
-            ParserPath::VirtualDir(p, _) => p.parent(),
+            ParserPath::RealPath(p) => p.real_parent().ok(),
+            ParserPath::VirtualFile(p, _) => p.parent().map(|p| p.to_path_buf()),
+            ParserPath::VirtualDir(p, _) => p.parent().map(|p| p.to_path_buf()),
         }
     }
 

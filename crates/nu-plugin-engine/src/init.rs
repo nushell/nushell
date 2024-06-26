@@ -1,3 +1,4 @@
+use real_parent::PathExt;
 use std::{
     io::{BufReader, BufWriter},
     path::Path,
@@ -92,8 +93,8 @@ pub fn create_command(
 
     // In order to make bugs with improper use of filesystem without getting the engine current
     // directory more obvious, the plugin always starts in the directory of its executable
-    if let Some(dirname) = path.parent() {
-        process.current_dir(dirname);
+    if let Ok(dirname) = path.real_parent() {
+        process.current_dir(&dirname);
     }
 
     process

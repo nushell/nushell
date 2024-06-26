@@ -5,6 +5,7 @@ use nu_protocol::{
     ast::{Expr, Expression},
     engine::CommandType,
 };
+use real_parent::PathExt;
 
 #[derive(Clone)]
 pub struct Use;
@@ -103,7 +104,7 @@ This command is a parser keyword. For details, check:
                 )?;
                 let maybe_parent = maybe_file_path
                     .as_ref()
-                    .and_then(|path| path.parent().map(|p| p.to_path_buf()));
+                    .and_then(|path| path.real_parent().ok());
 
                 let mut callee_stack = caller_stack
                     .gather_captures(engine_state, &block.captures)

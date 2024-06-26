@@ -8,6 +8,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     report_error, PipelineData, ShellError, Span, Value,
 };
+use real_parent::PathExt;
 use std::sync::Arc;
 
 /// Entry point for evaluating a file.
@@ -49,9 +50,9 @@ pub fn evaluate_file(
     engine_state.file = Some(file_path.clone());
 
     let parent = file_path
-        .parent()
-        .ok_or_else(|| ShellError::FileNotFoundCustom {
-            msg: format!("The file path '{file_path_str}' does not have a parent"),
+        .real_parent()
+        .map_err(|e| ShellError::FileNotFoundCustom {
+            msg: format!("Cannot determine parent for file path '{file_path_str}': {e}"),
             span: Span::unknown(),
         })?;
 

@@ -1,5 +1,6 @@
 use git2::{Branch, BranchType, DescribeOptions, Repository};
 use nu_protocol::{record, IntoSpanned, LabeledError, Span, Spanned, Value};
+use real_parent::PathExt;
 use std::{fmt::Write, ops::BitAnd, path::Path};
 
 // git status
@@ -91,8 +92,9 @@ impl GStat {
 
         let repo_name = repo
             .path()
-            .parent()
-            .and_then(|p| p.file_name())
+            .real_parent()
+            .map_err(|e| LabeledError::new(e.to_string()))?
+            .file_name()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|| "".to_string());
 

@@ -18,5 +18,6 @@ bench = false
 [dependencies]
 nu-plugin = { path = "../nu-plugin", version = "0.95.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.95.1" }
+real_parent = { workspace = true }
 
 git2 = "0.19"

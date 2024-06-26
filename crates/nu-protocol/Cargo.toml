@@ -28,6 +28,7 @@ indexmap = { workspace = true }
 lru = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 num-format = { workspace = true }
+real_parent = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false }
 thiserror = "1.0"
