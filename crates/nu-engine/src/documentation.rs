@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId, Spanned,
     SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
@@ -299,16 +299,37 @@ fn get_documentation(
         }
 
         if let Some(result) = &example.result {
+            let mut table_call = Call::new(Span::unknown());
+            if example.example.ends_with("--collapse") {
+                // collapse the result
+                table_call.add_named((
+                    Spanned {
+                        item: "collapse".to_string(),
+                        span: Span::unknown(),
+                    },
+                    None,
+                    None,
+                ))
+            } else {
+                // expand the result
+                table_call.add_named((
+                    Spanned {
+                        item: "expand".to_string(),
+                        span: Span::unknown(),
+                    },
+                    None,
+                    None,
+                ))
+            }
             let table = engine_state
                 .find_decl("table".as_bytes(), &[])
                 .and_then(|decl_id| {
-                    let call = Call::new(Span::unknown());
                     engine_state
                         .get_decl(decl_id)
                         .run(
                             engine_state,
                             stack,
-                            &(&call).into(),
+                            &(&table_call).into(),
                             PipelineData::Value(result.clone(), None),
                         )
                         .ok()

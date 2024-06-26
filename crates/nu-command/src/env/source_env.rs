@@ -2,6 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block_with_early_return,
     redirect_env,
 };
+use nu_protocol::engine::CommandType;
 use std::path::PathBuf;
 
 /// Source a file for environment variables.
@@ -26,6 +27,15 @@ impl Command for SourceEnv {
 
     fn usage(&self) -> &str {
         "Source the environment from a source file into the current environment."
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(

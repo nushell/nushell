@@ -323,6 +323,26 @@ fn manager_consume_goodbye_closes_plugin_call_channel() -> Result<(), ShellError
 }
 
 #[test]
+fn manager_consume_call_metadata_forwards_to_receiver_with_context() -> Result<(), ShellError> {
+    let mut manager = TestCase::new().engine();
+    set_default_protocol_info(&mut manager)?;
+
+    let rx = manager
+        .take_plugin_call_receiver()
+        .expect("couldn't take receiver");
+
+    manager.consume(PluginInput::Call(0, PluginCall::Metadata))?;
+
+    match rx.try_recv().expect("call was not forwarded to receiver") {
+        ReceivedPluginCall::Metadata { engine } => {
+            assert_eq!(Some(0), engine.context);
+            Ok(())
+        }
+        call => panic!("wrong call type: {call:?}"),
+    }
+}
+
+#[test]
 fn manager_consume_call_signature_forwards_to_receiver_with_context() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
     set_default_protocol_info(&mut manager)?;

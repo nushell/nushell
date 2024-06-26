@@ -392,6 +392,7 @@ fn compile_expression(
         Expr::Overlay(_) => Err(CompileError::Todo("Overlay")),
         Expr::Signature(_) => Err(CompileError::Todo("Signature")),
         Expr::StringInterpolation(_) => Err(CompileError::Todo("StringInterpolation")),
+        Expr::GlobInterpolation(_, _) => Err(CompileError::Todo("GlobInterpolation")),
         Expr::Nothing => lit(builder, Literal::Nothing),
         Expr::Garbage => Err(CompileError::Garbage),
     }

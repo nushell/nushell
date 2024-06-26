@@ -259,9 +259,7 @@ fn draw_table(
         table.with(width_ctrl);
     }
 
-    let tablewidth = table.total_width();
-
-    table_to_string(table, tablewidth, termwidth)
+    table_to_string(table, termwidth)
 }
 
 fn set_indent(table: &mut Table, left: usize, right: usize) {
@@ -289,7 +287,9 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
     }
 }
 
-fn table_to_string(table: Table, total_width: usize, termwidth: usize) -> Option<String> {
+fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
+    let total_width = table.total_width();
+
     if total_width > termwidth {
         None
     } else {
@@ -318,6 +318,7 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
         dim: &mut CompleteDimensionVecRecords<'_>,
     ) {
         let total_width = get_total_width2(&self.width, cfg);
+
         if total_width > self.max {
             TableTrim {
                 max: self.max,

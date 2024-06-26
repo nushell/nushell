@@ -5,17 +5,17 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-parser"
 edition = "2021"
 license = "MIT"
 name = "nu-parser"
-version = "0.94.3"
+version = "0.95.1"
 exclude = ["/fuzz"]
 
 [lib]
 bench = false
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.94.3" }
-nu-path = { path = "../nu-path", version = "0.94.3" }
-nu-plugin-engine = { path = "../nu-plugin-engine", optional = true, version = "0.94.3" }
-nu-protocol = { path = "../nu-protocol", version = "0.94.3" }
+nu-engine = { path = "../nu-engine", version = "0.95.1" }
+nu-path = { path = "../nu-path", version = "0.95.1" }
+nu-plugin-engine = { path = "../nu-plugin-engine", optional = true, version = "0.95.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.95.1" }
 
 bytesize = { workspace = true }
 chrono = { default-features = false, features = ['std'], workspace = true }

@@ -136,7 +136,21 @@ fn handle_message(
 ) -> Result<(), Box<dyn Error>> {
     if let Some(plugin_call) = message.get("Call") {
         let (id, plugin_call) = (&plugin_call[0], &plugin_call[1]);
-        if plugin_call.as_str() == Some("Signature") {
+        if plugin_call.as_str() == Some("Metadata") {
+            write(
+                output,
+                &json!({
+                    "CallResponse": [
+                        id,
+                        {
+                            "Metadata": {
+                                "version": env!("CARGO_PKG_VERSION"),
+                            }
+                        }
+                    ]
+                }),
+            )
+        } else if plugin_call.as_str() == Some("Signature") {
             write(
                 output,
                 &json!({

@@ -1,7 +1,7 @@
 use nu_engine::{
     command_prelude::*, get_eval_block, get_eval_expression, get_eval_expression_with_input,
 };
-use nu_protocol::engine::Matcher;
+use nu_protocol::engine::{CommandType, Matcher};
 
 #[derive(Clone)]
 pub struct Match;
@@ -25,6 +25,15 @@ impl Command for Match {
                 "Block to run if check succeeds.",
             )
             .category(Category::Core)
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(

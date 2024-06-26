@@ -161,10 +161,7 @@ export def bench [
     }
 }
 
-# print a banner for nushell, with information about the project
-#
-# Example:
-# an example can be found in [this asciinema recording](https://asciinema.org/a/566513)
+# Print a banner for nushell with information about the project
 export def banner [] {
 let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
 $"(ansi green)     __  ,(ansi reset)

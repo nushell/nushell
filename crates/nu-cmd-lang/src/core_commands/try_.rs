@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, EvalBlockFn};
-use nu_protocol::engine::Closure;
+use nu_protocol::engine::{Closure, CommandType};
 
 #[derive(Clone)]
 pub struct Try;
@@ -10,7 +10,7 @@ impl Command for Try {
     }
 
     fn usage(&self) -> &str {
-        "Try to run a block, if it fails optionally run a catch block."
+        "Try to run a block, if it fails optionally run a catch closure."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -18,7 +18,7 @@ impl Command for Try {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required("try_block", SyntaxShape::Block, "Block to run.")
             .optional(
-                "catch_block",
+                "catch_closure",
                 SyntaxShape::Keyword(
                     b"catch".to_vec(),
                     Box::new(SyntaxShape::OneOf(vec![
@@ -26,9 +26,18 @@ impl Command for Try {
                         SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                     ])),
                 ),
-                "Block to run if try block fails.",
+                "Closure to run if try block fails.",
             )
             .category(Category::Core)
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
@@ -86,8 +95,13 @@ impl Command for Try {
             },
             Example {
                 description: "Try to run a missing command",
-                example: "try { asdfasdf } catch { 'missing' } ",
+                example: "try { asdfasdf } catch { 'missing' }",
                 result: Some(Value::test_string("missing")),
+            },
+            Example {
+                description: "Try to run a missing command and report the message",
+                example: "try { asdfasdf } catch { |err| $err.msg }",
+                result: None,
             },
         ]
     }

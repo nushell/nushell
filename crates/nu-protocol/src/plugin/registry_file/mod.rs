@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{PluginIdentity, PluginSignature, ShellError, Span};
+use crate::{PluginIdentity, PluginMetadata, PluginSignature, ShellError, Span};
 
 // This has a big impact on performance
 const BUFFER_SIZE: usize = 65536;
@@ -121,9 +121,10 @@ pub struct PluginRegistryItem {
 }
 
 impl PluginRegistryItem {
-    /// Create a [`PluginRegistryItem`] from an identity and signatures.
+    /// Create a [`PluginRegistryItem`] from an identity, metadata, and signatures.
     pub fn new(
         identity: &PluginIdentity,
+        metadata: PluginMetadata,
         mut commands: Vec<PluginSignature>,
     ) -> PluginRegistryItem {
         // Sort the commands for consistency
@@ -133,7 +134,7 @@ impl PluginRegistryItem {
             name: identity.name().to_owned(),
             filename: identity.filename().to_owned(),
             shell: identity.shell().map(|p| p.to_owned()),
-            data: PluginRegistryItemData::Valid { commands },
+            data: PluginRegistryItemData::Valid { metadata, commands },
         }
     }
 }
@@ -144,6 +145,9 @@ impl PluginRegistryItem {
 #[serde(untagged)]
 pub enum PluginRegistryItemData {
     Valid {
+        /// Metadata for the plugin, including its version.
+        #[serde(default)]
+        metadata: PluginMetadata,
         /// Signatures and examples for each command provided by the plugin.
         commands: Vec<PluginSignature>,
     },

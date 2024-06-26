@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Loop;
@@ -18,6 +19,15 @@ impl Command for Loop {
             .allow_variants_without_examples(true)
             .required("block", SyntaxShape::Block, "Block to loop.")
             .category(Category::Core)
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(

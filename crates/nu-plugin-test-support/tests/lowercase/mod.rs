@@ -59,6 +59,10 @@ impl PluginCommand for Lowercase {
 }
 
 impl Plugin for LowercasePlugin {
+    fn version(&self) -> String {
+        "0.0.0".into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
         vec![Box::new(Lowercase)]
     }

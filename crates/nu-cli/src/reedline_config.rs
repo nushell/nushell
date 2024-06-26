@@ -75,7 +75,7 @@ const DEFAULT_HELP_MENU: &str = r#"
 // Adds all menus to line editor
 pub(crate) fn add_menus(
     mut line_editor: Reedline,
-    engine_state: Arc<EngineState>,
+    engine_state_ref: Arc<EngineState>,
     stack: &Stack,
     config: &Config,
 ) -> Result<Reedline, ShellError> {
@@ -83,7 +83,7 @@ pub(crate) fn add_menus(
     line_editor = line_editor.clear_menus();
 
     for menu in &config.menus {
-        line_editor = add_menu(line_editor, menu, engine_state.clone(), stack, config)?
+        line_editor = add_menu(line_editor, menu, engine_state_ref.clone(), stack, config)?
     }
 
     // Checking if the default menus have been added from the config file
@@ -93,13 +93,16 @@ pub(crate) fn add_menus(
         ("help_menu", DEFAULT_HELP_MENU),
     ];
 
+    let mut engine_state = (*engine_state_ref).clone();
+    let mut menu_eval_results = vec![];
+
     for (name, definition) in default_menus {
         if !config
             .menus
             .iter()
             .any(|menu| menu.name.to_expanded_string("", config) == name)
         {
-            let (block, _) = {
+            let (block, delta) = {
                 let mut working_set = StateWorkingSet::new(&engine_state);
                 let output = parse(
                     &mut working_set,
@@ -111,15 +114,31 @@ pub(crate) fn add_menus(
                 (output, working_set.render())
             };
 
+            engine_state.merge_delta(delta)?;
+
             let mut temp_stack = Stack::new().capture();
             let input = PipelineData::Empty;
-            let res = eval_block::<WithoutDebug>(&engine_state, &mut temp_stack, &block, input)?;
+            menu_eval_results.push(eval_block::<WithoutDebug>(
+                &engine_state,
+                &mut temp_stack,
+                &block,
+                input,
+            )?);
+        }
+    }
 
-            if let PipelineData::Value(value, None) = res {
-                for menu in create_menus(&value)? {
-                    line_editor =
-                        add_menu(line_editor, &menu, engine_state.clone(), stack, config)?;
-                }
+    let new_engine_state_ref = Arc::new(engine_state);
+
+    for res in menu_eval_results.into_iter() {
+        if let PipelineData::Value(value, None) = res {
+            for menu in create_menus(&value)? {
+                line_editor = add_menu(
+                    line_editor,
+                    &menu,
+                    new_engine_state_ref.clone(),
+                    stack,
+                    config,
+                )?;
             }
         }
     }
