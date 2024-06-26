@@ -304,6 +304,20 @@ fn eval_instruction(
             ctx.put_reg(*src_dst, Value::list(list, list_span).into_pipeline_data());
             Ok(Continue)
         }
+        Instruction::ListSpread { src_dst, items } => {
+            let list_value = ctx.collect_reg(*src_dst, *span)?;
+            let items = ctx.collect_reg(*items, *span)?;
+            let list_span = list_value.span();
+            let items_span = items.span();
+            let mut list = list_value.into_list()?;
+            list.extend(
+                items
+                    .into_list()
+                    .map_err(|_| ShellError::CannotSpreadAsList { span: items_span })?,
+            );
+            ctx.put_reg(*src_dst, Value::list(list, list_span).into_pipeline_data());
+            Ok(Continue)
+        }
         Instruction::RecordInsert { src_dst, key, val } => {
             let record_value = ctx.collect_reg(*src_dst, *span)?;
             let key = ctx.collect_reg(*key, *span)?;
@@ -311,6 +325,25 @@ fn eval_instruction(
             let record_span = record_value.span();
             let mut record = record_value.into_record()?;
             record.insert(key.coerce_into_string()?, val);
+            ctx.put_reg(
+                *src_dst,
+                Value::record(record, record_span).into_pipeline_data(),
+            );
+            Ok(Continue)
+        }
+        Instruction::RecordSpread { src_dst, items } => {
+            let record_value = ctx.collect_reg(*src_dst, *span)?;
+            let items = ctx.collect_reg(*items, *span)?;
+            let record_span = record_value.span();
+            let items_span = items.span();
+            let mut record = record_value.into_record()?;
+            // Not using .extend() here because it doesn't handle duplicates
+            for (key, val) in items
+                .into_record()
+                .map_err(|_| ShellError::CannotSpreadAsRecord { span: items_span })?
+            {
+                record.insert(key, val);
+            }
             ctx.put_reg(
                 *src_dst,
                 Value::record(record, record_span).into_pipeline_data(),

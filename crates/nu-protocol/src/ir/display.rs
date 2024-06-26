@@ -115,8 +115,14 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::ListPush { src_dst, item } => {
                 write!(f, "{:WIDTH$} {src_dst}, {item}", "list-push")
             }
+            Instruction::ListSpread { src_dst, items } => {
+                write!(f, "{:WIDTH$} {src_dst}, {items}", "list-spread")
+            }
             Instruction::RecordInsert { src_dst, key, val } => {
                 write!(f, "{:WIDTH$} {src_dst}, {key}, {val}", "record-insert")
+            }
+            Instruction::RecordSpread { src_dst, items } => {
+                write!(f, "{:WIDTH$} {src_dst}, {items}", "record-spread")
             }
             Instruction::BinaryOp { lhs_dst, op, rhs } => {
                 write!(f, "{:WIDTH$} {lhs_dst}, {op:?}, {rhs}", "binary-op")

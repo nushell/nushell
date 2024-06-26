@@ -344,42 +344,37 @@ fn compile_expression(
                 },
             )?;
             for item in items {
+                // Compile the expression of the item / spread
+                let reg = builder.next_register()?;
+                let expr = match item {
+                    ListItem::Item(expr) | ListItem::Spread(_, expr) => expr,
+                };
+                compile_expression(
+                    working_set,
+                    builder,
+                    expr,
+                    redirect_modes.with_capture_out(expr.span),
+                    None,
+                    reg,
+                )?;
+
                 match item {
-                    ListItem::Item(expr) => {
-                        // Add each item using push-list
-                        let item_reg = builder.next_register()?;
-                        compile_expression(
-                            working_set,
-                            builder,
-                            expr,
-                            redirect_modes.with_capture_out(expr.span),
-                            None,
-                            item_reg,
-                        )?;
+                    ListItem::Item(_) => {
+                        // Add each item using list-push
                         builder.push(
                             Instruction::ListPush {
                                 src_dst: out_reg,
-                                item: item_reg,
+                                item: reg,
                             }
                             .into_spanned(expr.span),
                         )?;
                     }
                     ListItem::Spread(spread_span, expr) => {
-                        // Implement a spread as a ++ binary operation
-                        let rhs_reg = builder.next_register()?;
-                        compile_expression(
-                            working_set,
-                            builder,
-                            expr,
-                            redirect_modes.with_capture_out(expr.span),
-                            None,
-                            rhs_reg,
-                        )?;
+                        // Spread the list using list-spread
                         builder.push(
-                            Instruction::BinaryOp {
-                                lhs_dst: out_reg,
-                                op: Operator::Math(Math::Append),
-                                rhs: rhs_reg,
+                            Instruction::ListSpread {
+                                src_dst: out_reg,
+                                items: reg,
                             }
                             .into_spanned(*spread_span),
                         )?;
@@ -471,7 +466,7 @@ fn compile_expression(
                             working_set,
                             builder,
                             key,
-                            redirect_modes.with_capture_out(expr.span),
+                            redirect_modes.with_capture_out(key.span),
                             None,
                             key_reg,
                         )?;
@@ -479,7 +474,7 @@ fn compile_expression(
                             working_set,
                             builder,
                             val,
-                            redirect_modes.with_capture_out(expr.span),
+                            redirect_modes.with_capture_out(val.span),
                             None,
                             val_reg,
                         )?;
@@ -493,7 +488,23 @@ fn compile_expression(
                         )?;
                     }
                     RecordItem::Spread(spread_span, expr) => {
-                        return Err(CompileError::Todo("Record with spread"))
+                        // Spread the expression using record-spread
+                        let reg = builder.next_register()?;
+                        compile_expression(
+                            working_set,
+                            builder,
+                            expr,
+                            redirect_modes.with_capture_out(expr.span),
+                            None,
+                            reg,
+                        )?;
+                        builder.push(
+                            Instruction::RecordSpread {
+                                src_dst: out_reg,
+                                items: reg,
+                            }
+                            .into_spanned(*spread_span),
+                        )?;
                     }
                 }
             }
@@ -923,6 +934,7 @@ impl BlockBuilder {
                 src_dst: _,
             } => (),
             Instruction::ListPush { src_dst: _, item } => self.free_register(*item)?,
+            Instruction::ListSpread { src_dst: _, items } => self.free_register(*items)?,
             Instruction::RecordInsert {
                 src_dst: _,
                 key,
@@ -931,6 +943,7 @@ impl BlockBuilder {
                 self.free_register(*key)?;
                 self.free_register(*val)?;
             }
+            Instruction::RecordSpread { src_dst: _, items } => self.free_register(*items)?,
             Instruction::BinaryOp {
                 lhs_dst: _,
                 op: _,

@@ -90,12 +90,18 @@ pub enum Instruction {
     Call { decl_id: DeclId, src_dst: RegId },
     /// Push a value onto the end of a list. Used to construct list literals.
     ListPush { src_dst: RegId, item: RegId },
-    /// Insert a key-value pair into a record. Any existing value for the key is overwritten.
+    /// Spread a value onto the end of a list. Used to construct list literals.
+    ListSpread { src_dst: RegId, items: RegId },
+    /// Insert a key-value pair into a record. Used to construct record literals. Any existing value
+    /// for the key is overwritten.
     RecordInsert {
         src_dst: RegId,
         key: RegId,
         val: RegId,
     },
+    /// Spread a record onto a record. Used to construct record literals. Any existing value for the
+    /// key is overwritten.
+    RecordSpread { src_dst: RegId, items: RegId },
     /// Do a binary operation on `lhs_dst` (left) and `rhs` (right) and write the result to
     /// `lhs_dst`.
     BinaryOp {
