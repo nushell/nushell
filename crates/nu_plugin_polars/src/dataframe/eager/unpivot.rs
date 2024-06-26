@@ -11,13 +11,13 @@ use crate::{
 use super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
-pub struct MeltDF;
+pub struct UnpivotDF;
 
-impl PluginCommand for MeltDF {
+impl PluginCommand for UnpivotDF {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars melt"
+        "polars unpivot"
     }
 
     fn usage(&self) -> &str {
@@ -29,7 +29,7 @@ impl PluginCommand for MeltDF {
             .required_named(
                 "columns",
                 SyntaxShape::Table(vec![]),
-                "column names for melting",
+                "column names for unpivoting",
                 Some('c'),
             )
             .required_named(
@@ -59,9 +59,9 @@ impl PluginCommand for MeltDF {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "melt dataframe",
+            description: "unpivot dataframe",
             example:
-                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars melt -c [b c] -v [a d]",
+                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars unpivot -c [b c] -v [a d]",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -148,9 +148,9 @@ fn command(
 
     let mut res = df
         .as_ref()
-        .melt(&id_col_string, &val_col_string)
+        .unpivot(&id_col_string, &val_col_string)
         .map_err(|e| ShellError::GenericError {
-            error: "Error calculating melt".into(),
+            error: "Error calculating unpivot".into(),
             msg: e.to_string(),
             span: Some(call.head),
             help: None,
@@ -248,6 +248,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&MeltDF)
+        test_polars_plugin_command(&UnpivotDF)
     }
 }
