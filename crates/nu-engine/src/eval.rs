@@ -1,3 +1,4 @@
+use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::{current_dir, get_config, get_full_help};
 use nu_path::expand_path_with;
@@ -509,6 +510,11 @@ pub fn eval_block<D: DebugContext>(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    // Remove once IR is the default.
+    if stack.use_ir {
+        return eval_ir_block::<D>(engine_state, stack, block, input);
+    }
+
     D::enter_block(engine_state, block);
 
     let num_pipelines = block.len();

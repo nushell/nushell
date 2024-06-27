@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, CellPath, Expr, Expression, ListItem, Math, Operator, PathMember,
+        Argument, Block, Call, CellPath, Expr, Expression, ListItem, Operator, PathMember,
         Pipeline, PipelineRedirection, RecordItem, RedirectionSource, RedirectionTarget,
     },
     engine::StateWorkingSet,
@@ -12,7 +12,7 @@ const BLOCK_INPUT: RegId = RegId(0);
 
 /// Compile Nushell pipeline abstract syntax tree (AST) to internal representation (IR) instructions
 /// for evaluation.
-pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, ShellError> {
+pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, CompileError> {
     let mut builder = BlockBuilder::new();
 
     compile_block(
@@ -22,16 +22,13 @@ pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, 
         RedirectModes::default(),
         Some(BLOCK_INPUT),
         BLOCK_INPUT,
-    )
-    .map_err(|err| err.to_shell_error(block.span))?;
+    )?;
 
     // A complete block has to end with a `return`
-    builder
-        .push(
-            Instruction::Return { src: BLOCK_INPUT }
-                .into_spanned(block.span.unwrap_or(Span::unknown())),
-        )
-        .map_err(|err| err.to_shell_error(block.span))?;
+    builder.push(
+        Instruction::Return { src: BLOCK_INPUT }
+            .into_spanned(block.span.unwrap_or(Span::unknown())),
+    )?;
 
     Ok(builder.finish())
 }
@@ -369,7 +366,7 @@ fn compile_expression(
                             .into_spanned(expr.span),
                         )?;
                     }
-                    ListItem::Spread(spread_span, expr) => {
+                    ListItem::Spread(spread_span, _) => {
                         // Spread the list using list-spread
                         builder.push(
                             Instruction::ListSpread {
@@ -795,7 +792,7 @@ fn compile_load_env(
 /// An internal compiler error, generally means a Nushell bug rather than an issue with user error
 /// since parsing and typechecking has already passed.
 #[derive(Debug)]
-enum CompileError {
+pub enum CompileError {
     RegisterOverflow,
     RegisterUninitialized(RegId),
     DataOverflow,
@@ -807,8 +804,8 @@ enum CompileError {
 }
 
 impl CompileError {
-    fn to_shell_error(self, mut span: Option<Span>) -> ShellError {
-        let message = match self {
+    pub fn message(&self) -> String {
+        match self {
             CompileError::RegisterOverflow => format!("register overflow"),
             CompileError::RegisterUninitialized(reg_id) => {
                 format!("register {reg_id} is uninitialized when used, possibly reused")
@@ -821,15 +818,25 @@ impl CompileError {
             }
             CompileError::Garbage => "encountered garbage, likely due to parse error".into(),
             CompileError::UnsupportedOperatorExpression => "unsupported operator expression".into(),
-            CompileError::AccessEnvByInt(local_span) => {
-                span = Some(local_span);
-                "attempted access of $env by integer path".into()
-            }
+            CompileError::AccessEnvByInt(_) => "attempted access of $env by integer path".into(),
             CompileError::Todo(msg) => {
                 format!("TODO: {msg}")
             }
-        };
-        ShellError::IrCompileError { msg: message, span }
+        }
+    }
+
+    pub fn span(&self) -> Option<Span> {
+        match self {
+            CompileError::AccessEnvByInt(span) => Some(*span),
+            _ => None,
+        }
+    }
+
+    pub fn to_shell_error(self, span: Option<Span>) -> ShellError {
+        ShellError::IrCompileError {
+            msg: self.message(),
+            span: self.span().or(span),
+        }
     }
 }
 

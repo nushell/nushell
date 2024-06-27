@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nu_engine::{command_prelude::*, compile};
 use nu_protocol::engine::Closure;
 
@@ -31,7 +33,15 @@ impl Command for ViewIr {
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let block = engine_state.get_block(closure.block_id);
-        let ir_block = compile(&StateWorkingSet::new(engine_state), &block)?;
+        // Use the pre-compiled block if available, otherwise try to compile it
+        // This helps display the actual compilation error
+        let ir_block = match &block.ir_block {
+            Some(ir_block) => Cow::Borrowed(ir_block),
+            None => Cow::Owned(
+                compile(&StateWorkingSet::new(engine_state), &block)
+                    .map_err(|err| err.to_shell_error(block.span))?,
+            ),
+        };
 
         let formatted = format!("{}", ir_block.display(engine_state));
         Ok(Value::string(formatted, call.head).into_pipeline_data())

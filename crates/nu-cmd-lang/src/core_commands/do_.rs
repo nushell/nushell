@@ -1,6 +1,4 @@
-use nu_engine::{
-    command_prelude::*, get_eval_block_with_early_return, get_eval_ir_block, redirect_env,
-};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
 use nu_protocol::{
     engine::Closure,
     process::{ChildPipe, ChildProcess, ExitStatus},
@@ -94,12 +92,13 @@ impl Command for Do {
 
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
-        let eval_ir_block = get_eval_ir_block(engine_state);
-        let result = if use_ir {
-            eval_ir_block(engine_state, &mut callee_stack, block, input)
-        } else {
-            eval_block_with_early_return(engine_state, &mut callee_stack, block, input)
-        };
+
+        // Applies to all block evaluation once set true
+        if use_ir {
+            caller_stack.use_ir = true;
+        }
+
+        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
         if has_env {
             // Merge the block's environment to the current stack

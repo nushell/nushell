@@ -47,6 +47,8 @@ pub struct Stack {
     pub register_buf_cache: RegisterBufCache,
     /// Argument stack for IR evaluation
     pub argument_stack: ArgumentStack,
+    /// Set true to always use IR mode
+    pub use_ir: bool,
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -76,6 +78,7 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             register_buf_cache: RegisterBufCache::new(),
             argument_stack: ArgumentStack::new(),
+            use_ir: false,
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -95,6 +98,7 @@ impl Stack {
             active_overlays: parent.active_overlays.clone(),
             register_buf_cache: RegisterBufCache::new(),
             argument_stack: ArgumentStack::new(),
+            use_ir: parent.use_ir,
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
@@ -266,6 +270,7 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             register_buf_cache: RegisterBufCache::new(),
             argument_stack: ArgumentStack::new(),
+            use_ir: self.use_ir,
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
@@ -298,6 +303,7 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             register_buf_cache: RegisterBufCache::new(),
             argument_stack: ArgumentStack::new(),
+            use_ir: self.use_ir,
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],

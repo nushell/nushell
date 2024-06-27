@@ -14,12 +14,29 @@ pub enum ParseWarning {
         span: Span,
         url: String,
     },
+
+    /// An error occurred with the IR compiler.
+    ///
+    /// ## Resolution
+    ///
+    /// The IR compiler is in very early development, so code that can't be compiled is quite
+    /// expected. If you think it should be working, please report it to us.
+    #[error("internal compiler error: {msg}")]
+    #[diagnostic(
+        help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were compiling if able")
+    )]
+    IrCompileError {
+        msg: String,
+        #[label = "while compiling this code"]
+        span: Span,
+    },
 }
 
 impl ParseWarning {
     pub fn span(&self) -> Span {
         match self {
             ParseWarning::DeprecatedWarning { span, .. } => *span,
+            ParseWarning::IrCompileError { span, .. } => *span,
         }
     }
 }
