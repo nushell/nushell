@@ -35,7 +35,7 @@ impl PluginCommand for ValueCount {
             .switch("sort", "Whether or not values should be sorted", Some('s'))
             .switch(
                 "parallel",
-                "Use mulitple threads when processing",
+                "Use multiple threads when processing",
                 Some('p'),
             )
             .named(
