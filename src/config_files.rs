@@ -9,8 +9,9 @@ use nu_protocol::{
 };
 use nu_utils::{get_default_config, get_default_env};
 use std::{
+    fs,
     fs::File,
-    io::Write,
+    io::{Result, Write},
     panic::{catch_unwind, AssertUnwindSafe},
     path::Path,
     sync::Arc,
@@ -176,6 +177,46 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
     }
 }
 
+fn read_and_sort_directory(path: &Path) -> Result<Vec<String>> {
+    let mut entries = Vec::new();
+
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let file_name_str = file_name.into_string().unwrap_or_default();
+        entries.push(file_name_str);
+    }
+
+    entries.sort();
+
+    Ok(entries)
+}
+
+pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: &mut Stack) {
+    warn!(
+        "read_vendor_autoload_files() {}:{}:{}",
+        file!(),
+        line!(),
+        column!()
+    );
+
+    // read and source vendor_autoload_files file if exists
+    if let Some(autoload_dir) = nu_protocol::eval_const::get_vendor_autoload_dir(engine_state) {
+        warn!("read_vendor_autoload_files: {}", autoload_dir.display());
+
+        if autoload_dir.exists() {
+            let entries = read_and_sort_directory(&autoload_dir);
+            if let Ok(entries) = entries {
+                for entry in entries {
+                    let path = autoload_dir.join(entry);
+                    warn!("AutoLoading: {:?}", path);
+                    eval_config_contents(path, engine_state, stack);
+                }
+            }
+        }
+    }
+}
+
 fn eval_default_config(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -236,6 +277,8 @@ pub(crate) fn setup_config(
         if is_login_shell {
             read_loginshell_file(engine_state, stack);
         }
+        // read and auto load vendor autoload files
+        read_vendor_autoload_files(engine_state, stack);
     }));
     if result.is_err() {
         eprintln!(

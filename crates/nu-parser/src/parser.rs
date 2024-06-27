@@ -934,15 +934,12 @@ pub fn parse_internal_call(
     let output = signature.get_output_type();
 
     // storing the var ID for later due to borrowing issues
-    let lib_dirs_var_id = if decl.is_builtin() {
-        match decl.name() {
-            "use" | "overlay use" | "source-env" | "nu-check" => {
-                find_dirs_var(working_set, LIB_DIRS_VAR)
-            }
-            _ => None,
+    let lib_dirs_var_id = match decl.name() {
+        "use" | "overlay use" | "source-env" if decl.is_keyword() => {
+            find_dirs_var(working_set, LIB_DIRS_VAR)
         }
-    } else {
-        None
+        "nu-check" if decl.is_builtin() => find_dirs_var(working_set, LIB_DIRS_VAR),
+        _ => None,
     };
 
     // The index into the positional parameter in the definition
@@ -5380,7 +5377,7 @@ pub fn parse_builtin_commands(
         }
         b"alias" => parse_alias(working_set, lite_command, None),
         b"module" => parse_module(working_set, lite_command, None).0,
-        b"use" => parse_use(working_set, lite_command).0,
+        b"use" => parse_use(working_set, lite_command, None).0,
         b"overlay" => {
             if let Some(redirection) = lite_command.redirection.as_ref() {
                 working_set.error(redirecting_builtin_error("overlay", redirection));

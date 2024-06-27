@@ -2,7 +2,6 @@ use crate::{
     exportable::Exportable,
     parse_block,
     parser::{parse_redirection, redirecting_builtin_error},
-    parser_path::ParserPath,
     type_check::{check_block_input_output, type_compatible},
 };
 use itertools::Itertools;
@@ -15,6 +14,7 @@ use nu_protocol::{
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
+    parser_path::ParserPath,
     Alias, BlockId, DeclId, Module, ModuleId, ParseError, PositionalArg, ResolvedImportPattern,
     Span, Spanned, SyntaxShape, Type, Value, VarId,
 };
@@ -42,32 +42,44 @@ use crate::{
 };
 
 /// These parser keywords can be aliased
-pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[b"overlay hide", b"overlay new", b"overlay use"];
+pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
+    b"if",
+    b"match",
+    b"try",
+    b"overlay",
+    b"overlay hide",
+    b"overlay new",
+    b"overlay use",
+];
 
 pub const RESERVED_VARIABLE_NAMES: [&str; 3] = ["in", "nu", "env"];
 
 /// These parser keywords cannot be aliased (either not possible, or support not yet added)
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
-    b"export",
-    b"def",
-    b"export def",
-    b"for",
-    b"extern",
-    b"export extern",
     b"alias",
-    b"export alias",
-    b"export-env",
+    b"const",
+    b"def",
+    b"extern",
     b"module",
     b"use",
+    b"export",
+    b"export alias",
+    b"export const",
+    b"export def",
+    b"export extern",
+    b"export module",
     b"export use",
-    b"hide",
-    // b"overlay",
-    // b"overlay hide",
-    // b"overlay new",
-    // b"overlay use",
+    b"for",
+    b"loop",
+    b"while",
+    b"return",
+    b"break",
+    b"continue",
     b"let",
-    b"const",
     b"mut",
+    b"hide",
+    b"export-env",
+    b"source-env",
     b"source",
     b"where",
     b"register",
@@ -1192,7 +1204,7 @@ pub fn parse_export_in_block(
         "export alias" => parse_alias(working_set, lite_command, None),
         "export def" => parse_def(working_set, lite_command, None).0,
         "export const" => parse_const(working_set, &lite_command.parts[1..]),
-        "export use" => parse_use(working_set, lite_command).0,
+        "export use" => parse_use(working_set, lite_command, None).0,
         "export module" => parse_module(working_set, lite_command, None).0,
         "export extern" => parse_extern(working_set, lite_command, None),
         _ => {
@@ -1211,6 +1223,7 @@ pub fn parse_export_in_module(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: &[u8],
+    parent_module: &mut Module,
 ) -> (Pipeline, Vec<Exportable>) {
     let spans = &lite_command.parts[..];
 
@@ -1416,7 +1429,8 @@ pub fn parse_export_in_module(
                     pipe: lite_command.pipe,
                     redirection: lite_command.redirection.clone(),
                 };
-                let (pipeline, exportables) = parse_use(working_set, &lite_command);
+                let (pipeline, exportables) =
+                    parse_use(working_set, &lite_command, Some(parent_module));
 
                 let export_use_decl_id = if let Some(id) = working_set.find_decl(b"export use") {
                     id
@@ -1759,7 +1773,7 @@ pub fn parse_module_block(
                     ))
                 }
                 b"use" => {
-                    let (pipeline, _) = parse_use(working_set, command);
+                    let (pipeline, _) = parse_use(working_set, command, Some(&mut module));
 
                     block.pipelines.push(pipeline)
                 }
@@ -1774,7 +1788,7 @@ pub fn parse_module_block(
                 }
                 b"export" => {
                     let (pipe, exportables) =
-                        parse_export_in_module(working_set, command, module_name);
+                        parse_export_in_module(working_set, command, module_name, &mut module);
 
                     for exportable in exportables {
                         match exportable {
@@ -1884,6 +1898,48 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
+fn module_needs_reloading(working_set: &StateWorkingSet, module_id: ModuleId) -> bool {
+    let module = working_set.get_module(module_id);
+
+    fn submodule_need_reloading(working_set: &StateWorkingSet, submodule_id: ModuleId) -> bool {
+        let submodule = working_set.get_module(submodule_id);
+        let submodule_changed = if let Some((file_path, file_id)) = &submodule.file {
+            let existing_contents = working_set.get_contents_of_file(*file_id);
+            let file_contents = file_path.read(working_set);
+
+            if let (Some(existing), Some(new)) = (existing_contents, file_contents) {
+                existing != new
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
+        if submodule_changed {
+            true
+        } else {
+            module_needs_reloading(working_set, submodule_id)
+        }
+    }
+
+    let export_submodule_changed = module
+        .submodules
+        .iter()
+        .any(|(_, submodule_id)| submodule_need_reloading(working_set, *submodule_id));
+
+    if export_submodule_changed {
+        return true;
+    }
+
+    let private_submodule_changed = module
+        .imported_modules
+        .iter()
+        .any(|submodule_id| submodule_need_reloading(working_set, *submodule_id));
+
+    private_submodule_changed
+}
+
 /// Parse a module from a file.
 ///
 /// The module name is inferred from the stem of the file, unless specified in `name_override`.
@@ -1922,23 +1978,26 @@ fn parse_module_file(
 
     // Check if we've parsed the module before.
     if let Some(module_id) = working_set.find_module_by_span(new_span) {
-        return Some(module_id);
+        if !module_needs_reloading(working_set, module_id) {
+            return Some(module_id);
+        }
     }
 
     // Add the file to the stack of files being processed.
-    if let Err(e) = working_set.files.push(path.path_buf(), path_span) {
+    if let Err(e) = working_set.files.push(path.clone().path_buf(), path_span) {
         working_set.error(e);
         return None;
     }
 
     // Parse the module
-    let (block, module, module_comments) =
+    let (block, mut module, module_comments) =
         parse_module_block(working_set, new_span, module_name.as_bytes());
 
     // Remove the file from the stack of files being processed.
     working_set.files.pop();
 
     let _ = working_set.add_block(Arc::new(block));
+    module.file = Some((path, file_id));
     let module_id = working_set.add_module(&module_name, module, module_comments);
 
     Some(module_id)
@@ -2228,6 +2287,7 @@ pub fn parse_module(
 pub fn parse_use(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
+    parent_module: Option<&mut Module>,
 ) -> (Pipeline, Vec<Exportable>) {
     let spans = &lite_command.parts;
 
@@ -2373,12 +2433,14 @@ pub fn parse_use(
         );
     };
 
+    let mut imported_modules = vec![];
     let (definitions, errors) = module.resolve_import_pattern(
         working_set,
         module_id,
         &import_pattern.members,
         None,
         name_span,
+        &mut imported_modules,
     );
 
     working_set.parse_errors.extend(errors);
@@ -2420,6 +2482,9 @@ pub fn parse_use(
 
     import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
 
+    if let Some(m) = parent_module {
+        m.track_imported_modules(&imported_modules)
+    }
     // Extend the current scope with the module's exportables
     working_set.use_decls(definitions.decls);
     working_set.use_modules(definitions.modules);
@@ -2853,6 +2918,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 &[],
                 Some(final_overlay_name.as_bytes()),
                 call.head,
+                &mut vec![],
             )
         } else {
             origin_module.resolve_import_pattern(
@@ -2863,6 +2929,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 }],
                 Some(final_overlay_name.as_bytes()),
                 call.head,
+                &mut vec![],
             )
         }
     } else {

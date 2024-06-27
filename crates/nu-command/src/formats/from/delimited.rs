@@ -39,7 +39,7 @@ fn from_delimited_stream(
         .from_reader(input_reader);
 
     let headers = if noheaders {
-        (1..=reader
+        (0..reader
             .headers()
             .map_err(|err| from_csv_error(err, span))?
             .len())
