@@ -1,4 +1,7 @@
-use crate::{query_json::QueryJson, query_web::QueryWeb, query_xml::QueryXml};
+use crate::{
+    query_json::QueryJson, query_web::QueryWeb, query_webpage_info::QueryWebpageInfo,
+    query_xml::QueryXml,
+};
 use nu_plugin::{EvaluatedCall, Plugin, PluginCommand, SimplePluginCommand};
 use nu_protocol::{Category, LabeledError, Signature, Value};
 
@@ -26,6 +29,7 @@ impl Plugin for Query {
             Box::new(QueryJson),
             Box::new(QueryXml),
             Box::new(QueryWeb),
+            Box::new(QueryWebpageInfo),
         ]
     }
 }
