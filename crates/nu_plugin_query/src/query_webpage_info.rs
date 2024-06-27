@@ -346,7 +346,7 @@ impl<'a> serde::ser::SerializeMap for MapSerializer<'a> {
     where
         T: Serialize,
     {
-        let value = serde_json::to_value(&key).map_err(|e| Error::new(e))?;
+        let value = serde_json::to_value(key).map_err(Error::new)?;
         let key = value
             .as_str()
             .ok_or(Error::new("key must be a string"))?
