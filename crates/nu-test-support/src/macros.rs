@@ -349,8 +349,10 @@ where
         temp_file
     });
 
-    // We don't have to write the plugin registry file, it's ok for it to not exist
+    // We have to write the plugin registry file, it must exist now we're using real_parent
     let temp_plugin_file = temp.path().join("plugin.msgpackz");
+    std::fs::File::create(&temp_plugin_file)
+        .expect("couldn't create temporary plugin registry file");
 
     crate::commands::ensure_plugins_built();
 

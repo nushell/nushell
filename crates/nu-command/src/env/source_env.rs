@@ -3,6 +3,7 @@ use nu_engine::{
     redirect_env,
 };
 use nu_protocol::engine::CommandType;
+use real_parent::PathExt;
 use std::path::PathBuf;
 
 /// Source a file for environment variables.
@@ -66,7 +67,7 @@ impl Command for SourceEnv {
             });
         };
 
-        if let Some(parent) = file_path.parent() {
+        if let Ok(parent) = file_path.real_parent() {
             let file_pwd = Value::string(parent.to_string_lossy(), call.head);
 
             caller_stack.add_env_var("FILE_PWD".to_string(), file_pwd);

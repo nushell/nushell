@@ -27,6 +27,7 @@ procfs = { workspace = true }
 [target.'cfg(target_os = "macos")'.dependencies]
 libproc = { workspace = true }
 mach2 = { workspace = true }
+real_parent = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 chrono = { workspace = true, default-features = false, features = ["clock"] }

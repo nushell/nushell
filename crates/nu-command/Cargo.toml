@@ -72,6 +72,7 @@ print-positions = { workspace = true }
 quick-xml = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
+real_parent = { workspace = true }
 regex = { workspace = true }
 roxmltree = { workspace = true }
 rusqlite = { workspace = true, features = ["bundled", "backup", "chrono"], optional = true }

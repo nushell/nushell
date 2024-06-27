@@ -1,3 +1,4 @@
+use real_parent::PathExt;
 use std::{fs::File, path::PathBuf};
 
 use nu_protocol::{PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData};
@@ -49,7 +50,7 @@ fn plugin_add_then_restart_nu() {
 fn plugin_add_in_nu_plugin_dirs_const() {
     let example_plugin_path = example_plugin_path();
 
-    let dirname = example_plugin_path.parent().expect("no parent");
+    let dirname = example_plugin_path.real_parent().expect("no parent");
     let filename = example_plugin_path
         .file_name()
         .expect("no file_name")
@@ -84,7 +85,7 @@ fn plugin_add_in_nu_plugin_dirs_const() {
 fn plugin_add_in_nu_plugin_dirs_env() {
     let example_plugin_path = example_plugin_path();
 
-    let dirname = example_plugin_path.parent().expect("no parent");
+    let dirname = example_plugin_path.real_parent().expect("no parent");
     let filename = example_plugin_path
         .file_name()
         .expect("no file_name")

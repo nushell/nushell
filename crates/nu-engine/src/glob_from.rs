@@ -1,6 +1,7 @@
 use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::{NuGlob, ShellError, Span, Spanned};
+use real_parent::PathExt;
 use std::{
     fs,
     path::{Component, Path, PathBuf},
@@ -87,7 +88,7 @@ pub fn glob_from(
                     span: pattern.span,
                 });
             };
-            (path.parent().map(|parent| parent.to_path_buf()), path)
+            (path.real_parent().ok(), path)
         }
     };
 

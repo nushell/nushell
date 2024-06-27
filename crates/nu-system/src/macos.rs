@@ -8,6 +8,7 @@ use libproc::libproc::task_info::{TaskAllInfo, TaskInfo};
 use libproc::libproc::thread_info::ThreadInfo;
 use libproc::processes::{pids_by_type, ProcFilter};
 use mach2::mach_time;
+use real_parent::PathExt;
 use std::cmp;
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -190,8 +191,8 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                 let mut need_root = true;
                 let mut root = Default::default();
                 if exe.is_absolute() {
-                    if let Some(parent) = exe.parent() {
-                        root = parent.to_path_buf();
+                    if let Ok(parent) = exe.real_parent() {
+                        root = parent;
                         need_root = false;
                     }
                 }

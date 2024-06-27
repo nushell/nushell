@@ -39,6 +39,7 @@ miette = { workspace = true, features = ["fancy-no-backtrace"] }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
 once_cell = { workspace = true }
 percent-encoding = { workspace = true }
+real_parent = { workspace = true }
 sysinfo = { workspace = true }
 unicode-segmentation = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }

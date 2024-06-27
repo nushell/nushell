@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use real_parent::PathExt;
 use sysinfo::{MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 
 const ENV_PATH_SEPARATOR_CHAR: char = {
@@ -80,7 +81,7 @@ fn all_columns(span: Span) -> Value {
     );
 
     let process = if let Some(p) = sys.process(pid) {
-        let root = if let Some(path) = p.exe().and_then(|p| p.parent()) {
+        let root = if let Some(path) = p.exe().and_then(|p| p.real_parent().ok()) {
             Value::string(path.to_string_lossy().to_string(), span)
         } else {
             Value::nothing(span)
