@@ -1,6 +1,5 @@
 use crate::help::highlight_search_string;
 use fancy_regex::Regex;
-use log::info;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
@@ -451,7 +450,6 @@ fn find_with_rest_and_highlight(
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
             if let Some(lines) = stream.lines() {
-
                 let terms = lower_terms
                     .into_iter()
                     .map(|term| term.to_expanded_string("", &filter_config).to_lowercase())
