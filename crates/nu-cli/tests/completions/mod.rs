@@ -148,6 +148,9 @@ fn dotnu_completions() {
         "bar.nu".into(),
         "bat.nu".into(),
         "baz.nu".into(),
+        #[cfg(windows)]
+        "dir_module\\".into(),
+        #[cfg(not(windows))]
         "dir_module/".into(),
         "foo.nu".into(),
         "spam.nu".into(),
