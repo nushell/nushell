@@ -1,5 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, Example, LabeledError, Type, Record, Signature, Span, Value};
+use nu_protocol::{Category, Example, LabeledError, Record, Signature, Span, Type, Value};
 
 use crate::Query;
 
