@@ -1,7 +1,8 @@
 use nu_protocol::{
     ast::{
-        Argument, Block, Call, CellPath, Expr, Expression, ListItem, Operator, PathMember,
-        Pipeline, PipelineRedirection, RecordItem, RedirectionSource, RedirectionTarget,
+        Argument, Block, Call, CellPath, Expr, Expression, ExternalArgument, ListItem, Operator,
+        PathMember, Pipeline, PipelineRedirection, RecordItem, RedirectionSource,
+        RedirectionTarget,
     },
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, IrBlock, Literal, RedirectMode},
@@ -44,6 +45,13 @@ impl RedirectModes {
         RedirectModes {
             out: Some(RedirectMode::Capture.into_spanned(span)),
             err: None,
+        }
+    }
+
+    fn with_pipe_out(&self, span: Span) -> Self {
+        RedirectModes {
+            out: Some(RedirectMode::Pipe.into_spanned(span)),
+            err: self.err.clone(),
         }
     }
 
@@ -120,7 +128,9 @@ fn compile_pipeline(
         // element, then it's from whatever is passed in as the mode to use.
 
         let next_redirect_modes = if let Some(next_element) = iter.peek() {
+            // If there's a next element we always pipe out
             redirect_modes_of_expression(working_set, &next_element.expr, span)?
+                .with_pipe_out(next_element.pipe.unwrap_or(next_element.expr.span))
         } else {
             redirect_modes
                 .take()
@@ -280,6 +290,26 @@ fn compile_expression(
         builder.load_empty(out_reg)
     };
 
+    let move_in_reg_to_out_reg = |builder: &mut BlockBuilder| {
+        // Ensure that out_reg contains the input value, because a call only uses one register
+        if let Some(in_reg) = in_reg {
+            if in_reg != out_reg {
+                // Have to move in_reg to out_reg so it can be used
+                builder.push(
+                    Instruction::Move {
+                        dst: out_reg,
+                        src: in_reg,
+                    }
+                    .into_spanned(expr.span),
+                )?;
+            }
+        } else {
+            // Will have to initialize out_reg with Empty first
+            builder.load_empty(out_reg)?;
+        }
+        Ok(())
+    };
+
     match &expr.expr {
         Expr::Bool(b) => lit(builder, Literal::Bool(*b)),
         Expr::Int(i) => lit(builder, Literal::Int(*i)),
@@ -340,26 +370,15 @@ fn compile_expression(
         }
         Expr::VarDecl(_) => Err(CompileError::Todo("VarDecl")),
         Expr::Call(call) => {
-            // Ensure that out_reg contains the input value, because a call only uses one register
-            if let Some(in_reg) = in_reg {
-                if in_reg != out_reg {
-                    // Have to move in_reg to out_reg so it can be used
-                    builder.push(
-                        Instruction::Move {
-                            dst: out_reg,
-                            src: in_reg,
-                        }
-                        .into_spanned(call.head),
-                    )?;
-                }
-            } else {
-                // Will have to initialize out_reg with Empty first
-                builder.load_empty(out_reg)?;
-            }
+            move_in_reg_to_out_reg(builder)?;
 
             compile_call(working_set, builder, &call, redirect_modes, out_reg)
         }
-        Expr::ExternalCall(_, _) => Err(CompileError::Todo("ExternalCall")),
+        Expr::ExternalCall(head, args) => {
+            move_in_reg_to_out_reg(builder)?;
+
+            compile_external_call(working_set, builder, head, args, redirect_modes, out_reg)
+        }
         Expr::Operator(_) => Err(CompileError::Todo("Operator")),
         Expr::RowCondition(_) => Err(CompileError::Todo("RowCondition")),
         Expr::UnaryNot(subexpr) => {
@@ -769,6 +788,38 @@ fn compile_call(
     Ok(())
 }
 
+fn compile_external_call(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    head: &Expression,
+    args: &[ExternalArgument],
+    redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    // Pass everything to run-external
+    let run_external_id = working_set
+        .find_decl(b"run-external")
+        .ok_or_else(|| CompileError::RunExternalNotFound)?;
+
+    let mut call = Call::new(head.span);
+    call.decl_id = run_external_id;
+
+    call.arguments.push(Argument::Positional(head.clone()));
+
+    for arg in args {
+        match arg {
+            ExternalArgument::Regular(expr) => {
+                call.arguments.push(Argument::Positional(expr.clone()));
+            }
+            ExternalArgument::Spread(expr) => {
+                call.arguments.push(Argument::Spread(expr.clone()));
+            }
+        }
+    }
+
+    compile_call(working_set, builder, &call, redirect_modes, io_reg)
+}
+
 /// Compile a call to `if` as a branch-if
 fn compile_if(
     working_set: &StateWorkingSet,
@@ -998,6 +1049,7 @@ pub enum CompileError {
     InvalidKeywordCall(&'static str, Span),
     SetBranchTargetOfNonBranchInstruction,
     InstructionIndexOutOfRange(usize),
+    RunExternalNotFound,
     Todo(&'static str),
 }
 
@@ -1023,6 +1075,9 @@ impl CompileError {
             }
             CompileError::InstructionIndexOutOfRange(index) => {
                 format!("instruction index out of range: {index}")
+            }
+            CompileError::RunExternalNotFound => {
+                "run-external is not supported here, so external calls can't be compiled".into()
             }
             CompileError::Todo(msg) => {
                 format!("TODO: {msg}")

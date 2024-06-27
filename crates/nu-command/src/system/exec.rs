@@ -62,7 +62,7 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         command.envs(envs);
 
         // Configure args.
-        let args = crate::eval_arguments_from_call(engine_state, stack, call.assert_ast_call()?)?;
+        let args = crate::eval_arguments_from_call(engine_state, stack, call)?;
         command.args(args.into_iter().map(|s| s.item));
 
         // Execute the child process, replacing/terminating the current process
