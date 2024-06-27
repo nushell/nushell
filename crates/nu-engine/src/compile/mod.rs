@@ -252,7 +252,18 @@ fn compile_expression(
     in_reg: Option<RegId>,
     out_reg: RegId,
 ) -> Result<(), CompileError> {
+    let drop_input = |builder: &mut BlockBuilder| {
+        if let Some(in_reg) = in_reg {
+            if in_reg != out_reg {
+                builder.drop_reg(in_reg)?;
+            }
+        }
+        Ok(())
+    };
+
     let lit = |builder: &mut BlockBuilder, literal: Literal| {
+        drop_input(builder)?;
+
         builder
             .push(
                 Instruction::LoadLiteral {
@@ -265,11 +276,7 @@ fn compile_expression(
     };
 
     let ignore = |builder: &mut BlockBuilder| {
-        if let Some(in_reg) = in_reg {
-            if in_reg != out_reg {
-                builder.drop_reg(in_reg)?;
-            }
-        }
+        drop_input(builder)?;
         builder.load_empty(out_reg)
     };
 
@@ -281,16 +288,56 @@ fn compile_expression(
             let data_slice = builder.data(bin)?;
             lit(builder, Literal::Binary(data_slice))
         }
-        Expr::Range(_) => Err(CompileError::Todo("Range")),
-        Expr::Var(var_id) => builder
-            .push(
+        Expr::Range(range) => {
+            // Compile the subexpressions of the range
+            let compile_part = |builder: &mut BlockBuilder,
+                                part_expr: Option<&Expression>|
+             -> Result<RegId, CompileError> {
+                let reg = builder.next_register()?;
+                if let Some(part_expr) = part_expr {
+                    compile_expression(
+                        working_set,
+                        builder,
+                        part_expr,
+                        redirect_modes.with_capture_out(part_expr.span),
+                        None,
+                        reg,
+                    )?;
+                } else {
+                    builder.load_literal(reg, Literal::Nothing.into_spanned(expr.span))?;
+                }
+                Ok(reg)
+            };
+
+            drop_input(builder)?;
+
+            let start = compile_part(builder, range.from.as_ref())?;
+            let step = compile_part(builder, range.next.as_ref())?;
+            let end = compile_part(builder, range.to.as_ref())?;
+
+            // Assemble the range
+            builder.load_literal(
+                out_reg,
+                Literal::Range {
+                    start,
+                    step,
+                    end,
+                    inclusion: range.operator.inclusion,
+                }
+                .into_spanned(expr.span),
+            )
+        }
+        Expr::Var(var_id) => {
+            drop_input(builder)?;
+            builder.push(
                 Instruction::LoadVariable {
                     dst: out_reg,
                     var_id: *var_id,
                 }
                 .into_spanned(expr.span),
-            )
-            .map(|_| ()),
+            )?;
+            Ok(())
+        }
         Expr::VarDecl(_) => Err(CompileError::Todo("VarDecl")),
         Expr::Call(call) => {
             // Ensure that out_reg contains the input value, because a call only uses one register
@@ -316,10 +363,7 @@ fn compile_expression(
         Expr::Operator(_) => Err(CompileError::Todo("Operator")),
         Expr::RowCondition(_) => Err(CompileError::Todo("RowCondition")),
         Expr::UnaryNot(subexpr) => {
-            if let Some(in_reg) = in_reg {
-                // Discard the input
-                builder.drop_reg(in_reg)?;
-            }
+            drop_input(builder)?;
             compile_expression(
                 working_set,
                 builder,
@@ -333,10 +377,7 @@ fn compile_expression(
         }
         Expr::BinaryOp(lhs, op, rhs) => {
             if let Expr::Operator(ref operator) = op.expr {
-                if let Some(in_reg) = in_reg {
-                    // Discard the input
-                    builder.drop_reg(in_reg)?;
-                }
+                drop_input(builder)?;
                 compile_binary_op(
                     working_set,
                     builder,
@@ -1081,7 +1122,46 @@ impl BlockBuilder {
     /// Returns the offset of the inserted instruction.
     fn push(&mut self, instruction: Spanned<Instruction>) -> Result<usize, CompileError> {
         match &instruction.item {
-            Instruction::LoadLiteral { dst, lit: _ } => self.mark_register(*dst)?,
+            Instruction::LoadLiteral { dst, lit } => {
+                self.mark_register(*dst)?;
+                // Free any registers on the literal
+                match lit {
+                    Literal::Range {
+                        start,
+                        step,
+                        end,
+                        inclusion: _,
+                    } => {
+                        self.free_register(*start)?;
+                        self.free_register(*step)?;
+                        self.free_register(*end)?;
+                    }
+                    Literal::Bool(_)
+                    | Literal::Int(_)
+                    | Literal::Float(_)
+                    | Literal::Binary(_)
+                    | Literal::Block(_)
+                    | Literal::Closure(_)
+                    | Literal::List { capacity: _ }
+                    | Literal::Record { capacity: _ }
+                    | Literal::Filepath {
+                        val: _,
+                        no_expand: _,
+                    }
+                    | Literal::Directory {
+                        val: _,
+                        no_expand: _,
+                    }
+                    | Literal::GlobPattern {
+                        val: _,
+                        no_expand: _,
+                    }
+                    | Literal::String(_)
+                    | Literal::RawString(_)
+                    | Literal::CellPath(_)
+                    | Literal::Nothing => (),
+                }
+            }
             Instruction::Move { dst, src } => {
                 self.free_register(*src)?;
                 self.mark_register(*dst)?;
