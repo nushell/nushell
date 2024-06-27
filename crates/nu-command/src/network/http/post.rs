@@ -1,9 +1,12 @@
 use crate::network::http::client::{
     check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, send_request, RequestFlags,
+    request_set_timeout, RequestFlags, HttpBody
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::DataSource;
+
+use super::client::send_request2;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -15,10 +18,10 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("http post")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required("URL", SyntaxShape::String, "The URL to post to.")
-            .required("data", SyntaxShape::Any, "The contents of the post body.")
+            .optional("data", SyntaxShape::Any, "The contents of the post body. Required unless part of pipeline.")
             .named(
                 "user",
                 SyntaxShape::Any,
@@ -129,7 +132,7 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
-    data: Value,
+    data: HttpBody,
     content_type: Option<String>,
     raw: bool,
     insecure: bool,
@@ -145,13 +148,34 @@ fn run_post(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    _input: PipelineData,
+    input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+
+    let (data, maybe_metadata) = call.opt::<Value>(engine_state, stack, 1)?
+        .map(|v| (HttpBody::Value(v), None))
+        .unwrap_or_else(|| match input {
+            PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineData::ByteStream(byte_stream, metadata) => (HttpBody::ByteStream(byte_stream), metadata),
+            _ => (HttpBody::None, None)
+        });
+    let content_type = call.get_flag(engine_state, stack, "content-type")?
+        .or_else(|| {
+            if let Some(metadata) = maybe_metadata {
+                match metadata.data_source {
+                    DataSource::ContentType(content_type) => Some(content_type),
+                    _ => None
+                }
+            } else {
+                None
+            }
+        });
+           
+
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        data: call.req(engine_state, stack, 1)?,
-        content_type: call.get_flag(engine_state, stack, "content-type")?,
+        data, 
+        content_type,
         raw: call.has_flag(engine_state, stack, "raw")?,
         insecure: call.has_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
@@ -185,7 +209,7 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request.clone(), Some(args.data), args.content_type, ctrl_c);
+    let response = send_request2(request.clone(), args.data, args.content_type, ctrl_c);
 
     let request_flags = RequestFlags {
         raw: args.raw,

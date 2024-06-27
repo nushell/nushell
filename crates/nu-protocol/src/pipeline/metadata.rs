@@ -15,4 +15,5 @@ pub enum DataSource {
     Ls,
     HtmlThemes,
     FilePath(PathBuf),
+    ContentType(String)
 }

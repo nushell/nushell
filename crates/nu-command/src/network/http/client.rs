@@ -180,88 +180,135 @@ impl From<ShellError> for ShellErrorOrRequestError {
     }
 }
 
+#[derive(Debug)]
+pub enum HttpBody {
+    Value(Value),
+    ByteStream(ByteStream),
+    None,
+}
+
 pub fn send_request(
     request: Request,
     body: Option<Value>,
     content_type: Option<String>,
     ctrl_c: Option<Arc<AtomicBool>>,
 ) -> Result<Response, ShellErrorOrRequestError> {
-    let request_url = request.url().to_string();
-    if body.is_none() {
-        return send_cancellable_request(&request_url, Box::new(|| request.call()), ctrl_c);
-    }
-    let body = body.expect("Should never be none.");
-
-    let body_type = match content_type {
-        Some(it) if it == "application/json" => BodyType::Json,
-        Some(it) if it == "application/x-www-form-urlencoded" => BodyType::Form,
-        _ => BodyType::Unknown,
+    let body = if let Some(body) = body {
+        HttpBody::Value(body)
+    } else {
+        HttpBody::None
     };
-    match body {
-        Value::Binary { val, .. } => send_cancellable_request(
-            &request_url,
-            Box::new(move || request.send_bytes(&val)),
-            ctrl_c,
-        ),
-        Value::String { .. } if body_type == BodyType::Json => {
-            let data = value_to_json_value(&body)?;
-            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
-        }
-        Value::String { val, .. } => send_cancellable_request(
-            &request_url,
-            Box::new(move || request.send_string(&val)),
-            ctrl_c,
-        ),
-        Value::Record { .. } if body_type == BodyType::Json => {
-            let data = value_to_json_value(&body)?;
-            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
-        }
-        Value::Record { val, .. } if body_type == BodyType::Form => {
-            let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
-            for (col, val) in val.into_owned() {
-                data.push((col, val.coerce_into_string()?))
-            }
+    send_request2(request, body, content_type, ctrl_c)
+}
 
-            let request_fn = move || {
-                // coerce `data` into a shape that send_form() is happy with
-                let data = data
-                    .iter()
-                    .map(|(a, b)| (a.as_str(), b.as_str()))
-                    .collect::<Vec<(&str, &str)>>();
-                request.send_form(&data)
+// remove once all commands have been migrated
+pub fn send_request2(
+    request: Request,
+    http_body: HttpBody,
+    content_type: Option<String>,
+    ctrl_c: Option<Arc<AtomicBool>>,
+) -> Result<Response, ShellErrorOrRequestError> {
+    let request_url = request.url().to_string();
+
+    match http_body {
+        HttpBody::None => {
+            return send_cancellable_request(&request_url, Box::new(|| request.call()), ctrl_c);
+        }
+        HttpBody::ByteStream(byte_stream) => {
+            let bytes = byte_stream.into_bytes()?;
+
+            send_cancellable_request(
+                &request_url,
+                Box::new(move || request.send_bytes(&bytes)),
+                ctrl_c,
+            )
+        }
+        HttpBody::Value(body) => {
+            let body_type = match content_type {
+                Some(it) if it == "application/json" => BodyType::Json,
+                Some(it) if it == "application/x-www-form-urlencoded" => BodyType::Form,
+                _ => BodyType::Unknown,
             };
-            send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
-        }
-        Value::List { vals, .. } if body_type == BodyType::Form => {
-            if vals.len() % 2 != 0 {
-                return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+            match body {
+                Value::Binary { val, .. } => send_cancellable_request(
+                    &request_url,
+                    Box::new(move || request.send_bytes(&val)),
+                    ctrl_c,
+                ),
+                Value::String { .. } if body_type == BodyType::Json => {
+                    let data = value_to_json_value(&body)?;
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| request.send_json(data)),
+                        ctrl_c,
+                    )
+                }
+                Value::String { val, .. } => send_cancellable_request(
+                    &request_url,
+                    Box::new(move || request.send_string(&val)),
+                    ctrl_c,
+                ),
+                Value::Record { .. } if body_type == BodyType::Json => {
+                    let data = value_to_json_value(&body)?;
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| request.send_json(data)),
+                        ctrl_c,
+                    )
+                }
+                Value::Record { val, .. } if body_type == BodyType::Form => {
+                    let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
+
+                    for (col, val) in val.into_owned() {
+                        data.push((col, val.coerce_into_string()?))
+                    }
+
+                    let request_fn = move || {
+                        // coerce `data` into a shape that send_form() is happy with
+                        let data = data
+                            .iter()
+                            .map(|(a, b)| (a.as_str(), b.as_str()))
+                            .collect::<Vec<(&str, &str)>>();
+                        request.send_form(&data)
+                    };
+                    send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
+                }
+                Value::List { vals, .. } if body_type == BodyType::Form => {
+                    if vals.len() % 2 != 0 {
+                        return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                            msg: "unsupported body input".into(),
+                        }));
+                    }
+
+                    let data = vals
+                        .chunks(2)
+                        .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
+                        .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
+
+                    let request_fn = move || {
+                        // coerce `data` into a shape that send_form() is happy with
+                        let data = data
+                            .iter()
+                            .map(|(a, b)| (a.as_str(), b.as_str()))
+                            .collect::<Vec<(&str, &str)>>();
+                        request.send_form(&data)
+                    };
+                    send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
+                }
+                Value::List { .. } if body_type == BodyType::Json => {
+                    let data = value_to_json_value(&body)?;
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| request.send_json(data)),
+                        ctrl_c,
+                    )
+                }
+                _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
                     msg: "unsupported body input".into(),
-                }));
+                })),
             }
-
-            let data = vals
-                .chunks(2)
-                .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
-                .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
-
-            let request_fn = move || {
-                // coerce `data` into a shape that send_form() is happy with
-                let data = data
-                    .iter()
-                    .map(|(a, b)| (a.as_str(), b.as_str()))
-                    .collect::<Vec<(&str, &str)>>();
-                request.send_form(&data)
-            };
-            send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
         }
-        Value::List { .. } if body_type == BodyType::Json => {
-            let data = value_to_json_value(&body)?;
-            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
-        }
-        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-            msg: "unsupported body input".into(),
-        })),
     }
 }
 

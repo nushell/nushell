@@ -90,6 +90,9 @@ impl Command for Metadata {
                             "source",
                             Value::string(path.to_string_lossy().to_string(), head),
                         ),
+                        PipelineMetadata {
+                            data_source: DataSource::ContentType(content_type),
+                        } => record.push("content_type", Value::string(content_type, head)),
                     }
                 }
 
@@ -143,6 +146,9 @@ fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head:
                 "source",
                 Value::string(path.to_string_lossy().to_string(), head),
             ),
+            PipelineMetadata {
+                data_source: DataSource::ContentType(content_type),
+            } => record.push("content_type", Value::string(content_type, head)),
         }
     }
 
