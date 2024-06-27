@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 use support::{
-    completions_helpers::{new_partial_engine, new_quote_engine},
+    completions_helpers::{new_dotnu_engine, new_partial_engine, new_quote_engine},
     file, folder, match_suggestions, new_engine,
 };
 
@@ -138,7 +138,7 @@ fn variables_customcompletion_subcommands_with_customcompletion_2(
 #[test]
 fn dotnu_completions() {
     // Create a new engine
-    let (_, _, engine, stack) = new_engine();
+    let (_, _, engine, stack) = new_dotnu_engine();
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -147,12 +147,19 @@ fn dotnu_completions() {
     let completion_str = "source-env ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(2, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
-    #[cfg(windows)]
-    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
-    #[cfg(not(windows))]
-    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+    match_suggestions(
+        vec![
+            "asdf.nu".into(),
+            "bar.nu".into(),
+            "bat.nu".into(),
+            "baz.nu".into(),
+            "dir_module/".into(),
+            "foo.nu".into(),
+            "spam.nu".into(),
+            "xyzzy.nu".into(),
+        ],
+        suggestions,
+    );
 
     // Test use completion
     let completion_str = "use ".to_string();

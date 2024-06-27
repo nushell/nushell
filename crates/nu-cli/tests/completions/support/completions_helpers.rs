@@ -68,6 +68,52 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     (dir, dir_str, engine_state, stack)
 }
 
+// creates a new engine with the current path into the completions fixtures folder
+pub fn new_dotnu_engine() -> (PathBuf, String, EngineState, Stack) {
+    // Target folder inside assets
+    let dir = fs::fixtures().join("dotnu_completions");
+    let dir_str = dir
+        .clone()
+        .into_os_string()
+        .into_string()
+        .unwrap_or_default();
+    let dir_span = nu_protocol::Span::new(0, dir_str.len());
+
+    // Create a new engine with default context
+    let mut engine_state = create_default_context();
+
+    // Add $nu
+    engine_state.generate_nu_constant();
+
+    // New stack
+    let mut stack = Stack::new();
+
+    // Add pwd as env var
+    stack.add_env_var("PWD".to_string(), Value::string(dir_str.clone(), dir_span));
+    stack.add_env_var(
+        "TEST".to_string(),
+        Value::string("NUSHELL".to_string(), dir_span),
+    );
+
+    stack.add_env_var(
+        "NU_LIB_DIRS".to_string(),
+        Value::List {
+            vals: vec![
+                Value::string(file(dir.join("lib-dir1")), dir_span),
+                Value::string(file(dir.join("lib-dir2")), dir_span),
+                Value::string(file(dir.join("lib-dir3")), dir_span),
+            ],
+            internal_span: dir_span,
+        },
+    );
+
+    // Merge environment into the permanent state
+    let merge_result = engine_state.merge_env(&mut stack, &dir);
+    assert!(merge_result.is_ok());
+
+    (dir, dir_str, engine_state, stack)
+}
+
 pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("quoted_completions");
