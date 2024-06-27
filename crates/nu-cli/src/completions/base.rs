@@ -5,9 +5,8 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 
-// Completer trait represents the three stages of the completion
-// fetch, filter and sort
 pub trait Completer {
+    /// Fetch, filter, and sort completions
     #[allow(clippy::too_many_arguments)]
     fn fetch(
         &mut self,
