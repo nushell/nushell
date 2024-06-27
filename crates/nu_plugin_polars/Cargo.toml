@@ -20,6 +20,7 @@ bench = false
 nu-protocol = { path = "../nu-protocol", version = "0.95.1" }
 nu-plugin = { path = "../nu-plugin", version = "0.95.1" }
 nu-path = { path = "../nu-path", version = "0.95.1" }
+nu-utils = { path = "../nu-utils", version = "0.95.1" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
@@ -36,6 +37,8 @@ polars-ops = { version = "0.40"}
 polars-plan = { version = "0.40", features = ["regex"]}
 polars-utils = { version = "0.40"}
 typetag = "0.2"
+env_logger = "0.11.3"
+log.workspace = true
 uuid = { version = "1.9", features = ["v4", "serde"] }
 
 [dependencies.polars]

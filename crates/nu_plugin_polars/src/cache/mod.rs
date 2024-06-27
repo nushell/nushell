@@ -13,7 +13,9 @@ use nu_plugin::{EngineInterface, PluginCommand};
 use nu_protocol::{LabeledError, ShellError, Span};
 use uuid::Uuid;
 
-use crate::{plugin_debug, values::PolarsPluginObject, EngineWrapper, PolarsPlugin};
+use crate::{values::PolarsPluginObject, EngineWrapper, PolarsPlugin};
+
+use log::debug;
 
 #[derive(Debug, Clone)]
 pub struct CacheValue {
@@ -60,22 +62,16 @@ impl Cache {
 
         let removed = if force || reference_count.unwrap_or_default() < 1 {
             let removed = lock.remove(key);
-            plugin_debug!(
-                engine,
-                "PolarsPlugin: removing {key} from cache: {removed:?}"
-            );
+            debug!("PolarsPlugin: removing {key} from cache: {removed:?}");
             removed
         } else {
-            plugin_debug!(
-                engine,
-                "PolarsPlugin: decrementing reference count for {key}"
-            );
+            debug!("PolarsPlugin: decrementing reference count for {key}");
             None
         };
 
         // Once there are no more entries in the cache
         // we can turn plugin gc back on
-        plugin_debug!(engine, "PolarsPlugin: Cache is empty enabling GC");
+        debug!("PolarsPlugin: Cache is empty enabling GC");
         engine.set_gc_disabled(false).map_err(LabeledError::from)?;
         drop(lock);
         Ok(removed)
@@ -91,14 +87,11 @@ impl Cache {
         span: Span,
     ) -> Result<Option<CacheValue>, ShellError> {
         let mut lock = self.lock()?;
-        plugin_debug!(
-            engine,
-            "PolarsPlugin: Inserting {uuid} into cache: {value:?}"
-        );
+        debug!("PolarsPlugin: Inserting {uuid} into cache: {value:?}");
         // turn off plugin gc the first time an entry is added to the cache
         // as we don't want the plugin to be garbage collected if there
         // is any live data
-        plugin_debug!(engine, "PolarsPlugin: Cache has values disabling GC");
+        debug!("PolarsPlugin: Cache has values disabling GC");
         engine.set_gc_disabled(true).map_err(LabeledError::from)?;
         let cache_value = CacheValue {
             uuid,
