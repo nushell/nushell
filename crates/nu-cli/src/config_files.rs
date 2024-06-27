@@ -344,7 +344,10 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
             name: identity.name().to_owned(),
             filename: identity.filename().to_owned(),
             shell: identity.shell().map(|p| p.to_owned()),
-            data: PluginRegistryItemData::Valid { commands },
+            data: PluginRegistryItemData::Valid {
+                metadata: Default::default(),
+                commands,
+            },
         });
     }
 

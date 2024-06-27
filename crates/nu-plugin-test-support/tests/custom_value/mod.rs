@@ -54,6 +54,10 @@ struct IntoU32;
 struct IntoIntFromU32;
 
 impl Plugin for CustomU32Plugin {
+    fn version(&self) -> String {
+        "0.0.0".into()
+    }
+
     fn commands(&self) -> Vec<Box<dyn nu_plugin::PluginCommand<Plugin = Self>>> {
         vec![Box::new(IntoU32), Box::new(IntoIntFromU32)]
     }

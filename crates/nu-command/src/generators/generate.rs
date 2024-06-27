@@ -12,13 +12,7 @@ impl Command for Generate {
 
     fn signature(&self) -> Signature {
         Signature::build("generate")
-            .input_output_types(vec![
-                (Type::Nothing, Type::List(Box::new(Type::Any))),
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
             .required("initial", SyntaxShape::Any, "Initial value.")
             .required(
                 "closure",
@@ -63,23 +57,10 @@ used as the next argument to the closure, otherwise generation stops.
                 )),
             },
             Example {
-                example: "generate [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } | first 10",
-                description: "Generate a stream of fibonacci numbers",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(5),
-                        Value::test_int(8),
-                        Value::test_int(13),
-                        Value::test_int(21),
-                        Value::test_int(34),
-                    ],
-                    Span::test_data(),
-                )),
+                example:
+                    "generate [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} }",
+                description: "Generate a continuous stream of Fibonacci numbers",
+                result: None,
             },
         ]
     }

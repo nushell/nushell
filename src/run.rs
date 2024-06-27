@@ -7,7 +7,7 @@ use crate::{
 use log::trace;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
-use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl};
+use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, EvaluateCommandsOpts};
 use nu_protocol::{
     engine::{EngineState, Stack},
     report_error_new, PipelineData, Spanned,
@@ -114,8 +114,11 @@ pub(crate) fn run_commands(
         engine_state,
         &mut stack,
         input,
-        parsed_nu_cli_args.table_mode,
-        parsed_nu_cli_args.no_newline.is_some(),
+        EvaluateCommandsOpts {
+            table_mode: parsed_nu_cli_args.table_mode,
+            error_style: parsed_nu_cli_args.error_style,
+            no_newline: parsed_nu_cli_args.no_newline.is_some(),
+        },
     ) {
         report_error_new(engine_state, &err);
         std::process::exit(1);

@@ -60,6 +60,9 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 /// }
 ///
 /// # impl Plugin for LowercasePlugin {
+/// #     fn version(&self) -> String {
+/// #         "0.0.0".into()
+/// #     }
 /// #     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {
 /// #         vec![Box::new(Lowercase)]
 /// #     }
@@ -195,6 +198,9 @@ pub trait PluginCommand: Sync {
 /// }
 ///
 /// # impl Plugin for HelloPlugin {
+/// #     fn version(&self) -> String {
+/// #         "0.0.0".into()
+/// #     }
 /// #     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {
 /// #         vec![Box::new(Hello)]
 /// #     }

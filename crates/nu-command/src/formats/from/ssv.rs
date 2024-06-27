@@ -52,12 +52,12 @@ impl Command for FromSsv {
                 Value::test_list(
                     vec![
                         Value::test_record(record! {
-                            "column1" => Value::test_string("FOO"),
-                            "column2" => Value::test_string("BAR"),
+                            "column0" => Value::test_string("FOO"),
+                            "column1" => Value::test_string("BAR"),
                         }),
                         Value::test_record(record! {
-                            "column1" => Value::test_string("1"),
-                            "column2" => Value::test_string("2"),
+                            "column0" => Value::test_string("1"),
+                            "column1" => Value::test_string("2"),
                         }),
                     ],
                 )
@@ -170,7 +170,7 @@ fn parse_aligned_columns<'a>(
         let headers: Vec<(String, usize)> = indices
             .iter()
             .enumerate()
-            .map(|(i, position)| (format!("column{}", i + 1), *position))
+            .map(|(i, position)| (format!("column{}", i), *position))
             .collect();
 
         construct(ls.iter().map(|s| s.to_owned()), headers)
@@ -215,7 +215,7 @@ fn parse_separated_columns<'a>(
     let parse_without_headers = |ls: Vec<&str>| {
         let num_columns = ls.iter().map(|r| r.len()).max().unwrap_or(0);
 
-        let headers = (1..=num_columns)
+        let headers = (0..=num_columns)
             .map(|i| format!("column{i}"))
             .collect::<Vec<String>>();
         collect(headers, ls.into_iter(), separator)
@@ -370,9 +370,9 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                vec![owned("column1", "a"), owned("column2", "b")],
-                vec![owned("column1", "1"), owned("column2", "2")],
-                vec![owned("column1", "3"), owned("column2", "4")]
+                vec![owned("column0", "a"), owned("column1", "b")],
+                vec![owned("column0", "1"), owned("column1", "2")],
+                vec![owned("column0", "3"), owned("column1", "4")]
             ]
         );
     }
@@ -484,25 +484,25 @@ mod tests {
             result,
             vec![
                 vec![
-                    owned("column1", "a multi-word value"),
-                    owned("column2", "b"),
-                    owned("column3", ""),
-                    owned("column4", "d"),
-                    owned("column5", "")
-                ],
-                vec![
-                    owned("column1", "1"),
+                    owned("column0", "a multi-word value"),
+                    owned("column1", "b"),
                     owned("column2", ""),
-                    owned("column3", "3-3"),
-                    owned("column4", "4"),
-                    owned("column5", "")
+                    owned("column3", "d"),
+                    owned("column4", "")
                 ],
                 vec![
+                    owned("column0", "1"),
+                    owned("column1", ""),
+                    owned("column2", "3-3"),
+                    owned("column3", "4"),
+                    owned("column4", "")
+                ],
+                vec![
+                    owned("column0", ""),
                     owned("column1", ""),
                     owned("column2", ""),
                     owned("column3", ""),
-                    owned("column4", ""),
-                    owned("column5", "last")
+                    owned("column4", "last")
                 ],
             ]
         );

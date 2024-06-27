@@ -17,8 +17,8 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     ast::{Math, Operator},
     engine::Closure,
-    ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, IntoValue,
-    PipelineData, PluginSignature, ShellError, Span, Spanned, TryIntoValue, Value,
+    ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
+    PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value, IntoValue, TryIntoValue
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -1017,6 +1017,25 @@ fn start_fake_plugin_call_responder(
             }
         })
         .expect("failed to spawn thread");
+}
+
+#[test]
+fn interface_get_metadata() -> Result<(), ShellError> {
+    let test = TestCase::new();
+    let manager = test.plugin("test");
+    let interface = manager.get_interface();
+
+    start_fake_plugin_call_responder(manager, 1, |_| {
+        vec![ReceivedPluginCallMessage::Response(
+            PluginCallResponse::Metadata(PluginMetadata::new().with_version("test")),
+        )]
+    });
+
+    let metadata = interface.get_metadata()?;
+
+    assert_eq!(Some("test"), metadata.version.as_deref());
+    assert!(test.has_unconsumed_write());
+    Ok(())
 }
 
 #[test]

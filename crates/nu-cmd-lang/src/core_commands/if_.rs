@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, get_eval_block, get_eval_expression, get_eval_expression_with_input,
 };
 use nu_protocol::{
-    engine::StateWorkingSet,
+    engine::{CommandType, StateWorkingSet},
     eval_const::{eval_const_subexpression, eval_constant, eval_constant_with_input},
 };
 
@@ -39,6 +39,15 @@ impl Command for If {
                 "Expression or block to run when the condition is false.",
             )
             .category(Category::Core)
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn is_const(&self) -> bool {

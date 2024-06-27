@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct While;
@@ -27,6 +28,15 @@ impl Command for While {
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["loop"]
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(
