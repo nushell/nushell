@@ -97,7 +97,9 @@ fn compile_block(
             if index != last_index {
                 // Explicitly drain the out reg after each non-final pipeline, because that's how
                 // the semicolon functions.
-                builder.push(Instruction::Drain { src: out_reg }.into_spanned(span))?;
+                if builder.is_allocated(out_reg) {
+                    builder.push(Instruction::Drain { src: out_reg }.into_spanned(span))?;
+                }
             }
         }
         Ok(())
@@ -1397,6 +1399,13 @@ impl BlockBuilder {
         }
     }
 
+    /// Check if a register is initialized with a value.
+    fn is_allocated(&self, reg_id: RegId) -> bool {
+        self.register_allocation_state
+            .get(reg_id.0 as usize)
+            .is_some_and(|state| *state)
+    }
+
     /// Mark a register as initialized.
     fn mark_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
         if let Some(is_allocated) = self.register_allocation_state.get_mut(reg_id.0 as usize) {
@@ -1558,15 +1567,16 @@ impl BlockBuilder {
         Ok(reg_id)
     }
 
-    /// Deallocate a register and set it to `Empty`
+    /// Deallocate a register and set it to `Empty`, if it is allocated
     fn drop_reg(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        self.push(Instruction::Drop { src: reg_id }.into_spanned(Span::unknown()))?;
+        if self.is_allocated(reg_id) {
+            self.push(Instruction::Drop { src: reg_id }.into_spanned(Span::unknown()))?;
+        }
         Ok(())
     }
 
     /// Set a register to `Empty`, but mark it as in-use, e.g. for input
     fn load_empty(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        self.mark_register(reg_id)?;
         self.drop_reg(reg_id)?;
         self.mark_register(reg_id)
     }
