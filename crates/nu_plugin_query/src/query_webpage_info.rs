@@ -1,5 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, Example, LabeledError, Record, Signature, Span, Value};
+use nu_protocol::{Category, Example, LabeledError, Type, Record, Signature, Span, Value};
 
 use crate::Query;
 
@@ -17,7 +17,9 @@ impl SimplePluginCommand for QueryWebpageInfo {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name()).category(Category::Network)
+        Signature::build(self.name())
+            .input_output_type(Type::String, Type::record())
+            .category(Category::Network)
     }
 
     fn examples(&self) -> Vec<Example> {
