@@ -7,7 +7,10 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::{chunked_array::cast::CastOptions, prelude::{ChunkSet, DataType, IntoSeries}};
+use polars::{
+    chunked_array::cast::CastOptions,
+    prelude::{ChunkSet, DataType, IntoSeries},
+};
 
 #[derive(Clone)]
 pub struct SetWithIndex;

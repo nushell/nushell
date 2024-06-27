@@ -65,14 +65,13 @@ pub(super) fn compute_between_series(
             NuDataFrame::try_from_series(res, operation_span)
         }
         Operator::Math(Math::Multiply) => {
-            let mut res = (lhs * rhs)
-                .map_err(|e| ShellError::GenericError {
-                    error: format!("Multiplication error: {e}"),
-                    msg: "".into(),
-                    span: Some(operation_span),
-                    help: None,
-                    inner: vec![],
-                })?;
+            let mut res = (lhs * rhs).map_err(|e| ShellError::GenericError {
+                error: format!("Multiplication error: {e}"),
+                msg: "".into(),
+                span: Some(operation_span),
+                help: None,
+                inner: vec![],
+            })?;
             let name = format!("mul_{}_{}", lhs.name(), rhs.name());
             res.rename(&name);
             NuDataFrame::try_from_series(res, operation_span)
