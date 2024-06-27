@@ -1,6 +1,6 @@
 use nu_engine::{command_prelude::*, ClosureEval};
+use nu_protocol::engine::CommandType;
 use nu_protocol::{engine::Closure, TryIntoValue};
-use nu_protocol::engine::{CommandType};
 
 #[derive(Clone)]
 pub struct Where;

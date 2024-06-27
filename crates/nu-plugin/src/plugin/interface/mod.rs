@@ -12,7 +12,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     engine::Closure, Config, LabeledError, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, Span, Spanned, Value, IntoValue, TryIntoValue
+    ShellError, Span, Spanned, TryIntoValue, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
