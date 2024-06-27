@@ -193,6 +193,10 @@ fn eval_instruction(
             ctx.put_reg(*src_dst, value);
             Ok(Continue)
         }
+        Instruction::Drop { src } => {
+            ctx.take_reg(*src);
+            Ok(Continue)
+        }
         Instruction::Drain { src } => {
             let data = ctx.take_reg(*src);
             if let Some(exit_status) = data.drain()? {
@@ -347,6 +351,15 @@ fn eval_instruction(
             ctx.put_reg(
                 *src_dst,
                 Value::record(record, record_span).into_pipeline_data(),
+            );
+            Ok(Continue)
+        }
+        Instruction::Not { src_dst } => {
+            let bool = ctx.collect_reg(*src_dst, *span)?;
+            let negated = !bool.as_bool()?;
+            ctx.put_reg(
+                *src_dst,
+                Value::bool(negated, bool.span()).into_pipeline_data(),
             );
             Ok(Continue)
         }

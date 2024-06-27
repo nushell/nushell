@@ -65,6 +65,9 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::Collect { src_dst } => {
                 write!(f, "{:WIDTH$} {src_dst}", "collect")
             }
+            Instruction::Drop { src } => {
+                write!(f, "{:WIDTH$} {src}", "drop")
+            }
             Instruction::Drain { src } => {
                 write!(f, "{:WIDTH$} {src}", "drain")
             }
@@ -123,6 +126,9 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             }
             Instruction::RecordSpread { src_dst, items } => {
                 write!(f, "{:WIDTH$} {src_dst}, {items}", "record-spread")
+            }
+            Instruction::Not { src_dst } => {
+                write!(f, "{:WIDTH$} {src_dst}", "not")
             }
             Instruction::BinaryOp { lhs_dst, op, rhs } => {
                 write!(f, "{:WIDTH$} {lhs_dst}, {op:?}, {rhs}", "binary-op")

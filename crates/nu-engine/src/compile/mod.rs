@@ -94,7 +94,7 @@ fn compile_block(
         }
         Ok(())
     } else if in_reg.is_none() {
-        builder.load_nothing(out_reg)
+        builder.load_empty(out_reg)
     } else {
         Ok(())
     }
@@ -253,13 +253,24 @@ fn compile_expression(
     out_reg: RegId,
 ) -> Result<(), CompileError> {
     let lit = |builder: &mut BlockBuilder, literal: Literal| {
-        builder.push(
-            Instruction::LoadLiteral {
-                dst: out_reg,
-                lit: literal,
+        builder
+            .push(
+                Instruction::LoadLiteral {
+                    dst: out_reg,
+                    lit: literal,
+                }
+                .into_spanned(expr.span),
+            )
+            .map(|_| ())
+    };
+
+    let ignore = |builder: &mut BlockBuilder| {
+        if let Some(in_reg) = in_reg {
+            if in_reg != out_reg {
+                builder.drop_reg(in_reg)?;
             }
-            .into_spanned(expr.span),
-        )
+        }
+        builder.load_empty(out_reg)
     };
 
     match &expr.expr {
@@ -271,13 +282,15 @@ fn compile_expression(
             lit(builder, Literal::Binary(data_slice))
         }
         Expr::Range(_) => Err(CompileError::Todo("Range")),
-        Expr::Var(var_id) => builder.push(
-            Instruction::LoadVariable {
-                dst: out_reg,
-                var_id: *var_id,
-            }
-            .into_spanned(expr.span),
-        ),
+        Expr::Var(var_id) => builder
+            .push(
+                Instruction::LoadVariable {
+                    dst: out_reg,
+                    var_id: *var_id,
+                }
+                .into_spanned(expr.span),
+            )
+            .map(|_| ()),
         Expr::VarDecl(_) => Err(CompileError::Todo("VarDecl")),
         Expr::Call(call) => {
             // Ensure that out_reg contains the input value, because a call only uses one register
@@ -293,8 +306,8 @@ fn compile_expression(
                     )?;
                 }
             } else {
-                // Will have to initialize out_reg with Nothing first
-                builder.load_nothing(out_reg)?;
+                // Will have to initialize out_reg with Empty first
+                builder.load_empty(out_reg)?;
             }
 
             compile_call(working_set, builder, &call, redirect_modes, out_reg)
@@ -302,16 +315,34 @@ fn compile_expression(
         Expr::ExternalCall(_, _) => Err(CompileError::Todo("ExternalCall")),
         Expr::Operator(_) => Err(CompileError::Todo("Operator")),
         Expr::RowCondition(_) => Err(CompileError::Todo("RowCondition")),
-        Expr::UnaryNot(_) => Err(CompileError::Todo("UnaryNot")),
+        Expr::UnaryNot(subexpr) => {
+            if let Some(in_reg) = in_reg {
+                // Discard the input
+                builder.drop_reg(in_reg)?;
+            }
+            compile_expression(
+                working_set,
+                builder,
+                subexpr,
+                redirect_modes.with_capture_out(subexpr.span),
+                None,
+                out_reg,
+            )?;
+            builder.push(Instruction::Not { src_dst: out_reg }.into_spanned(expr.span))?;
+            Ok(())
+        }
         Expr::BinaryOp(lhs, op, rhs) => {
             if let Expr::Operator(ref operator) = op.expr {
+                if let Some(in_reg) = in_reg {
+                    // Discard the input
+                    builder.drop_reg(in_reg)?;
+                }
                 compile_binary_op(
                     working_set,
                     builder,
                     &lhs,
                     operator.clone().into_spanned(op.span),
                     &rhs,
-                    in_reg,
                     out_reg,
                 )
             } else {
@@ -440,7 +471,7 @@ fn compile_expression(
 
             // Free the column registers, since they aren't needed anymore
             for reg in column_registers {
-                builder.free_register(reg)?;
+                builder.drop_reg(reg)?;
             }
 
             Ok(())
@@ -582,7 +613,7 @@ fn compile_expression(
         }
         Expr::ImportPattern(_) => Err(CompileError::Todo("ImportPattern")),
         Expr::Overlay(_) => Err(CompileError::Todo("Overlay")),
-        Expr::Signature(_) => Err(CompileError::Todo("Signature")),
+        Expr::Signature(_) => ignore(builder), // no effect
         Expr::StringInterpolation(_) => Err(CompileError::Todo("StringInterpolation")),
         Expr::GlobInterpolation(_, _) => Err(CompileError::Todo("GlobInterpolation")),
         Expr::Nothing => lit(builder, Literal::Nothing),
@@ -597,6 +628,17 @@ fn compile_call(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
+    // First, try to figure out if this is a keyword call like `if`, and handle those specially
+    let decl = working_set.get_decl(call.decl_id);
+    if decl.is_keyword() {
+        match decl.name() {
+            "if" => {
+                return compile_if(working_set, builder, call, redirect_modes, io_reg);
+            }
+            _ => (),
+        }
+    }
+
     // It's important that we evaluate the args first before trying to set up the argument
     // state for the call.
     //
@@ -650,18 +692,18 @@ fn compile_call(
     for arg in compiled_args {
         match arg {
             CompiledArg::Positional(reg, span) => {
-                builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?
+                builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?;
             }
             CompiledArg::Named(name, Some(reg), span) => {
                 let name = builder.data(name)?;
-                builder.push(Instruction::PushNamed { name, src: reg }.into_spanned(span))?
+                builder.push(Instruction::PushNamed { name, src: reg }.into_spanned(span))?;
             }
             CompiledArg::Named(name, None, span) => {
                 let name = builder.data(name)?;
-                builder.push(Instruction::PushFlag { name }.into_spanned(span))?
+                builder.push(Instruction::PushFlag { name }.into_spanned(span))?;
             }
             CompiledArg::Spread(reg, span) => {
-                builder.push(Instruction::AppendRest { src: reg }.into_spanned(span))?
+                builder.push(Instruction::AppendRest { src: reg }.into_spanned(span))?;
             }
         }
     }
@@ -686,21 +728,134 @@ fn compile_call(
     Ok(())
 }
 
+/// Compile a call to `if` as a branch-if
+fn compile_if(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    let invalid = || CompileError::InvalidKeywordCall("if", call.head);
+
+    let condition = call.positional_nth(0).ok_or_else(invalid)?;
+    let true_block_arg = call.positional_nth(1).ok_or_else(invalid)?;
+    let else_arg = call.positional_nth(2);
+
+    let true_block_id = true_block_arg.as_block().ok_or_else(invalid)?;
+    let true_block = working_set.get_block(true_block_id);
+
+    let not_condition_reg = {
+        // Compile the condition first
+        let condition_reg = builder.next_register()?;
+        compile_expression(
+            working_set,
+            builder,
+            condition,
+            redirect_modes.with_capture_out(condition.span),
+            None,
+            condition_reg,
+        )?;
+
+        // Negate the condition - we basically only want to jump if the condition is false
+        builder.push(
+            Instruction::Not {
+                src_dst: condition_reg,
+            }
+            .into_spanned(call.head),
+        )?;
+
+        condition_reg
+    };
+
+    // Set up a branch if the condition is false. Will go back and fix this to the right offset
+    let index_of_branch_if = builder.push(
+        Instruction::BranchIf {
+            cond: not_condition_reg,
+            index: usize::MAX,
+        }
+        .into_spanned(call.head),
+    )?;
+
+    // Compile the true case
+    compile_block(
+        working_set,
+        builder,
+        true_block,
+        redirect_modes.clone(),
+        Some(io_reg),
+        io_reg,
+    )?;
+
+    // Add a jump over the false case
+    let index_of_jump =
+        builder.push(Instruction::Jump { index: usize::MAX }.into_spanned(call.head))?;
+
+    // Change the branch-if target to after the jump
+    builder.set_branch_target(index_of_branch_if, index_of_jump + 1)?;
+
+    // On the else side now, assert that io_reg is still valid
+    builder.mark_register(io_reg)?;
+
+    if let Some(else_arg) = else_arg {
+        let Expression {
+            expr: Expr::Keyword(else_keyword),
+            ..
+        } = else_arg
+        else {
+            return Err(invalid());
+        };
+
+        if else_keyword.keyword.as_ref() != b"else" {
+            return Err(invalid());
+        }
+
+        let else_expr = &else_keyword.expr;
+
+        match &else_expr.expr {
+            Expr::Block(block_id) => {
+                let false_block = working_set.get_block(*block_id);
+                compile_block(
+                    working_set,
+                    builder,
+                    false_block,
+                    redirect_modes,
+                    Some(io_reg),
+                    io_reg,
+                )?;
+            }
+            _ => {
+                // The else case supports bare expressions too, not only blocks
+                compile_expression(
+                    working_set,
+                    builder,
+                    else_expr,
+                    redirect_modes,
+                    Some(io_reg),
+                    io_reg,
+                )?;
+            }
+        }
+    } else {
+        // We don't have an else expression/block, so just set io_reg = Empty
+        builder.load_empty(io_reg)?;
+    }
+
+    // Change the jump target to the next index (out of the if-else)
+    builder.set_branch_target(index_of_jump, builder.next_instruction_index())?;
+
+    Ok(())
+}
+
 fn compile_binary_op(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     lhs: &Expression,
     op: Spanned<Operator>,
     rhs: &Expression,
-    in_reg: Option<RegId>, // only for $in (TODO)
     out_reg: RegId,
 ) -> Result<(), CompileError> {
-    // If we aren't worried about clobbering in_reg, we can write straight to out_reg
-    let lhs_reg = if in_reg != Some(out_reg) {
-        out_reg
-    } else {
-        builder.next_register()?
-    };
+    let lhs_reg = out_reg;
     let rhs_reg = builder.next_register()?;
 
     compile_expression(
@@ -708,7 +863,7 @@ fn compile_binary_op(
         builder,
         lhs,
         RedirectModes::capture_out(op.span),
-        in_reg,
+        None,
         lhs_reg,
     )?;
     compile_expression(
@@ -716,7 +871,7 @@ fn compile_binary_op(
         builder,
         rhs,
         RedirectModes::capture_out(op.span),
-        in_reg,
+        None,
         rhs_reg,
     )?;
 
@@ -755,7 +910,7 @@ fn compile_load_env(
                 var_id: ENV_VARIABLE_ID,
             }
             .into_spanned(span),
-        )
+        )?;
     } else {
         let (key, optional) = match &path[0] {
             PathMember::String { val, optional, .. } => (builder.data(val)?, *optional),
@@ -784,9 +939,8 @@ fn compile_load_env(
                 .into_spanned(span),
             )?;
         }
-
-        Ok(())
     }
+    Ok(())
 }
 
 /// An internal compiler error, generally means a Nushell bug rather than an issue with user error
@@ -800,6 +954,9 @@ pub enum CompileError {
     Garbage,
     UnsupportedOperatorExpression,
     AccessEnvByInt(Span),
+    InvalidKeywordCall(&'static str, Span),
+    SetBranchTargetOfNonBranchInstruction,
+    InstructionIndexOutOfRange(usize),
     Todo(&'static str),
 }
 
@@ -819,6 +976,13 @@ impl CompileError {
             CompileError::Garbage => "encountered garbage, likely due to parse error".into(),
             CompileError::UnsupportedOperatorExpression => "unsupported operator expression".into(),
             CompileError::AccessEnvByInt(_) => "attempted access of $env by integer path".into(),
+            CompileError::InvalidKeywordCall(kind, _) => format!("invalid `{kind}` keyword cal"),
+            CompileError::SetBranchTargetOfNonBranchInstruction => {
+                "attempted to set branch target of non-branch instruction".into()
+            }
+            CompileError::InstructionIndexOutOfRange(index) => {
+                format!("instruction index out of range: {index}")
+            }
             CompileError::Todo(msg) => {
                 format!("TODO: {msg}")
             }
@@ -913,7 +1077,9 @@ impl BlockBuilder {
 
     /// Insert an instruction into the block, automatically marking any registers populated by
     /// the instruction, and freeing any registers consumed by the instruction.
-    fn push(&mut self, instruction: Spanned<Instruction>) -> Result<(), CompileError> {
+    ///
+    /// Returns the offset of the inserted instruction.
+    fn push(&mut self, instruction: Spanned<Instruction>) -> Result<usize, CompileError> {
         match &instruction.item {
             Instruction::LoadLiteral { dst, lit: _ } => self.mark_register(*dst)?,
             Instruction::Move { dst, src } => {
@@ -922,6 +1088,7 @@ impl BlockBuilder {
             }
             Instruction::Clone { dst, src: _ } => self.mark_register(*dst)?,
             Instruction::Collect { src_dst: _ } => (),
+            Instruction::Drop { src } => self.free_register(*src)?,
             Instruction::Drain { src } => self.free_register(*src)?,
             Instruction::LoadVariable { dst, var_id: _ } => self.mark_register(*dst)?,
             Instruction::StoreVariable { var_id: _, src } => self.free_register(*src)?,
@@ -951,6 +1118,7 @@ impl BlockBuilder {
                 self.free_register(*val)?;
             }
             Instruction::RecordSpread { src_dst: _, items } => self.free_register(*items)?,
+            Instruction::Not { src_dst: _ } => (),
             Instruction::BinaryOp {
                 lhs_dst: _,
                 op: _,
@@ -973,9 +1141,10 @@ impl BlockBuilder {
             Instruction::BranchIf { cond, index: _ } => self.free_register(*cond)?,
             Instruction::Return { src } => self.free_register(*src)?,
         }
+        let index = self.next_instruction_index();
         self.instructions.push(instruction.item);
         self.spans.push(instruction.span);
-        Ok(())
+        Ok(index)
     }
 
     /// Load a register with a literal.
@@ -990,7 +1159,8 @@ impl BlockBuilder {
                 lit: literal.item,
             }
             .into_spanned(literal.span),
-        )
+        )?;
+        Ok(())
     }
 
     /// Allocate a new register and load a literal into it.
@@ -1000,9 +1170,17 @@ impl BlockBuilder {
         Ok(reg_id)
     }
 
-    /// Initialize a register with [`Nothing`](Literal::Nothing).
-    fn load_nothing(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        self.load_literal(reg_id, Literal::Nothing.into_spanned(Span::unknown()))
+    /// Deallocate a register and set it to `Empty`
+    fn drop_reg(&mut self, reg_id: RegId) -> Result<(), CompileError> {
+        self.push(Instruction::Drop { src: reg_id }.into_spanned(Span::unknown()))?;
+        Ok(())
+    }
+
+    /// Set a register to `Empty`, but mark it as in-use, e.g. for input
+    fn load_empty(&mut self, reg_id: RegId) -> Result<(), CompileError> {
+        self.mark_register(reg_id)?;
+        self.drop_reg(reg_id)?;
+        self.mark_register(reg_id)
     }
 
     /// Add data to the `data` array and return a [`DataSlice`] referencing it.
@@ -1025,6 +1203,27 @@ impl BlockBuilder {
         let dst = self.next_register()?;
         self.push(Instruction::Clone { dst, src }.into_spanned(span))?;
         Ok(dst)
+    }
+
+    /// Modify a `branch-if` or `jump` instruction's branch target `index`
+    fn set_branch_target(
+        &mut self,
+        instruction_index: usize,
+        target_index: usize,
+    ) -> Result<(), CompileError> {
+        match self.instructions.get_mut(instruction_index) {
+            Some(Instruction::BranchIf { index, .. }) | Some(Instruction::Jump { index }) => {
+                *index = target_index;
+                Ok(())
+            }
+            Some(_) => Err(CompileError::SetBranchTargetOfNonBranchInstruction),
+            None => Err(CompileError::InstructionIndexOutOfRange(instruction_index)),
+        }
+    }
+
+    /// The index that the next instruction [`.push()`]ed will have.
+    fn next_instruction_index(&self) -> usize {
+        self.instructions.len()
     }
 
     /// Consume the builder and produce the final [`IrBlock`].
