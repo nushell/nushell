@@ -69,8 +69,9 @@ mod tests {
 
     #[test]
     fn test_basics() {
-        // assert!(!execute_webpage(HTML, Span::test_data()).is_empty())
-        eprintln!("{:?}", execute_webpage(HTML, Span::test_data()));
+        let info = execute_webpage(HTML, Span::test_data()).unwrap();
+        let record = info.as_record().unwrap();
+        assert_eq!(record.get("title").unwrap().as_str().unwrap(), "My Title");
     }
 }
 
@@ -141,7 +142,8 @@ impl<'a> serde::Serializer for &'a ValueSerializer {
         Ok(Value::int(v.into(), self.span))
     }
 
-    fn serialize_u64(self, v: u64) -> Result<Self::Ok, Self::Error> {
+    fn serialize_u64(self, _v: u64) -> Result<Self::Ok, Self::Error> {
+        // TODO: how to represent a u64 value a Value<i64>?
         Err(Error::new("the numbers are too big"))
         // Ok(Value::int(v.into(), self.span))
     }
@@ -155,20 +157,19 @@ impl<'a> serde::Serializer for &'a ValueSerializer {
     }
 
     fn serialize_char(self, v: char) -> Result<Self::Ok, Self::Error> {
-        Ok(Value::string(String::from(v), self.span))
+        Ok(Value::string(v, self.span))
     }
 
-    /*
     fn serialize_str(self, v: &str) -> Result<Self::Ok, Self::Error> {
-        Ok(self.value(UntaggedValue::Primitive(Primitive::String(v.into()))))
+        Ok(Value::string(v, self.span))
     }
 
     fn serialize_bytes(self, v: &[u8]) -> Result<Self::Ok, Self::Error> {
-        Ok(self.value(UntaggedValue::Primitive(Primitive::Binary(v.into()))))
+        Ok(Value::binary(v, self.span))
     }
 
     fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
-        Ok(self.value(UntaggedValue::Primitive(Primitive::Nothing)))
+        Ok(Value::nothing(self.span))
     }
 
     fn serialize_some<T: ?Sized>(self, value: &T) -> Result<Self::Ok, Self::Error>
@@ -180,12 +181,12 @@ impl<'a> serde::Serializer for &'a ValueSerializer {
 
     fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
         // TODO: is this OK?
-        Ok(self.value(UntaggedValue::Primitive(Primitive::Nothing)))
+        Ok(Value::nothing(self.span))
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
         // TODO: is this OK?
-        Ok(self.value(UntaggedValue::Primitive(Primitive::Nothing)))
+        Ok(Value::nothing(self.span))
     }
 
     fn serialize_unit_variant(
@@ -195,7 +196,7 @@ impl<'a> serde::Serializer for &'a ValueSerializer {
         _variant: &'static str,
     ) -> Result<Self::Ok, Self::Error> {
         // TODO: is this OK?
-        Ok(self.value(UntaggedValue::Primitive(Primitive::Nothing)))
+        Ok(Value::nothing(self.span))
     }
 
     fn serialize_newtype_struct<T: ?Sized>(
@@ -221,7 +222,6 @@ impl<'a> serde::Serializer for &'a ValueSerializer {
     {
         value.serialize(self)
     }
-    */
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
         Ok(SeqSerializer::new(self))
