@@ -6,7 +6,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::{is_separator, Path, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
 
-use super::SemanticSuggestion;
+use super::{completion_common::sort_suggestions, SemanticSuggestion, SortBy};
 
 #[derive(Clone, Default)]
 pub struct DotNuCompletion {}
@@ -131,6 +131,6 @@ impl Completer for DotNuCompletion {
             })
             .collect();
 
-        output
+        sort_suggestions(&prefix_str, output, SortBy::Ascending)
     }
 }

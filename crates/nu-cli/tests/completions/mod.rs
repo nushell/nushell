@@ -143,45 +143,34 @@ fn dotnu_completions() {
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
+    let expected = vec![
+        "asdf.nu".into(),
+        "bar.nu".into(),
+        "bat.nu".into(),
+        "baz.nu".into(),
+        "dir_module/".into(),
+        "foo.nu".into(),
+        "spam.nu".into(),
+        "xyzzy.nu".into(),
+    ];
+
     // Test source completion
     let completion_str = "source-env ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    match_suggestions(
-        vec![
-            "asdf.nu".into(),
-            "bar.nu".into(),
-            "bat.nu".into(),
-            "baz.nu".into(),
-            "dir_module/".into(),
-            "foo.nu".into(),
-            "spam.nu".into(),
-            "xyzzy.nu".into(),
-        ],
-        suggestions,
-    );
+    match_suggestions(expected.clone(), suggestions);
 
     // Test use completion
     let completion_str = "use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(2, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
-    #[cfg(windows)]
-    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
-    #[cfg(not(windows))]
-    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+    match_suggestions(expected.clone(), suggestions);
 
     // Test overlay use completion
     let completion_str = "overlay use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(2, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
-    #[cfg(windows)]
-    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
-    #[cfg(not(windows))]
-    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+    match_suggestions(expected, suggestions);
 }
 
 #[test]
