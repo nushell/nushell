@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 pub mod commands;
 pub mod fs;
 pub mod locale_override;

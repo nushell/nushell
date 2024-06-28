@@ -24,7 +24,7 @@ nu-json = "0.76"
 ## From the Commandline
 
 Add with:
-```
+```sh
  cargo add serde
  cargo add nu-json
 ```

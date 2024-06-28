@@ -4,7 +4,7 @@ Nushell's parser is a type-directed parser, meaning that the parser will use typ
 
 Nushell's base language is whitespace-separated tokens with the command (Nushell's term for a function) name in the head position:
 
-```
+```nushell
 head1 arg1 arg2 | head2
 ```
 
@@ -12,7 +12,7 @@ head1 arg1 arg2 | head2
 
 The first job of the parser is to a lexical analysis to find where the tokens start and end in the input. This turns the above into:
 
-```
+```text
 <item: "head1">, <item: "arg1">, <item: "arg2">, <pipe>, <item: "head2">
 ```
 
@@ -24,7 +24,7 @@ As Nushell is a language of pipelines, pipes form a key role in both separating 
 
 The above tokens are converted the following during the lite parse phase:
 
-```
+```text
 Pipeline:
   Command #1:
     <item: "head1">, <item: "arg1">, <item: "arg2">
@@ -45,7 +45,7 @@ Each command has a shape assigned to each of the arguments it reads in. These sh
 
 For example, if the command is written as:
 
-```sql
+```text
 where $x > 10
 ```
 
@@ -53,7 +53,7 @@ When the parsing happens, the parser will look up the `where` command and find i
 
 In the above example, if the Signature of `where` said that it took three String values, the result would be:
 
-```
+```text
 CallInfo:
   Name: `where`
   Args:
@@ -64,7 +64,7 @@ CallInfo:
 
 Or, the Signature could state that it takes in three positional arguments: a Variable, an Operator, and a Number, which would give:
 
-```
+```text
 CallInfo:
   Name: `where`
   Args:
@@ -77,7 +77,7 @@ Note that in this case, each would be checked at compile time to confirm that th
 
 Finally, some Shapes can consume more than one token. In the above, if the `where` command stated it took in a single required argument, and that the Shape of this argument was a MathExpression, then the parser would treat the remaining tokens as part of the math expression.
 
-```
+```text
 CallInfo:
   Name: `where`
   Args:

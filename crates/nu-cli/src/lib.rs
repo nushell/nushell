@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod commands;
 mod completions;
 mod config_files;
