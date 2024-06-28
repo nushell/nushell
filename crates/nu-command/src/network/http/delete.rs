@@ -163,7 +163,7 @@ fn run_delete(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let (data, maybe_metadata) = call
-        .opt::<Value>(engine_state, stack, 1)?
+        .get_flag::<Value>(engine_state, stack, "data")?
         .map(|v| (HttpBody::Value(v), None))
         .unwrap_or_else(|| match input {
             PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
@@ -175,16 +175,6 @@ fn run_delete(
     let content_type = call
         .get_flag(engine_state, stack, "content-type")?
         .or_else(|| maybe_metadata.and_then(|m| m.content_type));
-
-    if let HttpBody::None = data {
-        return Err(ShellError::GenericError {
-            error: "Data must be provided either through pipeline or positional argument".into(),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
-    }
 
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
