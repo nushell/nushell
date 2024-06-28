@@ -123,6 +123,7 @@ mod regex {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open nushell_git_log_oneline.txt
+                    | lines
                     | parse --regex "(?P<Hash>\\w+) (?P<Message>.+) \\(#(?P<PR>\\d+)\\)"
                     | get 1
                     | get PR
@@ -142,6 +143,7 @@ mod regex {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open nushell_git_log_oneline.txt
+                    | lines
                     | parse --regex "(\\w+) (.+) \\(#(\\d+)\\)"
                     | get 1
                     | get capture0
@@ -161,6 +163,7 @@ mod regex {
                 cwd: dirs.test(), pipeline(
                 r#"
                     open nushell_git_log_oneline.txt
+                    | lines
                     | parse --regex "(?P<Hash>\\w+) (.+) \\(#(?P<PR>\\d+)\\)"
                     | get 1
                     | get capture1
@@ -210,20 +213,5 @@ mod regex {
         ));
 
         assert_eq!(actual.out, "2");
-    }
-
-    #[test]
-    fn parse_handles_external_stream_chunking() {
-        Playground::setup("parse_test_streaming_1", |dirs, sandbox| {
-            let data: String = "abcdefghijklmnopqrstuvwxyz".repeat(1000);
-            sandbox.with_files(&[Stub::FileWithContent("data.txt", &data)]);
-
-            let actual = nu!(
-                cwd: dirs.test(),
-                r#"open data.txt | parse --regex "(abcdefghijklmnopqrstuvwxyz)" | length"#
-            );
-
-            assert_eq!(actual.out, "1000");
-        })
     }
 }

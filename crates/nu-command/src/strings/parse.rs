@@ -61,6 +61,16 @@ impl Command for Parse {
                 )),
             },
             Example {
+                description: "Parse each line of output of an external command",
+                example: "^cat .profile | lines | parse -r 'export (?<env>.*)=(?<val>.*)'",
+                result: None,
+            },
+            Example {
+                description: "Parse the output of an external command (multi-line)",
+                example: "^cat file.txt | collect | parse -r '(?ms)foo: (?<foo>\\w+).*bar: (?<bar>\\w+)'",
+                result: None,
+            },
+            Example {
                 description: "Parse a string using fancy-regex capture group pattern",
                 example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
                 result: Some(Value::test_list(
@@ -224,22 +234,12 @@ fn operate(
                 }
             })
             .into()),
-        PipelineData::ByteStream(stream, ..) => {
-            if let Some(lines) = stream.lines() {
-                let iter = ParseIter {
-                    captures: VecDeque::new(),
-                    regex,
-                    columns,
-                    iter: lines,
-                    span: head,
-                    ctrlc,
-                };
-
-                Ok(ListStream::new(iter, head, None).into())
-            } else {
-                Ok(PipelineData::Empty)
-            }
-        }
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::UnsupportedInput {
+            msg: "`parse` does not support byte stream input. Use `lines` or `collect` right before this command.".into(),
+            input: "byte stream originates from here".into(),
+            msg_span: head,
+            input_span: stream.span(),
+        }),
     }
 }
 
