@@ -71,7 +71,7 @@ mod tests {
 
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn publish_diagnostics_fixed_unknown_variable() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
