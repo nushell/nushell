@@ -7,6 +7,22 @@ pub struct PipelineMetadata {
     pub content_type: Option<String>,
 }
 
+impl PipelineMetadata {
+    pub fn with_data_source(self, data_source: DataSource) -> Self {
+        Self {
+            data_source,
+            ..self
+        }
+    }
+
+    pub fn with_content_type(self, content_type: Option<String>) -> Self {
+        Self {
+            content_type,
+            ..self
+        }
+    }
+}
+
 /// Describes where the particular [`PipelineMetadata`] originates.
 ///
 /// This can either be a particular family of commands (useful so downstream commands can adjust
