@@ -12,11 +12,13 @@ impl Command for ViewIr {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new(self.name()).required(
-            "closure",
-            SyntaxShape::Closure(None),
-            "the closure to see compiled code for",
-        )
+        Signature::new(self.name())
+            .required(
+                "closure",
+                SyntaxShape::Closure(None),
+                "the closure to see compiled code for",
+            )
+            .switch("json", "Dump the raw block data as JSON", Some('j'))
     }
 
     fn usage(&self) -> &str {
@@ -31,6 +33,7 @@ impl Command for ViewIr {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let closure: Closure = call.req(engine_state, stack, 0)?;
+        let json = call.has_flag(engine_state, stack, "json")?;
 
         let block = engine_state.get_block(closure.block_id);
         // Use the pre-compiled block if available, otherwise try to compile it
@@ -43,7 +46,22 @@ impl Command for ViewIr {
             ),
         };
 
-        let formatted = format!("{}", ir_block.display(engine_state));
+        let formatted = if json {
+            serde_json::to_string_pretty(&serde_json::json!({
+                "block_id": closure.block_id,
+                "span": block.span,
+                "ir_block": ir_block,
+            }))
+            .map_err(|err| ShellError::GenericError {
+                error: "JSON serialization failed".into(),
+                msg: err.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?
+        } else {
+            format!("{}", ir_block.display(engine_state))
+        };
         Ok(Value::string(formatted, call.head).into_pipeline_data())
     }
 }
