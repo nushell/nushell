@@ -63,7 +63,8 @@ impl Command for ToJson {
             Ok(serde_json_string) => {
                 let res = Value::string(serde_json_string, span);
                 let metadata = PipelineMetadata {
-                    data_source: nu_protocol::DataSource::ContentType("application/json".to_string())
+                    data_source: nu_protocol::DataSource::None,
+                    content_type: None,
                 };
                 Ok(PipelineData::Value(res, Some(metadata)))
             }

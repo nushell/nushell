@@ -1,10 +1,9 @@
 use crate::network::http::client::{
     check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, RequestFlags, HttpBody
+    request_set_timeout, HttpBody, RequestFlags,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::DataSource;
 
 use super::client::send_request2;
 
@@ -150,31 +149,24 @@ fn run_post(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-
-    let (data, maybe_metadata) = call.opt::<Value>(engine_state, stack, 1)?
+    let (data, maybe_metadata) = call
+        .opt::<Value>(engine_state, stack, 1)?
         .map(|v| (HttpBody::Value(v), None))
         .unwrap_or_else(|| match input {
             PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
-            PipelineData::ByteStream(byte_stream, metadata) => (HttpBody::ByteStream(byte_stream), metadata),
-            _ => (HttpBody::None, None)
-        });
-    let content_type = call.get_flag(engine_state, stack, "content-type")?
-        .or_else(|| {
-            if let Some(metadata) = maybe_metadata {
-                match metadata.data_source {
-                    DataSource::ContentType(content_type) => Some(content_type),
-                    _ => None
-                }
-            } else {
-                None
+            PipelineData::ByteStream(byte_stream, metadata) => {
+                (HttpBody::ByteStream(byte_stream), metadata)
             }
+            _ => (HttpBody::None, None),
         });
-           
+    let content_type = call
+        .get_flag(engine_state, stack, "content-type")?
+        .or_else(|| maybe_metadata.and_then(|m| m.content_type));
 
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        data, 
+        data,
         content_type,
         raw: call.has_flag(engine_state, stack, "raw")?,
         insecure: call.has_flag(engine_state, stack, "insecure")?,

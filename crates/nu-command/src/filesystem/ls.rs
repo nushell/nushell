@@ -122,6 +122,7 @@ impl Command for Ls {
                     ctrl_c,
                     PipelineMetadata {
                         data_source: DataSource::Ls,
+                        content_type: None,
                     },
                 )),
             Some(pattern) => {
@@ -145,6 +146,7 @@ impl Command for Ls {
                         ctrl_c,
                         PipelineMetadata {
                             data_source: DataSource::Ls,
+                            content_type: None,
                         },
                     ))
             }

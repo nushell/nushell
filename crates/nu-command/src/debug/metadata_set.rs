@@ -46,6 +46,7 @@ impl Command for MetadataSet {
             (Some(path), false) => {
                 let metadata = PipelineMetadata {
                     data_source: DataSource::FilePath(path.into()),
+                    content_type: None,
                 };
                 Ok(input.into_pipeline_data_with_metadata(
                     head,
@@ -56,6 +57,7 @@ impl Command for MetadataSet {
             (None, true) => {
                 let metadata = PipelineMetadata {
                     data_source: DataSource::Ls,
+                    content_type: None,
                 };
                 Ok(input.into_pipeline_data_with_metadata(
                     head,
