@@ -47,10 +47,21 @@ impl Command for ViewIr {
         };
 
         let formatted = if json {
+            let formatted_instructions = ir_block
+                .instructions
+                .iter()
+                .map(|instruction| {
+                    instruction
+                        .display(engine_state, &ir_block.data)
+                        .to_string()
+                })
+                .collect::<Vec<_>>();
+
             serde_json::to_string_pretty(&serde_json::json!({
                 "block_id": closure.block_id,
                 "span": block.span,
                 "ir_block": ir_block,
+                "formatted_instructions": formatted_instructions,
             }))
             .map_err(|err| ShellError::GenericError {
                 error: "JSON serialization failed".into(),
@@ -62,6 +73,7 @@ impl Command for ViewIr {
         } else {
             format!("{}", ir_block.display(engine_state))
         };
+
         Ok(Value::string(formatted, call.head).into_pipeline_data())
     }
 }
