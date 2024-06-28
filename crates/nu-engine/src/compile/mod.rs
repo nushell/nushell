@@ -885,8 +885,10 @@ fn compile_if(
     )?;
 
     // Add a jump over the false case
-    let index_of_jump =
-        builder.push(Instruction::Jump { index: usize::MAX }.into_spanned(call.head))?;
+    let index_of_jump = builder.push(
+        Instruction::Jump { index: usize::MAX }
+            .into_spanned(else_arg.map(|e| e.span).unwrap_or(call.head)),
+    )?;
 
     // Change the branch-if target to after the jump
     builder.set_branch_target(index_of_branch_if, index_of_jump + 1)?;
