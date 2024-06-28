@@ -266,7 +266,9 @@ fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Valu
 fn update_metadata(metadata: Option<PipelineMetadata>) -> Option<PipelineMetadata> {
     metadata
         .map(|md| md.with_content_type(Some("application/json".into())))
-        .or_else(|| Some(PipelineMetadata::default().with_content_type(Some("application/json".into()))))
+        .or_else(|| {
+            Some(PipelineMetadata::default().with_content_type(Some("application/json".into())))
+        })
 }
 
 #[cfg(test)]

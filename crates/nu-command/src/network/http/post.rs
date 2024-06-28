@@ -163,18 +163,14 @@ fn run_post(
         .get_flag(engine_state, stack, "content-type")?
         .or_else(|| maybe_metadata.and_then(|m| m.content_type));
 
-    match data {
-        HttpBody::None => {
-            return Err(ShellError::GenericError {
-                error: "Data must be provided either through pipeline or positional argument"
-                    .into(),
-                msg: "".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })
-        }
-        _ => (),
+    if let HttpBody::None = data {
+        return Err(ShellError::GenericError {
+            error: "Data must be provided either through pipeline or positional argument".into(),
+            msg: "".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let args = Arguments {
