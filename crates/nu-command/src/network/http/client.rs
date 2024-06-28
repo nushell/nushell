@@ -213,7 +213,7 @@ pub fn send_request2(
 
     match http_body {
         HttpBody::None => {
-            return send_cancellable_request(&request_url, Box::new(|| request.call()), ctrl_c);
+            send_cancellable_request(&request_url, Box::new(|| request.call()), ctrl_c)
         }
         HttpBody::ByteStream(byte_stream) => {
             let bytes = byte_stream.into_bytes()?;
