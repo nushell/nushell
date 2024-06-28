@@ -11,6 +11,7 @@ pub enum CompletionAlgorithm {
     #[default]
     Prefix,
     Fuzzy,
+    Substring,
 }
 
 impl FromStr for CompletionAlgorithm {
@@ -20,6 +21,7 @@ impl FromStr for CompletionAlgorithm {
         match s.to_ascii_lowercase().as_str() {
             "prefix" => Ok(Self::Prefix),
             "fuzzy" => Ok(Self::Fuzzy),
+            "substring" => Ok(Self::Substring),
             _ => Err("expected either 'prefix' or 'fuzzy'"),
         }
     }
@@ -30,6 +32,7 @@ impl ReconstructVal for CompletionAlgorithm {
         let str = match self {
             CompletionAlgorithm::Prefix => "prefix",
             CompletionAlgorithm::Fuzzy => "fuzzy",
+            CompletionAlgorithm::Substring => "substring",
         };
         Value::string(str, span)
     }
