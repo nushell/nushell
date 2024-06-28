@@ -124,6 +124,11 @@ impl Command for SubCommand {
                 example: "http put --content-type application/json https://www.example.com { field: value }",
                 result: None,
             },
+            Example {
+                description: "Put JSON content from a pipeline to example.com",
+                example: "open foo.json | http put https://www.example.com",
+                result: None,
+            },
         ]
     }
 }

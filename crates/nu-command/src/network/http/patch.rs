@@ -126,6 +126,11 @@ impl Command for SubCommand {
                 example: "http patch --content-type application/json https://www.example.com { field: value }",
                 result: None,
             },
+            Example {
+                description: "Patch JSON content from a pipeline to example.com",
+                example: "open foo.json | http patch https://www.example.com",
+                result: None,
+            },
         ]
     }
 }
