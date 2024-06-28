@@ -16,6 +16,7 @@ use nu_protocol::{
 use std::{
     fs::File,
     io::BufReader,
+    num::NonZeroUsize,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -376,9 +377,13 @@ fn from_jsonl(
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
-    let infer_schema: usize = call
+    let infer_schema: NonZeroUsize = call
         .get_flag("infer-schema")?
-        .unwrap_or(DEFAULT_INFER_SCHEMA);
+        .and_then(NonZeroUsize::new)
+        .unwrap_or(
+            NonZeroUsize::new(DEFAULT_INFER_SCHEMA)
+                .expect("The default infer-schema should be non zero"),
+        );
     let maybe_schema = call
         .get_flag("schema")?
         .map(|schema| NuSchema::try_from(&schema))
@@ -528,7 +533,7 @@ fn from_csv(
             .with_infer_schema_length(Some(infer_schema))
             .with_skip_rows(skip_rows.unwrap_or_default())
             .with_schema(maybe_schema.map(|s| s.into()))
-            .with_columns(columns.map(Arc::new))
+            .with_columns(columns.map(|v| Arc::from(v.into_boxed_slice())))
             .map_parse_options(|options| {
                 options
                     .with_separator(

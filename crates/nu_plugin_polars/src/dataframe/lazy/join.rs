@@ -35,7 +35,7 @@ impl PluginCommand for LazyJoin {
                 Some('i'),
             )
             .switch("left", "left join between lazyframes", Some('l'))
-            .switch("outer", "outer join between lazyframes", Some('o'))
+            .switch("full", "full join between lazyframes", Some('f'))
             .switch("cross", "cross join between lazyframes", Some('c'))
             .named(
                 "suffix",
@@ -183,13 +183,13 @@ impl PluginCommand for LazyJoin {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let left = call.has_flag("left")?;
-        let outer = call.has_flag("outer")?;
+        let full = call.has_flag("full")?;
         let cross = call.has_flag("cross")?;
 
         let how = if left {
             JoinType::Left
-        } else if outer {
-            JoinType::Outer
+        } else if full {
+            JoinType::Full
         } else if cross {
             JoinType::Cross
         } else {
