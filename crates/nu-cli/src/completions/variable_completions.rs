@@ -11,8 +11,6 @@ use std::str;
 
 use super::{completion_common::sort_suggestions, SortBy};
 
-const SORT_BY: SortBy = SortBy::Ascending;
-
 #[derive(Clone)]
 pub struct VariableCompletion {
     var_context: (Vec<u8>, Vec<Vec<u8>>), // tuple with $var and the sublevels (.b.c.d)
@@ -74,7 +72,7 @@ impl Completer for VariableCompletion {
                             }
                         }
 
-                        return sort_suggestions(&prefix_str, output, SORT_BY);
+                        return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                     }
                 } else {
                     // No nesting provided, return all env vars
@@ -98,7 +96,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return sort_suggestions(&prefix_str, output, SORT_BY);
+                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                 }
             }
 
@@ -122,7 +120,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return sort_suggestions(&prefix_str, output, SORT_BY);
+                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                 }
             }
 
@@ -144,7 +142,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return sort_suggestions(&prefix_str, output, SORT_BY);
+                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                 }
             }
         }
