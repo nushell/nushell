@@ -38,7 +38,7 @@ def path_add [] {
         std path add $target_paths
         assert equal (get_path) ([($target_paths | get $nu.os-info.name)] | path expand)
 
-        load-env {$path_name: [$"/foo(char esep)/bar"]}
+        load-env {$path_name: [$"(["/foo", "/bar"] | path expand | str join (char esep))"]}
         std path add "~/foo"
         assert equal (get_path) (["~/foo", "/foo", "/bar"] | path expand)
     }
