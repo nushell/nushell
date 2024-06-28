@@ -20,7 +20,7 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required("URL", SyntaxShape::String, "The URL to post to.")
-            .optional("data", SyntaxShape::Any, "The contents of the post body. Required unless part of pipeline.")
+            .optional("data", SyntaxShape::Any, "The contents of the post body. Required unless part of a pipeline.")
             .named(
                 "user",
                 SyntaxShape::Any,
@@ -162,6 +162,20 @@ fn run_post(
     let content_type = call
         .get_flag(engine_state, stack, "content-type")?
         .or_else(|| maybe_metadata.and_then(|m| m.content_type));
+
+    match data {
+        HttpBody::None => {
+            return Err(ShellError::GenericError {
+                error: "Data must be provided either through pipeline or positional argument"
+                    .into(),
+                msg: "".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })
+        }
+        _ => (),
+    }
 
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
