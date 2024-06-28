@@ -30,7 +30,7 @@ impl Token {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BlockKind {
     Paren,
     CurlyBracket,
@@ -94,6 +94,9 @@ pub fn lex_item(
 
     let token_start = *curr_offset;
 
+    let mut string_interpolation = false;
+    let mut inter_bracket = false;
+
     // This Vec tracks paired delimiters
     let mut block_level: Vec<BlockKind> = vec![];
 
@@ -133,12 +136,18 @@ pub fn lex_item(
                         )),
                     );
                 }
+            } else if c == b'(' && string_interpolation {
+                inter_bracket = true;
+            } else if c == b')' && string_interpolation {
+                inter_bracket = false;
             }
+
             // If we encountered the closing quote character for the current
             // string, we're done with the current string.
-            if c == start {
+            if c == start && (!string_interpolation || !inter_bracket) {
                 // Also need to check to make sure we aren't escaped
                 quote_start = None;
+                string_interpolation = false;
             }
         } else if c == b'#' {
             if is_item_terminator(&block_level, c, additional_whitespace, special_tokens) {
@@ -157,7 +166,13 @@ pub fn lex_item(
         } else if is_special_item(&block_level, c, special_tokens) && token_start == *curr_offset {
             *curr_offset += 1;
             break;
-        } else if c == b'\'' || c == b'"' || c == b'`' {
+        } else if (c == b'\'' || c == b'"' || c == b'`') && quote_start.is_none() {
+            if *curr_offset > 0
+                && input.get(*curr_offset - 1) == Some(&b'$')
+                && (c == b'\'' || c == b'"')
+            {
+                string_interpolation = true;
+            }
             // We encountered the opening quote of a string literal.
             quote_start = Some(c);
         } else if c == b'[' {
