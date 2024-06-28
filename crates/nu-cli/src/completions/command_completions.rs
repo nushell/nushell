@@ -201,7 +201,7 @@ impl Completer for CommandCompletion {
             return sort_suggestions(
                 &String::from_utf8_lossy(&prefix),
                 subcommands,
-                SortBy::Ascending,
+                SortBy::LevenshteinDistance,
             );
         }
 
