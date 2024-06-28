@@ -232,7 +232,7 @@ mod serde_arc_u8_array {
     where
         D: serde::Deserializer<'de>,
     {
-        let data: &'de [u8] = Deserialize::deserialize(de)?;
+        let data: Vec<u8> = Deserialize::deserialize(de)?;
         Ok(data.into())
     }
 }
