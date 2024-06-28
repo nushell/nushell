@@ -1,11 +1,9 @@
 use crate::network::http::client::{
     check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, HttpBody, RequestFlags,
+    request_set_timeout, send_request, HttpBody, RequestFlags,
 };
 use nu_engine::command_prelude::*;
-
-use super::client::send_request2;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -216,7 +214,7 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request2(request.clone(), args.data, args.content_type, ctrl_c);
+    let response = send_request(request.clone(), args.data, args.content_type, ctrl_c);
 
     let request_flags = RequestFlags {
         raw: args.raw,

@@ -187,23 +187,8 @@ pub enum HttpBody {
     None,
 }
 
-pub fn send_request(
-    request: Request,
-    body: Option<Value>,
-    content_type: Option<String>,
-    ctrl_c: Option<Arc<AtomicBool>>,
-) -> Result<Response, ShellErrorOrRequestError> {
-    let body = if let Some(body) = body {
-        HttpBody::Value(body)
-    } else {
-        HttpBody::None
-    };
-
-    send_request2(request, body, content_type, ctrl_c)
-}
-
 // remove once all commands have been migrated
-pub fn send_request2(
+pub fn send_request(
     request: Request,
     http_body: HttpBody,
     content_type: Option<String>,
