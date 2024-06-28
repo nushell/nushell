@@ -85,6 +85,27 @@ fn custom_completer() -> NuCompleter {
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
 }
 
+#[fixture]
+fn subcommand_completer() -> NuCompleter {
+    // Create a new engine
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Use fuzzy matching, because subcommands are sorted by Levenshtein distance,
+    // and that's not very useful with prefix matching
+    let commands = r#"
+            $env.config.completions.algorithm = "fuzzy"
+            def foo [] {}
+            def "foo bar" [] {}
+            def "foo abaz" [] {}
+            def "foo aabrr" [] {}
+            def food [] {}
+        "#;
+    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(Arc::new(engine), Arc::new(stack))
+}
+
 #[test]
 fn variables_dollar_sign_with_varialblecompletion() {
     let (_, _, engine, stack) = new_engine();
@@ -658,6 +679,27 @@ fn command_watch_with_filecompletion() {
     ];
 
     match_suggestions(expected_paths, suggestions)
+}
+
+#[rstest]
+fn subcommand_completions(mut subcommand_completer: NuCompleter) {
+    let prefix = "foo br";
+    let suggestions = subcommand_completer.complete(prefix, prefix.len());
+    match_suggestions(
+        vec!["foo bar".to_string(), "foo aabrr".to_string()],
+        suggestions,
+    );
+
+    let prefix = "foo b";
+    let suggestions = subcommand_completer.complete(prefix, prefix.len());
+    match_suggestions(
+        vec![
+            "foo bar".to_string(),
+            "foo abaz".to_string(),
+            "foo aabrr".to_string(),
+        ],
+        suggestions,
+    );
 }
 
 #[test]
