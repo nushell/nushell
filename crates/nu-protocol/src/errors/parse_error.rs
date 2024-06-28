@@ -17,6 +17,13 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_tokens), help("Try removing them."))]
     ExtraTokens(#[label = "extra tokens"] Span),
 
+    #[error("Invalid characters after closing delimiter")]
+    #[diagnostic(
+        code(nu::parser::extra_token_after_closing_delimiter),
+        help("Try removing them.")
+    )]
+    ExtraTokensAfterClosingDelimiter(#[label = "invalid characters"] Span),
+
     #[error("Extra positional argument.")]
     #[diagnostic(code(nu::parser::extra_positional), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
@@ -577,6 +584,7 @@ impl ParseError {
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
+            ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,
         }
     }
 }
