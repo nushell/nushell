@@ -424,6 +424,46 @@ D:             104792064  17042676  87749388  17% /d";
     }
 
     #[test]
+    fn test_guess_width_multibyte() {
+        let input = "A… B\nC… D";
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let want = vec![vec!["A…", "B"], vec!["C…", "D"]];
+        let got = guess_width.read_all();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_guess_width_combining_diacritical_marks() {
+        let input = "Name        Surname
+Ștefan         Țincu ";
+
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let want = vec![vec!["Name", "Surname"], vec!["Ștefan", "Țincu"]];
+        let got = guess_width.read_all();
+        assert_eq!(got, want);
+    }
+
+    #[test]
     fn test_to_table() {
         let lines = vec![
             "   PID TTY          TIME CMD".to_string(),
