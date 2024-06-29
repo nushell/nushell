@@ -1,6 +1,4 @@
-use crate::completions::{
-    Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion, SuggestionKind,
-};
+use crate::completions::{Completer, CompletionOptions, SemanticSuggestion, SuggestionKind};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
@@ -8,6 +6,8 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 use std::str;
+
+use super::completion_options::{MatcherOptions, NuMatcher};
 
 #[derive(Clone)]
 pub struct VariableCompletion {
@@ -31,7 +31,6 @@ impl Completer for VariableCompletion {
         _pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion> {
-        let mut output = vec![];
         let builtins = ["$nu", "$in", "$env"];
         let var_str = std::str::from_utf8(&self.var_context.0).unwrap_or("");
         let var_id = working_set.find_variable(&self.var_context.0);
@@ -40,6 +39,12 @@ impl Completer for VariableCompletion {
             end: span.end - offset,
         };
         let sublevels_count = self.var_context.1.len();
+
+        let prefix = String::from_utf8_lossy(&prefix);
+        let mut matcher = NuMatcher::new(
+            prefix,
+            MatcherOptions::new(options).sort_by(self.get_sort_by()),
+        );
 
         // Completions for the given variable
         if !var_str.is_empty() {
@@ -59,41 +64,30 @@ impl Completer for VariableCompletion {
                         self.var_context.1.clone().into_iter().skip(1).collect();
 
                     if let Some(val) = env_vars.get(&target_var_str) {
-                        for suggestion in nested_suggestions(val, &nested_levels, current_span) {
-                            if options.match_algorithm.matches_u8_insensitive(
-                                options.case_sensitive,
-                                suggestion.suggestion.value.as_bytes(),
-                                &prefix,
-                            ) {
-                                output.push(suggestion);
-                            }
+                        for it in nested_suggestions(val, &nested_levels, current_span) {
+                            matcher.add(it.suggestion.value.clone(), it);
                         }
-
-                        return output;
+                        return matcher.get_results();
                     }
                 } else {
                     // No nesting provided, return all env vars
-                    for env_var in env_vars {
-                        if options.match_algorithm.matches_u8_insensitive(
-                            options.case_sensitive,
-                            env_var.0.as_bytes(),
-                            &prefix,
-                        ) {
-                            output.push(SemanticSuggestion {
+                    for (var_name, value) in env_vars {
+                        matcher.add(
+                            var_name.clone(),
+                            SemanticSuggestion {
                                 suggestion: Suggestion {
-                                    value: env_var.0,
+                                    value: var_name,
                                     description: None,
                                     style: None,
                                     extra: None,
                                     span: current_span,
                                     append_whitespace: false,
                                 },
-                                kind: Some(SuggestionKind::Type(env_var.1.get_type())),
-                            });
-                        }
+                                kind: Some(SuggestionKind::Type(value.get_type())),
+                            },
+                        );
                     }
-
-                    return output;
+                    return matcher.get_results();
                 }
             }
 
@@ -106,18 +100,10 @@ impl Completer for VariableCompletion {
                     nu_protocol::NU_VARIABLE_ID,
                     nu_protocol::Span::new(current_span.start, current_span.end),
                 ) {
-                    for suggestion in nested_suggestions(&nuval, &self.var_context.1, current_span)
-                    {
-                        if options.match_algorithm.matches_u8_insensitive(
-                            options.case_sensitive,
-                            suggestion.suggestion.value.as_bytes(),
-                            &prefix,
-                        ) {
-                            output.push(suggestion);
-                        }
+                    for it in nested_suggestions(&nuval, &self.var_context.1, current_span) {
+                        matcher.add(it.suggestion.value.clone(), it);
                     }
-
-                    return output;
+                    return matcher.get_results();
                 }
             }
 
@@ -128,30 +114,19 @@ impl Completer for VariableCompletion {
 
                 // If the value exists and it's of type Record
                 if let Ok(value) = var {
-                    for suggestion in nested_suggestions(&value, &self.var_context.1, current_span)
-                    {
-                        if options.match_algorithm.matches_u8_insensitive(
-                            options.case_sensitive,
-                            suggestion.suggestion.value.as_bytes(),
-                            &prefix,
-                        ) {
-                            output.push(suggestion);
-                        }
+                    for it in nested_suggestions(&value, &self.var_context.1, current_span) {
+                        matcher.add(it.suggestion.value.clone(), it);
                     }
-
-                    return output;
+                    return matcher.get_results();
                 }
             }
         }
 
         // Variable completion (e.g: $en<tab> to complete $env)
         for builtin in builtins {
-            if options.match_algorithm.matches_u8_insensitive(
-                options.case_sensitive,
-                builtin.as_bytes(),
-                &prefix,
-            ) {
-                output.push(SemanticSuggestion {
+            matcher.add(
+                builtin,
+                SemanticSuggestion {
                     suggestion: Suggestion {
                         value: builtin.to_string(),
                         description: None,
@@ -162,8 +137,8 @@ impl Completer for VariableCompletion {
                     },
                     // TODO is there a way to get the VarId to get the type???
                     kind: None,
-                });
-            }
+                },
+            );
         }
 
         // TODO: The following can be refactored (see find_commands_by_predicate() used in
@@ -172,15 +147,13 @@ impl Completer for VariableCompletion {
         // Working set scope vars
         for scope_frame in working_set.delta.scope.iter().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
-                for v in &overlay_frame.vars {
-                    if options.match_algorithm.matches_u8_insensitive(
-                        options.case_sensitive,
-                        v.0,
-                        &prefix,
-                    ) {
-                        output.push(SemanticSuggestion {
+                for (name, id) in &overlay_frame.vars {
+                    let name = String::from_utf8_lossy(name);
+                    matcher.add(
+                        name.clone(),
+                        SemanticSuggestion {
                             suggestion: Suggestion {
-                                value: String::from_utf8_lossy(v.0).to_string(),
+                                value: name.to_string(),
                                 description: None,
                                 style: None,
                                 extra: None,
@@ -188,10 +161,10 @@ impl Completer for VariableCompletion {
                                 append_whitespace: false,
                             },
                             kind: Some(SuggestionKind::Type(
-                                working_set.get_variable(*v.1).ty.clone(),
+                                working_set.get_variable(*id).ty.clone(),
                             )),
-                        });
-                    }
+                        },
+                    );
                 }
             }
         }
@@ -203,15 +176,13 @@ impl Completer for VariableCompletion {
             .active_overlays(&removed_overlays)
             .rev()
         {
-            for v in &overlay_frame.vars {
-                if options.match_algorithm.matches_u8_insensitive(
-                    options.case_sensitive,
-                    v.0,
-                    &prefix,
-                ) {
-                    output.push(SemanticSuggestion {
+            for (name, id) in &overlay_frame.vars {
+                let name = String::from_utf8_lossy(name);
+                matcher.add(
+                    name.clone(),
+                    SemanticSuggestion {
                         suggestion: Suggestion {
-                            value: String::from_utf8_lossy(v.0).to_string(),
+                            value: name.to_string(),
                             description: None,
                             style: None,
                             extra: None,
@@ -219,16 +190,18 @@ impl Completer for VariableCompletion {
                             append_whitespace: false,
                         },
                         kind: Some(SuggestionKind::Type(
-                            working_set.get_variable(*v.1).ty.clone(),
+                            working_set.get_variable(*id).ty.clone(),
                         )),
-                    });
-                }
+                    },
+                );
             }
         }
 
-        output.dedup(); // TODO: Removes only consecutive duplicates, is it intended?
+        let mut matches = matcher.get_results();
 
-        output
+        matches.dedup(); // TODO: Removes only consecutive duplicates, is it intended?
+
+        matches
     }
 }
 
@@ -313,15 +286,5 @@ fn recursive_value(val: &Value, sublevels: &[Vec<u8>]) -> Result<Value, Span> {
         }
     } else {
         Ok(val.clone())
-    }
-}
-
-impl MatchAlgorithm {
-    pub fn matches_u8_insensitive(&self, sensitive: bool, haystack: &[u8], needle: &[u8]) -> bool {
-        if sensitive {
-            self.matches_u8(haystack, needle)
-        } else {
-            self.matches_u8(&haystack.to_ascii_lowercase(), &needle.to_ascii_lowercase())
-        }
     }
 }

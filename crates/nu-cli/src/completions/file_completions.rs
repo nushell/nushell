@@ -1,17 +1,16 @@
 use crate::completions::{
     completion_common::{adjust_if_intermediate, complete_item, AdjustView},
-    Completer, CompletionOptions, SortBy,
+    Completer, CompletionOptions,
 };
 use nu_ansi_term::Style;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    levenshtein_distance, Span,
+    Span,
 };
-use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
-use std::path::{Path, MAIN_SEPARATOR as SEP};
+use std::path::{Path, PathBuf};
 
-use super::SemanticSuggestion;
+use super::{completion_options::MatcherOptions, SemanticSuggestion};
 
 #[derive(Clone, Default)]
 pub struct FileCompletion {}
@@ -44,21 +43,23 @@ impl Completer for FileCompletion {
             readjusted,
             span,
             &prefix,
-            &working_set.permanent_state.current_work_dir(),
-            options,
+            &[&working_set.permanent_state.current_work_dir()],
+            MatcherOptions::new(options)
+                .sort_by(self.get_sort_by())
+                .match_paths(true),
             working_set.permanent_state,
             stack,
         )
         .into_iter()
-        .map(move |x| SemanticSuggestion {
+        .map(move |(span, _, path, style)| SemanticSuggestion {
             suggestion: Suggestion {
-                value: x.1,
+                value: path,
                 description: None,
-                style: x.2,
+                style,
                 extra: None,
                 span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
+                    start: span.start - offset,
+                    end: span.end - offset,
                 },
                 append_whitespace: false,
             },
@@ -67,41 +68,13 @@ impl Completer for FileCompletion {
         })
         .collect();
 
-        output
-    }
-
-    // Sort results prioritizing the non hidden folders
-    fn sort(&self, items: Vec<SemanticSuggestion>, prefix: Vec<u8>) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(&prefix).to_string();
-
-        // Sort items
-        let mut sorted_items = items;
-
-        match self.get_sort_by() {
-            SortBy::Ascending => {
-                sorted_items.sort_by(|a, b| {
-                    // Ignore trailing slashes in folder names when sorting
-                    a.suggestion
-                        .value
-                        .trim_end_matches(SEP)
-                        .cmp(b.suggestion.value.trim_end_matches(SEP))
-                });
-            }
-            SortBy::LevenshteinDistance => {
-                sorted_items.sort_by(|a, b| {
-                    let a_distance = levenshtein_distance(&prefix_str, &a.suggestion.value);
-                    let b_distance = levenshtein_distance(&prefix_str, &b.suggestion.value);
-                    a_distance.cmp(&b_distance)
-                });
-            }
-            _ => (),
-        }
+        // Sort results prioritizing the non hidden folders
 
         // Separate the results between hidden and non hidden
         let mut hidden: Vec<SemanticSuggestion> = vec![];
         let mut non_hidden: Vec<SemanticSuggestion> = vec![];
 
-        for item in sorted_items.into_iter() {
+        for item in output.into_iter() {
             let item_path = Path::new(&item.suggestion.value);
 
             if let Some(value) = item_path.file_name() {
@@ -125,21 +98,10 @@ impl Completer for FileCompletion {
 pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
-    cwd: &str,
-    options: &CompletionOptions,
+    cwds: &[impl AsRef<str>],
+    options: MatcherOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    complete_item(false, span, partial, cwd, options, engine_state, stack)
-}
-
-pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
-    // Check for case sensitive
-    if !options.case_sensitive {
-        return options
-            .match_algorithm
-            .matches_str(&from.to_folded_case(), &partial.to_folded_case());
-    }
-
-    options.match_algorithm.matches_str(from, partial)
+) -> Vec<(nu_protocol::Span, PathBuf, String, Option<Style>)> {
+    complete_item(false, span, partial, cwds, options, engine_state, stack)
 }
