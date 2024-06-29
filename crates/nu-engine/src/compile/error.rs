@@ -21,6 +21,7 @@ pub enum CompileError {
     RunExternalNotFound,
     InvalidLhsForAssignment(Span),
     ModifyImmutableVariable(Span),
+    UnexpectedExpr(&'static str),
     Todo(&'static str),
 }
 
@@ -55,6 +56,9 @@ impl CompileError {
             }
             CompileError::ModifyImmutableVariable(_) => {
                 "attempted to modify immutable variable".into()
+            }
+            CompileError::UnexpectedExpr(msg) => {
+                format!("unexpected expression in this context: {msg}")
             }
             CompileError::Todo(msg) => {
                 format!("TODO: {msg}")

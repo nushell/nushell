@@ -6,8 +6,8 @@ use super::{
 use nu_protocol::{
     ast::{CellPath, Expr, Expression, ListItem, RecordItem},
     engine::StateWorkingSet,
-    ir::{Instruction, Literal},
-    IntoSpanned, RegId, ENV_VARIABLE_ID,
+    ir::{DataSlice, Instruction, Literal},
+    IntoSpanned, RegId, Type, ENV_VARIABLE_ID,
 };
 
 pub(crate) fn compile_expression(
@@ -124,7 +124,7 @@ pub(crate) fn compile_expression(
             )?;
             Ok(())
         }
-        Expr::VarDecl(_) => Err(CompileError::Todo("VarDecl")),
+        Expr::VarDecl(_) => Err(CompileError::UnexpectedExpr("VarDecl")),
         Expr::Call(call) => {
             move_in_reg_to_out_reg(builder)?;
 
@@ -135,7 +135,7 @@ pub(crate) fn compile_expression(
 
             compile_external_call(working_set, builder, head, args, redirect_modes, out_reg)
         }
-        Expr::Operator(_) => Err(CompileError::Todo("Operator")),
+        Expr::Operator(_) => Err(CompileError::UnexpectedExpr("Operator")),
         Expr::RowCondition(_) => Err(CompileError::Todo("RowCondition")),
         Expr::UnaryNot(subexpr) => {
             drop_input(builder)?;
@@ -354,7 +354,7 @@ pub(crate) fn compile_expression(
             }
             Ok(())
         }
-        Expr::Keyword(_) => Err(CompileError::Todo("Keyword")),
+        Expr::Keyword(_) => Err(CompileError::UnexpectedExpr("Keyword")),
         Expr::ValueWithUnit(_) => Err(CompileError::Todo("ValueWithUnit")),
         Expr::DateTime(_) => Err(CompileError::Todo("DateTime")),
         Expr::Filepath(path, no_expand) => {
@@ -430,8 +430,57 @@ pub(crate) fn compile_expression(
         Expr::ImportPattern(_) => Err(CompileError::Todo("ImportPattern")),
         Expr::Overlay(_) => Err(CompileError::Todo("Overlay")),
         Expr::Signature(_) => ignore(builder), // no effect
-        Expr::StringInterpolation(_) => Err(CompileError::Todo("StringInterpolation")),
-        Expr::GlobInterpolation(_, _) => Err(CompileError::Todo("GlobInterpolation")),
+        Expr::StringInterpolation(exprs) | Expr::GlobInterpolation(exprs, _) => {
+            let mut exprs_iter = exprs.iter().peekable();
+
+            if exprs_iter.peek().is_some_and(|e| e.ty == Type::String) {
+                // If the first expression is typed as a string, just take it and build from that
+                compile_expression(
+                    working_set,
+                    builder,
+                    exprs_iter.next().expect("peek() was Some"),
+                    redirect_modes.with_capture_out(expr.span),
+                    None,
+                    out_reg,
+                )?;
+            } else {
+                // Start with an empty string
+                lit(builder, Literal::String(DataSlice::empty()))?;
+            }
+
+            // Compile each expression and append to out_reg
+            for expr in exprs_iter {
+                let scratch_reg = builder.next_register()?;
+                compile_expression(
+                    working_set,
+                    builder,
+                    expr,
+                    redirect_modes.with_capture_out(expr.span),
+                    None,
+                    scratch_reg,
+                )?;
+                builder.push(
+                    Instruction::StringAppend {
+                        src_dst: out_reg,
+                        val: scratch_reg,
+                    }
+                    .into_spanned(expr.span),
+                )?;
+            }
+
+            // If it's a glob interpolation, change it to a glob
+            if let Expr::GlobInterpolation(_, no_expand) = expr.expr {
+                builder.push(
+                    Instruction::GlobFrom {
+                        src_dst: out_reg,
+                        no_expand,
+                    }
+                    .into_spanned(expr.span),
+                )?;
+            }
+
+            Ok(())
+        }
         Expr::Nothing => lit(builder, Literal::Nothing),
         Expr::Garbage => Err(CompileError::Garbage),
     }

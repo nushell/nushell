@@ -42,6 +42,13 @@ pub struct DataSlice {
     pub len: u32,
 }
 
+impl DataSlice {
+    /// A data slice that contains no data. This slice is always valid.
+    pub const fn empty() -> DataSlice {
+        DataSlice { start: 0, len: 0 }
+    }
+}
+
 impl std::ops::Index<DataSlice> for [u8] {
     type Output = [u8];
 
@@ -90,6 +97,11 @@ pub enum Instruction {
     /// Make a call. The input is taken from `src_dst`, and the output is placed in `src_dst`,
     /// overwriting it. The argument stack is used implicitly and cleared when the call ends.
     Call { decl_id: DeclId, src_dst: RegId },
+    /// Append a value onto the end of a string. Uses `to_expanded_string(", ", ...)` on the value.
+    /// Used for string interpolation literals. Not the same thing as the `++` operator.
+    StringAppend { src_dst: RegId, val: RegId },
+    /// Convert a string into a glob. Used for glob interpolation.
+    GlobFrom { src_dst: RegId, no_expand: bool },
     /// Push a value onto the end of a list. Used to construct list literals.
     ListPush { src_dst: RegId, item: RegId },
     /// Spread a value onto the end of a list. Used to construct list literals.

@@ -115,6 +115,13 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
                 let decl = FmtDecl::new(self.engine_state, *decl_id);
                 write!(f, "{:WIDTH$} {decl}, {src_dst}", "call")
             }
+            Instruction::StringAppend { src_dst, val } => {
+                write!(f, "{:WIDTH$} {src_dst}, {val}", "string-append")
+            }
+            Instruction::GlobFrom { src_dst, no_expand } => {
+                let no_expand = if *no_expand { "no-expand" } else { "expand" };
+                write!(f, "{:WIDTH$} {src_dst}, {no_expand}", "glob-from",)
+            }
             Instruction::ListPush { src_dst, item } => {
                 write!(f, "{:WIDTH$} {src_dst}, {item}", "list-push")
             }

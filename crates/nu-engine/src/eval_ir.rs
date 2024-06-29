@@ -299,6 +299,31 @@ fn eval_instruction(
             ctx.put_reg(*src_dst, result);
             Ok(Continue)
         }
+        Instruction::StringAppend { src_dst, val } => {
+            let string_value = ctx.collect_reg(*src_dst, *span)?;
+            let operand_value = ctx.collect_reg(*val, *span)?;
+            let string_span = string_value.span();
+
+            let mut string = string_value.into_string()?;
+            let operand = if let Value::String { val, .. } = operand_value {
+                // Small optimization, so we don't have to copy the string *again*
+                val
+            } else {
+                operand_value.to_expanded_string(", ", ctx.engine_state.get_config())
+            };
+            string.push_str(&operand);
+
+            let new_string_value = Value::string(string, string_span);
+            ctx.put_reg(*src_dst, new_string_value.into_pipeline_data());
+            Ok(Continue)
+        }
+        Instruction::GlobFrom { src_dst, no_expand } => {
+            let string_value = ctx.collect_reg(*src_dst, *span)?;
+            let string = string_value.into_string()?;
+            let glob_value = Value::glob(string, *no_expand, *span);
+            ctx.put_reg(*src_dst, glob_value.into_pipeline_data());
+            Ok(Continue)
+        }
         Instruction::ListPush { src_dst, item } => {
             let list_value = ctx.collect_reg(*src_dst, *span)?;
             let item = ctx.collect_reg(*item, *span)?;

@@ -157,6 +157,11 @@ impl BlockBuilder {
                 decl_id: _,
                 src_dst: _,
             } => (),
+            Instruction::StringAppend { src_dst: _, val } => self.free_register(*val)?,
+            Instruction::GlobFrom {
+                src_dst: _,
+                no_expand: _,
+            } => (),
             Instruction::ListPush { src_dst: _, item } => self.free_register(*item)?,
             Instruction::ListSpread { src_dst: _, items } => self.free_register(*items)?,
             Instruction::RecordInsert {
