@@ -21,6 +21,13 @@ pub(crate) fn compile_call(
             "if" => {
                 return compile_if(working_set, builder, call, redirect_modes, io_reg);
             }
+            "const" => {
+                // This differs from the behavior of the const command, which adds the const value
+                // to the stack. Since `load-variable` also checks `engine_state` for the variable
+                // and will get a const value though, is it really necessary to do that?
+                builder.load_empty(io_reg)?;
+                return Ok(());
+            }
             "let" | "mut" => {
                 return compile_let(working_set, builder, call, redirect_modes, io_reg);
             }
