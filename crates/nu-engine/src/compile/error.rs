@@ -40,7 +40,7 @@ impl CompileError {
             CompileError::Garbage => "encountered garbage, likely due to parse error".into(),
             CompileError::UnsupportedOperatorExpression => "unsupported operator expression".into(),
             CompileError::AccessEnvByInt(_) => "attempted access of $env by integer path".into(),
-            CompileError::InvalidKeywordCall(kind, _) => format!("invalid `{kind}` keyword cal"),
+            CompileError::InvalidKeywordCall(kind, _) => format!("invalid `{kind}` keyword call"),
             CompileError::SetBranchTargetOfNonBranchInstruction => {
                 "attempted to set branch target of non-branch instruction".into()
             }

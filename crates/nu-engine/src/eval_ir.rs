@@ -6,8 +6,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
-    DeclId, IntoPipelineData, IntoSpanned, OutDest, PipelineData, Range, Record, RegId, ShellError,
-    Span, Value, VarId,
+    DeclId, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData, Range, Record, RegId,
+    ShellError, Span, Value, VarId,
 };
 
 use crate::eval::is_automatic_env_var;
@@ -439,6 +439,11 @@ fn eval_instruction(
                 Ok(Continue)
             }
         }
+        Instruction::Iterate {
+            dst,
+            stream,
+            end_index,
+        } => eval_iterate(ctx, *dst, *stream, *end_index),
         Instruction::Return { src } => Ok(Return(*src)),
     }
 }
@@ -687,5 +692,36 @@ fn eval_redirection(
                 .map_err(|err| err.into_spanned(span))?;
             Ok(Redirection::File(file.into()))
         }
+    }
+}
+
+/// Do an `iterate` instruction. This can be called repeatedly to get more values from an iterable
+fn eval_iterate(
+    ctx: &mut EvalContext<'_>,
+    dst: RegId,
+    stream: RegId,
+    end_index: usize,
+) -> Result<InstructionResult, ShellError> {
+    let mut data = ctx.take_reg(stream);
+    if let PipelineData::ListStream(list_stream, _) = &mut data {
+        // Modify the stream, taking one value off, and branching if it's empty
+        if let Some(val) = list_stream.next() {
+            ctx.put_reg(dst, val.into_pipeline_data());
+            ctx.put_reg(stream, data); // put the stream back so it can be iterated on again
+            Ok(InstructionResult::Continue)
+        } else {
+            ctx.put_reg(dst, PipelineData::Empty);
+            Ok(InstructionResult::Branch(end_index))
+        }
+    } else {
+        // Convert the PipelineData to an iterator, and wrap it in a ListStream so it can be
+        // iterated on
+        let metadata = data.metadata();
+        let span = data.span().unwrap_or(Span::unknown());
+        ctx.put_reg(
+            stream,
+            PipelineData::ListStream(ListStream::new(data.into_iter(), span, None), metadata),
+        );
+        eval_iterate(ctx, dst, stream, end_index)
     }
 }

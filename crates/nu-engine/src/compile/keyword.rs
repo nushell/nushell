@@ -168,6 +168,91 @@ pub(crate) fn compile_let(
     Ok(())
 }
 
+/// Compile a call to `for` (via `iterate`)
+pub(crate) fn compile_for(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    let invalid = || CompileError::InvalidKeywordCall("for", call.head);
+
+    if call.get_named_arg("numbered").is_some() {
+        // This is deprecated and we don't support it.
+        return Err(invalid());
+    }
+
+    let var_decl_arg = call.positional_nth(0).ok_or_else(invalid)?;
+    let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
+
+    let in_arg = call.positional_nth(1).ok_or_else(invalid)?;
+    let in_expr = in_arg.as_keyword().ok_or_else(invalid)?;
+
+    let block_arg = call.positional_nth(2).ok_or_else(invalid)?;
+    let block_id = block_arg.as_block().ok_or_else(invalid)?;
+    let block = working_set.get_block(block_id);
+
+    let stream_reg = builder.next_register()?;
+
+    compile_expression(
+        working_set,
+        builder,
+        in_expr,
+        redirect_modes.with_capture_out(in_expr.span),
+        None,
+        stream_reg,
+    )?;
+
+    // This gets a value from the stream each time it's executed
+    // io_reg basically will act as our scratch register here
+    let iterate_index = builder.push(
+        Instruction::Iterate {
+            dst: io_reg,
+            stream: stream_reg,
+            end_index: usize::MAX, // placeholder
+        }
+        .into_spanned(call.head),
+    )?;
+
+    // Put the received value in the variable
+    builder.push(
+        Instruction::StoreVariable {
+            var_id,
+            src: io_reg,
+        }
+        .into_spanned(var_decl_arg.span),
+    )?;
+
+    // Do the body of the block
+    compile_block(
+        working_set,
+        builder,
+        block,
+        RedirectModes::default(),
+        None,
+        io_reg,
+    )?;
+
+    // Loop back to iterate to get the next value
+    builder.push(
+        Instruction::Jump {
+            index: iterate_index,
+        }
+        .into_spanned(call.head),
+    )?;
+
+    // Update the iterate target to the end of the loop
+    let target_index = builder.next_instruction_index();
+    builder.set_branch_target(iterate_index, target_index)?;
+
+    // We don't need stream_reg anymore, after the loop
+    // io_reg is guaranteed to be Empty due to the iterate instruction before
+    builder.free_register(stream_reg)?;
+
+    Ok(())
+}
+
 /// Compile a call to `return` as a `return` instruction.
 ///
 /// This is not strictly necessary, but it is more efficient.

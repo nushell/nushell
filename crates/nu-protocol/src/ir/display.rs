@@ -156,6 +156,13 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::BranchIf { cond, index } => {
                 write!(f, "{:WIDTH$} {cond}, {index}", "branch-if")
             }
+            Instruction::Iterate {
+                dst,
+                stream,
+                end_index,
+            } => {
+                write!(f, "{:WIDTH$} {dst}, {stream}, end {end_index}", "iterate")
+            }
             Instruction::Return { src } => {
                 write!(f, "{:WIDTH$} {src}", "return")
             }

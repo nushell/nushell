@@ -130,6 +130,13 @@ pub enum Instruction {
     /// Branch to an offset in this block if the value of the `cond` register is a true boolean,
     /// otherwise continue execution
     BranchIf { cond: RegId, index: usize },
+    /// Iterate on register `stream`, putting the next value in `dst` if present, or jumping to
+    /// `end_index` if the iterator is finished
+    Iterate {
+        dst: RegId,
+        stream: RegId,
+        end_index: usize,
+    },
     /// Return from the block with the value in the register
     Return { src: RegId },
 }
@@ -153,7 +160,7 @@ impl Instruction {
 // This is to document/enforce the size of `Instruction` in bytes.
 // We should try to avoid increasing the size of `Instruction`,
 // and PRs that do so will have to change the number below so that it's noted in review.
-const _: () = assert!(std::mem::size_of::<Instruction>() <= 32);
+const _: () = assert!(std::mem::size_of::<Instruction>() <= 24);
 
 /// A literal value that can be embedded in an instruction.
 #[derive(Debug, Clone, Serialize, Deserialize)]

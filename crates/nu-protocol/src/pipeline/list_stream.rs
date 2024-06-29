@@ -39,6 +39,11 @@ impl ListStream {
         self.stream
     }
 
+    /// Take a single value from the inner `Iterator`, modifying the stream.
+    pub fn next(&mut self) -> Option<Value> {
+        self.stream.next()
+    }
+
     /// Converts each value in a [`ListStream`] into a string and then joins the strings together
     /// using the given separator.
     pub fn into_string(self, separator: &str, config: &Config) -> String {
