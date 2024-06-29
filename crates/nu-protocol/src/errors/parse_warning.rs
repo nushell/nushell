@@ -1,4 +1,4 @@
-use crate::Span;
+use crate::{CompileError, Span};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -21,14 +21,12 @@ pub enum ParseWarning {
     ///
     /// The IR compiler is in very early development, so code that can't be compiled is quite
     /// expected. If you think it should be working, please report it to us.
-    #[error("internal compiler error: {msg}")]
-    #[diagnostic(
-        help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were compiling if able")
-    )]
+    #[error("IR compile error")]
     IrCompileError {
-        msg: String,
-        #[label = "while compiling this code"]
+        #[label("failed to compile this code to IR instructions")]
         span: Span,
+        #[related]
+        errors: Vec<CompileError>,
     },
 }
 

@@ -111,7 +111,7 @@ pub(crate) fn compile_assignment(
         Expr::Var(var_id) => {
             // Double check that the variable is supposed to be mutable
             if !working_set.get_variable(var_id).mutable {
-                return Err(CompileError::ModifyImmutableVariable(lhs.span));
+                return Err(CompileError::ModifyImmutableVariable { span: lhs.span });
             }
 
             builder.push(
@@ -136,7 +136,7 @@ pub(crate) fn compile_assignment(
                     val: key, optional, ..
                 }) = path.tail.first()
                 else {
-                    return Err(CompileError::InvalidLhsForAssignment(lhs.span));
+                    return Err(CompileError::InvalidLhsForAssignment { span: lhs.span });
                 };
 
                 let key_data = builder.data(key)?;
@@ -222,8 +222,8 @@ pub(crate) fn compile_assignment(
                 compile_assignment(working_set, builder, &path.head, assignment_span, head_reg)
             }
         },
-        Expr::Garbage => Err(CompileError::Garbage),
-        _ => Err(CompileError::InvalidLhsForAssignment(lhs.span)),
+        Expr::Garbage => Err(CompileError::Garbage { span: lhs.span }),
+        _ => Err(CompileError::InvalidLhsForAssignment { span: lhs.span }),
     }
 }
 
@@ -273,7 +273,9 @@ pub(crate) fn compile_load_env(
     } else {
         let (key, optional) = match &path[0] {
             PathMember::String { val, optional, .. } => (builder.data(val)?, *optional),
-            PathMember::Int { span, .. } => return Err(CompileError::AccessEnvByInt(*span)),
+            PathMember::Int { span, .. } => {
+                return Err(CompileError::AccessEnvByInt { span: *span })
+            }
         };
         let tail = &path[1..];
 

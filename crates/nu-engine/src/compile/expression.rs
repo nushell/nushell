@@ -46,6 +46,11 @@ pub(crate) fn compile_expression(
         builder.load_empty(out_reg)
     };
 
+    let todo = |msg: &str| CompileError::Todo {
+        msg: msg.into(),
+        span: Some(expr.span),
+    };
+
     let move_in_reg_to_out_reg = |builder: &mut BlockBuilder| {
         // Ensure that out_reg contains the input value, because a call only uses one register
         if let Some(in_reg) = in_reg {
@@ -124,7 +129,10 @@ pub(crate) fn compile_expression(
             )?;
             Ok(())
         }
-        Expr::VarDecl(_) => Err(CompileError::UnexpectedExpr("VarDecl")),
+        Expr::VarDecl(_) => Err(CompileError::UnexpectedExpression {
+            expr_name: "VarDecl".into(),
+            span: expr.span,
+        }),
         Expr::Call(call) => {
             move_in_reg_to_out_reg(builder)?;
 
@@ -135,8 +143,11 @@ pub(crate) fn compile_expression(
 
             compile_external_call(working_set, builder, head, args, redirect_modes, out_reg)
         }
-        Expr::Operator(_) => Err(CompileError::UnexpectedExpr("Operator")),
-        Expr::RowCondition(_) => Err(CompileError::Todo("RowCondition")),
+        Expr::Operator(_) => Err(CompileError::UnexpectedExpression {
+            expr_name: "Operator".into(),
+            span: expr.span,
+        }),
+        Expr::RowCondition(_) => Err(todo("RowCondition")),
         Expr::UnaryNot(subexpr) => {
             drop_input(builder)?;
             compile_expression(
@@ -162,7 +173,7 @@ pub(crate) fn compile_expression(
                     out_reg,
                 )
             } else {
-                Err(CompileError::UnsupportedOperatorExpression)
+                Err(CompileError::UnsupportedOperatorExpression { span: op.span })
             }
         }
         Expr::Subexpression(block_id) => {
@@ -178,7 +189,7 @@ pub(crate) fn compile_expression(
         }
         Expr::Block(block_id) => lit(builder, Literal::Block(*block_id)),
         Expr::Closure(block_id) => lit(builder, Literal::Closure(*block_id)),
-        Expr::MatchBlock(_) => Err(CompileError::Todo("MatchBlock")),
+        Expr::MatchBlock(_) => Err(todo("MatchBlock")),
         Expr::List(items) => {
             // Guess capacity based on items (does not consider spread as more than 1)
             lit(
@@ -354,9 +365,12 @@ pub(crate) fn compile_expression(
             }
             Ok(())
         }
-        Expr::Keyword(_) => Err(CompileError::UnexpectedExpr("Keyword")),
-        Expr::ValueWithUnit(_) => Err(CompileError::Todo("ValueWithUnit")),
-        Expr::DateTime(_) => Err(CompileError::Todo("DateTime")),
+        Expr::Keyword(_) => Err(CompileError::UnexpectedExpression {
+            expr_name: "Keyword".into(),
+            span: expr.span,
+        }),
+        Expr::ValueWithUnit(_) => Err(todo("ValueWithUnit")),
+        Expr::DateTime(_) => Err(todo("DateTime")),
         Expr::Filepath(path, no_expand) => {
             let val = builder.data(path)?;
             lit(
@@ -427,8 +441,8 @@ pub(crate) fn compile_expression(
                 Ok(())
             }
         }
-        Expr::ImportPattern(_) => Err(CompileError::Todo("ImportPattern")),
-        Expr::Overlay(_) => Err(CompileError::Todo("Overlay")),
+        Expr::ImportPattern(_) => Err(todo("ImportPattern")),
+        Expr::Overlay(_) => Err(todo("Overlay")),
         Expr::Signature(_) => ignore(builder), // no effect
         Expr::StringInterpolation(exprs) | Expr::GlobInterpolation(exprs, _) => {
             let mut exprs_iter = exprs.iter().peekable();
@@ -482,6 +496,6 @@ pub(crate) fn compile_expression(
             Ok(())
         }
         Expr::Nothing => lit(builder, Literal::Nothing),
-        Expr::Garbage => Err(CompileError::Garbage),
+        Expr::Garbage => Err(CompileError::Garbage { span: expr.span }),
     }
 }

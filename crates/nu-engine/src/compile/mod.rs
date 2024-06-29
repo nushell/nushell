@@ -2,12 +2,11 @@ use nu_protocol::{
     ast::{Block, Pipeline, PipelineRedirection, RedirectionSource},
     engine::StateWorkingSet,
     ir::{Instruction, IrBlock},
-    IntoSpanned, RegId, Span,
+    CompileError, IntoSpanned, RegId, Span,
 };
 
 mod builder;
 mod call;
-mod error;
 mod expression;
 mod keyword;
 mod operator;
@@ -15,7 +14,6 @@ mod redirect;
 
 use builder::BlockBuilder;
 use call::*;
-use error::CompileError;
 use expression::compile_expression;
 use operator::*;
 use redirect::*;
@@ -24,10 +22,7 @@ const BLOCK_INPUT: RegId = RegId(0);
 
 /// Compile Nushell pipeline abstract syntax tree (AST) to internal representation (IR) instructions
 /// for evaluation.
-pub fn compile(
-    working_set: &StateWorkingSet,
-    block: &Block,
-) -> Result<IrBlock, error::CompileError> {
+pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, CompileError> {
     let mut builder = BlockBuilder::new();
 
     compile_block(
@@ -58,7 +53,7 @@ fn compile_block(
     redirect_modes: RedirectModes,
     in_reg: Option<RegId>,
     out_reg: RegId,
-) -> Result<(), error::CompileError> {
+) -> Result<(), CompileError> {
     let span = block.span.unwrap_or(Span::unknown());
     let mut redirect_modes = Some(redirect_modes);
     if !block.pipelines.is_empty() {
@@ -106,7 +101,7 @@ fn compile_pipeline(
     redirect_modes: RedirectModes,
     in_reg: Option<RegId>,
     out_reg: RegId,
-) -> Result<(), error::CompileError> {
+) -> Result<(), CompileError> {
     let mut iter = pipeline.elements.iter().peekable();
     let mut in_reg = in_reg;
     let mut redirect_modes = Some(redirect_modes);

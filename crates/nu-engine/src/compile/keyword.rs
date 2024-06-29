@@ -15,7 +15,10 @@ pub(crate) fn compile_if(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    let invalid = || CompileError::InvalidKeywordCall("if", call.head);
+    let invalid = || CompileError::InvalidKeywordCall {
+        keyword: "if".into(),
+        span: call.head,
+    };
 
     let condition = call.positional_nth(0).ok_or_else(invalid)?;
     let true_block_arg = call.positional_nth(1).ok_or_else(invalid)?;
@@ -136,7 +139,10 @@ pub(crate) fn compile_let(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    let invalid = || CompileError::InvalidKeywordCall("let", call.head);
+    let invalid = || CompileError::InvalidKeywordCall {
+        keyword: "let".into(),
+        span: call.head,
+    };
 
     let var_decl_arg = call.positional_nth(0).ok_or_else(invalid)?;
     let block_arg = call.positional_nth(1).ok_or_else(invalid)?;
@@ -176,7 +182,10 @@ pub(crate) fn compile_for(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    let invalid = || CompileError::InvalidKeywordCall("for", call.head);
+    let invalid = || CompileError::InvalidKeywordCall {
+        keyword: "for".into(),
+        span: call.head,
+    };
 
     if call.get_named_arg("numbered").is_some() {
         // This is deprecated and we don't support it.

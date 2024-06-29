@@ -5844,8 +5844,8 @@ pub fn parse_block(
             Err(err) => working_set
                 .parse_warnings
                 .push(ParseWarning::IrCompileError {
-                    msg: err.message(),
                     span,
+                    errors: vec![err],
                 }),
         }
     }

@@ -1,8 +1,6 @@
-use super::error::CompileError;
-
 use nu_protocol::{
     ir::{DataSlice, Instruction, IrBlock, Literal, RedirectMode},
-    IntoSpanned, RegId, Span, Spanned,
+    CompileError, IntoSpanned, RegId, Span, Spanned,
 };
 
 /// Builds [`IrBlock`]s progressively by consuming instructions and handles register allocation.
@@ -79,7 +77,7 @@ impl BlockBuilder {
             Ok(())
         } else {
             log::warn!("register {reg_id} uninitialized, builder = {self:#?}");
-            Err(CompileError::RegisterUninitialized(reg_id))
+            Err(CompileError::RegisterUninitialized { reg_id })
         }
     }
 
@@ -284,7 +282,9 @@ impl BlockBuilder {
                 Ok(())
             }
             Some(_) => Err(CompileError::SetBranchTargetOfNonBranchInstruction),
-            None => Err(CompileError::InstructionIndexOutOfRange(instruction_index)),
+            None => Err(CompileError::InstructionIndexOutOfRange {
+                index: instruction_index,
+            }),
         }
     }
 

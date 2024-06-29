@@ -41,8 +41,12 @@ impl Command for ViewIr {
         let ir_block = match &block.ir_block {
             Some(ir_block) => Cow::Borrowed(ir_block),
             None => Cow::Owned(
-                compile(&StateWorkingSet::new(engine_state), &block)
-                    .map_err(|err| err.to_shell_error(block.span))?,
+                compile(&StateWorkingSet::new(engine_state), &block).map_err(|err| {
+                    ShellError::IrCompileError {
+                        span: block.span,
+                        errors: vec![err],
+                    }
+                })?,
             ),
         };
 

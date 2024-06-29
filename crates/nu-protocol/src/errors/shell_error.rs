@@ -4,8 +4,8 @@ use std::io;
 use thiserror::Error;
 
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, Span, Spanned,
-    Value,
+    ast::Operator, engine::StateWorkingSet, format_error, CompileError, LabeledError, ParseError,
+    Span, Spanned, Value,
 };
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
@@ -1376,15 +1376,13 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     ///
     /// The IR compiler is in very early development, so code that can't be compiled is quite
     /// expected. If you think it should be working, please report it to us.
-    #[error("internal compiler error: {msg}")]
-    #[diagnostic(
-        code(nu::shell::ir_compile_error),
-        help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were compiling if able")
-    )]
+    #[error("IR compile error")]
+    #[diagnostic(code(nu::shell::ir_compile_error))]
     IrCompileError {
-        msg: String,
-        #[label = "while compiling this code"]
+        #[label("failed to compile this code to IR instructions")]
         span: Option<Span>,
+        #[related]
+        errors: Vec<CompileError>,
     },
 
     /// An unexpected error occurred during IR evaluation.

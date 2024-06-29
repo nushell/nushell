@@ -82,7 +82,7 @@ pub(crate) fn compile_call(
             Argument::Named((name, _, _)) => {
                 compiled_args.push(CompiledArg::Named(name.item.as_str(), arg_reg, arg.span()))
             }
-            Argument::Unknown(_) => return Err(CompileError::Garbage),
+            Argument::Unknown(_) => return Err(CompileError::Garbage { span: arg.span() }),
             Argument::Spread(_) => compiled_args.push(CompiledArg::Spread(
                 arg_reg.expect("expr() None in non-Named"),
                 arg.span(),
@@ -141,7 +141,7 @@ pub(crate) fn compile_external_call(
     // Pass everything to run-external
     let run_external_id = working_set
         .find_decl(b"run-external")
-        .ok_or_else(|| CompileError::RunExternalNotFound)?;
+        .ok_or_else(|| CompileError::RunExternalNotFound { span: head.span })?;
 
     let mut call = Call::new(head.span);
     call.decl_id = run_external_id;
