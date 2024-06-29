@@ -400,7 +400,7 @@ fn find_matching_block_end_in_expr(
                 }
             }
 
-            Expr::Call(call) => call.arguments.iter().find_map(|arg| {
+            Expr::Call(call) => call.arguments.item.iter().find_map(|arg| {
                 arg.expr().and_then(|expr| {
                     find_matching_block_end_in_expr(
                         line,

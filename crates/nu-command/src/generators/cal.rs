@@ -144,7 +144,7 @@ pub fn cal(
         style_computer,
     )?;
 
-    let mut table_no_index = Call::new(Span::unknown());
+    let mut table_no_index = Call::new(Span::unknown(), Span::unknown());
     table_no_index.add_named((
         Spanned {
             item: "index".to_string(),
