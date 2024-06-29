@@ -175,34 +175,34 @@ fn separator_position(lr: &[char], p: usize, pos: &[usize], n: usize) -> usize {
 
 fn split(line: &str, pos: &[usize], trim_space: bool) -> Vec<String> {
     let mut n = 0;
-    let mut start = 0;
+    let mut start_char = 0;
     let mut columns = Vec::with_capacity(pos.len() + 1);
-    let lr: Vec<char> = line.chars().collect();
+    let (line_char_boundaries, line_chars): (Vec<usize>, Vec<char>) = line.char_indices().unzip();
     let mut w = 0;
 
-    for p in 0..lr.len() {
+    for p in 0..line_char_boundaries.len() {
         if pos.is_empty() || n > pos.len() - 1 {
-            start = p;
+            start_char = p;
             break;
         }
 
         if pos[n] <= w {
-            let end = separator_position(&lr, p, pos, n);
-            if start > end {
+            let end_char = separator_position(&line_chars, p, pos, n);
+            if start_char > end_char {
                 break;
             }
-            let col = &line[start..end];
+            let col = &line[line_char_boundaries[start_char]..line_char_boundaries[end_char]];
             let col = if trim_space { col.trim() } else { col };
             columns.push(col.to_string());
             n += 1;
-            start = end;
+            start_char = end_char;
         }
 
-        w += UnicodeWidthStr::width(lr[p].to_string().as_str());
+        w += UnicodeWidthStr::width(line_chars[p].to_string().as_str());
     }
 
     // add last part.
-    let col = &line[start..];
+    let col = &line[line_char_boundaries[start_char]..];
     let col = if trim_space { col.trim() } else { col };
     columns.push(col.to_string());
     columns
@@ -419,6 +419,46 @@ D:             104792064  17042676  87749388  17% /d";
             vec!["C:/Apps/Git","998797308","869007000","129790308","88%","/"],
             vec!["D:","104792064","17042676","87749388","17%","/d"],
         ];
+        let got = guess_width.read_all();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_guess_width_multibyte() {
+        let input = "A… B\nC… D";
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let want = vec![vec!["A…", "B"], vec!["C…", "D"]];
+        let got = guess_width.read_all();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_guess_width_combining_diacritical_marks() {
+        let input = "Name        Surname
+Ștefan         Țincu ";
+
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let want = vec![vec!["Name", "Surname"], vec!["Ștefan", "Țincu"]];
         let got = guess_width.read_all();
         assert_eq!(got, want);
     }
