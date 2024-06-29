@@ -5,9 +5,7 @@ use nu_protocol::{
     IntoSpanned, RegId, Span,
 };
 
-use super::{
-    compile_expression, compile_if, compile_let, BlockBuilder, CompileError, RedirectModes,
-};
+use super::{compile_expression, keyword::*, BlockBuilder, CompileError, RedirectModes};
 
 pub(crate) fn compile_call(
     working_set: &StateWorkingSet,
@@ -25,6 +23,9 @@ pub(crate) fn compile_call(
             }
             "let" | "mut" => {
                 return compile_let(working_set, builder, call, redirect_modes, io_reg);
+            }
+            "return" => {
+                return compile_return(working_set, builder, call, redirect_modes, io_reg);
             }
             _ => (),
         }

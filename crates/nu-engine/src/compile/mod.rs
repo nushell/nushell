@@ -17,7 +17,6 @@ use builder::BlockBuilder;
 use call::*;
 use error::CompileError;
 use expression::compile_expression;
-use keyword::*;
 use operator::*;
 use redirect::*;
 

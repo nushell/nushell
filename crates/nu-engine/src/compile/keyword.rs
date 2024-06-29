@@ -167,3 +167,31 @@ pub(crate) fn compile_let(
 
     Ok(())
 }
+
+/// Compile a call to `return` as a `return` instruction.
+///
+/// This is not strictly necessary, but it is more efficient.
+pub(crate) fn compile_return(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    if let Some(arg_expr) = call.positional_nth(0) {
+        compile_expression(
+            working_set,
+            builder,
+            arg_expr,
+            redirect_modes.with_capture_out(arg_expr.span),
+            None,
+            io_reg,
+        )?;
+    } else {
+        builder.load_empty(io_reg)?;
+    }
+
+    builder.push(Instruction::Return { src: io_reg }.into_spanned(call.head))?;
+
+    Ok(())
+}
