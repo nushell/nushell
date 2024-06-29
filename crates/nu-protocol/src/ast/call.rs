@@ -4,23 +4,39 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
-    ShellError, Span, Spanned, Value,
+    ShellError, Span, SpanId, Spanned, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
     Positional(Expression),
-    Named((Spanned<String>, Option<Spanned<String>>, Option<Expression>)),
+    Named(
+        (
+            Spanned<String>,
+            Option<Spanned<String>>,
+            Option<Expression>,
+            SpanId,
+        ),
+    ),
     Unknown(Expression), // unknown argument used in "fall-through" signatures
     Spread(Expression),  // a list spread to fill in rest arguments
 }
 
 impl Argument {
+    pub fn span_id(&self) -> SpanId {
+        match self {
+            Argument::Positional(e) => e.span_id,
+            Argument::Named((_, _, _, span_id)) => *span_id,
+            Argument::Unknown(e) => e.span_id,
+            Argument::Spread(e) => e.span_id,
+        }
+    }
+
     /// The span for an argument
     pub fn span(&self) -> Span {
         match self {
             Argument::Positional(e) => e.span,
-            Argument::Named((named, short, expr)) => {
+            Argument::Named((named, short, expr, _)) => {
                 let start = named.span.start;
                 let end = if let Some(expr) = expr {
                     expr.span.end
@@ -39,7 +55,7 @@ impl Argument {
 
     pub fn expr(&self) -> Option<&Expression> {
         match self {
-            Argument::Named((_, _, expr)) => expr.as_ref(),
+            Argument::Named((_, _, expr, _)) => expr.as_ref(),
             Argument::Positional(expr) | Argument::Unknown(expr) | Argument::Spread(expr) => {
                 Some(expr)
             }
@@ -95,7 +111,14 @@ impl Call {
 
     pub fn named_iter(
         &self,
-    ) -> impl Iterator<Item = &(Spanned<String>, Option<Spanned<String>>, Option<Expression>)> {
+    ) -> impl Iterator<
+        Item = &(
+            Spanned<String>,
+            Option<Spanned<String>>,
+            Option<Expression>,
+            SpanId,
+        ),
+    > {
         self.arguments.iter().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
@@ -106,8 +129,14 @@ impl Call {
 
     pub fn named_iter_mut(
         &mut self,
-    ) -> impl Iterator<Item = &mut (Spanned<String>, Option<Spanned<String>>, Option<Expression>)>
-    {
+    ) -> impl Iterator<
+        Item = &mut (
+            Spanned<String>,
+            Option<Spanned<String>>,
+            Option<Expression>,
+            SpanId,
+        ),
+    > {
         self.arguments.iter_mut().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
@@ -122,7 +151,12 @@ impl Call {
 
     pub fn add_named(
         &mut self,
-        named: (Spanned<String>, Option<Spanned<String>>, Option<Expression>),
+        named: (
+            Spanned<String>,
+            Option<Spanned<String>>,
+            Option<Expression>,
+            SpanId,
+        ),
     ) {
         self.arguments.push(Argument::Named(named));
     }
@@ -319,7 +353,7 @@ impl Call {
             }
         }
 
-        for (named, _, val) in self.named_iter() {
+        for (named, _, val, _) in self.named_iter() {
             if named.span.end > span.end {
                 span.end = named.span.end;
             }
@@ -338,7 +372,7 @@ impl Call {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::engine::EngineState;
+    use crate::engine::{EngineState, UNKNOWN_SPAN_ID};
 
     #[test]
     fn argument_span_named() {
@@ -355,19 +389,24 @@ mod test {
         };
         let expr = Expression::garbage(&mut working_set, Span::new(11, 13));
 
-        let arg = Argument::Named((named.clone(), None, None));
+        let arg = Argument::Named((named.clone(), None, None, UNKNOWN_SPAN_ID));
 
         assert_eq!(Span::new(2, 3), arg.span());
 
-        let arg = Argument::Named((named.clone(), Some(short.clone()), None));
+        let arg = Argument::Named((named.clone(), Some(short.clone()), None, UNKNOWN_SPAN_ID));
 
         assert_eq!(Span::new(2, 7), arg.span());
 
-        let arg = Argument::Named((named.clone(), None, Some(expr.clone())));
+        let arg = Argument::Named((named.clone(), None, Some(expr.clone()), UNKNOWN_SPAN_ID));
 
         assert_eq!(Span::new(2, 13), arg.span());
 
-        let arg = Argument::Named((named.clone(), Some(short.clone()), Some(expr.clone())));
+        let arg = Argument::Named((
+            named.clone(),
+            Some(short.clone()),
+            Some(expr.clone()),
+            UNKNOWN_SPAN_ID,
+        ));
 
         assert_eq!(Span::new(2, 13), arg.span());
     }

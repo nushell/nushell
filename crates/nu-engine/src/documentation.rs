@@ -306,6 +306,7 @@ fn get_documentation(
                     },
                     None,
                     None,
+                    UNKNOWN_SPAN_ID,
                 ))
             } else {
                 // expand the result
@@ -316,6 +317,7 @@ fn get_documentation(
                     },
                     None,
                     None,
+                    UNKNOWN_SPAN_ID,
                 ))
             }
             let table = engine_state

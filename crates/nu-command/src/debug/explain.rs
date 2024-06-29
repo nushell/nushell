@@ -115,7 +115,7 @@ fn get_arguments(
         match arg {
             // I think the second argument to Argument::Named is the short name, but I'm not really sure.
             // Please fix it if it's wrong. :)
-            Argument::Named((name, short, opt_expr)) => {
+            Argument::Named((name, short, opt_expr, _)) => {
                 let arg_type = "named";
                 let arg_value_name = name.item.clone();
                 let arg_value_name_span_start = name.span.start as i64;

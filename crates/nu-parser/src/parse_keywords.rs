@@ -123,7 +123,7 @@ pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteComma
         // Apply parse keyword side effects
         let cmd = working_set.get_decl(call.decl_id);
         // check help flag first.
-        if call.named_iter().any(|(flag, _, _)| flag.item == "help") {
+        if call.named_iter().any(|(flag, _, _, _)| flag.item == "help") {
             let call_span = call.span();
             return Pipeline::from_vec(vec![Expression::new(
                 working_set,
@@ -3884,8 +3884,8 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
 
         let plugin_config = call
             .named_iter()
-            .find(|(arg_name, _, _)| arg_name.item == "plugin-config")
-            .map(|(_, _, expr)| {
+            .find(|(arg_name, _, _, _)| arg_name.item == "plugin-config")
+            .map(|(_, _, expr, _)| {
                 let expr = expr
                     .as_ref()
                     .expect("--plugin-config arg should have been checked already");

@@ -160,7 +160,7 @@ pub(crate) fn check_call(
     call: &Call,
 ) {
     // Allow the call to pass if they pass in the help flag
-    if call.named_iter().any(|(n, _, _)| n.item == "help") {
+    if call.named_iter().any(|(n, _, _, _)| n.item == "help") {
         return;
     }
 
@@ -211,7 +211,10 @@ pub(crate) fn check_call(
         }
     } else {
         for req_flag in sig.named.iter().filter(|x| x.required) {
-            if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {
+            if call
+                .named_iter()
+                .all(|(n, _, _, _)| n.item != req_flag.long)
+            {
                 working_set.error(ParseError::MissingRequiredFlag(
                     req_flag.long.clone(),
                     command,
@@ -916,6 +919,25 @@ pub struct ParsedInternalCall {
     pub output: Type,
 }
 
+// moved from call.rs since span creation must be done at parse time now
+fn named_arg_span(
+    working_set: &StateWorkingSet,
+    named: &Spanned<String>,
+    short: &Option<Spanned<String>>,
+    expr: &Option<Expression>,
+) -> Span {
+    let start = named.span.start;
+    let end = if let Some(expr) = expr {
+        expr.span(&working_set).end
+    } else if let Some(short) = short {
+        short.span.end
+    } else {
+        named.span.end
+    };
+
+    Span::new(start, end)
+}
+
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
@@ -1002,7 +1024,9 @@ pub fn parse_internal_call(
 
                 call.add_unknown(arg);
             } else {
-                call.add_named((long_name, None, arg));
+                let named_span = named_arg_span(working_set, &long_name, &None, &arg);
+                let named_span_id = working_set.add_span(named_span);
+                call.add_named((long_name, None, arg, named_span_id));
             }
 
             spans_idx += 1;
@@ -1053,27 +1077,30 @@ pub fn parse_internal_call(
 
                             if flag.long.is_empty() {
                                 if let Some(short) = flag.short {
-                                    call.add_named((
-                                        Spanned {
-                                            item: String::new(),
-                                            span: spans[spans_idx],
-                                        },
-                                        Some(Spanned {
-                                            item: short.to_string(),
-                                            span: spans[spans_idx],
-                                        }),
-                                        Some(arg),
-                                    ));
+                                    let named = Spanned {
+                                        item: String::new(),
+                                        span: spans[spans_idx],
+                                    };
+                                    let short = Some(Spanned {
+                                        item: short.to_string(),
+                                        span: spans[spans_idx],
+                                    });
+                                    let expr = Some(arg);
+                                    let named_span =
+                                        named_arg_span(working_set, &named, &short, &expr);
+                                    let named_span_id = working_set.add_span(named_span);
+                                    call.add_named((named, short, expr, named_span_id));
                                 }
                             } else {
-                                call.add_named((
-                                    Spanned {
-                                        item: flag.long.clone(),
-                                        span: spans[spans_idx],
-                                    },
-                                    None,
-                                    Some(arg),
-                                ));
+                                let named = Spanned {
+                                    item: flag.long.clone(),
+                                    span: spans[spans_idx],
+                                };
+                                let short = None;
+                                let expr = Some(arg);
+                                let named_span = named_arg_span(working_set, &named, &short, &expr);
+                                let named_span_id = working_set.add_span(named_span);
+                                call.add_named((named, short, expr, named_span_id));
                             }
                             spans_idx += 1;
                         } else {
@@ -1084,27 +1111,29 @@ pub fn parse_internal_call(
                         }
                     } else if flag.long.is_empty() {
                         if let Some(short) = flag.short {
-                            call.add_named((
-                                Spanned {
-                                    item: String::new(),
-                                    span: spans[spans_idx],
-                                },
-                                Some(Spanned {
-                                    item: short.to_string(),
-                                    span: spans[spans_idx],
-                                }),
-                                None,
-                            ));
+                            let named = Spanned {
+                                item: String::new(),
+                                span: spans[spans_idx],
+                            };
+                            let short = Some(Spanned {
+                                item: short.to_string(),
+                                span: spans[spans_idx],
+                            });
+                            let expr = None;
+                            let named_span = named_arg_span(working_set, &named, &short, &expr);
+                            let named_span_id = working_set.add_span(named_span);
+                            call.add_named((named, short, expr, named_span_id));
                         }
                     } else {
-                        call.add_named((
-                            Spanned {
-                                item: flag.long.clone(),
-                                span: spans[spans_idx],
-                            },
-                            None,
-                            None,
-                        ));
+                        let named = Spanned {
+                            item: flag.long.clone(),
+                            span: spans[spans_idx],
+                        };
+                        let short = None;
+                        let expr = None;
+                        let named_span = named_arg_span(working_set, &named, &short, &expr);
+                        let named_span_id = working_set.add_span(named_span);
+                        call.add_named((named, short, expr, named_span_id));
                     }
                 }
             }
@@ -6324,14 +6353,15 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             Type::Any,
         )));
 
-        output.push(Argument::Named((
-            Spanned {
-                item: "keep-env".to_string(),
-                span: Span::new(0, 0),
-            },
-            None,
-            None,
-        )));
+        let named = Spanned {
+            item: "keep-env".to_string(),
+            span: Span::new(0, 0),
+        };
+        let short = None;
+        let expr = None;
+        let named_span = named_arg_span(working_set, &named, &short, &expr);
+        let named_span_id = working_set.add_span(named_span);
+        output.push(Argument::Named((named, short, expr, named_span_id)));
 
         // The containing, synthetic call to `collect`.
         // We don't want to have a real span as it will confuse flattening

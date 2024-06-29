@@ -599,8 +599,8 @@ pub fn parse_call_short_flag_batch_arg_allowed() {
     if let Expr::Call(call) = &element.expr.expr {
         assert_eq!(call.decl_id, 0);
         assert_eq!(call.arguments.len(), 2);
-        matches!(call.arguments[0], Argument::Named((_, None, None)));
-        matches!(call.arguments[1], Argument::Named((_, None, Some(_))));
+        matches!(call.arguments[0], Argument::Named((_, None, None, _)));
+        matches!(call.arguments[1], Argument::Named((_, None, Some(_), _)));
     }
 }
 

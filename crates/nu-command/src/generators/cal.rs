@@ -3,6 +3,7 @@ use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::{Expr, Expression};
 
+use nu_protocol::engine::UNKNOWN_SPAN_ID;
 use std::collections::VecDeque;
 
 #[derive(Clone)]
@@ -155,6 +156,7 @@ pub fn cal(
             Span::unknown(),
             Type::Bool,
         )),
+        UNKNOWN_SPAN_ID,
     ));
 
     let cal_table_output =

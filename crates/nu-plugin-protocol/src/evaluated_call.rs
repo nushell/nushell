@@ -38,7 +38,7 @@ impl EvaluatedCall {
             call.rest_iter_flattened(0, |expr| eval_expression_fn(engine_state, stack, expr))?;
 
         let mut named = Vec::with_capacity(call.named_len());
-        for (string, _, expr) in call.named_iter() {
+        for (string, _, expr, _) in call.named_iter() {
             let value = match expr {
                 None => None,
                 Some(expr) => Some(eval_expression_fn(engine_state, stack, expr)?),
