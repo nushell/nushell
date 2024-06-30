@@ -72,7 +72,9 @@ impl GuessWidth {
 
         let mut rows = Vec::new();
         while let Ok(columns) = self.read() {
-            rows.push(columns);
+            if !columns.is_empty() {
+                rows.push(columns);
+            }
         }
         rows
     }
@@ -179,6 +181,19 @@ fn split(line: &str, pos: &[usize], trim_space: bool) -> Vec<String> {
     let mut columns = Vec::with_capacity(pos.len() + 1);
     let (line_char_boundaries, line_chars): (Vec<usize>, Vec<char>) = line.char_indices().unzip();
     let mut w = 0;
+
+    if line_chars.is_empty() || line_chars.iter().all(|&c| c.is_whitespace()) {
+        // current line is completely empty, or only filled with whitespace
+        return Vec::new();
+    } else if !pos.is_empty()
+        && line_chars.iter().all(|&c| !c.is_whitespace())
+        && pos[0] < UnicodeWidthStr::width(line)
+    {
+        // we have more than 1 column in the input, but the current line has no whitespace,
+        // and it is longer than the first detected column separation position
+        // this indicates some kind of decoration line. let's skip it
+        return Vec::new();
+    }
 
     for p in 0..line_char_boundaries.len() {
         if pos.is_empty() || n > pos.len() - 1 {
@@ -459,6 +474,122 @@ Ștefan         Țincu ";
         };
 
         let want = vec![vec!["Name", "Surname"], vec!["Ștefan", "Țincu"]];
+        let got = guess_width.read_all();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_guess_width_single_column() {
+        let input = "A
+
+B
+
+C";
+
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let want = vec![vec!["A"], vec!["B"], vec!["C"]];
+        let got = guess_width.read_all();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_guess_width_row_without_whitespace() {
+        let input = "A B C D
+-------
+E F G H";
+
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let want = vec![vec!["A", "B", "C", "D"], vec!["E", "F", "G", "H"]];
+        let got = guess_width.read_all();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_guess_width_row_with_single_column() {
+        let input = "A B C D
+E
+F G H I";
+
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let want = vec![
+            vec!["A", "B", "C", "D"],
+            vec!["E"],
+            vec!["F", "G", "H", "I"],
+        ];
+        let got = guess_width.read_all();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_guess_width_empty_row() {
+        let input = "A B C D
+
+E F G H";
+
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let want = vec![vec!["A", "B", "C", "D"], vec!["E", "F", "G", "H"]];
+        let got = guess_width.read_all();
+        assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_guess_width_row_with_only_whitespace() {
+        let input = "A B C D
+       
+E F G H";
+
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let want = vec![vec!["A", "B", "C", "D"], vec!["E", "F", "G", "H"]];
         let got = guess_width.read_all();
         assert_eq!(got, want);
     }
