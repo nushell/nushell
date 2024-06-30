@@ -61,22 +61,6 @@ fn execute_webpage(html: &str, span: Span) -> Result<Value, LabeledError> {
     Ok(value)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const HTML: &str = r#"
-         <html><head><meta><title>My Title</title></head></html>
-     "#;
-
-    #[test]
-    fn test_basics() {
-        let info = execute_webpage(HTML, Span::test_data()).unwrap();
-        let record = info.as_record().unwrap();
-        assert_eq!(record.get("title").unwrap().as_str().unwrap(), "My Title");
-    }
-}
-
 // revive nu-serde sketch
 
 use serde::Serialize;
@@ -474,5 +458,21 @@ impl<'a> serde::ser::SerializeTupleVariant for SeqSerializer<'a> {
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
         Ok(Value::list(self.seq, self.serializer.span))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const HTML: &str = r#"
+         <html><head><meta><title>My Title</title></head></html>
+     "#;
+
+    #[test]
+    fn test_basics() {
+        let info = execute_webpage(HTML, Span::test_data()).unwrap();
+        let record = info.as_record().unwrap();
+        assert_eq!(record.get("title").unwrap().as_str().unwrap(), "My Title");
     }
 }
