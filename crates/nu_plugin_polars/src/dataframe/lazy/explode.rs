@@ -4,8 +4,8 @@ use crate::PolarsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Type, Value,
 };
 
 #[derive(Clone)]
@@ -116,7 +116,7 @@ pub(crate) fn explode(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(call.head)?;
+    let value = input.try_into_value(call.head)?;
     match PolarsPluginObject::try_from_value(plugin, &value)? {
         PolarsPluginObject::NuDataFrame(df) => {
             let lazy = df.lazy();

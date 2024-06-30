@@ -11,7 +11,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_error_new, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
-    ShellError, Span, Value,
+    ShellError, Span, TryIntoValue, Value,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -230,7 +230,7 @@ impl PluginTest {
             if let Some(expectation) = &example.result {
                 match self.eval(example.example) {
                     Ok(data) => {
-                        let mut value = data.into_value(Span::test_data())?;
+                        let mut value = data.try_into_value(Span::test_data())?;
 
                         // Set all of the spans in the value to test_data() to avoid unnecessary
                         // differences when printing

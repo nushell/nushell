@@ -1,4 +1,4 @@
-use nu_protocol::{IntoPipelineData, Span, Value};
+use nu_protocol::{IntoPipelineData, Span, TryIntoValue, Value};
 
 #[test]
 fn test_convert_pipeline_data_to_value() {
@@ -9,7 +9,7 @@ fn test_convert_pipeline_data_to_value() {
 
     // Test that conversion into Value is correct
     let new_span = Span::new(5, 6);
-    let converted_value = pipeline_data.into_value(new_span);
+    let converted_value = pipeline_data.try_into_value(new_span);
 
     assert_eq!(converted_value, Ok(Value::int(value_val, new_span)));
 }

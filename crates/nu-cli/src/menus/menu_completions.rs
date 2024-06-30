@@ -2,7 +2,7 @@ use nu_engine::eval_block;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack},
-    IntoPipelineData, Span, Value,
+    IntoPipelineData, Span, TryIntoValue, Value,
 };
 use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
 use std::sync::Arc;
@@ -59,7 +59,7 @@ impl Completer for NuMenuCompleter {
 
         let res = eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, block, input);
 
-        if let Ok(values) = res.and_then(|data| data.into_value(self.span)) {
+        if let Ok(values) = res.and_then(|data| data.try_into_value(self.span)) {
             convert_to_suggestions(values, line, pos, self.only_buffer_difference)
         } else {
             Vec::new()

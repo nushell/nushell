@@ -3,8 +3,8 @@ use crate::values::{CustomValueSupport, NuLazyFrame};
 use crate::PolarsPlugin;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Type, Value,
 };
 
 #[derive(Clone)]
@@ -67,7 +67,7 @@ impl PluginCommand for LazyFetch {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let rows: i64 = call.req(0)?;
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
 
         let mut eager: NuDataFrame = lazy

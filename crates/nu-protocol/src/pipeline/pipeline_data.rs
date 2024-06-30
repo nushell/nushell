@@ -2,8 +2,8 @@ use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     process::{ChildPipe, ChildProcess, ExitStatus},
-    ByteStream, ByteStreamType, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range,
-    ShellError, Span, Type, Value,
+    ByteStream, ByteStreamType, Config, ErrSpan, IntoValue, ListStream, OutDest, PipelineMetadata,
+    Range, ShellError, Span, TryIntoValue, Type, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
@@ -117,13 +117,9 @@ impl PipelineData {
         }
     }
 
+    #[deprecated = "use `TryIntoValue::try_into_value` instead"]
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
-        match self {
-            PipelineData::Empty => Ok(Value::nothing(span)),
-            PipelineData::Value(value, ..) => Ok(value.with_span(span)),
-            PipelineData::ListStream(stream, ..) => Ok(stream.into_value()),
-            PipelineData::ByteStream(stream, ..) => stream.into_value(),
-        }
+        Self::try_into_value(self, span)
     }
 
     /// Writes all values or redirects all output to the current [`OutDest`]s in `stack`.
@@ -333,7 +329,8 @@ impl PipelineData {
                 Ok(PipelineData::ListStream(stream.map(f), metadata))
             }
             PipelineData::ByteStream(stream, metadata) => {
-                Ok(f(stream.into_value()?).into_pipeline_data_with_metadata(metadata))
+                let span = stream.span();
+                Ok(f(stream.try_into_value(span)?).into_pipeline_data_with_metadata(metadata))
             }
         }
     }
@@ -608,6 +605,17 @@ impl PipelineData {
             }
 
             Ok(None)
+        }
+    }
+}
+
+impl TryIntoValue for PipelineData {
+    fn try_into_value(self, span: Span) -> Result<Value, ShellError> {
+        match self {
+            PipelineData::Empty => Ok(Value::nothing(span)),
+            PipelineData::Value(value, ..) => Ok(value.with_span(span)),
+            PipelineData::ListStream(stream, ..) => Ok(stream.into_value(span)),
+            PipelineData::ByteStream(stream, ..) => stream.try_into_value(span),
         }
     }
 }

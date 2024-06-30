@@ -56,7 +56,7 @@ impl Command for Items {
                                     .add_arg(Value::string(col, span))
                                     .add_arg(val)
                                     .run_with_input(PipelineData::Empty)
-                                    .and_then(|data| data.into_value(head));
+                                    .and_then(|data| data.try_into_value(head));
 
                                 match result {
                                     Ok(value) => Some(value),

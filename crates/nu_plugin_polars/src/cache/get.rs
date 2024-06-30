@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, IntoValue, LabeledError, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 use polars::{prelude::NamedFrom, series::Series};
 use uuid::Uuid;

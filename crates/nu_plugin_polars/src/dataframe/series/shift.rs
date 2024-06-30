@@ -8,8 +8,8 @@ use super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Type, Value,
 };
 
 use polars_plan::prelude::lit;
@@ -93,7 +93,7 @@ impl PluginCommand for Shift {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),

@@ -3,7 +3,8 @@ use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
+    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span, Spanned,
+    TryIntoValue, Value,
 };
 use std::{
     borrow::Cow,
@@ -108,7 +109,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
                     Value::Closure { val, .. } => {
                         ClosureEvalOnce::new(&self.engine_state, &self.stack, *val)
                             .run_with_input(PipelineData::Empty)
-                            .and_then(|data| data.into_value(span))
+                            .and_then(|data| data.try_into_value(span))
                             .unwrap_or_else(|err| Value::error(err, self.call.head))
                     }
                     _ => value.clone(),

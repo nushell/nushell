@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, TryIntoValue};
 
 #[derive(Clone)]
 pub struct Upsert;
@@ -218,7 +218,7 @@ fn upsert(
                     if let Value::Closure { val, .. } = replacement {
                         ClosureEvalOnce::new(engine_state, stack, *val)
                             .run_with_value(value)?
-                            .into_value(head)?
+                            .try_into_value(head)?
                     } else {
                         replacement
                     }
@@ -314,7 +314,7 @@ fn upsert_value_by_closure(
     let new_value = closure
         .add_arg(arg)
         .run_with_input(input)?
-        .into_value(span)?;
+        .try_into_value(span)?;
 
     value.upsert_data_at_cell_path(cell_path, new_value)
 }
@@ -341,7 +341,7 @@ fn upsert_single_value_by_closure(
     let new_value = closure
         .add_arg(arg)
         .run_with_input(input)?
-        .into_value(span)?;
+        .try_into_value(span)?;
 
     value.upsert_data_at_cell_path(cell_path, new_value)
 }

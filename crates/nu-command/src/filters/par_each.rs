@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, TryIntoValue};
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -146,7 +146,7 @@ impl Command for ParEach {
                                 let value =
                                     ClosureEvalOnce::new(engine_state, stack, closure.clone())
                                         .run_with_value(value)
-                                        .and_then(|data| data.into_value(span))
+                                        .and_then(|data| data.try_into_value(span))
                                         .unwrap_or_else(|err| {
                                             Value::error(
                                                 chain_error_with_input(err, is_error, span),
@@ -172,7 +172,7 @@ impl Command for ParEach {
                                 let value =
                                     ClosureEvalOnce::new(engine_state, stack, closure.clone())
                                         .run_with_value(value)
-                                        .and_then(|data| data.into_value(span))
+                                        .and_then(|data| data.try_into_value(span))
                                         .unwrap_or_else(|err| {
                                             Value::error(
                                                 chain_error_with_input(err, is_error, span),
@@ -203,7 +203,7 @@ impl Command for ParEach {
                         let is_error = value.is_error();
                         let value = ClosureEvalOnce::new(engine_state, stack, closure.clone())
                             .run_with_value(value)
-                            .and_then(|data| data.into_value(head))
+                            .and_then(|data| data.try_into_value(head))
                             .unwrap_or_else(|err| {
                                 Value::error(chain_error_with_input(err, is_error, span), span)
                             });
@@ -229,7 +229,7 @@ impl Command for ParEach {
                                 let value =
                                     ClosureEvalOnce::new(engine_state, stack, closure.clone())
                                         .run_with_value(value)
-                                        .and_then(|data| data.into_value(head))
+                                        .and_then(|data| data.try_into_value(head))
                                         .unwrap_or_else(|err| Value::error(err, head));
 
                                 (index, value)

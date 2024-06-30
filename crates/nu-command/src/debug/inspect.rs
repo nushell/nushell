@@ -1,5 +1,6 @@
 use super::inspect_table;
 use nu_engine::command_prelude::*;
+use nu_protocol::TryIntoValue;
 use terminal_size::{terminal_size, Height, Width};
 
 #[derive(Clone)]
@@ -29,7 +30,7 @@ impl Command for Inspect {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let input_metadata = input.metadata();
-        let input_val = input.into_value(call.head)?;
+        let input_val = input.try_into_value(call.head)?;
         if input_val.is_nothing() {
             return Err(ShellError::PipelineEmpty {
                 dst_span: call.head,

@@ -2,7 +2,9 @@ use std::{cmp::Ordering, sync::Arc};
 
 use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
-use nu_protocol::{ast::Operator, CustomValue, IntoSpanned, ShellError, Span, Spanned, Value};
+use nu_protocol::{
+    ast::Operator, CustomValue, IntoSpanned, IntoValue, ShellError, Span, Spanned, Value,
+};
 use serde::Serialize;
 
 use crate::{PluginInterface, PluginSource};
@@ -25,11 +27,6 @@ impl PluginCustomValueWithSource {
     /// Wrap a [`PluginCustomValue`] together with its source.
     pub fn new(inner: PluginCustomValue, source: Arc<PluginSource>) -> PluginCustomValueWithSource {
         PluginCustomValueWithSource { inner, source }
-    }
-
-    /// Create a [`Value`] containing this custom value.
-    pub fn into_value(self, span: Span) -> Value {
-        Value::custom(Box::new(self), span)
     }
 
     /// Which plugin the custom value came from. This provides a direct reference to be able to get
@@ -130,6 +127,12 @@ impl PluginCustomValueWithSource {
                 src_plugin: None,
             })
         }
+    }
+}
+
+impl IntoValue for PluginCustomValueWithSource {
+    fn into_value(self, span: Span) -> Value {
+        Value::custom(Box::new(self), span)
     }
 }
 

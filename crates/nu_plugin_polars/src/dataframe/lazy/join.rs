@@ -5,8 +5,8 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Type, Value,
 };
 use polars::prelude::{Expr, JoinType};
 
@@ -228,7 +228,7 @@ impl PluginCommand for LazyJoin {
         let suffix: Option<String> = call.get_flag("suffix")?;
         let suffix = suffix.unwrap_or_else(|| "_x".into());
 
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         let from_eager = lazy.from_eager;
         let lazy = lazy.to_polars();

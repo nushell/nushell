@@ -6,8 +6,8 @@ use crate::{
 use super::super::values::{utils::DEFAULT_ROWS, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Type, Value,
 };
 
 #[derive(Clone)]
@@ -72,7 +72,7 @@ impl PluginCommand for LastDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
             let df = NuDataFrame::try_from_value_coerce(plugin, &value, call.head)?;
             command(plugin, engine, call, df).map_err(|e| e.into())

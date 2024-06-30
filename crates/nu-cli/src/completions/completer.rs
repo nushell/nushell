@@ -8,7 +8,7 @@ use nu_parser::{flatten_pipeline_element, parse, FlatShape};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
-    PipelineData, Span, Value,
+    PipelineData, Span, TryIntoValue, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
 use std::{str, sync::Arc};
@@ -103,7 +103,7 @@ impl NuCompleter {
             PipelineData::empty(),
         );
 
-        match result.and_then(|data| data.into_value(span)) {
+        match result.and_then(|data| data.try_into_value(span)) {
             Ok(value) => {
                 if let Value::List { vals, .. } = value {
                     let result =

@@ -8,7 +8,7 @@ use super::super::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     record, Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    SyntaxShape, TryIntoValue, Type, Value,
 };
 use polars::prelude::*;
 
@@ -91,7 +91,7 @@ impl PluginCommand for CastDF {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuLazyFrame(lazy) => {
                 let (dtype, column_nm) = df_args(call)?;

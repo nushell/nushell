@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, TryIntoValue};
 
 #[derive(Clone)]
 pub struct Filter;
@@ -62,7 +62,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     .filter_map(move |value| {
                         match closure
                             .run_with_value(value.clone())
-                            .and_then(|data| data.into_value(head))
+                            .and_then(|data| data.try_into_value(head))
                         {
                             Ok(cond) => cond.is_true().then_some(value),
                             Err(err) => {
@@ -87,7 +87,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
 
                             match closure
                                 .run_with_value(value.clone())
-                                .and_then(|data| data.into_value(head))
+                                .and_then(|data| data.try_into_value(head))
                             {
                                 Ok(cond) => cond.is_true().then_some(value),
                                 Err(err) => {
@@ -107,7 +107,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             PipelineData::Value(value, ..) => {
                 let result = ClosureEvalOnce::new(engine_state, stack, closure)
                     .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(head));
+                    .and_then(|data| data.try_into_value(head));
 
                 Ok(match result {
                     Ok(cond) => cond.is_true().then_some(value),

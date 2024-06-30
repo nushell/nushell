@@ -5,7 +5,7 @@ use std::io;
 
 use byteorder::{BigEndian, WriteBytesExt};
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, Spanned};
+use nu_protocol::{ast::PathMember, Spanned, TryIntoValue};
 use rmp::encode as mp;
 
 /// Max recursion depth
@@ -75,7 +75,7 @@ MessagePack: https://msgpack.org/
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value_span = input.span().unwrap_or(call.head);
-        let value = input.into_value(value_span)?;
+        let value = input.try_into_value(value_span)?;
         let mut out = vec![];
 
         write_value(&mut out, &value, 0)?;

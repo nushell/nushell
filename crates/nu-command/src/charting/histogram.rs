@@ -1,6 +1,7 @@
 use super::hashable_value::HashableValue;
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
+use nu_protocol::TryIntoValue;
 
 use std::collections::HashMap;
 
@@ -121,7 +122,7 @@ impl Command for Histogram {
         };
 
         let span = call.head;
-        let data_as_value = input.into_value(span)?;
+        let data_as_value = input.try_into_value(span)?;
         let value_span = data_as_value.span();
         // `input` is not a list, here we can return an error.
         run_histogram(
@@ -248,7 +249,7 @@ fn histogram_impl(
             count, // attach count first for easily sorting.
             Value::record(
                 record! {
-                    value_column_name => val.into_value(),
+                    value_column_name => val.into_value(span),
                     "count" => Value::int(count, span),
                     "quantile" => Value::float(quantile, span),
                     "percentage" => Value::string(percentage, span),

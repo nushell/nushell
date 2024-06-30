@@ -5,7 +5,7 @@ use base64::{
     Engine,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::ByteStream;
+use nu_protocol::{ByteStream, TryIntoValue};
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -529,11 +529,11 @@ fn request_handle_response_content(
         let response_status = resp.status();
 
         let request_headers_value = headers_to_nu(&extract_request_headers(&request), span)
-            .and_then(|data| data.into_value(span))
+            .and_then(|data| data.try_into_value(span))
             .unwrap_or(Value::nothing(span));
 
         let response_headers_value = headers_to_nu(&extract_response_headers(&resp), span)
-            .and_then(|data| data.into_value(span))
+            .and_then(|data| data.try_into_value(span))
             .unwrap_or(Value::nothing(span));
 
         let headers = record! {
@@ -541,7 +541,7 @@ fn request_handle_response_content(
             "response" => response_headers_value,
         };
 
-        let body = consume_response_body(resp)?.into_value(span)?;
+        let body = consume_response_body(resp)?.try_into_value(span)?;
 
         let full_response = Value::record(
             record! {

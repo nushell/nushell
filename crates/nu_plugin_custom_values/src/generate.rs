@@ -1,6 +1,6 @@
 use crate::{cool_custom_value::CoolCustomValue, CustomValuePlugin};
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{Category, Example, LabeledError, Signature, Span, Value};
+use nu_protocol::{Category, Example, IntoValue, LabeledError, Signature, Span, Value};
 
 pub struct Generate;
 

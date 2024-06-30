@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
-use nu_protocol::{engine::Closure, DataSource, PipelineMetadata};
+use nu_protocol::{engine::Closure, DataSource, PipelineMetadata, TryIntoValue};
 
 #[derive(Clone)]
 pub struct Collect;
@@ -54,7 +54,7 @@ is particularly large, this can cause high memory usage."#
             other => other,
         };
 
-        let input = input.into_value(call.head)?;
+        let input = input.try_into_value(call.head)?;
         let result;
 
         if let Some(closure) = closure {

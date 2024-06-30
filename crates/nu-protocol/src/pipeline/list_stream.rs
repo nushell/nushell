@@ -1,4 +1,4 @@
-use crate::{Config, PipelineData, ShellError, Span, Value};
+use crate::{Config, IntoValue, PipelineData, ShellError, Span, Value};
 use std::{
     fmt::Debug,
     sync::{atomic::AtomicBool, Arc},
@@ -48,11 +48,6 @@ impl ListStream {
             .join(separator)
     }
 
-    /// Collect the values of a [`ListStream`] into a list [`Value`].
-    pub fn into_value(self) -> Value {
-        Value::list(self.stream.collect(), self.span)
-    }
-
     /// Consume all values in the stream, returning an error if any of the values is a `Value::Error`.
     pub fn drain(self) -> Result<(), ShellError> {
         for next in self {
@@ -95,6 +90,13 @@ impl ListStream {
 impl Debug for ListStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ListStream").finish()
+    }
+}
+
+impl IntoValue for ListStream {
+    /// Collect the values of a [`ListStream`] into a list [`Value`].
+    fn into_value(self, _: Span) -> Value {
+        Value::list(self.stream.collect(), self.span)
     }
 }
 

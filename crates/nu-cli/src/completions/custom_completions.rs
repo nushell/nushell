@@ -7,7 +7,7 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value,
+    PipelineData, Span, TryIntoValue, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;
@@ -72,7 +72,7 @@ impl Completer for CustomCompletion {
 
         // Parse result
         let suggestions = result
-            .and_then(|data| data.into_value(span))
+            .and_then(|data| data.try_into_value(span))
             .map(|value| match &value {
                 Value::Record { val, .. } => {
                     let completions = val

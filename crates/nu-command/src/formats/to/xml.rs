@@ -2,6 +2,7 @@ use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLU
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 
+use nu_protocol::TryIntoValue;
 use quick_xml::{
     escape,
     events::{BytesEnd, BytesStart, BytesText, Event},
@@ -132,7 +133,7 @@ impl Job {
     }
 
     fn run(mut self, input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(head)?;
+        let value = input.try_into_value(head)?;
 
         self.write_xml_entry(value, true).and_then(|_| {
             let b = self.writer.into_inner().into_inner();

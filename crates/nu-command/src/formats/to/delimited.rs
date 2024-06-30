@@ -1,7 +1,8 @@
 use csv::WriterBuilder;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{
-    ByteStream, ByteStreamType, Config, PipelineData, ShellError, Span, Spanned, Value,
+    ByteStream, ByteStreamType, Config, PipelineData, ShellError, Span, Spanned, TryIntoValue,
+    Value,
 };
 use std::{iter, sync::Arc};
 
@@ -110,7 +111,7 @@ pub fn to_delimited_data(
         None => {
             // The columns were not provided. We need to detect them, and in order to do so, we have
             // to convert the input into a value first, so that we can find all of them
-            let value = input.into_value(span)?;
+            let value = input.try_into_value(span)?;
             let columns = match &value {
                 Value::List { vals, .. } => merge_descriptors(vals),
                 Value::Record { val, .. } => val.columns().cloned().collect(),

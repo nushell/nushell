@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::TryIntoValue;
 
 #[derive(Clone)]
 pub struct ToNuon;
@@ -53,7 +54,7 @@ impl Command for ToNuon {
         };
 
         let span = call.head;
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
 
         match nuon::to_nuon(&value, style, Some(span)) {
             Ok(serde_nuon_string) => {

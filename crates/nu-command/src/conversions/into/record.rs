@@ -1,6 +1,6 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
-use nu_protocol::format_duration_as_timeperiod;
+use nu_protocol::{format_duration_as_timeperiod, TryIntoValue};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -108,7 +108,7 @@ fn into_record(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let input = input.into_value(call.head)?;
+    let input = input.try_into_value(call.head)?;
     let input_type = input.get_type();
     let span = input.span();
     let res = match input {

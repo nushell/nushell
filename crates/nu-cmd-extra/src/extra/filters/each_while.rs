@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEval, ClosureEvalOnce};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, TryIntoValue};
 
 #[derive(Clone)]
 pub struct EachWhile;
@@ -82,7 +82,7 @@ impl Command for EachWhile {
                     .map_while(move |value| {
                         match closure
                             .run_with_value(value)
-                            .and_then(|data| data.into_value(head))
+                            .and_then(|data| data.try_into_value(head))
                         {
                             Ok(value) => (!value.is_nothing()).then_some(value),
                             Err(_) => None,
@@ -100,7 +100,7 @@ impl Command for EachWhile {
                             let value = value.ok()?;
                             match closure
                                 .run_with_value(value)
-                                .and_then(|data| data.into_value(span))
+                                .and_then(|data| data.try_into_value(span))
                             {
                                 Ok(value) => (!value.is_nothing()).then_some(value),
                                 Err(_) => None,

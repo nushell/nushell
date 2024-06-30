@@ -1,6 +1,6 @@
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::PathMember;
+use nu_protocol::{ast::PathMember, TryIntoValue};
 
 #[derive(Clone)]
 pub struct ToToml;
@@ -139,7 +139,7 @@ fn to_toml(
     input: PipelineData,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(span)?;
+    let value = input.try_into_value(span)?;
 
     let toml_value = value_to_toml_value(engine_state, &value, span)?;
     match toml_value {

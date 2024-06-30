@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::TryIntoValue;
 use url::Url;
 
 #[derive(Clone)]
@@ -42,7 +43,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        parse(input.into_value(call.head)?, call.head, engine_state)
+        parse(input.try_into_value(call.head)?, call.head, engine_state)
     }
 
     fn examples(&self) -> Vec<Example> {

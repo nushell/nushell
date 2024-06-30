@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::{debugger::Profiler, engine::Closure};
+use nu_protocol::{debugger::Profiler, engine::Closure, TryIntoValue};
 
 #[derive(Clone)]
 pub struct DebugProfile;
@@ -125,7 +125,7 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
         let pipeline_data = result?;
 
         // Collect the output
-        let _ = pipeline_data.into_value(call.span());
+        let _ = pipeline_data.try_into_value(call.span());
 
         Ok(engine_state
             .deactivate_debugger()

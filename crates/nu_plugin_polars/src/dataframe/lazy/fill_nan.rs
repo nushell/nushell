@@ -5,8 +5,8 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Type, Value,
 };
 
 #[derive(Clone)]
@@ -92,7 +92,7 @@ impl PluginCommand for LazyFillNA {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let fill: Value = call.req(0)?;
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => {
