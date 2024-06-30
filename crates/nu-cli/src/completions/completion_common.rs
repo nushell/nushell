@@ -1,15 +1,20 @@
-use crate::completions::{matches, CompletionOptions};
+use crate::{
+    completions::{matches, CompletionOptions},
+    SemanticSuggestion,
+};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Span,
+    levenshtein_distance, Span,
 };
 use nu_utils::get_ls_colors;
 use std::path::{
     is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
 };
+
+use super::SortBy;
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -45,6 +50,7 @@ fn complete_rec(
         return completions;
     };
 
+    let mut entries = Vec::new();
     for entry in result.filter_map(|e| e.ok()) {
         let entry_name = entry.file_name().to_string_lossy().into_owned();
         let entry_isdir = entry.path().is_dir();
@@ -53,20 +59,26 @@ fn complete_rec(
         built.isdir = entry_isdir;
 
         if !dir || entry_isdir {
-            match partial.split_first() {
-                Some((base, rest)) => {
-                    if matches(base, &entry_name, options) {
-                        if !rest.is_empty() || isdir {
-                            completions
-                                .extend(complete_rec(rest, &built, cwd, options, dir, isdir));
-                        } else {
-                            completions.push(built);
-                        }
+            entries.push((entry_name, built));
+        }
+    }
+
+    let prefix = partial.first().unwrap_or(&"");
+    let sorted_entries = sort_completions(prefix, entries, SortBy::Ascending, |(entry, _)| entry);
+
+    for (entry_name, built) in sorted_entries {
+        match partial.split_first() {
+            Some((base, rest)) => {
+                if matches(base, &entry_name, options) {
+                    if !rest.is_empty() || isdir {
+                        completions.extend(complete_rec(rest, &built, cwd, options, dir, isdir));
+                    } else {
+                        completions.push(built);
                     }
                 }
-                None => {
-                    completions.push(built);
-                }
+            }
+            None => {
+                completions.push(built);
             }
         }
     }
@@ -255,4 +267,39 @@ pub fn adjust_if_intermediate(
         span,
         readjusted,
     }
+}
+
+/// Convenience function to sort suggestions using [`sort_completions`]
+pub fn sort_suggestions(
+    prefix: &str,
+    items: Vec<SemanticSuggestion>,
+    sort_by: SortBy,
+) -> Vec<SemanticSuggestion> {
+    sort_completions(prefix, items, sort_by, |it| &it.suggestion.value)
+}
+
+/// # Arguments
+/// * `prefix` - What the user's typed, for sorting by Levenshtein distance
+pub fn sort_completions<T>(
+    prefix: &str,
+    mut items: Vec<T>,
+    sort_by: SortBy,
+    get_value: fn(&T) -> &str,
+) -> Vec<T> {
+    // Sort items
+    match sort_by {
+        SortBy::LevenshteinDistance => {
+            items.sort_by(|a, b| {
+                let a_distance = levenshtein_distance(prefix, get_value(a));
+                let b_distance = levenshtein_distance(prefix, get_value(b));
+                a_distance.cmp(&b_distance)
+            });
+        }
+        SortBy::Ascending => {
+            items.sort_by(|a, b| get_value(a).cmp(get_value(b)));
+        }
+        SortBy::None => {}
+    };
+
+    items
 }

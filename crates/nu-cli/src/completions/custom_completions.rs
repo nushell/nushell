@@ -12,6 +12,8 @@ use nu_protocol::{
 use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;
 
+use super::completion_common::sort_suggestions;
+
 pub struct CustomCompletion {
     stack: Stack,
     decl_id: usize,
@@ -122,15 +124,12 @@ impl Completer for CustomCompletion {
             })
             .unwrap_or_default();
 
-        if let Some(custom_completion_options) = custom_completion_options {
+        let suggestions = if let Some(custom_completion_options) = custom_completion_options {
             filter(&prefix, suggestions, &custom_completion_options)
         } else {
             filter(&prefix, suggestions, completion_options)
-        }
-    }
-
-    fn get_sort_by(&self) -> SortBy {
-        self.sort_by
+        };
+        sort_suggestions(&String::from_utf8_lossy(&prefix), suggestions, self.sort_by)
     }
 }
 

@@ -1,13 +1,12 @@
-use crate::completions::{CompletionOptions, SortBy};
+use crate::completions::CompletionOptions;
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
-    levenshtein_distance, Span,
+    Span,
 };
 use reedline::Suggestion;
 
-// Completer trait represents the three stages of the completion
-// fetch, filter and sort
 pub trait Completer {
+    /// Fetch, filter, and sort completions
     #[allow(clippy::too_many_arguments)]
     fn fetch(
         &mut self,
@@ -19,32 +18,6 @@ pub trait Completer {
         pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion>;
-
-    fn get_sort_by(&self) -> SortBy {
-        SortBy::Ascending
-    }
-
-    fn sort(&self, items: Vec<SemanticSuggestion>, prefix: Vec<u8>) -> Vec<SemanticSuggestion> {
-        let prefix_str = String::from_utf8_lossy(&prefix).to_string();
-        let mut filtered_items = items;
-
-        // Sort items
-        match self.get_sort_by() {
-            SortBy::LevenshteinDistance => {
-                filtered_items.sort_by(|a, b| {
-                    let a_distance = levenshtein_distance(&prefix_str, &a.suggestion.value);
-                    let b_distance = levenshtein_distance(&prefix_str, &b.suggestion.value);
-                    a_distance.cmp(&b_distance)
-                });
-            }
-            SortBy::Ascending => {
-                filtered_items.sort_by(|a, b| a.suggestion.value.cmp(&b.suggestion.value));
-            }
-            SortBy::None => {}
-        };
-
-        filtered_items
-    }
 }
 
 #[derive(Debug, Default, PartialEq)]

@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 use support::{
-    completions_helpers::{new_partial_engine, new_quote_engine},
+    completions_helpers::{new_dotnu_engine, new_partial_engine, new_quote_engine},
     file, folder, match_suggestions, new_engine,
 };
 
@@ -85,6 +85,27 @@ fn custom_completer() -> NuCompleter {
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
 }
 
+#[fixture]
+fn subcommand_completer() -> NuCompleter {
+    // Create a new engine
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Use fuzzy matching, because subcommands are sorted by Levenshtein distance,
+    // and that's not very useful with prefix matching
+    let commands = r#"
+            $env.config.completions.algorithm = "fuzzy"
+            def foo [] {}
+            def "foo bar" [] {}
+            def "foo abaz" [] {}
+            def "foo aabrr" [] {}
+            def food [] {}
+        "#;
+    assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(Arc::new(engine), Arc::new(stack))
+}
+
 #[test]
 fn variables_dollar_sign_with_varialblecompletion() {
     let (_, _, engine, stack) = new_engine();
@@ -138,43 +159,42 @@ fn variables_customcompletion_subcommands_with_customcompletion_2(
 #[test]
 fn dotnu_completions() {
     // Create a new engine
-    let (_, _, engine, stack) = new_engine();
+    let (_, _, engine, stack) = new_dotnu_engine();
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let expected = vec![
+        "asdf.nu".into(),
+        "bar.nu".into(),
+        "bat.nu".into(),
+        "baz.nu".into(),
+        #[cfg(windows)]
+        "dir_module\\".into(),
+        #[cfg(not(windows))]
+        "dir_module/".into(),
+        "foo.nu".into(),
+        "spam.nu".into(),
+        "xyzzy.nu".into(),
+    ];
 
     // Test source completion
     let completion_str = "source-env ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(2, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
-    #[cfg(windows)]
-    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
-    #[cfg(not(windows))]
-    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+    match_suggestions(expected.clone(), suggestions);
 
     // Test use completion
     let completion_str = "use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(2, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
-    #[cfg(windows)]
-    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
-    #[cfg(not(windows))]
-    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+    match_suggestions(expected.clone(), suggestions);
 
     // Test overlay use completion
     let completion_str = "overlay use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(2, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
-    #[cfg(windows)]
-    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
-    #[cfg(not(windows))]
-    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
+    match_suggestions(expected, suggestions);
 }
 
 #[test]
@@ -276,9 +296,10 @@ fn partial_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        folder(dir.join("partial_a")),
-        folder(dir.join("partial_b")),
-        folder(dir.join("partial_c")),
+        folder(dir.join("partial")),
+        folder(dir.join("partial-a")),
+        folder(dir.join("partial-b")),
+        folder(dir.join("partial-c")),
     ];
 
     // Match the results
@@ -292,13 +313,14 @@ fn partial_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.join("partial_a").join("have_ext.exe")),
-        file(dir.join("partial_a").join("have_ext.txt")),
-        file(dir.join("partial_a").join("hello")),
-        file(dir.join("partial_a").join("hola")),
-        file(dir.join("partial_b").join("hello_b")),
-        file(dir.join("partial_b").join("hi_b")),
-        file(dir.join("partial_c").join("hello_c")),
+        file(dir.join("partial").join("hello.txt")),
+        file(dir.join("partial-a").join("have_ext.exe")),
+        file(dir.join("partial-a").join("have_ext.txt")),
+        file(dir.join("partial-a").join("hello")),
+        file(dir.join("partial-a").join("hola")),
+        file(dir.join("partial-b").join("hello_b")),
+        file(dir.join("partial-b").join("hi_b")),
+        file(dir.join("partial-c").join("hello_c")),
     ];
 
     // Match the results
@@ -311,14 +333,15 @@ fn partial_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.join("partial_a").join("anotherfile")),
-        file(dir.join("partial_a").join("have_ext.exe")),
-        file(dir.join("partial_a").join("have_ext.txt")),
-        file(dir.join("partial_a").join("hello")),
-        file(dir.join("partial_a").join("hola")),
-        file(dir.join("partial_b").join("hello_b")),
-        file(dir.join("partial_b").join("hi_b")),
-        file(dir.join("partial_c").join("hello_c")),
+        file(dir.join("partial").join("hello.txt")),
+        file(dir.join("partial-a").join("anotherfile")),
+        file(dir.join("partial-a").join("have_ext.exe")),
+        file(dir.join("partial-a").join("have_ext.txt")),
+        file(dir.join("partial-a").join("hello")),
+        file(dir.join("partial-a").join("hola")),
+        file(dir.join("partial-b").join("hello_b")),
+        file(dir.join("partial-b").join("hi_b")),
+        file(dir.join("partial-c").join("hello_c")),
     ];
 
     // Match the results
@@ -343,19 +366,25 @@ fn partial_completions() {
     // Create the expected values
     let expected_paths: Vec<String> = vec![
         file(
-            dir.join("partial_a")
+            dir.join("partial")
                 .join("..")
                 .join("final_partial")
                 .join("somefile"),
         ),
         file(
-            dir.join("partial_b")
+            dir.join("partial-a")
                 .join("..")
                 .join("final_partial")
                 .join("somefile"),
         ),
         file(
-            dir.join("partial_c")
+            dir.join("partial-b")
+                .join("..")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-c")
                 .join("..")
                 .join("final_partial")
                 .join("somefile"),
@@ -366,28 +395,28 @@ fn partial_completions() {
     match_suggestions(expected_paths, suggestions);
 
     // Test completion for all files under directories whose names begin with "pa"
-    let file_str = file(dir.join("partial_a").join("have"));
+    let file_str = file(dir.join("partial-a").join("have"));
     let target_file = format!("rm {file_str}");
     let suggestions = completer.complete(&target_file, target_file.len());
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.join("partial_a").join("have_ext.exe")),
-        file(dir.join("partial_a").join("have_ext.txt")),
+        file(dir.join("partial-a").join("have_ext.exe")),
+        file(dir.join("partial-a").join("have_ext.txt")),
     ];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
 
     // Test completion for all files under directories whose names begin with "pa"
-    let file_str = file(dir.join("partial_a").join("have_ext."));
+    let file_str = file(dir.join("partial-a").join("have_ext."));
     let file_dir = format!("rm {file_str}");
     let suggestions = completer.complete(&file_dir, file_dir.len());
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        file(dir.join("partial_a").join("have_ext.exe")),
-        file(dir.join("partial_a").join("have_ext.txt")),
+        file(dir.join("partial-a").join("have_ext.exe")),
+        file(dir.join("partial-a").join("have_ext.txt")),
     ];
 
     // Match the results
@@ -652,6 +681,27 @@ fn command_watch_with_filecompletion() {
     match_suggestions(expected_paths, suggestions)
 }
 
+#[rstest]
+fn subcommand_completions(mut subcommand_completer: NuCompleter) {
+    let prefix = "foo br";
+    let suggestions = subcommand_completer.complete(prefix, prefix.len());
+    match_suggestions(
+        vec!["foo bar".to_string(), "foo aabrr".to_string()],
+        suggestions,
+    );
+
+    let prefix = "foo b";
+    let suggestions = subcommand_completer.complete(prefix, prefix.len());
+    match_suggestions(
+        vec![
+            "foo bar".to_string(),
+            "foo abaz".to_string(),
+            "foo aabrr".to_string(),
+        ],
+        suggestions,
+    );
+}
+
 #[test]
 fn file_completion_quoted() {
     let (_, _, engine, stack) = new_quote_engine();
@@ -662,11 +712,11 @@ fn file_completion_quoted() {
     let suggestions = completer.complete(target_dir, target_dir.len());
 
     let expected_paths: Vec<String> = vec![
-        "\'[a] bc.txt\'".to_string(),
         "`--help`".to_string(),
         "`-42`".to_string(),
         "`-inf`".to_string(),
         "`4.2`".to_string(),
+        "\'[a] bc.txt\'".to_string(),
         "`te st.txt`".to_string(),
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
