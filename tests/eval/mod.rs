@@ -199,6 +199,14 @@ fn external_call_redirect_pipe() {
 }
 
 #[test]
+fn external_call_redirect_capture() {
+    test_eval(
+        "echo (nu --testbin cococo foo=bar baz) | str upcase",
+        Eq("FOO=BAR BAZ"),
+    )
+}
+
+#[test]
 fn external_call_redirect_file() {
     test_eval(
         "nu --testbin cococo hello out> hello.txt",

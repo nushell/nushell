@@ -701,7 +701,7 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
     Ok(PipelineData::Value(value, metadata))
 }
 
-/// Set up an [`Redirection`] from a [`RedirectMode`]
+/// Set up a [`Redirection`] from a [`RedirectMode`]
 fn eval_redirection(
     ctx: &mut EvalContext<'_>,
     mode: &RedirectMode,
