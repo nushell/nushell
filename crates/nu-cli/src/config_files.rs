@@ -182,7 +182,7 @@ pub fn add_plugin_file(
     if let Ok(cwd) = engine_state.cwd_as_string(None) {
         if let Some(plugin_file) = plugin_file {
             let path = Path::new(&plugin_file.item);
-            let path_dir = path.real_parent().unwrap_or(path.to_path_buf());
+            let path_dir = path.real_parent().unwrap_or_else(|_e| path.to_path_buf());
             // Just try to canonicalize the directory of the plugin file first.
             if let Ok(path_dir) = canonicalize_with(&path_dir, &cwd) {
                 // Try to canonicalize the actual filename, but it's ok if that fails. The file doesn't
