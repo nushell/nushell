@@ -58,7 +58,12 @@ impl Command for IsTerminal {
             _ => {
                 return Err(ShellError::IncompatibleParametersSingle {
                     msg: "Only one stream may be checked".into(),
-                    span: Span::merge_many(call.arguments.iter().map(|arg| arg.span())),
+                    span: Span::merge_many(
+                        call.arguments
+                            .item
+                            .iter()
+                            .map(|arg| arg.span(&engine_state)),
+                    ),
                 });
             }
         };

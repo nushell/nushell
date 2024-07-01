@@ -398,7 +398,7 @@ fn convert_to_extension(
             let eval_block = get_eval_block(engine_state);
             eval_block(engine_state, stack, block, input)
         } else {
-            decl.run(engine_state, stack, &Call::new(span), input)
+            decl.run(engine_state, stack, &Call::new(span, span.past()), input)
         }
     } else {
         Ok(input)

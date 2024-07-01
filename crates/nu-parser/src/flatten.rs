@@ -252,7 +252,7 @@ fn flatten_expression_into(
             }
 
             let arg_start = output.len();
-            for arg in &call.arguments {
+            for arg in &call.arguments.item {
                 match arg {
                     Argument::Positional(positional) | Argument::Unknown(positional) => {
                         flatten_expression_into(working_set, positional, output)

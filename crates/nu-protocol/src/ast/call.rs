@@ -4,42 +4,47 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ast::Expression, engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue,
-    ShellError, Span, Spanned, Value,
+    GetSpan, ShellError, Span, SpanId, Spanned, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
     Positional(Expression),
-    Named((Spanned<String>, Option<Spanned<String>>, Option<Expression>)),
+    Named(
+        (
+            Spanned<String>,
+            Option<Spanned<String>>,
+            Option<Expression>,
+            SpanId,
+        ),
+    ),
     Unknown(Expression), // unknown argument used in "fall-through" signatures
     Spread(Expression),  // a list spread to fill in rest arguments
 }
 
 impl Argument {
-    /// The span for an argument
-    pub fn span(&self) -> Span {
+    pub fn span_id(&self) -> SpanId {
         match self {
-            Argument::Positional(e) => e.span,
-            Argument::Named((named, short, expr)) => {
-                let start = named.span.start;
-                let end = if let Some(expr) = expr {
-                    expr.span.end
-                } else if let Some(short) = short {
-                    short.span.end
-                } else {
-                    named.span.end
-                };
+            Argument::Positional(e) => e.span_id,
+            Argument::Named((_, _, _, span_id)) => *span_id,
+            Argument::Unknown(e) => e.span_id,
+            Argument::Spread(e) => e.span_id,
+        }
+    }
 
-                Span::new(start, end)
-            }
-            Argument::Unknown(e) => e.span,
-            Argument::Spread(e) => e.span,
+    /// The span for an argument
+    pub fn span(&self, state: &impl GetSpan) -> Span {
+        match self {
+            Argument::Positional(e) => e.span(state),
+            Argument::Named((_, _, _, span_id)) => state.get_span(*span_id),
+            Argument::Unknown(e) => e.span(state),
+            Argument::Spread(e) => e.span(state),
         }
     }
 
     pub fn expr(&self) -> Option<&Expression> {
         match self {
-            Argument::Named((_, _, expr)) => expr.as_ref(),
+            Argument::Named((_, _, expr, _)) => expr.as_ref(),
             Argument::Positional(expr) | Argument::Unknown(expr) | Argument::Spread(expr) => {
                 Some(expr)
             }
@@ -58,17 +63,20 @@ pub struct Call {
     /// identifier of the declaration to call
     pub decl_id: DeclId,
     pub head: Span,
-    pub arguments: Vec<Argument>,
+    pub arguments: Spanned<Vec<Argument>>,
     /// this field is used by the parser to pass additional command-specific information
     pub parser_info: HashMap<String, Expression>,
 }
 
 impl Call {
-    pub fn new(head: Span) -> Call {
+    pub fn new(head: Span, args_span: Span) -> Call {
         Self {
             decl_id: 0,
             head,
-            arguments: vec![],
+            arguments: Spanned {
+                item: vec![],
+                span: args_span,
+            },
             parser_info: HashMap::new(),
         }
     }
@@ -80,23 +88,20 @@ impl Call {
     /// If there are one or more arguments the span encompasses the start of the first argument to
     /// end of the last argument
     pub fn arguments_span(&self) -> Span {
-        let past = self.head.past();
-
-        let start = self
-            .arguments
-            .first()
-            .map(|a| a.span())
-            .unwrap_or(past)
-            .start;
-        let end = self.arguments.last().map(|a| a.span()).unwrap_or(past).end;
-
-        Span::new(start, end)
+        self.arguments.span
     }
 
     pub fn named_iter(
         &self,
-    ) -> impl Iterator<Item = &(Spanned<String>, Option<Spanned<String>>, Option<Expression>)> {
-        self.arguments.iter().filter_map(|arg| match arg {
+    ) -> impl Iterator<
+        Item = &(
+            Spanned<String>,
+            Option<Spanned<String>>,
+            Option<Expression>,
+            SpanId,
+        ),
+    > {
+        self.arguments.item.iter().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
             Argument::Unknown(_) => None,
@@ -106,9 +111,15 @@ impl Call {
 
     pub fn named_iter_mut(
         &mut self,
-    ) -> impl Iterator<Item = &mut (Spanned<String>, Option<Spanned<String>>, Option<Expression>)>
-    {
-        self.arguments.iter_mut().filter_map(|arg| match arg {
+    ) -> impl Iterator<
+        Item = &mut (
+            Spanned<String>,
+            Option<Spanned<String>>,
+            Option<Expression>,
+            SpanId,
+        ),
+    > {
+        self.arguments.item.iter_mut().filter_map(|arg| match arg {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
             Argument::Unknown(_) => None,
@@ -122,25 +133,31 @@ impl Call {
 
     pub fn add_named(
         &mut self,
-        named: (Spanned<String>, Option<Spanned<String>>, Option<Expression>),
+        named: (
+            Spanned<String>,
+            Option<Spanned<String>>,
+            Option<Expression>,
+            SpanId,
+        ),
     ) {
-        self.arguments.push(Argument::Named(named));
+        self.arguments.item.push(Argument::Named(named));
     }
 
     pub fn add_positional(&mut self, positional: Expression) {
-        self.arguments.push(Argument::Positional(positional));
+        self.arguments.item.push(Argument::Positional(positional));
     }
 
     pub fn add_unknown(&mut self, unknown: Expression) {
-        self.arguments.push(Argument::Unknown(unknown));
+        self.arguments.item.push(Argument::Unknown(unknown));
     }
 
     pub fn add_spread(&mut self, args: Expression) {
-        self.arguments.push(Argument::Spread(args));
+        self.arguments.item.push(Argument::Spread(args));
     }
 
     pub fn positional_iter(&self) -> impl Iterator<Item = &Expression> {
         self.arguments
+            .item
             .iter()
             .take_while(|arg| match arg {
                 Argument::Spread(_) => false, // Don't include positional arguments given to rest parameter
@@ -168,6 +185,7 @@ impl Call {
         // todo maybe rewrite to be more elegant or something
         let args = self
             .arguments
+            .item
             .iter()
             .filter_map(|arg| match arg {
                 Argument::Named(_) => None,
@@ -258,9 +276,9 @@ impl Call {
     ) -> Result<Vec<T>, ShellError> {
         let mut output = vec![];
 
-        for result in
-            self.rest_iter_flattened(starting_pos, |expr| eval_constant(working_set, expr))?
-        {
+        for result in self.rest_iter_flattened(&working_set, starting_pos, |expr| {
+            eval_constant(working_set, expr)
+        })? {
             output.push(FromValue::from_value(result)?);
         }
 
@@ -269,6 +287,7 @@ impl Call {
 
     pub fn rest_iter_flattened<F>(
         &self,
+        state: &impl GetSpan,
         start: usize,
         mut eval: F,
     ) -> Result<Vec<Value>, ShellError>
@@ -282,7 +301,11 @@ impl Call {
             if spread {
                 match result {
                     Value::List { mut vals, .. } => output.append(&mut vals),
-                    _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
+                    _ => {
+                        return Err(ShellError::CannotSpreadAsList {
+                            span: expr.span(state),
+                        })
+                    }
                 }
             } else {
                 output.push(result);
@@ -310,101 +333,27 @@ impl Call {
         }
     }
 
-    pub fn span(&self) -> Span {
+    pub fn span(&self, state: &impl GetSpan) -> Span {
         let mut span = self.head;
 
         for positional in self.positional_iter() {
-            if positional.span.end > span.end {
-                span.end = positional.span.end;
+            if positional.span(state).end > span.end {
+                span.end = positional.span(state).end;
             }
         }
 
-        for (named, _, val) in self.named_iter() {
+        for (named, _, val, _) in self.named_iter() {
             if named.span.end > span.end {
                 span.end = named.span.end;
             }
 
             if let Some(val) = &val {
-                if val.span.end > span.end {
-                    span.end = val.span.end;
+                if val.span(state).end > span.end {
+                    span.end = val.span(state).end;
                 }
             }
         }
 
         span
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::engine::EngineState;
-
-    #[test]
-    fn argument_span_named() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let named = Spanned {
-            item: "named".to_string(),
-            span: Span::new(2, 3),
-        };
-        let short = Spanned {
-            item: "short".to_string(),
-            span: Span::new(5, 7),
-        };
-        let expr = Expression::garbage(&mut working_set, Span::new(11, 13));
-
-        let arg = Argument::Named((named.clone(), None, None));
-
-        assert_eq!(Span::new(2, 3), arg.span());
-
-        let arg = Argument::Named((named.clone(), Some(short.clone()), None));
-
-        assert_eq!(Span::new(2, 7), arg.span());
-
-        let arg = Argument::Named((named.clone(), None, Some(expr.clone())));
-
-        assert_eq!(Span::new(2, 13), arg.span());
-
-        let arg = Argument::Named((named.clone(), Some(short.clone()), Some(expr.clone())));
-
-        assert_eq!(Span::new(2, 13), arg.span());
-    }
-
-    #[test]
-    fn argument_span_positional() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let span = Span::new(2, 3);
-        let expr = Expression::garbage(&mut working_set, span);
-        let arg = Argument::Positional(expr);
-
-        assert_eq!(span, arg.span());
-    }
-
-    #[test]
-    fn argument_span_unknown() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let span = Span::new(2, 3);
-        let expr = Expression::garbage(&mut working_set, span);
-        let arg = Argument::Unknown(expr);
-
-        assert_eq!(span, arg.span());
-    }
-
-    #[test]
-    fn call_arguments_span() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let mut call = Call::new(Span::new(0, 1));
-        call.add_positional(Expression::garbage(&mut working_set, Span::new(2, 3)));
-        call.add_positional(Expression::garbage(&mut working_set, Span::new(5, 7)));
-
-        assert_eq!(Span::new(2, 7), call.arguments_span());
     }
 }

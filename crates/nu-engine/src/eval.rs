@@ -26,7 +26,7 @@ pub fn eval_call<D: DebugContext>(
     }
     let decl = engine_state.get_decl(call.decl_id);
 
-    if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
+    if !decl.is_known_external() && call.named_iter().any(|(flag, _, _, _)| flag.item == "help") {
         let help = get_full_help(decl, engine_state, caller_stack);
         Ok(Value::string(help, call.head).into_pipeline_data())
     } else if let Some(block_id) = decl.block_id() {
@@ -100,6 +100,7 @@ pub fn eval_call<D: DebugContext>(
             let mut rest_items = vec![];
 
             for result in call.rest_iter_flattened(
+                &engine_state,
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
                 |expr| eval_expression::<D>(engine_state, caller_stack, expr),
@@ -213,8 +214,16 @@ fn eval_external(
         })?;
 
     let command = engine_state.get_decl(decl_id);
+    let spans: Vec<Span> = args
+        .iter()
+        .map(|arg| match arg {
+            ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
+                expr.span(&engine_state)
+            }
+        })
+        .collect();
 
-    let mut call = Call::new(head.span(&engine_state));
+    let mut call = Call::new(head.span(&engine_state), Span::concat(&spans));
 
     call.add_positional(head.clone());
 
