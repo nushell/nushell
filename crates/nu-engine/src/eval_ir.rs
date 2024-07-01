@@ -662,7 +662,11 @@ fn eval_call(
         .argument_stack
         .get_args(*args_base, args_len)
         .into_iter()
-        .fold(head, |span, arg| span.append(arg.span()));
+        .fold(head, |span, arg| {
+            arg.span()
+                .map(|arg_span| span.append(arg_span))
+                .unwrap_or(span)
+        });
     let call = Call {
         decl_id,
         head,

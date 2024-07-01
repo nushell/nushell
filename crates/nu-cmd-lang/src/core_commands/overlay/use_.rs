@@ -61,14 +61,13 @@ impl Command for OverlayUse {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let call = call.assert_ast_call()?; // FIXME
         let mut name_arg: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
         name_arg.item = trim_quotes_str(&name_arg.item).to_string();
 
         let maybe_origin_module_id =
-            if let Some(overlay_expr) = call.get_parser_info("overlay_expr") {
+            if let Some(overlay_expr) = call.get_parser_info(caller_stack, "overlay_expr") {
                 if let Expr::Overlay(module_id) = &overlay_expr.expr {
-                    module_id
+                    module_id.clone()
                 } else {
                     return Err(ShellError::NushellFailedSpanned {
                         msg: "Not an overlay".to_string(),
@@ -111,7 +110,7 @@ impl Command for OverlayUse {
             // a) adding a new overlay
             // b) refreshing an active overlay (the origin module changed)
 
-            let module = engine_state.get_module(*module_id);
+            let module = engine_state.get_module(module_id);
 
             // Evaluate the export-env block (if any) and keep its environment
             if let Some(block_id) = module.env_block {
@@ -119,7 +118,7 @@ impl Command for OverlayUse {
                     &name_arg.item,
                     engine_state,
                     caller_stack,
-                    get_dirs_var_from_call(call),
+                    get_dirs_var_from_call(caller_stack, call),
                 )?;
 
                 let block = engine_state.get_block(block_id);

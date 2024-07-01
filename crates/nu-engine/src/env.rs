@@ -1,8 +1,8 @@
 use crate::ClosureEvalOnce;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    ast::{Call, Expr},
-    engine::{EngineState, Stack, StateWorkingSet},
+    ast::Expr,
+    engine::{Call, EngineState, Stack, StateWorkingSet},
     Config, ShellError, Span, Value, VarId,
 };
 use std::{
@@ -244,15 +244,15 @@ pub fn path_str(
 }
 
 pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
-// FIXME: this should be possible on IR calls
-pub fn get_dirs_var_from_call(call: &Call) -> Option<VarId> {
-    call.get_parser_info(DIR_VAR_PARSER_INFO).and_then(|x| {
-        if let Expr::Var(id) = x.expr {
-            Some(id)
-        } else {
-            None
-        }
-    })
+pub fn get_dirs_var_from_call(stack: &Stack, call: &Call) -> Option<VarId> {
+    call.get_parser_info(stack, DIR_VAR_PARSER_INFO)
+        .and_then(|x| {
+            if let Expr::Var(id) = x.expr {
+                Some(id)
+            } else {
+                None
+            }
+        })
 }
 
 /// This helper function is used to find files during eval

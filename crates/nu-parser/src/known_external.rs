@@ -189,7 +189,9 @@ fn ir_call_to_extern_call(
                 extern_call.add_argument(stack, name_arg);
                 extern_call.add_argument(stack, val_arg);
             }
-            a @ (engine::Argument::Positional { .. } | engine::Argument::Spread { .. }) => {
+            a @ (engine::Argument::Positional { .. }
+            | engine::Argument::Spread { .. }
+            | engine::Argument::ParserInfo { .. }) => {
                 let argument = a.clone();
                 extern_call.add_argument(stack, argument);
             }

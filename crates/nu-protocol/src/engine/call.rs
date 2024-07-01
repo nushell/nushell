@@ -1,4 +1,7 @@
-use crate::{ast, ir, DeclId, FromValue, ShellError, Span, Value};
+use crate::{
+    ast::{self, Expression},
+    ir, DeclId, FromValue, ShellError, Span, Value,
+};
 
 use super::{EngineState, Stack, StateWorkingSet};
 
@@ -114,6 +117,16 @@ impl Call<'_> {
             CallImpl::AstBox(call) => call.span(),
             CallImpl::IrRef(call) => call.span(),
             CallImpl::IrBox(call) => call.span(),
+        }
+    }
+
+    /// Get a parser info argument by name.
+    pub fn get_parser_info<'a>(&'a self, stack: &'a Stack, name: &str) -> Option<&'a Expression> {
+        match &self.inner {
+            CallImpl::AstRef(call) => call.get_parser_info(name),
+            CallImpl::AstBox(call) => call.get_parser_info(name),
+            CallImpl::IrRef(call) => call.get_parser_info(stack, name),
+            CallImpl::IrBox(call) => call.get_parser_info(stack, name),
         }
     }
 

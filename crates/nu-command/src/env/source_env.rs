@@ -45,7 +45,6 @@ impl Command for SourceEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let call = call.assert_ast_call()?; // FIXME
         let source_filename: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
 
         // Note: this hidden positional is the block_id that corresponded to the 0th position
@@ -57,7 +56,7 @@ impl Command for SourceEnv {
             &source_filename.item,
             engine_state,
             caller_stack,
-            get_dirs_var_from_call(call),
+            get_dirs_var_from_call(caller_stack, call),
         )? {
             PathBuf::from(&path)
         } else {

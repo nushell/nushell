@@ -87,7 +87,7 @@ impl Command for NuCheck {
                         &path_str.item,
                         engine_state,
                         stack,
-                        get_dirs_var_from_call(call.assert_ast_call()?), // FIXME
+                        get_dirs_var_from_call(stack, call), // FIXME
                     ) {
                         Ok(path) => {
                             if let Some(path) = path {

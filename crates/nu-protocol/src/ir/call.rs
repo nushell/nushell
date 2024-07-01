@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
+    ast::Expression,
     engine::{self, Argument, Stack},
     DeclId, ShellError, Span, Spanned, Value,
 };
@@ -55,6 +56,7 @@ impl Call {
         Span::new(past.start, self.span.end)
     }
 
+    /// The number of named arguments, with or without values.
     pub fn named_len(&self, stack: &Stack) -> usize {
         self.arguments(stack)
             .iter()
@@ -62,6 +64,7 @@ impl Call {
             .count()
     }
 
+    /// Iterate through named arguments, with or without values.
     pub fn named_iter<'a>(
         &'a self,
         stack: &'a Stack,
@@ -97,6 +100,8 @@ impl Call {
         )
     }
 
+    /// Get a named argument's value by name. Returns [`None`] for named arguments with no value as
+    /// well.
     pub fn get_named_arg<'a>(&self, stack: &'a Stack, flag_name: &str) -> Option<&'a Value> {
         // Optimized to avoid str::from_utf8()
         self.arguments(stack)
@@ -115,6 +120,7 @@ impl Call {
             .flatten()
     }
 
+    /// The number of positional arguments, excluding spread arguments.
     pub fn positional_len(&self, stack: &Stack) -> usize {
         self.arguments(stack)
             .iter()
@@ -122,6 +128,7 @@ impl Call {
             .count()
     }
 
+    /// Iterate through positional arguments. Does not include spread arguments.
     pub fn positional_iter<'a>(&self, stack: &'a Stack) -> impl Iterator<Item = &'a Value> {
         self.arguments(stack).iter().filter_map(|arg| match arg {
             Argument::Positional { val, .. } => Some(val),
@@ -129,6 +136,7 @@ impl Call {
         })
     }
 
+    /// Get a positional argument by index. Does not include spread arguments.
     pub fn positional_nth<'a>(&self, stack: &'a Stack, index: usize) -> Option<&'a Value> {
         self.positional_iter(stack).nth(index)
     }
@@ -150,6 +158,8 @@ impl Call {
             .skip(start)
     }
 
+    /// Returns all of the positional arguments including and after `start`, with spread arguments
+    /// flattened into a single `Vec`.
     pub fn rest_iter_flattened(
         &self,
         stack: &Stack,
@@ -172,6 +182,20 @@ impl Call {
             }
         }
         Ok(acc)
+    }
+
+    /// Get a parser info argument by name.
+    pub fn get_parser_info<'a>(&self, stack: &'a Stack, name: &str) -> Option<&'a Expression> {
+        self.arguments(stack)
+            .iter()
+            .find_map(|argument| match argument {
+                Argument::ParserInfo {
+                    data,
+                    name: name_slice,
+                    expr,
+                } if &data[*name_slice] == name.as_bytes() => Some(expr.as_ref()),
+                _ => None,
+            })
     }
 
     /// Returns a span encompassing the entire call.
@@ -197,7 +221,9 @@ impl CallBuilder {
             self.inner.args_base = stack.argument_stack.get_base();
         }
         self.inner.args_len += 1;
-        self.inner.span = self.inner.span.append(argument.span());
+        if let Some(span) = argument.span() {
+            self.inner.span = self.inner.span.append(span);
+        }
         stack.argument_stack.push(argument);
         self
     }

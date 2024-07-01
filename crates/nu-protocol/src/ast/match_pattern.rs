@@ -19,6 +19,8 @@ impl MatchPattern {
 pub enum Pattern {
     Record(Vec<(String, MatchPattern)>),
     List(Vec<MatchPattern>),
+    // TODO: it would be nice if this didn't depend on AST
+    // maybe const evaluation can get us to a Value instead?
     Value(Expression),
     Variable(VarId),
     Or(Vec<MatchPattern>),

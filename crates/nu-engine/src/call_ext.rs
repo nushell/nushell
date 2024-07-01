@@ -293,7 +293,21 @@ impl CallExt for ir::Call {
         stack: &mut Stack,
         name: &str,
     ) -> Result<T, ShellError> {
-        todo!("req_parser_info is not yet implemented on ir::Call")
+        // FIXME: this depends on the AST evaluator. We can fix this by making the parser info an
+        // enum rather than using expressions. It's not clear that evaluation of this is ever really
+        // needed.
+        if let Some(expr) = self.get_parser_info(stack, name) {
+            let expr = expr.clone();
+            let stack = &mut stack.use_call_arg_out_dest();
+            let result = eval_expression::<WithoutDebug>(engine_state, stack, &expr)?;
+            FromValue::from_value(result)
+        } else {
+            Err(ShellError::CantFindColumn {
+                col_name: name.into(),
+                span: None,
+                src_span: self.head,
+            })
+        }
     }
 
     fn has_positional_args(&self, stack: &Stack, starting_pos: usize) -> bool {
