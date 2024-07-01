@@ -605,6 +605,7 @@ fn handle_row_stream(
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
+            ..
         }) => {
             let config = get_config(input.engine_state, input.stack);
             let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
@@ -636,6 +637,7 @@ fn handle_row_stream(
         // Next, `to html -l` sources:
         Some(PipelineMetadata {
             data_source: DataSource::HtmlThemes,
+            ..
         }) => {
             stream.map(|mut value| {
                 if let Value::Record { val: record, .. } = &mut value {
