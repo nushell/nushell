@@ -45,7 +45,6 @@ pub(crate) fn compile_binary_op(
     } else {
         // Not an assignment: just do the binary op
         let lhs_reg = out_reg;
-        let rhs_reg = builder.next_register()?;
 
         compile_expression(
             working_set,
@@ -55,6 +54,9 @@ pub(crate) fn compile_binary_op(
             None,
             lhs_reg,
         )?;
+
+        let rhs_reg = builder.next_register()?;
+
         compile_expression(
             working_set,
             builder,

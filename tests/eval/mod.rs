@@ -23,6 +23,8 @@ enum ExpectedOut<'a> {
     Eq(&'a str),
     /// Matches a regex
     Matches(&'a str),
+    /// Produces an error (match regex)
+    Error(&'a str),
     /// Drops a file that contains these contents
     FileEq(&'a str, &'a str),
 }
@@ -42,25 +44,44 @@ fn test_eval(source: &str, expected_out: ExpectedOut) {
                 source,
             );
 
-            assert!(actual_ast.status.success());
-            assert!(actual_ir.status.success());
             match expected_out {
                 Eq(eq) => {
                     assert_eq!(actual_ast.out, eq);
                     assert_eq!(actual_ir.out, eq);
+                    assert!(actual_ast.status.success());
+                    assert!(actual_ir.status.success());
                 }
                 Matches(regex) => {
                     let compiled_regex = Regex::new(regex).expect("regex failed to compile");
                     assert!(
                         compiled_regex.is_match(&actual_ast.out),
-                        "AST eval out does not match: {}",
-                        regex
+                        "AST eval out does not match: {}\n{}",
+                        regex,
+                        actual_ast.out
                     );
                     assert!(
                         compiled_regex.is_match(&actual_ir.out),
-                        "IR eval out does not match: {}",
+                        "IR eval out does not match: {}\n{}",
+                        regex,
+                        actual_ir.out,
+                    );
+                    assert!(actual_ast.status.success());
+                    assert!(actual_ir.status.success());
+                }
+                Error(regex) => {
+                    let compiled_regex = Regex::new(regex).expect("regex failed to compile");
+                    assert!(
+                        compiled_regex.is_match(&actual_ast.err),
+                        "AST eval err does not match: {}",
                         regex
                     );
+                    assert!(
+                        compiled_regex.is_match(&actual_ir.err),
+                        "IR eval err does not match: {}",
+                        regex
+                    );
+                    assert!(!actual_ast.status.success());
+                    assert!(!actual_ir.status.success());
                 }
                 FileEq(path, contents) => {
                     let ast_contents = std::fs::read_to_string(ast_dirs.test().join(path))
@@ -69,6 +90,8 @@ fn test_eval(source: &str, expected_out: ExpectedOut) {
                         .expect("failed to read IR file");
                     assert_eq!(ast_contents.trim(), contents);
                     assert_eq!(ir_contents.trim(), contents);
+                    assert!(actual_ast.status.success());
+                    assert!(actual_ir.status.success());
                 }
             }
             assert_eq!(actual_ast.out, actual_ir.out);
@@ -212,4 +235,65 @@ fn external_call_redirect_file() {
         "nu --testbin cococo hello out> hello.txt",
         FileEq("hello.txt", "hello"),
     )
+}
+
+#[test]
+fn let_variable() {
+    test_eval("let foo = 'test'; print $foo", Eq("test"))
+}
+
+#[test]
+fn let_variable_mutate_error() {
+    test_eval(
+        "let foo = 'test'; $foo = 'bar'; print $foo",
+        Error("immutable"),
+    )
+}
+
+#[test]
+fn mut_variable() {
+    test_eval("mut foo = 'test'; $foo = 'bar'; print $foo", Eq("bar"))
+}
+
+#[test]
+fn mut_variable_append_assign() {
+    test_eval(
+        "mut foo = 'test'; $foo ++= 'bar'; print $foo",
+        Eq("testbar"),
+    )
+}
+
+#[test]
+fn for_list() {
+    test_eval("for v in [1 2 3] { print ($v * 2) }", Eq(r"246"))
+}
+
+#[test]
+fn for_seq() {
+    test_eval("for v in (seq 1 4) { print ($v * 2) }", Eq("2468"))
+}
+
+#[test]
+fn if_true() {
+    test_eval("if true { 'foo' }", Eq("foo"))
+}
+
+#[test]
+fn if_false() {
+    test_eval("if false { 'foo' } | describe", Eq("nothing"))
+}
+
+#[test]
+fn if_else_true() {
+    test_eval("if 5 > 3 { 'foo' } else { 'bar' }", Eq("foo"))
+}
+
+#[test]
+fn if_else_false() {
+    test_eval("if 5 < 3 { 'foo' } else { 'bar' }", Eq("bar"))
+}
+
+#[test]
+fn early_return() {
+    test_eval("do { return 'foo'; 'bar' }", Eq("foo"))
 }
