@@ -247,6 +247,7 @@ pub struct NuOpts {
     pub locale: Option<String>,
     pub envs: Option<Vec<(String, String)>>,
     pub collapse_output: Option<bool>,
+    pub use_ir: Option<bool>,
 }
 
 pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> Outcome {
@@ -295,6 +296,14 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         .arg(format!("-c {}", escape_quote_string(&commands)))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    // Use IR evaluator (or set $env.NU_TEST_USE_IR to always do this)
+    if opts
+        .use_ir
+        .unwrap_or_else(|| std::env::var("NU_TEST_USE_IR").is_ok())
+    {
+        command.arg("--use-ir");
+    }
 
     // Uncomment to debug the command being run:
     // println!("=== command\n{command:?}\n");

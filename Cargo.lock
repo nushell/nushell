@@ -2801,6 +2801,7 @@ dependencies = [
  "openssl",
  "pretty_assertions",
  "reedline",
+ "regex",
  "rstest",
  "serde_json",
  "serial_test",
