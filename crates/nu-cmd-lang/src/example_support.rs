@@ -138,7 +138,7 @@ pub fn check_example_evaluates_to_expected_output(
     stack.add_env_var("PWD".to_string(), Value::test_string(cwd.to_string_lossy()));
 
     engine_state
-        .merge_env(&mut stack, cwd)
+        .merge_env(&mut stack)
         .expect("Error merging environment");
 
     let empty_input = PipelineData::empty();
