@@ -168,6 +168,24 @@ fn record_from_expressions() {
 }
 
 #[test]
+fn call_spread() {
+    test_eval(
+        "echo foo bar ...[baz quux nushell]",
+        Matches("foo.*bar.*baz.*quux.*nushell"),
+    )
+}
+
+#[test]
+fn call_flag() {
+    test_eval("print -e message", Eq("")) // should not be visible on stdout
+}
+
+#[test]
+fn call_named() {
+    test_eval("10.123 | into string --decimals 1", Eq("10.1"))
+}
+
+#[test]
 fn external_call() {
     test_eval("nu --testbin cococo foo=bar baz", Eq("foo=bar baz"))
 }

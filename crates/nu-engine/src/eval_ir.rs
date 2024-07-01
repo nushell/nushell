@@ -714,10 +714,17 @@ fn eval_redirection(
         RedirectMode::Inherit => Ok(Redirection::Pipe(OutDest::Inherit)),
         RedirectMode::File { path, append } => {
             let path = ctx.collect_reg(*path, span)?;
-            let file = File::options()
-                .write(true)
-                .append(*append)
-                .open(path.as_str()?)
+            let path_expanded =
+                expand_path_with(path.as_str()?, ctx.engine_state.cwd(Some(ctx.stack))?, true);
+            let mut options = File::options();
+            if *append {
+                options.append(true);
+            } else {
+                options.write(true).truncate(true);
+            }
+            let file = options
+                .create(true)
+                .open(path_expanded)
                 .map_err(|err| err.into_spanned(span))?;
             Ok(Redirection::File(file.into()))
         }
