@@ -56,6 +56,7 @@ impl Completer for DirectoryCompletion {
                     end: x.0.end - offset,
                 },
                 append_whitespace: false,
+                match_indices: None,
             },
             // TODO????
             kind: None,

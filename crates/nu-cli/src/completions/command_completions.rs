@@ -103,6 +103,7 @@ impl CommandCompletion {
                     extra: None,
                     span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
+                    match_indices: None,
                 },
                 kind: Some(SuggestionKind::Command(x.2)),
             })
@@ -123,6 +124,7 @@ impl CommandCompletion {
                         extra: None,
                         span: reedline::Span::new(span.start - offset, span.end - offset),
                         append_whitespace: true,
+                        match_indices: None,
                     },
                     // TODO: is there a way to create a test?
                     kind: None,
@@ -141,6 +143,7 @@ impl CommandCompletion {
                             extra: None,
                             span: external.suggestion.span,
                             append_whitespace: true,
+                            match_indices: None,
                         },
                         kind: external.kind,
                     })

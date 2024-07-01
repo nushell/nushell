@@ -108,6 +108,7 @@ impl NuHelpCompleter {
                         end: pos,
                     },
                     append_whitespace: false,
+                    match_indices: None,
                 }
             })
             .collect()

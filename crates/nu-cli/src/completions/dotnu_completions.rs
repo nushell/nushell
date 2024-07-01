@@ -124,6 +124,7 @@ impl Completer for DotNuCompletion {
                                 end: x.0.end - offset,
                             },
                             append_whitespace: true,
+                            match_indices: None,
                         },
                         // TODO????
                         kind: None,

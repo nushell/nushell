@@ -457,6 +457,7 @@ pub fn map_value_completions<'a>(
                         end: span.end - offset,
                     },
                     append_whitespace: false,
+                    match_indices: None,
                 },
                 kind: Some(SuggestionKind::Type(x.get_type())),
             });
@@ -474,6 +475,7 @@ pub fn map_value_completions<'a>(
                     end: span.end - offset,
                 },
                 append_whitespace: false,
+                match_indices: None,
             };
 
             // Iterate the cols looking for `value` and `description`

@@ -87,6 +87,7 @@ impl Completer for VariableCompletion {
                                     extra: None,
                                     span: current_span,
                                     append_whitespace: false,
+                                    match_indices: None,
                                 },
                                 kind: Some(SuggestionKind::Type(env_var.1.get_type())),
                             });
@@ -159,6 +160,7 @@ impl Completer for VariableCompletion {
                         extra: None,
                         span: current_span,
                         append_whitespace: false,
+                        match_indices: None,
                     },
                     // TODO is there a way to get the VarId to get the type???
                     kind: None,
@@ -186,6 +188,7 @@ impl Completer for VariableCompletion {
                                 extra: None,
                                 span: current_span,
                                 append_whitespace: false,
+                                match_indices: None,
                             },
                             kind: Some(SuggestionKind::Type(
                                 working_set.get_variable(*v.1).ty.clone(),
@@ -217,6 +220,7 @@ impl Completer for VariableCompletion {
                             extra: None,
                             span: current_span,
                             append_whitespace: false,
+                            match_indices: None,
                         },
                         kind: Some(SuggestionKind::Type(
                             working_set.get_variable(*v.1).ty.clone(),
@@ -255,6 +259,7 @@ fn nested_suggestions(
                         extra: None,
                         span: current_span,
                         append_whitespace: false,
+                        match_indices: None,
                     },
                     kind: Some(kind.clone()),
                 });
@@ -272,6 +277,7 @@ fn nested_suggestions(
                         extra: None,
                         span: current_span,
                         append_whitespace: false,
+                        match_indices: None,
                     },
                     kind: Some(kind.clone()),
                 });

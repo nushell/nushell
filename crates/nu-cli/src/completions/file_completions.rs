@@ -61,6 +61,7 @@ impl Completer for FileCompletion {
                     end: x.0.end - offset,
                 },
                 append_whitespace: false,
+                match_indices: None,
             },
             // TODO????
             kind: None,
