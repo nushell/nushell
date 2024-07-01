@@ -251,6 +251,19 @@ fn let_variable_mutate_error() {
 }
 
 #[test]
+fn constant() {
+    test_eval("const foo = 1 + 2; print $foo", Eq("3"))
+}
+
+#[test]
+fn constant_assign_error() {
+    test_eval(
+        "const foo = 1 + 2; $foo = 4; print $foo",
+        Error("immutable"),
+    )
+}
+
+#[test]
 fn mut_variable() {
     test_eval("mut foo = 'test'; $foo = 'bar'; print $foo", Eq("bar"))
 }
