@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 use polars_ops::pivot::pivot;
@@ -73,7 +73,9 @@ impl PluginCommand for PivotDF {
     ) -> Result<PipelineData, LabeledError> {
         match PolarsPluginObject::try_from_pipeline(plugin, input, call.head)? {
             PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
-            PolarsPluginObject::NuLazyFrame(lazy) => command_eager(plugin, engine, call, lazy.collect(call.head)?),
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                command_eager(plugin, engine, call, lazy.collect(call.head)?)
+            }
             _ => Err(ShellError::GenericError {
                 error: "Must be a dataframe or lazy dataframe".into(),
                 msg: "".into(),
@@ -103,17 +105,25 @@ fn command_eager(
     check_column_datatypes(df.as_ref(), &on_col_string, id_col_span)?;
     check_column_datatypes(df.as_ref(), &index_col_string, index_col_span)?;
     check_column_datatypes(df.as_ref(), &val_col_string, val_col_span)?;
-    
+
     let polars_df = df.to_polars();
     // todo add other args
-    let pivoted = pivot(&polars_df, &on_col_string, Some(&index_col_string), Some(&val_col_string), false, None, None)
-        .map_err(|e| ShellError::GenericError {
-            error: format!("Pivot error: {e}"),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
+    let pivoted = pivot(
+        &polars_df,
+        &on_col_string,
+        Some(&index_col_string),
+        Some(&val_col_string),
+        false,
+        None,
+        None,
+    )
+    .map_err(|e| ShellError::GenericError {
+        error: format!("Pivot error: {e}"),
+        msg: "".into(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
+    })?;
 
     let res = NuDataFrame::new(false, pivoted);
     res.to_pipeline_data(plugin, engine, call.head)
