@@ -69,10 +69,12 @@ impl Cache {
             None
         };
 
-        // Once there are no more entries in the cache
-        // we can turn plugin gc back on
-        debug!("PolarsPlugin: Cache is empty enabling GC");
-        engine.set_gc_disabled(false).map_err(LabeledError::from)?;
+        if lock.is_empty() {
+            // Once there are no more entries in the cache
+            // we can turn plugin gc back on
+            debug!("PolarsPlugin: Cache is empty enabling GC");
+            engine.set_gc_disabled(false).map_err(LabeledError::from)?;
+        }
         drop(lock);
         Ok(removed)
     }
