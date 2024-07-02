@@ -10,6 +10,7 @@ mod first;
 mod get;
 mod last;
 mod open;
+mod pivot;
 mod query_df;
 mod rename;
 mod sample;
@@ -76,6 +77,7 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(FilterWith),
         Box::new(GetDF),
         Box::new(OpenDataFrame),
+        Box::new(pivot::PivotDF),
         Box::new(UnpivotDF),
         Box::new(Summary),
         Box::new(FirstDF),
