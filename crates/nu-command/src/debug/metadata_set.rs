@@ -89,7 +89,7 @@ impl Command for MetadataSet {
             Example {
                 description: "Set the metadata of a file path",
                 example: "'crates' | metadata set --content-type text/plain | metadata",
-                result: None,
+                result: Some(Value::record(record!("content_type" => Value::string("text/plain", Span::test_data())), Span::test_data())),
             },
         ]
     }
@@ -97,12 +97,12 @@ impl Command for MetadataSet {
 
 #[cfg(test)]
 mod test {
+    use crate::{test_examples_with_commands, Metadata};
+
     use super::*;
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(MetadataSet {})
+        test_examples_with_commands(MetadataSet {}, &[&Metadata {}])
     }
 }
