@@ -1,7 +1,7 @@
 //! Interface used by the plugin to communicate with the engine.
 
 use nu_plugin_core::{
-    util::{Sequence, Waitable, WaitableMut},
+    util::{Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
 };
@@ -11,7 +11,7 @@ use nu_plugin_protocol::{
     ProtocolInfo,
 };
 use nu_protocol::{
-    engine::{ctrlc, Closure},
+    engine::{ctrlc, Closure, Sequence},
     Config, LabeledError, PipelineData, PluginMetadata, PluginSignature, ShellError, Span, Spanned,
     Value,
 };

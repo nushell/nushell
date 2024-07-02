@@ -1,7 +1,7 @@
 //! Interface used by the engine to communicate with the plugin.
 
 use nu_plugin_core::{
-    util::{with_custom_values_in, Sequence, Waitable, WaitableMut},
+    util::{with_custom_values_in, Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
 };
@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, Span, Spanned, Value,
+    ast::Operator, engine::Sequence, CustomValue, IntoSpanned, PipelineData, PluginMetadata,
+    PluginSignature, ShellError, Span, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap},

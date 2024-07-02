@@ -1,7 +1,9 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
-use nu_protocol::{ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError};
+use nu_protocol::{
+    engine::Sequence, ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError,
+};
 use std::{
     io::{Read, Write},
     sync::{atomic::AtomicBool, Arc, Mutex},
@@ -10,7 +12,7 @@ use std::{
 
 pub mod stream;
 
-use crate::{util::Sequence, Encoder};
+use crate::Encoder;
 
 use self::stream::{StreamManager, StreamManagerHandle, StreamWriter, WriteStreamMessage};
 
