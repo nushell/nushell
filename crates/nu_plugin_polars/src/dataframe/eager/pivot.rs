@@ -126,8 +126,7 @@ fn command_eager(
     })?;
 
     let res = NuDataFrame::new(false, pivoted);
-    res.cache(plugin, engine, call.head)?
-        .to_pipeline_data(plugin, engine, call.head)
+    res.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn check_column_datatypes<T: AsRef<str>>(
