@@ -172,3 +172,83 @@ pub(crate) fn cache_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(get::CacheGet),
     ]
 }
+
+#[cfg(test)]
+mod test {
+    use std::{cell::RefCell, rc::Rc};
+
+    use super::*;
+
+    struct MockEngineWrapper {
+        gc_enabled: Rc<RefCell<bool>>,
+    }
+
+    impl MockEngineWrapper {
+        fn new(gc_enabled: bool) -> Self {
+            Self {
+                gc_enabled: Rc::new(RefCell::new(gc_enabled)),
+            }
+        }
+
+        fn gc_enabled(&self) -> bool {
+            *self.gc_enabled.borrow()
+        }
+    }
+
+    impl EngineWrapper for &MockEngineWrapper {
+        fn get_env_var(&self, _key: &str) -> Option<String> {
+            todo!()
+        }
+
+        fn use_color(&self) -> bool {
+            todo!()
+        }
+
+        fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
+            let _ = self.gc_enabled.replace(!disabled);
+            Ok(())
+        }
+    }
+
+    #[test]
+    pub fn test_remove_plugin_cache_enable() {
+        let mock_engine = MockEngineWrapper::new(false);
+
+        let cache = Cache::default();
+        let mut lock = cache.cache.lock().expect("should be able to acquire lock");
+        let key0 = Uuid::new_v4();
+        lock.insert(
+            key0,
+            CacheValue {
+                uuid: Uuid::new_v4(),
+                value: PolarsPluginObject::NuPolarsTestData(Uuid::new_v4(), "object_0".into()),
+                created: Local::now().into(),
+                span: Span::unknown(),
+                reference_count: 1,
+            },
+        );
+
+        let key1 = Uuid::new_v4();
+        lock.insert(
+            key1,
+            CacheValue {
+                uuid: Uuid::new_v4(),
+                value: PolarsPluginObject::NuPolarsTestData(Uuid::new_v4(), "object_1".into()),
+                created: Local::now().into(),
+                span: Span::unknown(),
+                reference_count: 1,
+            },
+        );
+        drop(lock);
+
+        let _ = cache
+            .remove(&mock_engine, &key0, false)
+            .expect("should be able to remove key0");
+        assert!(!mock_engine.gc_enabled());
+
+        let _ = cache
+            .remove(&mock_engine, &key1, false)
+            .expect("should be able to remove key1");
+        assert!(mock_engine.gc_enabled());
+    }
+}
