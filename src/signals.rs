@@ -1,17 +1,24 @@
-use nu_protocol::engine::EngineState;
+use nu_protocol::engine::{ctrlc::Handlers, EngineState};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 
-pub(crate) fn ctrlc_protection(engine_state: &mut EngineState, ctrlc: &Arc<AtomicBool>) {
-    let handler_ctrlc = ctrlc.clone();
-    let engine_state_ctrlc = ctrlc.clone();
+pub(crate) fn ctrlc_protection(
+    engine_state: &mut EngineState,
+    ctrlc_bool: &Arc<AtomicBool>,
+    ctrlc_handlers: &Handlers,
+) {
+    {
+        let ctrlc_bool = ctrlc_bool.clone();
+        let ctrlc_handlers = ctrlc_handlers.clone();
+        ctrlc::set_handler(move || {
+            ctrlc_bool.store(true, Ordering::SeqCst);
+            ctrlc_handlers.run();
+        })
+        .expect("Error setting Ctrl-C handler");
+    }
 
-    ctrlc::set_handler(move || {
-        handler_ctrlc.store(true, Ordering::SeqCst);
-    })
-    .expect("Error setting Ctrl-C handler");
-
-    engine_state.ctrlc = Some(engine_state_ctrlc);
+    engine_state.ctrlc = Some(ctrlc_bool.clone());
+    engine_state.ctrlc_handlers = Some(ctrlc_handlers.clone());
 }

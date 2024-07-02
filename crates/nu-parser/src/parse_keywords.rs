@@ -3809,7 +3809,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, lite_command: &LiteComm
 
                 let metadata_and_signatures = plugin
                     .clone()
-                    .get(get_envs)
+                    .get(get_envs, None)
                     .and_then(|p| {
                         let meta = p.get_metadata()?;
                         let sigs = p.get_signature()?;

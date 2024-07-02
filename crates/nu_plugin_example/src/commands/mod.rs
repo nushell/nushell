@@ -14,11 +14,13 @@ pub use two::Two;
 
 // Engine interface demos
 mod config;
+mod ctrlc;
 mod disable_gc;
 mod env;
 mod view_span;
 
 pub use config::Config;
+pub use ctrlc::Ctrlc;
 pub use disable_gc::DisableGc;
 pub use env::Env;
 pub use view_span::ViewSpan;

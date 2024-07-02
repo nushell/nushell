@@ -663,6 +663,12 @@ impl PluginInterface {
         self.flush()
     }
 
+    /// Send the plugin a ctrl-c signal.
+    pub fn ctrlc(&self) -> Result<(), ShellError> {
+        self.write(PluginInput::Ctrlc)?;
+        self.flush()
+    }
+
     /// Write an [`EngineCallResponse`]. Writes the full stream contained in any [`PipelineData`]
     /// before returning.
     pub fn write_engine_call_response(

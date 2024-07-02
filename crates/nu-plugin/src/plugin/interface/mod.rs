@@ -11,8 +11,9 @@ use nu_plugin_protocol::{
     ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, LabeledError, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, Span, Spanned, Value,
+    engine::{ctrlc, Closure},
+    Config, LabeledError, PipelineData, PluginMetadata, PluginSignature, ShellError, Span, Spanned,
+    Value,
 };
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
@@ -62,6 +63,8 @@ struct EngineInterfaceState {
         mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
+    /// Registered Ctrl-C handlers
+    ctrlc_handlers: ctrlc::Handlers,
 }
 
 impl std::fmt::Debug for EngineInterfaceState {
@@ -115,6 +118,7 @@ impl EngineInterfaceManager {
                 stream_id_sequence: Sequence::default(),
                 engine_call_subscription_sender: subscription_tx,
                 writer: Box::new(writer),
+                ctrlc_handlers: ctrlc::Handlers::new(),
             }),
             protocol_info_mut,
             plugin_call_sender: Some(plug_tx),
@@ -328,6 +332,10 @@ impl InterfaceManager for EngineInterfaceManager {
                     });
                 self.send_engine_call_response(id, response)
             }
+            PluginInput::Ctrlc => {
+                self.state.ctrlc_handlers.run();
+                Ok(())
+            }
         }
     }
 
@@ -505,6 +513,12 @@ impl EngineInterface {
     /// user instead.
     pub fn is_using_stdio(&self) -> bool {
         self.state.writer.is_stdout()
+    }
+
+    /// Register a closure which will be called when the engine receives a Ctrl-C signal. Returns a
+    /// RAII guard that will keep the closure alive until it is dropped.
+    pub fn register_ctrlc_handler(&self, handler: ctrlc::Handler) -> ctrlc::Guard {
+        self.state.ctrlc_handlers.register(handler)
     }
 
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
