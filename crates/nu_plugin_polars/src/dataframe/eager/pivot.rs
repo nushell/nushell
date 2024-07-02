@@ -9,7 +9,7 @@ use polars_ops::pivot::pivot;
 use crate::{
     dataframe::values::utils::convert_columns_string,
     values::{CustomValueSupport, PolarsPluginObject},
-    PolarsPlugin,
+    Cacheable, PolarsPlugin,
 };
 
 use super::super::values::NuDataFrame;
@@ -126,7 +126,8 @@ fn command_eager(
     })?;
 
     let res = NuDataFrame::new(false, pivoted);
-    res.to_pipeline_data(plugin, engine, call.head)
+    res.cache(plugin, engine, call.head)?
+        .to_pipeline_data(plugin, engine, call.head)
 }
 
 fn check_column_datatypes<T: AsRef<str>>(

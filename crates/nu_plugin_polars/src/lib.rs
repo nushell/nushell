@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
 use dataframe::{stub::PolarsCmd, values::CustomValueType};
+use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
 mod cache;
@@ -72,6 +73,7 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Box<dyn CustomValue>,
     ) -> Result<(), LabeledError> {
+        debug!("cache_value_dropped called {:?}", custom_value);
         if !self.disable_cache_drop {
             let id = CustomValueType::try_from_custom_value(custom_value)?.id();
             let _ = self.cache.remove(engine, &id, false);
