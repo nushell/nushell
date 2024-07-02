@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{DataSource, PipelineMetadata};
+use nu_protocol::DataSource;
 
 #[derive(Clone)]
 pub struct MetadataSet;
@@ -27,6 +27,12 @@ impl Command for MetadataSet {
                 "Assign the DataSource::FilePath metadata to the input",
                 Some('f'),
             )
+            .named(
+                "content-type",
+                SyntaxShape::String,
+                "Assign content type metadata to the input",
+                Some('c'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Debug)
     }
@@ -41,35 +47,30 @@ impl Command for MetadataSet {
         let head = call.head;
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
+        let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
+
+        let metadata = input
+            .metadata()
+            .clone()
+            .unwrap_or_default()
+            .with_content_type(content_type);
 
         match (ds_fp, ds_ls) {
-            (Some(path), false) => {
-                let metadata = PipelineMetadata {
-                    data_source: DataSource::FilePath(path.into()),
-                    content_type: None,
-                };
-                Ok(input.into_pipeline_data_with_metadata(
-                    head,
-                    engine_state.ctrlc.clone(),
-                    metadata,
-                ))
-            }
-            (None, true) => {
-                let metadata = PipelineMetadata {
-                    data_source: DataSource::Ls,
-                    content_type: None,
-                };
-                Ok(input.into_pipeline_data_with_metadata(
-                    head,
-                    engine_state.ctrlc.clone(),
-                    metadata,
-                ))
-            }
-            _ => Err(ShellError::IncorrectValue {
-                msg: "Expected either --datasource-ls(-l) or --datasource-filepath(-f)".to_string(),
-                val_span: head,
-                call_span: head,
-            }),
+            (Some(path), false) => Ok(input.into_pipeline_data_with_metadata(
+                head,
+                engine_state.ctrlc.clone(),
+                metadata.with_data_source(DataSource::FilePath(path.into())),
+            )),
+            (None, true) => Ok(input.into_pipeline_data_with_metadata(
+                head,
+                engine_state.ctrlc.clone(),
+                metadata.with_data_source(DataSource::Ls),
+            )),
+            _ => Ok(input.into_pipeline_data_with_metadata(
+                head,
+                engine_state.ctrlc.clone(),
+                metadata,
+            )),
         }
     }
 
@@ -83,6 +84,11 @@ impl Command for MetadataSet {
             Example {
                 description: "Set the metadata of a file path",
                 example: "'crates' | metadata set --datasource-filepath $'(pwd)/crates' | metadata",
+                result: None,
+            },
+            Example {
+                description: "Set the metadata of a file path",
+                example: "'crates' | metadata set --content-type text/plain | metadata",
                 result: None,
             },
         ]
