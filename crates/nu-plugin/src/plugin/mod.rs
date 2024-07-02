@@ -16,7 +16,8 @@ use nu_plugin_core::{
 };
 use nu_plugin_protocol::{CallInfo, CustomValueOp, PluginCustomValue, PluginInput, PluginOutput};
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, ShellError, Spanned, Value,
+    ast::Operator, CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata,
+    ShellError, Spanned, Value,
 };
 use thiserror::Error;
 
@@ -52,6 +53,10 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 /// struct Hello;
 ///
 /// impl Plugin for HelloPlugin {
+///     fn version(&self) -> String {
+///         env!("CARGO_PKG_VERSION").into()
+///     }
+///
 ///     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {
 ///         vec![Box::new(Hello)]
 ///     }
@@ -89,6 +94,23 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 /// # }
 /// ```
 pub trait Plugin: Sync {
+    /// The version of the plugin.
+    ///
+    /// The recommended implementation, which will use the version from your crate's `Cargo.toml`
+    /// file:
+    ///
+    /// ```no_run
+    /// # use nu_plugin::{Plugin, PluginCommand};
+    /// # struct MyPlugin;
+    /// # impl Plugin for MyPlugin {
+    /// fn version(&self) -> String {
+    ///     env!("CARGO_PKG_VERSION").into()
+    /// }
+    /// # fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> { vec![] }
+    /// # }
+    /// ```
+    fn version(&self) -> String;
+
     /// The commands supported by the plugin
     ///
     /// Each [`PluginCommand`] contains both the signature of the command and the functionality it
@@ -216,6 +238,7 @@ pub trait Plugin: Sync {
 /// # struct MyPlugin;
 /// # impl MyPlugin { fn new() -> Self { Self }}
 /// # impl Plugin for MyPlugin {
+/// #     fn version(&self) -> String { "0.0.0".into() }
 /// #     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {todo!();}
 /// # }
 /// fn main() {
@@ -504,6 +527,12 @@ where
             }
 
             match plugin_call {
+                // Send metadata back to nushell so it can be stored with the plugin signatures
+                ReceivedPluginCall::Metadata { engine } => {
+                    engine
+                        .write_metadata(PluginMetadata::new().with_version(plugin.version()))
+                        .try_to_report(&engine)?;
+                }
                 // Sending the signature back to nushell to create the declaration definition
                 ReceivedPluginCall::Signature { engine } => {
                     let sigs = commands

@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 name = "nu_plugin_polars"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
-version = "0.94.3"
+version = "0.95.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,9 +17,10 @@ bench = false
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.94.3" }
-nu-plugin = { path = "../nu-plugin", version = "0.94.3" }
-nu-path = { path = "../nu-path", version = "0.94.3" }
+nu-protocol = { path = "../nu-protocol", version = "0.95.1" }
+nu-plugin = { path = "../nu-plugin", version = "0.95.1" }
+nu-path = { path = "../nu-path", version = "0.95.1" }
+nu-utils = { path = "../nu-utils", version = "0.95.1" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
@@ -30,13 +31,15 @@ mimalloc = { version = "0.1.42" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.47"}
-polars-io = { version = "0.40", features = ["avro"]}
-polars-arrow = { version = "0.40"}
-polars-ops = { version = "0.40"}
-polars-plan = { version = "0.40", features = ["regex"]}
-polars-utils = { version = "0.40"}
+polars-io = { version = "0.41", features = ["avro"]}
+polars-arrow = { version = "0.41"}
+polars-ops = { version = "0.41"}
+polars-plan = { version = "0.41", features = ["regex"]}
+polars-utils = { version = "0.41"}
 typetag = "0.2"
-uuid = { version = "1.7", features = ["v4", "serde"] }
+env_logger = "0.11.3"
+log.workspace = true
+uuid = { version = "1.9", features = ["v4", "serde"] }
 
 [dependencies.polars]
 features = [
@@ -70,12 +73,12 @@ features = [
 	"to_dummies",
 ]
 optional = false
-version = "0.40"
+version = "0.41"
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.94.3" }
-nu-engine = { path = "../nu-engine", version = "0.94.3" }
-nu-parser = { path = "../nu-parser", version = "0.94.3" }
-nu-command = { path = "../nu-command", version = "0.94.3" }
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.94.3" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.95.1" }
+nu-engine = { path = "../nu-engine", version = "0.95.1" }
+nu-parser = { path = "../nu-parser", version = "0.95.1" }
+nu-command = { path = "../nu-command", version = "0.95.1" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.95.1" }
 tempfile.workspace = true

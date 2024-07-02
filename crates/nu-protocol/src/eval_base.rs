@@ -290,6 +290,15 @@ pub trait Eval {
 
                 Ok(Value::string(str, expr_span))
             }
+            Expr::GlobInterpolation(exprs, quoted) => {
+                let config = Self::get_config(state, mut_state);
+                let str = exprs
+                    .iter()
+                    .map(|expr| Self::eval::<D>(state, mut_state, expr).map(|v| v.to_expanded_string(", ", &config)))
+                    .collect::<Result<String, _>>()?;
+
+                Ok(Value::glob(str, *quoted, expr_span))
+            }
             Expr::Overlay(_) => Self::eval_overlay(state, expr_span),
             Expr::GlobPattern(pattern, quoted) => {
                 // GlobPattern is similar to Filepath

@@ -12,7 +12,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     report_error_new, PipelineData, Spanned,
 };
-use nu_utils::utils::perf;
+use nu_utils::perf;
 
 pub(crate) fn run_commands(
     engine_state: &mut EngineState,
@@ -35,14 +35,7 @@ pub(crate) fn run_commands(
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file, NUSHELL_FOLDER);
 
-        perf(
-            "read plugins",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("read plugins", start_time, use_color);
 
         let start_time = std::time::Instant::now();
         // If we have a env file parameter *OR* we have a login shell parameter, read the env file
@@ -57,14 +50,7 @@ pub(crate) fn run_commands(
             config_files::read_default_env_file(engine_state, &mut stack)
         }
 
-        perf(
-            "read env.nu",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("read env.nu", start_time, use_color);
 
         let start_time = std::time::Instant::now();
         // If we have a config file parameter *OR* we have a login shell parameter, read the config file
@@ -77,14 +63,7 @@ pub(crate) fn run_commands(
             );
         }
 
-        perf(
-            "read config.nu",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("read config.nu", start_time, use_color);
 
         // If we have a login shell parameter, read the login file
         let start_time = std::time::Instant::now();
@@ -92,14 +71,7 @@ pub(crate) fn run_commands(
             config_files::read_loginshell_file(engine_state, &mut stack);
         }
 
-        perf(
-            "read login.nu",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("read login.nu", start_time, use_color);
     }
 
     // Before running commands, set up the startup time
@@ -123,14 +95,7 @@ pub(crate) fn run_commands(
         report_error_new(engine_state, &err);
         std::process::exit(1);
     }
-    perf(
-        "evaluate_commands",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("evaluate_commands", start_time, use_color);
 }
 
 pub(crate) fn run_file(
@@ -153,14 +118,7 @@ pub(crate) fn run_file(
         let start_time = std::time::Instant::now();
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file, NUSHELL_FOLDER);
-        perf(
-            "read plugins",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("read plugins", start_time, use_color);
 
         let start_time = std::time::Instant::now();
         // only want to load config and env if relative argument is provided.
@@ -174,14 +132,7 @@ pub(crate) fn run_file(
         } else {
             config_files::read_default_env_file(engine_state, &mut stack)
         }
-        perf(
-            "read env.nu",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("read env.nu", start_time, use_color);
 
         let start_time = std::time::Instant::now();
         if parsed_nu_cli_args.config_file.is_some() {
@@ -192,14 +143,7 @@ pub(crate) fn run_file(
                 false,
             );
         }
-        perf(
-            "read config.nu",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("read config.nu", start_time, use_color);
     }
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates
@@ -216,14 +160,7 @@ pub(crate) fn run_file(
         report_error_new(engine_state, &err);
         std::process::exit(1);
     }
-    perf(
-        "evaluate_file",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("evaluate_file", start_time, use_color);
 
     let start_time = std::time::Instant::now();
     let last_exit_code = stack.get_env_var(&*engine_state, "LAST_EXIT_CODE");
@@ -235,14 +172,7 @@ pub(crate) fn run_file(
             }
         }
     }
-    perf(
-        "get exit code",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("get exit code", start_time, use_color);
 }
 
 pub(crate) fn run_repl(
@@ -268,14 +198,7 @@ pub(crate) fn run_repl(
 
     // Reload use_color from config in case it's different from the default value
     let use_color = engine_state.get_config().use_ansi_coloring;
-    perf(
-        "setup_config",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("setup_config", start_time, use_color);
 
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_repl(
@@ -286,14 +209,7 @@ pub(crate) fn run_repl(
         parsed_nu_cli_args.no_std_lib,
         entire_start_time,
     );
-    perf(
-        "evaluate_repl",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("evaluate_repl", start_time, use_color);
 
     ret_val
 }

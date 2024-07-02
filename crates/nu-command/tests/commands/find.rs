@@ -18,6 +18,16 @@ fn find_with_list_search_with_char() {
 }
 
 #[test]
+fn find_with_bytestream_search_with_char() {
+    let actual =
+        nu!("\"ABC\" | save foo.txt; let res = open foo.txt | find abc; rm foo.txt; $res | get 0");
+    assert_eq!(
+        actual.out,
+        "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mABC\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+    )
+}
+
+#[test]
 fn find_with_list_search_with_number() {
     let actual = nu!("[1 2 3 4 5] | find 3 | get 0");
 

@@ -11,6 +11,7 @@ mod example;
 mod id;
 mod lev_distance;
 mod module;
+pub mod parser_path;
 mod pipeline;
 #[cfg(feature = "plugin")]
 mod plugin;

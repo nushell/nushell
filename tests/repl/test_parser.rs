@@ -262,6 +262,22 @@ fn commands_have_usage() -> TestResult {
 }
 
 #[test]
+fn commands_from_crlf_source_have_short_usage() -> TestResult {
+    run_test_contains(
+        "# This is a test\r\n#\r\n# To see if I have cool usage\r\ndef foo [] {}\r\nscope commands | where name == foo | get usage.0",
+        "This is a test",
+    )
+}
+
+#[test]
+fn commands_from_crlf_source_have_extra_usage() -> TestResult {
+    run_test_contains(
+        "# This is a test\r\n#\r\n# To see if I have cool usage\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_usage.0",
+        "To see if I have cool usage",
+    )
+}
+
+#[test]
 fn equals_separates_long_flag() -> TestResult {
     run_test(
         r#"'nushell' | fill --alignment right --width=10 --character='-'"#,
