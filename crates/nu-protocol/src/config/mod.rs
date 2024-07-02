@@ -52,7 +52,7 @@ pub struct Config {
     pub external_completer: Option<Closure>,
     pub filesize_metric: bool,
     pub table_mode: TableMode,
-    pub table_move_header: bool,
+    pub table_header_on_border: bool,
     pub table_show_empty: bool,
     pub table_indent: TableIndent,
     pub table_abbreviation_threshold: Option<usize>,
@@ -125,7 +125,7 @@ impl Default for Config {
             table_index_mode: TableIndexMode::Always,
             table_show_empty: true,
             trim_strategy: TrimStrategy::default(),
-            table_move_header: false,
+            table_header_on_border: true,
             table_indent: TableIndent { left: 1, right: 1 },
             table_abbreviation_threshold: None,
 
@@ -453,7 +453,7 @@ impl Value {
                                             &mut errors);
                                     }
                                     "header_on_separator" => {
-                                        process_bool_config(value, &mut errors, &mut config.table_move_header);
+                                        process_bool_config(value, &mut errors, &mut config.table_header_on_border);
                                     }
                                     "padding" => match value {
                                         Value::Int { val, .. } => {
