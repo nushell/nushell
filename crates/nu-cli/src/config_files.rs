@@ -8,7 +8,7 @@ use nu_protocol::{
     report_error_new, HistoryFileFormat, PipelineData,
 };
 #[cfg(feature = "plugin")]
-use nu_utils::utils::perf;
+use nu_utils::perf;
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
@@ -53,13 +53,10 @@ pub fn read_plugin_file(
     // Reading signatures from plugin registry file
     // The plugin.msgpackz file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state, plugin_file.clone(), storage_path);
-    perf(
+    perf!(
         "add plugin file to engine_state",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        engine_state.get_config().use_ansi_coloring,
+        engine_state.get_config().use_ansi_coloring
     );
 
     start_time = std::time::Instant::now();
@@ -137,13 +134,10 @@ pub fn read_plugin_file(
             }
         };
 
-        perf(
+        perf!(
             &format!("read plugin file {}", plugin_path.display()),
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            engine_state.get_config().use_ansi_coloring,
+            engine_state.get_config().use_ansi_coloring
         );
         start_time = std::time::Instant::now();
 
@@ -156,13 +150,10 @@ pub fn read_plugin_file(
             return;
         }
 
-        perf(
+        perf!(
             &format!("load plugin file {}", plugin_path.display()),
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            engine_state.get_config().use_ansi_coloring,
+            engine_state.get_config().use_ansi_coloring
         );
     }
 }
@@ -381,13 +372,10 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
         );
     }
 
-    perf(
+    perf!(
         "migrate old plugin file",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        engine_state.get_config().use_ansi_coloring,
+        engine_state.get_config().use_ansi_coloring
     );
     true
 }

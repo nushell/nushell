@@ -1,7 +1,10 @@
 mod custom_value;
 
 use nu_protocol::{record, ShellError, Span, Value};
-use polars::prelude::{col, AggExpr, Expr, Literal};
+use polars::{
+    chunked_array::cast::CastOptions,
+    prelude::{col, AggExpr, Expr, Literal},
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
@@ -269,15 +272,23 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::Cast {
             expr,
             data_type,
-            strict,
-        } => Ok(Value::record(
-            record! {
-                "expr" => expr_to_value(expr.as_ref(), span)?,
-                "dtype" => Value::string(format!("{data_type:?}"), span),
-                "strict" => Value::bool(*strict, span),
-            },
-            span,
-        )),
+            options,
+        } => {
+            let cast_option_str = match options {
+                CastOptions::Strict => "STRICT",
+                CastOptions::NonStrict => "NON_STRICT",
+                CastOptions::Overflowing => "OVERFLOWING",
+            };
+
+            Ok(Value::record(
+                record! {
+                    "expr" => expr_to_value(expr.as_ref(), span)?,
+                    "dtype" => Value::string(format!("{data_type:?}"), span),
+                    "cast_options" => Value::string(cast_option_str, span)
+                },
+                span,
+            ))
+        }
         Expr::Gather {
             expr,
             idx,
@@ -388,6 +399,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::Window {
             function,
             partition_by,
+            order_by,
             options,
         } => {
             let partition_by: Result<Vec<Value>, ShellError> = partition_by
@@ -399,6 +411,23 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 record! {
                     "function" => expr_to_value(function, span)?,
                     "partition_by" => Value::list(partition_by?, span),
+                    "order_by" => {
+                        if let Some((order_expr, sort_options)) = order_by {
+                            Value::record(record! {
+                                "expr" => expr_to_value(order_expr.as_ref(), span)?,
+                                "sort_options" => {
+                                    Value::record(record!(
+                                        "descending" => Value::bool(sort_options.descending, span),
+                                        "nulls_last"=> Value::bool(sort_options.nulls_last, span),
+                                        "multithreaded"=> Value::bool(sort_options.multithreaded, span),
+                                        "maintain_order"=> Value::bool(sort_options.maintain_order, span),
+                                    ), span)
+                                }
+                            }, span)
+                        } else {
+                            Value::nothing(span)
+                        }
+                    },
                     "options" => Value::string(format!("{options:?}"), span),
                 },
                 span,
@@ -424,6 +453,18 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg_span: span,
             input_span: Span::unknown(),
         }),
+        Expr::Field(column_name) => {
+            let fields: Vec<Value> = column_name
+                .iter()
+                .map(|s| Value::string(s.to_string(), span))
+                .collect();
+            Ok(Value::record(
+                record!(
+                    "fields" => Value::list(fields, span)
+                ),
+                span,
+            ))
+        }
     }
 }
 

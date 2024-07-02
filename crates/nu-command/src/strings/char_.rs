@@ -19,6 +19,9 @@ static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
         // These are some regular characters that either can't be used or
         // it's just easier to use them like this.
 
+        "nul" => '\x00'.to_string(),                                // nul character, 0x00
+        "null_byte" => '\x00'.to_string(),                          // nul character, 0x00
+        "zero_byte" => '\x00'.to_string(),                          // nul character, 0x00
         // This are the "normal" characters section
         "newline" => '\n'.to_string(),
         "enter" => '\n'.to_string(),

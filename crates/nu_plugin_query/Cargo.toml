@@ -23,3 +23,6 @@ gjson = "0.8"
 scraper = { default-features = false, version = "0.19" }
 sxd-document = "0.3"
 sxd-xpath = "0.4"
+webpage = { version = "2.0.1", features = ["serde"] }
+serde_json.workspace = true
+serde.workspace = true
