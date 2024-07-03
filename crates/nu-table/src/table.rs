@@ -211,12 +211,15 @@ fn build_table(
     termwidth: usize,
     indent: (usize, usize),
 ) -> Option<String> {
+    const TERMWIDTH_THRESHOLD: usize = 120;
+
     if data.count_columns() == 0 || data.count_rows() == 0 {
         return Some(String::new());
     }
 
     let pad = indent.0 + indent.1;
-    let widths = maybe_truncate_columns(&mut data, &cfg.theme, termwidth, pad);
+    let is_content_first = termwidth > TERMWIDTH_THRESHOLD || cfg.header_on_border; // we use content first approach in case header is used on border in order to it not being cut.
+    let widths = maybe_truncate_columns(&mut data, &cfg.theme, termwidth, pad, is_content_first);
     if widths.is_empty() {
         return None;
     }
@@ -496,10 +499,9 @@ fn maybe_truncate_columns(
     theme: &TableTheme,
     termwidth: usize,
     pad: usize,
+    preserve_content: bool,
 ) -> Vec<usize> {
-    const TERMWIDTH_THRESHOLD: usize = 120;
-
-    let truncate = if termwidth > TERMWIDTH_THRESHOLD {
+    let truncate = if preserve_content {
         truncate_columns_by_columns
     } else {
         truncate_columns_by_content
@@ -747,6 +749,7 @@ impl<R> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig> for SetDi
 }
 
 // it assumes no spans is used.
+// todo: Could be replaced by Dimension impl usage
 fn build_width(records: &NuRecords, pad: usize) -> Vec<usize> {
     use tabled::grid::records::vec_records::Cell;
 
