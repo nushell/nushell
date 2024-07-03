@@ -319,6 +319,14 @@ fn eval_instruction(
             });
             Ok(Continue)
         }
+        Instruction::PushParserInfo { name, info } => {
+            ctx.stack.arguments.push(Argument::ParserInfo {
+                data: ctx.data.clone(),
+                name: *name,
+                info: info.clone(),
+            });
+            Ok(Continue)
+        }
         Instruction::RedirectOut { mode } => {
             let out_dest = eval_redirection(ctx, mode, *span)?;
             ctx.redirect_out = Some(out_dest);

@@ -105,6 +105,10 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
                 let name = FmtData(self.data, *name);
                 write!(f, "{:WIDTH$} {name}, {src}", "push-named")
             }
+            Instruction::PushParserInfo { name, info } => {
+                let name = FmtData(self.data, *name);
+                write!(f, "{:WIDTH$} {name}, {info:?}", "push-parser-info")
+            }
             Instruction::RedirectOut { mode } => {
                 write!(f, "{:WIDTH$} {mode}", "redirect-out")
             }

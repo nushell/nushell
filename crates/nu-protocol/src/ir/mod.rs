@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    ast::{CellPath, Operator, RangeInclusion},
+    ast::{CellPath, Expression, Operator, RangeInclusion},
     engine::EngineState,
     BlockId, DeclId, RegId, Span, VarId,
 };
@@ -90,6 +90,11 @@ pub enum Instruction {
     PushFlag { name: DataSlice },
     /// Add a named arg with a value to the next call.
     PushNamed { name: DataSlice, src: RegId },
+    /// Add parser info to the next call.
+    PushParserInfo {
+        name: DataSlice,
+        info: Box<Expression>,
+    },
     /// Set the redirection for stdout for the next call (only)
     RedirectOut { mode: RedirectMode },
     /// Set the redirection for stderr for the next call (only)

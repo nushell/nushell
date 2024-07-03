@@ -119,6 +119,13 @@ pub(crate) fn compile_call(
         }
     }
 
+    // Add any parser info from the call
+    for (name, info) in &call.parser_info {
+        let name = builder.data(name)?;
+        let info = Box::new(info.clone());
+        builder.push(Instruction::PushParserInfo { name, info }.into_spanned(call.head))?;
+    }
+
     if let Some(mode) = redirect_modes.out {
         builder.push(mode.map(|mode| Instruction::RedirectOut { mode }))?;
     }

@@ -28,7 +28,7 @@ pub enum Argument {
         name: DataSlice,
         // TODO: rather than `Expression`, this would probably be best served by a specific enum
         // type for this purpose.
-        expr: Box<Expression>,
+        info: Box<Expression>,
     },
 }
 

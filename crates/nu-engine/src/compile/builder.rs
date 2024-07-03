@@ -147,6 +147,7 @@ impl BlockBuilder {
             Instruction::AppendRest { src } => self.free_register(*src)?,
             Instruction::PushFlag { name: _ } => (),
             Instruction::PushNamed { name: _, src } => self.free_register(*src)?,
+            Instruction::PushParserInfo { name: _, info: _ } => (),
             Instruction::RedirectOut { mode } | Instruction::RedirectErr { mode } => match mode {
                 RedirectMode::File { path, .. } => self.free_register(*path)?,
                 _ => (),

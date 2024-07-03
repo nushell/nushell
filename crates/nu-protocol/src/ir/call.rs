@@ -192,7 +192,7 @@ impl Call {
                 Argument::ParserInfo {
                     data,
                     name: name_slice,
-                    expr,
+                    info: expr,
                 } if &data[*name_slice] == name.as_bytes() => Some(expr.as_ref()),
                 _ => None,
             })
