@@ -1,22 +1,20 @@
 use std::fmt::Debug;
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc, Mutex,
-};
+use std::sync::{Arc, Mutex};
+
+use crate::{engine::Sequence, ShellError};
 
 pub type Handler = Box<dyn Fn() + Send + Sync>;
 
 #[derive(Clone)]
 pub struct Handlers {
-    handlers: Arc<Mutex<Vec<(u64, Handler)>>>,
-    // we use an u64 so an overflow is impractical
-    next_id: Arc<AtomicU64>,
+    handlers: Arc<Mutex<Vec<(usize, Handler)>>>,
+    next_id: Arc<Sequence>,
 }
 
 #[derive(Clone)]
 pub struct Guard {
-    id: u64,
-    handlers: Arc<Mutex<Vec<(u64, Handler)>>>,
+    id: usize,
+    handlers: Arc<Mutex<Vec<(usize, Handler)>>>,
 }
 
 impl Drop for Guard {
@@ -36,19 +34,19 @@ impl Debug for Guard {
 impl Handlers {
     pub fn new() -> Handlers {
         let handlers = Arc::new(Mutex::new(vec![]));
-        let next_id = Arc::new(AtomicU64::new(0));
+        let next_id = Arc::new(Sequence::default());
         Handlers { handlers, next_id }
     }
 
-    pub fn register(&self, handler: Handler) -> Guard {
-        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+    pub fn register(&self, handler: Handler) -> Result<Guard, ShellError> {
+        let id = self.next_id.next()?;
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.push((id, handler));
         }
-        Guard {
+        Ok(Guard {
             id,
             handlers: Arc::clone(&self.handlers),
-        }
+        })
     }
 
     pub fn run(&self) {
@@ -69,7 +67,7 @@ impl Default for Handlers {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     #[test]
     fn test_multiple_handlers() {

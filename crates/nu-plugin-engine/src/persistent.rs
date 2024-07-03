@@ -217,12 +217,14 @@ impl PersistentPlugin {
             return self.spawn(envs, mutable, ctrlc_handlers);
         }
 
-        let guard = ctrlc_handlers.map(|ctrlc_handlers| {
-            let interface = interface.clone();
-            ctrlc_handlers.register(Box::new(move || {
-                let _ = interface.ctrlc();
-            }))
-        });
+        let guard = ctrlc_handlers
+            .map(|ctrlc_handlers| {
+                let interface = interface.clone();
+                ctrlc_handlers.register(Box::new(move || {
+                    let _ = interface.ctrlc();
+                }))
+            })
+            .transpose()?;
 
         mutable.running = Some(RunningPlugin {
             interface,

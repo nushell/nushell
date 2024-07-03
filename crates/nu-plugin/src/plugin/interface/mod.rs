@@ -517,7 +517,10 @@ impl EngineInterface {
 
     /// Register a closure which will be called when the engine receives a Ctrl-C signal. Returns a
     /// RAII guard that will keep the closure alive until it is dropped.
-    pub fn register_ctrlc_handler(&self, handler: ctrlc::Handler) -> ctrlc::Guard {
+    pub fn register_ctrlc_handler(
+        &self,
+        handler: ctrlc::Handler,
+    ) -> Result<ctrlc::Guard, ShellError> {
         self.state.ctrlc_handlers.register(handler)
     }
 
