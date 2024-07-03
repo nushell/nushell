@@ -447,8 +447,12 @@ pub(crate) fn compile_expression(
         Expr::StringInterpolation(exprs) | Expr::GlobInterpolation(exprs, _) => {
             let mut exprs_iter = exprs.iter().peekable();
 
-            if exprs_iter.peek().is_some_and(|e| e.ty == Type::String) {
-                // If the first expression is typed as a string, just take it and build from that
+            if exprs_iter
+                .peek()
+                .is_some_and(|e| matches!(e.expr, Expr::String(..) | Expr::RawString(..)))
+            {
+                // If the first expression is a string or raw string literal, just take it and build
+                // from that
                 compile_expression(
                     working_set,
                     builder,
