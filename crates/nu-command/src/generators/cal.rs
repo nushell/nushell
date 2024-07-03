@@ -3,7 +3,6 @@ use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::{Expr, Expression};
 
-use nu_protocol::engine::UNKNOWN_SPAN_ID;
 use std::collections::VecDeque;
 
 #[derive(Clone)]
@@ -144,7 +143,7 @@ pub fn cal(
         style_computer,
     )?;
 
-    let mut table_no_index = Call::new(Span::unknown(), Span::unknown());
+    let mut table_no_index = Call::new(Span::unknown());
     table_no_index.add_named((
         Spanned {
             item: "index".to_string(),
@@ -156,7 +155,6 @@ pub fn cal(
             Span::unknown(),
             Type::Bool,
         )),
-        UNKNOWN_SPAN_ID,
     ));
 
     let cal_table_output =
