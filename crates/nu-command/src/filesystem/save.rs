@@ -461,7 +461,7 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
     };
 
     file.map_err(|e| ShellError::GenericError {
-        error: "Permission denied".into(),
+        error: format!("Problem with [{}], Permission denied", path.display()),
         msg: e.to_string(),
         span: Some(span),
         help: None,
