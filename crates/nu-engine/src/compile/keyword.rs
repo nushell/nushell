@@ -15,6 +15,15 @@ pub(crate) fn compile_if(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
+    // Pseudocode:
+    //
+    //        %io_reg <- <condition>
+    //        not %io_reg
+    //        branch-if %io_reg, FALSE
+    // TRUE:  ...<true_block>...
+    //        jump END
+    // FALSE: ...<else_expr>... OR drop %io_reg
+    // END:
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "if".into(),
         span: call.head,
@@ -51,13 +60,7 @@ pub(crate) fn compile_if(
     };
 
     // Set up a branch if the condition is false. Will go back and fix this to the right offset
-    let index_of_branch_if = builder.push(
-        Instruction::BranchIf {
-            cond: not_condition_reg,
-            index: usize::MAX,
-        }
-        .into_spanned(call.head),
-    )?;
+    let index_of_branch_if = builder.branch_if_placeholder(not_condition_reg, call.head)?;
 
     // Compile the true case
     compile_block(
@@ -70,10 +73,7 @@ pub(crate) fn compile_if(
     )?;
 
     // Add a jump over the false case
-    let index_of_jump = builder.push(
-        Instruction::Jump { index: usize::MAX }
-            .into_spanned(else_arg.map(|e| e.span).unwrap_or(call.head)),
-    )?;
+    let index_of_jump = builder.jump_placeholder(else_arg.map(|e| e.span).unwrap_or(call.head))?;
 
     // Change the branch-if target to after the jump
     builder.set_branch_target(index_of_branch_if, index_of_jump + 1)?;
@@ -139,6 +139,10 @@ pub(crate) fn compile_let(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
+    // Pseudocode:
+    //
+    // %io_reg <- ...<block>... <- %io_reg
+    // store-variable $var, %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "let".into(),
         span: call.head,
@@ -174,6 +178,107 @@ pub(crate) fn compile_let(
     Ok(())
 }
 
+/// Compile a call to `loop` (via `jump`)
+pub(crate) fn compile_loop(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    _redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    // Pseudocode:
+    //
+    // LOOP: drain %io_reg
+    //       ...<block>...
+    //       jump %LOOP
+    let invalid = || CompileError::InvalidKeywordCall {
+        keyword: "loop".into(),
+        span: call.head,
+    };
+
+    let block_arg = call.positional_nth(0).ok_or_else(invalid)?;
+    let block_id = block_arg.as_block().ok_or_else(invalid)?;
+    let block = working_set.get_block(block_id);
+
+    let loop_index = builder.drain(io_reg, call.head)?;
+
+    compile_block(
+        working_set,
+        builder,
+        block,
+        RedirectModes::default(),
+        None,
+        io_reg,
+    )?;
+
+    builder.jump(loop_index, call.head)?;
+
+    builder.load_empty(io_reg)?;
+
+    Ok(())
+}
+
+/// Compile a call to `while`, via branch instructions
+pub(crate) fn compile_while(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    // Pseudocode:
+    //
+    // LOOP:  drain %io_reg
+    //        %io_reg <- <condition>
+    //        branch-if %io_reg, TRUE
+    //        jump FALSE
+    // TRUE:  ...<block>...
+    //        jump LOOP
+    // FALSE:
+    let invalid = || CompileError::InvalidKeywordCall {
+        keyword: "while".into(),
+        span: call.head,
+    };
+
+    let cond_arg = call.positional_nth(0).ok_or_else(invalid)?;
+    let block_arg = call.positional_nth(1).ok_or_else(invalid)?;
+    let block_id = block_arg.as_block().ok_or_else(invalid)?;
+    let block = working_set.get_block(block_id);
+
+    let loop_index = builder.drain(io_reg, call.head)?;
+
+    compile_expression(
+        working_set,
+        builder,
+        cond_arg,
+        redirect_modes.with_capture_out(call.head),
+        None,
+        io_reg,
+    )?;
+
+    let branch_true_index = builder.branch_if_placeholder(io_reg, call.head)?;
+    let jump_false_index = builder.jump_placeholder(call.head)?;
+
+    builder.set_branch_target(branch_true_index, builder.next_instruction_index())?;
+
+    compile_block(
+        working_set,
+        builder,
+        block,
+        RedirectModes::default(),
+        None,
+        io_reg,
+    )?;
+
+    builder.jump(loop_index, call.head)?;
+
+    builder.set_branch_target(jump_false_index, builder.next_instruction_index())?;
+
+    builder.load_empty(io_reg)?;
+
+    Ok(())
+}
+
 /// Compile a call to `for` (via `iterate`)
 pub(crate) fn compile_for(
     working_set: &StateWorkingSet,
@@ -201,6 +306,9 @@ pub(crate) fn compile_for(
     let block_arg = call.positional_nth(2).ok_or_else(invalid)?;
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
+
+    // Ensure io_reg is marked so we don't use it
+    builder.mark_register(io_reg)?;
 
     let stream_reg = builder.next_register()?;
 
@@ -243,13 +351,11 @@ pub(crate) fn compile_for(
         io_reg,
     )?;
 
+    // Drain the output
+    builder.drain(io_reg, call.head)?;
+
     // Loop back to iterate to get the next value
-    builder.push(
-        Instruction::Jump {
-            index: iterate_index,
-        }
-        .into_spanned(call.head),
-    )?;
+    builder.jump(iterate_index, call.head)?;
 
     // Update the iterate target to the end of the loop
     let target_index = builder.next_instruction_index();
@@ -258,6 +364,7 @@ pub(crate) fn compile_for(
     // We don't need stream_reg anymore, after the loop
     // io_reg is guaranteed to be Empty due to the iterate instruction before
     builder.free_register(stream_reg)?;
+    builder.load_empty(io_reg)?;
 
     Ok(())
 }
@@ -286,6 +393,9 @@ pub(crate) fn compile_return(
     }
 
     builder.push(Instruction::Return { src: io_reg }.into_spanned(call.head))?;
+
+    // io_reg is supposed to remain allocated
+    builder.load_empty(io_reg)?;
 
     Ok(())
 }

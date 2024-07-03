@@ -277,16 +277,6 @@ fn mut_variable_append_assign() {
 }
 
 #[test]
-fn for_list() {
-    test_eval("for v in [1 2 3] { print ($v * 2) }", Eq(r"246"))
-}
-
-#[test]
-fn for_seq() {
-    test_eval("for v in (seq 1 4) { print ($v * 2) }", Eq("2468"))
-}
-
-#[test]
 fn if_true() {
     test_eval("if true { 'foo' }", Eq("foo"))
 }
@@ -307,6 +297,44 @@ fn if_else_false() {
 }
 
 #[test]
+fn while_mutate_var() {
+    test_eval("mut x = 2; while $x > 0 { print $x; $x -= 1 }", Eq("21"))
+}
+
+#[test]
+fn for_list() {
+    test_eval("for v in [1 2 3] { print ($v * 2) }", Eq(r"246"))
+}
+
+#[test]
+fn for_seq() {
+    test_eval("for v in (seq 1 4) { print ($v * 2) }", Eq("2468"))
+}
+
+#[test]
 fn early_return() {
     test_eval("do { return 'foo'; 'bar' }", Eq("foo"))
+}
+
+#[test]
+fn early_return_from_if() {
+    test_eval("do { if true { return 'pass' }; 'fail' }", Eq("pass"))
+}
+
+#[test]
+fn early_return_from_loop() {
+    test_eval("do { loop { return 'pass' } }", Eq("pass"))
+}
+
+#[test]
+fn early_return_from_while() {
+    test_eval(
+        "do { let x = true; while $x { return 'pass' } }",
+        Eq("pass"),
+    )
+}
+
+#[test]
+fn early_return_from_for() {
+    test_eval("do { for x in [pass fail] { return $x } }", Eq("pass"))
 }

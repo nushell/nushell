@@ -31,6 +31,12 @@ pub(crate) fn compile_call(
             "let" | "mut" => {
                 return compile_let(working_set, builder, call, redirect_modes, io_reg);
             }
+            "loop" => {
+                return compile_loop(working_set, builder, call, redirect_modes, io_reg);
+            }
+            "while" => {
+                return compile_while(working_set, builder, call, redirect_modes, io_reg);
+            }
             "for" => {
                 return compile_for(working_set, builder, call, redirect_modes, io_reg);
             }

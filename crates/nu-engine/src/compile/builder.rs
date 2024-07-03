@@ -242,6 +242,11 @@ impl BlockBuilder {
         self.mark_register(reg_id)
     }
 
+    /// Drain the stream in a register (fully consuming it)
+    pub(crate) fn drain(&mut self, src: RegId, span: Span) -> Result<usize, CompileError> {
+        self.push(Instruction::Drain { src }.into_spanned(span))
+    }
+
     /// Add data to the `data` array and return a [`DataSlice`] referencing it.
     pub(crate) fn data(&mut self, data: impl AsRef<[u8]>) -> Result<DataSlice, CompileError> {
         let start = self.data.len();
@@ -262,6 +267,36 @@ impl BlockBuilder {
         let dst = self.next_register()?;
         self.push(Instruction::Clone { dst, src }.into_spanned(span))?;
         Ok(dst)
+    }
+
+    /// Add a `branch-if` instruction
+    pub(crate) fn branch_if(
+        &mut self,
+        cond: RegId,
+        index: usize,
+        span: Span,
+    ) -> Result<usize, CompileError> {
+        self.push(Instruction::BranchIf { cond, index }.into_spanned(span))
+    }
+
+    /// Add a placeholder `branch-if` instruction, which must be updated with
+    /// [`.set_branch_target()`]
+    pub(crate) fn branch_if_placeholder(
+        &mut self,
+        cond: RegId,
+        span: Span,
+    ) -> Result<usize, CompileError> {
+        self.branch_if(cond, usize::MAX, span)
+    }
+
+    /// Add a `jump` instruction
+    pub(crate) fn jump(&mut self, index: usize, span: Span) -> Result<usize, CompileError> {
+        self.push(Instruction::Jump { index }.into_spanned(span))
+    }
+
+    /// Add a placeholder `jump` instruction, which must be updated with [`.set_branch_target()`]
+    pub(crate) fn jump_placeholder(&mut self, span: Span) -> Result<usize, CompileError> {
+        self.jump(usize::MAX, span)
     }
 
     /// Modify a `branch-if`, `jump`, or `iterate` instruction's branch target `index`
