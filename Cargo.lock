@@ -6513,9 +6513,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uu_cp"
-version = "0.0.26"
+version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c31fc5c95f7668999e129464a29e9080f69ba01ccf7a0ae43ff2cfdb15baa340"
+checksum = "6fb99d355ccb02e8c514e4a1d93e4aa4eedea9837de24635dfd24c165971444e"
 dependencies = [
  "clap",
  "filetime",
@@ -6529,9 +6529,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mkdir"
-version = "0.0.26"
+version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "496d95e0e3121e4d424ba62019eb84a6f1102213ca8ca16c0a2f8c652c7236c3"
+checksum = "219588fbc146f18188781208ac4034616c51cf151677b4e1f9caf63ca8a7f2cf"
 dependencies = [
  "clap",
  "uucore",
@@ -6539,9 +6539,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mktemp"
-version = "0.0.26"
+version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a28a0d9744bdc28ceaf13f70b959bacded91aedfd008402d72fa1e3224158653"
+checksum = "b1e79ad2c5911908fce23a6069c52ca82e1997e2ed4bf6abf2d867c79c3dc73f"
 dependencies = [
  "clap",
  "rand",
@@ -6551,9 +6551,9 @@ dependencies = [
 
 [[package]]
 name = "uu_mv"
-version = "0.0.26"
+version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53680908b01c5ac3cc0ee8a376de3e51a36dde2c5a5227a115a3d0977cc4539b"
+checksum = "cd57c8d02f8a99ed56ed9f6fddab403ee0e2bf9e8f3a5ca8f0f9e4d6e3e392a0"
 dependencies = [
  "clap",
  "fs_extra",
@@ -6563,9 +6563,9 @@ dependencies = [
 
 [[package]]
 name = "uu_uname"
-version = "0.0.26"
+version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7f4125fb4f286313bca8f222abaefe39db54d65179ea788c91ebd3162345f4e"
+checksum = "ad1ca90f9b292bccaad0de70e6feccac5182c6713a5e1ca72d97bf3555b608b4"
 dependencies = [
  "clap",
  "platform-info",
@@ -6574,9 +6574,9 @@ dependencies = [
 
 [[package]]
 name = "uu_whoami"
-version = "0.0.26"
+version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f7b313901a15cfde2d88f434fcd077903d690f73cc36d1cec20f47906960aec"
+checksum = "bc7c52e42e0425710461700adc1063f468f2ba8a8ff83ee69ba661095ab7b77a"
 dependencies = [
  "clap",
  "libc",
@@ -6586,9 +6586,9 @@ dependencies = [
 
 [[package]]
 name = "uucore"
-version = "0.0.26"
+version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb2ea2f77699e5ff5c7e001af588ceb34cae8b5f9af5496bea5a6476aaa8e780"
+checksum = "7b54aad02cf7e96f5fafabb6b836efa73eef934783b17530095a29ffd4fdc154"
 dependencies = [
  "clap",
  "dunce",
