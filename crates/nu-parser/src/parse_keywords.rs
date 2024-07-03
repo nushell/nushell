@@ -123,8 +123,8 @@ pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteComma
         // Apply parse keyword side effects
         let cmd = working_set.get_decl(call.decl_id);
         // check help flag first.
-        if call.named_iter().any(|(flag, _, _)| flag.item == "help") {
-            let call_span = call.span();
+        if call.named_iter().any(|(flag, _, _, _)| flag.item == "help") {
+            let call_span = call.span(working_set);
             return Pipeline::from_vec(vec![Expression::new(
                 working_set,
                 Expr::Call(call),
@@ -1056,7 +1056,7 @@ pub fn parse_alias(
                 // First from comments, if any are present
                 false => working_set.build_usage(&lite_command.comments),
                 // Then from the command itself
-                true => match alias_call.arguments.get(1) {
+                true => match alias_call.arguments.item.get(1) {
                     Some(Argument::Positional(Expression {
                         expr: Expr::Keyword(kw),
                         ..
@@ -1258,7 +1258,10 @@ pub fn parse_export_in_module(
     let mut call = Box::new(Call {
         head: spans[0],
         decl_id: export_decl_id,
-        arguments: vec![],
+        arguments: Spanned {
+            item: vec![],
+            span: spans[0].past(),
+        },
         parser_info: HashMap::new(),
     });
 
@@ -2263,13 +2266,21 @@ pub fn parse_module(
         .find_decl(b"module")
         .expect("internal error: missing module command");
 
+    let args_span = Span::concat(&[
+        module_name_or_path_expr.span(working_set),
+        block_expr.span(working_set),
+    ]);
+
     let call = Box::new(Call {
         head: Span::concat(&spans[..split_id]),
         decl_id: module_decl_id,
-        arguments: vec![
-            Argument::Positional(module_name_or_path_expr),
-            Argument::Positional(block_expr),
-        ],
+        arguments: Spanned {
+            item: vec![
+                Argument::Positional(module_name_or_path_expr),
+                Argument::Positional(block_expr),
+            ],
+            span: args_span,
+        },
         parser_info: HashMap::new(),
     });
 
@@ -2701,7 +2712,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
 }
 
 pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
-    let call_span = call.span();
+    let call_span = call.span(working_set);
 
     let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
@@ -2750,7 +2761,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 }
 
 pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
-    let call_span = call.span();
+    let call_span = call.span(working_set);
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
@@ -2973,7 +2984,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 }
 
 pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
-    let call_span = call.span();
+    let call_span = call.span(working_set);
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
@@ -3113,10 +3124,16 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         }
                     }
 
+                    let args_span =
+                        Span::concat(&[lvalue.span(working_set), rvalue.span(working_set)]);
+
                     let call = Box::new(Call {
                         decl_id,
                         head: spans[0],
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        arguments: Spanned {
+                            item: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                            span: args_span,
+                        },
                         parser_info: HashMap::new(),
                     });
 
@@ -3259,10 +3276,16 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                         }
                     }
 
+                    let args_span =
+                        Span::concat(&[lvalue.span(working_set), rvalue.span(working_set)]);
+
                     let call = Box::new(Call {
                         decl_id,
                         head: spans[0],
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        arguments: Spanned {
+                            item: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                            span: args_span,
+                        },
                         parser_info: HashMap::new(),
                     });
 
@@ -3378,10 +3401,16 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         }
                     }
 
+                    let args_span =
+                        Span::concat(&[lvalue.span(working_set), rvalue.span(working_set)]);
+
                     let call = Box::new(Call {
                         decl_id,
                         head: spans[0],
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        arguments: Spanned {
+                            item: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                            span: args_span,
+                        },
                         parser_info: HashMap::new(),
                     });
 
@@ -3884,8 +3913,8 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
 
         let plugin_config = call
             .named_iter()
-            .find(|(arg_name, _, _)| arg_name.item == "plugin-config")
-            .map(|(_, _, expr)| {
+            .find(|(arg_name, _, _, _)| arg_name.item == "plugin-config")
+            .map(|(_, _, expr, _)| {
                 let expr = expr
                     .as_ref()
                     .expect("--plugin-config arg should have been checked already");
@@ -3961,7 +3990,7 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
         working_set.error(err);
     }
 
-    let call_span = call.span();
+    let call_span = call.span(working_set);
 
     Pipeline::from_vec(vec![Expression::new(
         working_set,
@@ -4147,6 +4176,6 @@ fn detect_params_in_name(
 /// Run has_flag_const and push possible error to working_set
 fn has_flag_const(working_set: &mut StateWorkingSet, call: &Call, name: &str) -> Result<bool, ()> {
     call.has_flag_const(working_set, name).map_err(|err| {
-        working_set.error(err.wrap(working_set, call.span()));
+        working_set.error(err.wrap(working_set, call.span(working_set)));
     })
 }

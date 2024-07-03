@@ -7,10 +7,12 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value,
+    PipelineData, Span, Spanned, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;
+
+use super::completion_common::sort_suggestions;
 
 pub struct CustomCompletion {
     stack: Stack,
@@ -51,18 +53,21 @@ impl Completer for CustomCompletion {
             &Call {
                 decl_id: self.decl_id,
                 head: span,
-                arguments: vec![
-                    Argument::Positional(Expression::new_unknown(
-                        Expr::String(self.line.clone()),
-                        Span::unknown(),
-                        Type::String,
-                    )),
-                    Argument::Positional(Expression::new_unknown(
-                        Expr::Int(line_pos as i64),
-                        Span::unknown(),
-                        Type::Int,
-                    )),
-                ],
+                arguments: Spanned {
+                    item: vec![
+                        Argument::Positional(Expression::new_unknown(
+                            Expr::String(self.line.clone()),
+                            Span::unknown(),
+                            Type::String,
+                        )),
+                        Argument::Positional(Expression::new_unknown(
+                            Expr::Int(line_pos as i64),
+                            Span::unknown(),
+                            Type::Int,
+                        )),
+                    ],
+                    span: Span::unknown(),
+                },
                 parser_info: HashMap::new(),
             },
             PipelineData::empty(),
@@ -122,15 +127,12 @@ impl Completer for CustomCompletion {
             })
             .unwrap_or_default();
 
-        if let Some(custom_completion_options) = custom_completion_options {
+        let suggestions = if let Some(custom_completion_options) = custom_completion_options {
             filter(&prefix, suggestions, &custom_completion_options)
         } else {
             filter(&prefix, suggestions, completion_options)
-        }
-    }
-
-    fn get_sort_by(&self) -> SortBy {
-        self.sort_by
+        };
+        sort_suggestions(&String::from_utf8_lossy(&prefix), suggestions, self.sort_by)
     }
 }
 

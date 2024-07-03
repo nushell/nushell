@@ -398,7 +398,7 @@ fn convert_to_extension(
             let eval_block = get_eval_block(engine_state);
             eval_block(engine_state, stack, block, input)
         } else {
-            decl.run(engine_state, stack, &Call::new(span), input)
+            decl.run(engine_state, stack, &Call::new(span, span.past()), input)
         }
     } else {
         Ok(input)
@@ -461,7 +461,7 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
     };
 
     file.map_err(|e| ShellError::GenericError {
-        error: "Permission denied".into(),
+        error: format!("Problem with [{}], Permission denied", path.display()),
         msg: e.to_string(),
         span: Some(span),
         help: None,
