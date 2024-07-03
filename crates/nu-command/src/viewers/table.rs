@@ -127,7 +127,7 @@ impl Command for Table {
             return Ok(val.into_pipeline_data());
         }
 
-        let cfg = parse_table_config(engine_state, call, engine_state, stack)?;
+        let cfg = parse_table_config(call, engine_state, stack)?;
         let input = CmdInput::new(engine_state, stack, call, input);
 
         // reset vt processing, aka ansi because illbehaved externals can break it
@@ -247,7 +247,6 @@ impl TableConfig {
 }
 
 fn parse_table_config(
-    engine_state: &EngineState,
     call: &Call,
     state: &EngineState,
     stack: &mut Stack,
@@ -270,9 +269,9 @@ fn parse_table_config(
             flatten_separator,
         },
     };
-    let theme = get_theme_flag(engine_state, call, state, stack)?
-        .unwrap_or_else(|| get_config(state, stack).table_mode);
-    let index = get_index_flag(engine_state, call, state, stack)?;
+    let theme =
+        get_theme_flag(call, state, stack)?.unwrap_or_else(|| get_config(state, stack).table_mode);
+    let index = get_index_flag(call, state, stack)?;
 
     let term_width = get_width_param(width_param);
 
@@ -286,7 +285,6 @@ fn parse_table_config(
 }
 
 fn get_index_flag(
-    engine_state: &EngineState,
     call: &Call,
     state: &EngineState,
     stack: &mut Stack,
@@ -310,7 +308,7 @@ fn get_index_flag(
                 Err(ShellError::UnsupportedInput {
                     msg: String::from("got a negative integer"),
                     input: val.to_string(),
-                    msg_span: call.span(&engine_state),
+                    msg_span: call.span(),
                     input_span: internal_span,
                 })
             } else {
@@ -321,14 +319,13 @@ fn get_index_flag(
         _ => Err(ShellError::CantConvert {
             to_type: String::from("index"),
             from_type: String::new(),
-            span: call.span(&engine_state),
+            span: call.span(),
             help: Some(String::from("supported values: [bool, int, nothing]")),
         }),
     }
 }
 
 fn get_theme_flag(
-    engine_state: &EngineState,
     call: &Call,
     state: &EngineState,
     stack: &mut Stack,
@@ -338,7 +335,7 @@ fn get_theme_flag(
             TableMode::from_str(&theme).map_err(|err| ShellError::CantConvert {
                 to_type: String::from("theme"),
                 from_type: String::from("string"),
-                span: call.span(&engine_state),
+                span: call.span(),
                 help: Some(format!("{}, but found '{}'.", err, theme)),
             })
         })

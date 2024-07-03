@@ -598,12 +598,9 @@ pub fn parse_call_short_flag_batch_arg_allowed() {
 
     if let Expr::Call(call) = &element.expr.expr {
         assert_eq!(call.decl_id, 0);
-        assert_eq!(call.arguments.item.len(), 2);
-        matches!(call.arguments.item[0], Argument::Named((_, None, None, _)));
-        matches!(
-            call.arguments.item[1],
-            Argument::Named((_, None, Some(_), _))
-        );
+        assert_eq!(call.arguments.len(), 2);
+        matches!(call.arguments[0], Argument::Named((_, None, None)));
+        matches!(call.arguments[1], Argument::Named((_, None, Some(_))));
     }
 }
 
@@ -2153,7 +2150,7 @@ mod input_types {
         assert!(pipeline.elements[3].redirection.is_none());
         match &pipeline.elements[3].expr.expr {
             Expr::Call(call) => {
-                let arg = &call.arguments.item[0];
+                let arg = &call.arguments[0];
                 match arg {
                     Argument::Positional(a) => match &a.expr {
                         Expr::FullCellPath(path) => match &path.head.expr {
@@ -2348,94 +2345,5 @@ mod operator {
             0,
             "{test_tag}: expected to be parsed successfully, but failed."
         );
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use nu_parser::named_arg_span;
-    use nu_protocol::ast::{Argument, Call, Expression};
-    use nu_protocol::engine::{EngineState, StateWorkingSet};
-    use nu_protocol::{Span, Spanned};
-
-    #[test]
-    fn argument_span_named() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let named_span = Span::new(2, 3);
-        let short_span = Span::new(5, 7);
-        let expr_span = Span::new(11, 13);
-
-        let _ = working_set.add_span(named_span);
-        let _ = working_set.add_span(short_span);
-        let _ = working_set.add_span(expr_span);
-
-        let named = Spanned {
-            item: "named".to_string(),
-            span: named_span,
-        };
-        let short = Spanned {
-            item: "short".to_string(),
-            span: short_span,
-        };
-        let expr = Expression::garbage(&mut working_set, expr_span);
-
-        let arg_span = named_arg_span(&working_set, &named, &None, &None);
-        assert_eq!(Span::new(2, 3), arg_span);
-
-        let arg_span = named_arg_span(&working_set, &named, &Some(short.clone()), &None);
-        assert_eq!(Span::new(2, 7), arg_span);
-
-        let arg_span = named_arg_span(&working_set, &named, &None, &Some(expr.clone()));
-        assert_eq!(Span::new(2, 13), arg_span);
-
-        let arg_span = named_arg_span(
-            &working_set,
-            &named,
-            &Some(short.clone()),
-            &Some(expr.clone()),
-        );
-        assert_eq!(Span::new(2, 13), arg_span);
-    }
-
-    #[test]
-    fn argument_span_positional() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let span = Span::new(2, 3);
-        let _ = working_set.add_span(span);
-        let expr = Expression::garbage(&mut working_set, span);
-        let arg = Argument::Positional(expr);
-
-        assert_eq!(span, arg.span(&working_set));
-    }
-
-    #[test]
-    fn argument_span_unknown() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let span = Span::new(2, 3);
-        let _ = working_set.add_span(span);
-        let expr = Expression::garbage(&mut working_set, span);
-        let arg = Argument::Unknown(expr);
-
-        assert_eq!(span, arg.span(&working_set));
-    }
-
-    #[test]
-    fn call_arguments_span() {
-        let engine_state = EngineState::new();
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        let arg1_span = Span::new(2, 3);
-        let arg2_span = Span::new(5, 7);
-        let mut call = Call::new(Span::new(0, 1), Span::concat(&[arg1_span, arg2_span]));
-        call.add_positional(Expression::garbage(&mut working_set, arg1_span));
-        call.add_positional(Expression::garbage(&mut working_set, arg2_span));
-
-        assert_eq!(Span::new(2, 7), call.arguments_span());
     }
 }

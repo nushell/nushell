@@ -103,7 +103,7 @@ pub fn get_rest_for_glob_pattern(
     let mut output = vec![];
     let eval_expression = get_eval_expression(engine_state);
 
-    for result in call.rest_iter_flattened(&engine_state, starting_pos, |expr| {
+    for result in call.rest_iter_flattened(starting_pos, |expr| {
         let result = eval_expression(engine_state, stack, expr);
         match result {
             Err(e) => Err(e),

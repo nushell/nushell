@@ -301,7 +301,7 @@ fn eval_const_call(
         return Err(ShellError::NotAConstCommand { span: call.head });
     }
 
-    if !decl.is_known_external() && call.named_iter().any(|(flag, _, _, _)| flag.item == "help") {
+    if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
         // It would require re-implementing get_full_help() for const evaluation. Assuming that
         // getting help messages at parse-time is rare enough, we can simply disallow it.
         return Err(ShellError::NotAConstHelp { span: call.head });

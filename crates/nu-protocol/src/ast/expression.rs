@@ -173,7 +173,7 @@ impl Expression {
             Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
-                for arg in &call.arguments.item {
+                for arg in &call.arguments {
                     match arg {
                         Argument::Positional(expr)
                         | Argument::Unknown(expr)
@@ -366,7 +366,7 @@ impl Expression {
                 if replaced.contains_span(call.head) {
                     call.head = new_span;
                 }
-                for arg in call.arguments.item.iter_mut() {
+                for arg in call.arguments.iter_mut() {
                     match arg {
                         Argument::Positional(expr)
                         | Argument::Unknown(expr)

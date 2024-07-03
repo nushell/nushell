@@ -104,7 +104,7 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             collect_values,
             collect_exprs,
             collect_lines,
-            call.span(&engine_state),
+            call.span(),
         );
 
         let lock_err = |_| ShellError::GenericError {
@@ -125,12 +125,12 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
         let pipeline_data = result?;
 
         // Collect the output
-        let _ = pipeline_data.into_value(call.span(&engine_state));
+        let _ = pipeline_data.into_value(call.span());
 
         Ok(engine_state
             .deactivate_debugger()
             .map_err(lock_err)?
-            .report(engine_state, call.span(&engine_state))?
+            .report(engine_state, call.span())?
             .into_pipeline_data())
     }
 

@@ -113,7 +113,7 @@ impl CallExt for Call {
         let stack = &mut stack.use_call_arg_out_dest();
         let mut output = vec![];
 
-        for result in self.rest_iter_flattened(&engine_state, starting_pos, |expr| {
+        for result in self.rest_iter_flattened(starting_pos, |expr| {
             eval_expression::<WithoutDebug>(engine_state, stack, expr)
         })? {
             output.push(FromValue::from_value(result)?);

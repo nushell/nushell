@@ -547,7 +547,7 @@ fn transform_response_using_content_type(
             Some(converter_id) => engine_state.get_decl(converter_id).run(
                 engine_state,
                 stack,
-                &Call::new(span, span.past()),
+                &Call::new(span),
                 output,
             ),
             None => Ok(output),
