@@ -338,3 +338,24 @@ fn early_return_from_while() {
 fn early_return_from_for() {
     test_eval("do { for x in [pass fail] { return $x } }", Eq("pass"))
 }
+
+#[test]
+fn try_no_catch() {
+    test_eval("try { error make { msg: foo } }; 'pass'", Eq("pass"))
+}
+
+#[test]
+fn try_catch_no_var() {
+    test_eval(
+        "try { error make { msg: foo } } catch { 'pass' }",
+        Eq("pass"),
+    )
+}
+
+#[test]
+fn try_catch_var() {
+    test_eval(
+        "try { error make { msg: foo } } catch { |err| $err.msg }",
+        Eq("foo"),
+    )
+}

@@ -4,7 +4,7 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
-    engine::{Argument, Closure, EngineState, Redirection, Stack},
+    engine::{Argument, Closure, EngineState, ErrorHandler, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     DeclId, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData, Range, Record, RegId,
     ShellError, Span, Value, VarId,
@@ -24,7 +24,8 @@ pub fn eval_ir_block<D: DebugContext>(
 
         let block_span = block.span;
 
-        let args_base = stack.argument_stack.get_base();
+        let args_base = stack.arguments.get_base();
+        let error_handler_base = stack.error_handlers.get_base();
         let mut registers = stack.register_buf_cache.acquire(ir_block.register_count);
 
         let result = eval_ir_block_impl::<D>(
@@ -33,6 +34,7 @@ pub fn eval_ir_block<D: DebugContext>(
                 stack,
                 data: &ir_block.data,
                 args_base,
+                error_handler_base,
                 redirect_out: None,
                 redirect_err: None,
                 registers: &mut registers[..],
@@ -43,6 +45,8 @@ pub fn eval_ir_block<D: DebugContext>(
         );
 
         stack.register_buf_cache.release(registers);
+        stack.error_handlers.leave_frame(error_handler_base);
+        stack.arguments.leave_frame(args_base);
 
         D::leave_block(engine_state, block);
 
@@ -66,6 +70,8 @@ struct EvalContext<'a> {
     data: &'a Arc<[u8]>,
     /// Base index on the argument stack to reset to after a call
     args_base: usize,
+    /// Base index on the error handler stack to reset to after a call
+    error_handler_base: usize,
     /// State set by redirect-out
     redirect_out: Option<Redirection>,
     /// State set by redirect-err
@@ -122,15 +128,25 @@ fn eval_ir_block_impl<D: DebugContext>(
             "{pc:-4}: {}",
             instruction.display(ctx.engine_state, ctx.data)
         );
-        match eval_instruction(ctx, instruction, span)? {
-            InstructionResult::Continue => {
+        match eval_instruction(ctx, instruction, span) {
+            Ok(InstructionResult::Continue) => {
                 pc += 1;
             }
-            InstructionResult::Branch(next_pc) => {
+            Ok(InstructionResult::Branch(next_pc)) => {
                 pc = next_pc;
             }
-            InstructionResult::Return(reg_id) => {
+            Ok(InstructionResult::Return(reg_id)) => {
                 return Ok(ctx.take_reg(reg_id));
+            }
+            Err(err) => {
+                if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                    // If an error handler is set, branch there
+                    error_handler.prepare_stack(ctx.engine_state, &mut ctx.stack, err);
+                    pc = error_handler.handler_index;
+                } else {
+                    // If not, exit the block with the error
+                    return Err(err);
+                }
             }
         }
     }
@@ -254,19 +270,19 @@ fn eval_instruction(
         Instruction::PushPositional { src } => {
             let val = ctx.collect_reg(*src, *span)?;
             ctx.stack
-                .argument_stack
+                .arguments
                 .push(Argument::Positional { span: *span, val });
             Ok(Continue)
         }
         Instruction::AppendRest { src } => {
             let vals = ctx.collect_reg(*src, *span)?;
             ctx.stack
-                .argument_stack
+                .arguments
                 .push(Argument::Spread { span: *span, vals });
             Ok(Continue)
         }
         Instruction::PushFlag { name } => {
-            ctx.stack.argument_stack.push(Argument::Flag {
+            ctx.stack.arguments.push(Argument::Flag {
                 data: ctx.data.clone(),
                 name: *name,
                 span: *span,
@@ -275,7 +291,7 @@ fn eval_instruction(
         }
         Instruction::PushNamed { name, src } => {
             let val = ctx.collect_reg(*src, *span)?;
-            ctx.stack.argument_stack.push(Argument::Named {
+            ctx.stack.arguments.push(Argument::Named {
                 data: ctx.data.clone(),
                 name: *name,
                 span: *span,
@@ -469,6 +485,24 @@ fn eval_instruction(
             stream,
             end_index,
         } => eval_iterate(ctx, *dst, *stream, *end_index),
+        Instruction::PushErrorHandler { index } => {
+            ctx.stack.error_handlers.push(ErrorHandler {
+                handler_index: *index,
+                error_variable: None,
+            });
+            Ok(Continue)
+        }
+        Instruction::PushErrorHandlerVar { index, error_var } => {
+            ctx.stack.error_handlers.push(ErrorHandler {
+                handler_index: *index,
+                error_variable: Some(*error_var),
+            });
+            Ok(Continue)
+        }
+        Instruction::PopErrorHandler => {
+            ctx.stack.error_handlers.pop(ctx.error_handler_base);
+            Ok(Continue)
+        }
         Instruction::Return { src } => Ok(Return(*src)),
     }
 }
@@ -651,7 +685,7 @@ fn eval_call(
     } = ctx;
 
     // TODO: handle block eval
-    let args_len = stack.argument_stack.get_len(*args_base);
+    let args_len = stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
 
     // Set up redirect modes
@@ -659,7 +693,7 @@ fn eval_call(
 
     // should this be precalculated? ideally we just use the call builder...
     let span = stack
-        .argument_stack
+        .arguments
         .get_args(*args_base, args_len)
         .into_iter()
         .fold(head, |span, arg| {
@@ -678,7 +712,7 @@ fn eval_call(
     // Run the call
     let result = decl.run(engine_state, &mut stack, &(&call).into(), input);
     // Important that this runs:
-    stack.argument_stack.leave_frame(ctx.args_base);
+    stack.arguments.leave_frame(ctx.args_base);
     result
 }
 

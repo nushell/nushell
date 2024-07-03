@@ -178,6 +178,100 @@ pub(crate) fn compile_let(
     Ok(())
 }
 
+/// Compile a call to `try`, setting an error handler over the evaluated block
+pub(crate) fn compile_try(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    // Pseudocode:
+    //
+    //      push-error-handler-var ERR, $err     // or without var
+    //      %io_reg <- <...block...> <- %io_reg
+    //      pop-error-handler
+    //      jump END
+    // ERR: %io_reg <- <...catch block...>       // set to empty if none
+    // END:
+    let invalid = || CompileError::InvalidKeywordCall {
+        keyword: "try".into(),
+        span: call.head,
+    };
+
+    let block_arg = call.positional_nth(0).ok_or_else(invalid)?;
+    let block_id = block_arg.as_block().ok_or_else(invalid)?;
+    let block = working_set.get_block(block_id);
+
+    let catch_block = match call.positional_nth(1) {
+        Some(kw_expr) => {
+            let catch_expr = kw_expr.as_keyword().ok_or_else(invalid)?;
+            let catch_block_id = catch_expr.as_block().ok_or_else(invalid)?;
+            Some(working_set.get_block(catch_block_id))
+        }
+        None => None,
+    };
+    let catch_var_id = catch_block
+        .and_then(|b| b.signature.get_positional(0))
+        .and_then(|v| v.var_id);
+
+    // Put the error handler placeholder
+    let error_handler_index = if let Some(catch_var_id) = catch_var_id {
+        builder.push(
+            Instruction::PushErrorHandlerVar {
+                index: usize::MAX,
+                error_var: catch_var_id,
+            }
+            .into_spanned(call.head),
+        )?
+    } else {
+        builder.push(Instruction::PushErrorHandler { index: usize::MAX }.into_spanned(call.head))?
+    };
+
+    // Compile the block
+    compile_block(
+        working_set,
+        builder,
+        block,
+        redirect_modes.clone(),
+        Some(io_reg),
+        io_reg,
+    )?;
+
+    // Successful case: pop the error handler
+    builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+
+    // Jump over the failure case
+    let jump_index =
+        builder.jump_placeholder(catch_block.and_then(|b| b.span).unwrap_or(call.head))?;
+
+    // This is the error handler - go back and set the right branch destination
+    builder.set_branch_target(error_handler_index, builder.next_instruction_index())?;
+
+    // Mark out register as likely not clean - state in error handler is not well defined
+    builder.mark_register(io_reg)?;
+
+    // If we have a catch block, compile that
+    if let Some(catch_block) = catch_block {
+        compile_block(
+            working_set,
+            builder,
+            catch_block,
+            redirect_modes,
+            None,
+            io_reg,
+        )?;
+    } else {
+        // Otherwise just set out to empty.
+        builder.load_empty(io_reg)?;
+    }
+
+    // This is the end - if we succeeded, should jump here
+    builder.set_branch_target(jump_index, builder.next_instruction_index())?;
+
+    Ok(())
+}
+
 /// Compile a call to `loop` (via `jump`)
 pub(crate) fn compile_loop(
     working_set: &StateWorkingSet,

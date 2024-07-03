@@ -42,7 +42,7 @@ impl Call {
 
     /// Get the arguments for this call from the arguments stack.
     pub fn arguments<'a>(&self, stack: &'a Stack) -> &'a [Argument] {
-        stack.argument_stack.get_args(self.args_base, self.args_len)
+        stack.arguments.get_args(self.args_base, self.args_len)
     }
 
     /// The span encompassing the arguments
@@ -205,7 +205,7 @@ impl Call {
 
     /// Resets the [`Stack`] to its state before the call was made.
     pub fn leave(&self, stack: &mut Stack) {
-        stack.argument_stack.leave_frame(self.args_base);
+        stack.arguments.leave_frame(self.args_base);
     }
 }
 
@@ -218,13 +218,13 @@ impl CallBuilder {
     /// Add an argument to the [`Stack`] and reference it from the [`Call`].
     pub fn add_argument(&mut self, stack: &mut Stack, argument: Argument) -> &mut Self {
         if self.inner.args_len == 0 {
-            self.inner.args_base = stack.argument_stack.get_base();
+            self.inner.args_base = stack.arguments.get_base();
         }
         self.inner.args_len += 1;
         if let Some(span) = argument.span() {
             self.inner.span = self.inner.span.append(span);
         }
-        stack.argument_stack.push(argument);
+        stack.arguments.push(argument);
         self
     }
 

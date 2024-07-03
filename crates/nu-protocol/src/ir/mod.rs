@@ -149,6 +149,13 @@ pub enum Instruction {
         stream: RegId,
         end_index: usize,
     },
+    /// Push an error handler, without capturing the error value
+    PushErrorHandler { index: usize },
+    /// Push an error handler, capturing the error value into the `error_var`
+    PushErrorHandlerVar { index: usize, error_var: VarId },
+    /// Pop an error handler. This is not necessary when control flow is directed to the error
+    /// handler due to an error.
+    PopErrorHandler,
     /// Return from the block with the value in the register
     Return { src: RegId },
 }

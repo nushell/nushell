@@ -1,7 +1,7 @@
 use crate::{
     engine::{
-        EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackOutDest,
-        DEFAULT_OVERLAY_NAME,
+        ArgumentStack, EngineState, ErrorHandlerStack, Redirection, RegisterBufCache,
+        StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
     },
     OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
@@ -10,8 +10,6 @@ use std::{
     fs::File,
     sync::Arc,
 };
-
-use super::{ArgumentStack, RegisterBufCache};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
@@ -46,7 +44,9 @@ pub struct Stack {
     /// Cached register buffers for IR evaluation
     pub register_buf_cache: RegisterBufCache,
     /// Argument stack for IR evaluation
-    pub argument_stack: ArgumentStack,
+    pub arguments: ArgumentStack,
+    /// Error handler stack for IR evaluation
+    pub error_handlers: ErrorHandlerStack,
     /// Set true to always use IR mode
     pub use_ir: bool,
     pub recursion_count: u64,
@@ -77,7 +77,8 @@ impl Stack {
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             register_buf_cache: RegisterBufCache::new(),
-            argument_stack: ArgumentStack::new(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
             use_ir: false,
             recursion_count: 0,
             parent_stack: None,
@@ -97,7 +98,8 @@ impl Stack {
             env_hidden: parent.env_hidden.clone(),
             active_overlays: parent.active_overlays.clone(),
             register_buf_cache: RegisterBufCache::new(),
-            argument_stack: ArgumentStack::new(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
             use_ir: parent.use_ir,
             recursion_count: parent.recursion_count,
             vars: vec![],
@@ -269,7 +271,8 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             register_buf_cache: RegisterBufCache::new(),
-            argument_stack: ArgumentStack::new(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
             use_ir: self.use_ir,
             recursion_count: self.recursion_count,
             parent_stack: None,
@@ -302,7 +305,8 @@ impl Stack {
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
             register_buf_cache: RegisterBufCache::new(),
-            argument_stack: ArgumentStack::new(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
             use_ir: self.use_ir,
             recursion_count: self.recursion_count,
             parent_stack: None,

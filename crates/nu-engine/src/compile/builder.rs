@@ -197,6 +197,12 @@ impl BlockBuilder {
                 stream: _,
                 end_index: _,
             } => self.mark_register(*dst)?,
+            Instruction::PushErrorHandler { index: _ } => (),
+            Instruction::PushErrorHandlerVar {
+                index: _,
+                error_var: _,
+            } => (),
+            Instruction::PopErrorHandler => (),
             Instruction::Return { src } => self.free_register(*src)?,
         }
         let index = self.next_instruction_index();
@@ -299,7 +305,7 @@ impl BlockBuilder {
         self.jump(usize::MAX, span)
     }
 
-    /// Modify a `branch-if`, `jump`, or `iterate` instruction's branch target `index`
+    /// Modify a branching instruction's branch target `index`
     pub(crate) fn set_branch_target(
         &mut self,
         instruction_index: usize,
@@ -311,7 +317,9 @@ impl BlockBuilder {
                 | Instruction::Jump { index }
                 | Instruction::Iterate {
                     end_index: index, ..
-                },
+                }
+                | Instruction::PushErrorHandler { index }
+                | Instruction::PushErrorHandlerVar { index, .. },
             ) => {
                 *index = target_index;
                 Ok(())
