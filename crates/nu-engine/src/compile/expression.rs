@@ -7,7 +7,7 @@ use nu_protocol::{
     ast::{CellPath, Expr, Expression, ListItem, RecordItem},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
-    IntoSpanned, RegId, Type, ENV_VARIABLE_ID,
+    IntoSpanned, RegId, ENV_VARIABLE_ID,
 };
 
 pub(crate) fn compile_expression(
