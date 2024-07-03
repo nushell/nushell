@@ -51,6 +51,11 @@ pub(crate) fn compile_expression(
         span: Some(expr.span),
     };
 
+    let unexpected = |expr_name: &str| CompileError::UnexpectedExpression {
+        expr_name: expr_name.into(),
+        span: expr.span,
+    };
+
     let move_in_reg_to_out_reg = |builder: &mut BlockBuilder| {
         // Ensure that out_reg contains the input value, because a call only uses one register
         if let Some(in_reg) = in_reg {
@@ -129,10 +134,7 @@ pub(crate) fn compile_expression(
             )?;
             Ok(())
         }
-        Expr::VarDecl(_) => Err(CompileError::UnexpectedExpression {
-            expr_name: "VarDecl".into(),
-            span: expr.span,
-        }),
+        Expr::VarDecl(_) => Err(unexpected("VarDecl")),
         Expr::Call(call) => {
             move_in_reg_to_out_reg(builder)?;
 
@@ -143,10 +145,7 @@ pub(crate) fn compile_expression(
 
             compile_external_call(working_set, builder, head, args, redirect_modes, out_reg)
         }
-        Expr::Operator(_) => Err(CompileError::UnexpectedExpression {
-            expr_name: "Operator".into(),
-            span: expr.span,
-        }),
+        Expr::Operator(_) => Err(unexpected("Operator")),
         Expr::RowCondition(_) => Err(todo("RowCondition")),
         Expr::UnaryNot(subexpr) => {
             drop_input(builder)?;
@@ -365,10 +364,7 @@ pub(crate) fn compile_expression(
             }
             Ok(())
         }
-        Expr::Keyword(_) => Err(CompileError::UnexpectedExpression {
-            expr_name: "Keyword".into(),
-            span: expr.span,
-        }),
+        Expr::Keyword(_) => Err(unexpected("Keyword")),
         Expr::ValueWithUnit(_) => Err(todo("ValueWithUnit")),
         Expr::DateTime(_) => Err(todo("DateTime")),
         Expr::Filepath(path, no_expand) => {
@@ -441,8 +437,8 @@ pub(crate) fn compile_expression(
                 Ok(())
             }
         }
-        Expr::ImportPattern(_) => Err(todo("ImportPattern")),
-        Expr::Overlay(_) => Err(todo("Overlay")),
+        Expr::ImportPattern(_) => Err(unexpected("ImportPattern")),
+        Expr::Overlay(_) => Err(unexpected("Overlay")),
         Expr::Signature(_) => ignore(builder), // no effect
         Expr::StringInterpolation(exprs) | Expr::GlobInterpolation(exprs, _) => {
             let mut exprs_iter = exprs.iter().peekable();
