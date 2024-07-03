@@ -287,6 +287,15 @@ pub(crate) fn compile_for(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
+    // Pseudocode:
+    //
+    //       %stream_reg <- <in_expr>
+    // LOOP: iterate %io_reg, %stream_reg, END
+    //       store-variable $var, %io_reg
+    //       %io_reg <- <...block...>
+    //       drain %io_reg
+    //       jump LOOP
+    // END:
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "for".into(),
         span: call.head,
@@ -379,6 +388,10 @@ pub(crate) fn compile_return(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
+    // Pseudocode:
+    //
+    // %io_reg <- <arg_expr>
+    // return %io_reg
     if let Some(arg_expr) = call.positional_nth(0) {
         compile_expression(
             working_set,
