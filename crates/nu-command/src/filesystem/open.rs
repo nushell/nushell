@@ -177,7 +177,12 @@ impl Command for Open {
                                 let block = engine_state.get_block(block_id);
                                 eval_block(engine_state, stack, block, stream)
                             } else {
-                                decl.run(engine_state, stack, &Call::new(call_span), stream)
+                                decl.run(
+                                    engine_state,
+                                    stack,
+                                    &Call::new(call_span, call.arguments_span()),
+                                    stream,
+                                )
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{
