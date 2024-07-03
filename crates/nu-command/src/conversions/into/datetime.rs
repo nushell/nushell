@@ -1,5 +1,5 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, FixedOffset, Local, NaiveTime, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
@@ -372,10 +372,21 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 Some(dt) => match DateTime::parse_from_str(val, &dt.0) {
                     Ok(d) => Value::date ( d, head ),
                     Err(reason) => {
-                        Value::error (
-                            ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
-                            head,
-                        )
+                        match NaiveDateTime::parse_from_str(val, &dt.0) {
+                            Ok(d) => Value::date (
+                                DateTime::from_naive_utc_and_offset(
+                                    d,
+                                    *Local::now().offset(),
+                                ),
+                                head,
+                            ),
+                            Err(_) => {
+                                Value::error (
+                                    ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
+                                    head,
+                                )
+                            }
+                        }
                     }
                 },
 
