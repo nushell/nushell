@@ -295,7 +295,7 @@ fn set_border_head(table: &mut Table, with_footer: bool, wctrl: TableWidthCtrl) 
                     head_settings.2.clone(),
                 ))
                 .with(SetLineHeaders::new(
-                    last_row_index,
+                    last_row_index - 1,
                     last_row.1,
                     head_settings.1,
                     head_settings.2,
@@ -360,6 +360,8 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
         } else if self.cfg.expand && self.max > total_width {
             Settings::new(SetDimensions(self.width), Width::increase(self.max))
                 .change(rec, cfg, dim)
+        } else {
+            SetDimensions(self.width).change(rec, cfg, dim);
         }
     }
 }
@@ -830,13 +832,15 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
             Some(widths) => {
                 columns = columns
                     .into_iter()
-                    .zip(widths)
-                    .map(|(s, width)| Truncate::truncate_text(&s, *width).into_owned())
+                    .zip(widths.iter().map(|w| w.checked_sub(2).unwrap_or(*w))) // exclude padding; which is generally 2
+                    .map(|(s, width)| Truncate::truncate_text(&s, width).into_owned())
                     .collect();
             }
             None => {
                 // we don't have widths cached; which means that NO widtds adjustmens were done
                 // which means we are OK to leave columns as they are.
+                //
+                // but we are actually always got to have widths at this point
             }
         };
 
