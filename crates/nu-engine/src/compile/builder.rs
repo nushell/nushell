@@ -197,11 +197,8 @@ impl BlockBuilder {
                 stream: _,
                 end_index: _,
             } => self.mark_register(*dst)?,
-            Instruction::PushErrorHandler { index: _ } => (),
-            Instruction::PushErrorHandlerVar {
-                index: _,
-                error_var: _,
-            } => (),
+            Instruction::OnError { index: _ } => (),
+            Instruction::OnErrorInto { index: _, dst } => self.mark_register(*dst)?,
             Instruction::PopErrorHandler => (),
             Instruction::Return { src } => self.free_register(*src)?,
         }
@@ -318,8 +315,8 @@ impl BlockBuilder {
                 | Instruction::Iterate {
                     end_index: index, ..
                 }
-                | Instruction::PushErrorHandler { index }
-                | Instruction::PushErrorHandlerVar { index, .. },
+                | Instruction::OnError { index }
+                | Instruction::OnErrorInto { index, .. },
             ) => {
                 *index = target_index;
                 Ok(())

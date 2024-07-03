@@ -107,6 +107,13 @@ pub enum CompileError {
         span: Span,
     },
 
+    #[error("Missing required declaration: `{decl_name}`")]
+    MissingRequiredDeclaration {
+        decl_name: String,
+        #[label("`{decl_name}` must be in scope to compile this expression")]
+        span: Span,
+    },
+
     #[error("TODO: {msg}")]
     #[diagnostic(code(nu::compile::todo), help("IR compilation is a work in progress"))]
     Todo {

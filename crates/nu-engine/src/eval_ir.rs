@@ -6,8 +6,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
-    DeclId, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData, Range, Record, RegId,
-    ShellError, Span, Value, VarId,
+    record, DeclId, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData, Range,
+    Record, RegId, ShellError, Span, Spanned, Value, VarId,
 };
 
 use crate::eval::is_automatic_env_var;
@@ -141,7 +141,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             Err(err) => {
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
                     // If an error handler is set, branch there
-                    error_handler.prepare_stack(ctx.engine_state, &mut ctx.stack, err);
+                    prepare_error_handler(ctx, error_handler, err.into_spanned(*span));
                     pc = error_handler.handler_index;
                 } else {
                     // If not, exit the block with the error
@@ -159,6 +159,26 @@ fn eval_ir_block_impl<D: DebugContext>(
         ),
         span: block_span.clone(),
     })
+}
+
+/// Prepare the context for an error handler
+fn prepare_error_handler(
+    ctx: &mut EvalContext<'_>,
+    error_handler: ErrorHandler,
+    error: Spanned<ShellError>,
+) {
+    if let Some(reg_id) = error_handler.error_register {
+        // Create the error value and put it in the register
+        let value = Value::record(
+            record! {
+                "msg" => Value::string(format!("{}", error.item), error.span),
+                "debug" => Value::string(format!("{:?}", error.item), error.span),
+                "raw" => Value::error(error.item, error.span),
+            },
+            error.span,
+        );
+        ctx.put_reg(reg_id, PipelineData::Value(value, None));
+    }
 }
 
 /// The result of performing an instruction. Describes what should happen next
@@ -485,17 +505,17 @@ fn eval_instruction(
             stream,
             end_index,
         } => eval_iterate(ctx, *dst, *stream, *end_index),
-        Instruction::PushErrorHandler { index } => {
+        Instruction::OnError { index } => {
             ctx.stack.error_handlers.push(ErrorHandler {
                 handler_index: *index,
-                error_variable: None,
+                error_register: None,
             });
             Ok(Continue)
         }
-        Instruction::PushErrorHandlerVar { index, error_var } => {
+        Instruction::OnErrorInto { index, dst } => {
             ctx.stack.error_handlers.push(ErrorHandler {
                 handler_index: *index,
-                error_variable: Some(*error_var),
+                error_register: Some(*dst),
             });
             Ok(Continue)
         }

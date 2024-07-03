@@ -1,8 +1,8 @@
 use nu_protocol::{
-    ast::{Call, Expr, Expression},
+    ast::{Block, Call, Expr, Expression},
     engine::StateWorkingSet,
     ir::Instruction,
-    IntoSpanned, RegId,
+    IntoSpanned, RegId, VarId,
 };
 
 use super::{compile_block, compile_expression, BlockBuilder, CompileError, RedirectModes};
@@ -186,14 +186,26 @@ pub(crate) fn compile_try(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    // Pseudocode:
+    // Pseudocode (literal block):
     //
-    //      push-error-handler-var ERR, $err     // or without var
+    //      on-error-with ERR, %io_reg           // or without
     //      %io_reg <- <...block...> <- %io_reg
     //      pop-error-handler
     //      jump END
-    // ERR: %io_reg <- <...catch block...>       // set to empty if none
+    // ERR: store-variable $err_var, %io_reg     // or without
+    //      %io_reg <- <...catch block...>       // set to empty if no catch block
     // END:
+    //
+    // with expression that can't be inlined:
+    //
+    //      %closure_reg <- <catch_expr>
+    //      on-error-with ERR, %io_reg
+    //      %io_reg <- <...block...> <- %io_reg
+    //      pop-error-handler
+    //      jump END
+    // ERR: push-positional %closure_reg
+    //      push-positional %io_reg
+    //      call "do", %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "try".into(),
         span: call.head,
@@ -203,29 +215,68 @@ pub(crate) fn compile_try(
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
-    let catch_block = match call.positional_nth(1) {
-        Some(kw_expr) => {
-            let catch_expr = kw_expr.as_keyword().ok_or_else(invalid)?;
-            let catch_block_id = catch_expr.as_block().ok_or_else(invalid)?;
-            Some(working_set.get_block(catch_block_id))
-        }
+    let catch_expr = match call.positional_nth(1) {
+        Some(kw_expr) => Some(kw_expr.as_keyword().ok_or_else(invalid)?),
         None => None,
     };
-    let catch_var_id = catch_block
-        .and_then(|b| b.signature.get_positional(0))
-        .and_then(|v| v.var_id);
 
-    // Put the error handler placeholder
-    let error_handler_index = if let Some(catch_var_id) = catch_var_id {
+    // We have two ways of executing `catch`: if it was provided as a literal, we can inline it.
+    // Otherwise, we have to evaluate the expression and keep it as a register, and then call `do`.
+    enum CatchType<'a> {
+        Block {
+            block: &'a Block,
+            var_id: Option<VarId>,
+        },
+        Closure {
+            closure_reg: RegId,
+        },
+    }
+
+    let catch_type = catch_expr
+        .map(|catch_expr| match catch_expr.as_block() {
+            Some(block_id) => {
+                let block = working_set.get_block(block_id);
+                let var_id = block.signature.get_positional(0).and_then(|v| v.var_id);
+                Ok(CatchType::Block { block, var_id })
+            }
+            None => {
+                // We have to compile the catch_expr and use it as a closure
+                let closure_reg = builder.next_register()?;
+                compile_expression(
+                    working_set,
+                    builder,
+                    catch_expr,
+                    redirect_modes.with_capture_out(catch_expr.span),
+                    None,
+                    closure_reg,
+                )?;
+                Ok(CatchType::Closure { closure_reg })
+            }
+        })
+        .transpose()?;
+
+    // Put the error handler placeholder. If the catch argument is a non-block expression or a block
+    // that takes an argument, we should capture the error into `io_reg` since we safely don't need
+    // that.
+    let error_handler_index = if matches!(
+        catch_type,
+        Some(
+            CatchType::Block {
+                var_id: Some(_),
+                ..
+            } | CatchType::Closure { .. }
+        )
+    ) {
         builder.push(
-            Instruction::PushErrorHandlerVar {
+            Instruction::OnErrorInto {
                 index: usize::MAX,
-                error_var: catch_var_id,
+                dst: io_reg,
             }
             .into_spanned(call.head),
         )?
     } else {
-        builder.push(Instruction::PushErrorHandler { index: usize::MAX }.into_spanned(call.head))?
+        // Otherwise, we don't need the error value.
+        builder.push(Instruction::OnError { index: usize::MAX }.into_spanned(call.head))?
     };
 
     // Compile the block
@@ -242,8 +293,8 @@ pub(crate) fn compile_try(
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
     // Jump over the failure case
-    let jump_index =
-        builder.jump_placeholder(catch_block.and_then(|b| b.span).unwrap_or(call.head))?;
+    let catch_span = catch_expr.map(|e| e.span).unwrap_or(call.head);
+    let jump_index = builder.jump_placeholder(catch_span)?;
 
     // This is the error handler - go back and set the right branch destination
     builder.set_branch_target(error_handler_index, builder.next_instruction_index())?;
@@ -251,19 +302,54 @@ pub(crate) fn compile_try(
     // Mark out register as likely not clean - state in error handler is not well defined
     builder.mark_register(io_reg)?;
 
-    // If we have a catch block, compile that
-    if let Some(catch_block) = catch_block {
-        compile_block(
-            working_set,
-            builder,
-            catch_block,
-            redirect_modes,
-            None,
-            io_reg,
-        )?;
-    } else {
-        // Otherwise just set out to empty.
-        builder.load_empty(io_reg)?;
+    // Now compile whatever is necessary for the error handler
+    match catch_type {
+        Some(CatchType::Block { block, var_id }) => {
+            if let Some(var_id) = var_id {
+                // Error will be in io_reg
+                builder.mark_register(io_reg)?;
+                builder.push(
+                    Instruction::StoreVariable {
+                        var_id,
+                        src: io_reg,
+                    }
+                    .into_spanned(catch_span),
+                )?;
+            }
+            // Compile the block, now that the variable is set
+            compile_block(working_set, builder, block, redirect_modes, None, io_reg)?;
+        }
+        Some(CatchType::Closure { closure_reg }) => {
+            // We should call `do`. Error will be in io_reg
+            let do_decl_id = working_set.find_decl(b"do").ok_or_else(|| {
+                CompileError::MissingRequiredDeclaration {
+                    decl_name: "do".into(),
+                    span: call.head,
+                }
+            })?;
+            builder.mark_register(io_reg)?;
+
+            // Push the closure and the error
+            builder
+                .push(Instruction::PushPositional { src: closure_reg }.into_spanned(catch_span))?;
+            builder.push(Instruction::PushPositional { src: io_reg }.into_spanned(catch_span))?;
+
+            // Empty input to the block
+            builder.load_empty(io_reg)?;
+
+            // Call `do $closure $err`
+            builder.push(
+                Instruction::Call {
+                    decl_id: do_decl_id,
+                    src_dst: io_reg,
+                }
+                .into_spanned(catch_span),
+            )?;
+        }
+        None => {
+            // Just set out to empty.
+            builder.load_empty(io_reg)?;
+        }
     }
 
     // This is the end - if we succeeded, should jump here

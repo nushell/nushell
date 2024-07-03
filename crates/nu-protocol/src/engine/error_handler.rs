@@ -1,32 +1,12 @@
-use crate::{record, ShellError, Value, VarId};
-
-use super::{EngineState, Stack};
+use crate::RegId;
 
 /// Describes an error handler stored during IR evaluation.
 #[derive(Debug, Clone, Copy)]
 pub struct ErrorHandler {
     /// Instruction index within the block that will handle the error
     pub handler_index: usize,
-    /// Variable to put the error information into, when an error occurs
-    pub error_variable: Option<VarId>,
-}
-
-impl ErrorHandler {
-    /// Add `error_variable` to the stack with the error value.
-    pub fn prepare_stack(&self, engine_state: &EngineState, stack: &mut Stack, error: ShellError) {
-        if let Some(var_id) = self.error_variable {
-            let span = engine_state.get_var(var_id).declaration_span;
-            let value = Value::record(
-                record! {
-                    "msg" => Value::string(format!("{}", error), span),
-                    "debug" => Value::string(format!("{:?}", error), span),
-                    "raw" => Value::error(error, span),
-                },
-                span,
-            );
-            stack.add_var(var_id, value);
-        }
-    }
+    /// Register to put the error information into, when an error occurs
+    pub error_register: Option<RegId>,
 }
 
 /// Keeps track of error handlers pushed during evaluation of an IR block.

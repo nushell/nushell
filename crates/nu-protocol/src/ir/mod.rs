@@ -150,9 +150,10 @@ pub enum Instruction {
         end_index: usize,
     },
     /// Push an error handler, without capturing the error value
-    PushErrorHandler { index: usize },
-    /// Push an error handler, capturing the error value into the `error_var`
-    PushErrorHandlerVar { index: usize, error_var: VarId },
+    OnError { index: usize },
+    /// Push an error handler, capturing the error value into `dst`. If the error handler is not
+    /// called, the register should be freed manually.
+    OnErrorInto { index: usize, dst: RegId },
     /// Pop an error handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,

@@ -46,7 +46,7 @@ pub struct FmtInstruction<'a> {
 
 impl<'a> fmt::Display for FmtInstruction<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const WIDTH: usize = 22;
+        const WIDTH: usize = 20;
 
         match self.instruction {
             Instruction::LoadLiteral { dst, lit } => {
@@ -170,16 +170,11 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             } => {
                 write!(f, "{:WIDTH$} {dst}, {stream}, end {end_index}", "iterate")
             }
-            Instruction::PushErrorHandler { index } => {
-                write!(f, "{:WIDTH$} {index}", "push-error-handler")
+            Instruction::OnError { index } => {
+                write!(f, "{:WIDTH$} {index}", "on-error")
             }
-            Instruction::PushErrorHandlerVar { index, error_var } => {
-                let error_var = FmtVar::new(self.engine_state, *error_var);
-                write!(
-                    f,
-                    "{:WIDTH$} {index}, {error_var}",
-                    "push-error-handler-var"
-                )
+            Instruction::OnErrorInto { index, dst } => {
+                write!(f, "{:WIDTH$} {index}, {dst}", "on-error-into")
             }
             Instruction::PopErrorHandler => {
                 write!(f, "{:WIDTH$}", "pop-error-handler")

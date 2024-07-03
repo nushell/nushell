@@ -359,3 +359,25 @@ fn try_catch_var() {
         Eq("foo"),
     )
 }
+
+#[test]
+fn try_catch_with_non_literal_closure_no_var() {
+    test_eval(
+        r#"
+            let error_handler = { || "pass" }
+            try { error make { msg: foobar } } catch $error_handler
+        "#,
+        Eq("pass"),
+    )
+}
+
+#[test]
+fn try_catch_with_non_literal_closure() {
+    test_eval(
+        r#"
+            let error_handler = { |err| $err.msg }
+            try { error make { msg: foobar } } catch $error_handler
+        "#,
+        Eq("foobar"),
+    )
+}
