@@ -162,23 +162,36 @@ impl Command for SubCommand {
         };
         vec![
             Example {
-                description: "Convert any standard timestamp string to datetime",
+                description: "Convert timestamp string to datetime with timezone offset",
                 example: "'27.02.2021 1:55 pm +0000' | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434100_000000000),
             },
             Example {
-                description: "Convert any standard timestamp string to datetime",
+                description: "Convert standard timestamp string to datetime with timezone offset",
                 example: "'2021-02-27T13:55:40.2246+00:00' | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_224600000),
             },
             Example {
                 description:
-                    "Convert non-standard timestamp string to datetime using a custom format",
+                    "Convert non-standard timestamp string, with timezone offset, to datetime using a custom format",
                 example: "'20210227_135540+0000' | into datetime --format '%Y%m%d_%H%M%S%z'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
+            },
+            Example {
+                description: "Convert non-standard timestamp string, without timezone offset, to datetime with custom formatting",
+                example: "'16.11.1984 8:00 am' | into datetime --format '%d.%m.%Y %H:%M %P'",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: Some( Value::date(
+                    DateTime::from_naive_utc_and_offset(
+                        NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P")
+                        .expect("date calculation should not fail in test"),
+                        *Local::now().offset(),
+                    ),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
