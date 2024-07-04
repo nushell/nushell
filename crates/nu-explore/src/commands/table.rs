@@ -58,11 +58,11 @@ impl ViewCommand for TableCmd {
         let mut view = RecordView::new(columns, data);
 
         if is_record {
-            view.set_orientation_current(Orientation::Left);
+            view.set_top_layer_orientation(Orientation::Left);
         }
 
         if let Some(o) = self.settings.orientation {
-            view.set_orientation_current(o);
+            view.set_top_layer_orientation(o);
         }
 
         if self.settings.turn_on_cursor_mode {

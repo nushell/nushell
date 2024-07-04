@@ -65,7 +65,7 @@ impl ViewCommand for NuCmd {
         let mut view = RecordView::new(columns, values);
 
         if is_record {
-            view.set_orientation_current(Orientation::Left);
+            view.set_top_layer_orientation(Orientation::Left);
         }
 
         Ok(NuView::Records(view))

@@ -242,8 +242,8 @@ impl View for TryView {
 
         if let Some(view) = &mut self.table {
             view.setup(config);
-            view.set_orientation(r.get_orientation_current());
-            view.set_orientation_current(r.get_orientation_current());
+            view.set_orientation(r.get_top_layer_orientation());
+            view.set_top_layer_orientation(r.get_top_layer_orientation());
         }
     }
 }
@@ -262,7 +262,7 @@ fn run_command(
 
     let mut view = RecordView::new(columns, values);
     if is_record {
-        view.set_orientation_current(Orientation::Left);
+        view.set_top_layer_orientation(Orientation::Left);
     }
 
     Ok(view)
