@@ -115,6 +115,16 @@ fn literal_float() {
 }
 
 #[test]
+fn literal_filesize() {
+    test_eval("30MiB", Eq("30.0 MiB"))
+}
+
+#[test]
+fn literal_duration() {
+    test_eval("30ms", Eq("30ms"))
+}
+
+#[test]
 fn literal_binary() {
     test_eval("0x[1f 2f f0]", Matches("Length.*1f.*2f.*f0"))
 }
@@ -441,5 +451,16 @@ fn row_condition() {
     test_eval(
         "[[a b]; [1 2] [3 4]] | where a < 3 | to nuon",
         Eq("[[a, b]; [1, 2]]"),
+    )
+}
+
+#[test]
+fn custom_command() {
+    test_eval(
+        r#"
+            def cmd [a: int, b: string = 'fail', ...c: string, --x: int] { $"($a)($b)($c)($x)" }
+            cmd 42 pass foo --x 30
+        "#,
+        Eq("42pass[foo]30"),
     )
 }
