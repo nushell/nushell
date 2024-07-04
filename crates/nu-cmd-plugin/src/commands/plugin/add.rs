@@ -109,7 +109,7 @@ apparent the next time `nu` is next launched with that plugin registry file.
         let custom_path = call.get_flag(engine_state, stack, "plugin-config")?;
 
         // Start the plugin manually, to get the freshest signatures and to not affect engine
-        // state. Provide a GC config that will stop it ASAP.
+        // state. Provide a GC config that will stop it ASAP
         let plugin = Arc::new(PersistentPlugin::new(
             identity,
             PluginGcConfig {
