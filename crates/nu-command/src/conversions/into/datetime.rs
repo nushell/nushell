@@ -184,7 +184,7 @@ impl Command for SubCommand {
                 description: "Convert non-standard timestamp string, without timezone offset, to datetime with custom formatting",
                 example: "'16.11.1984 8:00 am' | into datetime --format '%d.%m.%Y %H:%M %P'",
                 #[allow(clippy::inconsistent_digit_grouping)]
-                result: Some( Value::date(
+                result: Some(Value::date(
                     DateTime::from_naive_utc_and_offset(
                         NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P")
                         .expect("date calculation should not fail in test"),
