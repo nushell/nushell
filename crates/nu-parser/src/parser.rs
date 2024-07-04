@@ -160,7 +160,7 @@ pub(crate) fn check_call(
     call: &Call,
 ) {
     // Allow the call to pass if they pass in the help flag
-    if call.named_iter().any(|(n, _, _, _)| n.item == "help") {
+    if call.named_iter().any(|(n, _, _)| n.item == "help") {
         return;
     }
 
@@ -180,7 +180,7 @@ pub(crate) fn check_call(
                 if let Some(last) = call.positional_iter().last() {
                     working_set.error(ParseError::MissingPositional(
                         argument.name.clone(),
-                        Span::new(last.span(working_set).end, last.span(working_set).end),
+                        Span::new(last.span.end, last.span.end),
                         sig.call_signature(),
                     ));
                     return;
@@ -199,7 +199,7 @@ pub(crate) fn check_call(
         if let Some(last) = call.positional_iter().last() {
             working_set.error(ParseError::MissingPositional(
                 missing.name.clone(),
-                Span::new(last.span(working_set).end, last.span(working_set).end),
+                Span::new(last.span.end, last.span.end),
                 sig.call_signature(),
             ))
         } else {
@@ -211,10 +211,7 @@ pub(crate) fn check_call(
         }
     } else {
         for req_flag in sig.named.iter().filter(|x| x.required) {
-            if call
-                .named_iter()
-                .all(|(n, _, _, _)| n.item != req_flag.long)
-            {
+            if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {
                 working_set.error(ParseError::MissingRequiredFlag(
                     req_flag.long.clone(),
                     command,
@@ -489,19 +486,18 @@ fn ensure_flag_arg_type(
     arg_shape: &SyntaxShape,
     long_name_span: Span,
 ) -> (Spanned<String>, Expression) {
-    let arg_span = arg.span(working_set);
     if !type_compatible(&arg.ty, &arg_shape.to_type()) {
         working_set.error(ParseError::TypeMismatch(
             arg_shape.to_type(),
             arg.ty,
-            arg_span,
+            arg.span,
         ));
         (
             Spanned {
                 item: arg_name,
                 span: long_name_span,
             },
-            Expression::garbage(working_set, arg_span),
+            Expression::garbage(working_set, arg.span),
         )
     } else {
         (
@@ -920,25 +916,6 @@ pub struct ParsedInternalCall {
     pub output: Type,
 }
 
-// moved from call.rs since span creation must be done at parse time now
-pub fn named_arg_span(
-    working_set: &StateWorkingSet,
-    named: &Spanned<String>,
-    short: &Option<Spanned<String>>,
-    expr: &Option<Expression>,
-) -> Span {
-    let start = named.span.start;
-    let end = if let Some(expr) = expr {
-        expr.span(&working_set).end
-    } else if let Some(short) = short {
-        short.span.end
-    } else {
-        named.span.end
-    };
-
-    Span::new(start, end)
-}
-
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
@@ -947,7 +924,7 @@ pub fn parse_internal_call(
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id);
 
-    let mut call = Call::new(command_span, Span::concat(spans));
+    let mut call = Call::new(command_span);
     call.decl_id = decl_id;
     call.head = command_span;
     let _ = working_set.add_span(call.head);
@@ -1025,9 +1002,7 @@ pub fn parse_internal_call(
 
                 call.add_unknown(arg);
             } else {
-                let named_span = named_arg_span(working_set, &long_name, &None, &arg);
-                let named_span_id = working_set.add_span(named_span);
-                call.add_named((long_name, None, arg, named_span_id));
+                call.add_named((long_name, None, arg));
             }
 
             spans_idx += 1;
@@ -1078,30 +1053,27 @@ pub fn parse_internal_call(
 
                             if flag.long.is_empty() {
                                 if let Some(short) = flag.short {
-                                    let named = Spanned {
-                                        item: String::new(),
-                                        span: spans[spans_idx],
-                                    };
-                                    let short = Some(Spanned {
-                                        item: short.to_string(),
-                                        span: spans[spans_idx],
-                                    });
-                                    let expr = Some(arg);
-                                    let named_span =
-                                        named_arg_span(working_set, &named, &short, &expr);
-                                    let named_span_id = working_set.add_span(named_span);
-                                    call.add_named((named, short, expr, named_span_id));
+                                    call.add_named((
+                                        Spanned {
+                                            item: String::new(),
+                                            span: spans[spans_idx],
+                                        },
+                                        Some(Spanned {
+                                            item: short.to_string(),
+                                            span: spans[spans_idx],
+                                        }),
+                                        Some(arg),
+                                    ));
                                 }
                             } else {
-                                let named = Spanned {
-                                    item: flag.long.clone(),
-                                    span: spans[spans_idx],
-                                };
-                                let short = None;
-                                let expr = Some(arg);
-                                let named_span = named_arg_span(working_set, &named, &short, &expr);
-                                let named_span_id = working_set.add_span(named_span);
-                                call.add_named((named, short, expr, named_span_id));
+                                call.add_named((
+                                    Spanned {
+                                        item: flag.long.clone(),
+                                        span: spans[spans_idx],
+                                    },
+                                    None,
+                                    Some(arg),
+                                ));
                             }
                             spans_idx += 1;
                         } else {
@@ -1112,29 +1084,27 @@ pub fn parse_internal_call(
                         }
                     } else if flag.long.is_empty() {
                         if let Some(short) = flag.short {
-                            let named = Spanned {
-                                item: String::new(),
-                                span: spans[spans_idx],
-                            };
-                            let short = Some(Spanned {
-                                item: short.to_string(),
-                                span: spans[spans_idx],
-                            });
-                            let expr = None;
-                            let named_span = named_arg_span(working_set, &named, &short, &expr);
-                            let named_span_id = working_set.add_span(named_span);
-                            call.add_named((named, short, expr, named_span_id));
+                            call.add_named((
+                                Spanned {
+                                    item: String::new(),
+                                    span: spans[spans_idx],
+                                },
+                                Some(Spanned {
+                                    item: short.to_string(),
+                                    span: spans[spans_idx],
+                                }),
+                                None,
+                            ));
                         }
                     } else {
-                        let named = Spanned {
-                            item: flag.long.clone(),
-                            span: spans[spans_idx],
-                        };
-                        let short = None;
-                        let expr = None;
-                        let named_span = named_arg_span(working_set, &named, &short, &expr);
-                        let named_span_id = working_set.add_span(named_span);
-                        call.add_named((named, short, expr, named_span_id));
+                        call.add_named((
+                            Spanned {
+                                item: flag.long.clone(),
+                                span: spans[spans_idx],
+                            },
+                            None,
+                            None,
+                        ));
                     }
                 }
             }
@@ -1214,13 +1184,12 @@ pub fn parse_internal_call(
             );
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
-                let arg_ty = arg.ty.clone();
                 working_set.error(ParseError::TypeMismatch(
                     positional.shape.to_type(),
-                    arg_ty,
-                    arg.span(working_set),
+                    arg.ty,
+                    arg.span,
                 ));
-                Expression::garbage(working_set, arg.span(working_set))
+                Expression::garbage(working_set, arg.span)
             } else {
                 arg
             };
@@ -1342,7 +1311,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 trace!("parsing: alias of external call");
 
                 let mut head = head.clone();
-                head.span_id = working_set.add_span(spans[0]); // replacing the spans preserves syntax highlighting
+                head.span = spans[0]; // replacing the spans preserves syntax highlighting
 
                 let mut final_args = args.clone().into_vec();
                 for arg_span in &spans[1..] {
@@ -3037,15 +3006,13 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                     for item in list {
                         match item {
                             ListItem::Item(expr) => {
-                                let contents =
-                                    working_set.get_span_contents(expr.span(working_set));
-                                output
-                                    .push((trim_quotes(contents).to_vec(), expr.span(working_set)));
+                                let contents = working_set.get_span_contents(expr.span);
+                                output.push((trim_quotes(contents).to_vec(), expr.span));
                             }
                             ListItem::Spread(_, spread) => {
                                 working_set.error(ParseError::WrongImportPattern(
                                     "cannot spread in an import pattern".into(),
-                                    spread.span(working_set),
+                                    spread.span,
                                 ))
                             }
                         }
@@ -3055,7 +3022,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
                         .members
                         .push(ImportPatternMember::List { names: output });
                 } else {
-                    working_set.error(ParseError::ExportNotFound(result.span(working_set)));
+                    working_set.error(ParseError::ExportNotFound(result.span));
                     return Expression::new(
                         working_set,
                         Expr::ImportPattern(Box::new(import_pattern)),
@@ -3812,7 +3779,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                             format!(
                                                             "expected default value to be `{var_type}`"
                                                         ),
-                                                            expression.span(working_set),
+                                                            expression.span,
                                                         ),
                                                     )
                                                 }
@@ -3825,7 +3792,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             Some(constant)
                                         } else {
                                             working_set.error(ParseError::NonConstantDefaultValue(
-                                                expression.span(working_set),
+                                                expression.span,
                                             ));
                                             None
                                         };
@@ -3839,7 +3806,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         working_set.error(ParseError::AssignmentMismatch(
                                             "Rest parameter was given a default value".into(),
                                             "can't have default value".into(),
-                                            expression.span(working_set),
+                                            expression.span,
                                         ))
                                     }
                                     Arg::Flag {
@@ -3852,7 +3819,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             },
                                         type_annotated,
                                     } => {
-                                        let expression_span = expression.span(working_set);
+                                        let expression_span = expression.span;
 
                                         *default_value = if let Ok(value) =
                                             eval_constant(working_set, &expression)
@@ -4098,7 +4065,7 @@ fn parse_table_row(
     list.into_iter()
         .map(|item| match item {
             ListItem::Item(expr) => Ok(expr),
-            ListItem::Spread(_, spread) => Err(spread.span(working_set)),
+            ListItem::Spread(_, spread) => Err(spread.span),
         })
         .collect::<Result<_, _>>()
         .map(|exprs| (exprs, span))
@@ -4173,7 +4140,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
                                     }
                                     Ordering::Greater => {
                                         let span = {
-                                            let start = list[head.len()].span(working_set).start;
+                                            let start = list[head.len()].span.start;
                                             let end = span.end;
                                             Span::new(start, end)
                                         };
@@ -4212,7 +4179,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     };
 
     let ty = if working_set.parse_errors.len() == errors {
-        let (ty, errs) = table_type(working_set, &head, &rows);
+        let (ty, errs) = table_type(&head, &rows);
         working_set.parse_errors.extend(errs);
         ty
     } else {
@@ -4227,11 +4194,7 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     Expression::new(working_set, Expr::Table(table), span, ty)
 }
 
-fn table_type(
-    working_set: &StateWorkingSet,
-    head: &[Expression],
-    rows: &[Vec<Expression>],
-) -> (Type, Vec<ParseError>) {
+fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<ParseError>) {
     let mut errors = vec![];
     let mut rows = rows.to_vec();
     let mut mk_ty = || -> Type {
@@ -4261,7 +4224,7 @@ fn table_type(
             if let Some(str) = expr.as_string() {
                 str
             } else {
-                errors.push(mk_error(expr.span(&working_set)));
+                errors.push(mk_error(expr.span));
                 String::from("{ column }")
             }
         })
@@ -5152,7 +5115,7 @@ pub fn parse_math_expression(
                 working_set.error(err);
             }
 
-            let op_span = Span::append(lhs.span(working_set), rhs.span(working_set));
+            let op_span = Span::append(lhs.span, rhs.span);
             expr_stack.push(Expression::new(
                 working_set,
                 Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
@@ -5188,7 +5151,7 @@ pub fn parse_math_expression(
             working_set.error(err)
         }
 
-        let binary_op_span = Span::append(lhs.span(working_set), rhs.span(working_set));
+        let binary_op_span = Span::append(lhs.span, rhs.span);
         expr_stack.push(Expression::new(
             working_set,
             Expr::BinaryOp(Box::new(lhs), Box::new(op), Box::new(rhs)),
@@ -5369,10 +5332,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             let expr = Expr::Call(Box::new(Call {
                 head: Span::unknown(),
                 decl_id,
-                arguments: Spanned {
-                    item: arguments,
-                    span: Span::concat(spans),
-                },
+                arguments,
                 parser_info: HashMap::new(),
             }));
 
@@ -6134,7 +6094,7 @@ pub fn discover_captures_in_expr(
                 }
             }
 
-            for arg in &call.arguments.item {
+            for arg in &call.arguments {
                 match arg {
                     Argument::Named(named) => {
                         if let Some(arg) = &named.2 {
@@ -6289,7 +6249,7 @@ pub fn discover_captures_in_expr(
         }
         Expr::Var(var_id) => {
             if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
-                output.push((*var_id, expr.span(&working_set)));
+                output.push((*var_id, expr.span));
             }
         }
         Expr::VarDecl(var_id) => {
@@ -6334,7 +6294,7 @@ fn wrap_element_with_collect(
 }
 
 fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
-    let span = expr.span(working_set);
+    let span = expr.span;
 
     if let Some(decl_id) = working_set.find_decl(b"collect") {
         let mut output = vec![];
@@ -6364,15 +6324,14 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             Type::Any,
         )));
 
-        let named = Spanned {
-            item: "keep-env".to_string(),
-            span: Span::unknown(),
-        };
-        let short = None;
-        let expr = None;
-        let named_span = named_arg_span(working_set, &named, &short, &expr);
-        let named_span_id = working_set.add_span(named_span);
-        output.push(Argument::Named((named, short, expr, named_span_id)));
+        output.push(Argument::Named((
+            Spanned {
+                item: "keep-env".to_string(),
+                span: Span::new(0, 0),
+            },
+            None,
+            None,
+        )));
 
         // The containing, synthetic call to `collect`.
         // We don't want to have a real span as it will confuse flattening
@@ -6380,11 +6339,8 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
         Expression::new(
             working_set,
             Expr::Call(Box::new(Call {
-                head: Span::unknown(),
-                arguments: Spanned {
-                    item: output,
-                    span: Span::unknown(),
-                },
+                head: Span::new(0, 0),
+                arguments: output,
                 decl_id,
                 parser_info: HashMap::new(),
             })),

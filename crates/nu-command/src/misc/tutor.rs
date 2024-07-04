@@ -412,7 +412,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
                 let result = decl.run(
                     engine_state,
                     stack,
-                    &Call::new(span, span.past()),
+                    &Call::new(span),
                     Value::string(item, Span::unknown()).into_pipeline_data(),
                 );
 

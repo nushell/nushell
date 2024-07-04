@@ -375,12 +375,8 @@ fn write_pipeline_data(
         Arc::make_mut(&mut engine_state.config).use_ansi_coloring = false;
 
         // Invoke the `table` command.
-        let output = crate::Table.run(
-            &engine_state,
-            &mut stack,
-            &Call::new(Span::unknown(), Span::unknown()),
-            data,
-        )?;
+        let output =
+            crate::Table.run(&engine_state, &mut stack, &Call::new(Span::unknown()), data)?;
 
         // Write the output.
         for value in output {

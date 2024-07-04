@@ -62,7 +62,7 @@ impl Command for KeybindingsList {
                 .collect()
         } else {
             call.named_iter()
-                .flat_map(|(argument, _, _, _)| get_records(argument.item.as_str(), call.head))
+                .flat_map(|(argument, _, _)| get_records(argument.item.as_str(), call.head))
                 .collect()
         };
 

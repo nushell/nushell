@@ -48,7 +48,7 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
         if let Ok(output) = decl.run(
             engine_state,
             stack,
-            &Call::new(Span::unknown(), Span::unknown()),
+            &Call::new(Span::unknown()),
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
@@ -241,10 +241,7 @@ fn get_documentation(
                 &Call {
                     decl_id,
                     head: span,
-                    arguments: Spanned {
-                        item: vec![],
-                        span: span.past(),
-                    },
+                    arguments: vec![],
                     parser_info: HashMap::new(),
                 },
                 PipelineData::Value(Value::list(vals, span), None),
@@ -276,7 +273,7 @@ fn get_documentation(
             match decl.run(
                 engine_state,
                 stack,
-                &Call::new(Span::unknown(), Span::unknown()),
+                &Call::new(Span::unknown()),
                 Value::string(example.example, Span::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
@@ -299,7 +296,7 @@ fn get_documentation(
         }
 
         if let Some(result) = &example.result {
-            let mut table_call = Call::new(Span::unknown(), Span::unknown());
+            let mut table_call = Call::new(Span::unknown());
             if example.example.ends_with("--collapse") {
                 // collapse the result
                 table_call.add_named((
@@ -309,7 +306,6 @@ fn get_documentation(
                     },
                     None,
                     None,
-                    UNKNOWN_SPAN_ID,
                 ))
             } else {
                 // expand the result
@@ -320,7 +316,6 @@ fn get_documentation(
                     },
                     None,
                     None,
-                    UNKNOWN_SPAN_ID,
                 ))
             }
             let table = engine_state
@@ -373,17 +368,13 @@ fn get_ansi_color_for_component_or_default(
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
             if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-                let arg_span = argument.span(&engine_state);
                 if let Ok(result) = eval_call::<WithoutDebug>(
                     engine_state,
                     caller_stack,
                     &Call {
                         decl_id,
                         head: span,
-                        arguments: Spanned {
-                            item: vec![argument],
-                            span: arg_span,
-                        },
+                        arguments: vec![argument],
                         parser_info: HashMap::new(),
                     },
                     PipelineData::Empty,
