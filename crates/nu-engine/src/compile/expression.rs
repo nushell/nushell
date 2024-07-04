@@ -146,7 +146,7 @@ pub(crate) fn compile_expression(
             compile_external_call(working_set, builder, head, args, redirect_modes, out_reg)
         }
         Expr::Operator(_) => Err(unexpected("Operator")),
-        Expr::RowCondition(_) => Err(todo("RowCondition")),
+        Expr::RowCondition(block_id) => lit(builder, Literal::RowCondition(*block_id)),
         Expr::UnaryNot(subexpr) => {
             drop_input(builder)?;
             compile_expression(
@@ -286,13 +286,20 @@ pub(crate) fn compile_expression(
                     )?;
                     builder.push(
                         Instruction::RecordInsert {
-                            src_dst: out_reg,
+                            src_dst: row_reg,
                             key: column_reg,
                             val: item_reg,
                         }
                         .into_spanned(item.span),
                     )?;
                 }
+                builder.push(
+                    Instruction::ListPush {
+                        src_dst: out_reg,
+                        item: row_reg,
+                    }
+                    .into_spanned(expr.span),
+                )?;
             }
 
             // Free the column registers, since they aren't needed anymore

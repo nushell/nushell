@@ -3272,6 +3272,8 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
                 default_value: None,
             });
 
+            compile_block(working_set, &mut block);
+
             working_set.add_block(Arc::new(block))
         }
     };

@@ -586,7 +586,7 @@ fn literal_value(
         Literal::Int(i) => Value::int(*i, span),
         Literal::Float(f) => Value::float(*f, span),
         Literal::Binary(bin) => Value::binary(&ctx.data[*bin], span),
-        Literal::Block(block_id) => Value::closure(
+        Literal::Block(block_id) | Literal::RowCondition(block_id) => Value::closure(
             Closure {
                 block_id: *block_id,
                 captures: vec![],

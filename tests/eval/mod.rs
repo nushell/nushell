@@ -140,6 +140,11 @@ fn literal_record() {
 }
 
 #[test]
+fn literal_table() {
+    test_eval("[[a b]; [1 2] [3 4]]", Matches("a.*b.*1.*2.*3.*4"))
+}
+
+#[test]
 fn literal_string() {
     test_eval(r#""foobar""#, Eq("foobar"))
 }
@@ -428,5 +433,13 @@ fn try_catch_with_non_literal_closure() {
             try { error make { msg: foobar } } catch $error_handler
         "#,
         Eq("foobar"),
+    )
+}
+
+#[test]
+fn row_condition() {
+    test_eval(
+        "[[a b]; [1 2] [3 4]] | where a < 3 | to nuon",
+        Eq("[[a, b]; [1, 2]]"),
     )
 }

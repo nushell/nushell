@@ -115,6 +115,7 @@ impl BlockBuilder {
                     | Literal::Binary(_)
                     | Literal::Block(_)
                     | Literal::Closure(_)
+                    | Literal::RowCondition(_)
                     | Literal::List { capacity: _ }
                     | Literal::Record { capacity: _ }
                     | Literal::Filepath {

@@ -279,6 +279,7 @@ impl<'a> fmt::Display for FmtLiteral<'a> {
             Literal::Binary(b) => write!(f, "binary({})", FmtData(self.data, *b)),
             Literal::Block(id) => write!(f, "block({id})"),
             Literal::Closure(id) => write!(f, "closure({id})"),
+            Literal::RowCondition(id) => write!(f, "row_condition({id})"),
             Literal::Range {
                 start,
                 step,

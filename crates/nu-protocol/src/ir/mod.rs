@@ -204,6 +204,7 @@ pub enum Literal {
     Binary(DataSlice),
     Block(BlockId),
     Closure(BlockId),
+    RowCondition(BlockId),
     Range {
         start: RegId,
         step: RegId,
