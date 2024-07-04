@@ -20,7 +20,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Config, Record, Span, Value,
+    Config, Record, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 use std::collections::HashMap;
@@ -122,7 +122,7 @@ impl RecordView {
         self.mode = UIMode::View;
     }
 
-    pub fn get_current_value(&self) -> Value {
+    pub fn get_current_value(&self) -> &Value {
         let Position { row, column } = self.get_cursor_position();
         let layer = self.get_layer_last();
 
@@ -131,13 +131,11 @@ impl RecordView {
             Orientation::Left => (column, row),
         };
 
-        if row >= layer.record_values.len() || column >= layer.column_names.len() {
-            // actually must never happen; unless cursor works incorrectly
-            // if being sure about cursor it can be deleted;
-            return Value::nothing(Span::unknown());
-        }
+        // These should never happen as long as the cursor is working correctly
+        assert!(row < layer.record_values.len(), "row out of bounds");
+        assert!(column < layer.column_names.len(), "column out of bounds");
 
-        layer.record_values[row][column].clone()
+        &layer.record_values[row][column]
     }
 
     fn create_table_widget<'a>(&'a mut self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
@@ -559,16 +557,24 @@ fn handle_key_event_cursor_mode(
 
             Ok(Some(Transition::Ok))
         }
+        // Try to "drill down" into the selected value
         KeyCode::Enter => {
             let value = view.get_current_value();
+
+            // ...but it only makes sense to drill down into a few types of values
+            if !matches!(
+                value,
+                Value::Record { .. } | Value::List { .. } | Value::Custom { .. }
+            ) {
+                return Ok(None);
+            }
+
             let is_record = matches!(value, Value::Record { .. });
-            let next_layer = create_layer(value)?;
+            let next_layer = create_layer(value.clone())?;
             push_layer(view, next_layer);
 
             if is_record {
                 view.set_orientation_current(Orientation::Left);
-            } else if view.orientation == view.get_layer_last().orientation {
-                view.get_layer_last_mut().orientation = view.orientation;
             } else {
                 view.set_orientation_current(view.orientation);
             }
@@ -648,7 +654,7 @@ fn highlight_selected_cell(f: &mut Frame, info: ElementInfo, cfg: &ExploreConfig
 
 fn build_last_value(v: &RecordView) -> Value {
     if v.mode == UIMode::Cursor {
-        v.get_current_value()
+        v.get_current_value().clone()
     } else if v.get_layer_last().count_rows() < 2 {
         build_table_as_record(v)
     } else {
