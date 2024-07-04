@@ -87,14 +87,17 @@ struct EvalContext<'a> {
 
 impl<'a> EvalContext<'a> {
     /// Replace the contents of a register with a new value
-    fn put_reg(&mut self, reg_id: RegId, new_value: PipelineData) -> PipelineData {
-        log::trace!("{reg_id} = {new_value:?}");
-        std::mem::replace(&mut self.registers[reg_id.0 as usize], new_value)
+    #[inline]
+    fn put_reg(&mut self, reg_id: RegId, new_value: PipelineData) {
+        // log::trace!("{reg_id} <- {new_value:?}");
+        self.registers[reg_id.0 as usize] = new_value;
     }
 
     /// Replace the contents of a register with `Empty` and then return the value that it contained
+    #[inline]
     fn take_reg(&mut self, reg_id: RegId) -> PipelineData {
-        self.put_reg(reg_id, PipelineData::Empty)
+        // log::trace!("<- {reg_id}");
+        std::mem::replace(&mut self.registers[reg_id.0 as usize], PipelineData::Empty)
     }
 
     /// Take and implicitly collect a register to a value
@@ -113,6 +116,7 @@ impl<'a> EvalContext<'a> {
     }
 
     /// Get the current stack to be used for the callee - either `callee_stack` if set, or `stack`
+    #[inline]
     fn callee_stack(&mut self) -> &mut Stack {
         self.callee_stack.as_deref_mut().unwrap_or(self.stack)
     }
