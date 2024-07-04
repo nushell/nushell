@@ -36,7 +36,7 @@ impl Completer for DirectoryCompletion {
 
         // Filter only the folders
         #[allow(deprecated)]
-        let output: Vec<_> = directory_completion(
+        let items: Vec<_> = directory_completion(
             span,
             &prefix,
             &[&working_set.permanent_state.current_work_dir()],
@@ -64,13 +64,11 @@ impl Completer for DirectoryCompletion {
         })
         .collect();
 
-        // Sort results prioritizing the non hidden folders
-
         // Separate the results between hidden and non hidden
         let mut hidden: Vec<SemanticSuggestion> = vec![];
         let mut non_hidden: Vec<SemanticSuggestion> = vec![];
 
-        for item in output.into_iter() {
+        for item in items.into_iter() {
             let item_path = Path::new(&item.suggestion.value);
 
             if let Some(value) = item_path.file_name() {

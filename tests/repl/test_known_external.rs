@@ -108,14 +108,14 @@ fn known_external_misc_values() -> TestResult {
 /// GitHub issue #7822
 #[test]
 fn known_external_subcommand_from_module() -> TestResult {
-    let output = Command::new("cargo").arg("check").arg("-h").output()?;
+    let output = Command::new("cargo").arg("add").arg("-h").output()?;
     run_test(
         r#"
             module cargo {
-                export extern check []
+                export extern add []
             };
             use cargo;
-            cargo check -h
+            cargo add -h
         "#,
         String::from_utf8(output.stdout)?.trim(),
     )
@@ -124,14 +124,14 @@ fn known_external_subcommand_from_module() -> TestResult {
 /// GitHub issue #7822
 #[test]
 fn known_external_aliased_subcommand_from_module() -> TestResult {
-    let output = Command::new("cargo").arg("check").arg("-h").output()?;
+    let output = Command::new("cargo").arg("add").arg("-h").output()?;
     run_test(
         r#"
             module cargo {
-                export extern check []
+                export extern add []
             };
             use cargo;
-            alias cc = cargo check;
+            alias cc = cargo add;
             cc -h
         "#,
         String::from_utf8(output.stdout)?.trim(),

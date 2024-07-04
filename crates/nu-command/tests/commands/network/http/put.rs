@@ -21,6 +21,25 @@ fn http_put_is_success() {
 }
 
 #[test]
+fn http_put_is_success_pipeline() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("PUT", "/").match_body("foo").create();
+
+    let actual = nu!(pipeline(
+        format!(
+            r#"
+        "foo" | http put {url} 
+        "#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(actual.out.is_empty())
+}
+
+#[test]
 fn http_put_failed_due_to_server_error() {
     let mut server = Server::new();
 
@@ -55,7 +74,9 @@ fn http_put_failed_due_to_missing_body() {
         .as_str()
     ));
 
-    assert!(actual.err.contains("Usage: http put"))
+    assert!(actual
+        .err
+        .contains("Data must be provided either through pipeline or positional argument"))
 }
 
 #[test]

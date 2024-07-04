@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, ClosureEval};
-use nu_protocol::engine::Closure;
+use nu_protocol::engine::{Closure, CommandType};
 
 #[derive(Clone)]
 pub struct Where;
@@ -17,6 +17,10 @@ impl Command for Where {
         r#"This command works similar to 'filter' but allows extra shorthands for working with
 tables, known as "row conditions". On the other hand, reading the condition from a variable is
 not supported."#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn signature(&self) -> nu_protocol::Signature {

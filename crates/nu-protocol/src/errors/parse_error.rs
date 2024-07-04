@@ -17,6 +17,13 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_tokens), help("Try removing them."))]
     ExtraTokens(#[label = "extra tokens"] Span),
 
+    #[error("Invalid characters after closing delimiter")]
+    #[diagnostic(
+        code(nu::parser::extra_token_after_closing_delimiter),
+        help("Try removing them.")
+    )]
+    ExtraTokensAfterClosingDelimiter(#[label = "invalid characters"] Span),
+
     #[error("Extra positional argument.")]
     #[diagnostic(code(nu::parser::extra_positional), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
@@ -92,6 +99,13 @@ pub enum ParseError {
         #[label = "first redirection"] Span,
         #[label = "second redirection"] Span,
     ),
+
+    #[error("Unexpected redirection.")]
+    #[diagnostic(code(nu::parser::unexpected_redirection))]
+    UnexpectedRedirection {
+        #[label = "redirecting nothing"]
+        span: Span,
+    },
 
     #[error("{0} is not supported on values of type {3}")]
     #[diagnostic(code(nu::parser::unsupported_operation))]
@@ -564,11 +578,13 @@ impl ParseError {
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::MultipleRedirections(_, _, s) => *s,
+            ParseError::UnexpectedRedirection { span } => *span,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
+            ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
+use crate::completions::{file_path_completion, Completer, CompletionOptions};
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
     Span,
@@ -91,7 +91,7 @@ impl Completer for DotNuCompletion {
             span,
             &partial,
             &search_dirs,
-            MatcherOptions::new(options).sort_by(self.get_sort_by()),
+            MatcherOptions::new(options).sort_by(SortBy::LevenshteinDistance),
             working_set.permanent_state,
             stack,
         );
@@ -126,9 +126,5 @@ impl Completer for DotNuCompletion {
                 kind: None,
             })
             .collect()
-    }
-
-    fn get_sort_by(&self) -> SortBy {
-        SortBy::LevenshteinDistance
     }
 }

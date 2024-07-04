@@ -27,7 +27,7 @@ impl Command for FormatDate {
                 SyntaxShape::String,
                 "The desired format date.",
             )
-            .category(Category::Date)
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
@@ -36,36 +36,6 @@ impl Command for FormatDate {
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["fmt", "strftime"]
-    }
-
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        if call.has_flag(engine_state, stack, "list")? {
-            return Ok(PipelineData::Value(
-                generate_strftime_list(head, false),
-                None,
-            ));
-        }
-
-        let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-
-        // This doesn't match explicit nulls
-        if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: head });
-        }
-        input.map(
-            move |value| match &format {
-                Some(format) => format_helper(value, format.item.as_str(), format.span, head),
-                None => format_helper_rfc2822(value, head),
-            },
-            engine_state.ctrlc.clone(),
-        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -104,6 +74,61 @@ impl Command for FormatDate {
             },
         ]
     }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let list = call.has_flag(engine_state, stack, "list")?;
+        let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
+        run(engine_state, call, input, list, format)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let list = call.has_flag_const(working_set, "list")?;
+        let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
+        run(working_set.permanent(), call, input, list, format)
+    }
+}
+
+fn run(
+    engine_state: &EngineState,
+    call: &Call,
+    input: PipelineData,
+    list: bool,
+    format: Option<Spanned<String>>,
+) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+    if list {
+        return Ok(PipelineData::Value(
+            generate_strftime_list(head, false),
+            None,
+        ));
+    }
+
+    // This doesn't match explicit nulls
+    if matches!(input, PipelineData::Empty) {
+        return Err(ShellError::PipelineEmpty { dst_span: head });
+    }
+    input.map(
+        move |value| match &format {
+            Some(format) => format_helper(value, format.item.as_str(), format.span, head),
+            None => format_helper_rfc2822(value, head),
+        },
+        engine_state.ctrlc.clone(),
+    )
 }
 
 fn format_from<Tz: TimeZone>(date_time: DateTime<Tz>, formatter: &str, span: Span) -> Value

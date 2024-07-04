@@ -114,6 +114,16 @@ impl ByteStreamType {
             ByteStreamType::Unknown => "byte stream",
         }
     }
+
+    /// Returns true if the type is `Binary` or `Unknown`
+    pub fn is_binary_coercible(self) -> bool {
+        matches!(self, ByteStreamType::Binary | ByteStreamType::Unknown)
+    }
+
+    /// Returns true if the type is `String` or `Unknown`
+    pub fn is_string_coercible(self) -> bool {
+        matches!(self, ByteStreamType::String | ByteStreamType::Unknown)
+    }
 }
 
 impl From<ByteStreamType> for Type {
@@ -483,7 +493,7 @@ impl ByteStream {
     /// data would have been valid UTF-8.
     pub fn into_string(self) -> Result<String, ShellError> {
         let span = self.span;
-        if self.type_ != ByteStreamType::Binary {
+        if self.type_.is_string_coercible() {
             let trim = self.stream.is_external();
             let bytes = self.into_bytes()?;
             let mut string = String::from_utf8(bytes).map_err(|err| ShellError::NonUtf8Custom {

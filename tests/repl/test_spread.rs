@@ -183,17 +183,14 @@ fn explain_spread_args() -> TestResult {
 
 #[test]
 fn disallow_implicit_spread_for_externals() -> TestResult {
-    fail_test(
-        r#"nu --testbin cococo [1 2]"#,
-        "Lists are not automatically spread",
-    )
+    fail_test(r#"^echo [1 2]"#, "Lists are not automatically spread")
 }
 
 #[test]
 fn respect_shape() -> TestResult {
     fail_test(
         "def foo [...rest] { ...$rest }; foo bar baz",
-        "executable was not found",
+        "Command `...$rest` not found",
     )
     .unwrap();
     fail_test("module foo { ...$bar }", "expected_keyword").unwrap();

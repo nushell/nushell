@@ -1,10 +1,9 @@
 use filetime::FileTime;
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
+use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
 use nu_protocol::NuGlob;
 
-use std::{fs::OpenOptions, path::Path, time::SystemTime};
+use std::{fs::OpenOptions, time::SystemTime};
 
 use super::util::get_rest_for_glob_pattern;
 
@@ -36,12 +35,12 @@ impl Command for Touch {
             )
             .switch(
                 "modified",
-                "change the modification time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
+                "change the modification time of the file or directory. If no reference file/directory is given, the current time is used",
                 Some('m'),
             )
             .switch(
                 "access",
-                "change the access time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
+                "change the access time of the file or directory. If no reference file/directory is given, the current time is used",
                 Some('a'),
             )
             .switch(
@@ -69,6 +68,8 @@ impl Command for Touch {
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
         let files: Vec<Spanned<NuGlob>> = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
 
+        let cwd = engine_state.cwd(Some(stack))?;
+
         if files.is_empty() {
             return Err(ShellError::MissingParameter {
                 param_name: "requires file paths".to_string(),
@@ -86,7 +87,7 @@ impl Command for Touch {
         }
 
         if let Some(reference) = reference {
-            let reference_path = Path::new(&reference.item);
+            let reference_path = nu_path::expand_path_with(reference.item, &cwd, true);
             if !reference_path.exists() {
                 return Err(ShellError::FileNotFoundCustom {
                     msg: "Reference path not found".into(),
@@ -113,9 +114,6 @@ impl Command for Touch {
                     span: reference.span,
                 })?;
         }
-
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
 
         for glob in files {
             let path = expand_path_with(glob.item.as_ref(), &cwd, glob.item.is_expand());
@@ -189,11 +187,6 @@ impl Command for Touch {
             Example {
                 description: r#"Changes the last modified time of file d and e to "fixture.json"'s last modified time"#,
                 example: r#"touch -m -r fixture.json d e"#,
-                result: None,
-            },
-            Example {
-                description: r#"Changes the last accessed time of "fixture.json" to a date"#,
-                example: r#"touch -a -d "August 24, 2019; 12:30:30" fixture.json"#,
                 result: None,
             },
         ]

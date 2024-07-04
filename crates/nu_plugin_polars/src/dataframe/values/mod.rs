@@ -27,6 +27,7 @@ pub enum PolarsPluginType {
     NuExpression,
     NuLazyGroupBy,
     NuWhen,
+    NuPolarsTestData,
 }
 
 impl fmt::Display for PolarsPluginType {
@@ -37,6 +38,7 @@ impl fmt::Display for PolarsPluginType {
             Self::NuExpression => write!(f, "NuExpression"),
             Self::NuLazyGroupBy => write!(f, "NuLazyGroupBy"),
             Self::NuWhen => write!(f, "NuWhen"),
+            Self::NuPolarsTestData => write!(f, "NuPolarsTestData"),
         }
     }
 }
@@ -48,6 +50,7 @@ pub enum PolarsPluginObject {
     NuExpression(NuExpression),
     NuLazyGroupBy(NuLazyGroupBy),
     NuWhen(NuWhen),
+    NuPolarsTestData(Uuid, String),
 }
 
 impl PolarsPluginObject {
@@ -95,6 +98,7 @@ impl PolarsPluginObject {
             Self::NuExpression(_) => PolarsPluginType::NuExpression,
             Self::NuLazyGroupBy(_) => PolarsPluginType::NuLazyGroupBy,
             Self::NuWhen(_) => PolarsPluginType::NuWhen,
+            Self::NuPolarsTestData(_, _) => PolarsPluginType::NuPolarsTestData,
         }
     }
 
@@ -105,6 +109,7 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuExpression(e) => e.id,
             PolarsPluginObject::NuLazyGroupBy(lg) => lg.id,
             PolarsPluginObject::NuWhen(w) => w.id,
+            PolarsPluginObject::NuPolarsTestData(id, _) => *id,
         }
     }
 
@@ -115,6 +120,9 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuExpression(e) => e.into_value(span),
             PolarsPluginObject::NuLazyGroupBy(lg) => lg.into_value(span),
             PolarsPluginObject::NuWhen(w) => w.into_value(span),
+            PolarsPluginObject::NuPolarsTestData(id, s) => {
+                Value::string(format!("{id}:{s}"), Span::test_data())
+            }
         }
     }
 }
@@ -323,7 +331,19 @@ pub trait CustomValueSupport: Cacheable {
         engine: &EngineInterface,
         span: Span,
     ) -> Result<Value, ShellError> {
-        Ok(self.cache(plugin, engine, span)?.into_value(span))
+        match self.to_cache_value()? {
+            // if it was from a lazy value, make it lazy again
+            PolarsPluginObject::NuDataFrame(df) if df.from_lazy => {
+                let df = df.lazy();
+                Ok(df.cache(plugin, engine, span)?.into_value(span))
+            }
+            // if it was from an eager value, make it eager again
+            PolarsPluginObject::NuLazyFrame(lf) if lf.from_eager => {
+                let lf = lf.collect(span)?;
+                Ok(lf.cache(plugin, engine, span)?.into_value(span))
+            }
+            _ => Ok(self.cache(plugin, engine, span)?.into_value(span)),
+        }
     }
 
     /// Caches the object, converts it to a it's CustomValue counterpart

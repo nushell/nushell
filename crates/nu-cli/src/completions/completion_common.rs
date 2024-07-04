@@ -1,9 +1,9 @@
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
-use nu_path::home_dir;
+use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Span,
+    levenshtein_distance, Span,
 };
 use nu_utils::get_ls_colors;
 use std::path::{
@@ -228,9 +228,14 @@ pub fn complete_item(
     .map(|mut p| {
         let path = original_cwd.apply(&mut p);
         let style = ls_colors.as_ref().map(|lsc| {
-            lsc.style_for_path_with_metadata(&path, std::fs::symlink_metadata(&path).ok().as_ref())
-                .map(lscolors::Style::to_nu_ansi_term_style)
-                .unwrap_or_default()
+            lsc.style_for_path_with_metadata(
+                &path,
+                std::fs::symlink_metadata(expand_to_real_path(&path))
+                    .ok()
+                    .as_ref(),
+            )
+            .map(lscolors::Style::to_nu_ansi_term_style)
+            .unwrap_or_default()
         });
         (span, p.cwd, escape_path(path, want_directory), style)
     })
@@ -293,4 +298,39 @@ pub fn adjust_if_intermediate(
         span,
         readjusted,
     }
+}
+
+/// Convenience function to sort suggestions using [`sort_completions`]
+pub fn sort_suggestions(
+    prefix: &str,
+    items: Vec<SemanticSuggestion>,
+    sort_by: SortBy,
+) -> Vec<SemanticSuggestion> {
+    sort_completions(prefix, items, sort_by, |it| &it.suggestion.value)
+}
+
+/// # Arguments
+/// * `prefix` - What the user's typed, for sorting by Levenshtein distance
+pub fn sort_completions<T>(
+    prefix: &str,
+    mut items: Vec<T>,
+    sort_by: SortBy,
+    get_value: fn(&T) -> &str,
+) -> Vec<T> {
+    // Sort items
+    match sort_by {
+        SortBy::LevenshteinDistance => {
+            items.sort_by(|a, b| {
+                let a_distance = levenshtein_distance(prefix, get_value(a));
+                let b_distance = levenshtein_distance(prefix, get_value(b));
+                a_distance.cmp(&b_distance)
+            });
+        }
+        SortBy::Ascending => {
+            items.sort_by(|a, b| get_value(a).cmp(get_value(b)));
+        }
+        SortBy::None => {}
+    };
+
+    items
 }

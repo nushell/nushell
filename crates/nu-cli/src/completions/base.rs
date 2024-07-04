@@ -1,13 +1,12 @@
-use crate::completions::{CompletionOptions, SortBy};
+use crate::completions::CompletionOptions;
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
 
-// Completer trait represents the three stages of the completion
-// fetch, filter and sort
 pub trait Completer {
+    /// Fetch, filter, and sort completions
     #[allow(clippy::too_many_arguments)]
     fn fetch(
         &mut self,
@@ -19,10 +18,6 @@ pub trait Completer {
         pos: usize,
         options: &CompletionOptions,
     ) -> Vec<SemanticSuggestion>;
-
-    fn get_sort_by(&self) -> SortBy {
-        SortBy::Ascending
-    }
 }
 
 #[derive(Debug, Default, PartialEq)]

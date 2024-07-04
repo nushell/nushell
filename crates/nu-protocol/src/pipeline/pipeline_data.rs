@@ -3,7 +3,7 @@ use crate::{
     engine::{EngineState, Stack},
     process::{ChildPipe, ChildProcess, ExitStatus},
     ByteStream, ByteStreamType, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range,
-    ShellError, Span, Value,
+    ShellError, Span, Type, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::{
@@ -96,6 +96,24 @@ impl PipelineData {
             PipelineData::Value(value, ..) => Some(value.span()),
             PipelineData::ListStream(stream, ..) => Some(stream.span()),
             PipelineData::ByteStream(stream, ..) => Some(stream.span()),
+        }
+    }
+
+    /// Get a type that is representative of the `PipelineData`.
+    ///
+    /// The type returned here makes no effort to collect a stream, so it may be a different type
+    /// than would be returned by [`Value::get_type()`] on the result of [`.into_value()`].
+    ///
+    /// Specifically, a `ListStream` results in [`list stream`](Type::ListStream) rather than
+    /// the fully complete [`list`](Type::List) type (which would require knowing the contents),
+    /// and a `ByteStream` with [unknown](crate::ByteStreamType::Unknown) type results in
+    /// [`any`](Type::Any) rather than [`string`](Type::String) or [`binary`](Type::Binary).
+    pub fn get_type(&self) -> Type {
+        match self {
+            PipelineData::Empty => Type::Nothing,
+            PipelineData::Value(value, _) => value.get_type(),
+            PipelineData::ListStream(_, _) => Type::ListStream,
+            PipelineData::ByteStream(stream, _) => stream.type_().into(),
         }
     }
 

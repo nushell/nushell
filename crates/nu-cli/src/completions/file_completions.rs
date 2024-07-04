@@ -39,7 +39,7 @@ impl Completer for FileCompletion {
         } = adjust_if_intermediate(&prefix, working_set, span);
 
         #[allow(deprecated)]
-        let output: Vec<_> = complete_item(
+        let items: Vec<_> = complete_item(
             readjusted,
             span,
             &prefix,
@@ -74,7 +74,7 @@ impl Completer for FileCompletion {
         let mut hidden: Vec<SemanticSuggestion> = vec![];
         let mut non_hidden: Vec<SemanticSuggestion> = vec![];
 
-        for item in output.into_iter() {
+        for item in items.into_iter() {
             let item_path = Path::new(&item.suggestion.value);
 
             if let Some(value) = item_path.file_name() {

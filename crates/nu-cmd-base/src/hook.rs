@@ -1,3 +1,4 @@
+use crate::util::get_guaranteed_cwd;
 use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
@@ -193,7 +194,7 @@ pub fn eval_hook(
                 let Some(follow) = val.get("code") else {
                     return Err(ShellError::CantFindColumn {
                         col_name: "code".into(),
-                        span,
+                        span: Some(span),
                         src_span: span,
                     });
                 };
@@ -283,7 +284,8 @@ pub fn eval_hook(
         }
     }
 
-    engine_state.merge_env(stack)?;
+    let cwd = get_guaranteed_cwd(engine_state, stack);
+    engine_state.merge_env(stack, cwd)?;
 
     Ok(output)
 }

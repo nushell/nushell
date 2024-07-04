@@ -1,0 +1,21 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Macros implementation of #[derive(FromValue, IntoValue)]"
+edition = "2021"
+license = "MIT"
+name = "nu-derive-value"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-derive-value"
+version = "0.95.1"
+
+[lib]
+proc-macro = true
+# we can only use exposed macros in doctests really, 
+# so we cannot test anything useful in a doctest
+doctest = false 
+
+[dependencies]
+proc-macro2 = { workspace = true }
+syn = { workspace = true }
+quote = { workspace = true }
+proc-macro-error = { workspace = true }
+convert_case = { workspace = true }

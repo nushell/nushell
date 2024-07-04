@@ -31,11 +31,6 @@ pub fn set_span(
     text_width as u16
 }
 
-pub fn lookup_tui_color(style_computer: &StyleComputer, key: &str) -> Style {
-    let nu_style = style_computer.compute(key, &Value::nothing(nu_protocol::Span::unknown()));
-    nu_style_to_tui(nu_style)
-}
-
 pub fn nu_style_to_tui(style: NuStyle) -> ratatui::style::Style {
     let mut out = ratatui::style::Style::default();
     if let Some(clr) = style.background {

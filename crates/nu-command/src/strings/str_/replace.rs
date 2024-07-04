@@ -73,6 +73,10 @@ impl Command for SubCommand {
         vec!["search", "shift", "switch", "regex"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -99,6 +103,39 @@ impl Command for SubCommand {
             multiline,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let find: Spanned<String> = call.req_const(working_set, 0)?;
+        let replace: Spanned<String> = call.req_const(working_set, 1)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 2)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let literal_replace = call.has_flag_const(working_set, "no-expand")?;
+        let no_regex = !call.has_flag_const(working_set, "regex")?
+            && !call.has_flag_const(working_set, "multiline")?;
+        let multiline = call.has_flag_const(working_set, "multiline")?;
+
+        let args = Arguments {
+            all: call.has_flag_const(working_set, "all")?,
+            find,
+            replace,
+            cell_paths,
+            literal_replace,
+            no_regex,
+            multiline,
+        };
+        operate(
+            action,
+            args,
+            input,
+            call.head,
+            working_set.permanent().ctrlc.clone(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {

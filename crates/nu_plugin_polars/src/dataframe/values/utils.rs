@@ -48,6 +48,8 @@ pub(crate) fn convert_columns(
 
 // Converts a Vec<Value> to a Vec<String> with a Span marking the whole
 // location of the columns for error referencing
+// todo - fix
+#[allow(dead_code)]
 pub(crate) fn convert_columns_string(
     columns: Vec<Value>,
     span: Span,

@@ -4,7 +4,6 @@ use nu_ansi_term::{Color, Style};
 use nu_engine::env_to_string;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_utils::get_ls_colors;
-use std::fs::symlink_metadata;
 
 pub fn create_lscolors(engine_state: &EngineState, stack: &Stack) -> LsColors {
     let colors = stack
@@ -14,6 +13,7 @@ pub fn create_lscolors(engine_state: &EngineState, stack: &Stack) -> LsColors {
     get_ls_colors(colors)
 }
 
+/// Colorizes any columns named "name" in the table using LS_COLORS
 pub fn lscolorize(header: &[String], data: &mut [Vec<NuText>], lscolors: &LsColors) {
     for (col, col_name) in header.iter().enumerate() {
         if col_name != "name" {
@@ -33,14 +33,7 @@ pub fn lscolorize(header: &[String], data: &mut [Vec<NuText>], lscolors: &LsColo
 
 fn get_path_style(path: &str, ls_colors: &LsColors) -> Option<Style> {
     let stripped_path = nu_utils::strip_ansi_unlikely(path);
-
-    let style = match symlink_metadata(stripped_path.as_ref()) {
-        Ok(metadata) => {
-            ls_colors.style_for_path_with_metadata(stripped_path.as_ref(), Some(&metadata))
-        }
-        Err(_) => ls_colors.style_for_path(stripped_path.as_ref()),
-    };
-
+    let style = ls_colors.style_for_str(stripped_path.as_ref());
     style.map(lsstyle_to_nu_style)
 }
 
