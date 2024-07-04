@@ -37,7 +37,7 @@ struct MutableState {
     preferred_mode: Option<PreferredCommunicationMode>,
     /// Garbage collector config
     gc_config: PluginGcConfig,
-    /// TODO: docs
+    /// Pool of ctrl-c handlers to subscribe to
     ctrlc_handlers: Option<ctrlc::Handlers>,
 }
 
