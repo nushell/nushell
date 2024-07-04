@@ -295,11 +295,7 @@ pub fn add_plugin_to_working_set(
 
     // Add it to / get it from the working set
     let plugin = working_set.find_or_create_plugin(identity, || {
-        Arc::new(PersistentPlugin::new(
-            identity.clone(),
-            gc_config.clone(),
-            working_set.permanent_state.ctrlc_handlers.clone(),
-        ))
+        Arc::new(PersistentPlugin::new(identity.clone(), gc_config.clone()))
     });
 
     plugin.set_gc_config(&gc_config);

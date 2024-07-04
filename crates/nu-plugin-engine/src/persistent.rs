@@ -37,8 +37,8 @@ struct MutableState {
     preferred_mode: Option<PreferredCommunicationMode>,
     /// Garbage collector config
     gc_config: PluginGcConfig,
-    /// Pool of ctrl-c handlers to subscribe to
-    ctrlc_handlers: Option<ctrlc::Handlers>,
+    /// RAII guard for this plugin's ctrl-c handler
+    ctrlc_guard: Option<ctrlc::Guard>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -54,17 +54,11 @@ struct RunningPlugin {
     interface: PluginInterface,
     /// Garbage collector for the plugin
     gc: PluginGc,
-    /// RAII guard for this plugin's ctrl-c handler
-    _ctrlc_guard: Option<ctrlc::Guard>,
 }
 
 impl PersistentPlugin {
     /// Create a new persistent plugin. The plugin will not be spawned immediately.
-    pub fn new(
-        identity: PluginIdentity,
-        gc_config: PluginGcConfig,
-        ctrlc_handlers: Option<ctrlc::Handlers>,
-    ) -> PersistentPlugin {
+    pub fn new(identity: PluginIdentity, gc_config: PluginGcConfig) -> PersistentPlugin {
         PersistentPlugin {
             identity,
             mutable: Mutex::new(MutableState {
@@ -72,7 +66,7 @@ impl PersistentPlugin {
                 metadata: None,
                 preferred_mode: None,
                 gc_config,
-                ctrlc_handlers,
+                ctrlc_guard: None,
             }),
         }
     }
@@ -220,22 +214,7 @@ impl PersistentPlugin {
             return self.spawn(envs, mutable);
         }
 
-        let guard = mutable
-            .ctrlc_handlers
-            .as_mut()
-            .map(|ctrlc_handlers| {
-                let interface = interface.clone();
-                ctrlc_handlers.register(Box::new(move || {
-                    let _ = interface.ctrlc();
-                }))
-            })
-            .transpose()?;
-
-        mutable.running = Some(RunningPlugin {
-            interface,
-            gc,
-            _ctrlc_guard: guard.clone(),
-        });
+        mutable.running = Some(RunningPlugin { interface, gc });
         Ok(())
     }
 
@@ -317,6 +296,12 @@ impl RegisteredPlugin for PersistentPlugin {
                 gc.set_config(gc_config.clone());
                 gc.flush();
             }
+        }
+    }
+
+    fn set_ctrlc_handler_guard(&self, guard: ctrlc::Guard) {
+        if let Ok(mut mutable) = self.mutable.lock() {
+            mutable.ctrlc_guard = Some(guard);
         }
     }
 

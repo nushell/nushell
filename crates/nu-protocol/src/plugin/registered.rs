@@ -1,6 +1,6 @@
 use std::{any::Any, sync::Arc};
 
-use crate::{PluginGcConfig, PluginIdentity, PluginMetadata, ShellError};
+use crate::{engine::ctrlc, PluginGcConfig, PluginIdentity, PluginMetadata, ShellError};
 
 /// Trait for plugins registered in the [`EngineState`](crate::engine::EngineState).
 pub trait RegisteredPlugin: Send + Sync {
@@ -21,6 +21,9 @@ pub trait RegisteredPlugin: Send + Sync {
 
     /// Set garbage collection config for the plugin.
     fn set_gc_config(&self, gc_config: &PluginGcConfig);
+
+    /// Set a reference to the raii guard for the plugin's Ctrl-C handler.
+    fn set_ctrlc_handler_guard(&self, guard: ctrlc::Guard);
 
     /// Stop the plugin.
     fn stop(&self) -> Result<(), ShellError>;
