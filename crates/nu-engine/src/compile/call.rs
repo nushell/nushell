@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::{Argument, Block, Call, Expression, ExternalArgument},
     engine::StateWorkingSet,
     ir::{Instruction, Literal},
-    IntoSpanned, RegId, Span,
+    IntoSpanned, RegId, Span, Spanned,
 };
 
 use super::{compile_expression, keyword::*, BlockBuilder, CompileError, RedirectModes};
@@ -16,8 +16,19 @@ pub(crate) fn compile_call(
     redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    // First, try to figure out if this is a keyword call like `if`, and handle those specially
     let decl = working_set.get_decl(call.decl_id);
+
+    // Check if this call has --help - if so, just redirect to `help`
+    if call.named_iter().any(|(name, _, _)| name.item == "help") {
+        return compile_help(
+            working_set,
+            builder,
+            decl.name().into_spanned(call.head),
+            io_reg,
+        );
+    }
+
+    // Try to figure out if this is a keyword call like `if`, and handle those specially
     if decl.is_keyword() {
         match decl.name() {
             "if" => {
@@ -30,8 +41,11 @@ pub(crate) fn compile_call(
                 // This differs from the behavior of the const command, which adds the const value
                 // to the stack. Since `load-variable` also checks `engine_state` for the variable
                 // and will get a const value though, is it really necessary to do that?
-                builder.load_empty(io_reg)?;
-                return Ok(());
+                return builder.load_empty(io_reg);
+            }
+            "alias" => {
+                // Alias does nothing
+                return builder.load_empty(io_reg);
             }
             "let" | "mut" => {
                 return compile_let(working_set, builder, call, redirect_modes, io_reg);
@@ -160,6 +174,36 @@ pub(crate) fn compile_call(
             src_dst: io_reg,
         }
         .into_spanned(call.head),
+    )?;
+
+    Ok(())
+}
+
+pub(crate) fn compile_help(
+    working_set: &StateWorkingSet<'_>,
+    builder: &mut BlockBuilder,
+    decl_name: Spanned<&str>,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    let help_command_id =
+        working_set
+            .find_decl(b"help")
+            .ok_or_else(|| CompileError::MissingRequiredDeclaration {
+                decl_name: "help".into(),
+                span: decl_name.span,
+            })?;
+
+    let name_data = builder.data(decl_name.item)?;
+    let name_literal = builder.literal(decl_name.map(|_| Literal::String(name_data)))?;
+
+    builder.push(Instruction::PushPositional { src: name_literal }.into_spanned(decl_name.span))?;
+
+    builder.push(
+        Instruction::Call {
+            decl_id: help_command_id,
+            src_dst: io_reg,
+        }
+        .into_spanned(decl_name.span),
     )?;
 
     Ok(())
