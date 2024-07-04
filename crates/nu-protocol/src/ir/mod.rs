@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    ast::{CellPath, Expression, Operator, RangeInclusion},
+    ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
     engine::EngineState,
     BlockId, DeclId, RegId, Span, VarId,
 };
@@ -147,6 +147,14 @@ pub enum Instruction {
     /// Branch to an offset in this block if the value of the `cond` register is a true boolean,
     /// otherwise continue execution
     BranchIf { cond: RegId, index: usize },
+    /// Match a pattern on `src`. If the pattern matches, branch to `index` after having set any
+    /// variables captured by the pattern. If the pattern doesn't match, continue execution. The
+    /// original value is preserved in `src` through this instruction.
+    Match {
+        pattern: Box<Pattern>,
+        src: RegId,
+        index: usize,
+    },
     /// Iterate on register `stream`, putting the next value in `dst` if present, or jumping to
     /// `end_index` if the iterator is finished
     Iterate {

@@ -131,6 +131,153 @@ pub(crate) fn compile_if(
     Ok(())
 }
 
+/// Compile a call to `match`
+pub(crate) fn compile_match(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    // Pseudocode:
+    //
+    //         %match_reg <- <match_expr>
+    //         collect %match_reg
+    //         match (pat1), %match_reg, PAT1
+    // MATCH2: match (pat2), %match_reg, PAT2
+    // FAIL:   drop %io_reg
+    //         drop %match_reg
+    //         jump END
+    // PAT1:   %guard_reg <- <guard_expr>
+    //         not %guard_reg
+    //         branch-if %guard_reg, MATCH2
+    //         drop %match_reg
+    //         <...expr...>
+    //         jump END
+    // PAT2:   drop %match_reg
+    //         <...expr...>
+    //         jump END
+    // END:
+    let invalid = || CompileError::InvalidKeywordCall {
+        keyword: "match".into(),
+        span: call.head,
+    };
+
+    let match_expr = call.positional_nth(0).ok_or_else(invalid)?;
+
+    let match_block_arg = call.positional_nth(1).ok_or_else(invalid)?;
+    let match_block = match_block_arg.as_match_block().ok_or_else(invalid)?;
+
+    let match_reg = builder.next_register()?;
+
+    // Evaluate the match expression (patterns will be checked against this).
+    compile_expression(
+        working_set,
+        builder,
+        match_expr,
+        redirect_modes.with_capture_out(match_expr.span),
+        None,
+        match_reg,
+    )?;
+
+    // Important to collect it first
+    builder.push(Instruction::Collect { src_dst: match_reg }.into_spanned(match_expr.span))?;
+
+    // Generate the `match` instructions. Guards are not used at this stage.
+    let match_offset = builder.next_instruction_index();
+
+    for (pattern, _) in match_block {
+        builder.push(
+            Instruction::Match {
+                pattern: Box::new(pattern.pattern.clone()),
+                src: match_reg,
+                index: usize::MAX, // placeholder
+            }
+            .into_spanned(pattern.span),
+        )?;
+    }
+
+    let mut end_jumps = Vec::with_capacity(match_block.len() + 1);
+
+    // Match fall-through to jump to the end, if no match
+    builder.load_empty(io_reg)?;
+    builder.drop_reg(match_reg)?;
+    end_jumps.push(builder.jump_placeholder(call.head)?);
+
+    // Generate each of the match expressions. Handle guards here, if present.
+    for (index, (pattern, expr)) in match_block.iter().enumerate() {
+        // `io_reg` and `match_reg` are still valid at each of these branch targets
+        builder.mark_register(io_reg)?;
+        builder.mark_register(match_reg)?;
+
+        // Set the original match instruction target here
+        builder.set_branch_target(match_offset + index, builder.next_instruction_index())?;
+
+        // Handle guard, if present
+        if let Some(guard) = &pattern.guard {
+            let guard_reg = builder.next_register()?;
+            compile_expression(
+                working_set,
+                builder,
+                guard,
+                redirect_modes.with_capture_out(guard.span),
+                None,
+                guard_reg,
+            )?;
+            builder.push(Instruction::Not { src_dst: guard_reg }.into_spanned(guard.span))?;
+            // Branch to the next match instruction if the branch fails to match
+            builder.push(
+                Instruction::BranchIf {
+                    cond: guard_reg,
+                    index: match_offset + index + 1,
+                }
+                .into_spanned(
+                    // Span the branch with the next pattern, or the head if this is the end
+                    match_block
+                        .get(index + 1)
+                        .map(|b| b.0.span)
+                        .unwrap_or(call.head),
+                ),
+            )?;
+        }
+
+        // match_reg no longer needed, successful match
+        builder.drop_reg(match_reg)?;
+
+        // Execute match right hand side expression
+        if let Some(block_id) = expr.as_block() {
+            let block = working_set.get_block(block_id);
+            compile_block(
+                working_set,
+                builder,
+                block,
+                redirect_modes.clone(),
+                Some(io_reg),
+                io_reg,
+            )?;
+        } else {
+            compile_expression(
+                working_set,
+                builder,
+                expr,
+                redirect_modes.clone(),
+                Some(io_reg),
+                io_reg,
+            )?;
+        }
+
+        // Rewrite this jump to the end afterward
+        end_jumps.push(builder.jump_placeholder(call.head)?);
+    }
+
+    // Rewrite the end jumps to the next instruction
+    for index in end_jumps {
+        builder.set_branch_target(index, builder.next_instruction_index())?;
+    }
+
+    Ok(())
+}
+
 /// Compile a call to `let` or `mut` (just do store-variable)
 pub(crate) fn compile_let(
     working_set: &StateWorkingSet,

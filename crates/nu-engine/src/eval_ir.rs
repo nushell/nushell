@@ -4,7 +4,7 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
-    engine::{Argument, Closure, EngineState, ErrorHandler, Redirection, Stack},
+    engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     record, DeclId, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData, Range,
     Record, RegId, ShellError, Span, Spanned, Value, VarId,
@@ -37,6 +37,7 @@ pub fn eval_ir_block<D: DebugContext>(
                 error_handler_base,
                 redirect_out: None,
                 redirect_err: None,
+                matches: vec![],
                 registers: &mut registers[..],
             },
             &block_span,
@@ -76,6 +77,8 @@ struct EvalContext<'a> {
     redirect_out: Option<Redirection>,
     /// State set by redirect-err
     redirect_err: Option<Redirection>,
+    /// Scratch space to use for `match`
+    matches: Vec<(VarId, Value)>,
     registers: &'a mut [PipelineData],
 }
 
@@ -508,6 +511,32 @@ fn eval_instruction(
                 Ok(Continue)
             }
         }
+        Instruction::Match {
+            pattern,
+            src,
+            index,
+        } => {
+            let data = ctx.take_reg(*src);
+            let PipelineData::Value(value, metadata) = data else {
+                return Err(ShellError::IrEvalError {
+                    msg: "must collect value before match".into(),
+                    span: Some(*span),
+                });
+            };
+            ctx.matches.clear();
+            if pattern.match_value(&value, &mut ctx.matches) {
+                // Match succeeded: set variables and branch
+                for (var_id, match_value) in ctx.matches.drain(..) {
+                    ctx.stack.add_var(var_id, match_value);
+                }
+                Ok(Branch(*index))
+            } else {
+                // Failed to match, put back original value
+                ctx.matches.clear();
+                ctx.put_reg(*src, PipelineData::Value(value, metadata));
+                Ok(Continue)
+            }
+        }
         Instruction::Iterate {
             dst,
             stream,
@@ -720,15 +749,15 @@ fn eval_call(
     let mut stack = stack.push_redirection(redirect_out.take(), redirect_err.take());
 
     // should this be precalculated? ideally we just use the call builder...
-    let span = stack
-        .arguments
-        .get_args(*args_base, args_len)
-        .into_iter()
-        .fold(head, |span, arg| {
-            arg.span()
-                .map(|arg_span| span.append(arg_span))
-                .unwrap_or(span)
-        });
+    let span = Span::merge_many(
+        std::iter::once(head).chain(
+            stack
+                .arguments
+                .get_args(*args_base, args_len)
+                .into_iter()
+                .flat_map(|arg| arg.span()),
+        ),
+    );
     let call = Call {
         decl_id,
         head,

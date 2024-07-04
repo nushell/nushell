@@ -65,6 +65,7 @@ impl BlockBuilder {
     }
 
     /// Mark a register as empty, so that it can be used again by something else.
+    #[track_caller]
     pub(crate) fn free_register(&mut self, reg_id: RegId) -> Result<(), CompileError> {
         let index = reg_id.0 as usize;
 
@@ -77,7 +78,10 @@ impl BlockBuilder {
             Ok(())
         } else {
             log::warn!("register {reg_id} uninitialized, builder = {self:#?}");
-            Err(CompileError::RegisterUninitialized { reg_id })
+            Err(CompileError::RegisterUninitialized {
+                reg_id,
+                caller: std::panic::Location::caller().to_string(),
+            })
         }
     }
 
@@ -85,6 +89,7 @@ impl BlockBuilder {
     /// the instruction, and freeing any registers consumed by the instruction.
     ///
     /// Returns the offset of the inserted instruction.
+    #[track_caller]
     pub(crate) fn push(
         &mut self,
         instruction: Spanned<Instruction>,
@@ -193,6 +198,11 @@ impl BlockBuilder {
             }
             Instruction::Jump { index: _ } => (),
             Instruction::BranchIf { cond, index: _ } => self.free_register(*cond)?,
+            Instruction::Match {
+                pattern: _,
+                src: _,
+                index: _,
+            } => (),
             Instruction::Iterate {
                 dst,
                 stream: _,
@@ -304,6 +314,7 @@ impl BlockBuilder {
     }
 
     /// Modify a branching instruction's branch target `index`
+    #[track_caller]
     pub(crate) fn set_branch_target(
         &mut self,
         instruction_index: usize,
@@ -313,6 +324,7 @@ impl BlockBuilder {
             Some(
                 Instruction::BranchIf { index, .. }
                 | Instruction::Jump { index }
+                | Instruction::Match { index, .. }
                 | Instruction::Iterate {
                     end_index: index, ..
                 }
@@ -322,7 +334,17 @@ impl BlockBuilder {
                 *index = target_index;
                 Ok(())
             }
-            Some(_) => Err(CompileError::SetBranchTargetOfNonBranchInstruction),
+            Some(_) => {
+                let other = &self.instructions[instruction_index];
+
+                log::warn!("set branch target failed ({instruction_index} => {target_index}), target instruction = {other:?}, builder = {self:#?}");
+
+                Err(CompileError::SetBranchTargetOfNonBranchInstruction {
+                    instruction: format!("{other:?}"),
+                    span: self.spans[instruction_index],
+                    caller: std::panic::Location::caller().to_string(),
+                })
+            }
             None => Err(CompileError::InstructionIndexOutOfRange {
                 index: instruction_index,
             }),

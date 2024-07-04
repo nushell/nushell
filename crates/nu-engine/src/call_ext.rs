@@ -263,10 +263,13 @@ impl CallExt for ir::Call {
 
     fn opt_const<T: FromValue>(
         &self,
-        working_set: &StateWorkingSet,
-        pos: usize,
+        _working_set: &StateWorkingSet,
+        _pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        todo!("opt_const is not yet implemented on ir::Call")
+        Err(ShellError::IrEvalError {
+            msg: "const evaluation is not yet implemented on ir::Call".into(),
+            span: Some(self.head),
+        })
     }
 
     fn req<T: FromValue>(

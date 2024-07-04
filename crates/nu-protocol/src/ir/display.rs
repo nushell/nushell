@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{engine::EngineState, DeclId, VarId};
+use crate::{ast::Pattern, engine::EngineState, DeclId, VarId};
 
 use super::{DataSlice, Instruction, IrBlock, Literal, RedirectMode};
 
@@ -167,6 +167,17 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::BranchIf { cond, index } => {
                 write!(f, "{:WIDTH$} {cond}, {index}", "branch-if")
             }
+            Instruction::Match {
+                pattern,
+                src,
+                index,
+            } => {
+                let pattern = FmtPattern {
+                    engine_state: self.engine_state,
+                    pattern,
+                };
+                write!(f, "{:WIDTH$} ({pattern}), {src}, {index}", "match")
+            }
             Instruction::Iterate {
                 dst,
                 stream,
@@ -295,6 +306,79 @@ impl<'a> fmt::Display for FmtLiteral<'a> {
             Literal::RawString(rs) => write!(f, "raw-string({})", FmtData(self.data, *rs)),
             Literal::CellPath(p) => write!(f, "cell-path({p})"),
             Literal::Nothing => write!(f, "nothing"),
+        }
+    }
+}
+
+struct FmtPattern<'a> {
+    engine_state: &'a EngineState,
+    pattern: &'a Pattern,
+}
+
+impl<'a> fmt::Display for FmtPattern<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.pattern {
+            Pattern::Record(bindings) => {
+                f.write_str("{")?;
+                for (name, pattern) in bindings {
+                    write!(
+                        f,
+                        "{}: {}",
+                        name,
+                        FmtPattern {
+                            engine_state: self.engine_state,
+                            pattern: &pattern.pattern,
+                        }
+                    )?;
+                }
+                f.write_str("}")
+            }
+            Pattern::List(bindings) => {
+                f.write_str("[")?;
+                for pattern in bindings {
+                    write!(
+                        f,
+                        "{}",
+                        FmtPattern {
+                            engine_state: self.engine_state,
+                            pattern: &pattern.pattern
+                        }
+                    )?;
+                }
+                f.write_str("]")
+            }
+            Pattern::Value(expr) => {
+                let string =
+                    String::from_utf8_lossy(self.engine_state.get_span_contents(expr.span));
+                f.write_str(&string)
+            }
+            Pattern::Variable(var_id) => {
+                let variable = FmtVar::new(self.engine_state, *var_id);
+                write!(f, "{}", variable)
+            }
+            Pattern::Or(patterns) => {
+                for (index, pattern) in patterns.iter().enumerate() {
+                    if index > 0 {
+                        f.write_str(" | ")?;
+                    }
+                    write!(
+                        f,
+                        "{}",
+                        FmtPattern {
+                            engine_state: self.engine_state,
+                            pattern: &pattern.pattern
+                        }
+                    )?;
+                }
+                Ok(())
+            }
+            Pattern::Rest(var_id) => {
+                let variable = FmtVar::new(self.engine_state, *var_id);
+                write!(f, "..{}", variable)
+            }
+            Pattern::IgnoreRest => f.write_str(".."),
+            Pattern::IgnoreValue => f.write_str("_"),
+            Pattern::Garbage => f.write_str("<garbage>"),
         }
     }
 }

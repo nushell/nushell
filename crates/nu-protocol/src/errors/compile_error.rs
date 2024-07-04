@@ -17,9 +17,9 @@ pub enum CompileError {
     #[error("Register {reg_id} was uninitialized when used, possibly reused.")]
     #[diagnostic(
         code(nu::compile::register_uninitialized),
-        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new")
+        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new\nfrom: {caller}"),
     )]
-    RegisterUninitialized { reg_id: RegId },
+    RegisterUninitialized { reg_id: RegId, caller: String },
 
     #[error("Block contains too much string data: maximum 4 GiB exceeded.")]
     #[diagnostic(
@@ -62,8 +62,16 @@ pub enum CompileError {
     },
 
     #[error("Attempted to set branch target of non-branch instruction.")]
-    #[diagnostic(code(nu::compile::set_branch_target_of_non_branch_instruction))]
-    SetBranchTargetOfNonBranchInstruction,
+    #[diagnostic(
+        code(nu::compile::set_branch_target_of_non_branch_instruction),
+        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new\nfrom: {caller}"),
+    )]
+    SetBranchTargetOfNonBranchInstruction {
+        instruction: String,
+        #[label("tried to modify: {instruction}")]
+        span: Span,
+        caller: String,
+    },
 
     #[error("Instruction index out of range: {index}.")]
     #[diagnostic(code(nu::compile::instruction_index_out_of_range))]

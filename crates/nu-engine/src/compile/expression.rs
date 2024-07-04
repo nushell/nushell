@@ -188,7 +188,7 @@ pub(crate) fn compile_expression(
         }
         Expr::Block(block_id) => lit(builder, Literal::Block(*block_id)),
         Expr::Closure(block_id) => lit(builder, Literal::Closure(*block_id)),
-        Expr::MatchBlock(_) => Err(todo("MatchBlock")),
+        Expr::MatchBlock(_) => Err(unexpected("MatchBlock")), // only for `match` keyword
         Expr::List(items) => {
             // Guess capacity based on items (does not consider spread as more than 1)
             lit(

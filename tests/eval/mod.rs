@@ -277,6 +277,11 @@ fn mut_variable_append_assign() {
 }
 
 #[test]
+fn bind_in_variable_to_input() {
+    test_eval("3 | (4 + $in)", Eq("7"))
+}
+
+#[test]
 fn if_true() {
     test_eval("if true { 'foo' }", Eq("foo"))
 }
@@ -294,6 +299,50 @@ fn if_else_true() {
 #[test]
 fn if_else_false() {
     test_eval("if 5 < 3 { 'foo' } else { 'bar' }", Eq("bar"))
+}
+
+#[test]
+fn match_empty_fallthrough() {
+    test_eval("match 42 { }; 'pass'", Eq("pass"))
+}
+
+#[test]
+fn match_value() {
+    test_eval("match 1 { 1 => 'pass', 2 => 'fail' }", Eq("pass"))
+}
+
+#[test]
+fn match_value_default() {
+    test_eval(
+        "match 3 { 1 => 'fail1', 2 => 'fail2', _ => 'pass' }",
+        Eq("pass"),
+    )
+}
+
+#[test]
+fn match_value_fallthrough() {
+    test_eval("match 3 { 1 => 'fail1', 2 => 'fail2' }", Eq(""))
+}
+
+#[test]
+fn match_variable() {
+    test_eval(
+        "match 'pass' { $s => { print $s }, _ => { print 'fail' } }",
+        Eq("pass"),
+    )
+}
+
+#[test]
+fn match_variable_in_list() {
+    test_eval("match [fail pass] { [$f, $p] => { print $p } }", Eq("pass"))
+}
+
+#[test]
+fn match_passthrough_input() {
+    test_eval(
+        "'yes' | match [pass fail] { [$p, ..] => (collect { |y| $y ++ $p }) }",
+        Eq("yespass"),
+    )
 }
 
 #[test]

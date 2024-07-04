@@ -39,7 +39,7 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
         let value = parse_value(working_set, span, &SyntaxShape::Any);
 
         MatchPattern {
-            pattern: Pattern::Value(value),
+            pattern: Pattern::Value(Box::new(value)),
             guard: None,
             span,
         }

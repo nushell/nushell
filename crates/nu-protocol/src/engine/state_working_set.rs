@@ -260,6 +260,12 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn add_block(&mut self, block: Arc<Block>) -> BlockId {
+        log::trace!(
+            "block id={} added, has IR = {:?}",
+            self.num_blocks(),
+            block.ir_block.is_some()
+        );
+
         self.delta.blocks.push(block);
 
         self.num_blocks() - 1
