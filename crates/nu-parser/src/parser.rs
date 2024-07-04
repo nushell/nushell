@@ -5419,8 +5419,6 @@ pub fn parse_builtin_commands(
         b"export" => parse_export_in_block(working_set, lite_command),
         b"hide" => parse_hide(working_set, lite_command),
         b"where" => parse_where(working_set, lite_command),
-        #[cfg(feature = "plugin")]
-        b"register" => parse_register(working_set, lite_command),
         // Only "plugin use" is a keyword
         #[cfg(feature = "plugin")]
         b"plugin"
