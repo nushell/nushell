@@ -11,6 +11,14 @@ pub struct Handlers {
     next_id: Arc<Sequence>,
 }
 
+impl Debug for Handlers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Handlers")
+            .field("next_id", &self.next_id)
+            .finish()
+    }
+}
+
 #[derive(Clone)]
 pub struct Guard {
     id: usize,

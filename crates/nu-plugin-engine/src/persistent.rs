@@ -37,6 +37,8 @@ struct MutableState {
     preferred_mode: Option<PreferredCommunicationMode>,
     /// Garbage collector config
     gc_config: PluginGcConfig,
+    /// TODO: docs
+    ctrlc_handlers: Option<ctrlc::Handlers>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -58,7 +60,11 @@ struct RunningPlugin {
 
 impl PersistentPlugin {
     /// Create a new persistent plugin. The plugin will not be spawned immediately.
-    pub fn new(identity: PluginIdentity, gc_config: PluginGcConfig) -> PersistentPlugin {
+    pub fn new(
+        identity: PluginIdentity,
+        gc_config: PluginGcConfig,
+        ctrlc_handlers: Option<ctrlc::Handlers>,
+    ) -> PersistentPlugin {
         PersistentPlugin {
             identity,
             mutable: Mutex::new(MutableState {
@@ -66,6 +72,7 @@ impl PersistentPlugin {
                 metadata: None,
                 preferred_mode: None,
                 gc_config,
+                ctrlc_handlers,
             }),
         }
     }
@@ -77,7 +84,6 @@ impl PersistentPlugin {
     pub fn get(
         self: Arc<Self>,
         envs: impl FnOnce() -> Result<HashMap<String, String>, ShellError>,
-        ctrlc_handlers: Option<ctrlc::Handlers>,
     ) -> Result<PluginInterface, ShellError> {
         let mut mutable = self.mutable.lock().map_err(|_| ShellError::NushellFailed {
             msg: format!(
@@ -99,9 +105,7 @@ impl PersistentPlugin {
             // TODO: We should probably store the envs somewhere, in case we have to launch without
             // envs (e.g. from a custom value)
             let envs = envs()?;
-            let result = self
-                .clone()
-                .spawn(&envs, &mut mutable, ctrlc_handlers.clone());
+            let result = self.clone().spawn(&envs, &mut mutable);
 
             // Check if we were using an alternate communication mode and may need to fall back to
             // stdio.
@@ -116,7 +120,7 @@ impl PersistentPlugin {
                     mutable.preferred_mode);
                 // Reset to stdio and try again, but this time don't catch any error
                 mutable.preferred_mode = Some(PreferredCommunicationMode::Stdio);
-                self.clone().spawn(&envs, &mut mutable, ctrlc_handlers)?;
+                self.clone().spawn(&envs, &mut mutable)?;
             }
 
             Ok(mutable
@@ -135,7 +139,6 @@ impl PersistentPlugin {
         self: Arc<Self>,
         envs: &HashMap<String, String>,
         mutable: &mut MutableState,
-        ctrlc_handlers: Option<ctrlc::Handlers>,
     ) -> Result<(), ShellError> {
         // Make sure `running` is set to None to begin
         if let Some(running) = mutable.running.take() {
@@ -214,10 +217,12 @@ impl PersistentPlugin {
             gc.stop_tracking();
             // Set the mode and try again
             mutable.preferred_mode = Some(PreferredCommunicationMode::LocalSocket);
-            return self.spawn(envs, mutable, ctrlc_handlers);
+            return self.spawn(envs, mutable);
         }
 
-        let guard = ctrlc_handlers
+        let guard = mutable
+            .ctrlc_handlers
+            .as_mut()
             .map(|ctrlc_handlers| {
                 let interface = interface.clone();
                 ctrlc_handlers.register(Box::new(move || {
@@ -229,7 +234,7 @@ impl PersistentPlugin {
         mutable.running = Some(RunningPlugin {
             interface,
             gc,
-            _ctrlc_guard: guard,
+            _ctrlc_guard: guard.clone(),
         });
         Ok(())
     }
@@ -335,26 +340,20 @@ impl GetPlugin for PersistentPlugin {
         self: Arc<Self>,
         mut context: Option<(&EngineState, &mut Stack)>,
     ) -> Result<PluginInterface, ShellError> {
-        let ctrlc_handlers = context
-            .as_ref()
-            .and_then(|(engine_state, _)| engine_state.ctrlc_handlers.clone());
-        self.get(
-            || {
-                // Get envs from the context if provided.
-                let envs = context
-                    .as_mut()
-                    .map(|(engine_state, stack)| {
-                        // We need the current environment variables for `python` based plugins. Or
-                        // we'll likely have a problem when a plugin is implemented in a virtual Python
-                        // environment.
-                        let stack = &mut stack.start_capture();
-                        nu_engine::env::env_to_strings(engine_state, stack)
-                    })
-                    .transpose()?;
+        self.get(|| {
+            // Get envs from the context if provided.
+            let envs = context
+                .as_mut()
+                .map(|(engine_state, stack)| {
+                    // We need the current environment variables for `python` based plugins. Or
+                    // we'll likely have a problem when a plugin is implemented in a virtual Python
+                    // environment.
+                    let stack = &mut stack.start_capture();
+                    nu_engine::env::env_to_strings(engine_state, stack)
+                })
+                .transpose()?;
 
-                Ok(envs.unwrap_or_default())
-            },
-            ctrlc_handlers,
-        )
+            Ok(envs.unwrap_or_default())
+        })
     }
 }

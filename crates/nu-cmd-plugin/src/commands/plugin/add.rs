@@ -109,13 +109,15 @@ apparent the next time `nu` is next launched with that plugin registry file.
         let custom_path = call.get_flag(engine_state, stack, "plugin-config")?;
 
         // Start the plugin manually, to get the freshest signatures and to not affect engine
-        // state. Provide a GC config that will stop it ASAP
+        // state. Provide a GC config that will stop it ASAP. We don't pass ctrlc_handlers since
+        // this instance is temporary and won't be used to run commands.
         let plugin = Arc::new(PersistentPlugin::new(
             identity,
             PluginGcConfig {
                 enabled: true,
                 stop_after: 0,
             },
+            None,
         ));
         let interface = plugin.clone().get_plugin(Some((engine_state, stack)))?;
         let metadata = interface.get_metadata()?;
