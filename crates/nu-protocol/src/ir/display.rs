@@ -291,6 +291,8 @@ impl<'a> fmt::Display for FmtLiteral<'a> {
             Literal::Bool(b) => write!(f, "bool({b:?})"),
             Literal::Int(i) => write!(f, "int({i:?})"),
             Literal::Float(fl) => write!(f, "float({fl:?})"),
+            Literal::Filesize(q) => write!(f, "filesize({q}b)"),
+            Literal::Duration(q) => write!(f, "duration({q}ns)"),
             Literal::Binary(b) => write!(f, "binary({})", FmtData(self.data, *b)),
             Literal::Block(id) => write!(f, "block({id})"),
             Literal::Closure(id) => write!(f, "closure({id})"),

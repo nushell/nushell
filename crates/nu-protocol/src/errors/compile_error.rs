@@ -122,6 +122,13 @@ pub enum CompileError {
         span: Span,
     },
 
+    #[error("Invalid literal")]
+    InvalidLiteral {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
+
     #[error("TODO: {msg}")]
     #[diagnostic(code(nu::compile::todo), help("IR compilation is a work in progress"))]
     Todo {

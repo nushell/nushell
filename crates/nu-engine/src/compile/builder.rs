@@ -112,6 +112,8 @@ impl BlockBuilder {
                     Literal::Bool(_)
                     | Literal::Int(_)
                     | Literal::Float(_)
+                    | Literal::Filesize(_)
+                    | Literal::Duration(_)
                     | Literal::Binary(_)
                     | Literal::Block(_)
                     | Literal::Closure(_)

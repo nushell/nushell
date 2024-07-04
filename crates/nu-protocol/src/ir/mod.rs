@@ -209,6 +209,8 @@ pub enum Literal {
     Bool(bool),
     Int(i64),
     Float(f64),
+    Filesize(i64),
+    Duration(i64),
     Binary(DataSlice),
     Block(BlockId),
     Closure(BlockId),

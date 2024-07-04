@@ -4,10 +4,10 @@ use super::{
 };
 
 use nu_protocol::{
-    ast::{CellPath, Expr, Expression, ListItem, RecordItem},
+    ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
-    IntoSpanned, RegId, ENV_VARIABLE_ID,
+    IntoSpanned, RegId, Span, Value, ENV_VARIABLE_ID,
 };
 
 pub(crate) fn compile_expression(
@@ -372,7 +372,9 @@ pub(crate) fn compile_expression(
             Ok(())
         }
         Expr::Keyword(_) => Err(unexpected("Keyword")),
-        Expr::ValueWithUnit(_) => Err(todo("ValueWithUnit")),
+        Expr::ValueWithUnit(value_with_unit) => {
+            lit(builder, literal_from_value_with_unit(value_with_unit)?)
+        }
         Expr::DateTime(_) => Err(todo("DateTime")),
         Expr::Filepath(path, no_expand) => {
             let val = builder.data(path)?;
@@ -504,5 +506,30 @@ pub(crate) fn compile_expression(
         }
         Expr::Nothing => lit(builder, Literal::Nothing),
         Expr::Garbage => Err(CompileError::Garbage { span: expr.span }),
+    }
+}
+
+fn literal_from_value_with_unit(value_with_unit: &ValueWithUnit) -> Result<Literal, CompileError> {
+    let Expr::Int(int_value) = value_with_unit.expr.expr else {
+        return Err(CompileError::UnexpectedExpression {
+            expr_name: format!("{:?}", value_with_unit.expr),
+            span: value_with_unit.expr.span,
+        });
+    };
+
+    match value_with_unit
+        .unit
+        .item
+        .build_value(int_value, Span::unknown())
+        .map_err(|err| CompileError::InvalidLiteral {
+            msg: err.to_string(),
+            span: value_with_unit.expr.span,
+        })? {
+        Value::Filesize { val, .. } => Ok(Literal::Filesize(val)),
+        Value::Duration { val, .. } => Ok(Literal::Duration(val)),
+        other => Err(CompileError::InvalidLiteral {
+            msg: format!("bad value returned by Unit::build_value(): {other:?}"),
+            span: value_with_unit.unit.span,
+        }),
     }
 }
