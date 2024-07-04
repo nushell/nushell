@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     ast::{CellPath, Expression, Operator, Pattern, RangeInclusion},
     engine::EngineState,
-    BlockId, DeclId, RegId, Span, VarId,
+    BlockId, DeclId, RegId, Span, Value, VarId,
 };
 
 use serde::{Deserialize, Serialize};
@@ -61,6 +61,8 @@ impl std::ops::Index<DataSlice> for [u8] {
 pub enum Instruction {
     /// Load a literal value into the `dst` register
     LoadLiteral { dst: RegId, lit: Literal },
+    /// Load a clone of a boxed value into the `dst` register (e.g. from const evaluation)
+    LoadValue { dst: RegId, val: Box<Value> },
     /// Move a register. Value is taken from `src` (used by this instruction).
     Move { dst: RegId, src: RegId },
     /// Copy a register (must be a collected value). Value is still in `src` after this instruction.
@@ -82,15 +84,21 @@ pub enum Instruction {
     LoadEnvOpt { dst: RegId, key: DataSlice },
     /// Store the value of an environment variable from the `src` register
     StoreEnv { key: DataSlice, src: RegId },
-    /// Add a positional arg to the next call
+    /// Create a stack for the next call
+    NewCalleeStack,
+    /// Capture a variable from the caller stack to the callee stack, preserving the original span.
+    CaptureVariable { var_id: VarId },
+    /// Add a variable onto the callee's stack, for arguments.
+    PushVariable { var_id: VarId, src: RegId },
+    /// Add a positional arg to the next (internal) call.
     PushPositional { src: RegId },
-    /// Add a list of args to the next call (spread/rest)
+    /// Add a list of args to the next (internal) call (spread/rest).
     AppendRest { src: RegId },
-    /// Add a named arg with no value to the next call.
+    /// Add a named arg with no value to the next (internal) call.
     PushFlag { name: DataSlice },
-    /// Add a named arg with a value to the next call.
+    /// Add a named arg with a value to the next (internal) call.
     PushNamed { name: DataSlice, src: RegId },
-    /// Add parser info to the next call.
+    /// Add parser info to the next (internal) call.
     PushParserInfo {
         name: DataSlice,
         info: Box<Expression>,

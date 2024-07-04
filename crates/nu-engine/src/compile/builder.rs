@@ -136,6 +136,7 @@ impl BlockBuilder {
                     | Literal::Nothing => (),
                 }
             }
+            Instruction::LoadValue { dst, val: _ } => self.mark_register(*dst)?,
             Instruction::Move { dst, src } => {
                 self.free_register(*src)?;
                 self.mark_register(*dst)?;
@@ -149,6 +150,9 @@ impl BlockBuilder {
             Instruction::LoadEnv { dst, key: _ } => self.mark_register(*dst)?,
             Instruction::LoadEnvOpt { dst, key: _ } => self.mark_register(*dst)?,
             Instruction::StoreEnv { key: _, src } => self.free_register(*src)?,
+            Instruction::NewCalleeStack => (),
+            Instruction::CaptureVariable { var_id: _ } => (),
+            Instruction::PushVariable { var_id: _, src } => self.free_register(*src)?,
             Instruction::PushPositional { src } => self.free_register(*src)?,
             Instruction::AppendRest { src } => self.free_register(*src)?,
             Instruction::PushFlag { name: _ } => (),

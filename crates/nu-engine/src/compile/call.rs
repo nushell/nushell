@@ -1,7 +1,9 @@
+use std::iter::repeat;
+
 use nu_protocol::{
-    ast::{Argument, Call, Expression, ExternalArgument},
+    ast::{Argument, Block, Call, Expression, ExternalArgument},
     engine::StateWorkingSet,
-    ir::Instruction,
+    ir::{Instruction, Literal},
     IntoSpanned, RegId, Span,
 };
 
@@ -51,6 +53,20 @@ pub(crate) fn compile_call(
             }
             _ => (),
         }
+    }
+
+    // Also, if this is a custom command (block) call, we should handle this completely differently,
+    // setting args in variables on a callee stack.
+    if let Some(block_id) = decl.block_id() {
+        let block = working_set.get_block(block_id);
+        return compile_custom_command_call(
+            working_set,
+            builder,
+            block,
+            call,
+            redirect_modes,
+            io_reg,
+        );
     }
 
     // It's important that we evaluate the args first before trying to set up the argument
@@ -127,6 +143,195 @@ pub(crate) fn compile_call(
         let name = builder.data(name)?;
         let info = Box::new(info.clone());
         builder.push(Instruction::PushParserInfo { name, info }.into_spanned(call.head))?;
+    }
+
+    if let Some(mode) = redirect_modes.out {
+        builder.push(mode.map(|mode| Instruction::RedirectOut { mode }))?;
+    }
+
+    if let Some(mode) = redirect_modes.err {
+        builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
+    }
+
+    // The state is set up, so we can do the call into io_reg
+    builder.push(
+        Instruction::Call {
+            decl_id: call.decl_id,
+            src_dst: io_reg,
+        }
+        .into_spanned(call.head),
+    )?;
+
+    Ok(())
+}
+
+pub(crate) fn compile_custom_command_call(
+    working_set: &StateWorkingSet<'_>,
+    builder: &mut BlockBuilder,
+    decl_block: &Block,
+    call: &Call,
+    redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    // Custom command calls take place on a new stack
+    builder.push(Instruction::NewCalleeStack.into_spanned(call.head))?;
+
+    // Add captures
+    for &var_id in &decl_block.captures {
+        builder.push(Instruction::CaptureVariable { var_id }.into_spanned(call.head))?;
+    }
+
+    // Add positional arguments
+    let positional_iter = decl_block
+        .signature
+        .required_positional
+        .iter()
+        .chain(&decl_block.signature.optional_positional)
+        .zip(call.positional_iter().map(Some).chain(repeat(None)));
+
+    for (declared_positional, provided_positional) in positional_iter {
+        let var_id = declared_positional
+            .var_id
+            .expect("custom command positional parameter missing var_id");
+
+        let var_reg = builder.next_register()?;
+        let span = provided_positional.map(|b| b.span).unwrap_or(call.head);
+        if let Some(expr) = provided_positional {
+            // If the arg was provided, compile it
+            compile_expression(
+                working_set,
+                builder,
+                expr,
+                redirect_modes.with_capture_out(span),
+                None,
+                var_reg,
+            )?;
+        } else {
+            if let Some(default) = declared_positional.default_value.clone() {
+                // Put the default as a Value if it's present
+                builder.push(
+                    Instruction::LoadValue {
+                        dst: var_reg,
+                        val: Box::new(default),
+                    }
+                    .into_spanned(span),
+                )?;
+            } else {
+                // It doesn't really matter if this is a required argument, because we're supposed
+                // to check that in the parser
+                builder.load_literal(var_reg, Literal::Nothing.into_spanned(span))?;
+            }
+        }
+        builder.push(
+            Instruction::PushVariable {
+                var_id,
+                src: var_reg,
+            }
+            .into_spanned(span),
+        )?;
+    }
+
+    // Add rest arguments
+    if let Some(declared_rest) = &decl_block.signature.rest_positional {
+        let var_id = declared_rest
+            .var_id
+            .expect("custom command rest parameter missing var_id");
+
+        let rest_index = decl_block.signature.required_positional.len()
+            + decl_block.signature.optional_positional.len();
+
+        // Use the first span of rest if possible
+        let span = call
+            .rest_iter(rest_index)
+            .next()
+            .map(|(e, _)| e.span)
+            .unwrap_or(call.head);
+
+        // Build the rest list from the remaining arguments
+        let var_reg = builder.literal(Literal::List { capacity: 0 }.into_spanned(span))?;
+
+        for (expr, spread) in call.rest_iter(rest_index) {
+            let expr_reg = builder.next_register()?;
+            compile_expression(
+                working_set,
+                builder,
+                expr,
+                redirect_modes.with_capture_out(expr.span),
+                None,
+                expr_reg,
+            )?;
+            builder.push(
+                // If the original argument was a spread argument, spread it into the list
+                if spread {
+                    Instruction::ListSpread {
+                        src_dst: var_reg,
+                        items: var_reg,
+                    }
+                } else {
+                    Instruction::ListPush {
+                        src_dst: var_reg,
+                        item: expr_reg,
+                    }
+                }
+                .into_spanned(expr.span),
+            )?;
+        }
+
+        builder.push(
+            Instruction::PushVariable {
+                var_id,
+                src: var_reg,
+            }
+            .into_spanned(span),
+        )?;
+    }
+
+    // Add named arguments
+    for flag in &decl_block.signature.named {
+        if let Some(var_id) = flag.var_id {
+            let var_reg = builder.next_register()?;
+
+            let provided_arg = call
+                .named_iter()
+                .find(|(name, _, _)| name.item == flag.long);
+
+            let span = provided_arg
+                .map(|(name, _, _)| name.span)
+                .unwrap_or(call.head);
+
+            if let Some(expr) = provided_arg.and_then(|(_, _, expr)| expr.as_ref()) {
+                // It was provided - compile it
+                compile_expression(
+                    working_set,
+                    builder,
+                    expr,
+                    redirect_modes.with_capture_out(expr.span),
+                    None,
+                    var_reg,
+                )?;
+            } else {
+                // It wasn't provided - use the default or `true`
+                if let Some(default) = flag.default_value.clone() {
+                    builder.push(
+                        Instruction::LoadValue {
+                            dst: var_reg,
+                            val: Box::new(default),
+                        }
+                        .into_spanned(span),
+                    )?;
+                } else {
+                    builder.load_literal(var_reg, Literal::Bool(true).into_spanned(span))?;
+                }
+            }
+
+            builder.push(
+                Instruction::PushVariable {
+                    var_id,
+                    src: var_reg,
+                }
+                .into_spanned(span),
+            )?;
+        }
     }
 
     if let Some(mode) = redirect_modes.out {

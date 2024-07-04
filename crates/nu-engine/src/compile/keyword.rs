@@ -307,7 +307,7 @@ pub(crate) fn compile_let(
         builder,
         block,
         redirect_modes.with_capture_out(call.head),
-        None,
+        Some(io_reg),
         io_reg,
     )?;
 

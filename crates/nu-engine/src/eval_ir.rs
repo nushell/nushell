@@ -7,10 +7,10 @@ use nu_protocol::{
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
     record, DeclId, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData, Range,
-    Record, RegId, ShellError, Span, Spanned, Value, VarId,
+    Record, RegId, ShellError, Span, Spanned, Value, VarId, ENV_VARIABLE_ID,
 };
 
-use crate::eval::is_automatic_env_var;
+use crate::{eval::is_automatic_env_var, eval_block_with_early_return};
 
 /// Evaluate the compiled representation of a [`Block`].
 pub fn eval_ir_block<D: DebugContext>(
@@ -35,6 +35,7 @@ pub fn eval_ir_block<D: DebugContext>(
                 data: &ir_block.data,
                 args_base,
                 error_handler_base,
+                callee_stack: None,
                 redirect_out: None,
                 redirect_err: None,
                 matches: vec![],
@@ -73,6 +74,8 @@ struct EvalContext<'a> {
     args_base: usize,
     /// Base index on the error handler stack to reset to after a call
     error_handler_base: usize,
+    /// Stack to use for callee
+    callee_stack: Option<Box<Stack>>,
     /// State set by redirect-out
     redirect_out: Option<Redirection>,
     /// State set by redirect-err
@@ -108,6 +111,11 @@ impl<'a> EvalContext<'a> {
             span: Some(error_span),
         })
     }
+
+    /// Get the current stack to be used for the callee - either `callee_stack` if set, or `stack`
+    fn callee_stack(&mut self) -> &mut Stack {
+        self.callee_stack.as_deref_mut().unwrap_or(self.stack)
+    }
 }
 
 /// Eval an IR block on the provided slice of registers.
@@ -131,7 +139,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             "{pc:-4}: {}",
             instruction.display(ctx.engine_state, ctx.data)
         );
-        match eval_instruction(ctx, instruction, span) {
+        match eval_instruction::<D>(ctx, instruction, span) {
             Ok(InstructionResult::Continue) => {
                 pc += 1;
             }
@@ -193,7 +201,7 @@ enum InstructionResult {
 }
 
 /// Perform an instruction
-fn eval_instruction(
+fn eval_instruction<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     instruction: &Instruction,
     span: &Span,
@@ -202,6 +210,10 @@ fn eval_instruction(
 
     match instruction {
         Instruction::LoadLiteral { dst, lit } => load_literal(ctx, *dst, lit, *span),
+        Instruction::LoadValue { dst, val } => {
+            ctx.put_reg(*dst, Value::clone(val).into_pipeline_data());
+            Ok(Continue)
+        }
         Instruction::Move { dst, src } => {
             let val = ctx.take_reg(*src);
             ctx.put_reg(*dst, val);
@@ -290,23 +302,57 @@ fn eval_instruction(
                 })
             }
         }
+        Instruction::NewCalleeStack => {
+            let new_stack = ctx.stack.gather_captures(ctx.engine_state, &[]);
+            ctx.callee_stack = Some(Box::new(new_stack));
+            Ok(Continue)
+        }
+        Instruction::CaptureVariable { var_id } => {
+            if let Some(callee_stack) = &mut ctx.callee_stack {
+                let value = ctx.stack.get_var_with_origin(*var_id, *span)?;
+                callee_stack.add_var(*var_id, value);
+                Ok(Continue)
+            } else {
+                Err(ShellError::IrEvalError {
+                    msg: "capture-variable instruction without prior new-callee-stack \
+                            to initialize it"
+                        .into(),
+                    span: Some(*span),
+                })
+            }
+        }
+        Instruction::PushVariable { var_id, src } => {
+            let value = ctx.collect_reg(*src, *span)?;
+            if let Some(callee_stack) = &mut ctx.callee_stack {
+                callee_stack.add_var(*var_id, value);
+                Ok(Continue)
+            } else {
+                Err(ShellError::IrEvalError {
+                    msg:
+                        "push-variable instruction without prior new-callee-stack to initialize it"
+                            .into(),
+                    span: Some(*span),
+                })
+            }
+        }
         Instruction::PushPositional { src } => {
             let val = ctx.collect_reg(*src, *span)?;
-            ctx.stack
+            ctx.callee_stack()
                 .arguments
                 .push(Argument::Positional { span: *span, val });
             Ok(Continue)
         }
         Instruction::AppendRest { src } => {
             let vals = ctx.collect_reg(*src, *span)?;
-            ctx.stack
+            ctx.callee_stack()
                 .arguments
                 .push(Argument::Spread { span: *span, vals });
             Ok(Continue)
         }
         Instruction::PushFlag { name } => {
-            ctx.stack.arguments.push(Argument::Flag {
-                data: ctx.data.clone(),
+            let data = ctx.data.clone();
+            ctx.callee_stack().arguments.push(Argument::Flag {
+                data,
                 name: *name,
                 span: *span,
             });
@@ -314,8 +360,9 @@ fn eval_instruction(
         }
         Instruction::PushNamed { name, src } => {
             let val = ctx.collect_reg(*src, *span)?;
-            ctx.stack.arguments.push(Argument::Named {
-                data: ctx.data.clone(),
+            let data = ctx.data.clone();
+            ctx.callee_stack().arguments.push(Argument::Named {
+                data,
                 name: *name,
                 span: *span,
                 val,
@@ -323,8 +370,9 @@ fn eval_instruction(
             Ok(Continue)
         }
         Instruction::PushParserInfo { name, info } => {
-            ctx.stack.arguments.push(Argument::ParserInfo {
-                data: ctx.data.clone(),
+            let data = ctx.data.clone();
+            ctx.callee_stack().arguments.push(Argument::ParserInfo {
+                data,
                 name: *name,
                 info: info.clone(),
             });
@@ -342,7 +390,7 @@ fn eval_instruction(
         }
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
-            let result = eval_call(ctx, *decl_id, *span, input)?;
+            let result = eval_call::<D>(ctx, *decl_id, *span, input)?;
             ctx.put_reg(*src_dst, result);
             Ok(Continue)
         }
@@ -726,7 +774,7 @@ fn binary_op(
 }
 
 /// Evaluate a call
-fn eval_call(
+fn eval_call<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     decl_id: DeclId,
     head: Span,
@@ -736,52 +784,91 @@ fn eval_call(
         engine_state,
         stack,
         args_base,
+        callee_stack,
         redirect_out,
         redirect_err,
         ..
     } = ctx;
 
-    // TODO: handle block eval
+    let stack = callee_stack.as_deref_mut().unwrap_or(stack);
+
     let args_len = stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
 
     // Set up redirect modes
     let mut stack = stack.push_redirection(redirect_out.take(), redirect_err.take());
 
-    // should this be precalculated? ideally we just use the call builder...
-    let span = Span::merge_many(
-        std::iter::once(head).chain(
-            stack
-                .arguments
-                .get_args(*args_base, args_len)
-                .into_iter()
-                .flat_map(|arg| arg.span()),
-        ),
-    );
-    let call = Call {
-        decl_id,
-        head,
-        span,
-        args_base: *args_base,
-        args_len,
+    let result = if let Some(block_id) = decl.block_id() {
+        // If the decl is a custom command, we assume that we have set up the arguments using
+        // new-callee-stack and push-variable instead of stack.arguments
+        //
+        // This saves us from having to parse through the declaration at eval time to figure out
+        // what to put where.
+        let block = engine_state.get_block(block_id);
+
+        eval_block_with_early_return::<D>(engine_state, &mut stack, block, input)
+    } else {
+        // should this be precalculated? ideally we just use the call builder...
+        let span = Span::merge_many(
+            std::iter::once(head).chain(
+                stack
+                    .arguments
+                    .get_args(*args_base, args_len)
+                    .into_iter()
+                    .flat_map(|arg| arg.span()),
+            ),
+        );
+
+        let call = Call {
+            decl_id,
+            head,
+            span,
+            args_base: *args_base,
+            args_len,
+        };
+
+        // Run the call
+        decl.run(engine_state, &mut stack, &(&call).into(), input)
     };
 
-    // Run the call
-    let result = decl.run(engine_state, &mut stack, &(&call).into(), input);
-    // Important that this runs:
+    // Important that this runs, to reset state post-call:
     stack.arguments.leave_frame(ctx.args_base);
+    *redirect_out = None;
+    *redirect_err = None;
+
+    drop(stack);
+    *callee_stack = None;
+
     result
 }
 
 /// Get variable from [`Stack`] or [`EngineState`]
 fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, ShellError> {
-    ctx.stack.get_var(var_id, span).or_else(|err| {
-        if let Some(const_val) = ctx.engine_state.get_var(var_id).const_val.clone() {
-            Ok(const_val.with_span(span))
-        } else {
-            Err(err)
+    match var_id {
+        // $env
+        ENV_VARIABLE_ID => {
+            let env_vars = ctx.stack.get_env_vars(ctx.engine_state);
+            let env_columns = env_vars.keys();
+            let env_values = env_vars.values();
+
+            let mut pairs = env_columns
+                .map(|x| x.to_string())
+                .zip(env_values.cloned())
+                .collect::<Vec<(String, Value)>>();
+
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+
+            Ok(Value::record(pairs.into_iter().collect(), span))
         }
-    })
+        _ => ctx.stack.get_var(var_id, span).or_else(|err| {
+            // $nu is handled by getting constant
+            if let Some(const_val) = ctx.engine_state.get_constant(var_id).cloned() {
+                Ok(const_val.with_span(span))
+            } else {
+                Err(err)
+            }
+        }),
+    }
 }
 
 /// Helper to collect values into [`PipelineData`], preserving original span and metadata
