@@ -28,6 +28,10 @@ impl Command for Metadata {
             .category(Category::Debug)
     }
 
+    fn requires_ast_for_arguments(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -35,8 +39,7 @@ impl Command for Metadata {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let call = call.assert_ast_call()?; // FIXME
-        let arg = call.positional_nth(0);
+        let arg = call.positional_nth(stack, 0);
         let head = call.head;
 
         match arg {

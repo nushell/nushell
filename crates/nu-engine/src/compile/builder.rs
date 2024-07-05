@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ir::{DataSlice, Instruction, IrBlock, Literal, RedirectMode},
+    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     CompileError, IntoSpanned, RegId, Span, Spanned,
 };
 
@@ -9,6 +9,7 @@ pub(crate) struct BlockBuilder {
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) spans: Vec<Span>,
     pub(crate) data: Vec<u8>,
+    pub(crate) ast: Vec<Option<IrAstRef>>,
     pub(crate) register_allocation_state: Vec<bool>,
 }
 
@@ -19,6 +20,7 @@ impl BlockBuilder {
             instructions: vec![],
             spans: vec![],
             data: vec![],
+            ast: vec![],
             register_allocation_state: vec![true],
         }
     }
@@ -223,7 +225,13 @@ impl BlockBuilder {
         let index = self.next_instruction_index();
         self.instructions.push(instruction.item);
         self.spans.push(instruction.span);
+        self.ast.push(None);
         Ok(index)
+    }
+
+    /// Set the AST of the last instruction. Separate method because it's rarely used.
+    pub(crate) fn set_last_ast(&mut self, ast_ref: Option<IrAstRef>) {
+        *self.ast.last_mut().expect("no last instruction") = ast_ref;
     }
 
     /// Load a register with a literal.
@@ -369,6 +377,7 @@ impl BlockBuilder {
             instructions: self.instructions,
             spans: self.spans,
             data: self.data.into(),
+            ast: self.ast,
             register_count: self.register_allocation_state.len(),
         }
     }

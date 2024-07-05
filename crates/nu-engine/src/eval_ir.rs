@@ -5,7 +5,7 @@ use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
-    ir::{Call, DataSlice, Instruction, IrBlock, Literal, RedirectMode},
+    ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     record, DeclId, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData, Range,
     Record, RegId, ShellError, Span, Spanned, Value, VarId, ENV_VARIABLE_ID,
 };
@@ -166,11 +166,12 @@ fn eval_ir_block_impl<D: DebugContext>(
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
+        let ast = &ir_block.ast[pc];
         log::trace!(
             "{pc:-4}: {}",
             instruction.display(ctx.engine_state, ctx.data)
         );
-        match eval_instruction::<D>(ctx, instruction, span) {
+        match eval_instruction::<D>(ctx, instruction, span, ast) {
             Ok(InstructionResult::Continue) => {
                 pc += 1;
             }
@@ -236,6 +237,7 @@ fn eval_instruction<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     instruction: &Instruction,
     span: &Span,
+    ast: &Option<IrAstRef>,
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
 
@@ -367,16 +369,20 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::PushPositional { src } => {
             let val = ctx.collect_reg(*src, *span)?;
-            ctx.callee_stack()
-                .arguments
-                .push(Argument::Positional { span: *span, val });
+            ctx.callee_stack().arguments.push(Argument::Positional {
+                span: *span,
+                val,
+                ast: ast.clone().map(|ast_ref| ast_ref.0),
+            });
             Ok(Continue)
         }
         Instruction::AppendRest { src } => {
             let vals = ctx.collect_reg(*src, *span)?;
-            ctx.callee_stack()
-                .arguments
-                .push(Argument::Spread { span: *span, vals });
+            ctx.callee_stack().arguments.push(Argument::Spread {
+                span: *span,
+                vals,
+                ast: ast.clone().map(|ast_ref| ast_ref.0),
+            });
             Ok(Continue)
         }
         Instruction::PushFlag { name } => {
@@ -396,6 +402,7 @@ fn eval_instruction<D: DebugContext>(
                 name: *name,
                 span: *span,
                 val,
+                ast: ast.clone().map(|ast_ref| ast_ref.0),
             });
             Ok(Continue)
         }

@@ -124,6 +124,12 @@ pub trait Command: Send + Sync + CommandClone {
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
         (None, None)
     }
+
+    /// Return true if the AST nodes for the arguments are required for IR evaluation. This is
+    /// currently inefficient so is not generally done.
+    fn requires_ast_for_arguments(&self) -> bool {
+        false
+    }
 }
 
 pub trait CommandClone {

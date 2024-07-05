@@ -166,6 +166,7 @@ fn ir_call_to_extern_call(
                         std::str::from_utf8(&data[*name]).expect("invalid flag name"),
                         *span,
                     ),
+                    ast: None,
                 };
                 extern_call.add_argument(stack, name_arg);
             }
@@ -174,6 +175,7 @@ fn ir_call_to_extern_call(
                 name,
                 span,
                 val,
+                ..
             } => {
                 let name_arg = engine::Argument::Positional {
                     span: *span,
@@ -181,10 +183,12 @@ fn ir_call_to_extern_call(
                         std::str::from_utf8(&data[*name]).expect("invalid arg name"),
                         *span,
                     ),
+                    ast: None,
                 };
                 let val_arg = engine::Argument::Positional {
                     span: *span,
                     val: val.clone(),
+                    ast: None,
                 };
                 extern_call.add_argument(stack, name_arg);
                 extern_call.add_argument(stack, val_arg);
