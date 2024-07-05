@@ -81,7 +81,8 @@ used as the next argument to the closure, otherwise generation stops.
         // A type of Option<S> is used to represent state. Invocation
         // will stop on None. Using Option<S> allows functions to output
         // one final value before stopping.
-        let iter = unfold(Some(initial), move |state| {
+        let mut state = Some(initial);
+        let iter = std::iter::from_fn(move || {
             let arg = state.take()?;
 
             let (output, next_input) = match closure.run_with_value(arg) {
@@ -160,7 +161,7 @@ used as the next argument to the closure, otherwise generation stops.
             // We use `state` to control when to stop, not `output`. By wrapping
             // it in a `Some`, we allow the generator to output `None` as a valid output
             // value.
-            *state = next_input;
+            state = next_input;
             Some(output)
         });
 
