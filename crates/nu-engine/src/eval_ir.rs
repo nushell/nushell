@@ -134,6 +134,9 @@ impl<'a> EvalContext<'a> {
             &mut new_stack.register_buf_cache,
         );
 
+        // Increment recursion count on callee stack to prevent recursing too far
+        new_stack.recursion_count += 1;
+
         self.callee_stack = Some(new_stack);
     }
 
@@ -837,21 +840,6 @@ fn eval_call<D: DebugContext>(
     // Set up redirect modes
     let mut stack = stack.push_redirection(redirect_out.take(), redirect_err.take());
 
-    // Rust does not check recursion limits outside of const evaluation.
-    // But nu programs run in the same process as the shell.
-    // To prevent a stack overflow in user code from crashing the shell,
-    // we limit the recursion depth of function calls.
-    // Picked 50 arbitrarily, should work on all architectures.
-    let maximum_call_stack_depth: u64 = engine_state.config.recursion_limit as u64;
-    stack.recursion_count += 1;
-    if stack.recursion_count > maximum_call_stack_depth {
-        stack.recursion_count = 0;
-        return Err(ShellError::RecursionLimitReached {
-            recursion_limit: maximum_call_stack_depth,
-            span: *ctx.block_span,
-        });
-    }
-
     let result;
 
     if let Some(block_id) = decl.block_id() {
@@ -861,6 +849,18 @@ fn eval_call<D: DebugContext>(
         // This saves us from having to parse through the declaration at eval time to figure out
         // what to put where.
         let block = engine_state.get_block(block_id);
+
+        // Rust does not check recursion limits outside of const evaluation.
+        // But nu programs run in the same process as the shell.
+        // To prevent a stack overflow in user code from crashing the shell,
+        // we limit the recursion depth of function calls.
+        let maximum_call_stack_depth: u64 = engine_state.config.recursion_limit as u64;
+        if stack.recursion_count > maximum_call_stack_depth {
+            return Err(ShellError::RecursionLimitReached {
+                recursion_limit: maximum_call_stack_depth,
+                span: *ctx.block_span,
+            });
+        }
 
         result = eval_block_with_early_return::<D>(engine_state, &mut stack, block, input);
 
