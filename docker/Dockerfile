@@ -24,7 +24,7 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
     && ls /usr/bin/nu_plugin* \
-    | xargs -I{} su -c 'register {}' nushell \
+    | xargs -I{} su -c 'plugin add {}' nushell \
     && rm -rf /tmp/*
 
 USER nushell
