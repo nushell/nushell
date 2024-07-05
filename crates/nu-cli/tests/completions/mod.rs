@@ -32,7 +32,6 @@ fn completer() -> NuCompleter {
 fn completer_strings() -> NuCompleter {
     // Create a new engine
     let (dir, _, mut engine, mut stack) = new_engine();
-
     // Add record value as example
     let record = r#"def animals [] { ["cat", "dog", "eel" ] }
     def my-command [animal: string@animals] { print $animal }"#;
@@ -258,6 +257,20 @@ fn file_completions() {
         folder(dir.join(".hidden_folder")),
     ];
 
+    #[cfg(windows)]
+    {
+        let separator = '/';
+        let target_dir = format!("cp {dir_str}{separator}");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(expected_slash_paths, slash_suggestions);
+    }
+
     // Match the results
     match_suggestions(expected_paths, suggestions);
 
@@ -272,11 +285,24 @@ fn file_completions() {
     match_suggestions(expected_paths, suggestions);
 
     // Test completions for hidden files
-    let target_dir = format!("ls {}/.", folder(dir.join(".hidden_folder")));
+    let target_dir = format!("ls {}{MAIN_SEPARATOR}.", folder(dir.join(".hidden_folder")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     let expected_paths: Vec<String> =
         vec![file(dir.join(".hidden_folder").join(".hidden_subfile"))];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("ls {}/.", folder(dir.join(".hidden_folder")));
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(expected_slash, slash_suggestions)
+    }
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
@@ -464,6 +490,7 @@ fn command_ls_with_filecompletion() {
 
     match_suggestions(expected_paths, suggestions)
 }
+
 #[test]
 fn command_open_with_filecompletion() {
     let (_, _, engine, stack) = new_engine();
@@ -793,6 +820,19 @@ fn folder_with_directorycompletions() {
         folder(dir.join("test_b")),
         folder(dir.join(".hidden_folder")),
     ];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("cd {dir_str}/");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(expected_slash_paths, slash_suggestions);
+    }
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
