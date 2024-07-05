@@ -5,7 +5,7 @@ use std::{
 
 use nu_plugin_engine::{GetPlugin, PluginInterface};
 use nu_protocol::{
-    engine::{ctrlc, EngineState, Stack},
+    engine::{EngineState, Stack},
     PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin, ShellError,
 };
 
@@ -50,10 +50,6 @@ impl RegisteredPlugin for FakePersistentPlugin {
 
     fn set_gc_config(&self, _gc_config: &PluginGcConfig) {
         // We don't have a GC
-    }
-
-    fn set_ctrlc_handler_guard(&self, _guard: ctrlc::Guard) {
-        // We don't have a Ctrl-C handler
     }
 
     fn stop(&self) -> Result<(), ShellError> {

@@ -260,6 +260,16 @@ impl EngineState {
         if !delta.plugins.is_empty() {
             // Replace plugins that overlap in identity.
             for plugin in std::mem::take(&mut delta.plugins) {
+                if let Some(handlers) = self.ctrlc_handlers.as_ref() {
+                    let guard = {
+                        let plugin = plugin.clone();
+                        handlers.register(Box::new(move || {
+                            let _ = plugin.ctrlc();
+                        }))?
+                    };
+                    plugin.set_ctrlc_handler_guard(guard);
+                }
+
                 if let Some(existing) = self
                     .plugins
                     .iter_mut()

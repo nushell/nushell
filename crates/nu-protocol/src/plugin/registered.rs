@@ -22,9 +22,6 @@ pub trait RegisteredPlugin: Send + Sync {
     /// Set garbage collection config for the plugin.
     fn set_gc_config(&self, gc_config: &PluginGcConfig);
 
-    /// Set a reference to the raii guard for the plugin's Ctrl-C handler.
-    fn set_ctrlc_handler_guard(&self, guard: ctrlc::Guard);
-
     /// Stop the plugin.
     fn stop(&self) -> Result<(), ShellError>;
 
@@ -37,4 +34,12 @@ pub trait RegisteredPlugin: Send + Sync {
     /// This is necessary in order to allow `nu_plugin` to handle the implementation details of
     /// plugins.
     fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
+
+    /// Set a reference to the RAII guard for the plugin's Ctrl-C handler.
+    fn set_ctrlc_handler_guard(&self, _guard: ctrlc::Guard) {}
+
+    /// Send a Ctrl-C signal to the plugin.
+    fn ctrlc(&self) -> Result<(), ShellError> {
+        Ok(())
+    }
 }
