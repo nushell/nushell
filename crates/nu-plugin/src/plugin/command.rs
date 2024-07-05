@@ -340,7 +340,7 @@ where
 
 /// Build a [`PluginSignature`] from the signature-related methods on [`PluginCommand`].
 ///
-/// This is sent to the engine on `register`.
+/// This is sent to the engine on `plugin add`.
 ///
 /// This is not a public API.
 #[doc(hidden)]

@@ -72,7 +72,7 @@ impl Command for PluginStop {
                 error: format!("Failed to stop the `{}` plugin", name.item),
                 msg: "couldn't find a plugin with this name".into(),
                 span: Some(name.span),
-                help: Some("you may need to `register` the plugin first".into()),
+                help: Some("you may need to `plugin add` the plugin first".into()),
                 inner: vec![],
             })
         }

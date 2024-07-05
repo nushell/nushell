@@ -95,8 +95,8 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError> {
         // Fetch the configuration for a plugin
         //
-        // The `plugin` must match the registered name of a plugin.  For
-        // `register nu_plugin_example` the plugin config lookup uses `"example"`
+        // The `plugin` must match the registered name of a plugin.  For `plugin add
+        // nu_plugin_example` the plugin config lookup uses `"example"`
         Ok(self
             .get_config()?
             .plugins
