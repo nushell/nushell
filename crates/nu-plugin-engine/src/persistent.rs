@@ -312,8 +312,8 @@ impl RegisteredPlugin for PersistentPlugin {
             // RAII guard that will be stored on the plugin.
             let plugin = Arc::downgrade(&self);
             handlers.register(Box::new(move || {
-                // If the plugin is still alive, call its ctrlc handler. It should
-                // never be None because the guard is dropped when the plugin is.
+                // write a Ctrl-C packet through the PluginInterface is the plugin is alive and
+                // running
                 if let Some(plugin) = plugin.upgrade() {
                     if let Ok(mutable) = plugin.mutable.lock() {
                         if let Some(ref running) = mutable.running {
