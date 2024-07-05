@@ -453,7 +453,10 @@ impl PipelineData {
     /// Currently this will consume an external command to completion.
     pub fn check_external_failed(self) -> Result<(Self, bool), ShellError> {
         if let PipelineData::ByteStream(stream, metadata) = self {
+            // Preserve stream attributes
             let span = stream.span();
+            let type_ = stream.type_();
+            let known_size = stream.known_size();
             match stream.into_child() {
                 Ok(mut child) => {
                     // Only check children without stdout. This means that nothing
@@ -485,10 +488,12 @@ impl PipelineData {
                             child.stderr = Some(ChildPipe::Tee(Box::new(Cursor::new(stderr))));
                         }
                         child.set_exit_code(code);
-                        let stream = ByteStream::child(child, span);
+                        let stream = ByteStream::child(child, span).with_type(type_);
                         Ok((PipelineData::ByteStream(stream, metadata), code != 0))
                     } else {
-                        let stream = ByteStream::child(child, span);
+                        let stream = ByteStream::child(child, span)
+                            .with_type(type_)
+                            .with_known_size(known_size);
                         Ok((PipelineData::ByteStream(stream, metadata), false))
                     }
                 }
