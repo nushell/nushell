@@ -1,5 +1,6 @@
 use crate::completions::{
-    completion_common::sort_suggestions, Completer, CompletionOptions, SortBy,
+    completion_options::{MatcherOptions, NuMatcher},
+    Completer, CompletionOptions,
 };
 use nu_protocol::{
     ast::{Expr, Expression},
@@ -37,19 +38,22 @@ impl Completer for FlagCompletion {
             let decl = working_set.get_decl(call.decl_id);
             let sig = decl.signature();
 
-            let mut output = vec![];
+            let prefix = String::from_utf8_lossy(&prefix);
+            let mut matcher = NuMatcher::new(
+                prefix,
+                MatcherOptions::new(options).sort_by(self.get_sort_by()),
+            );
 
             for named in &sig.named {
                 let flag_desc = &named.desc;
                 if let Some(short) = named.short {
-                    let mut named = vec![0; short.len_utf8()];
-                    short.encode_utf8(&mut named);
-                    named.insert(0, b'-');
+                    let named = format!("-{}", short);
 
-                    if options.match_algorithm.matches_u8(&named, &prefix) {
-                        output.push(SemanticSuggestion {
+                    matcher.add(
+                        named.clone(),
+                        SemanticSuggestion {
                             suggestion: Suggestion {
-                                value: String::from_utf8_lossy(&named).to_string(),
+                                value: named,
                                 description: Some(flag_desc.to_string()),
                                 style: None,
                                 extra: None,
@@ -61,22 +65,21 @@ impl Completer for FlagCompletion {
                             },
                             // TODO????
                             kind: None,
-                        });
-                    }
+                        },
+                    );
                 }
 
                 if named.long.is_empty() {
                     continue;
                 }
 
-                let mut named = named.long.as_bytes().to_vec();
-                named.insert(0, b'-');
-                named.insert(0, b'-');
+                let named = format!("--{}", named.long);
 
-                if options.match_algorithm.matches_u8(&named, &prefix) {
-                    output.push(SemanticSuggestion {
+                matcher.add(
+                    named.clone(),
+                    SemanticSuggestion {
                         suggestion: Suggestion {
-                            value: String::from_utf8_lossy(&named).to_string(),
+                            value: named,
                             description: Some(flag_desc.to_string()),
                             style: None,
                             extra: None,
@@ -88,11 +91,11 @@ impl Completer for FlagCompletion {
                         },
                         // TODO????
                         kind: None,
-                    });
-                }
+                    },
+                );
             }
 
-            return sort_suggestions(&String::from_utf8_lossy(&prefix), output, SortBy::Ascending);
+            return matcher.get_results();
         }
 
         vec![]

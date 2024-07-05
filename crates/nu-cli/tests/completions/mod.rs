@@ -158,6 +158,11 @@ fn variables_customcompletion_subcommands_with_customcompletion_2(
 
 #[test]
 fn dotnu_completions() {
+    #[cfg(windows)]
+    let expected = vec!["custom_completion.nu", "directory_completion\\"];
+    #[cfg(not(windows))]
+    let expected = vec!["custom_completion.nu", "directory_completion/"];
+
     // Create a new engine
     let (_, _, engine, stack) = new_dotnu_engine();
 

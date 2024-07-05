@@ -8,9 +8,9 @@ use nu_protocol::{
     Span,
 };
 use reedline::Suggestion;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use super::SemanticSuggestion;
+use super::{completion_options::MatcherOptions, SemanticSuggestion};
 
 #[derive(Clone, Default)]
 pub struct DirectoryCompletion {}
@@ -39,21 +39,23 @@ impl Completer for DirectoryCompletion {
         let items: Vec<_> = directory_completion(
             span,
             &prefix,
-            &working_set.permanent_state.current_work_dir(),
-            options,
+            &[&working_set.permanent_state.current_work_dir()],
+            MatcherOptions::new(options)
+                .sort_by(self.get_sort_by())
+                .match_paths(true),
             working_set.permanent_state,
             stack,
         )
         .into_iter()
-        .map(move |x| SemanticSuggestion {
+        .map(move |(span, _, path, style)| SemanticSuggestion {
             suggestion: Suggestion {
-                value: x.1,
+                value: path,
                 description: None,
-                style: x.2,
+                style,
                 extra: None,
                 span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
+                    start: span.start - offset,
+                    end: span.end - offset,
                 },
                 append_whitespace: false,
             },
@@ -90,10 +92,10 @@ impl Completer for DirectoryCompletion {
 pub fn directory_completion(
     span: nu_protocol::Span,
     partial: &str,
-    cwd: &str,
-    options: &CompletionOptions,
+    cwds: &[&str],
+    options: MatcherOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    complete_item(true, span, partial, cwd, options, engine_state, stack)
+) -> Vec<(nu_protocol::Span, PathBuf, String, Option<Style>)> {
+    complete_item(true, span, partial, cwds, options, engine_state, stack)
 }

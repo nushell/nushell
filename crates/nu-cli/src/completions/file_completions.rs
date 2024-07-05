@@ -7,11 +7,10 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span,
 };
-use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use super::SemanticSuggestion;
+use super::{completion_options::MatcherOptions, SemanticSuggestion};
 
 #[derive(Clone, Default)]
 pub struct FileCompletion {}
@@ -44,21 +43,23 @@ impl Completer for FileCompletion {
             readjusted,
             span,
             &prefix,
-            &working_set.permanent_state.current_work_dir(),
-            options,
+            &[&working_set.permanent_state.current_work_dir()],
+            MatcherOptions::new(options)
+                .sort_by(self.get_sort_by())
+                .match_paths(true),
             working_set.permanent_state,
             stack,
         )
         .into_iter()
-        .map(move |x| SemanticSuggestion {
+        .map(move |(span, _, path, style)| SemanticSuggestion {
             suggestion: Suggestion {
-                value: x.1,
+                value: path,
                 description: None,
-                style: x.2,
+                style,
                 extra: None,
                 span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
+                    start: span.start - offset,
+                    end: span.end - offset,
                 },
                 append_whitespace: false,
             },
@@ -97,21 +98,10 @@ impl Completer for FileCompletion {
 pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
-    cwd: &str,
-    options: &CompletionOptions,
+    cwds: &[impl AsRef<str>],
+    options: MatcherOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    complete_item(false, span, partial, cwd, options, engine_state, stack)
-}
-
-pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
-    // Check for case sensitive
-    if !options.case_sensitive {
-        return options
-            .match_algorithm
-            .matches_str(&from.to_folded_case(), &partial.to_folded_case());
-    }
-
-    options.match_algorithm.matches_str(from, partial)
+) -> Vec<(nu_protocol::Span, PathBuf, String, Option<Style>)> {
+    complete_item(false, span, partial, cwds, options, engine_state, stack)
 }

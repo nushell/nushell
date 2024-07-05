@@ -32,11 +32,11 @@ reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 chrono = { default-features = false, features = ["std"], workspace = true }
 crossterm = { workspace = true }
 fancy-regex = { workspace = true }
-fuzzy-matcher = { workspace = true }
 is_executable = { workspace = true }
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 lscolors = { workspace = true, default-features = false, features = ["nu-ansi-term"] }
+nucleo-matcher = { workspace = true }
 once_cell = { workspace = true }
 percent-encoding = { workspace = true }
 sysinfo = { workspace = true }
