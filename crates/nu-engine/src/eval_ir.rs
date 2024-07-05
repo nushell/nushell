@@ -22,8 +22,6 @@ pub fn eval_ir_block<D: DebugContext>(
     if let Some(ir_block) = &block.ir_block {
         D::enter_block(engine_state, block);
 
-        let block_span = block.span;
-
         let args_base = stack.arguments.get_base();
         let error_handler_base = stack.error_handlers.get_base();
         let mut registers = stack.register_buf_cache.acquire(ir_block.register_count);
@@ -33,6 +31,7 @@ pub fn eval_ir_block<D: DebugContext>(
                 engine_state,
                 stack,
                 data: &ir_block.data,
+                block_span: &block.span,
                 args_base,
                 error_handler_base,
                 callee_stack: None,
@@ -41,7 +40,6 @@ pub fn eval_ir_block<D: DebugContext>(
                 matches: vec![],
                 registers: &mut registers[..],
             },
-            &block_span,
             ir_block,
             input,
         );
@@ -70,6 +68,8 @@ struct EvalContext<'a> {
     engine_state: &'a EngineState,
     stack: &'a mut Stack,
     data: &'a Arc<[u8]>,
+    /// The span of the block
+    block_span: &'a Option<Span>,
     /// Base index on the argument stack to reset to after a call
     args_base: usize,
     /// Base index on the error handler stack to reset to after a call
@@ -152,7 +152,6 @@ impl<'a> EvalContext<'a> {
 /// Eval an IR block on the provided slice of registers.
 fn eval_ir_block_impl<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
-    block_span: &Option<Span>,
     ir_block: &IrBlock,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
@@ -200,7 +199,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             "Program counter out of range (pc={pc}, len={len})",
             len = ir_block.instructions.len(),
         ),
-        span: block_span.clone(),
+        span: *ctx.block_span,
     })
 }
 
@@ -837,6 +836,21 @@ fn eval_call<D: DebugContext>(
 
     // Set up redirect modes
     let mut stack = stack.push_redirection(redirect_out.take(), redirect_err.take());
+
+    // Rust does not check recursion limits outside of const evaluation.
+    // But nu programs run in the same process as the shell.
+    // To prevent a stack overflow in user code from crashing the shell,
+    // we limit the recursion depth of function calls.
+    // Picked 50 arbitrarily, should work on all architectures.
+    let maximum_call_stack_depth: u64 = engine_state.config.recursion_limit as u64;
+    stack.recursion_count += 1;
+    if stack.recursion_count > maximum_call_stack_depth {
+        stack.recursion_count = 0;
+        return Err(ShellError::RecursionLimitReached {
+            recursion_limit: maximum_call_stack_depth,
+            span: *ctx.block_span,
+        });
+    }
 
     let result;
 
