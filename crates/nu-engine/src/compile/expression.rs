@@ -366,7 +366,18 @@ pub(crate) fn compile_expression(
             }
             Ok(())
         }
-        Expr::Keyword(_) => Err(unexpected("Keyword")),
+        Expr::Keyword(kw) => {
+            // keyword: just pass through expr, since commands that use it and are not being
+            // specially handled already are often just positional anyway
+            compile_expression(
+                working_set,
+                builder,
+                &kw.expr,
+                redirect_modes,
+                in_reg,
+                out_reg,
+            )
+        }
         Expr::ValueWithUnit(value_with_unit) => {
             lit(builder, literal_from_value_with_unit(value_with_unit)?)
         }
