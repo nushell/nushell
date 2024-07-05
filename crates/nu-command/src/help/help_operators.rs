@@ -135,31 +135,33 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Comparison(Comparison::NotRegexMatch) => {
             "Checks if a value does not match a regular expression."
         }
-        Operator::Comparison(Comparison::In) => "Checks if a value is in a list or string.",
-        Operator::Comparison(Comparison::NotIn) => "Checks if a value is not in a list or string.",
+        Operator::Comparison(Comparison::In) => {
+            "Checks if a value is in a list, is part of a string, or is a key in a record."
+        }
+        Operator::Comparison(Comparison::NotIn) => {
+            "Checks if a value is not in a list, is not part of a string, or is not a key in a record."
+        }
         Operator::Comparison(Comparison::StartsWith) => "Checks if a string starts with another.",
         Operator::Comparison(Comparison::EndsWith) => "Checks if a string ends with another.",
         Operator::Math(Math::Plus) => "Adds two values.",
-        Operator::Math(Math::Append) => "Appends two lists or a list and a value.",
+        Operator::Math(Math::Append) => "Appends two lists, a list and a value, two strings, or two binary values.",
         Operator::Math(Math::Minus) => "Subtracts two values.",
         Operator::Math(Math::Multiply) => "Multiplies two values.",
         Operator::Math(Math::Divide) => "Divides two values.",
         Operator::Math(Math::Modulo) => "Divides two values and returns the remainder.",
         Operator::Math(Math::FloorDivision) => "Divides two values and floors the result.",
         Operator::Math(Math::Pow) => "Raises one value to the power of another.",
-        Operator::Boolean(Boolean::And) => "Checks if two values are true.",
+        Operator::Boolean(Boolean::And) => "Checks if both values are true.",
         Operator::Boolean(Boolean::Or) => "Checks if either value is true.",
         Operator::Boolean(Boolean::Xor) => "Checks if one value is true and the other is false.",
         Operator::Bits(Bits::BitOr) => "Performs a bitwise OR on two values.",
         Operator::Bits(Bits::BitXor) => "Performs a bitwise XOR on two values.",
         Operator::Bits(Bits::BitAnd) => "Performs a bitwise AND on two values.",
-        Operator::Bits(Bits::ShiftLeft) => "Shifts a value left by another.",
-        Operator::Bits(Bits::ShiftRight) => "Shifts a value right by another.",
+        Operator::Bits(Bits::ShiftLeft) => "Bitwise shifts a value left by another.",
+        Operator::Bits(Bits::ShiftRight) => "Bitwise shifts a value right by another.",
         Operator::Assignment(Assignment::Assign) => "Assigns a value to a variable.",
         Operator::Assignment(Assignment::PlusAssign) => "Adds a value to a variable.",
-        Operator::Assignment(Assignment::AppendAssign) => {
-            "Appends a list or a value to a variable."
-        }
+        Operator::Assignment(Assignment::AppendAssign) => "Appends a value to a variable.",
         Operator::Assignment(Assignment::MinusAssign) => "Subtracts a value from a variable.",
         Operator::Assignment(Assignment::MultiplyAssign) => "Multiplies a variable by a value.",
         Operator::Assignment(Assignment::DivideAssign) => "Divides a variable by a value.",
