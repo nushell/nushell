@@ -120,6 +120,33 @@ impl<'a> EvalContext<'a> {
     fn callee_stack(&mut self) -> &mut Stack {
         self.callee_stack.as_deref_mut().unwrap_or(self.stack)
     }
+
+    /// Create a new callee stack, so that arguments will go onto a new stack that will be used for
+    /// calls
+    fn new_callee_stack(&mut self) {
+        self.drop_callee_stack();
+
+        let mut new_stack = Box::new(self.stack.gather_captures(self.engine_state, &[]));
+
+        // Swap the RegisterBufCache onto the new stack so that we can reuse the buffers
+        std::mem::swap(
+            &mut self.stack.register_buf_cache,
+            &mut new_stack.register_buf_cache,
+        );
+
+        self.callee_stack = Some(new_stack);
+    }
+
+    /// Drop the callee stack, so that arguments will be put on the caller stack instead
+    fn drop_callee_stack(&mut self) {
+        if let Some(mut callee_stack) = self.callee_stack.take() {
+            // Swap the RegisterBufCache onto our stack so that we can reuse the buffers
+            std::mem::swap(
+                &mut callee_stack.register_buf_cache,
+                &mut self.stack.register_buf_cache,
+            );
+        }
+    }
 }
 
 /// Eval an IR block on the provided slice of registers.
@@ -307,8 +334,7 @@ fn eval_instruction<D: DebugContext>(
             }
         }
         Instruction::NewCalleeStack => {
-            let new_stack = ctx.stack.gather_captures(ctx.engine_state, &[]);
-            ctx.callee_stack = Some(Box::new(new_stack));
+            ctx.new_callee_stack();
             Ok(Continue)
         }
         Instruction::CaptureVariable { var_id } => {
@@ -843,7 +869,7 @@ fn eval_call<D: DebugContext>(
     *redirect_err = None;
 
     drop(stack);
-    *callee_stack = None;
+    ctx.drop_callee_stack();
 
     result
 }
