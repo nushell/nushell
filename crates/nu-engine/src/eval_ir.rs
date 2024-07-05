@@ -814,7 +814,7 @@ fn eval_call<D: DebugContext>(
 ) -> Result<PipelineData, ShellError> {
     let EvalContext {
         engine_state,
-        stack,
+        stack: caller_stack,
         args_base,
         callee_stack,
         redirect_out,
@@ -822,7 +822,7 @@ fn eval_call<D: DebugContext>(
         ..
     } = ctx;
 
-    let stack = callee_stack.as_deref_mut().unwrap_or(stack);
+    let stack = callee_stack.as_deref_mut().unwrap_or(caller_stack);
 
     let args_len = stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
@@ -830,7 +830,9 @@ fn eval_call<D: DebugContext>(
     // Set up redirect modes
     let mut stack = stack.push_redirection(redirect_out.take(), redirect_err.take());
 
-    let result = if let Some(block_id) = decl.block_id() {
+    let result;
+
+    if let Some(block_id) = decl.block_id() {
         // If the decl is a custom command, we assume that we have set up the arguments using
         // new-callee-stack and push-variable instead of stack.arguments
         //
@@ -838,7 +840,15 @@ fn eval_call<D: DebugContext>(
         // what to put where.
         let block = engine_state.get_block(block_id);
 
-        eval_block_with_early_return::<D>(engine_state, &mut stack, block, input)
+        result = eval_block_with_early_return::<D>(engine_state, &mut stack, block, input);
+
+        drop(stack);
+
+        if block.redirect_env {
+            if let Some(callee_stack) = callee_stack {
+                redirect_env(engine_state, caller_stack, callee_stack);
+            }
+        }
     } else {
         // should this be precalculated? ideally we just use the call builder...
         let span = Span::merge_many(
@@ -860,15 +870,15 @@ fn eval_call<D: DebugContext>(
         };
 
         // Run the call
-        decl.run(engine_state, &mut stack, &(&call).into(), input)
+        result = decl.run(engine_state, &mut stack, &(&call).into(), input);
+
+        drop(stack);
     };
 
     // Important that this runs, to reset state post-call:
-    stack.arguments.leave_frame(ctx.args_base);
-    *redirect_out = None;
-    *redirect_err = None;
-
-    drop(stack);
+    ctx.stack.arguments.leave_frame(ctx.args_base);
+    ctx.redirect_out = None;
+    ctx.redirect_err = None;
     ctx.drop_callee_stack();
 
     result
@@ -969,5 +979,24 @@ fn eval_iterate(
             PipelineData::ListStream(ListStream::new(data.into_iter(), span, None), metadata),
         );
         eval_iterate(ctx, dst, stream, end_index)
+    }
+}
+
+/// Redirect environment from the callee stack to the caller stack
+fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_stack: &Stack) {
+    // Grab all environment variables from the callee
+    let caller_env_vars = caller_stack.get_env_var_names(engine_state);
+
+    // remove env vars that are present in the caller but not in the callee
+    // (the callee hid them)
+    for var in caller_env_vars.iter() {
+        if !callee_stack.has_env_var(engine_state, var) {
+            caller_stack.remove_env_var(engine_state, var);
+        }
+    }
+
+    // add new env vars from callee to caller
+    for (var, value) in callee_stack.get_stack_env_vars() {
+        caller_stack.add_env_var(var, value);
     }
 }
