@@ -117,14 +117,12 @@ pub(crate) fn compile_call(
             .transpose()?;
 
         match arg {
-            Argument::Positional(_) => compiled_args.push(CompiledArg::Positional(
-                arg_reg.expect("expr() None in non-Named"),
-                arg.span(),
-            )),
+            Argument::Positional(_) | Argument::Unknown(_) => compiled_args.push(
+                CompiledArg::Positional(arg_reg.expect("expr() None in non-Named"), arg.span()),
+            ),
             Argument::Named((name, _, _)) => {
                 compiled_args.push(CompiledArg::Named(name.item.as_str(), arg_reg, arg.span()))
             }
-            Argument::Unknown(_) => return Err(CompileError::Garbage { span: arg.span() }),
             Argument::Spread(_) => compiled_args.push(CompiledArg::Spread(
                 arg_reg.expect("expr() None in non-Named"),
                 arg.span(),
