@@ -741,8 +741,8 @@ impl EngineState {
 
     /// Fetch the configuration for a plugin
     ///
-    /// The `plugin` must match the registered name of a plugin.  For `register nu_plugin_example`
-    /// the plugin name to use will be `"example"`
+    /// The `plugin` must match the registered name of a plugin.  For `plugin add
+    /// nu_plugin_example` the plugin name to use will be `"example"`
     pub fn get_plugin_config(&self, plugin: &str) -> Option<&Value> {
         self.config.plugins.get(plugin)
     }
