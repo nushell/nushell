@@ -4950,7 +4950,7 @@ pub fn parse_math_expression(
     let mut expr_stack: Vec<Expression> = vec![];
 
     let mut idx = 0;
-    let mut last_prec = 1000000;
+    let mut last_prec = u8::MAX;
 
     let first_span = working_set.get_span_contents(spans[0]);
 
