@@ -303,18 +303,31 @@ impl RegisteredPlugin for PersistentPlugin {
         self
     }
 
-    fn set_ctrlc_handler_guard(&self, guard: ctrlc::Guard) {
+    fn configure_ctrlc_handler(
+        self: Arc<Self>,
+        handlers: &ctrlc::Handlers,
+    ) -> Result<(), ShellError> {
+        let guard = {
+            // We take a weakref to the plugin so that we don't create a cycle to the
+            // RAII guard that will be stored on the plugin.
+            let plugin = Arc::downgrade(&self);
+            handlers.register(Box::new(move || {
+                // If the plugin is still alive, call its ctrlc handler. It should
+                // never be None because the guard is dropped when the plugin is.
+                if let Some(plugin) = plugin.upgrade() {
+                    if let Ok(mutable) = plugin.mutable.lock() {
+                        if let Some(ref running) = mutable.running {
+                            let _ = running.interface.ctrlc();
+                        }
+                    }
+                }
+            }))?
+        };
+
         if let Ok(mut mutable) = self.mutable.lock() {
             mutable.ctrlc_guard = Some(guard);
         }
-    }
 
-    fn ctrlc(&self) -> Result<(), ShellError> {
-        if let Ok(mutable) = self.mutable.lock() {
-            if let Some(ref running) = mutable.running {
-                return running.interface.ctrlc();
-            }
-        }
         Ok(())
     }
 }

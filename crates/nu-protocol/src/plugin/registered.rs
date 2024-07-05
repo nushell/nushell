@@ -35,11 +35,11 @@ pub trait RegisteredPlugin: Send + Sync {
     /// plugins.
     fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
 
-    /// Set a reference to the RAII guard for the plugin's Ctrl-C handler.
-    fn set_ctrlc_handler_guard(&self, _guard: ctrlc::Guard) {}
-
-    /// Send a Ctrl-C signal to the plugin.
-    fn ctrlc(&self) -> Result<(), ShellError> {
+    /// Give this plugin a chance to register for Ctrl-C signals.
+    fn configure_ctrlc_handler(
+        self: Arc<Self>,
+        _handler: &ctrlc::Handlers,
+    ) -> Result<(), ShellError> {
         Ok(())
     }
 }

@@ -258,24 +258,13 @@ impl EngineState {
 
         #[cfg(feature = "plugin")]
         if !delta.plugins.is_empty() {
-            // Replace plugins that overlap in identity.
             for plugin in std::mem::take(&mut delta.plugins) {
-                if let Some(handlers) = self.ctrlc_handlers.as_ref() {
-                    let guard = {
-                        // We take a weakref to the plugin so that we don't create a cycle to the
-                        // RAII guard that will be stored on the plugin.
-                        let plugin = Arc::downgrade(&plugin);
-                        handlers.register(Box::new(move || {
-                            // If the plugin is still alive, call its ctrlc handler. It should
-                            // never be None because the guard is dropped when the plugin is.
-                            if let Some(plugin) = plugin.upgrade() {
-                                let _ = plugin.ctrlc();
-                            }
-                        }))?
-                    };
-                    plugin.set_ctrlc_handler_guard(guard);
+                // Connect plugins to the ctrlc handlers
+                if let Some(handlers) = &self.ctrlc_handlers {
+                    plugin.clone().configure_ctrlc_handler(handlers)?;
                 }
 
+                // Replace plugins that overlap in identity.
                 if let Some(existing) = self
                     .plugins
                     .iter_mut()
