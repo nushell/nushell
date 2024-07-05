@@ -5275,15 +5275,6 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             }
             b"where" => parse_where_expr(working_set, &spans[pos..]),
             #[cfg(feature = "plugin")]
-            b"register" => {
-                working_set.error(ParseError::BuiltinCommandInPipeline(
-                    "register".into(),
-                    spans[0],
-                ));
-
-                parse_call(working_set, &spans[pos..], spans[0])
-            }
-            #[cfg(feature = "plugin")]
             b"plugin" => {
                 if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"use" {
                     // only 'plugin use' is banned
