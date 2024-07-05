@@ -75,7 +75,7 @@ fn create_record_view(
 ) -> Option<Page> {
     let mut view = RecordView::new(columns, data);
     if is_record {
-        view.set_orientation_current(Orientation::Left);
+        view.set_top_layer_orientation(Orientation::Left);
     }
 
     if config.tail {

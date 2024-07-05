@@ -20,7 +20,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Config, Record, Span, Value,
+    Config, Record, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
 use std::collections::HashMap;
@@ -54,27 +54,26 @@ impl RecordView {
     }
 
     pub fn transpose(&mut self) {
-        let layer = self.get_layer_last_mut();
+        let layer = self.get_top_layer_mut();
         transpose_table(layer);
 
         layer.reset_cursor();
     }
 
-    // todo: rename to get_layer
-    pub fn get_layer_last(&self) -> &RecordLayer {
+    pub fn get_top_layer(&self) -> &RecordLayer {
         self.layer_stack
             .last()
             .expect("we guarantee that 1 entry is always in a list")
     }
 
-    pub fn get_layer_last_mut(&mut self) -> &mut RecordLayer {
+    pub fn get_top_layer_mut(&mut self) -> &mut RecordLayer {
         self.layer_stack
             .last_mut()
             .expect("we guarantee that 1 entry is always in a list")
     }
 
-    pub fn get_orientation_current(&mut self) -> Orientation {
-        self.get_layer_last().orientation
+    pub fn get_top_layer_orientation(&mut self) -> Orientation {
+        self.get_top_layer().orientation
     }
 
     pub fn set_orientation(&mut self, orientation: Orientation) {
@@ -90,27 +89,27 @@ impl RecordView {
         }
     }
 
-    pub fn set_orientation_current(&mut self, orientation: Orientation) {
-        let layer = self.get_layer_last_mut();
+    pub fn set_top_layer_orientation(&mut self, orientation: Orientation) {
+        let layer = self.get_top_layer_mut();
         layer.orientation = orientation;
         layer.reset_cursor();
     }
 
     /// Get the current position of the cursor in the table as a whole
     pub fn get_cursor_position(&self) -> Position {
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
         layer.cursor.position()
     }
 
     /// Get the current position of the cursor in the window being shown
     pub fn get_cursor_position_in_window(&self) -> Position {
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
         layer.cursor.window_relative_position()
     }
 
     /// Get the origin of the window being shown. (0,0), top left corner.
     pub fn get_window_origin(&self) -> Position {
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
         layer.cursor.window_origin()
     }
 
@@ -122,22 +121,20 @@ impl RecordView {
         self.mode = UIMode::View;
     }
 
-    pub fn get_current_value(&self) -> Value {
+    pub fn get_current_value(&self) -> &Value {
         let Position { row, column } = self.get_cursor_position();
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
 
         let (row, column) = match layer.orientation {
             Orientation::Top => (row, column),
             Orientation::Left => (column, row),
         };
 
-        if row >= layer.record_values.len() || column >= layer.column_names.len() {
-            // actually must never happen; unless cursor works incorrectly
-            // if being sure about cursor it can be deleted;
-            return Value::nothing(Span::unknown());
-        }
+        // These should never happen as long as the cursor is working correctly
+        assert!(row < layer.record_values.len(), "row out of bounds");
+        assert!(column < layer.column_names.len(), "column out of bounds");
 
-        layer.record_values[row][column].clone()
+        &layer.record_values[row][column]
     }
 
     fn create_table_widget<'a>(&'a mut self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
@@ -145,7 +142,7 @@ impl RecordView {
         let style_computer = cfg.style_computer;
         let Position { row, column } = self.get_window_origin();
 
-        let layer = self.get_layer_last_mut();
+        let layer = self.get_top_layer_mut();
         if layer.record_text.is_none() {
             let mut data =
                 convert_records_to_string(&layer.record_values, cfg.nu_config, cfg.style_computer);
@@ -169,17 +166,17 @@ impl RecordView {
     }
 
     fn update_cursors(&mut self, rows: usize, columns: usize) {
-        match self.get_layer_last().orientation {
+        match self.get_top_layer().orientation {
             Orientation::Top => {
                 let _ = self
-                    .get_layer_last_mut()
+                    .get_top_layer_mut()
                     .cursor
                     .set_window_size(rows, columns);
             }
 
             Orientation::Left => {
                 let _ = self
-                    .get_layer_last_mut()
+                    .get_top_layer_mut()
                     .cursor
                     .set_window_size(rows, columns);
             }
@@ -187,7 +184,7 @@ impl RecordView {
     }
 
     fn create_records_report(&self) -> Report {
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
         let covered_percent = report_row_position(layer.cursor);
         let cursor = report_cursor_position(self.mode, layer.cursor);
         let message = layer.name.clone().unwrap_or_default();
@@ -204,9 +201,6 @@ impl RecordView {
 impl View for RecordView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let mut table_layout = TableWidgetState::default();
-        // TODO: creating the table widget is O(N) where N is the number of cells in the grid.
-        // Way too slow to do on every draw call!
-        // To make explore work for larger data sets, this needs to be improved.
         let table = self.create_table_widget(cfg);
         f.render_stateful_widget(table, area, &mut table_layout);
 
@@ -221,7 +215,7 @@ impl View for RecordView {
                 row,
                 column,
                 table_layout.count_rows,
-                self.get_layer_last().orientation,
+                self.get_top_layer().orientation,
                 self.cfg.table.show_header,
             );
 
@@ -269,7 +263,7 @@ impl View for RecordView {
         let style_computer = StyleComputer::new(&dummy_engine_state, &dummy_stack, HashMap::new());
 
         let data = convert_records_to_string(
-            &self.get_layer_last().record_values,
+            &self.get_top_layer().record_values,
             &nu_protocol::Config::default(),
             &style_computer,
         );
@@ -278,7 +272,7 @@ impl View for RecordView {
     }
 
     fn show_data(&mut self, pos: usize) -> bool {
-        let data = &self.get_layer_last().record_values;
+        let data = &self.get_top_layer().record_values;
 
         let mut i = 0;
         for (row, cells) in data.iter().enumerate() {
@@ -289,7 +283,7 @@ impl View for RecordView {
 
             for (column, _) in cells.iter().enumerate() {
                 if i == pos {
-                    self.get_layer_last_mut()
+                    self.get_top_layer_mut()
                         .cursor
                         .set_window_start_position(row, column);
                     return true;
@@ -413,7 +407,7 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
             code: KeyCode::PageUp,
             ..
         } => {
-            view.get_layer_last_mut().cursor.prev_row_page();
+            view.get_top_layer_mut().cursor.prev_row_page();
 
             return Some(Transition::Ok);
         }
@@ -426,7 +420,7 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
             code: KeyCode::PageDown,
             ..
         } => {
-            view.get_layer_last_mut().cursor.next_row_page();
+            view.get_top_layer_mut().cursor.next_row_page();
 
             return Some(Transition::Ok);
         }
@@ -456,32 +450,32 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
         }
         KeyCode::Char('e') => Some(Transition::Cmd(String::from("expand"))),
         KeyCode::Up | KeyCode::Char('k') => {
-            view.get_layer_last_mut().cursor.prev_row_i();
+            view.get_top_layer_mut().cursor.prev_row_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            view.get_layer_last_mut().cursor.next_row_i();
+            view.get_top_layer_mut().cursor.next_row_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Left | KeyCode::Char('h') => {
-            view.get_layer_last_mut().cursor.prev_column_i();
+            view.get_top_layer_mut().cursor.prev_column_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Right | KeyCode::Char('l') => {
-            view.get_layer_last_mut().cursor.next_column_i();
+            view.get_top_layer_mut().cursor.next_column_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Home | KeyCode::Char('g') => {
-            view.get_layer_last_mut().cursor.row_move_to_start();
+            view.get_top_layer_mut().cursor.row_move_to_start();
 
             Some(Transition::Ok)
         }
         KeyCode::End | KeyCode::Char('G') => {
-            view.get_layer_last_mut().cursor.row_move_to_end();
+            view.get_top_layer_mut().cursor.row_move_to_end();
 
             Some(Transition::Ok)
         }
@@ -503,7 +497,7 @@ fn handle_key_event_cursor_mode(
             code: KeyCode::PageUp,
             ..
         } => {
-            view.get_layer_last_mut().cursor.prev_row_page();
+            view.get_top_layer_mut().cursor.prev_row_page();
 
             return Ok(Some(Transition::Ok));
         }
@@ -516,7 +510,7 @@ fn handle_key_event_cursor_mode(
             code: KeyCode::PageDown,
             ..
         } => {
-            view.get_layer_last_mut().cursor.next_row_page();
+            view.get_top_layer_mut().cursor.next_row_page();
 
             return Ok(Some(Transition::Ok));
         }
@@ -530,47 +524,55 @@ fn handle_key_event_cursor_mode(
             Ok(Some(Transition::Ok))
         }
         KeyCode::Up | KeyCode::Char('k') => {
-            view.get_layer_last_mut().cursor.prev_row();
+            view.get_top_layer_mut().cursor.prev_row();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            view.get_layer_last_mut().cursor.next_row();
+            view.get_top_layer_mut().cursor.next_row();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::Left | KeyCode::Char('h') => {
-            view.get_layer_last_mut().cursor.prev_column();
+            view.get_top_layer_mut().cursor.prev_column();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::Right | KeyCode::Char('l') => {
-            view.get_layer_last_mut().cursor.next_column();
+            view.get_top_layer_mut().cursor.next_column();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::Home | KeyCode::Char('g') => {
-            view.get_layer_last_mut().cursor.row_move_to_start();
+            view.get_top_layer_mut().cursor.row_move_to_start();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::End | KeyCode::Char('G') => {
-            view.get_layer_last_mut().cursor.row_move_to_end();
+            view.get_top_layer_mut().cursor.row_move_to_end();
 
             Ok(Some(Transition::Ok))
         }
+        // Try to "drill down" into the selected value
         KeyCode::Enter => {
             let value = view.get_current_value();
+
+            // ...but it only makes sense to drill down into a few types of values
+            if !matches!(
+                value,
+                Value::Record { .. } | Value::List { .. } | Value::Custom { .. }
+            ) {
+                return Ok(None);
+            }
+
             let is_record = matches!(value, Value::Record { .. });
-            let next_layer = create_layer(value)?;
+            let next_layer = create_layer(value.clone())?;
             push_layer(view, next_layer);
 
             if is_record {
-                view.set_orientation_current(Orientation::Left);
-            } else if view.orientation == view.get_layer_last().orientation {
-                view.get_layer_last_mut().orientation = view.orientation;
+                view.set_top_layer_orientation(Orientation::Left);
             } else {
-                view.set_orientation_current(view.orientation);
+                view.set_top_layer_orientation(view.orientation);
             }
 
             Ok(Some(Transition::Ok))
@@ -586,7 +588,7 @@ fn create_layer(value: Value) -> Result<RecordLayer> {
 }
 
 fn push_layer(view: &mut RecordView, mut next_layer: RecordLayer) {
-    let layer = view.get_layer_last();
+    let layer = view.get_top_layer();
     let header = layer.get_column_header();
 
     if let Some(header) = header {
@@ -609,7 +611,7 @@ fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
 
 /// scroll to the end of the data
 fn tail_data(state: &mut RecordView, page_size: usize) {
-    let layer = state.get_layer_last_mut();
+    let layer = state.get_top_layer_mut();
     let count_rows = layer.record_values.len();
     if count_rows > page_size {
         layer
@@ -648,8 +650,8 @@ fn highlight_selected_cell(f: &mut Frame, info: ElementInfo, cfg: &ExploreConfig
 
 fn build_last_value(v: &RecordView) -> Value {
     if v.mode == UIMode::Cursor {
-        v.get_current_value()
-    } else if v.get_layer_last().count_rows() < 2 {
+        v.get_current_value().clone()
+    } else if v.get_top_layer().count_rows() < 2 {
         build_table_as_record(v)
     } else {
         build_table_as_list(v)
@@ -657,7 +659,7 @@ fn build_last_value(v: &RecordView) -> Value {
 }
 
 fn build_table_as_list(v: &RecordView) -> Value {
-    let layer = v.get_layer_last();
+    let layer = v.get_top_layer();
 
     let vals = layer
         .record_values
@@ -677,7 +679,7 @@ fn build_table_as_list(v: &RecordView) -> Value {
 }
 
 fn build_table_as_record(v: &RecordView) -> Value {
-    let layer = v.get_layer_last();
+    let layer = v.get_top_layer();
 
     let mut record = Record::new();
     if let Some(row) = layer.record_values.first() {
