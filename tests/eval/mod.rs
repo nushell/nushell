@@ -165,6 +165,11 @@ fn literal_raw_string() {
 }
 
 #[test]
+fn literal_date() {
+    test_eval("2020-01-01T00:00:00Z", Matches("2020"))
+}
+
+#[test]
 fn literal_nothing() {
     test_eval("null", Eq(""))
 }

@@ -137,6 +137,7 @@ impl BlockBuilder {
                     | Literal::String(_)
                     | Literal::RawString(_)
                     | Literal::CellPath(_)
+                    | Literal::Date(_)
                     | Literal::Nothing => (),
                 }
             }

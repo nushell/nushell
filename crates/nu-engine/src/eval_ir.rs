@@ -745,6 +745,7 @@ fn literal_value(
         Literal::String(s) => Value::string(ctx.get_str(*s, span)?, span),
         Literal::RawString(s) => Value::string(ctx.get_str(*s, span)?, span),
         Literal::CellPath(path) => Value::cell_path(CellPath::clone(&path), span),
+        Literal::Date(dt) => Value::date(**dt, span),
         Literal::Nothing => Value::nothing(span),
     })
 }

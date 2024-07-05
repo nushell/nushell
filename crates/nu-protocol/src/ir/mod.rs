@@ -6,6 +6,7 @@ use crate::{
     BlockId, DeclId, RegId, Span, Value, VarId,
 };
 
+use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 
 mod call;
@@ -278,6 +279,7 @@ pub enum Literal {
     String(DataSlice),
     RawString(DataSlice),
     CellPath(Box<CellPath>),
+    Date(Box<DateTime<FixedOffset>>),
     Nothing,
 }
 

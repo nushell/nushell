@@ -323,6 +323,7 @@ impl<'a> fmt::Display for FmtLiteral<'a> {
             Literal::String(s) => write!(f, "string({})", FmtData(self.data, *s)),
             Literal::RawString(rs) => write!(f, "raw-string({})", FmtData(self.data, *rs)),
             Literal::CellPath(p) => write!(f, "cell-path({p})"),
+            Literal::Date(dt) => write!(f, "date({dt})"),
             Literal::Nothing => write!(f, "nothing"),
         }
     }

@@ -46,11 +46,6 @@ pub(crate) fn compile_expression(
         builder.load_empty(out_reg)
     };
 
-    let todo = |msg: &str| CompileError::Todo {
-        msg: msg.into(),
-        span: Some(expr.span),
-    };
-
     let unexpected = |expr_name: &str| CompileError::UnexpectedExpression {
         expr_name: expr_name.into(),
         span: expr.span,
@@ -375,7 +370,7 @@ pub(crate) fn compile_expression(
         Expr::ValueWithUnit(value_with_unit) => {
             lit(builder, literal_from_value_with_unit(value_with_unit)?)
         }
-        Expr::DateTime(_) => Err(todo("DateTime")),
+        Expr::DateTime(dt) => lit(builder, Literal::Date(Box::new(*dt))),
         Expr::Filepath(path, no_expand) => {
             let val = builder.data(path)?;
             lit(
