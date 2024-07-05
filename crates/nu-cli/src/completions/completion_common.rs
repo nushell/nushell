@@ -14,7 +14,7 @@ use std::path::{
     is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
 };
 
-use super::SortBy;
+use super::{MatchAlgorithm, SortBy};
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -75,6 +75,12 @@ fn complete_rec(
                     } else {
                         completions.push(built);
                     }
+                }
+                if entry_name.eq(base)
+                    && matches!(options.match_algorithm, MatchAlgorithm::Prefix)
+                    && isdir
+                {
+                    break;
                 }
             }
             None => {
