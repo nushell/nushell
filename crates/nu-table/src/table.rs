@@ -12,7 +12,7 @@ use tabled::{
         config::{AlignmentHorizontal, ColoredConfig, Entity, EntityMap, Position},
         dimension::CompleteDimensionVecRecords,
         records::{
-            vec_records::{CellInfo, VecRecords},
+            vec_records::{Cell, CellInfo, VecRecords},
             ExactRecords, PeekableRecords, Records, Resizable,
         },
     },
@@ -211,15 +211,12 @@ fn build_table(
     termwidth: usize,
     indent: (usize, usize),
 ) -> Option<String> {
-    const TERMWIDTH_THRESHOLD: usize = 120;
-
     if data.count_columns() == 0 || data.count_rows() == 0 {
         return Some(String::new());
     }
 
     let pad = indent.0 + indent.1;
-    let is_content_first = termwidth > TERMWIDTH_THRESHOLD || cfg.header_on_border; // we use content first approach in case header is used on border in order to it not being cut.
-    let widths = maybe_truncate_columns(&mut data, &cfg.theme, termwidth, pad, is_content_first);
+    let widths = maybe_truncate_columns(&mut data, &cfg, termwidth, pad);
     if widths.is_empty() {
         return None;
     }
@@ -496,18 +493,22 @@ fn load_theme(
 
 fn maybe_truncate_columns(
     data: &mut NuRecords,
-    theme: &TableTheme,
+    cfg: &NuTableConfig,
     termwidth: usize,
     pad: usize,
-    preserve_content: bool,
 ) -> Vec<usize> {
-    let truncate = if preserve_content {
+    const TERMWIDTH_THRESHOLD: usize = 120;
+
+    let preserve_content = termwidth > TERMWIDTH_THRESHOLD;
+    let truncate = if cfg.header_on_border {
+        truncate_columns_by_head
+    } else if preserve_content {
         truncate_columns_by_columns
     } else {
         truncate_columns_by_content
     };
 
-    truncate(data, theme, pad, termwidth)
+    truncate(data, &cfg.theme, pad, termwidth)
 }
 
 // VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
@@ -662,6 +663,83 @@ fn truncate_columns_by_columns(
     widths
 }
 
+// VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
+fn truncate_columns_by_head(
+    data: &mut NuRecords,
+    theme: &TableTheme,
+    pad: usize,
+    termwidth: usize,
+) -> Vec<usize> {
+    const TRAILING_COLUMN_WIDTH: usize = 5;
+
+    let config = get_config(theme, false, None);
+    let mut widths = build_width(&*data, pad);
+    let total_width = get_total_width2(&widths, &config);
+    if total_width <= termwidth {
+        return widths;
+    }
+
+    if data.is_empty() {
+        return widths;
+    }
+
+    let head = &data[0];
+
+    let borders = config.get_borders();
+    let has_vertical = borders.has_vertical();
+
+    let mut width = borders.has_left() as usize + borders.has_right() as usize;
+    let mut truncate_pos = 0;
+    for (i, column_header) in head.iter().enumerate() {
+        let column_header_width = Cell::width(column_header);
+        width += column_header_width;
+
+        if i > 0 {
+            width += has_vertical as usize;
+        }
+
+        if width >= termwidth {
+            width -= column_header_width + (i > 0 && has_vertical) as usize;
+            break;
+        }
+
+        truncate_pos += 1;
+    }
+
+    // we don't need any truncation then (is it possible?)
+    if truncate_pos == head.len() {
+        return widths;
+    }
+
+    if truncate_pos == 0 {
+        return vec![];
+    }
+
+    truncate_columns(data, truncate_pos);
+    widths.truncate(truncate_pos);
+
+    // Append columns with a trailing column
+
+    let min_width = width;
+
+    let diff = termwidth - min_width;
+    let can_trailing_column_be_pushed = diff > TRAILING_COLUMN_WIDTH + has_vertical as usize;
+
+    if !can_trailing_column_be_pushed {
+        if data.count_columns() == 1 {
+            return vec![];
+        }
+
+        truncate_columns(data, data.count_columns() - 1);
+        widths.pop();
+    }
+
+    push_empty_column(data);
+    widths.push(3 + pad);
+
+    widths
+}
+
 /// The same as [`tabled::peaker::PriorityMax`] but prioritizes left columns first in case of equal width.
 #[derive(Debug, Default, Clone)]
 pub struct PriorityMax;
@@ -751,8 +829,6 @@ impl<R> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig> for SetDi
 // it assumes no spans is used.
 // todo: Could be replaced by Dimension impl usage
 fn build_width(records: &NuRecords, pad: usize) -> Vec<usize> {
-    use tabled::grid::records::vec_records::Cell;
-
     let count_columns = records.count_columns();
     let mut widths = vec![0; count_columns];
     for columns in records.iter_rows() {
