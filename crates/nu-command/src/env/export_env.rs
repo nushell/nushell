@@ -33,6 +33,10 @@ impl Command for ExportEnv {
         CommandType::Keyword
     }
 
+    fn requires_ast_for_arguments(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -40,9 +44,8 @@ impl Command for ExportEnv {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let call = call.assert_ast_call()?; // FIXME
         let block_id = call
-            .positional_nth(0)
+            .positional_nth(caller_stack, 0)
             .expect("checked through parser")
             .as_block()
             .expect("internal error: missing block");
