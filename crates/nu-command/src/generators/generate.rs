@@ -1,4 +1,3 @@
-use itertools::unfold;
 use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::engine::Closure;
 
