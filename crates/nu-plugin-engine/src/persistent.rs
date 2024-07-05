@@ -299,14 +299,23 @@ impl RegisteredPlugin for PersistentPlugin {
         }
     }
 
+    fn as_any(self: Arc<Self>) -> Arc<dyn std::any::Any + Send + Sync> {
+        self
+    }
+
     fn set_ctrlc_handler_guard(&self, guard: ctrlc::Guard) {
         if let Ok(mut mutable) = self.mutable.lock() {
             mutable.ctrlc_guard = Some(guard);
         }
     }
 
-    fn as_any(self: Arc<Self>) -> Arc<dyn std::any::Any + Send + Sync> {
-        self
+    fn ctrlc(&self) -> Result<(), ShellError> {
+        if let Ok(mutable) = self.mutable.lock() {
+            if let Some(ref running) = mutable.running {
+                return running.interface.ctrlc();
+            }
+        }
+        Ok(())
     }
 }
 

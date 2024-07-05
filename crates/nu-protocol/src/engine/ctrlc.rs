@@ -61,6 +61,7 @@ impl Handlers {
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.push((id, handler));
         }
+
         Ok(Guard {
             id,
             handlers: Arc::clone(&self.handlers),

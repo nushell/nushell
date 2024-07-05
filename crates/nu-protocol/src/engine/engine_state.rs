@@ -262,9 +262,15 @@ impl EngineState {
             for plugin in std::mem::take(&mut delta.plugins) {
                 if let Some(handlers) = self.ctrlc_handlers.as_ref() {
                     let guard = {
-                        let plugin = plugin.clone();
+                        // We take a weakref to the plugin so that we don't create a cycle to the
+                        // RAII guard that will be stored on the plugin.
+                        let plugin = Arc::downgrade(&plugin);
                         handlers.register(Box::new(move || {
-                            let _ = plugin.ctrlc();
+                            // If the plugin is still alive, call its ctrlc handler. It should
+                            // never be None because the guard is dropped when the plugin is.
+                            if let Some(plugin) = plugin.upgrade() {
+                                let _ = plugin.ctrlc();
+                            }
                         }))?
                     };
                     plugin.set_ctrlc_handler_guard(guard);
