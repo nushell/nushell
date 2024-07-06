@@ -95,17 +95,6 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
                 let key = FmtData(self.data, *key);
                 write!(f, "{:WIDTH$} {key}, {src}", "store-env")
             }
-            Instruction::NewCalleeStack => {
-                write!(f, "{:WIDTH$}", "new-callee-stack")
-            }
-            Instruction::CaptureVariable { var_id } => {
-                let var = FmtVar::new(self.engine_state, *var_id);
-                write!(f, "{:WIDTH$} {var}", "capture-variable")
-            }
-            Instruction::PushVariable { var_id, src } => {
-                let var = FmtVar::new(self.engine_state, *var_id);
-                write!(f, "{:WIDTH$} {var}, {src}", "push-variable")
-            }
             Instruction::PushPositional { src } => {
                 write!(f, "{:WIDTH$} {src}", "push-positional")
             }

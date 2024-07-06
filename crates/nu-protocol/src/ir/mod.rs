@@ -121,12 +121,6 @@ pub enum Instruction {
     LoadEnvOpt { dst: RegId, key: DataSlice },
     /// Store the value of an environment variable from the `src` register
     StoreEnv { key: DataSlice, src: RegId },
-    /// Create a stack for the next call
-    NewCalleeStack,
-    /// Capture a variable from the caller stack to the callee stack, preserving the original span.
-    CaptureVariable { var_id: VarId },
-    /// Add a variable onto the callee's stack, for arguments.
-    PushVariable { var_id: VarId, src: RegId },
     /// Add a positional arg to the next (internal) call.
     PushPositional { src: RegId },
     /// Add a list of args to the next (internal) call (spread/rest).

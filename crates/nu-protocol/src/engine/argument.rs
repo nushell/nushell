@@ -113,4 +113,10 @@ impl ArgumentStack {
     pub fn get_args(&self, base: usize, len: usize) -> &[Argument] {
         &self.arguments[base..(base + len)]
     }
+
+    /// Move arguments for the frame based on the given [`base`](`.get_base()`) and
+    /// [`len`](`.get_len()`) parameters.
+    pub fn drain_args(&mut self, base: usize, len: usize) -> impl Iterator<Item = Argument> + '_ {
+        self.arguments.drain(base..(base + len))
+    }
 }

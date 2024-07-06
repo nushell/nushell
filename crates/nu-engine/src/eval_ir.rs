@@ -6,8 +6,9 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    record, DeclId, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData, Range,
-    Record, RegId, ShellError, Span, Spanned, Value, VarId, ENV_VARIABLE_ID,
+    record, DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData,
+    PositionalArg, Range, Record, RegId, ShellError, Signature, Span, Spanned, Value, VarId,
+    ENV_VARIABLE_ID,
 };
 
 use crate::{eval::is_automatic_env_var, eval_block_with_early_return};
@@ -51,7 +52,6 @@ pub fn eval_ir_block<D: DebugContext>(
                 block_span: &block.span,
                 args_base,
                 error_handler_base,
-                callee_stack: None,
                 redirect_out: None,
                 redirect_err: None,
                 matches: vec![],
@@ -90,8 +90,6 @@ struct EvalContext<'a> {
     args_base: usize,
     /// Base index on the error handler stack to reset to after a call
     error_handler_base: usize,
-    /// Stack to use for callee
-    callee_stack: Option<Box<Stack>>,
     /// State set by redirect-out
     redirect_out: Option<Redirection>,
     /// State set by redirect-err
@@ -129,31 +127,6 @@ impl<'a> EvalContext<'a> {
             msg: format!("data slice does not refer to valid UTF-8: {slice:?}"),
             span: Some(error_span),
         })
-    }
-
-    /// Get the current stack to be used for the callee - either `callee_stack` if set, or `stack`
-    #[inline]
-    fn callee_stack(&mut self) -> &mut Stack {
-        self.callee_stack.as_deref_mut().unwrap_or(self.stack)
-    }
-
-    /// Create a new callee stack, so that arguments will go onto a new stack that will be used for
-    /// calls
-    fn new_callee_stack(&mut self) {
-        self.drop_callee_stack();
-
-        let mut new_stack = Box::new(self.stack.gather_captures(self.engine_state, &[]));
-
-        // Increment recursion count on callee stack to prevent recursing too far
-        new_stack.recursion_count += 1;
-
-        self.callee_stack = Some(new_stack);
-    }
-
-    /// Drop the callee stack, so that arguments will be put on the caller stack instead
-    fn drop_callee_stack(&mut self) {
-        // this is provided so in case some other cleanup needs to be done, it can be done here.
-        self.callee_stack = None;
     }
 }
 
@@ -342,41 +315,9 @@ fn eval_instruction<D: DebugContext>(
                 })
             }
         }
-        Instruction::NewCalleeStack => {
-            ctx.new_callee_stack();
-            Ok(Continue)
-        }
-        Instruction::CaptureVariable { var_id } => {
-            if let Some(callee_stack) = &mut ctx.callee_stack {
-                let value = ctx.stack.get_var_with_origin(*var_id, *span)?;
-                callee_stack.add_var(*var_id, value);
-                Ok(Continue)
-            } else {
-                Err(ShellError::IrEvalError {
-                    msg: "capture-variable instruction without prior new-callee-stack \
-                            to initialize it"
-                        .into(),
-                    span: Some(*span),
-                })
-            }
-        }
-        Instruction::PushVariable { var_id, src } => {
-            let value = ctx.collect_reg(*src, *span)?;
-            if let Some(callee_stack) = &mut ctx.callee_stack {
-                callee_stack.add_var(*var_id, value);
-                Ok(Continue)
-            } else {
-                Err(ShellError::IrEvalError {
-                    msg:
-                        "push-variable instruction without prior new-callee-stack to initialize it"
-                            .into(),
-                    span: Some(*span),
-                })
-            }
-        }
         Instruction::PushPositional { src } => {
             let val = ctx.collect_reg(*src, *span)?;
-            ctx.callee_stack().arguments.push(Argument::Positional {
+            ctx.stack.arguments.push(Argument::Positional {
                 span: *span,
                 val,
                 ast: ast.clone().map(|ast_ref| ast_ref.0),
@@ -385,7 +326,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::AppendRest { src } => {
             let vals = ctx.collect_reg(*src, *span)?;
-            ctx.callee_stack().arguments.push(Argument::Spread {
+            ctx.stack.arguments.push(Argument::Spread {
                 span: *span,
                 vals,
                 ast: ast.clone().map(|ast_ref| ast_ref.0),
@@ -394,7 +335,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::PushFlag { name } => {
             let data = ctx.data.clone();
-            ctx.callee_stack().arguments.push(Argument::Flag {
+            ctx.stack.arguments.push(Argument::Flag {
                 data,
                 name: *name,
                 span: *span,
@@ -404,7 +345,7 @@ fn eval_instruction<D: DebugContext>(
         Instruction::PushNamed { name, src } => {
             let val = ctx.collect_reg(*src, *span)?;
             let data = ctx.data.clone();
-            ctx.callee_stack().arguments.push(Argument::Named {
+            ctx.stack.arguments.push(Argument::Named {
                 data,
                 name: *name,
                 span: *span,
@@ -415,7 +356,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::PushParserInfo { name, info } => {
             let data = ctx.data.clone();
-            ctx.callee_stack().arguments.push(Argument::ParserInfo {
+            ctx.stack.arguments.push(Argument::ParserInfo {
                 data,
                 name: *name,
                 info: info.clone(),
@@ -831,44 +772,50 @@ fn eval_call<D: DebugContext>(
         engine_state,
         stack: caller_stack,
         args_base,
-        callee_stack,
         redirect_out,
         redirect_err,
         ..
     } = ctx;
 
-    let stack = callee_stack.as_deref_mut().unwrap_or(caller_stack);
-
-    let args_len = stack.arguments.get_len(*args_base);
+    let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
 
     // Set up redirect modes
-    let mut stack = stack.push_redirection(redirect_out.take(), redirect_err.take());
+    let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
 
     let result;
 
     if let Some(block_id) = decl.block_id() {
-        // If the decl is a custom command, we assume that we have set up the arguments using
-        // new-callee-stack and push-variable instead of stack.arguments
-        //
-        // This saves us from having to parse through the declaration at eval time to figure out
-        // what to put where.
+        // If the decl is a custom command
         let block = engine_state.get_block(block_id);
 
-        result = eval_block_with_early_return::<D>(engine_state, &mut stack, block, input);
+        // Set up a callee stack with the captures and move arguments from the stack into variables
+        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
-        drop(stack);
+        gather_arguments(
+            block,
+            &mut caller_stack,
+            &mut callee_stack,
+            *args_base,
+            args_len,
+            head,
+        )?;
 
+        // Add one to the recursion count, so we don't recurse too deep. Stack overflows are not
+        // recoverable in Rust.
+        callee_stack.recursion_count += 1;
+
+        result = eval_block_with_early_return::<D>(engine_state, &mut callee_stack, block, input);
+
+        // Move environment variables back into the caller stack scope if requested to do so
         if block.redirect_env {
-            if let Some(callee_stack) = callee_stack {
-                redirect_env(engine_state, caller_stack, callee_stack);
-            }
+            redirect_env(engine_state, &mut caller_stack, &mut callee_stack);
         }
     } else {
-        // should this be precalculated? ideally we just use the call builder...
+        // FIXME: precalculate this and save it somewhere
         let span = Span::merge_many(
             std::iter::once(head).chain(
-                stack
+                caller_stack
                     .arguments
                     .get_args(*args_base, args_len)
                     .into_iter()
@@ -885,18 +832,144 @@ fn eval_call<D: DebugContext>(
         };
 
         // Run the call
-        result = decl.run(engine_state, &mut stack, &(&call).into(), input);
-
-        drop(stack);
+        result = decl.run(engine_state, &mut caller_stack, &(&call).into(), input);
     };
+
+    drop(caller_stack);
 
     // Important that this runs, to reset state post-call:
     ctx.stack.arguments.leave_frame(ctx.args_base);
     ctx.redirect_out = None;
     ctx.redirect_err = None;
-    ctx.drop_callee_stack();
 
     result
+}
+
+fn find_named_var_id(sig: &Signature, name: &[u8], span: Span) -> Result<VarId, ShellError> {
+    sig.named
+        .iter()
+        .find(|n| n.long.as_bytes() == name)
+        .ok_or_else(|| ShellError::IrEvalError {
+            msg: format!(
+                "block does not have an argument named `{}`",
+                String::from_utf8_lossy(name)
+            ),
+            span: Some(span),
+        })
+        .and_then(|flag| expect_named_var_id(flag, span))
+}
+
+fn expect_named_var_id(arg: &Flag, span: Span) -> Result<VarId, ShellError> {
+    arg.var_id.ok_or_else(|| ShellError::IrEvalError {
+        msg: format!(
+            "block signature is missing var id for named arg `{}`",
+            arg.long
+        ),
+        span: Some(span),
+    })
+}
+
+fn expect_positional_var_id(arg: &PositionalArg, span: Span) -> Result<VarId, ShellError> {
+    arg.var_id.ok_or_else(|| ShellError::IrEvalError {
+        msg: format!(
+            "block signature is missing var id for positional arg `{}`",
+            arg.name
+        ),
+        span: Some(span),
+    })
+}
+
+/// Move arguments from the stack into variables for a custom command
+fn gather_arguments(
+    block: &Block,
+    caller_stack: &mut Stack,
+    callee_stack: &mut Stack,
+    args_base: usize,
+    args_len: usize,
+    call_head: Span,
+) -> Result<(), ShellError> {
+    let mut positional_iter = block
+        .signature
+        .required_positional
+        .iter()
+        .chain(&block.signature.optional_positional);
+
+    // Arguments that didn't get consumed by required/optional
+    let mut rest = vec![];
+
+    for arg in caller_stack.arguments.drain_args(args_base, args_len) {
+        match arg {
+            Argument::Positional { span, val, .. } => {
+                if let Some(positional_arg) = positional_iter.next() {
+                    let var_id = expect_positional_var_id(positional_arg, span)?;
+                    callee_stack.add_var(var_id, val);
+                } else {
+                    rest.push(val);
+                }
+            }
+            Argument::Spread { vals, .. } => {
+                if let Value::List { vals, .. } = vals {
+                    rest.extend(vals);
+                } else {
+                    return Err(ShellError::CannotSpreadAsList { span: vals.span() });
+                }
+            }
+            Argument::Flag { data, name, span } => {
+                let var_id = find_named_var_id(&block.signature, &data[name], span)?;
+                callee_stack.add_var(var_id, Value::bool(true, span))
+            }
+            Argument::Named {
+                data,
+                name,
+                span,
+                val,
+                ..
+            } => {
+                let var_id = find_named_var_id(&block.signature, &data[name], span)?;
+                callee_stack.add_var(var_id, val)
+            }
+            Argument::ParserInfo { .. } => (),
+        }
+    }
+
+    // Add the collected rest of the arguments if a spread argument exists
+    if let Some(rest_arg) = &block.signature.rest_positional {
+        let rest_span = rest.first().map(|v| v.span()).unwrap_or(call_head);
+        let var_id = expect_positional_var_id(rest_arg, rest_span)?;
+        callee_stack.add_var(var_id, Value::list(rest, rest_span));
+    }
+
+    // Check for arguments that haven't yet been set and set them to their defaults
+    for positional_arg in positional_iter {
+        let var_id = expect_positional_var_id(positional_arg, call_head)?;
+        callee_stack.add_var(
+            var_id,
+            positional_arg
+                .default_value
+                .clone()
+                .unwrap_or(Value::nothing(call_head)),
+        );
+    }
+
+    for named_arg in &block.signature.named {
+        if let Some(var_id) = named_arg.var_id {
+            // For named arguments, we do this check by looking to see if the variable was set yet on
+            // the stack. This assumes that the stack's variables was previously empty, but that's a
+            // fair assumption for a brand new callee stack.
+            if !callee_stack.vars.iter().any(|(id, _)| *id == var_id) {
+                let val = if named_arg.arg.is_none() {
+                    Value::bool(false, call_head)
+                } else if let Some(value) = &named_arg.default_value {
+                    value.clone()
+                } else {
+                    Value::nothing(call_head)
+                };
+                callee_stack.add_var(var_id, val);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Get variable from [`Stack`] or [`EngineState`]
