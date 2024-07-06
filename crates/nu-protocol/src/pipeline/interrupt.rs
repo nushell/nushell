@@ -4,24 +4,43 @@ use std::sync::{
     Arc,
 };
 
+/// Controls the execution of nushell code.
+///
+/// For now, the only purpose of this struct is to check for interruption (ctrl+c or SIGINT).
 #[derive(Debug, Clone)]
 pub struct Interrupt {
     interrupt: Option<Arc<AtomicBool>>,
 }
 
 impl Interrupt {
+    /// An [`Interrupt`] that is not hooked up to any event/interrupt source.
+    ///
+    /// So, this [`Interrupt`] will never be triggered.
     pub const EMPTY: Self = Interrupt { interrupt: None };
 
+    /// Create a new [`Interrupt`] with `ctrlc` as the interrupt source.
+    ///
+    /// Once `ctrlc` is set to `true`, [`check`](Self::check) will error
+    /// and [`triggered`](Self::triggered) will return `true`.
     pub fn new(ctrlc: Arc<AtomicBool>) -> Self {
         Self {
             interrupt: Some(ctrlc),
         }
     }
 
+    /// Create [`Interrupt`] that is not hooked up to any event/interrupt source.
+    ///
+    /// So, the returned [`Interrupt`] will never be triggered.
+    ///
+    /// This should only be used in test code, or if the stream/iterator being created
+    /// already has an [`Interrupt`].
     pub const fn empty() -> Self {
         Self::EMPTY
     }
 
+    /// Returns an `Err` if this [`Interrupt`] has been triggered.
+    ///
+    /// Otherwise, returns `Ok`.
     #[inline]
     pub fn check(&self, span: Span) -> Result<(), ShellError> {
         #[inline]
@@ -37,6 +56,7 @@ impl Interrupt {
         }
     }
 
+    /// Returns whether this [`Interrupt`] has been triggered.
     #[inline]
     pub fn triggered(&self) -> bool {
         self.interrupt
