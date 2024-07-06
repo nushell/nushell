@@ -24,8 +24,14 @@ impl Interrupt {
 
     #[inline]
     pub fn check(&self, span: Span) -> Result<(), ShellError> {
-        if self.triggered() {
+        #[inline]
+        #[cold]
+        fn interrupt_error(span: Span) -> Result<(), ShellError> {
             Err(ShellError::Interrupted { span })
+        }
+
+        if self.triggered() {
+            interrupt_error(span)
         } else {
             Ok(())
         }
