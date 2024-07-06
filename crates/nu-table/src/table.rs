@@ -225,8 +225,6 @@ fn build_table(
         return None;
     }
 
-    eprintln!("... {widths:?} ...");
-
     if cfg.with_header && cfg.with_footer {
         duplicate_row(&mut data, 0);
     }
