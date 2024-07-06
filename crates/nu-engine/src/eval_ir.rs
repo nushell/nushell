@@ -638,14 +638,7 @@ fn literal_value(
         Literal::Filesize(q) => Value::filesize(*q, span),
         Literal::Duration(q) => Value::duration(*q, span),
         Literal::Binary(bin) => Value::binary(&ctx.data[*bin], span),
-        Literal::Block(block_id) | Literal::RowCondition(block_id) => Value::closure(
-            Closure {
-                block_id: *block_id,
-                captures: vec![],
-            },
-            span,
-        ),
-        Literal::Closure(block_id) => {
+        Literal::Block(block_id) | Literal::RowCondition(block_id) | Literal::Closure(block_id) => {
             let block = ctx.engine_state.get_block(*block_id);
             let captures = block
                 .captures
