@@ -1,4 +1,4 @@
-use std::{fs::File, sync::Arc};
+use std::{borrow::Cow, fs::File, sync::Arc};
 
 use nu_path::expand_path_with;
 use nu_protocol::{
@@ -10,6 +10,7 @@ use nu_protocol::{
     PositionalArg, Range, Record, RegId, ShellError, Signature, Span, Spanned, Value, VarId,
     ENV_VARIABLE_ID,
 };
+use nu_utils::IgnoreCaseExt;
 
 use crate::{eval::is_automatic_env_var, eval_block_with_early_return};
 
@@ -283,8 +284,9 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::LoadEnv { dst, key } => {
             let key = ctx.get_str(*key, *span)?;
-            if let Some(value) = ctx.stack.get_env_var(ctx.engine_state, key) {
-                ctx.put_reg(*dst, value.into_pipeline_data());
+            if let Some(value) = get_env_var_case_insensitive(ctx, key) {
+                let new_value = value.clone().into_pipeline_data();
+                ctx.put_reg(*dst, new_value);
                 Ok(Continue)
             } else {
                 // FIXME: using the same span twice, shouldn't this really be
@@ -298,9 +300,8 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::LoadEnvOpt { dst, key } => {
             let key = ctx.get_str(*key, *span)?;
-            let value = ctx
-                .stack
-                .get_env_var(ctx.engine_state, key)
+            let value = get_env_var_case_insensitive(ctx, key)
+                .cloned()
                 .unwrap_or(Value::nothing(*span));
             ctx.put_reg(*dst, value.into_pipeline_data());
             Ok(Continue)
@@ -308,8 +309,11 @@ fn eval_instruction<D: DebugContext>(
         Instruction::StoreEnv { key, src } => {
             let key = ctx.get_str(*key, *span)?;
             let value = ctx.collect_reg(*src, *span)?;
-            if !is_automatic_env_var(key) {
-                ctx.stack.add_env_var(key.into(), value);
+
+            let key = get_env_var_name_case_insensitive(ctx, key);
+
+            if !is_automatic_env_var(&key) {
+                ctx.stack.add_env_var(key.into_owned(), value);
                 Ok(Continue)
             } else {
                 Err(ShellError::AutomaticEnvVarSetManually {
@@ -1018,6 +1022,67 @@ fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, Sh
             }
         }),
     }
+}
+
+/// Get an environment variable, case-insensitively
+fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value> {
+    // Read scopes in order
+    ctx.stack
+        .env_vars
+        .iter()
+        .rev()
+        .chain(std::iter::once(ctx.engine_state.env_vars.as_ref()))
+        .flat_map(|overlays| {
+            // Read overlays in order
+            ctx.stack
+                .active_overlays
+                .iter()
+                .rev()
+                .map(|name| overlays.get(name))
+                .flatten()
+        })
+        .find_map(|map| {
+            // Use the hashmap first to try to be faster?
+            map.get(key).or_else(|| {
+                // Check to see if it exists at all in the map
+                map.iter()
+                    .find_map(|(k, v)| k.eq_ignore_case(key).then_some(v))
+            })
+        })
+}
+
+/// Get the existing name of an environment variable, case-insensitively. This is used to implement
+/// case preservation of environment variables, so that changing an environment variable that
+/// already exists always uses the same case.
+fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str> {
+    // Read scopes in order
+    ctx.stack
+        .env_vars
+        .iter()
+        .rev()
+        .chain(std::iter::once(ctx.engine_state.env_vars.as_ref()))
+        .flat_map(|overlays| {
+            // Read overlays in order
+            ctx.stack
+                .active_overlays
+                .iter()
+                .rev()
+                .map(|name| overlays.get(name))
+                .flatten()
+        })
+        .find_map(|map| {
+            // Use the hashmap first to try to be faster?
+            if map.contains_key(key) {
+                Some(Cow::Borrowed(key))
+            } else if let Some(k) = map.keys().find(|k| k.eq_ignore_case(key)) {
+                // it exists, but with a different case
+                Some(Cow::Owned(k.to_owned()))
+            } else {
+                None
+            }
+        })
+        // didn't exist.
+        .unwrap_or(Cow::Borrowed(key))
 }
 
 /// Helper to collect values into [`PipelineData`], preserving original span and metadata
