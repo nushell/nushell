@@ -280,7 +280,7 @@ pub fn sort_suggestions(
 }
 
 /// # Arguments
-/// * `prefix` - What the user's typed, for sorting by Levenshtein distance
+/// * `prefix` - What the user's typed, for sorting by fuzzy matcher score
 pub fn sort_completions<T>(
     prefix: &str,
     mut items: Vec<T>,
@@ -289,8 +289,13 @@ pub fn sort_completions<T>(
 ) -> Vec<T> {
     // Sort items
     if options.sort == CompletionSort::Default && options.match_algorithm == MatchAlgorithm::Fuzzy {
+        let mut matcher = SkimMatcherV2::default();
+        if options.case_sensitive {
+            matcher = matcher.respect_case();
+        } else {
+            matcher = matcher.ignore_case();
+        };
         items.sort_by(|a, b| {
-            let matcher = SkimMatcherV2::default();
             let a_str = get_value(a);
             let b_str = get_value(b);
             let a_score = matcher.fuzzy_match(a_str, prefix).unwrap_or_default();
