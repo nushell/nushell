@@ -436,7 +436,16 @@ fn eval_instruction<D: DebugContext>(
             let val = ctx.collect_reg(*val, *span)?;
             let record_span = record_value.span();
             let mut record = record_value.into_record()?;
-            record.insert(key.coerce_into_string()?, val);
+
+            let key = key.coerce_into_string()?;
+            if let Some(old_value) = record.insert(&key, val) {
+                return Err(ShellError::ColumnDefinedTwice {
+                    col_name: key,
+                    second_use: *span,
+                    first_use: old_value.span(),
+                });
+            }
+
             ctx.put_reg(
                 *src_dst,
                 Value::record(record, record_span).into_pipeline_data(),

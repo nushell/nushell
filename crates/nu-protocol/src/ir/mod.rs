@@ -150,8 +150,8 @@ pub enum Instruction {
     ListPush { src_dst: RegId, item: RegId },
     /// Spread a value onto the end of a list. Used to construct list literals.
     ListSpread { src_dst: RegId, items: RegId },
-    /// Insert a key-value pair into a record. Used to construct record literals. Any existing value
-    /// for the key is overwritten.
+    /// Insert a key-value pair into a record. Used to construct record literals. Raises an error if
+    /// the key already existed in the record.
     RecordInsert {
         src_dst: RegId,
         key: RegId,
