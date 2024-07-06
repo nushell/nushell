@@ -96,133 +96,153 @@ impl BlockBuilder {
         &mut self,
         instruction: Spanned<Instruction>,
     ) -> Result<usize, CompileError> {
-        match &instruction.item {
+        // Free read registers, and mark write registers.
+        //
+        // If a register is both read and written, it should be on both sides, so that we can verify
+        // that the register was in the right state beforehand.
+        let mut allocate = |read: &[RegId], write: &[RegId]| -> Result<(), CompileError> {
+            for reg in read {
+                self.free_register(*reg)?;
+            }
+            for reg in write {
+                self.mark_register(*reg)?;
+            }
+            Ok(())
+        };
+
+        let allocate_result = match &instruction.item {
             Instruction::LoadLiteral { dst, lit } => {
-                self.mark_register(*dst)?;
-                // Free any registers on the literal
-                match lit {
-                    Literal::Range {
-                        start,
-                        step,
-                        end,
-                        inclusion: _,
-                    } => {
-                        self.free_register(*start)?;
-                        self.free_register(*step)?;
-                        self.free_register(*end)?;
-                    }
-                    Literal::Bool(_)
-                    | Literal::Int(_)
-                    | Literal::Float(_)
-                    | Literal::Filesize(_)
-                    | Literal::Duration(_)
-                    | Literal::Binary(_)
-                    | Literal::Block(_)
-                    | Literal::Closure(_)
-                    | Literal::RowCondition(_)
-                    | Literal::List { capacity: _ }
-                    | Literal::Record { capacity: _ }
-                    | Literal::Filepath {
-                        val: _,
-                        no_expand: _,
-                    }
-                    | Literal::Directory {
-                        val: _,
-                        no_expand: _,
-                    }
-                    | Literal::GlobPattern {
-                        val: _,
-                        no_expand: _,
-                    }
-                    | Literal::String(_)
-                    | Literal::RawString(_)
-                    | Literal::CellPath(_)
-                    | Literal::Date(_)
-                    | Literal::Nothing => (),
-                }
+                allocate(&[], &[*dst]).and(
+                    // Free any registers on the literal
+                    match lit {
+                        Literal::Range {
+                            start,
+                            step,
+                            end,
+                            inclusion: _,
+                        } => allocate(&[*start, *step, *end], &[]),
+                        Literal::Bool(_)
+                        | Literal::Int(_)
+                        | Literal::Float(_)
+                        | Literal::Filesize(_)
+                        | Literal::Duration(_)
+                        | Literal::Binary(_)
+                        | Literal::Block(_)
+                        | Literal::Closure(_)
+                        | Literal::RowCondition(_)
+                        | Literal::List { capacity: _ }
+                        | Literal::Record { capacity: _ }
+                        | Literal::Filepath {
+                            val: _,
+                            no_expand: _,
+                        }
+                        | Literal::Directory {
+                            val: _,
+                            no_expand: _,
+                        }
+                        | Literal::GlobPattern {
+                            val: _,
+                            no_expand: _,
+                        }
+                        | Literal::String(_)
+                        | Literal::RawString(_)
+                        | Literal::CellPath(_)
+                        | Literal::Date(_)
+                        | Literal::Nothing => Ok(()),
+                    },
+                )
             }
-            Instruction::LoadValue { dst, val: _ } => self.mark_register(*dst)?,
-            Instruction::Move { dst, src } => {
-                self.free_register(*src)?;
-                self.mark_register(*dst)?;
-            }
-            Instruction::Clone { dst, src: _ } => self.mark_register(*dst)?,
-            Instruction::Collect { src_dst: _ } => (),
-            Instruction::Drop { src } => self.free_register(*src)?,
-            Instruction::Drain { src } => self.free_register(*src)?,
-            Instruction::LoadVariable { dst, var_id: _ } => self.mark_register(*dst)?,
-            Instruction::StoreVariable { var_id: _, src } => self.free_register(*src)?,
-            Instruction::LoadEnv { dst, key: _ } => self.mark_register(*dst)?,
-            Instruction::LoadEnvOpt { dst, key: _ } => self.mark_register(*dst)?,
-            Instruction::StoreEnv { key: _, src } => self.free_register(*src)?,
-            Instruction::NewCalleeStack => (),
-            Instruction::CaptureVariable { var_id: _ } => (),
-            Instruction::PushVariable { var_id: _, src } => self.free_register(*src)?,
-            Instruction::PushPositional { src } => self.free_register(*src)?,
-            Instruction::AppendRest { src } => self.free_register(*src)?,
-            Instruction::PushFlag { name: _ } => (),
-            Instruction::PushNamed { name: _, src } => self.free_register(*src)?,
-            Instruction::PushParserInfo { name: _, info: _ } => (),
+            Instruction::LoadValue { dst, val: _ } => allocate(&[], &[*dst]),
+            Instruction::Move { dst, src } => allocate(&[*src], &[*dst]),
+            Instruction::Clone { dst, src } => allocate(&[*src], &[*dst, *src]),
+            Instruction::Collect { src_dst } => allocate(&[*src_dst], &[*src_dst]),
+            Instruction::Drop { src } => allocate(&[*src], &[]),
+            Instruction::Drain { src } => allocate(&[*src], &[]),
+            Instruction::LoadVariable { dst, var_id: _ } => allocate(&[], &[*dst]),
+            Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[]),
+            Instruction::LoadEnv { dst, key: _ } => allocate(&[], &[*dst]),
+            Instruction::LoadEnvOpt { dst, key: _ } => allocate(&[], &[*dst]),
+            Instruction::StoreEnv { key: _, src } => allocate(&[*src], &[]),
+            Instruction::NewCalleeStack => Ok(()),
+            Instruction::CaptureVariable { var_id: _ } => Ok(()),
+            Instruction::PushVariable { var_id: _, src } => allocate(&[*src], &[]),
+            Instruction::PushPositional { src } => allocate(&[*src], &[]),
+            Instruction::AppendRest { src } => allocate(&[*src], &[]),
+            Instruction::PushFlag { name: _ } => Ok(()),
+            Instruction::PushNamed { name: _, src } => allocate(&[*src], &[]),
+            Instruction::PushParserInfo { name: _, info: _ } => Ok(()),
             Instruction::RedirectOut { mode } | Instruction::RedirectErr { mode } => match mode {
-                RedirectMode::File { path, .. } => self.free_register(*path)?,
-                _ => (),
+                RedirectMode::File { path, .. } => allocate(&[*path], &[]),
+                _ => Ok(()),
             },
             Instruction::Call {
                 decl_id: _,
-                src_dst: _,
-            } => (),
-            Instruction::StringAppend { src_dst: _, val } => self.free_register(*val)?,
+                src_dst,
+            } => allocate(&[*src_dst], &[*src_dst]),
+            Instruction::StringAppend { src_dst, val } => allocate(&[*src_dst, *val], &[*src_dst]),
             Instruction::GlobFrom {
-                src_dst: _,
+                src_dst,
                 no_expand: _,
-            } => (),
-            Instruction::ListPush { src_dst: _, item } => self.free_register(*item)?,
-            Instruction::ListSpread { src_dst: _, items } => self.free_register(*items)?,
-            Instruction::RecordInsert {
-                src_dst: _,
-                key,
-                val,
-            } => {
-                self.free_register(*key)?;
-                self.free_register(*val)?;
+            } => allocate(&[*src_dst], &[*src_dst]),
+            Instruction::ListPush { src_dst, item } => allocate(&[*src_dst, *item], &[*src_dst]),
+            Instruction::ListSpread { src_dst, items } => {
+                allocate(&[*src_dst, *items], &[*src_dst])
             }
-            Instruction::RecordSpread { src_dst: _, items } => self.free_register(*items)?,
-            Instruction::Not { src_dst: _ } => (),
+            Instruction::RecordInsert { src_dst, key, val } => {
+                allocate(&[*src_dst, *key, *val], &[*src_dst])
+            }
+            Instruction::RecordSpread { src_dst, items } => {
+                allocate(&[*src_dst, *items], &[*src_dst])
+            }
+            Instruction::Not { src_dst } => allocate(&[*src_dst], &[*src_dst]),
             Instruction::BinaryOp {
-                lhs_dst: _,
+                lhs_dst,
                 op: _,
                 rhs,
-            } => self.free_register(*rhs)?,
-            Instruction::FollowCellPath { src_dst: _, path } => self.free_register(*path)?,
-            Instruction::CloneCellPath { dst, src: _, path } => {
-                self.mark_register(*dst)?;
-                self.free_register(*path)?;
+            } => allocate(&[*lhs_dst, *rhs], &[*lhs_dst]),
+            Instruction::FollowCellPath { src_dst, path } => {
+                allocate(&[*src_dst, *path], &[*src_dst])
+            }
+            Instruction::CloneCellPath { dst, src, path } => {
+                allocate(&[*src, *path], &[*src, *dst])
             }
             Instruction::UpsertCellPath {
-                src_dst: _,
+                src_dst,
                 path,
                 new_value,
-            } => {
-                self.free_register(*path)?;
-                self.free_register(*new_value)?;
-            }
-            Instruction::Jump { index: _ } => (),
-            Instruction::BranchIf { cond, index: _ } => self.free_register(*cond)?,
+            } => allocate(&[*src_dst, *path, *new_value], &[*src_dst]),
+            Instruction::Jump { index: _ } => Ok(()),
+            Instruction::BranchIf { cond, index: _ } => allocate(&[*cond], &[]),
             Instruction::Match {
                 pattern: _,
-                src: _,
+                src,
                 index: _,
-            } => (),
+            } => allocate(&[*src], &[*src]),
             Instruction::Iterate {
                 dst,
-                stream: _,
+                stream,
                 end_index: _,
-            } => self.mark_register(*dst)?,
-            Instruction::OnError { index: _ } => (),
-            Instruction::OnErrorInto { index: _, dst } => self.mark_register(*dst)?,
-            Instruction::PopErrorHandler => (),
-            Instruction::Return { src } => self.free_register(*src)?,
+            } => allocate(&[*stream], &[*dst, *stream]),
+            Instruction::OnError { index: _ } => Ok(()),
+            Instruction::OnErrorInto { index: _, dst } => allocate(&[], &[*dst]),
+            Instruction::PopErrorHandler => Ok(()),
+            Instruction::Return { src } => allocate(&[*src], &[]),
+        };
+
+        // Add more context to the error
+        match allocate_result {
+            Ok(()) => (),
+            Err(CompileError::RegisterUninitialized { reg_id, caller }) => {
+                return Err(CompileError::RegisterUninitializedWhilePushingInstruction {
+                    reg_id,
+                    caller,
+                    instruction: format!("{:?}", instruction.item),
+                    span: instruction.span,
+                });
+            }
+            Err(err) => return Err(err),
         }
+
         let index = self.next_instruction_index();
         self.instructions.push(instruction.item);
         self.spans.push(instruction.span);

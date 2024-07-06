@@ -83,6 +83,7 @@ fn compile_block(
                 if builder.is_allocated(out_reg) {
                     builder.push(Instruction::Drain { src: out_reg }.into_spanned(span))?;
                 }
+                builder.load_empty(out_reg)?;
             }
         }
         Ok(())

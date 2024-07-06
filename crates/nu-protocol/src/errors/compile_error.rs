@@ -21,6 +21,19 @@ pub enum CompileError {
     )]
     RegisterUninitialized { reg_id: RegId, caller: String },
 
+    #[error("Register {reg_id} was uninitialized when used, possibly reused.")]
+    #[diagnostic(
+        code(nu::compile::register_uninitialized),
+        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new\nfrom: {caller}"),
+    )]
+    RegisterUninitializedWhilePushingInstruction {
+        reg_id: RegId,
+        caller: String,
+        instruction: String,
+        #[label("while adding this instruction: {instruction}")]
+        span: Span,
+    },
+
     #[error("Block contains too much string data: maximum 4 GiB exceeded.")]
     #[diagnostic(
         code(nu::compile::data_overflow),
