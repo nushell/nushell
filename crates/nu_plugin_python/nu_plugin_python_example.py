@@ -7,7 +7,7 @@
 # decode and encode information that is read and written to stdin and stdout
 #
 # To register the plugin use:
-# 	register <path-to-py-file>
+# 	plugin add <path-to-py-file>
 #
 # Be careful with the spans. Miette will crash if a span is outside the
 # size of the contents vector. We strongly suggest using the span found in the

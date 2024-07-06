@@ -240,20 +240,6 @@ impl View for TryView {
     fn show_data(&mut self, i: usize) -> bool {
         self.table.as_mut().map_or(false, |v| v.show_data(i))
     }
-
-    // fn setup(&mut self, config: ViewConfig<'_>) {
-    //     self.border_color = nu_style_to_tui(config.explore_config.table.separator_style);
-    //     self.immediate = config.explore_config.try_reactive;
-
-    // was there any reason for all this???? I don't think so
-    //     let mut r = RecordView::new(vec![], vec![], config.explore_config.clone());
-    //     r.setup(config);
-    //     if let Some(view) = &mut self.table {
-    //         view.setup(config);
-    //         view.set_orientation(r.get_top_layer_orientation());
-    //         view.set_top_layer_orientation(r.get_top_layer_orientation());
-    //     }
-    // }
 }
 
 fn run_command(

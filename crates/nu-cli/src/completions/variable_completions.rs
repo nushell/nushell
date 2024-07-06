@@ -229,6 +229,8 @@ impl Completer for VariableCompletion {
             }
         }
 
+        output = sort_suggestions(&prefix_str, output, SortBy::Ascending);
+
         output.dedup(); // TODO: Removes only consecutive duplicates, is it intended?
 
         output
