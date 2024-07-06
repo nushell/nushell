@@ -913,46 +913,42 @@ impl EngineState {
     /// directory on the stack that have yet to be merged into the engine state.
     pub fn cwd(&self, stack: Option<&Stack>) -> Result<AbsolutePathBuf, ShellError> {
         // Helper function to create a simple generic error.
-        fn error(msg: &str, cwd: impl AsRef<nu_path::Path>) -> Result<AbsolutePathBuf, ShellError> {
-            Err(ShellError::GenericError {
+        fn error(msg: &str, cwd: impl AsRef<nu_path::Path>) -> ShellError {
+            ShellError::GenericError {
                 error: msg.into(),
                 msg: format!("$env.PWD = {}", cwd.as_ref().display()),
                 span: None,
                 help: Some("Use `cd` to reset $env.PWD into a good state".into()),
                 inner: vec![],
-            })
+            }
         }
 
         // Retrieve $env.PWD from the stack or the engine state.
         let pwd = if let Some(stack) = stack {
             stack.get_env_var(self, "PWD")
         } else {
-            self.get_env_var("PWD").map(ToOwned::to_owned)
+            self.get_env_var("PWD").cloned()
         };
 
-        if let Some(pwd) = pwd {
-            if let Value::String { val, .. } = pwd {
-                match AbsolutePathBuf::try_from(val) {
-                    Ok(path) => {
-                        // Technically, a root path counts as "having trailing slashes", but
-                        // for the purpose of PWD, a root path is acceptable.
-                        if path.parent().is_none() && nu_path::has_trailing_slash(path.as_ref()) {
-                            error("$env.PWD contains trailing slashes", &path)
-                        } else if !path.exists() {
-                            error("$env.PWD points to a non-existent directory", &path)
-                        } else if !path.is_dir() {
-                            error("$env.PWD points to a non-directory", &path)
-                        } else {
-                            Ok(path)
-                        }
-                    }
-                    Err(path) => error("$env.PWD is not an absolute path", path),
-                }
+        let pwd = pwd.ok_or_else(|| error("$env.PWD not found", ""))?;
+
+        if let Value::String { val, .. } = pwd {
+            let path = AbsolutePathBuf::try_from(val)
+                .map_err(|path| error("$env.PWD is not an absolute path", path))?;
+
+            // Technically, a root path counts as "having trailing slashes", but
+            // for the purpose of PWD, a root path is acceptable.
+            if path.parent().is_some() && nu_path::has_trailing_slash(path.as_ref()) {
+                Err(error("$env.PWD contains trailing slashes", &path))
+            } else if !path.exists() {
+                Err(error("$env.PWD points to a non-existent directory", &path))
+            } else if !path.is_dir() {
+                Err(error("$env.PWD points to a non-directory", &path))
             } else {
-                error("$env.PWD is not a string", format!("{pwd:?}"))
+                Ok(path)
             }
         } else {
-            error("$env.PWD not found", "")
+            Err(error("$env.PWD is not a string", format!("{pwd:?}")))
         }
     }
 
