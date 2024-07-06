@@ -10,7 +10,7 @@ use crate::{record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub use self::completer::CompletionAlgorithm;
+pub use self::completer::{CompletionAlgorithm, CompletionSort};
 pub use self::helper::extract_value;
 pub use self::hooks::Hooks;
 pub use self::output::ErrorStyle;
@@ -68,6 +68,7 @@ pub struct Config {
     pub quick_completions: bool,
     pub partial_completions: bool,
     pub completion_algorithm: CompletionAlgorithm,
+    pub completion_sort: CompletionSort,
     pub edit_mode: EditBindings,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
@@ -140,6 +141,7 @@ impl Default for Config {
             quick_completions: true,
             partial_completions: true,
             completion_algorithm: CompletionAlgorithm::default(),
+            completion_sort: CompletionSort::default(),
             enable_external_completion: true,
             max_external_completion_results: 100,
             recursion_limit: 50,
@@ -340,6 +342,13 @@ impl Value {
                                     "case_sensitive" => {
                                         process_bool_config(value, &mut errors, &mut config.case_sensitive_completions);
                                     }
+                                    "sort" => {
+                                        process_string_enum(
+                                            &mut config.completion_sort,
+                                            &[key, key2],
+                                            value,
+                                            &mut errors);
+                                    }
                                     "external" => {
                                         if let Value::Record { val, .. } = value {
                                             val.to_mut().retain_mut(|key3, value|
@@ -400,6 +409,7 @@ impl Value {
                                     "partial" => Value::bool(config.partial_completions, span),
                                     "algorithm" => config.completion_algorithm.reconstruct_value(span),
                                     "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
+                                    "sort" => config.completion_sort.reconstruct_value(span),
                                     "external" => reconstruct_external(&config, span),
                                     "use_ls_colors" => Value::bool(config.use_ls_colors_completions, span),
                                 },

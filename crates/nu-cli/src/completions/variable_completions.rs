@@ -9,7 +9,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::str;
 
-use super::{completion_common::sort_suggestions, SortBy};
+use super::completion_common::sort_suggestions;
 
 #[derive(Clone)]
 pub struct VariableCompletion {
@@ -72,7 +72,7 @@ impl Completer for VariableCompletion {
                             }
                         }
 
-                        return sort_suggestions(&prefix_str, output, SortBy::Ascending);
+                        return sort_suggestions(&prefix_str, output, options);
                     }
                 } else {
                     // No nesting provided, return all env vars
@@ -96,7 +96,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
+                    return sort_suggestions(&prefix_str, output, options);
                 }
             }
 
@@ -120,7 +120,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
+                    return sort_suggestions(&prefix_str, output, options);
                 }
             }
 
@@ -142,7 +142,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
+                    return sort_suggestions(&prefix_str, output, options);
                 }
             }
         }
@@ -229,7 +229,7 @@ impl Completer for VariableCompletion {
             }
         }
 
-        output = sort_suggestions(&prefix_str, output, SortBy::Ascending);
+        output = sort_suggestions(&prefix_str, output, options);
 
         output.dedup(); // TODO: Removes only consecutive duplicates, is it intended?
 

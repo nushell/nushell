@@ -1,5 +1,5 @@
 use crate::{
-    completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy},
+    completions::{Completer, CompletionOptions, MatchAlgorithm},
     SuggestionKind,
 };
 use nu_parser::FlatShape;
@@ -198,11 +198,7 @@ impl Completer for CommandCompletion {
         };
 
         if !subcommands.is_empty() {
-            return sort_suggestions(
-                &String::from_utf8_lossy(&prefix),
-                subcommands,
-                SortBy::LevenshteinDistance,
-            );
+            return sort_suggestions(&String::from_utf8_lossy(&prefix), subcommands, options);
         }
 
         let config = working_set.get_config();
@@ -227,11 +223,7 @@ impl Completer for CommandCompletion {
             vec![]
         };
 
-        sort_suggestions(
-            &String::from_utf8_lossy(&prefix),
-            commands,
-            SortBy::LevenshteinDistance,
-        )
+        sort_suggestions(&String::from_utf8_lossy(&prefix), commands, options)
     }
 }
 

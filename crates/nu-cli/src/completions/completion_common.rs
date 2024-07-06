@@ -2,19 +2,20 @@ use crate::{
     completions::{matches, CompletionOptions},
     SemanticSuggestion,
 };
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    levenshtein_distance, Span,
+    CompletionSort, Span,
 };
 use nu_utils::get_ls_colors;
 use std::path::{
     is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
 };
 
-use super::SortBy;
+use super::MatchAlgorithm;
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -64,7 +65,7 @@ fn complete_rec(
     }
 
     let prefix = partial.first().unwrap_or(&"");
-    let sorted_entries = sort_completions(prefix, entries, SortBy::Ascending, |(entry, _)| entry);
+    let sorted_entries = sort_completions(prefix, entries, options, |(entry, _)| entry);
 
     for (entry_name, built) in sorted_entries {
         match partial.split_first() {
@@ -273,9 +274,9 @@ pub fn adjust_if_intermediate(
 pub fn sort_suggestions(
     prefix: &str,
     items: Vec<SemanticSuggestion>,
-    sort_by: SortBy,
+    options: &CompletionOptions,
 ) -> Vec<SemanticSuggestion> {
-    sort_completions(prefix, items, sort_by, |it| &it.suggestion.value)
+    sort_completions(prefix, items, options, |it| &it.suggestion.value)
 }
 
 /// # Arguments
@@ -283,23 +284,22 @@ pub fn sort_suggestions(
 pub fn sort_completions<T>(
     prefix: &str,
     mut items: Vec<T>,
-    sort_by: SortBy,
+    options: &CompletionOptions,
     get_value: fn(&T) -> &str,
 ) -> Vec<T> {
     // Sort items
-    match sort_by {
-        SortBy::LevenshteinDistance => {
-            items.sort_by(|a, b| {
-                let a_distance = levenshtein_distance(prefix, get_value(a));
-                let b_distance = levenshtein_distance(prefix, get_value(b));
-                a_distance.cmp(&b_distance)
-            });
-        }
-        SortBy::Ascending => {
-            items.sort_by(|a, b| get_value(a).cmp(get_value(b)));
-        }
-        SortBy::None => {}
-    };
+    if options.sort == CompletionSort::Default && options.match_algorithm == MatchAlgorithm::Fuzzy {
+        items.sort_by(|a, b| {
+            let matcher = SkimMatcherV2::default();
+            let a_str = get_value(a);
+            let b_str = get_value(b);
+            let a_score = matcher.fuzzy_match(a_str, prefix).unwrap_or_default();
+            let b_score = matcher.fuzzy_match(b_str, prefix).unwrap_or_default();
+            b_score.cmp(&a_score).then(a_str.cmp(b_str))
+        });
+    } else {
+        items.sort_by(|a, b| get_value(a).cmp(get_value(b)));
+    }
 
     items
 }

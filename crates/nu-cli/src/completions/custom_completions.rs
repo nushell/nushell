@@ -1,13 +1,13 @@
 use crate::completions::{
     completer::map_value_completions, Completer, CompletionOptions, MatchAlgorithm,
-    SemanticSuggestion, SortBy,
+    SemanticSuggestion,
 };
 use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Stack, StateWorkingSet},
-    PipelineData, Span, Type, Value,
+    CompletionSort, PipelineData, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use std::collections::HashMap;
@@ -18,7 +18,6 @@ pub struct CustomCompletion {
     stack: Stack,
     decl_id: usize,
     line: String,
-    sort_by: SortBy,
 }
 
 impl CustomCompletion {
@@ -27,7 +26,6 @@ impl CustomCompletion {
             stack,
             decl_id,
             line,
-            sort_by: SortBy::None,
         }
     }
 }
@@ -93,10 +91,6 @@ impl Completer for CustomCompletion {
                             .and_then(|val| val.as_bool().ok())
                             .unwrap_or(false);
 
-                        if should_sort {
-                            self.sort_by = SortBy::Ascending;
-                        }
-
                         custom_completion_options = Some(CompletionOptions {
                             case_sensitive: options
                                 .get("case_sensitive")
@@ -114,6 +108,11 @@ impl Completer for CustomCompletion {
                                     .unwrap_or(MatchAlgorithm::Prefix),
                                 None => completion_options.match_algorithm,
                             },
+                            sort: if should_sort {
+                                CompletionSort::Alpha
+                            } else {
+                                CompletionSort::Default
+                            },
                         });
                     }
 
@@ -124,12 +123,11 @@ impl Completer for CustomCompletion {
             })
             .unwrap_or_default();
 
-        let suggestions = if let Some(custom_completion_options) = custom_completion_options {
-            filter(&prefix, suggestions, &custom_completion_options)
-        } else {
-            filter(&prefix, suggestions, completion_options)
-        };
-        sort_suggestions(&String::from_utf8_lossy(&prefix), suggestions, self.sort_by)
+        let options = custom_completion_options
+            .as_ref()
+            .unwrap_or(completion_options);
+        let suggestions = filter(&prefix, suggestions, completion_options);
+        sort_suggestions(&String::from_utf8_lossy(&prefix), suggestions, options)
     }
 }
 

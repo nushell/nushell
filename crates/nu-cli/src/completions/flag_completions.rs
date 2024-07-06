@@ -1,6 +1,4 @@
-use crate::completions::{
-    completion_common::sort_suggestions, Completer, CompletionOptions, SortBy,
-};
+use crate::completions::{completion_common::sort_suggestions, Completer, CompletionOptions};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::{Stack, StateWorkingSet},
@@ -92,7 +90,7 @@ impl Completer for FlagCompletion {
                 }
             }
 
-            return sort_suggestions(&String::from_utf8_lossy(&prefix), output, SortBy::Ascending);
+            return sort_suggestions(&String::from_utf8_lossy(&prefix), output, options);
         }
 
         vec![]
