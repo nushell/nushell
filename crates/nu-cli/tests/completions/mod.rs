@@ -97,7 +97,7 @@ fn subcommand_completer() -> NuCompleter {
             def foo [] {}
             def "foo bar" [] {}
             def "foo abaz" [] {}
-            def "foo aabrr" [] {}
+            def "foo aabcrr" [] {}
             def food [] {}
         "#;
     assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack, dir).is_ok());
@@ -686,7 +686,7 @@ fn subcommand_completions(mut subcommand_completer: NuCompleter) {
     let prefix = "foo br";
     let suggestions = subcommand_completer.complete(prefix, prefix.len());
     match_suggestions(
-        vec!["foo bar".to_string(), "foo aabrr".to_string()],
+        vec!["foo bar".to_string(), "foo aabcrr".to_string()],
         suggestions,
     );
 
@@ -695,8 +695,8 @@ fn subcommand_completions(mut subcommand_completer: NuCompleter) {
     match_suggestions(
         vec![
             "foo bar".to_string(),
+            "foo aabcrr".to_string(),
             "foo abaz".to_string(),
-            "foo aabrr".to_string(),
         ],
         suggestions,
     );
