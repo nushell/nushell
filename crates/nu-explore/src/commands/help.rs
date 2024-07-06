@@ -1,5 +1,5 @@
 use super::ViewCommand;
-use crate::views::Preview;
+use crate::views::{Preview, ViewConfig};
 use anyhow::Result;
 use nu_ansi_term::Color;
 use nu_protocol::{
@@ -99,7 +99,13 @@ impl ViewCommand for HelpCmd {
         Ok(())
     }
 
-    fn spawn(&mut self, _: &EngineState, _: &mut Stack, _: Option<Value>) -> Result<Self::View> {
+    fn spawn(
+        &mut self,
+        _: &EngineState,
+        _: &mut Stack,
+        _: Option<Value>,
+        _: &ViewConfig,
+    ) -> Result<Self::View> {
         Ok(HelpCmd::view())
     }
 }
