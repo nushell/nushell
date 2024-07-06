@@ -382,24 +382,33 @@ where
     if !executable_path.exists() {
         executable_path = crate::fs::installed_nu_path();
     }
-    let process = match setup_command(&executable_path, &target_cwd)
-        .envs(envs)
-        .arg("--commands")
-        .arg(command)
-        // Use plain errors to help make error text matching more consistent
-        .args(["--error-style", "plain"])
-        .arg("--config")
-        .arg(temp_config_file)
-        .arg("--env-config")
-        .arg(temp_env_config_file)
-        .arg("--plugin-config")
-        .arg(temp_plugin_file)
-        .arg("--plugins")
-        .arg(plugins_arg)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-    {
+
+    let mut nu = setup_command(&executable_path, &target_cwd);
+
+    nu.envs(envs);
+
+    nu.arg("--commands");
+    nu.arg(command);
+    // Use plain errors to help make error text matching more consistent
+    nu.args(["--error-style", "plain"]);
+    nu.arg("--config");
+    nu.arg(temp_config_file);
+    nu.arg("--env-config");
+    nu.arg(temp_env_config_file);
+    nu.arg("--plugin-config");
+    nu.arg(temp_plugin_file);
+    nu.arg("--plugins");
+    nu.arg(plugins_arg);
+
+    // Test plugin tests with IR too, if asked to
+    if std::env::var("NU_TEST_USE_IR").is_ok() {
+        nu.arg("--use-ir");
+    }
+
+    nu.stdout(Stdio::piped());
+    nu.stderr(Stdio::piped());
+
+    let process = match nu.spawn() {
         Ok(child) => child,
         Err(why) => panic!("Can't run test {}", why),
     };
