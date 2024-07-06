@@ -10,7 +10,7 @@ use anyhow::Result;
 use commands::{ExpandCmd, HelpCmd, NuCmd, QuitCmd, TableCmd, TryCmd};
 pub use default_context::add_explore_context;
 pub use explore::Explore;
-use nu_common::{collect_pipeline, has_simple_value, CtrlC};
+use nu_common::{collect_pipeline, has_simple_value};
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
@@ -27,7 +27,6 @@ mod util {
 fn run_pager(
     engine_state: &EngineState,
     stack: &mut Stack,
-    ctrlc: CtrlC,
     input: PipelineData,
     config: PagerConfig,
 ) -> Result<Option<Value>> {
@@ -44,14 +43,14 @@ fn run_pager(
         p.show_message("For help type :help");
 
         let view = binary_view(input)?;
-        return p.run(engine_state, stack, ctrlc, Some(view), commands);
+        return p.run(engine_state, stack, Some(view), commands);
     }
 
     let (columns, data) = collect_pipeline(input)?;
 
     let has_no_input = columns.is_empty() && data.is_empty();
     if has_no_input {
-        return p.run(engine_state, stack, ctrlc, help_view(), commands);
+        return p.run(engine_state, stack, help_view(), commands);
     }
 
     p.show_message("For help type :help");
@@ -59,11 +58,11 @@ fn run_pager(
     if let Some(value) = has_simple_value(&data) {
         let text = value.to_abbreviated_string(config.nu_config);
         let view = Some(Page::new(Preview::new(&text), false));
-        return p.run(engine_state, stack, ctrlc, view, commands);
+        return p.run(engine_state, stack, view, commands);
     }
 
     let view = create_record_view(columns, data, is_record, config);
-    p.run(engine_state, stack, ctrlc, view, commands)
+    p.run(engine_state, stack, view, commands)
 }
 
 fn create_record_view(

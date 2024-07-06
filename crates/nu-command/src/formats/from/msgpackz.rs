@@ -41,7 +41,7 @@ impl Command for FromMsgpackz {
         let opts = Opts {
             span,
             objects,
-            ctrlc: engine_state.ctrlc.clone(),
+            interrupt: engine_state.interrupt().clone(),
         };
         match input {
             // Deserialize from a byte buffer

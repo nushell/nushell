@@ -1,8 +1,8 @@
 use indexmap::{indexmap, IndexMap};
 use nu_engine::command_prelude::*;
 
+use nu_protocol::Interrupt;
 use once_cell::sync::Lazy;
-use std::sync::{atomic::AtomicBool, Arc};
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
 #[cfg(target_family = "windows")]
@@ -229,11 +229,13 @@ impl Command for Char {
         let list = call.has_flag_const(working_set, "list")?;
         let integer = call.has_flag_const(working_set, "integer")?;
         let unicode = call.has_flag_const(working_set, "unicode")?;
-        let ctrlc = working_set.permanent().ctrlc.clone();
 
         // handle -l flag
         if list {
-            return Ok(generate_character_list(ctrlc, call.head));
+            return Ok(generate_character_list(
+                working_set.permanent().interrupt().clone(),
+                call.head,
+            ));
         }
 
         // handle -i flag
@@ -264,11 +266,13 @@ impl Command for Char {
         let list = call.has_flag(engine_state, stack, "list")?;
         let integer = call.has_flag(engine_state, stack, "integer")?;
         let unicode = call.has_flag(engine_state, stack, "unicode")?;
-        let ctrlc = engine_state.ctrlc.clone();
 
         // handle -l flag
         if list {
-            return Ok(generate_character_list(ctrlc, call_span));
+            return Ok(generate_character_list(
+                engine_state.interrupt().clone(),
+                call_span,
+            ));
         }
 
         // handle -i flag
@@ -289,7 +293,7 @@ impl Command for Char {
     }
 }
 
-fn generate_character_list(ctrlc: Option<Arc<AtomicBool>>, call_span: Span) -> PipelineData {
+fn generate_character_list(interrupt: Interrupt, call_span: Span) -> PipelineData {
     CHAR_MAP
         .iter()
         .map(move |(name, s)| {
@@ -308,7 +312,7 @@ fn generate_character_list(ctrlc: Option<Arc<AtomicBool>>, call_span: Span) -> P
 
             Value::record(record, call_span)
         })
-        .into_pipeline_data(call_span, ctrlc)
+        .into_pipeline_data(call_span, interrupt)
 }
 
 fn handle_integer_flag(

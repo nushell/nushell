@@ -180,7 +180,7 @@ fn string_helper(
             cell_paths,
             config,
         };
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, engine_state.interrupt())
     }
 }
 

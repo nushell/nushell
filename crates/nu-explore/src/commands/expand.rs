@@ -66,12 +66,11 @@ fn convert_value_to_string(
         let config = engine_state.get_config();
         Ok(vals[0][0].to_abbreviated_string(config))
     } else {
-        let ctrlc = engine_state.ctrlc.clone();
         let config = engine_state.get_config();
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
         Ok(nu_common::try_build_table(
-            ctrlc,
+            engine_state.interrupt(),
             config,
             &style_computer,
             value,

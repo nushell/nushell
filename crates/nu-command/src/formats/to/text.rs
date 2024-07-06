@@ -60,7 +60,7 @@ impl Command for ToText {
                     ByteStream::from_iter(
                         iter,
                         span,
-                        engine_state.ctrlc.clone(),
+                        engine_state.interrupt().clone(),
                         ByteStreamType::String,
                     ),
                     update_metadata(meta),

@@ -2,7 +2,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
 use nu_path::{dots::expand_ndots, expand_tilde};
 use nu_protocol::{
-    ast::Expression, did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest,
+    ast::Expression, did_you_mean, process::ChildProcess, ByteStream, Interrupt, NuGlob, OutDest,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
@@ -13,7 +13,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::{atomic::AtomicBool, Arc},
+    sync::Arc,
     thread,
 };
 
@@ -221,7 +221,6 @@ pub fn eval_arguments_from_call(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<Vec<Spanned<OsString>>, ShellError> {
-    let ctrlc = &engine_state.ctrlc;
     let cwd = engine_state.cwd(Some(stack))?;
     let mut args: Vec<Spanned<OsString>> = vec![];
     for (expr, spread) in call.rest_iter(1) {
@@ -229,7 +228,7 @@ pub fn eval_arguments_from_call(
             match arg {
                 // Expand globs passed to run-external
                 Value::Glob { val, no_expand, .. } if !no_expand => args.extend(
-                    expand_glob(&val, &cwd, expr.span, ctrlc)?
+                    expand_glob(&val, &cwd, expr.span, engine_state.interrupt())?
                         .into_iter()
                         .map(|s| s.into_spanned(expr.span)),
                 ),
@@ -289,7 +288,7 @@ fn expand_glob(
     arg: &str,
     cwd: &Path,
     span: Span,
-    interrupt: &Option<Arc<AtomicBool>>,
+    interrupt: &Interrupt,
 ) -> Result<Vec<OsString>, ShellError> {
     const GLOB_CHARS: &[char] = &['*', '?', '['];
 
@@ -307,9 +306,7 @@ fn expand_glob(
         let mut result: Vec<OsString> = vec![];
 
         for m in matches {
-            if nu_utils::ctrl_c::was_pressed(interrupt) {
-                return Err(ShellError::InterruptedByUser { span: Some(span) });
-            }
+            interrupt.check(span)?;
             if let Ok(arg) = m {
                 let arg = resolve_globbed_path_to_cwd_relative(arg, prefix.as_ref(), cwd);
                 result.push(arg.into());
@@ -611,30 +608,31 @@ mod test {
 
             let cwd = dirs.test();
 
-            let actual = expand_glob("*.txt", cwd, Span::unknown(), &None).unwrap();
+            let actual = expand_glob("*.txt", cwd, Span::unknown(), &Interrupt::empty()).unwrap();
             let expected = &["a.txt", "b.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("./*.txt", cwd, Span::unknown(), &None).unwrap();
+            let actual = expand_glob("./*.txt", cwd, Span::unknown(), &Interrupt::empty()).unwrap();
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &None).unwrap();
+            let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &Interrupt::empty()).unwrap();
             let expected = &["'*.txt'"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob(".", cwd, Span::unknown(), &None).unwrap();
+            let actual = expand_glob(".", cwd, Span::unknown(), &Interrupt::empty()).unwrap();
             let expected = &["."];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("./a.txt", cwd, Span::unknown(), &None).unwrap();
+            let actual = expand_glob("./a.txt", cwd, Span::unknown(), &Interrupt::empty()).unwrap();
             let expected = &["./a.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("[*.txt", cwd, Span::unknown(), &None).unwrap();
+            let actual = expand_glob("[*.txt", cwd, Span::unknown(), &Interrupt::empty()).unwrap();
             let expected = &["[*.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("~/foo.txt", cwd, Span::unknown(), &None).unwrap();
+            let actual =
+                expand_glob("~/foo.txt", cwd, Span::unknown(), &Interrupt::empty()).unwrap();
             let home = dirs_next::home_dir().expect("failed to get home dir");
             let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
             assert_eq!(actual, expected);
@@ -666,7 +664,7 @@ mod test {
             ByteStream::read(
                 b"foo".as_slice(),
                 Span::unknown(),
-                None,
+                Interrupt::empty(),
                 ByteStreamType::Unknown,
             ),
             None,

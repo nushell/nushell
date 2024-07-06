@@ -140,7 +140,7 @@ with 'transpose' first."#
                             }
                         }
                     })
-                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                    .into_pipeline_data(head, engine_state.interrupt().clone()))
             }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
@@ -171,7 +171,7 @@ with 'transpose' first."#
                                 }
                             }
                         })
-                        .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                        .into_pipeline_data(head, engine_state.interrupt().clone()))
                 } else {
                     Ok(PipelineData::Empty)
                 }
@@ -185,7 +185,7 @@ with 'transpose' first."#
         .and_then(|x| {
             x.filter(
                 move |x| if !keep_empty { !x.is_nothing() } else { true },
-                engine_state.ctrlc.clone(),
+                engine_state.interrupt(),
             )
         })
         .map(|data| data.set_metadata(metadata))

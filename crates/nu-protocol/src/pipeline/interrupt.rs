@@ -10,6 +10,8 @@ pub struct Interrupt {
 }
 
 impl Interrupt {
+    pub const EMPTY: Self = Interrupt { interrupt: None };
+
     pub fn new(ctrlc: Arc<AtomicBool>) -> Self {
         Self {
             interrupt: Some(ctrlc),
@@ -17,19 +19,32 @@ impl Interrupt {
     }
 
     pub const fn empty() -> Self {
-        Self { interrupt: None }
+        Self::EMPTY
     }
 
     #[inline]
-    pub fn poll(&self, span: Span) -> Result<(), ShellError> {
-        if self
-            .interrupt
-            .as_deref()
-            .is_some_and(|b| b.load(Ordering::Relaxed))
-        {
+    pub fn check(&self, span: Span) -> Result<(), ShellError> {
+        if self.triggered() {
             Err(ShellError::Interrupted { span })
         } else {
             Ok(())
+        }
+    }
+
+    #[inline]
+    pub fn triggered(&self) -> bool {
+        self.interrupt
+            .as_deref()
+            .is_some_and(|b| b.load(Ordering::Relaxed))
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.interrupt.is_none()
+    }
+
+    pub(crate) fn reset(&self) {
+        if let Some(interrupt) = &self.interrupt {
+            interrupt.store(false, Ordering::Relaxed);
         }
     }
 }

@@ -81,7 +81,7 @@ impl Command for FormatDuration {
             arg,
             input,
             call.head,
-            engine_state.ctrlc.clone(),
+            engine_state.interrupt(),
         )
     }
 
@@ -108,7 +108,7 @@ impl Command for FormatDuration {
             arg,
             input,
             call.head,
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().interrupt(),
         )
     }
 

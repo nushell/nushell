@@ -7,8 +7,8 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Interrupt, Module, ModuleId,
+    OverlayId, ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -84,7 +84,7 @@ pub struct EngineState {
     pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
-    pub ctrlc: Option<Arc<AtomicBool>>,
+    interrupt: Interrupt,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
@@ -144,7 +144,7 @@ impl EngineState {
                 0,
                 false,
             ),
-            ctrlc: None,
+            interrupt: Interrupt::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
                     .into_iter()
@@ -175,6 +175,18 @@ impl EngineState {
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
         }
+    }
+
+    pub fn interrupt(&self) -> &Interrupt {
+        &self.interrupt
+    }
+
+    pub fn reset_interrupt(&mut self) {
+        self.interrupt.reset()
+    }
+
+    pub fn set_interrupt(&mut self, interrupt: Interrupt) {
+        self.interrupt = interrupt;
     }
 
     /// Merges a `StateDelta` onto the current state. These deltas come from a system, like the parser, that

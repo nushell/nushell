@@ -451,12 +451,7 @@ fn rm(
     });
 
     for result in iter {
-        if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-            return Err(ShellError::InterruptedByUser {
-                span: Some(call.head),
-            });
-        }
-
+        engine_state.interrupt().check(call.head)?;
         match result {
             Ok(None) => {}
             Ok(Some(msg)) => eprintln!("{msg}"),

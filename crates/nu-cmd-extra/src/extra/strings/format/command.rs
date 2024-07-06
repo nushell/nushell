@@ -220,7 +220,12 @@ fn format(
                 }
             }
 
-            Ok(ListStream::new(list.into_iter(), head_span, engine_state.ctrlc.clone()).into())
+            Ok(ListStream::new(
+                list.into_iter(),
+                head_span,
+                engine_state.interrupt().clone(),
+            )
+            .into())
         }
         // Unwrapping this ShellError is a bit unfortunate.
         // Ideally, its Span would be preserved.

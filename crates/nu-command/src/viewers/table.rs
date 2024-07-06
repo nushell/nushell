@@ -7,7 +7,8 @@ use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env::get_config, env_to_string};
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ByteStream, Config, DataSource, ListStream, PipelineMetadata, TableMode, ValueIterator,
+    ByteStream, Config, DataSource, Interrupt, ListStream, PipelineMetadata, TableMode,
+    ValueIterator,
 };
 use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
@@ -19,7 +20,6 @@ use std::{
     io::{IsTerminal, Read},
     path::PathBuf,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
     time::Instant,
 };
 use terminal_size::{Height, Width};
@@ -377,8 +377,8 @@ fn handle_table_command(
         ),
         PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ByteStream::read_binary(val, input.call.head, ctrlc);
+            let interrupt = input.engine_state.interrupt().clone();
+            let stream = ByteStream::read_binary(val, input.call.head, interrupt);
             Ok(PipelineData::ByteStream(
                 pretty_hex_stream(stream, input.call.head),
                 None,
@@ -386,8 +386,8 @@ fn handle_table_command(
         }
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
-            let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::new(vals.into_iter(), span, ctrlc);
+            let interrupt = input.engine_state.interrupt().clone();
+            let stream = ListStream::new(vals.into_iter(), span, interrupt);
             input.data = PipelineData::Empty;
 
             handle_row_stream(input, cfg, stream, metadata)
@@ -410,8 +410,12 @@ fn handle_table_command(
             Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
-            let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::new(val.into_range_iter(span, ctrlc), span, None);
+            let interrupt = input.engine_state.interrupt().clone();
+            let stream = ListStream::new(
+                val.into_range_iter(span, Interrupt::empty()),
+                span,
+                interrupt,
+            );
             input.data = PipelineData::Empty;
             handle_row_stream(input, cfg, stream, metadata)
         }
@@ -437,50 +441,55 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
         reader
     } else {
         // No stream to read from
-        return ByteStream::read_string("".into(), span, None);
+        return ByteStream::read_string("".into(), span, Interrupt::empty());
     };
 
-    ByteStream::from_fn(span, None, ByteStreamType::String, move |buffer| {
-        // Turn the buffer into a String we can write to
-        let mut write_buf = std::mem::take(buffer);
-        write_buf.clear();
-        // SAFETY: we just truncated it empty
-        let mut write_buf = unsafe { String::from_utf8_unchecked(write_buf) };
+    ByteStream::from_fn(
+        span,
+        Interrupt::empty(),
+        ByteStreamType::String,
+        move |buffer| {
+            // Turn the buffer into a String we can write to
+            let mut write_buf = std::mem::take(buffer);
+            write_buf.clear();
+            // SAFETY: we just truncated it empty
+            let mut write_buf = unsafe { String::from_utf8_unchecked(write_buf) };
 
-        // Write the title at the beginning
-        if cfg.title {
-            nu_pretty_hex::write_title(&mut write_buf, cfg, true).expect("format error");
-            cfg.title = false;
-
-            // Put the write_buf back into buffer
-            *buffer = write_buf.into_bytes();
-
-            Ok(true)
-        } else {
-            // Read up to `cfg.width` bytes
-            read_buf.clear();
-            (&mut reader)
-                .take(cfg.width as u64)
-                .read_to_end(&mut read_buf)
-                .err_span(span)?;
-
-            if !read_buf.is_empty() {
-                nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))
-                    .expect("format error");
-                write_buf.push('\n');
-
-                // Advance the address offset for next time
-                cfg.address_offset += read_buf.len();
+            // Write the title at the beginning
+            if cfg.title {
+                nu_pretty_hex::write_title(&mut write_buf, cfg, true).expect("format error");
+                cfg.title = false;
 
                 // Put the write_buf back into buffer
                 *buffer = write_buf.into_bytes();
 
                 Ok(true)
             } else {
-                Ok(false)
+                // Read up to `cfg.width` bytes
+                read_buf.clear();
+                (&mut reader)
+                    .take(cfg.width as u64)
+                    .read_to_end(&mut read_buf)
+                    .err_span(span)?;
+
+                if !read_buf.is_empty() {
+                    nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))
+                        .expect("format error");
+                    write_buf.push('\n');
+
+                    // Advance the address offset for next time
+                    cfg.address_offset += read_buf.len();
+
+                    // Put the write_buf back into buffer
+                    *buffer = write_buf.into_bytes();
+
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
             }
-        }
-    })
+        },
+    )
 }
 
 fn handle_record(
@@ -491,8 +500,6 @@ fn handle_record(
     let config = get_config(input.engine_state, input.stack);
     let span = input.data.span().unwrap_or(input.call.head);
     let styles = &StyleComputer::from_config(input.engine_state, input.stack);
-    let ctrlc = input.engine_state.ctrlc.clone();
-    let ctrlc1 = ctrlc.clone();
 
     if record.is_empty() {
         let value =
@@ -517,7 +524,7 @@ fn handle_record(
     let opts = TableOpts::new(
         &config,
         styles,
-        ctrlc,
+        input.engine_state.interrupt(),
         span,
         cfg.term_width,
         indent,
@@ -529,7 +536,7 @@ fn handle_record(
 
     let result = match result {
         Some(output) => maybe_strip_color(output, &config),
-        None => report_unsuccessful_output(ctrlc1, cfg.term_width),
+        None => report_unsuccessful_output(input.engine_state.interrupt(), cfg.term_width),
     };
 
     let val = Value::string(result, span);
@@ -537,8 +544,8 @@ fn handle_record(
     Ok(val.into_pipeline_data())
 }
 
-fn report_unsuccessful_output(ctrlc1: Option<Arc<AtomicBool>>, term_width: usize) -> String {
-    if nu_utils::ctrl_c::was_pressed(&ctrlc1) {
+fn report_unsuccessful_output(interrupt: &Interrupt, term_width: usize) -> String {
+    if interrupt.triggered() {
         "".into()
     } else {
         // assume this failed because the table was too wide
@@ -599,8 +606,6 @@ fn handle_row_stream(
     stream: ListStream,
     metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
-    let ctrlc = input.engine_state.ctrlc.clone();
-
     let stream = match metadata.as_ref() {
         // First, `ls` sources:
         Some(PipelineMetadata {
@@ -680,11 +685,14 @@ fn handle_row_stream(
         // for the values it outputs. Because engine_state is passed in, config doesn't need to.
         input.engine_state.clone(),
         input.stack.clone(),
-        ctrlc.clone(),
         cfg,
     );
-    let stream =
-        ByteStream::from_result_iter(paginator, input.call.head, None, ByteStreamType::String);
+    let stream = ByteStream::from_result_iter(
+        paginator,
+        input.call.head,
+        Interrupt::empty(),
+        ByteStreamType::String,
+    );
     Ok(PipelineData::ByteStream(stream, None))
 }
 
@@ -717,7 +725,6 @@ struct PagingTableCreator {
     stream: ValueIterator,
     engine_state: EngineState,
     stack: Stack,
-    ctrlc: Option<Arc<AtomicBool>>,
     elements_displayed: usize,
     reached_end: bool,
     cfg: TableConfig,
@@ -730,7 +737,6 @@ impl PagingTableCreator {
         stream: ListStream,
         engine_state: EngineState,
         stack: Stack,
-        ctrlc: Option<Arc<AtomicBool>>,
         cfg: TableConfig,
     ) -> Self {
         PagingTableCreator {
@@ -738,7 +744,6 @@ impl PagingTableCreator {
             stream: stream.into_inner(),
             engine_state,
             stack,
-            ctrlc,
             cfg,
             elements_displayed: 0,
             reached_end: false,
@@ -790,14 +795,14 @@ impl PagingTableCreator {
     }
 
     fn create_table_opts<'a>(
-        &self,
+        &'a self,
         cfg: &'a Config,
         style_comp: &'a StyleComputer<'a>,
     ) -> TableOpts<'a> {
         TableOpts::new(
             cfg,
             style_comp,
-            self.ctrlc.clone(),
+            self.engine_state.interrupt(),
             self.head,
             self.cfg.term_width,
             (cfg.table_indent.left, cfg.table_indent.right),
@@ -829,13 +834,19 @@ impl Iterator for PagingTableCreator {
 
         match self.cfg.abbreviation {
             Some(abbr) => {
-                (batch, _, end) =
-                    stream_collect_abbriviated(&mut self.stream, abbr, self.ctrlc.clone());
+                (batch, _, end) = stream_collect_abbriviated(
+                    &mut self.stream,
+                    abbr,
+                    self.engine_state.interrupt(),
+                );
             }
             None => {
                 // Pull from stream until time runs out or we have enough items
-                (batch, end) =
-                    stream_collect(&mut self.stream, STREAM_PAGE_SIZE, self.ctrlc.clone());
+                (batch, end) = stream_collect(
+                    &mut self.stream,
+                    STREAM_PAGE_SIZE,
+                    self.engine_state.interrupt(),
+                );
             }
         }
 
@@ -869,14 +880,19 @@ impl Iterator for PagingTableCreator {
         self.row_offset += batch_size;
 
         let config = get_config(&self.engine_state, &self.stack);
-        convert_table_to_output(table, &config, &self.ctrlc, self.cfg.term_width)
+        convert_table_to_output(
+            table,
+            &config,
+            self.engine_state.interrupt(),
+            self.cfg.term_width,
+        )
     }
 }
 
 fn stream_collect(
     stream: impl Iterator<Item = Value>,
     size: usize,
-    ctrlc: Option<Arc<AtomicBool>>,
+    interrupt: &Interrupt,
 ) -> (Vec<Value>, bool) {
     let start_time = Instant::now();
     let mut end = true;
@@ -896,7 +912,7 @@ fn stream_collect(
             break;
         }
 
-        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+        if interrupt.triggered() {
             break;
         }
     }
@@ -907,7 +923,7 @@ fn stream_collect(
 fn stream_collect_abbriviated(
     stream: impl Iterator<Item = Value>,
     size: usize,
-    ctrlc: Option<Arc<AtomicBool>>,
+    interrupt: &Interrupt,
 ) -> (Vec<Value>, usize, bool) {
     let mut end = true;
     let mut read = 0;
@@ -930,7 +946,7 @@ fn stream_collect_abbriviated(
             tail.push_back(item);
         }
 
-        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+        if interrupt.triggered() {
             end = false;
             break;
         }
@@ -1062,7 +1078,7 @@ fn create_empty_placeholder(
 fn convert_table_to_output(
     table: Result<Option<String>, ShellError>,
     config: &Config,
-    ctrlc: &Option<Arc<AtomicBool>>,
+    interrupt: &Interrupt,
     term_width: usize,
 ) -> Option<Result<Vec<u8>, ShellError>> {
     match table {
@@ -1075,7 +1091,7 @@ fn convert_table_to_output(
             Some(Ok(bytes))
         }
         Ok(None) => {
-            let msg = if nu_utils::ctrl_c::was_pressed(ctrlc) {
+            let msg = if interrupt.triggered() {
                 String::from("")
             } else {
                 // assume this failed because the table was too wide

@@ -205,7 +205,6 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
-    let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
@@ -216,7 +215,13 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request.clone(), args.data, args.content_type, ctrl_c);
+    let response = send_request(
+        request.clone(),
+        args.data,
+        args.content_type,
+        call.head,
+        engine_state.interrupt(),
+    );
 
     let request_flags = RequestFlags {
         raw: args.raw,

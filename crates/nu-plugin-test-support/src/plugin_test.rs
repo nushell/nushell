@@ -10,8 +10,8 @@ use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData,
-    ShellError, Span, Value,
+    report_error_new, CustomValue, Example, Interrupt, IntoSpanned as _, LabeledError,
+    PipelineData, ShellError, Span, Value,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -85,13 +85,13 @@ impl PluginTest {
     ///
     /// ```rust,no_run
     /// # use nu_plugin_test_support::PluginTest;
-    /// # use nu_protocol::{ShellError, Span, Value, IntoInterruptiblePipelineData};
+    /// # use nu_protocol::{Interrupt, IntoInterruptiblePipelineData, ShellError, Span, Value};
     /// # use nu_plugin::*;
     /// # fn test(MyPlugin: impl Plugin + Send + 'static) -> Result<(), ShellError> {
     /// let result = PluginTest::new("my_plugin", MyPlugin.into())?
     ///     .eval_with(
     ///         "my-command",
-    ///         vec![Value::test_int(42)].into_pipeline_data(Span::test_data(), None)
+    ///         vec![Value::test_int(42)].into_pipeline_data(Span::test_data(), Interrupt::empty())
     ///     )?
     ///     .into_value(Span::test_data())?;
     /// assert_eq!(Value::test_string("42"), result);
@@ -151,7 +151,7 @@ impl PluginTest {
                         Err(err) => Value::error(err, value.span()),
                     }
                 },
-                None,
+                &Interrupt::empty(),
             )?
         };
 
@@ -171,7 +171,7 @@ impl PluginTest {
                         Err(err) => Value::error(err, value.span()),
                     }
                 },
-                None,
+                &Interrupt::empty(),
             )
         }
     }

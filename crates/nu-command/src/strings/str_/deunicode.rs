@@ -39,7 +39,7 @@ impl Command for SubCommand {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
 
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.interrupt())
     }
 
     fn run_const(
@@ -56,7 +56,7 @@ impl Command for SubCommand {
             args,
             input,
             call.head,
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().interrupt(),
         )
     }
 

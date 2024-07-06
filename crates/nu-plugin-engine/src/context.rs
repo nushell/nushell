@@ -3,15 +3,13 @@ use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span, Spanned, Value,
+    Config, Interrupt, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span,
+    Spanned, Value,
 };
 use std::{
     borrow::Cow,
     collections::HashMap,
-    sync::{
-        atomic::{AtomicBool, AtomicU32},
-        Arc,
-    },
+    sync::{atomic::AtomicU32, Arc},
 };
 
 /// Object safe trait for abstracting operations required of the plugin context.
@@ -19,7 +17,7 @@ pub trait PluginExecutionContext: Send + Sync {
     /// A span pointing to the command being executed
     fn span(&self) -> Span;
     /// The interrupt signal, if present
-    fn ctrlc(&self) -> Option<&Arc<AtomicBool>>;
+    fn interrupt(&self) -> &Interrupt;
     /// The pipeline externals state, for tracking the foreground process group, if present
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>>;
     /// Get engine configuration
@@ -80,8 +78,8 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         self.call.head
     }
 
-    fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
-        self.engine_state.ctrlc.as_ref()
+    fn interrupt(&self) -> &Interrupt {
+        self.engine_state.interrupt()
     }
 
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {
@@ -234,8 +232,8 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         Span::test_data()
     }
 
-    fn ctrlc(&self) -> Option<&Arc<AtomicBool>> {
-        None
+    fn interrupt(&self) -> &Interrupt {
+        &Interrupt::EMPTY
     }
 
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {

@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, LabeledError, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, Span, Spanned, Value,
+    engine::Closure, Config, Interrupt, LabeledError, PipelineData, PluginMetadata,
+    PluginSignature, ShellError, Span, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
@@ -274,7 +274,9 @@ impl InterfaceManager for EngineInterfaceManager {
             PluginInput::Call(id, call) => {
                 let interface = self.interface_for_context(id);
                 // Read streams in the input
-                let call = match call.map_data(|input| self.read_pipeline_data(input, None)) {
+                let call = match call
+                    .map_data(|input| self.read_pipeline_data(input, &Interrupt::empty()))
+                {
                     Ok(call) => call,
                     Err(err) => {
                         // If there's an error with initialization of the input stream, just send
@@ -320,7 +322,7 @@ impl InterfaceManager for EngineInterfaceManager {
             }
             PluginInput::EngineCallResponse(id, response) => {
                 let response = response
-                    .map_data(|header| self.read_pipeline_data(header, None))
+                    .map_data(|header| self.read_pipeline_data(header, &Interrupt::empty()))
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to an engine
                         // call error response, but send it anyway

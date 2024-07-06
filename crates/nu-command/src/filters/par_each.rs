@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::engine::Closure;
+use nu_protocol::{engine::Closure, Interrupt};
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -158,12 +158,11 @@ impl Command for ParEach {
                             })
                             .collect::<Vec<_>>();
 
-                        apply_order(vec).into_pipeline_data(span, engine_state.ctrlc.clone())
+                        apply_order(vec).into_pipeline_data(span, engine_state.interrupt().clone())
                     })),
                     Value::Range { val, .. } => Ok(create_pool(max_threads)?.install(|| {
-                        let ctrlc = engine_state.ctrlc.clone();
                         let vec = val
-                            .into_range_iter(span, ctrlc.clone())
+                            .into_range_iter(span, Interrupt::empty())
                             .enumerate()
                             .par_bridge()
                             .map(move |(index, value)| {
@@ -184,7 +183,7 @@ impl Command for ParEach {
                             })
                             .collect::<Vec<_>>();
 
-                        apply_order(vec).into_pipeline_data(span, ctrlc)
+                        apply_order(vec).into_pipeline_data(span, engine_state.interrupt().clone())
                     })),
                     // This match allows non-iterables to be accepted,
                     // which is currently considered undesirable (Nov 2022).
@@ -212,7 +211,7 @@ impl Command for ParEach {
                     })
                     .collect::<Vec<_>>();
 
-                apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
+                apply_order(vec).into_pipeline_data(head, engine_state.interrupt().clone())
             })),
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
@@ -236,14 +235,14 @@ impl Command for ParEach {
                             })
                             .collect::<Vec<_>>();
 
-                        apply_order(vec).into_pipeline_data(head, engine_state.ctrlc.clone())
+                        apply_order(vec).into_pipeline_data(head, engine_state.interrupt().clone())
                     }))
                 } else {
                     Ok(PipelineData::empty())
                 }
             }
         }
-        .and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.ctrlc.clone()))
+        .and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.interrupt()))
         .map(|data| data.set_metadata(metadata))
     }
 }

@@ -32,10 +32,7 @@ pub fn boolean_fold(
     let mut closure = ClosureEval::new(engine_state, stack, closure);
 
     for value in input {
-        if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-            break;
-        }
-
+        engine_state.interrupt().check(head)?;
         let pred = closure.run_with_value(value)?.into_value(head)?.is_true();
 
         if pred == accumulator {

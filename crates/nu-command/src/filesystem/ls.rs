@@ -6,14 +6,13 @@ use nu_engine::glob_from;
 use nu_engine::{command_prelude::*, env::current_dir};
 use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
-use nu_protocol::{DataSource, NuGlob, PipelineMetadata};
+use nu_protocol::{DataSource, Interrupt, NuGlob, PipelineMetadata};
 use pathdiff::diff_paths;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
     path::PathBuf,
-    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -93,7 +92,6 @@ impl Command for Ls {
         let du = call.has_flag(engine_state, stack, "du")?;
         let directory = call.has_flag(engine_state, stack, "directory")?;
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
-        let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
@@ -116,22 +114,24 @@ impl Command for Ls {
             Some(pattern_arg)
         };
         match input_pattern_arg {
-            None => Ok(ls_for_one_pattern(None, args, ctrl_c.clone(), cwd)?
-                .into_pipeline_data_with_metadata(
-                    call_span,
-                    ctrl_c,
-                    PipelineMetadata {
-                        data_source: DataSource::Ls,
-                        content_type: None,
-                    },
-                )),
+            None => Ok(
+                ls_for_one_pattern(None, args, engine_state.interrupt(), cwd)?
+                    .into_pipeline_data_with_metadata(
+                        call_span,
+                        engine_state.interrupt().clone(),
+                        PipelineMetadata {
+                            data_source: DataSource::Ls,
+                            content_type: None,
+                        },
+                    ),
+            ),
             Some(pattern) => {
                 let mut result_iters = vec![];
                 for pat in pattern {
                     result_iters.push(ls_for_one_pattern(
                         Some(pat),
                         args,
-                        ctrl_c.clone(),
+                        engine_state.interrupt(),
                         cwd.clone(),
                     )?)
                 }
@@ -143,7 +143,7 @@ impl Command for Ls {
                     .flatten()
                     .into_pipeline_data_with_metadata(
                         call_span,
-                        ctrl_c,
+                        engine_state.interrupt().clone(),
                         PipelineMetadata {
                             data_source: DataSource::Ls,
                             content_type: None,
@@ -215,7 +215,7 @@ impl Command for Ls {
 fn ls_for_one_pattern(
     pattern_arg: Option<Spanned<NuGlob>>,
     args: Args,
-    ctrl_c: Option<Arc<AtomicBool>>,
+    interrupt: &Interrupt,
     cwd: PathBuf,
 ) -> Result<Box<dyn Iterator<Item = Value> + Send>, ShellError> {
     let Args {
@@ -342,7 +342,7 @@ fn ls_for_one_pattern(
 
     let mut hidden_dirs = vec![];
 
-    let one_ctrl_c = ctrl_c.clone();
+    let interrupt = interrupt.clone();
     Ok(Box::new(paths_peek.filter_map(move |x| match x {
         Ok(path) => {
             let metadata = match std::fs::symlink_metadata(&path) {
@@ -412,7 +412,7 @@ fn ls_for_one_pattern(
                         call_span,
                         long,
                         du,
-                        one_ctrl_c.clone(),
+                        &interrupt,
                         use_mime_type,
                     );
                     match entry {
@@ -474,7 +474,6 @@ fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
-use std::sync::atomic::AtomicBool;
 
 pub fn get_file_type(md: &std::fs::Metadata, display_name: &str, use_mime_type: bool) -> String {
     let ft = md.file_type();
@@ -523,7 +522,7 @@ pub(crate) fn dir_entry_dict(
     span: Span,
     long: bool,
     du: bool,
-    ctrl_c: Option<Arc<AtomicBool>>,
+    interrupt: &Interrupt,
     use_mime_type: bool,
 ) -> Result<Value, ShellError> {
     #[cfg(windows)]
@@ -618,7 +617,8 @@ pub(crate) fn dir_entry_dict(
             if md.is_dir() {
                 if du {
                     let params = DirBuilder::new(Span::new(0, 2), None, false, None, false);
-                    let dir_size = DirInfo::new(filename, &params, None, ctrl_c).get_size();
+                    let dir_size =
+                        DirInfo::new(filename, &params, None, span, interrupt)?.get_size();
 
                     Value::filesize(dir_size as i64, span)
                 } else {

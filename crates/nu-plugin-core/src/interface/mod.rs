@@ -1,10 +1,12 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
-use nu_protocol::{ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError};
+use nu_protocol::{
+    ByteStream, Interrupt, IntoSpanned, ListStream, PipelineData, Reader, ShellError,
+};
 use std::{
     io::{Read, Write},
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::Mutex,
     thread,
 };
 
@@ -170,7 +172,7 @@ pub trait InterfaceManager {
     fn read_pipeline_data(
         &self,
         header: PipelineDataHeader,
-        ctrlc: Option<&Arc<AtomicBool>>,
+        interrupt: &Interrupt,
     ) -> Result<PipelineData, ShellError> {
         self.prepare_pipeline_data(match header {
             PipelineDataHeader::Empty => PipelineData::Empty,
@@ -178,12 +180,13 @@ pub trait InterfaceManager {
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ListStream::new(reader, info.span, ctrlc.cloned()).into()
+                ListStream::new(reader, info.span, interrupt.clone()).into()
             }
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ByteStream::from_result_iter(reader, info.span, ctrlc.cloned(), info.type_).into()
+                ByteStream::from_result_iter(reader, info.span, interrupt.clone(), info.type_)
+                    .into()
             }
         })
     }

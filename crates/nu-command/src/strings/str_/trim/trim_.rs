@@ -190,7 +190,7 @@ fn run(
         cell_paths,
         mode,
     };
-    operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    operate(action, args, input, call.head, engine_state.interrupt())
 }
 
 #[derive(Debug, Copy, Clone)]

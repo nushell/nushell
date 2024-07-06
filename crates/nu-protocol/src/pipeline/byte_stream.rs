@@ -1,9 +1,8 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{
     process::{ChildPipe, ChildProcess, ExitStatus},
-    ErrSpan, IntoSpanned, OutDest, PipelineData, ShellError, Span, Type, Value,
+    ErrSpan, Interrupt, IntoSpanned, OutDest, PipelineData, ShellError, Span, Type, Value,
 };
+use serde::{Deserialize, Serialize};
 #[cfg(unix)]
 use std::os::fd::OwnedFd;
 #[cfg(windows)]
@@ -13,10 +12,6 @@ use std::{
     fs::File,
     io::{self, BufRead, BufReader, Cursor, ErrorKind, Read, Write},
     process::Stdio,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
     thread,
 };
 
@@ -182,7 +177,7 @@ impl From<ByteStreamType> for Type {
 pub struct ByteStream {
     stream: ByteStreamSource,
     span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
+    interrupt: Interrupt,
     type_: ByteStreamType,
     known_size: Option<u64>,
 }
@@ -192,13 +187,13 @@ impl ByteStream {
     pub fn new(
         stream: ByteStreamSource,
         span: Span,
-        interrupt: Option<Arc<AtomicBool>>,
+        interrupt: Interrupt,
         type_: ByteStreamType,
     ) -> Self {
         Self {
             stream,
             span,
-            ctrlc: interrupt,
+            interrupt,
             type_,
             known_size: None,
         }
@@ -208,7 +203,7 @@ impl ByteStream {
     pub fn read(
         reader: impl Read + Send + 'static,
         span: Span,
-        interrupt: Option<Arc<AtomicBool>>,
+        interrupt: Interrupt,
         type_: ByteStreamType,
     ) -> Self {
         Self::new(
@@ -220,7 +215,7 @@ impl ByteStream {
     }
 
     /// Create a [`ByteStream`] from a string. The type of the stream is always `String`.
-    pub fn read_string(string: String, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self {
+    pub fn read_string(string: String, span: Span, interrupt: Interrupt) -> Self {
         let len = string.len();
         ByteStream::read(
             Cursor::new(string.into_bytes()),
@@ -232,7 +227,7 @@ impl ByteStream {
     }
 
     /// Create a [`ByteStream`] from a byte vector. The type of the stream is always `Binary`.
-    pub fn read_binary(bytes: Vec<u8>, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self {
+    pub fn read_binary(bytes: Vec<u8>, span: Span, interrupt: Interrupt) -> Self {
         let len = bytes.len();
         ByteStream::read(Cursor::new(bytes), span, interrupt, ByteStreamType::Binary)
             .with_known_size(Some(len as u64))
@@ -242,7 +237,7 @@ impl ByteStream {
     ///
     /// The type is implicitly `Unknown`, as it's not typically known whether files will
     /// return text or binary.
-    pub fn file(file: File, span: Span, interrupt: Option<Arc<AtomicBool>>) -> Self {
+    pub fn file(file: File, span: Span, interrupt: Interrupt) -> Self {
         Self::new(
             ByteStreamSource::File(file),
             span,
@@ -259,7 +254,7 @@ impl ByteStream {
         Self::new(
             ByteStreamSource::Child(Box::new(child)),
             span,
-            None,
+            Interrupt::empty(),
             ByteStreamType::Unknown,
         )
     }
@@ -271,14 +266,19 @@ impl ByteStream {
     pub fn stdin(span: Span) -> Result<Self, ShellError> {
         let stdin = os_pipe::dup_stdin().err_span(span)?;
         let source = ByteStreamSource::File(convert_file(stdin));
-        Ok(Self::new(source, span, None, ByteStreamType::Unknown))
+        Ok(Self::new(
+            source,
+            span,
+            Interrupt::empty(),
+            ByteStreamType::Unknown,
+        ))
     }
 
     /// Create a [`ByteStream`] from a generator function that writes data to the given buffer
     /// when called, and returns `Ok(false)` on end of stream.
     pub fn from_fn(
         span: Span,
-        interrupt: Option<Arc<AtomicBool>>,
+        interrupt: Interrupt,
         type_: ByteStreamType,
         generator: impl FnMut(&mut Vec<u8>) -> Result<bool, ShellError> + Send + 'static,
     ) -> Self {
@@ -301,12 +301,7 @@ impl ByteStream {
     /// Create a new [`ByteStream`] from an [`Iterator`] of bytes slices.
     ///
     /// The returned [`ByteStream`] will have a [`ByteStreamSource`] of `Read`.
-    pub fn from_iter<I>(
-        iter: I,
-        span: Span,
-        interrupt: Option<Arc<AtomicBool>>,
-        type_: ByteStreamType,
-    ) -> Self
+    pub fn from_iter<I>(iter: I, span: Span, interrupt: Interrupt, type_: ByteStreamType) -> Self
     where
         I: IntoIterator,
         I::IntoIter: Send + 'static,
@@ -323,7 +318,7 @@ impl ByteStream {
     pub fn from_result_iter<I, T>(
         iter: I,
         span: Span,
-        interrupt: Option<Arc<AtomicBool>>,
+        interrupt: Interrupt,
         type_: ByteStreamType,
     ) -> Self
     where
@@ -378,7 +373,7 @@ impl ByteStream {
         Some(Reader {
             reader: BufReader::new(reader),
             span: self.span,
-            ctrlc: self.ctrlc,
+            interrupt: self.interrupt,
         })
     }
 
@@ -394,7 +389,7 @@ impl ByteStream {
         Some(Lines {
             reader: BufReader::new(reader),
             span: self.span,
-            ctrlc: self.ctrlc,
+            interrupt: self.interrupt,
         })
     }
 
@@ -415,7 +410,7 @@ impl ByteStream {
     /// then the stream is considered empty and `None` will be returned.
     pub fn chunks(self) -> Option<Chunks> {
         let reader = self.stream.reader()?;
-        Some(Chunks::new(reader, self.span, self.ctrlc, self.type_))
+        Some(Chunks::new(reader, self.span, self.interrupt, self.type_))
     }
 
     /// Convert the [`ByteStream`] into its inner [`ByteStreamSource`].
@@ -552,7 +547,7 @@ impl ByteStream {
     pub fn drain(self) -> Result<Option<ExitStatus>, ShellError> {
         match self.stream {
             ByteStreamSource::Read(read) => {
-                copy_with_interrupt(read, io::sink(), self.span, self.ctrlc.as_deref())?;
+                copy_with_interrupt(read, io::sink(), self.span, &self.interrupt)?;
                 Ok(None)
             }
             ByteStreamSource::File(_) => Ok(None),
@@ -578,14 +573,14 @@ impl ByteStream {
     /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
     pub fn write_to(self, dest: impl Write) -> Result<Option<ExitStatus>, ShellError> {
         let span = self.span;
-        let ctrlc = self.ctrlc.as_deref();
+        let interrupt = &self.interrupt;
         match self.stream {
             ByteStreamSource::Read(read) => {
-                copy_with_interrupt(read, dest, span, ctrlc)?;
+                copy_with_interrupt(read, dest, span, interrupt)?;
                 Ok(None)
             }
             ByteStreamSource::File(file) => {
-                copy_with_interrupt(file, dest, span, ctrlc)?;
+                copy_with_interrupt(file, dest, span, interrupt)?;
                 Ok(None)
             }
             ByteStreamSource::Child(mut child) => {
@@ -597,10 +592,10 @@ impl ByteStream {
                 if let Some(stdout) = child.stdout.take() {
                     match stdout {
                         ChildPipe::Pipe(pipe) => {
-                            copy_with_interrupt(pipe, dest, span, ctrlc)?;
+                            copy_with_interrupt(pipe, dest, span, interrupt)?;
                         }
                         ChildPipe::Tee(tee) => {
-                            copy_with_interrupt(tee, dest, span, ctrlc)?;
+                            copy_with_interrupt(tee, dest, span, interrupt)?;
                         }
                     }
                 }
@@ -615,21 +610,21 @@ impl ByteStream {
         stderr: &OutDest,
     ) -> Result<Option<ExitStatus>, ShellError> {
         let span = self.span;
-        let ctrlc = self.ctrlc.as_deref();
+        let interrupt = &self.interrupt;
 
         match self.stream {
             ByteStreamSource::Read(read) => {
-                write_to_out_dest(read, stdout, true, span, ctrlc)?;
+                write_to_out_dest(read, stdout, true, span, interrupt)?;
                 Ok(None)
             }
             ByteStreamSource::File(file) => {
                 match stdout {
                     OutDest::Pipe | OutDest::Capture | OutDest::Null => {}
                     OutDest::Inherit => {
-                        copy_with_interrupt(file, io::stdout(), span, ctrlc)?;
+                        copy_with_interrupt(file, io::stdout(), span, interrupt)?;
                     }
                     OutDest::File(f) => {
-                        copy_with_interrupt(file, f.as_ref(), span, ctrlc)?;
+                        copy_with_interrupt(file, f.as_ref(), span, interrupt)?;
                     }
                 }
                 Ok(None)
@@ -643,20 +638,20 @@ impl ByteStream {
                                 .name("stderr writer".into())
                                 .spawn_scoped(s, || match err {
                                     ChildPipe::Pipe(pipe) => {
-                                        write_to_out_dest(pipe, stderr, false, span, ctrlc)
+                                        write_to_out_dest(pipe, stderr, false, span, interrupt)
                                     }
                                     ChildPipe::Tee(tee) => {
-                                        write_to_out_dest(tee, stderr, false, span, ctrlc)
+                                        write_to_out_dest(tee, stderr, false, span, interrupt)
                                     }
                                 })
                                 .err_span(span);
 
                             match out {
                                 ChildPipe::Pipe(pipe) => {
-                                    write_to_out_dest(pipe, stdout, true, span, ctrlc)
+                                    write_to_out_dest(pipe, stdout, true, span, interrupt)
                                 }
                                 ChildPipe::Tee(tee) => {
-                                    write_to_out_dest(tee, stdout, true, span, ctrlc)
+                                    write_to_out_dest(tee, stdout, true, span, interrupt)
                                 }
                             }?;
 
@@ -672,11 +667,11 @@ impl ByteStream {
                     }
                     (Some(out), None) => {
                         // single output stream, we can consume directly
-                        write_to_out_dest(out, stdout, true, span, ctrlc)?;
+                        write_to_out_dest(out, stdout, true, span, interrupt)?;
                     }
                     (None, Some(err)) => {
                         // single output stream, we can consume directly
-                        write_to_out_dest(err, stderr, false, span, ctrlc)?;
+                        write_to_out_dest(err, stderr, false, span, interrupt)?;
                     }
                     (None, None) => {}
                 }
@@ -749,7 +744,7 @@ where
 pub struct Reader {
     reader: BufReader<SourceReader>,
     span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
+    interrupt: Interrupt,
 }
 
 impl Reader {
@@ -760,14 +755,8 @@ impl Reader {
 
 impl Read for Reader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
-            Err(ShellError::InterruptedByUser {
-                span: Some(self.span),
-            }
-            .into())
-        } else {
-            self.reader.read(buf)
-        }
+        self.interrupt.check(self.span)?;
+        self.reader.read(buf)
     }
 }
 
@@ -784,7 +773,7 @@ impl BufRead for Reader {
 pub struct Lines {
     reader: BufReader<SourceReader>,
     span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
+    interrupt: Interrupt,
 }
 
 impl Lines {
@@ -797,7 +786,7 @@ impl Iterator for Lines {
     type Item = Result<String, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+        if self.interrupt.triggered() {
             None
         } else {
             let mut buf = Vec::new();
@@ -826,23 +815,18 @@ pub struct Chunks {
     pos: u64,
     error: bool,
     span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
+    interrupt: Interrupt,
     type_: ByteStreamType,
 }
 
 impl Chunks {
-    fn new(
-        reader: SourceReader,
-        span: Span,
-        ctrlc: Option<Arc<AtomicBool>>,
-        type_: ByteStreamType,
-    ) -> Self {
+    fn new(reader: SourceReader, span: Span, interrupt: Interrupt, type_: ByteStreamType) -> Self {
         Self {
             reader: BufReader::new(reader),
             pos: 0,
             error: false,
             span,
-            ctrlc,
+            interrupt,
             type_,
         }
     }
@@ -922,7 +906,7 @@ impl Iterator for Chunks {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.error || nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+        if self.error || self.interrupt.triggered() {
             None
         } else {
             match self.type_ {
@@ -988,14 +972,14 @@ fn write_to_out_dest(
     stream: &OutDest,
     stdout: bool,
     span: Span,
-    ctrlc: Option<&AtomicBool>,
+    interrupt: &Interrupt,
 ) -> Result<(), ShellError> {
     match stream {
         OutDest::Pipe | OutDest::Capture => return Ok(()),
-        OutDest::Null => copy_with_interrupt(read, io::sink(), span, ctrlc),
-        OutDest::Inherit if stdout => copy_with_interrupt(read, io::stdout(), span, ctrlc),
-        OutDest::Inherit => copy_with_interrupt(read, io::stderr(), span, ctrlc),
-        OutDest::File(file) => copy_with_interrupt(read, file.as_ref(), span, ctrlc),
+        OutDest::Null => copy_with_interrupt(read, io::sink(), span, interrupt),
+        OutDest::Inherit if stdout => copy_with_interrupt(read, io::stdout(), span, interrupt),
+        OutDest::Inherit => copy_with_interrupt(read, io::stderr(), span, interrupt),
+        OutDest::File(file) => copy_with_interrupt(read, file.as_ref(), span, interrupt),
     }?;
     Ok(())
 }
@@ -1016,9 +1000,20 @@ pub fn copy_with_interrupt(
     mut reader: impl Read,
     mut writer: impl Write,
     span: Span,
-    interrupt: Option<&AtomicBool>,
+    interrupt: &Interrupt,
 ) -> Result<u64, ShellError> {
-    if let Some(interrupt) = interrupt {
+    if interrupt.is_empty() {
+        match io::copy(&mut reader, &mut writer) {
+            Ok(n) => {
+                writer.flush().err_span(span)?;
+                Ok(n)
+            }
+            Err(err) => {
+                let _ = writer.flush();
+                Err(err.into_spanned(span).into())
+            }
+        }
+    } else {
         // #[cfg(any(target_os = "linux", target_os = "android"))]
         // {
         //     return crate::sys::kernel_copy::copy_spec(reader, writer);
@@ -1033,17 +1028,6 @@ pub fn copy_with_interrupt(
                 Err(err)
             }
         }
-    } else {
-        match io::copy(&mut reader, &mut writer) {
-            Ok(n) => {
-                writer.flush().err_span(span)?;
-                Ok(n)
-            }
-            Err(err) => {
-                let _ = writer.flush();
-                Err(err.into_spanned(span).into())
-            }
-        }
     }
 }
 
@@ -1052,14 +1036,12 @@ fn generic_copy(
     mut reader: impl Read,
     mut writer: impl Write,
     span: Span,
-    interrupt: &AtomicBool,
+    interrupt: &Interrupt,
 ) -> Result<u64, ShellError> {
     let buf = &mut [0; DEFAULT_BUF_SIZE];
     let mut len = 0;
     loop {
-        if interrupt.load(Ordering::Relaxed) {
-            return Err(ShellError::InterruptedByUser { span: Some(span) });
-        }
+        interrupt.check(span)?;
         let n = match reader.read(buf) {
             Ok(0) => break,
             Ok(n) => n,
@@ -1134,7 +1116,7 @@ mod tests {
         Chunks::new(
             SourceReader::Read(Box::new(reader)),
             Span::test_data(),
-            None,
+            Interrupt::empty(),
             type_,
         )
     }

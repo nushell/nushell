@@ -2,14 +2,11 @@ use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     process::{ChildPipe, ChildProcess, ExitStatus},
-    ByteStream, ByteStreamType, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range,
-    ShellError, Span, Type, Value,
+    ByteStream, ByteStreamType, Config, ErrSpan, Interrupt, ListStream, OutDest, PipelineMetadata,
+    Range, ShellError, Span, Type, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
-use std::{
-    io::{Cursor, Read, Write},
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::io::{Cursor, Read, Write};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -196,19 +193,23 @@ impl PipelineData {
                 let val_span = value.span();
                 match value {
                     Value::List { vals, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(vals.into_iter(), val_span, None).into_iter(),
+                        ListStream::new(vals.into_iter(), val_span, Interrupt::empty()).into_iter(),
                     ),
                     Value::Binary { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
                             val.into_iter().map(move |x| Value::int(x as i64, val_span)),
                             val_span,
-                            None,
+                            Interrupt::empty(),
                         )
                         .into_iter(),
                     ),
                     Value::Range { val, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(val.into_range_iter(val_span, None), val_span, None)
-                            .into_iter(),
+                        ListStream::new(
+                            val.into_range_iter(val_span, Interrupt::empty()),
+                            val_span,
+                            Interrupt::empty(),
+                        )
+                        .into_iter(),
                     ),
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => return Err(*error),
@@ -301,11 +302,7 @@ impl PipelineData {
     }
 
     /// Simplified mapper to help with simple values also. For full iterator support use `.into_iter()` instead
-    pub fn map<F>(
-        self,
-        mut f: F,
-        ctrlc: Option<Arc<AtomicBool>>,
-    ) -> Result<PipelineData, ShellError>
+    pub fn map<F>(self, mut f: F, interrupt: &Interrupt) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         F: FnMut(Value) -> Value + 'static + Send,
@@ -314,13 +311,14 @@ impl PipelineData {
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
-                    Value::List { vals, .. } => {
-                        vals.into_iter().map(f).into_pipeline_data(span, ctrlc)
-                    }
-                    Value::Range { val, .. } => val
-                        .into_range_iter(span, ctrlc.clone())
+                    Value::List { vals, .. } => vals
+                        .into_iter()
                         .map(f)
-                        .into_pipeline_data(span, ctrlc),
+                        .into_pipeline_data(span, interrupt.clone()),
+                    Value::Range { val, .. } => val
+                        .into_range_iter(span, Interrupt::empty())
+                        .map(f)
+                        .into_pipeline_data(span, interrupt.clone()),
                     value => match f(value) {
                         Value::Error { error, .. } => return Err(*error),
                         v => v.into_pipeline_data(),
@@ -339,11 +337,7 @@ impl PipelineData {
     }
 
     /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
-    pub fn flat_map<U, F>(
-        self,
-        mut f: F,
-        ctrlc: Option<Arc<AtomicBool>>,
-    ) -> Result<PipelineData, ShellError>
+    pub fn flat_map<U, F>(self, mut f: F, interrupt: &Interrupt) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         U: IntoIterator<Item = Value> + 'static,
@@ -355,14 +349,17 @@ impl PipelineData {
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
-                    Value::List { vals, .. } => {
-                        vals.into_iter().flat_map(f).into_pipeline_data(span, ctrlc)
-                    }
-                    Value::Range { val, .. } => val
-                        .into_range_iter(span, ctrlc.clone())
+                    Value::List { vals, .. } => vals
+                        .into_iter()
                         .flat_map(f)
-                        .into_pipeline_data(span, ctrlc),
-                    value => f(value).into_iter().into_pipeline_data(span, ctrlc),
+                        .into_pipeline_data(span, interrupt.clone()),
+                    Value::Range { val, .. } => val
+                        .into_range_iter(span, Interrupt::empty())
+                        .flat_map(f)
+                        .into_pipeline_data(span, interrupt.clone()),
+                    value => f(value)
+                        .into_iter()
+                        .into_pipeline_data(span, interrupt.clone()),
                 };
                 Ok(pipeline.set_metadata(metadata))
             }
@@ -380,18 +377,16 @@ impl PipelineData {
                     }
                     Err(err) => f(Value::binary(err.into_bytes(), span)),
                 };
-                Ok(iter
-                    .into_iter()
-                    .into_pipeline_data_with_metadata(span, ctrlc, metadata))
+                Ok(iter.into_iter().into_pipeline_data_with_metadata(
+                    span,
+                    interrupt.clone(),
+                    metadata,
+                ))
             }
         }
     }
 
-    pub fn filter<F>(
-        self,
-        mut f: F,
-        ctrlc: Option<Arc<AtomicBool>>,
-    ) -> Result<PipelineData, ShellError>
+    pub fn filter<F>(self, mut f: F, interrupt: &Interrupt) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         F: FnMut(&Value) -> bool + 'static + Send,
@@ -401,13 +396,14 @@ impl PipelineData {
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
-                    Value::List { vals, .. } => {
-                        vals.into_iter().filter(f).into_pipeline_data(span, ctrlc)
-                    }
-                    Value::Range { val, .. } => val
-                        .into_range_iter(span, ctrlc.clone())
+                    Value::List { vals, .. } => vals
+                        .into_iter()
                         .filter(f)
-                        .into_pipeline_data(span, ctrlc),
+                        .into_pipeline_data(span, interrupt.clone()),
+                    Value::Range { val, .. } => val
+                        .into_range_iter(span, Interrupt::empty())
+                        .filter(f)
+                        .into_pipeline_data(span, interrupt.clone()),
                     value => {
                         if f(&value) {
                             value.into_pipeline_data()
@@ -538,7 +534,8 @@ impl PipelineData {
                                 }
                             }
                         }
-                        let range_values: Vec<Value> = val.into_range_iter(span, None).collect();
+                        let range_values: Vec<Value> =
+                            val.into_range_iter(span, Interrupt::empty()).collect();
                         Ok(PipelineData::Value(Value::list(range_values, span), None))
                     }
                     x => Ok(PipelineData::Value(x, metadata)),
@@ -638,10 +635,15 @@ impl IntoIterator for PipelineData {
                 let span = value.span();
                 match value {
                     Value::List { vals, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(vals.into_iter(), span, None).into_iter(),
+                        ListStream::new(vals.into_iter(), span, Interrupt::empty()).into_iter(),
                     ),
                     Value::Range { val, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(val.into_range_iter(span, None), span, None).into_iter(),
+                        ListStream::new(
+                            val.into_range_iter(span, Interrupt::empty()),
+                            span,
+                            Interrupt::empty(),
+                        )
+                        .into_iter(),
                     ),
                     x => PipelineIteratorInner::Value(x),
                 }
@@ -703,11 +705,11 @@ where
 }
 
 pub trait IntoInterruptiblePipelineData {
-    fn into_pipeline_data(self, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData;
+    fn into_pipeline_data(self, span: Span, interrupt: Interrupt) -> PipelineData;
     fn into_pipeline_data_with_metadata(
         self,
         span: Span,
-        ctrlc: Option<Arc<AtomicBool>>,
+        interrupt: Interrupt,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData;
 }
@@ -718,18 +720,18 @@ where
     I::IntoIter: Send + 'static,
     <I::IntoIter as Iterator>::Item: Into<Value>,
 {
-    fn into_pipeline_data(self, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData {
-        ListStream::new(self.into_iter().map(Into::into), span, ctrlc).into()
+    fn into_pipeline_data(self, span: Span, interrupt: Interrupt) -> PipelineData {
+        ListStream::new(self.into_iter().map(Into::into), span, interrupt).into()
     }
 
     fn into_pipeline_data_with_metadata(
         self,
         span: Span,
-        ctrlc: Option<Arc<AtomicBool>>,
+        interrupt: Interrupt,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData {
         PipelineData::ListStream(
-            ListStream::new(self.into_iter().map(Into::into), span, ctrlc),
+            ListStream::new(self.into_iter().map(Into::into), span, interrupt),
             metadata.into(),
         )
     }

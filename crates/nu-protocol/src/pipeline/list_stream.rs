@@ -1,8 +1,5 @@
-use crate::{Config, PipelineData, ShellError, Span, Value};
-use std::{
-    fmt::Debug,
-    sync::{atomic::AtomicBool, Arc},
-};
+use crate::{Config, Interrupt, PipelineData, ShellError, Span, Value};
+use std::fmt::Debug;
 
 pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
 
@@ -21,10 +18,10 @@ impl ListStream {
     pub fn new(
         iter: impl Iterator<Item = Value> + Send + 'static,
         span: Span,
-        interrupt: Option<Arc<AtomicBool>>,
+        interrupt: Interrupt,
     ) -> Self {
         Self {
-            stream: Box::new(Interrupt::new(iter, interrupt)),
+            stream: Box::new(InterruptIter::new(iter, interrupt)),
             span,
         }
     }
@@ -69,10 +66,10 @@ impl ListStream {
     /// E.g., `take`, `filter`, `step_by`, and more.
     ///
     /// ```
-    /// use nu_protocol::{ListStream, Span, Value};
+    /// use nu_protocol::{Interrupt, ListStream, Span, Value};
     ///
     /// let span = Span::unknown();
-    /// let stream = ListStream::new(std::iter::repeat(Value::int(0, span)), span, None);
+    /// let stream = ListStream::new(std::iter::repeat(Value::int(0, span)), span, Interrupt::empty());
     /// let new_stream = stream.modify(|iter| iter.take(100));
     /// ```
     pub fn modify<I>(self, f: impl FnOnce(ValueIterator) -> I) -> Self
@@ -128,22 +125,22 @@ impl Iterator for IntoIter {
     }
 }
 
-struct Interrupt<I: Iterator> {
+struct InterruptIter<I: Iterator> {
     iter: I,
-    interrupt: Option<Arc<AtomicBool>>,
+    interrupt: Interrupt,
 }
 
-impl<I: Iterator> Interrupt<I> {
-    fn new(iter: I, interrupt: Option<Arc<AtomicBool>>) -> Self {
+impl<I: Iterator> InterruptIter<I> {
+    fn new(iter: I, interrupt: Interrupt) -> Self {
         Self { iter, interrupt }
     }
 }
 
-impl<I: Iterator> Iterator for Interrupt<I> {
+impl<I: Iterator> Iterator for InterruptIter<I> {
     type Item = <I as Iterator>::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if nu_utils::ctrl_c::was_pressed(&self.interrupt) {
+        if self.interrupt.triggered() {
             None
         } else {
             self.iter.next()

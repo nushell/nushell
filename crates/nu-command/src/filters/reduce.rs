@@ -107,10 +107,7 @@ impl Command for Reduce {
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         for value in iter {
-            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-                break;
-            }
-
+            engine_state.interrupt().check(head)?;
             acc = closure
                 .add_arg(value)
                 .add_arg(acc)

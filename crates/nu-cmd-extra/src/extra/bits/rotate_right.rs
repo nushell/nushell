@@ -86,7 +86,7 @@ impl Command for BitsRor {
             bits,
         };
 
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, engine_state.interrupt())
     }
 
     fn examples(&self) -> Vec<Example> {

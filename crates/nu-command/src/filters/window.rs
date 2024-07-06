@@ -113,7 +113,6 @@ impl Command for Window {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
-        let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
         let stride: Option<usize> = call.get_flag(engine_state, stack, "stride")?;
         let remainder = call.has_flag(engine_state, stack, "remainder")?;
@@ -131,7 +130,11 @@ impl Command for Window {
             remainder,
         };
 
-        Ok(each_group_iterator.into_pipeline_data_with_metadata(head, ctrlc, metadata))
+        Ok(each_group_iterator.into_pipeline_data_with_metadata(
+            head,
+            engine_state.interrupt().clone(),
+            metadata,
+        ))
     }
 }
 

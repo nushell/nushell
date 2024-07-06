@@ -4,11 +4,14 @@ use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PipelineData, Span, Spanned, Value,
+    Interrupt, PipelineData, Span, Spanned, Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::{get_default_config, get_default_env};
-use std::rc::Rc;
+use std::{
+    rc::Rc,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use std::hint::black_box;
 
@@ -248,14 +251,12 @@ fn bench_eval_interleave(n: i32) -> impl IntoBenchmarks {
     )
 }
 
-fn bench_eval_interleave_with_ctrlc(n: i32) -> impl IntoBenchmarks {
+fn bench_eval_interleave_with_interrupt(n: i32) -> impl IntoBenchmarks {
     let mut engine = setup_engine();
-    engine.ctrlc = Some(std::sync::Arc::new(std::sync::atomic::AtomicBool::new(
-        false,
-    )));
+    engine.set_interrupt(Interrupt::new(Arc::new(AtomicBool::new(false))));
     let stack = Stack::new();
     bench_command(
-        &format!("eval_interleave_with_ctrlc_{n}"),
+        &format!("eval_interleave_with_interrupt_{n}"),
         &format!("seq 1 {n} | wrap a | interleave {{ seq 1 {n} | wrap b }} | ignore"),
         stack,
         engine,
@@ -443,9 +444,9 @@ tango_benchmarks!(
     bench_eval_interleave(100),
     bench_eval_interleave(1_000),
     bench_eval_interleave(10_000),
-    bench_eval_interleave_with_ctrlc(100),
-    bench_eval_interleave_with_ctrlc(1_000),
-    bench_eval_interleave_with_ctrlc(10_000),
+    bench_eval_interleave_with_interrupt(100),
+    bench_eval_interleave_with_interrupt(1_000),
+    bench_eval_interleave_with_interrupt(10_000),
     // For
     bench_eval_for(1),
     bench_eval_for(10),

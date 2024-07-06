@@ -1,10 +1,7 @@
 use fancy_regex::{Captures, Regex};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, ListStream};
-use std::{
-    collections::VecDeque,
-    sync::{atomic::AtomicBool, Arc},
-};
+use nu_protocol::{engine::StateWorkingSet, Interrupt, ListStream};
+use std::collections::VecDeque;
 
 #[derive(Clone)]
 pub struct Parse;
@@ -163,8 +160,6 @@ fn operate(
         })
         .collect::<Vec<_>>();
 
-    let ctrlc = engine_state.ctrlc.clone();
-
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(value, ..) => match value {
@@ -192,10 +187,10 @@ fn operate(
                     columns,
                     iter,
                     span: head,
-                    ctrlc,
+                    interrupt: engine_state.interrupt().clone(),
                 };
 
-                Ok(ListStream::new(iter, head, None).into())
+                Ok(ListStream::new(iter, head, Interrupt::empty()).into())
             }
             value => Err(ShellError::PipelineMismatch {
                 exp_input_type: "string".into(),
@@ -220,7 +215,7 @@ fn operate(
                     columns,
                     iter,
                     span: head,
-                    ctrlc,
+                    interrupt: engine_state.interrupt().clone(),
                 }
             })
             .into()),
@@ -232,10 +227,10 @@ fn operate(
                     columns,
                     iter: lines,
                     span: head,
-                    ctrlc,
+                    interrupt: engine_state.interrupt().clone(),
                 };
 
-                Ok(ListStream::new(iter, head, None).into())
+                Ok(ListStream::new(iter, head, Interrupt::empty()).into())
             } else {
                 Ok(PipelineData::Empty)
             }
@@ -302,7 +297,7 @@ struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
     columns: Vec<String>,
     iter: I,
     span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
+    interrupt: Interrupt,
 }
 
 impl<I: Iterator<Item = Result<String, ShellError>>> ParseIter<I> {
@@ -320,7 +315,7 @@ impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
 
     fn next(&mut self) -> Option<Value> {
         loop {
-            if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            if self.interrupt.triggered() {
                 return None;
             }
 

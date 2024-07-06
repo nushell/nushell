@@ -173,7 +173,6 @@ pub fn transpose(
         });
     }
 
-    let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
     let input: Vec<_> = input.into_iter().collect();
 
@@ -284,7 +283,11 @@ pub fn transpose(
             metadata,
         ))
     } else {
-        Ok(result_data.into_pipeline_data_with_metadata(name, ctrlc, metadata))
+        Ok(result_data.into_pipeline_data_with_metadata(
+            name,
+            engine_state.interrupt().clone(),
+            metadata,
+        ))
     }
 }
 

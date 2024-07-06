@@ -11,12 +11,12 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, Span, Spanned, Value,
+    ast::Operator, CustomValue, Interrupt, IntoSpanned, PipelineData, PluginMetadata,
+    PluginSignature, ShellError, Span, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap},
-    sync::{atomic::AtomicBool, mpsc, Arc, OnceLock},
+    sync::{mpsc, Arc, OnceLock},
 };
 
 use crate::{
@@ -104,7 +104,7 @@ struct PluginCallState {
     /// error
     dont_send_response: bool,
     /// Interrupt signal to be used for stream iterators
-    ctrlc: Option<Arc<AtomicBool>>,
+    interrupt: Interrupt,
     /// Channel to receive context on to be used if needed
     context_rx: Option<mpsc::Receiver<Context>>,
     /// Span associated with the call, if any
@@ -231,14 +231,14 @@ impl PluginInterfaceManager {
         }
     }
 
-    /// Find the ctrlc signal corresponding to the given plugin call id
-    fn get_ctrlc(&mut self, id: PluginCallId) -> Result<Option<Arc<AtomicBool>>, ShellError> {
+    /// Find the interrupt handler corresponding to the given plugin call id
+    fn get_interrupt(&mut self, id: PluginCallId) -> Result<Interrupt, ShellError> {
         // Make sure we're up to date
         self.receive_plugin_call_subscriptions();
         // Find the subscription and return the context
         self.plugin_call_states
             .get(&id)
-            .map(|state| state.ctrlc.clone())
+            .map(|state| state.interrupt.clone())
             .ok_or_else(|| ShellError::PluginFailedToDecode {
                 msg: format!("Unknown plugin call ID: {id}"),
             })
@@ -517,14 +517,14 @@ impl InterfaceManager for PluginInterfaceManager {
                 // Handle reading the pipeline data, if any
                 let response = response
                     .map_data(|data| {
-                        let ctrlc = self.get_ctrlc(id)?;
+                        let interrupt = self.get_interrupt(id)?;
 
                         // Register the stream in the response
                         if let Some(stream_id) = data.stream_id() {
                             self.recv_stream_started(id, stream_id);
                         }
 
-                        self.read_pipeline_data(data, ctrlc.as_ref())
+                        self.read_pipeline_data(data, &interrupt)
                     })
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to a plugin
@@ -544,8 +544,8 @@ impl InterfaceManager for PluginInterfaceManager {
                 let call = call
                     // Handle reading the pipeline data, if any
                     .map_data(|input| {
-                        let ctrlc = self.get_ctrlc(context)?;
-                        self.read_pipeline_data(input, ctrlc.as_ref())
+                        let interrupt = self.get_interrupt(context)?;
+                        self.read_pipeline_data(input, &interrupt)
                     })
                     // Do anything extra needed for each engine call setup
                     .and_then(|mut engine_call| {
@@ -698,7 +698,9 @@ impl PluginInterface {
         context: Option<&dyn PluginExecutionContext>,
     ) -> Result<WritePluginCallResult, ShellError> {
         let id = self.state.plugin_call_id_sequence.next()?;
-        let ctrlc = context.and_then(|c| c.ctrlc().cloned());
+        let interrupt = context
+            .map(|c| c.interrupt().clone())
+            .unwrap_or_else(Interrupt::empty);
         let (tx, rx) = mpsc::channel();
         let (context_tx, context_rx) = mpsc::channel();
         let keep_plugin_custom_values = mpsc::channel();
@@ -746,7 +748,7 @@ impl PluginInterface {
                 PluginCallState {
                     sender: Some(tx).filter(|_| !dont_send_response),
                     dont_send_response,
-                    ctrlc,
+                    interrupt,
                     context_rx: Some(context_rx),
                     span: call.span(),
                     keep_plugin_custom_values,

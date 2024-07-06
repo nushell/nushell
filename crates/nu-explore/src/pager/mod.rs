@@ -11,7 +11,7 @@ use self::{
 use super::views::{Layout, View};
 use crate::{
     explore::ExploreConfig,
-    nu_common::{CtrlC, NuColor, NuConfig, NuStyle},
+    nu_common::{NuColor, NuConfig, NuStyle},
     registry::{Command, CommandRegistry},
     views::{util::nu_style_to_tui, ViewConfig},
 };
@@ -36,7 +36,6 @@ use std::{
     cmp::min,
     io::{self, Stdout},
     result,
-    sync::atomic::Ordering,
 };
 
 pub type Frame<'a> = ratatui::Frame<'a>;
@@ -89,7 +88,6 @@ impl<'a> Pager<'a> {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        ctrlc: CtrlC,
         mut view: Option<Page>,
         commands: CommandRegistry,
     ) -> Result<Option<Value>> {
@@ -102,7 +100,7 @@ impl<'a> Pager<'a> {
             ))
         }
 
-        run_pager(engine_state, stack, ctrlc, self, view, commands)
+        run_pager(engine_state, stack, self, view, commands)
     }
 }
 
@@ -148,7 +146,6 @@ impl<'a> PagerConfig<'a> {
 fn run_pager(
     engine_state: &EngineState,
     stack: &mut Stack,
-    ctrlc: CtrlC,
     pager: &mut Pager,
     view: Option<Page>,
     commands: CommandRegistry,
@@ -174,7 +171,6 @@ fn run_pager(
         &mut terminal,
         engine_state,
         stack,
-        ctrlc,
         pager,
         &mut info,
         view,
@@ -193,7 +189,6 @@ fn render_ui(
     term: &mut Terminal,
     engine_state: &EngineState,
     stack: &mut Stack,
-    ctrlc: CtrlC,
     pager: &mut Pager<'_>,
     info: &mut ViewInfo,
     view: Option<Page>,
@@ -203,11 +198,8 @@ fn render_ui(
     let mut view_stack = ViewStack::new(view, Vec::new());
 
     loop {
-        // handle CTRLC event
-        if let Some(ctrlc) = ctrlc.clone() {
-            if ctrlc.load(Ordering::SeqCst) {
-                break Ok(None);
-            }
+        if engine_state.interrupt().triggered() {
+            break Ok(None);
         }
 
         let mut layout = Layout::default();
