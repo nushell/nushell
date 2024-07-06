@@ -210,6 +210,7 @@ impl BlockBuilder {
             } => allocate(&[*src_dst, *path, *new_value], &[*src_dst]),
             Instruction::Jump { index: _ } => Ok(()),
             Instruction::BranchIf { cond, index: _ } => allocate(&[*cond], &[]),
+            Instruction::BranchIfEmpty { src, index: _ } => allocate(&[*src], &[*src]),
             Instruction::Match {
                 pattern: _,
                 src,
@@ -336,6 +337,16 @@ impl BlockBuilder {
         self.branch_if(cond, usize::MAX, span)
     }
 
+    /// Add a `branch-if-empty` instruction
+    pub(crate) fn branch_if_empty(
+        &mut self,
+        src: RegId,
+        index: usize,
+        span: Span,
+    ) -> Result<usize, CompileError> {
+        self.push(Instruction::BranchIfEmpty { src, index }.into_spanned(span))
+    }
+
     /// Add a `jump` instruction
     pub(crate) fn jump(&mut self, index: usize, span: Span) -> Result<usize, CompileError> {
         self.push(Instruction::Jump { index }.into_spanned(span))
@@ -356,6 +367,7 @@ impl BlockBuilder {
         match self.instructions.get_mut(instruction_index) {
             Some(
                 Instruction::BranchIf { index, .. }
+                | Instruction::BranchIfEmpty { index, .. }
                 | Instruction::Jump { index }
                 | Instruction::Match { index, .. }
                 | Instruction::Iterate {

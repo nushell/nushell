@@ -186,6 +186,9 @@ pub enum Instruction {
     /// Branch to an offset in this block if the value of the `cond` register is a true boolean,
     /// otherwise continue execution
     BranchIf { cond: RegId, index: usize },
+    /// Branch to an offset in this block if the value of the `src` register is Empty or Nothing,
+    /// otherwise continue execution. The original value in `src` is preserved.
+    BranchIfEmpty { src: RegId, index: usize },
     /// Match a pattern on `src`. If the pattern matches, branch to `index` after having set any
     /// variables captured by the pattern. If the pattern doesn't match, continue execution. The
     /// original value is preserved in `src` through this instruction.

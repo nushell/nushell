@@ -171,6 +171,9 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::BranchIf { cond, index } => {
                 write!(f, "{:WIDTH$} {cond}, {index}", "branch-if")
             }
+            Instruction::BranchIfEmpty { src, index } => {
+                write!(f, "{:WIDTH$} {src}, {index}", "branch-if-empty")
+            }
             Instruction::Match {
                 pattern,
                 src,

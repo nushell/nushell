@@ -544,6 +544,20 @@ fn eval_instruction<D: DebugContext>(
                 Ok(Continue)
             }
         }
+        Instruction::BranchIfEmpty { src, index } => {
+            let data = ctx.take_reg(*src);
+            let is_empty = matches!(
+                data,
+                PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, _)
+            );
+            ctx.put_reg(*src, data);
+
+            if is_empty {
+                Ok(Branch(*index))
+            } else {
+                Ok(Continue)
+            }
+        }
         Instruction::Match {
             pattern,
             src,

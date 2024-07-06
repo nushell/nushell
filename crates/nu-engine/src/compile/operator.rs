@@ -134,10 +134,7 @@ pub(crate) fn compile_assignment(
                 _,
             ) if *var_id == ENV_VARIABLE_ID => {
                 // This will be an assignment to an environment variable.
-                let Some(PathMember::String {
-                    val: key, optional, ..
-                }) = path.tail.first()
-                else {
+                let Some(PathMember::String { val: key, .. }) = path.tail.first() else {
                     return Err(CompileError::InvalidLhsForAssignment { span: lhs.span });
                 };
 
@@ -148,23 +145,26 @@ pub(crate) fn compile_assignment(
                     let head_reg = builder.next_register()?;
 
                     // We could use compile_load_env, but this shares the key data...
-                    if *optional {
-                        builder.push(
-                            Instruction::LoadEnvOpt {
-                                dst: head_reg,
-                                key: key_data,
-                            }
-                            .into_spanned(lhs.span),
-                        )?;
-                    } else {
-                        builder.push(
-                            Instruction::LoadEnv {
-                                dst: head_reg,
-                                key: key_data,
-                            }
-                            .into_spanned(lhs.span),
-                        )?;
-                    }
+                    // Always use optional, because it doesn't matter if it's already there
+                    builder.push(
+                        Instruction::LoadEnvOpt {
+                            dst: head_reg,
+                            key: key_data,
+                        }
+                        .into_spanned(lhs.span),
+                    )?;
+
+                    // Default to empty record so we can do further upserts
+                    builder.branch_if_empty(
+                        head_reg,
+                        builder.next_instruction_index() + 1,
+                        assignment_span,
+                    )?;
+                    builder.jump(builder.next_instruction_index() + 1, assignment_span)?;
+                    builder.load_literal(
+                        head_reg,
+                        Literal::Record { capacity: 0 }.into_spanned(lhs.span),
+                    )?;
 
                     // Do the upsert on the current value to incorporate rhs
                     compile_upsert_cell_path(
