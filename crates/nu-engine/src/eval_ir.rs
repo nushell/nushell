@@ -24,7 +24,12 @@ pub fn eval_ir_block<D: DebugContext>(
 
         let args_base = stack.arguments.get_base();
         let error_handler_base = stack.error_handlers.get_base();
-        let mut registers = stack.register_buf_cache.acquire(ir_block.register_count);
+
+        // Allocate and initialize registers. I've found that it's not really worth trying to avoid
+        // the heap allocation here by reusing buffers - our allocator is fast enough
+        let mut registers = Vec::with_capacity(ir_block.register_count);
+        let empty = std::iter::repeat_with(|| PipelineData::Empty);
+        registers.extend(empty.take(ir_block.register_count));
 
         let result = eval_ir_block_impl::<D>(
             &mut EvalContext {
@@ -44,7 +49,6 @@ pub fn eval_ir_block<D: DebugContext>(
             input,
         );
 
-        stack.register_buf_cache.release(registers);
         stack.error_handlers.leave_frame(error_handler_base);
         stack.arguments.leave_frame(args_base);
 
@@ -128,12 +132,6 @@ impl<'a> EvalContext<'a> {
 
         let mut new_stack = Box::new(self.stack.gather_captures(self.engine_state, &[]));
 
-        // Swap the RegisterBufCache onto the new stack so that we can reuse the buffers
-        std::mem::swap(
-            &mut self.stack.register_buf_cache,
-            &mut new_stack.register_buf_cache,
-        );
-
         // Increment recursion count on callee stack to prevent recursing too far
         new_stack.recursion_count += 1;
 
@@ -142,13 +140,8 @@ impl<'a> EvalContext<'a> {
 
     /// Drop the callee stack, so that arguments will be put on the caller stack instead
     fn drop_callee_stack(&mut self) {
-        if let Some(mut callee_stack) = self.callee_stack.take() {
-            // Swap the RegisterBufCache onto our stack so that we can reuse the buffers
-            std::mem::swap(
-                &mut callee_stack.register_buf_cache,
-                &mut self.stack.register_buf_cache,
-            );
-        }
+        // this is provided so in case some other cleanup needs to be done, it can be done here.
+        self.callee_stack = None;
     }
 }
 
