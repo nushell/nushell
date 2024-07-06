@@ -17,8 +17,12 @@ use tabled::{
         },
     },
     settings::{
-        formatting::AlignmentStrategy, object::Segment, peaker::Peaker, themes::ColumnNames,
-        width::Truncate, Color, Modify, Padding, Settings, TableOption, Width,
+        formatting::AlignmentStrategy,
+        object::{Columns, Segment},
+        peaker::Peaker,
+        themes::ColumnNames,
+        width::Truncate,
+        Color, Modify, Padding, Settings, TableOption, Width,
     },
     Table,
 };
@@ -221,6 +225,8 @@ fn build_table(
         return None;
     }
 
+    eprintln!("... {widths:?} ...");
+
     if cfg.with_header && cfg.with_footer {
         duplicate_row(&mut data, 0);
     }
@@ -355,6 +361,7 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
                 max: self.max,
                 strategy: self.cfg.trim,
                 width: self.width,
+                do_as_head: self.cfg.header_on_border,
             }
             .change(rec, cfg, dim);
         } else if self.cfg.expand && self.max > total_width {
@@ -370,6 +377,7 @@ struct TableTrim {
     width: Vec<usize>,
     strategy: TrimStrategy,
     max: usize,
+    do_as_head: bool,
 }
 
 impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for TableTrim {
@@ -379,6 +387,44 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
         cfg: &mut ColoredConfig,
         dims: &mut CompleteDimensionVecRecords<'_>,
     ) {
+        // we already must have been estimated that it's safe to do.
+        // and all dims will be suffitient
+        if self.do_as_head {
+            if recs.is_empty() {
+                return;
+            }
+
+            let headers = recs[0].to_owned();
+            for (i, head) in headers.into_iter().enumerate() {
+                let head_width = CellInfo::width(&head);
+
+                match &self.strategy {
+                    TrimStrategy::Wrap { try_to_keep_words } => {
+                        let mut wrap = Width::wrap(head_width);
+                        if *try_to_keep_words {
+                            wrap = wrap.keep_words();
+                        }
+
+                        Modify::new(Columns::single(i))
+                            .with(wrap)
+                            .change(recs, cfg, dims);
+                    }
+                    TrimStrategy::Truncate { suffix } => {
+                        let mut truncate = Width::truncate(self.max);
+                        if let Some(suffix) = suffix {
+                            truncate = truncate.suffix(suffix).suffix_try_color(true);
+                        }
+
+                        Modify::new(Columns::single(i))
+                            .with(truncate)
+                            .change(recs, cfg, dims);
+                    }
+                }
+            }
+
+            return;
+        }
+
         match self.strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
                 let mut wrap = Width::wrap(self.max).priority::<PriorityMax>();
