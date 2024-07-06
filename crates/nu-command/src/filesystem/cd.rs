@@ -43,7 +43,10 @@ impl Command for Cd {
 
         // If getting PWD failed, default to the initial directory. This way, the
         // user can use `cd` to recover PWD to a good state.
-        let cwd = engine_state.cwd(Some(stack)).unwrap_or(get_init_cwd());
+        let cwd = engine_state
+            .cwd(Some(stack))
+            .map(Into::into)
+            .unwrap_or(get_init_cwd());
 
         let path_val = {
             if let Some(path) = path_val {

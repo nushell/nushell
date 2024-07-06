@@ -12,6 +12,7 @@ use crate::{
 };
 use fancy_regex::Regex;
 use lru::LruCache;
+use nu_path::AbsolutePathBuf;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -910,9 +911,9 @@ impl EngineState {
     ///
     /// If `stack` is supplied, also considers modifications to the working
     /// directory on the stack that have yet to be merged into the engine state.
-    pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
+    pub fn cwd(&self, stack: Option<&Stack>) -> Result<AbsolutePathBuf, ShellError> {
         // Helper function to create a simple generic error.
-        fn error(msg: &str, cwd: impl AsRef<Path>) -> Result<PathBuf, ShellError> {
+        fn error(msg: &str, cwd: impl AsRef<nu_path::Path>) -> Result<AbsolutePathBuf, ShellError> {
             Err(ShellError::GenericError {
                 error: msg.into(),
                 msg: format!("$env.PWD = {}", cwd.as_ref().display()),
@@ -920,17 +921,6 @@ impl EngineState {
                 help: Some("Use `cd` to reset $env.PWD into a good state".into()),
                 inner: vec![],
             })
-        }
-
-        // Helper function to check if a path is a root path.
-        fn is_root(path: &Path) -> bool {
-            path.parent().is_none()
-        }
-
-        // Helper function to check if a path has trailing slashes.
-        fn has_trailing_slash(path: &Path) -> bool {
-            nu_path::components(path).last()
-                == Some(std::path::Component::Normal(std::ffi::OsStr::new("")))
         }
 
         // Retrieve $env.PWD from the stack or the engine state.
@@ -942,20 +932,21 @@ impl EngineState {
 
         if let Some(pwd) = pwd {
             if let Value::String { val, .. } = pwd {
-                let path = PathBuf::from(val);
-
-                // Technically, a root path counts as "having trailing slashes", but
-                // for the purpose of PWD, a root path is acceptable.
-                if !is_root(&path) && has_trailing_slash(&path) {
-                    error("$env.PWD contains trailing slashes", path)
-                } else if !path.is_absolute() {
-                    error("$env.PWD is not an absolute path", path)
-                } else if !path.exists() {
-                    error("$env.PWD points to a non-existent directory", path)
-                } else if !path.is_dir() {
-                    error("$env.PWD points to a non-directory", path)
-                } else {
-                    Ok(path)
+                match AbsolutePathBuf::try_from(val) {
+                    Ok(path) => {
+                        // Technically, a root path counts as "having trailing slashes", but
+                        // for the purpose of PWD, a root path is acceptable.
+                        if path.parent().is_none() && nu_path::has_trailing_slash(path.as_ref()) {
+                            error("$env.PWD contains trailing slashes", &path)
+                        } else if !path.exists() {
+                            error("$env.PWD points to a non-existent directory", &path)
+                        } else if !path.is_dir() {
+                            error("$env.PWD points to a non-directory", &path)
+                        } else {
+                            Ok(path)
+                        }
+                    }
+                    Err(path) => error("$env.PWD is not an absolute path", path),
                 }
             } else {
                 error("$env.PWD is not a string", format!("{pwd:?}"))

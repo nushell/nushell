@@ -1,13 +1,11 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
+use nu_path::AbsolutePathBuf;
 use nu_protocol::engine::StateWorkingSet;
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
+use std::{io, path::Path};
 
 struct Arguments {
-    pwd: PathBuf,
+    pwd: AbsolutePathBuf,
 }
 
 impl PathSubcommandArguments for Arguments {}

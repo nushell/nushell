@@ -15,6 +15,7 @@ pub fn get_init_cwd() -> PathBuf {
 pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
     engine_state
         .cwd(Some(stack))
+        .map(Into::into)
         .unwrap_or(crate::util::get_init_cwd())
 }
 

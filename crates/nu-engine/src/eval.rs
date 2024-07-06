@@ -1,6 +1,6 @@
 #[allow(deprecated)]
 use crate::{current_dir, get_config, get_full_help};
-use nu_path::expand_path_with;
+use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{
         Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
@@ -681,7 +681,10 @@ impl Eval for EvalRuntime {
         } else if quoted {
             Ok(Value::string(path, span))
         } else {
-            let cwd = engine_state.cwd(Some(stack)).unwrap_or_default();
+            let cwd = engine_state
+                .cwd(Some(stack))
+                .map(AbsolutePathBuf::into_std_path_buf)
+                .unwrap_or_default();
             let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
