@@ -19,6 +19,18 @@ pub fn eval_ir_block<D: DebugContext>(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    // Rust does not check recursion limits outside of const evaluation.
+    // But nu programs run in the same process as the shell.
+    // To prevent a stack overflow in user code from crashing the shell,
+    // we limit the recursion depth of function calls.
+    let maximum_call_stack_depth: u64 = engine_state.config.recursion_limit as u64;
+    if stack.recursion_count > maximum_call_stack_depth {
+        return Err(ShellError::RecursionLimitReached {
+            recursion_limit: maximum_call_stack_depth,
+            span: block.span,
+        });
+    }
+
     if let Some(ir_block) = &block.ir_block {
         D::enter_block(engine_state, block);
 
@@ -842,18 +854,6 @@ fn eval_call<D: DebugContext>(
         // This saves us from having to parse through the declaration at eval time to figure out
         // what to put where.
         let block = engine_state.get_block(block_id);
-
-        // Rust does not check recursion limits outside of const evaluation.
-        // But nu programs run in the same process as the shell.
-        // To prevent a stack overflow in user code from crashing the shell,
-        // we limit the recursion depth of function calls.
-        let maximum_call_stack_depth: u64 = engine_state.config.recursion_limit as u64;
-        if stack.recursion_count > maximum_call_stack_depth {
-            return Err(ShellError::RecursionLimitReached {
-                recursion_limit: maximum_call_stack_depth,
-                span: *ctx.block_span,
-            });
-        }
 
         result = eval_block_with_early_return::<D>(engine_state, &mut stack, block, input);
 
