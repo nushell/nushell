@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn hover_correct_documentation_on_let() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn hover_on_command_after_full_content_change() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -170,7 +170,7 @@ hello"#,
 
     #[test]
     fn hover_on_command_after_partial_content_change() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
@@ -215,7 +215,7 @@ hello"#,
 
     #[test]
     fn open_document_with_utf_char() {
-        let (client_connection, _recv) = initialize_language_server();
+        let (client_connection, _recv) = initialize_language_server(None);
 
         let mut script = fixtures();
         script.push("lsp");
