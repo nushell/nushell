@@ -144,7 +144,9 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Comparison(Comparison::StartsWith) => "Checks if a string starts with another.",
         Operator::Comparison(Comparison::EndsWith) => "Checks if a string ends with another.",
         Operator::Math(Math::Plus) => "Adds two values.",
-        Operator::Math(Math::Append) => "Appends two lists, a list and a value, two strings, or two binary values.",
+        Operator::Math(Math::Append) => {
+            "Appends two lists, a list and a value, two strings, or two binary values."
+        }
         Operator::Math(Math::Minus) => "Subtracts two values.",
         Operator::Math(Math::Multiply) => "Multiplies two values.",
         Operator::Math(Math::Divide) => "Divides two values.",
@@ -161,7 +163,9 @@ fn description(operator: &Operator) -> &'static str {
         Operator::Bits(Bits::ShiftRight) => "Bitwise shifts a value right by another.",
         Operator::Assignment(Assignment::Assign) => "Assigns a value to a variable.",
         Operator::Assignment(Assignment::PlusAssign) => "Adds a value to a variable.",
-        Operator::Assignment(Assignment::AppendAssign) => "Appends a value to a variable.",
+        Operator::Assignment(Assignment::AppendAssign) => {
+            "Appends a list, a value, a string, or a binary value to a variable."
+        }
         Operator::Assignment(Assignment::MinusAssign) => "Subtracts a value from a variable.",
         Operator::Assignment(Assignment::MultiplyAssign) => "Multiplies a variable by a value.",
         Operator::Assignment(Assignment::DivideAssign) => "Divides a variable by a value.",
