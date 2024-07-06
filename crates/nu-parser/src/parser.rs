@@ -5279,6 +5279,8 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             let ty = output.ty.clone();
             block.pipelines = vec![Pipeline::from_vec(vec![output])];
 
+            compile_block(working_set, &mut block);
+
             let block_id = working_set.add_block(Arc::new(block));
 
             let mut env_vars = vec![];
