@@ -1199,17 +1199,17 @@ mod tests {
         assert_json_include!(
             actual: result,
             expected: serde_json::json!([
-               {
-                  "label": "def",
-                  "textEdit": {
-                     "newText": "def",
-                     "range": {
-                        "start": { "character": 0, "line": 0 },
-                        "end": { "character": 2, "line": 0 }
-                     }
-                  },
-                  "kind": 14
-               }
+                {
+                    "label": "overlay",
+                    "textEdit": {
+                        "newText": "overlay",
+                        "range": {
+                            "start": { "character": 0, "line": 0 },
+                            "end": { "character": 2, "line": 0 }
+                        }
+                    },
+                    "kind": 14
+                },
             ])
         );
     }
