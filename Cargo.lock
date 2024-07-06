@@ -4828,8 +4828,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abf59e4c97b5049ba96b052cdb652368305a2eddcbce9bf1c16f9d003139eeea"
+source = "git+https://github.com/ysthakur/reedline?branch=fuzzy-select-underline#fe7cbb85feb5236673d89702409ca59362c3e338"
 dependencies = [
  "arboard",
  "chrono",
