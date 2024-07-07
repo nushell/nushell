@@ -88,19 +88,41 @@ impl<'a> Pager<'a> {
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
-        mut view: Option<Page>,
+        view: Option<Page>,
         commands: CommandRegistry,
     ) -> Result<Option<Value>> {
-        if let Some(page) = &mut view {
-            page.view.setup(ViewConfig::new(
-                self.config.nu_config,
-                self.config.explore_config,
-                self.config.style_computer,
-                self.config.lscolors,
-            ))
+        // setup terminal
+        enable_raw_mode()?;
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen, Clear(ClearType::All))?;
+
+        let backend = CrosstermBackend::new(stdout);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut info = ViewInfo {
+            status: Some(Report::default()),
+            ..Default::default()
+        };
+
+        if let Some(text) = self.message.take() {
+            info.status = Some(Report::message(text, Severity::Info));
         }
 
-        run_pager(engine_state, stack, self, view, commands)
+        let result = render_ui(
+            &mut terminal,
+            engine_state,
+            stack,
+            self,
+            &mut info,
+            view,
+            commands,
+        )?;
+
+        // restore terminal
+        disable_raw_mode()?;
+        execute!(io::stdout(), LeaveAlternateScreen)?;
+
+        Ok(result)
     }
 }
 
@@ -141,47 +163,6 @@ impl<'a> PagerConfig<'a> {
             tail,
         }
     }
-}
-
-fn run_pager(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    pager: &mut Pager,
-    view: Option<Page>,
-    commands: CommandRegistry,
-) -> Result<Option<Value>> {
-    // setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, Clear(ClearType::All))?;
-
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    let mut info = ViewInfo {
-        status: Some(Report::default()),
-        ..Default::default()
-    };
-
-    if let Some(text) = pager.message.take() {
-        info.status = Some(Report::message(text, Severity::Info));
-    }
-
-    let result = render_ui(
-        &mut terminal,
-        engine_state,
-        stack,
-        pager,
-        &mut info,
-        view,
-        commands,
-    )?;
-
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(io::stdout(), LeaveAlternateScreen)?;
-
-    Ok(result)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -432,30 +413,25 @@ fn run_command(
         Command::View { mut cmd, stackable } => {
             // what we do we just replace the view.
             let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
-            let mut new_view = cmd.spawn(engine_state, stack, value)?;
+            let view_cfg = ViewConfig::new(
+                pager.config.nu_config,
+                pager.config.explore_config,
+                pager.config.style_computer,
+                pager.config.lscolors,
+            );
+
+            let new_view = cmd.spawn(engine_state, stack, value, &view_cfg)?;
             if let Some(view) = view_stack.curr_view.take() {
                 if !view.stackable {
                     view_stack.stack.push(view);
                 }
             }
 
-            setup_view(&mut new_view, &pager.config);
-
             view_stack.curr_view = Some(Page::raw(new_view, stackable));
 
             Ok(CmdResult::new(false, true, cmd.name().to_owned()))
         }
     }
-}
-
-fn setup_view(view: &mut Box<dyn View>, cfg: &PagerConfig<'_>) {
-    let cfg = ViewConfig::new(
-        cfg.nu_config,
-        cfg.explore_config,
-        cfg.style_computer,
-        cfg.lscolors,
-    );
-    view.setup(cfg);
 }
 
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {

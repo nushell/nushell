@@ -36,14 +36,12 @@ pub struct RecordView {
 }
 
 impl RecordView {
-    pub fn new(columns: Vec<String>, records: Vec<Vec<Value>>) -> Self {
+    pub fn new(columns: Vec<String>, records: Vec<Vec<Value>>, cfg: ExploreConfig) -> Self {
         Self {
             layer_stack: vec![RecordLayer::new(columns, records)],
             mode: UIMode::View,
             orientation: Orientation::Top,
-            // TODO: It's kind of gross how this temporarily has an incorrect/default config.
-            // See if we can pass correct config in through the constructor
-            cfg: ExploreConfig::default(),
+            cfg,
         }
     }
 
@@ -70,23 +68,6 @@ impl RecordView {
         self.layer_stack
             .last_mut()
             .expect("we guarantee that 1 entry is always in a list")
-    }
-
-    pub fn get_top_layer_orientation(&mut self) -> Orientation {
-        self.get_top_layer().orientation
-    }
-
-    pub fn set_orientation(&mut self, orientation: Orientation) {
-        self.orientation = orientation;
-
-        // we need to reset all indexes as we can't no more use them.
-        self.reset_cursors();
-    }
-
-    fn reset_cursors(&mut self) {
-        for layer in &mut self.layer_stack {
-            layer.reset_cursor();
-        }
     }
 
     pub fn set_top_layer_orientation(&mut self, orientation: Orientation) {
@@ -298,11 +279,6 @@ impl View for RecordView {
 
     fn exit(&mut self) -> Option<Value> {
         Some(build_last_value(self))
-    }
-
-    // todo: move the method to Command?
-    fn setup(&mut self, cfg: ViewConfig<'_>) {
-        self.cfg = cfg.explore_config.clone();
     }
 }
 

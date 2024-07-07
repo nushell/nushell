@@ -1,7 +1,7 @@
 use super::ViewCommand;
 use crate::{
     nu_common::{self, collect_input},
-    views::Preview,
+    views::{Preview, ViewConfig},
 };
 use anyhow::Result;
 use nu_color_config::StyleComputer;
@@ -43,6 +43,7 @@ impl ViewCommand for ExpandCmd {
         engine_state: &EngineState,
         stack: &mut Stack,
         value: Option<Value>,
+        _: &ViewConfig,
     ) -> Result<Self::View> {
         if let Some(value) = value {
             let value_as_string = convert_value_to_string(value, engine_state, stack)?;
