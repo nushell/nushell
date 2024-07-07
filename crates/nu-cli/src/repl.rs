@@ -336,13 +336,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_quick_completions(config.quick_completions)
         .with_partial_completions(config.partial_completions)
         .with_ansi_colors(config.use_ansi_coloring)
-        .with_cwd(
+        .with_cwd(Some(
             engine_state
                 .cwd(None)
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string(),
-        )
+        ))
         .with_cursor_config(cursor_config);
 
     perf!("reedline builder", start_time, use_color);
