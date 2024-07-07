@@ -189,10 +189,7 @@ pub(crate) fn write_value(
             // Convert range to list
             write_value(
                 out,
-                &Value::list(
-                    val.into_range_iter(span, Signals::empty()).collect(),
-                    span,
-                ),
+                &Value::list(val.into_range_iter(span, Signals::empty()).collect(), span),
                 depth,
             )?;
         }

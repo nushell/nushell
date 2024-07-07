@@ -9,8 +9,8 @@ use nu_plugin_protocol::{
     PluginCustomValue, PluginInput, PluginOutput, Protocol, ProtocolInfo, StreamData,
 };
 use nu_protocol::{
-    engine::Closure, ByteStreamType, Config, CustomValue, Signals, IntoInterruptiblePipelineData,
-    LabeledError, PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
+    engine::Closure, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData,
+    LabeledError, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value,
 };
 use std::{
     collections::HashMap,

@@ -78,11 +78,7 @@ impl Command for Every {
                     None
                 }
             })
-            .into_pipeline_data_with_metadata(
-                call.head,
-                engine_state.signals().clone(),
-                metadata,
-            ))
+            .into_pipeline_data_with_metadata(call.head, engine_state.signals().clone(), metadata))
     }
 }
 

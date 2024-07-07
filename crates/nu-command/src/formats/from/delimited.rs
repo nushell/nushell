@@ -1,5 +1,5 @@
 use csv::{ReaderBuilder, Trim};
-use nu_protocol::{ByteStream, Signals, ListStream, PipelineData, ShellError, Span, Value};
+use nu_protocol::{ByteStream, ListStream, PipelineData, ShellError, Signals, Span, Value};
 
 fn from_csv_error(err: csv::Error, span: Span) -> ShellError {
     ShellError::DelimiterError {
@@ -25,11 +25,7 @@ fn from_delimited_stream(
     let input_reader = if let Some(stream) = input.reader() {
         stream
     } else {
-        return Ok(ListStream::new(
-            std::iter::empty(),
-            span,
-            Signals::empty(),
-        ));
+        return Ok(ListStream::new(std::iter::empty(), span, Signals::empty()));
     };
 
     let mut reader = ReaderBuilder::new()

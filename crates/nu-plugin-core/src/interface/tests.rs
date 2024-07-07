@@ -10,8 +10,8 @@ use nu_plugin_protocol::{
     StreamMessage,
 };
 use nu_protocol::{
-    ByteStream, ByteStreamSource, ByteStreamType, DataSource, Signals, ListStream, PipelineData,
-    PipelineMetadata, ShellError, Span, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream, PipelineData,
+    PipelineMetadata, ShellError, Signals, Span, Value,
 };
 use std::{path::Path, sync::Arc};
 

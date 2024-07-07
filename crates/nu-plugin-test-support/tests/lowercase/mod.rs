@@ -1,7 +1,7 @@
 use nu_plugin::*;
 use nu_plugin_test_support::PluginTest;
 use nu_protocol::{
-    Example, Signals, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError,
+    Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signals,
     Signature, Span, Type, Value,
 };
 

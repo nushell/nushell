@@ -1,6 +1,6 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, Signals, LabeledError, ListStream, PipelineData, Signature, SyntaxShape,
+    Category, Example, LabeledError, ListStream, PipelineData, Signals, Signature, SyntaxShape,
     Type, Value,
 };
 
