@@ -1,19 +1,19 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
+use nu_path::{dots::expand_ndots, expand_tilde};
 use nu_protocol::{
-    ast::{Expr, Expression},
-    did_you_mean,
-    process::ChildProcess,
-    ByteStream, OutDest,
+    ast::Expression, did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
+use pathdiff::diff_paths;
 use std::{
     borrow::Cow,
+    ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::Arc,
+    sync::{atomic::AtomicBool, Arc},
     thread,
 };
 
@@ -32,8 +32,16 @@ impl Command for External {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("command", SyntaxShape::String, "External command to run.")
-            .rest("args", SyntaxShape::Any, "Arguments for external command.")
+            .required(
+                "command",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
+                "External command to run.",
+            )
+            .rest(
+                "args",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Any]),
+                "Arguments for external command.",
+            )
             .category(Category::System)
     }
 
@@ -46,42 +54,33 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let cwd = engine_state.cwd(Some(stack))?;
 
-        // Evaluate the command name in the same way the arguments are evaluated. Since this isn't
-        // a spread, it should return a one-element vec.
-        let name_expr = call
-            .positional_nth(0)
-            .ok_or_else(|| ShellError::MissingParameter {
-                param_name: "command".into(),
-                span: call.head,
-            })?;
-        let name = eval_argument(engine_state, stack, name_expr, false)?
-            .pop()
-            .expect("eval_argument returned zero-element vec")
-            .into_spanned(name_expr.span);
+        let name: Value = call.req(engine_state, stack, 0)?;
+
+        let name_str: Cow<str> = match &name {
+            Value::Glob { val, .. } => Cow::Borrowed(val),
+            Value::String { val, .. } => Cow::Borrowed(val),
+            _ => Cow::Owned(name.clone().coerce_into_string()?),
+        };
+
+        let expanded_name = match &name {
+            // Expand tilde and ndots on the name if it's a bare string / glob (#13000)
+            Value::Glob { no_expand, .. } if !*no_expand => {
+                expand_ndots_safe(expand_tilde(&*name_str))
+            }
+            _ => Path::new(&*name_str).to_owned(),
+        };
 
         // Find the absolute path to the executable. On Windows, set the
         // executable to "cmd.exe" if it's is a CMD internal command. If the
         // command is not found, display a helpful error message.
-        let executable = if cfg!(windows) && is_cmd_internal_command(&name.item) {
+        let executable = if cfg!(windows) && is_cmd_internal_command(&name_str) {
             PathBuf::from("cmd.exe")
         } else {
-            // Expand tilde on the name if it's a bare string (#13000)
-            let expanded_name = if is_bare_string(name_expr) {
-                expand_tilde(&name.item)
-            } else {
-                name.item.clone()
-            };
-
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(&expanded_name, &paths, &cwd) else {
-                return Err(command_not_found(
-                    &name.item,
-                    call.head,
-                    engine_state,
-                    stack,
-                ));
+            let Some(executable) = which(expanded_name, &paths, &cwd) else {
+                return Err(command_not_found(&name_str, call.head, engine_state, stack));
             };
             executable
         };
@@ -100,15 +99,15 @@ impl Command for External {
         // Configure args.
         let args = eval_arguments_from_call(engine_state, stack, call)?;
         #[cfg(windows)]
-        if is_cmd_internal_command(&name.item) {
+        if is_cmd_internal_command(&name_str) {
             use std::os::windows::process::CommandExt;
 
             // The /D flag disables execution of AutoRun commands from registry.
             // The /C flag followed by a command name instructs CMD to execute
             // that command and quit.
-            command.args(["/D", "/C", &name.item]);
+            command.args(["/D", "/C", &name_str]);
             for arg in &args {
-                command.raw_arg(escape_cmd_argument(arg)?.as_ref());
+                command.raw_arg(escape_cmd_argument(arg)?);
             }
         } else {
             command.args(args.into_iter().map(|s| s.item));
@@ -154,6 +153,9 @@ impl Command for External {
                 Some(value)
             }
         };
+
+        // Log the command we're about to run in case it's useful for debugging purposes.
+        log::trace!("run-external spawning: {command:?}");
 
         // Spawn the child process. On Unix, also put the child process to
         // foreground if we're in an interactive session.
@@ -213,73 +215,54 @@ impl Command for External {
     }
 }
 
-/// Removes surrounding quotes from a string. Doesn't remove quotes from raw
-/// strings. Returns the original string if it doesn't have matching quotes.
-fn remove_quotes(s: &str) -> &str {
-    let quoted_by_double_quotes = s.len() >= 2 && s.starts_with('"') && s.ends_with('"');
-    let quoted_by_single_quotes = s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'');
-    let quoted_by_backticks = s.len() >= 2 && s.starts_with('`') && s.ends_with('`');
-    if quoted_by_double_quotes || quoted_by_single_quotes || quoted_by_backticks {
-        &s[1..s.len() - 1]
-    } else {
-        s
-    }
-}
-
 /// Evaluate all arguments from a call, performing expansions when necessary.
 pub fn eval_arguments_from_call(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-) -> Result<Vec<Spanned<String>>, ShellError> {
+) -> Result<Vec<Spanned<OsString>>, ShellError> {
+    let ctrlc = &engine_state.ctrlc;
     let cwd = engine_state.cwd(Some(stack))?;
-    let mut args: Vec<Spanned<String>> = vec![];
+    let mut args: Vec<Spanned<OsString>> = vec![];
     for (expr, spread) in call.rest_iter(1) {
-        if is_bare_string(expr) {
-            // If `expr` is a bare string, perform tilde-expansion,
-            // glob-expansion, and inner-quotes-removal, in that order.
-            for arg in eval_argument(engine_state, stack, expr, spread)? {
-                let tilde_expanded = expand_tilde(&arg);
-                for glob_expanded in expand_glob(&tilde_expanded, &cwd, expr.span)? {
-                    let inner_quotes_removed = remove_inner_quotes(&glob_expanded);
-                    args.push(inner_quotes_removed.into_owned().into_spanned(expr.span));
+        for arg in eval_argument(engine_state, stack, expr, spread)? {
+            match arg {
+                // Expand globs passed to run-external
+                Value::Glob { val, no_expand, .. } if !no_expand => args.extend(
+                    expand_glob(&val, &cwd, expr.span, ctrlc)?
+                        .into_iter()
+                        .map(|s| s.into_spanned(expr.span)),
+                ),
+                other => {
+                    args.push(OsString::from(coerce_into_string(other)?).into_spanned(expr.span))
                 }
-            }
-        } else {
-            for arg in eval_argument(engine_state, stack, expr, spread)? {
-                args.push(arg.into_spanned(expr.span));
             }
         }
     }
     Ok(args)
 }
 
-/// Evaluates an expression, coercing the values to strings.
-///
-/// Note: The parser currently has a special hack that retains surrounding
-/// quotes for string literals in `Expression`, so that we can decide whether
-/// the expression is considered a bare string. The hack doesn't affect string
-/// literals within lists or records. This function will remove the quotes
-/// before evaluating the expression.
+/// Custom `coerce_into_string()`, including globs, since those are often args to `run-external`
+/// as well
+fn coerce_into_string(val: Value) -> Result<String, ShellError> {
+    match val {
+        Value::Glob { val, .. } => Ok(val),
+        _ => val.coerce_into_string(),
+    }
+}
+
+/// Evaluate an argument, returning more than one value if it was a list to be spread.
 fn eval_argument(
     engine_state: &EngineState,
     stack: &mut Stack,
     expr: &Expression,
     spread: bool,
-) -> Result<Vec<String>, ShellError> {
-    // Remove quotes from string literals.
-    let mut expr = expr.clone();
-    if let Expr::String(s) = &expr.expr {
-        expr.expr = Expr::String(remove_quotes(s).into());
-    }
-
+) -> Result<Vec<Value>, ShellError> {
     let eval = get_eval_expression(engine_state);
-    match eval(engine_state, stack, &expr)? {
+    match eval(engine_state, stack, expr)? {
         Value::List { vals, .. } => {
             if spread {
-                vals.into_iter()
-                    .map(|val| val.coerce_into_string())
-                    .collect()
+                Ok(vals)
             } else {
                 Err(ShellError::CannotPassListToExternal {
                     arg: String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).into(),
@@ -291,29 +274,10 @@ fn eval_argument(
             if spread {
                 Err(ShellError::CannotSpreadAsList { span: expr.span })
             } else {
-                Ok(vec![value.coerce_into_string()?])
+                Ok(vec![value])
             }
         }
     }
-}
-
-/// Returns whether an expression is considered a bare string.
-///
-/// Bare strings are defined as string literals that are either unquoted or
-/// quoted by backticks. Raw strings or string interpolations don't count.
-fn is_bare_string(expr: &Expression) -> bool {
-    let Expr::String(s) = &expr.expr else {
-        return false;
-    };
-    let quoted_by_double_quotes = s.len() >= 2 && s.starts_with('"') && s.ends_with('"');
-    let quoted_by_single_quotes = s.len() >= 2 && s.starts_with('\'') && s.ends_with('\'');
-    !quoted_by_double_quotes && !quoted_by_single_quotes
-}
-
-/// Performs tilde expansion on `arg`. Returns the original string if `arg`
-/// doesn't start with tilde.
-fn expand_tilde(arg: &str) -> String {
-    nu_path::expand_tilde(arg).to_string_lossy().to_string()
 }
 
 /// Performs glob expansion on `arg`. If the expansion found no matches or the pattern
@@ -321,58 +285,70 @@ fn expand_tilde(arg: &str) -> String {
 ///
 /// Note: This matches the default behavior of Bash, but is known to be
 /// error-prone. We might want to change this behavior in the future.
-fn expand_glob(arg: &str, cwd: &Path, span: Span) -> Result<Vec<String>, ShellError> {
-    let Ok(paths) = nu_glob::glob_with_parent(arg, nu_glob::MatchOptions::default(), cwd) else {
-        return Ok(vec![arg.into()]);
-    };
+fn expand_glob(
+    arg: &str,
+    cwd: &Path,
+    span: Span,
+    interrupt: &Option<Arc<AtomicBool>>,
+) -> Result<Vec<OsString>, ShellError> {
+    const GLOB_CHARS: &[char] = &['*', '?', '['];
 
-    let mut result = vec![];
-    for path in paths {
-        let path = path.map_err(|err| ShellError::IOErrorSpanned {
-            msg: format!("{}: {:?}", err.path().display(), err.error()),
-            span,
-        })?;
-        // Strip PWD from the resulting paths if possible.
-        let path_stripped = if let Ok(remainder) = path.strip_prefix(cwd) {
-            // If stripping PWD results in an empty path, return `.` instead.
-            if remainder.components().next().is_none() {
-                Path::new(".")
-            } else {
-                remainder
+    // For an argument that doesn't include the GLOB_CHARS, just do the `expand_tilde`
+    // and `expand_ndots` expansion
+    if !arg.contains(GLOB_CHARS) {
+        let path = expand_ndots_safe(expand_tilde(arg));
+        return Ok(vec![path.into()]);
+    }
+
+    // We must use `nu_engine::glob_from` here, in order to ensure we get paths from the correct
+    // dir
+    let glob = NuGlob::Expand(arg.to_owned()).into_spanned(span);
+    if let Ok((prefix, matches)) = nu_engine::glob_from(&glob, cwd, span, None) {
+        let mut result: Vec<OsString> = vec![];
+
+        for m in matches {
+            if nu_utils::ctrl_c::was_pressed(interrupt) {
+                return Err(ShellError::InterruptedByUser { span: Some(span) });
             }
-        } else {
-            &path
-        };
-        let path_string = path_stripped.to_string_lossy().to_string();
-        result.push(path_string);
-    }
+            if let Ok(arg) = m {
+                let arg = resolve_globbed_path_to_cwd_relative(arg, prefix.as_ref(), cwd);
+                result.push(arg.into());
+            } else {
+                result.push(arg.into());
+            }
+        }
 
-    if result.is_empty() {
-        result.push(arg.to_string());
-    }
+        // FIXME: do we want to special-case this further? We might accidentally expand when they don't
+        // intend to
+        if result.is_empty() {
+            result.push(arg.into());
+        }
 
-    Ok(result)
+        Ok(result)
+    } else {
+        Ok(vec![arg.into()])
+    }
 }
 
-/// Transforms `--option="value"` into `--option=value`. `value` can be quoted
-/// with double quotes, single quotes, or backticks. Only removes the outermost
-/// pair of quotes after the equal sign.
-fn remove_inner_quotes(arg: &str) -> Cow<'_, str> {
-    // Check that `arg` is a long option.
-    if !arg.starts_with("--") {
-        return Cow::Borrowed(arg);
+fn resolve_globbed_path_to_cwd_relative(
+    path: PathBuf,
+    prefix: Option<&PathBuf>,
+    cwd: &Path,
+) -> PathBuf {
+    if let Some(prefix) = prefix {
+        if let Ok(remainder) = path.strip_prefix(prefix) {
+            let new_prefix = if let Some(pfx) = diff_paths(prefix, cwd) {
+                pfx
+            } else {
+                prefix.to_path_buf()
+            };
+            new_prefix.join(remainder)
+        } else {
+            path
+        }
+    } else {
+        path
     }
-    // Split `arg` on the first `=`.
-    let Some((option, value)) = arg.split_once('=') else {
-        return Cow::Borrowed(arg);
-    };
-    // Check that `option` doesn't contain quotes.
-    if option.contains('"') || option.contains('\'') || option.contains('`') {
-        return Cow::Borrowed(arg);
-    }
-    // Remove the outermost pair of quotes from `value`.
-    let value = remove_quotes(value);
-    Cow::Owned(format!("{option}={value}"))
 }
 
 /// Write `PipelineData` into `writer`. If `PipelineData` is not binary, it is
@@ -543,7 +519,7 @@ pub fn command_not_found(
 /// Note: the `which.rs` crate always uses PATHEXT from the environment. As
 /// such, changing PATHEXT within Nushell doesn't work without updating the
 /// actual environment of the Nushell process.
-pub fn which(name: &str, paths: &str, cwd: &Path) -> Option<PathBuf> {
+pub fn which(name: impl AsRef<OsStr>, paths: &str, cwd: &Path) -> Option<PathBuf> {
     #[cfg(windows)]
     let paths = format!("{};{}", cwd.display(), paths);
     which::which_in(name, Some(paths), cwd).ok()
@@ -559,17 +535,18 @@ fn is_cmd_internal_command(name: &str) -> bool {
 }
 
 /// Returns true if a string contains CMD special characters.
-#[cfg(windows)]
-fn has_cmd_special_character(s: &str) -> bool {
-    const SPECIAL_CHARS: &[char] = &['<', '>', '&', '|', '^'];
-    SPECIAL_CHARS.iter().any(|c| s.contains(*c))
+fn has_cmd_special_character(s: impl AsRef<[u8]>) -> bool {
+    s.as_ref()
+        .iter()
+        .any(|b| matches!(b, b'<' | b'>' | b'&' | b'|' | b'^'))
 }
 
 /// Escape an argument for CMD internal commands. The result can be safely passed to `raw_arg()`.
-#[cfg(windows)]
-fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError> {
+#[cfg_attr(not(windows), allow(dead_code))]
+fn escape_cmd_argument(arg: &Spanned<OsString>) -> Result<Cow<'_, OsStr>, ShellError> {
     let Spanned { item: arg, span } = arg;
-    if arg.contains(['\r', '\n', '%']) {
+    let bytes = arg.as_encoded_bytes();
+    if bytes.iter().any(|b| matches!(b, b'\r' | b'\n' | b'%')) {
         // \r and \n trunacte the rest of the arguments and % can expand environment variables
         Err(ShellError::ExternalCommand {
             label:
@@ -578,12 +555,12 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
             help: "some characters currently cannot be securely escaped".into(),
             span: *span,
         })
-    } else if arg.contains('"') {
+    } else if bytes.contains(&b'"') {
         // If `arg` is already quoted by double quotes, confirm there's no
         // embedded double quotes, then leave it as is.
-        if arg.chars().filter(|c| *c == '"').count() == 2
-            && arg.starts_with('"')
-            && arg.ends_with('"')
+        if bytes.iter().filter(|b| **b == b'"').count() == 2
+            && bytes.starts_with(b"\"")
+            && bytes.ends_with(b"\"")
         {
             Ok(Cow::Borrowed(arg))
         } else {
@@ -594,120 +571,74 @@ fn escape_cmd_argument(arg: &Spanned<String>) -> Result<Cow<'_, str>, ShellError
                 span: *span,
             })
         }
-    } else if arg.contains(' ') || has_cmd_special_character(arg) {
+    } else if bytes.contains(&b' ') || has_cmd_special_character(bytes) {
         // If `arg` contains space or special characters, quote the entire argument by double quotes.
-        Ok(Cow::Owned(format!("\"{arg}\"")))
+        let mut new_str = OsString::new();
+        new_str.push("\"");
+        new_str.push(arg);
+        new_str.push("\"");
+        Ok(Cow::Owned(new_str))
     } else {
         // FIXME?: what if `arg.is_empty()`?
         Ok(Cow::Borrowed(arg))
     }
 }
 
+/// Expand ndots, but only if it looks like it probably contains them, because there is some lossy
+/// path normalization that happens.
+fn expand_ndots_safe(path: impl AsRef<Path>) -> PathBuf {
+    let string = path.as_ref().to_string_lossy();
+
+    // Use ndots if it contains at least `...`, since that's the minimum trigger point, and don't
+    // use it if it contains ://, because that looks like a URL scheme and the path normalization
+    // will mess with that.
+    if string.contains("...") && !string.contains("://") {
+        expand_ndots(path)
+    } else {
+        path.as_ref().to_owned()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_protocol::ast::ListItem;
-
-    #[test]
-    fn test_remove_quotes() {
-        assert_eq!(remove_quotes(r#""#), r#""#);
-        assert_eq!(remove_quotes(r#"'"#), r#"'"#);
-        assert_eq!(remove_quotes(r#"''"#), r#""#);
-        assert_eq!(remove_quotes(r#""foo""#), r#"foo"#);
-        assert_eq!(remove_quotes(r#"`foo '"' bar`"#), r#"foo '"' bar"#);
-        assert_eq!(remove_quotes(r#"'foo' bar"#), r#"'foo' bar"#);
-        assert_eq!(remove_quotes(r#"r#'foo'#"#), r#"r#'foo'#"#);
-    }
-
-    #[test]
-    fn test_eval_argument() {
-        fn expression(expr: Expr) -> Expression {
-            Expression {
-                expr,
-                span: Span::unknown(),
-                ty: Type::Any,
-                custom_completion: None,
-            }
-        }
-
-        fn eval(expr: Expr, spread: bool) -> Result<Vec<String>, ShellError> {
-            let engine_state = EngineState::new();
-            let mut stack = Stack::new();
-            eval_argument(&engine_state, &mut stack, &expression(expr), spread)
-        }
-
-        let actual = eval(Expr::String("".into()), false).unwrap();
-        let expected = &[""];
-        assert_eq!(actual, expected);
-
-        let actual = eval(Expr::String("'foo'".into()), false).unwrap();
-        let expected = &["foo"];
-        assert_eq!(actual, expected);
-
-        let actual = eval(Expr::RawString("'foo'".into()), false).unwrap();
-        let expected = &["'foo'"];
-        assert_eq!(actual, expected);
-
-        let actual = eval(Expr::List(vec![]), true).unwrap();
-        let expected: &[&str] = &[];
-        assert_eq!(actual, expected);
-
-        let actual = eval(
-            Expr::List(vec![
-                ListItem::Item(expression(Expr::String("'foo'".into()))),
-                ListItem::Item(expression(Expr::String("bar".into()))),
-            ]),
-            true,
-        )
-        .unwrap();
-        let expected = &["'foo'", "bar"];
-        assert_eq!(actual, expected);
-
-        eval(Expr::String("".into()), true).unwrap_err();
-        eval(Expr::List(vec![]), false).unwrap_err();
-    }
+    use nu_test_support::{fs::Stub, playground::Playground};
 
     #[test]
     fn test_expand_glob() {
-        let tempdir = tempfile::tempdir().unwrap();
-        let cwd = tempdir.path();
-        std::fs::File::create(cwd.join("a.txt")).unwrap();
-        std::fs::File::create(cwd.join("b.txt")).unwrap();
+        Playground::setup("test_expand_glob", |dirs, play| {
+            play.with_files(&[Stub::EmptyFile("a.txt"), Stub::EmptyFile("b.txt")]);
 
-        let actual = expand_glob("*.txt", cwd, Span::unknown()).unwrap();
-        let expected = &["a.txt", "b.txt"];
-        assert_eq!(actual, expected);
+            let cwd = dirs.test();
 
-        let actual = expand_glob("'*.txt'", cwd, Span::unknown()).unwrap();
-        let expected = &["'*.txt'"];
-        assert_eq!(actual, expected);
+            let actual = expand_glob("*.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["a.txt", "b.txt"];
+            assert_eq!(actual, expected);
 
-        let actual = expand_glob(cwd.to_str().unwrap(), cwd, Span::unknown()).unwrap();
-        let expected = &["."];
-        assert_eq!(actual, expected);
+            let actual = expand_glob("./*.txt", cwd, Span::unknown(), &None).unwrap();
+            assert_eq!(actual, expected);
 
-        let actual = expand_glob("[*.txt", cwd, Span::unknown()).unwrap();
-        let expected = &["[*.txt"];
-        assert_eq!(actual, expected);
-    }
+            let actual = expand_glob("'*.txt'", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["'*.txt'"];
+            assert_eq!(actual, expected);
 
-    #[test]
-    fn test_remove_inner_quotes() {
-        let actual = remove_inner_quotes(r#"--option=value"#);
-        let expected = r#"--option=value"#;
-        assert_eq!(actual, expected);
+            let actual = expand_glob(".", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["."];
+            assert_eq!(actual, expected);
 
-        let actual = remove_inner_quotes(r#"--option="value""#);
-        let expected = r#"--option=value"#;
-        assert_eq!(actual, expected);
+            let actual = expand_glob("./a.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["./a.txt"];
+            assert_eq!(actual, expected);
 
-        let actual = remove_inner_quotes(r#"--option='value'"#);
-        let expected = r#"--option=value"#;
-        assert_eq!(actual, expected);
+            let actual = expand_glob("[*.txt", cwd, Span::unknown(), &None).unwrap();
+            let expected = &["[*.txt"];
+            assert_eq!(actual, expected);
 
-        let actual = remove_inner_quotes(r#"--option "value""#);
-        let expected = r#"--option "value""#;
-        assert_eq!(actual, expected);
+            let actual = expand_glob("~/foo.txt", cwd, Span::unknown(), &None).unwrap();
+            let home = dirs_next::home_dir().expect("failed to get home dir");
+            let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
+            assert_eq!(actual, expected);
+        })
     }
 
     #[test]

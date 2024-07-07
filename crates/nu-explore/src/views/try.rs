@@ -1,16 +1,11 @@
-use super::{
-    record::{RecordView, TableTheme},
-    util::{lookup_tui_color, nu_style_to_tui},
-    Layout, Orientation, View, ViewConfig,
-};
+use super::{record::RecordView, util::nu_style_to_tui, Layout, Orientation, View, ViewConfig};
 use crate::{
+    explore::ExploreConfig,
     nu_common::{collect_pipeline, run_command_with_value},
     pager::{report::Report, Frame, Transition, ViewInfo},
-    util::create_map,
 };
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use nu_color_config::get_color_map;
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
@@ -22,28 +17,26 @@ use ratatui::{
 };
 use std::cmp::min;
 
-pub struct InteractiveView<'a> {
+pub struct TryView {
     input: Value,
     command: String,
     immediate: bool,
-    table: Option<RecordView<'a>>,
-    table_theme: TableTheme,
+    table: Option<RecordView>,
     view_mode: bool,
     border_color: Style,
-    highlighted_color: Style,
+    config: ExploreConfig,
 }
 
-impl<'a> InteractiveView<'a> {
-    pub fn new(input: Value) -> Self {
+impl TryView {
+    pub fn new(input: Value, config: ExploreConfig) -> Self {
         Self {
             input,
             table: None,
-            immediate: false,
-            table_theme: TableTheme::default(),
-            border_color: Style::default(),
-            highlighted_color: Style::default(),
+            immediate: config.try_reactive,
+            border_color: nu_style_to_tui(config.table.separator_style),
             view_mode: false,
             command: String::new(),
+            config,
         }
     }
 
@@ -52,18 +45,21 @@ impl<'a> InteractiveView<'a> {
     }
 
     pub fn try_run(&mut self, engine_state: &EngineState, stack: &mut Stack) -> Result<()> {
-        let mut view = run_command(&self.command, &self.input, engine_state, stack)?;
-        view.set_theme(self.table_theme.clone());
-
+        let view = run_command(
+            &self.command,
+            &self.input,
+            engine_state,
+            stack,
+            &self.config,
+        )?;
         self.table = Some(view);
         Ok(())
     }
 }
 
-impl View for InteractiveView<'_> {
+impl View for TryView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let border_color = self.border_color;
-        let highlighted_color = self.highlighted_color;
 
         let cmd_block = ratatui::widgets::Block::default()
             .borders(Borders::ALL)
@@ -77,7 +73,7 @@ impl View for InteractiveView<'_> {
             cmd_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
-                .border_style(highlighted_color)
+                .border_style(border_color)
         };
 
         f.render_widget(cmd_block, cmd_area);
@@ -127,7 +123,7 @@ impl View for InteractiveView<'_> {
             table_block
                 .border_style(Style::default().add_modifier(Modifier::BOLD))
                 .border_type(BorderType::Double)
-                .border_style(highlighted_color)
+                .border_style(border_color)
         } else {
             table_block
         };
@@ -160,7 +156,7 @@ impl View for InteractiveView<'_> {
                 .as_mut()
                 .expect("we know that we have a table cause of a flag");
 
-            let was_at_the_top = table.get_current_position().0 == 0;
+            let was_at_the_top = table.get_cursor_position().row == 0;
 
             if was_at_the_top && matches!(key.code, KeyCode::Up | KeyCode::PageUp) {
                 self.view_mode = false;
@@ -244,37 +240,6 @@ impl View for InteractiveView<'_> {
     fn show_data(&mut self, i: usize) -> bool {
         self.table.as_mut().map_or(false, |v| v.show_data(i))
     }
-
-    fn setup(&mut self, config: ViewConfig<'_>) {
-        self.border_color = lookup_tui_color(config.style_computer, "separator");
-
-        if let Some(hm) = config.config.get("try").and_then(create_map) {
-            let colors = get_color_map(&hm);
-
-            if let Some(color) = colors.get("highlighted_color").copied() {
-                self.highlighted_color = nu_style_to_tui(color);
-            }
-
-            if self.border_color != Style::default() && self.highlighted_color == Style::default() {
-                self.highlighted_color = self.border_color;
-            }
-
-            if let Some(val) = hm.get("reactive").and_then(|v| v.as_bool().ok()) {
-                self.immediate = val;
-            }
-        }
-
-        let mut r = RecordView::new(vec![], vec![]);
-        r.setup(config);
-
-        self.table_theme = r.get_theme().clone();
-
-        if let Some(view) = &mut self.table {
-            view.set_theme(self.table_theme.clone());
-            view.set_orientation(r.get_orientation_current());
-            view.set_orientation_current(r.get_orientation_current());
-        }
-    }
 }
 
 fn run_command(
@@ -282,16 +247,17 @@ fn run_command(
     input: &Value,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> Result<RecordView<'static>> {
+    config: &ExploreConfig,
+) -> Result<RecordView> {
     let pipeline = run_command_with_value(command, input, engine_state, stack)?;
 
     let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 
     let (columns, values) = collect_pipeline(pipeline)?;
 
-    let mut view = RecordView::new(columns, values);
+    let mut view = RecordView::new(columns, values, config.clone());
     if is_record {
-        view.set_orientation_current(Orientation::Left);
+        view.set_top_layer_orientation(Orientation::Left);
     }
 
     Ok(view)

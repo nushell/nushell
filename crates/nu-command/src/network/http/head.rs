@@ -7,6 +7,8 @@ use nu_engine::command_prelude::*;
 
 use std::sync::{atomic::AtomicBool, Arc};
 
+use super::client::HttpBody;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -156,7 +158,7 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request, None, None, ctrlc);
+    let response = send_request(request, HttpBody::None, None, ctrlc);
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response_headers(span, response)
 }

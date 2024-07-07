@@ -92,7 +92,6 @@ fn get_entries_in_nu(
     all_entries
 }
 
-#[cfg(feature = "which-support")]
 fn get_first_entry_in_path(
     item: &str,
     span: Span,
@@ -104,17 +103,6 @@ fn get_first_entry_in_path(
         .ok()
 }
 
-#[cfg(not(feature = "which-support"))]
-fn get_first_entry_in_path(
-    _item: &str,
-    _span: Span,
-    _cwd: impl AsRef<Path>,
-    _paths: impl AsRef<OsStr>,
-) -> Option<Value> {
-    None
-}
-
-#[cfg(feature = "which-support")]
 fn get_all_entries_in_path(
     item: &str,
     span: Span,
@@ -127,16 +115,6 @@ fn get_all_entries_in_path(
                 .collect()
         })
         .unwrap_or_default()
-}
-
-#[cfg(not(feature = "which-support"))]
-fn get_all_entries_in_path(
-    _item: &str,
-    _span: Span,
-    _cwd: impl AsRef<Path>,
-    _paths: impl AsRef<OsStr>,
-) -> Vec<Value> {
-    vec![]
 }
 
 #[derive(Debug)]

@@ -17,6 +17,17 @@ fn plugin_list_shows_installed_plugins() {
 }
 
 #[test]
+fn plugin_list_shows_installed_plugin_version() {
+    let out = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_inc"),
+        r#"(plugin list).version.0"#
+    );
+    assert_eq!(env!("CARGO_PKG_VERSION"), out.out);
+    assert!(out.status.success());
+}
+
+#[test]
 fn plugin_keeps_running_after_calling_it() {
     let out = nu_with_plugins!(
         cwd: ".",

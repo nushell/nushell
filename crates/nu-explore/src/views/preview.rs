@@ -1,4 +1,6 @@
-use super::{colored_text_widget::ColoredTextWidget, cursor::XYCursor, Layout, View, ViewConfig};
+use super::{
+    colored_text_widget::ColoredTextWidget, cursor::WindowCursor2D, Layout, View, ViewConfig,
+};
 use crate::{
     nu_common::{NuSpan, NuText},
     pager::{report::Report, Frame, Transition, ViewInfo},
@@ -17,7 +19,7 @@ use std::cmp::max;
 pub struct Preview {
     underlying_value: Option<Value>,
     lines: Vec<String>,
-    cursor: XYCursor,
+    cursor: WindowCursor2D,
 }
 
 impl Preview {
@@ -26,8 +28,9 @@ impl Preview {
             .lines()
             .map(|line| line.replace('\t', "    ")) // tui: doesn't support TAB
             .collect();
-        let cursor = XYCursor::new(lines.len(), usize::MAX);
 
+        // TODO: refactor so this is fallible and returns a Result instead of panicking
+        let cursor = WindowCursor2D::new(lines.len(), usize::MAX).expect("Failed to create cursor");
         Self {
             lines,
             cursor,
@@ -38,10 +41,11 @@ impl Preview {
 
 impl View for Preview {
     fn draw(&mut self, f: &mut Frame, area: Rect, _: ViewConfig<'_>, layout: &mut Layout) {
-        self.cursor
-            .set_window(area.height as usize, area.width as usize);
+        let _ = self
+            .cursor
+            .set_window_size(area.height as usize, area.width as usize);
 
-        let lines = &self.lines[self.cursor.row_starts_at()..];
+        let lines = &self.lines[self.cursor.window_origin().row..];
         for (i, line) in lines.iter().enumerate().take(area.height as usize) {
             let text_widget = ColoredTextWidget::new(line, self.cursor.column());
             let plain_text = text_widget.get_plain_text(area.width as usize);
@@ -65,13 +69,13 @@ impl View for Preview {
         match key.code {
             KeyCode::Left => {
                 self.cursor
-                    .prev_column_by(max(1, self.cursor.column_window_size() / 2));
+                    .prev_column_by(max(1, self.cursor.window_width_in_columns() / 2));
 
                 Some(Transition::Ok)
             }
             KeyCode::Right => {
                 self.cursor
-                    .next_column_by(max(1, self.cursor.column_window_size() / 2));
+                    .next_column_by(max(1, self.cursor.window_width_in_columns() / 2));
 
                 Some(Transition::Ok)
             }
@@ -128,7 +132,7 @@ impl View for Preview {
         //
         // todo: improve somehow?
 
-        self.cursor.set_position(row, 0);
+        self.cursor.set_window_start_position(row, 0);
         true
     }
 
@@ -152,7 +156,7 @@ fn set_status_end(view: &Preview, info: &mut ViewInfo) {
 }
 
 fn set_status_top(view: &Preview, info: &mut ViewInfo) {
-    if view.cursor.row_starts_at() == 0 {
+    if view.cursor.window_origin().row == 0 {
         info.status = Some(Report::info("TOP"));
     } else {
         info.status = Some(Report::default());

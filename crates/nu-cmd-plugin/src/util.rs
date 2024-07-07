@@ -31,11 +31,20 @@ pub(crate) fn modify_plugin_file(
             })?
     };
 
+    let file_span = custom_path.as_ref().map(|p| p.span).unwrap_or(span);
+
     // Try to read the plugin file if it exists
     let mut contents = if fs::metadata(&plugin_registry_file_path).is_ok_and(|m| m.len() > 0) {
         PluginRegistryFile::read_from(
-            File::open(&plugin_registry_file_path).err_span(span)?,
-            Some(span),
+            File::open(&plugin_registry_file_path).map_err(|err| ShellError::IOErrorSpanned {
+                msg: format!(
+                    "failed to read `{}`: {}",
+                    plugin_registry_file_path.display(),
+                    err
+                ),
+                span: file_span,
+            })?,
+            Some(file_span),
         )?
     } else {
         PluginRegistryFile::default()
@@ -46,7 +55,14 @@ pub(crate) fn modify_plugin_file(
 
     // Save the modified file on success
     contents.write_to(
-        File::create(&plugin_registry_file_path).err_span(span)?,
+        File::create(&plugin_registry_file_path).map_err(|err| ShellError::IOErrorSpanned {
+            msg: format!(
+                "failed to create `{}`: {}",
+                plugin_registry_file_path.display(),
+                err
+            ),
+            span: file_span,
+        })?,
         Some(span),
     )?;
 

@@ -245,6 +245,7 @@ use tempfile::tempdir;
 pub struct NuOpts {
     pub cwd: Option<String>,
     pub locale: Option<String>,
+    pub envs: Option<Vec<(String, String)>>,
     pub collapse_output: Option<bool>,
 }
 
@@ -278,11 +279,18 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     command
         .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
         .env(NATIVE_PATH_ENV_VAR, paths_joined);
+
+    if let Some(envs) = opts.envs {
+        command.envs(envs);
+    }
+
     // Ensure that the user's config doesn't interfere with the tests
     command.arg("--no-config-file");
     if !with_std {
         command.arg("--no-std-lib");
     }
+    // Use plain errors to help make error text matching more consistent
+    command.args(["--error-style", "plain"]);
     command
         .arg(format!("-c {}", escape_quote_string(&commands)))
         .stdout(Stdio::piped())
@@ -369,6 +377,8 @@ where
         .envs(envs)
         .arg("--commands")
         .arg(command)
+        // Use plain errors to help make error text matching more consistent
+        .args(["--error-style", "plain"])
         .arg("--config")
         .arg(temp_config_file)
         .arg("--env-config")

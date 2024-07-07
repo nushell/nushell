@@ -66,9 +66,15 @@ fn set_write_logger(level: LevelFilter, config: Config, path: &Path) -> Result<(
     }
 }
 
+pub struct Filters {
+    pub include: Option<Vec<String>>,
+    pub exclude: Option<Vec<String>>,
+}
+
 pub fn configure(
     level: &str,
     target: &str,
+    filters: Filters,
     builder: &mut ConfigBuilder,
 ) -> (LevelFilter, LogTarget) {
     let level = match Level::from_str(level) {
@@ -77,7 +83,20 @@ pub fn configure(
     };
 
     // Add allowed module filter
-    builder.add_filter_allow_str("nu");
+    if let Some(include) = filters.include {
+        for filter in include {
+            builder.add_filter_allow(filter);
+        }
+    } else {
+        builder.add_filter_allow_str("nu");
+    }
+
+    // Add ignored module filter
+    if let Some(exclude) = filters.exclude {
+        for filter in exclude {
+            builder.add_filter_ignore(filter);
+        }
+    }
 
     // Set level padding
     builder.set_level_padding(LevelPadding::Right);

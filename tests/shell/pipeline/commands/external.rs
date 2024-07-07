@@ -3,7 +3,6 @@ use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use pretty_assertions::assert_eq;
 
-#[cfg(feature = "which-support")]
 #[test]
 fn shows_error_for_command_not_found() {
     let actual = nu!("ferris_is_not_here.exe");
@@ -11,7 +10,6 @@ fn shows_error_for_command_not_found() {
     assert!(!actual.err.is_empty());
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 fn shows_error_for_command_not_found_in_pipeline() {
     let actual = nu!("ferris_is_not_here.exe | echo done");
@@ -20,7 +18,6 @@ fn shows_error_for_command_not_found_in_pipeline() {
 }
 
 #[ignore] // jt: we can't test this using the -c workaround currently
-#[cfg(feature = "which-support")]
 #[test]
 fn automatically_change_directory() {
     use nu_test_support::playground::Playground;
@@ -589,5 +586,19 @@ mod external_command_arguments {
         let actual = nu!("nu --testbin cococo (echo \"a;&$(hello)\")");
 
         assert_eq!(actual.out, "a;&$(hello)");
+    }
+
+    #[test]
+    fn remove_quotes_in_shell_arguments() {
+        let actual = nu!("nu --testbin cococo expression='-r -w'");
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!(r#"nu --testbin cococo expression="-r -w""#);
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!("nu --testbin cococo expression='-r -w'");
+        assert_eq!(actual.out, "expression=-r -w");
+        let actual = nu!(r#"nu --testbin cococo expression="-r\" -w""#);
+        assert_eq!(actual.out, r#"expression=-r" -w"#);
+        let actual = nu!(r#"nu --testbin cococo expression='-r\" -w'"#);
+        assert_eq!(actual.out, r#"expression=-r\" -w"#);
     }
 }

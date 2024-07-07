@@ -28,11 +28,6 @@ impl Command for For {
                 "Range of the loop.",
             )
             .required("block", SyntaxShape::Block, "The block to run.")
-            .switch(
-                "numbered",
-                "return a numbered item ($it.index and $it.item)",
-                Some('n'),
-            )
             .creates_scope()
             .category(Category::Core)
     }
@@ -77,8 +72,6 @@ impl Command for For {
 
         let value = eval_expression(engine_state, stack, keyword_expr)?;
 
-        let numbered = call.has_flag(engine_state, stack, "numbered")?;
-
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block_id);
@@ -88,7 +81,7 @@ impl Command for For {
         let span = value.span();
         match value {
             Value::List { vals, .. } => {
-                for (idx, x) in vals.into_iter().enumerate() {
+                for x in vals.into_iter() {
                     if nu_utils::ctrl_c::was_pressed(&ctrlc) {
                         break;
                     }
@@ -97,20 +90,7 @@ impl Command for For {
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
 
-                    stack.add_var(
-                        var_id,
-                        if numbered {
-                            Value::record(
-                                record! {
-                                    "index" => Value::int(idx as i64, head),
-                                    "item" => x,
-                                },
-                                head,
-                            )
-                        } else {
-                            x
-                        },
-                    );
+                    stack.add_var(var_id, x);
 
                     match eval_block(&engine_state, stack, block, PipelineData::empty()) {
                         Err(ShellError::Break { .. }) => {
@@ -136,21 +116,8 @@ impl Command for For {
                 }
             }
             Value::Range { val, .. } => {
-                for (idx, x) in val.into_range_iter(span, ctrlc).enumerate() {
-                    stack.add_var(
-                        var_id,
-                        if numbered {
-                            Value::record(
-                                record! {
-                                    "index" => Value::int(idx as i64, head),
-                                    "item" => x,
-                                },
-                                head,
-                            )
-                        } else {
-                            x
-                        },
-                    );
+                for x in val.into_range_iter(span, ctrlc) {
+                    stack.add_var(var_id, x);
 
                     match eval_block(&engine_state, stack, block, PipelineData::empty()) {
                         Err(ShellError::Break { .. }) => {
@@ -198,8 +165,7 @@ impl Command for For {
             },
             Example {
                 description: "Number each item and print a message",
-                example:
-                    "for $it in ['bob' 'fred'] --numbered { print $\"($it.index) is ($it.item)\" }",
+                example: r#"for $it in (['bob' 'fred'] | enumerate) { print $"($it.index) is ($it.item)" }"#,
                 result: None,
             },
         ]

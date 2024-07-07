@@ -262,6 +262,22 @@ fn commands_have_usage() -> TestResult {
 }
 
 #[test]
+fn commands_from_crlf_source_have_short_usage() -> TestResult {
+    run_test_contains(
+        "# This is a test\r\n#\r\n# To see if I have cool usage\r\ndef foo [] {}\r\nscope commands | where name == foo | get usage.0",
+        "This is a test",
+    )
+}
+
+#[test]
+fn commands_from_crlf_source_have_extra_usage() -> TestResult {
+    run_test_contains(
+        "# This is a test\r\n#\r\n# To see if I have cool usage\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_usage.0",
+        "To see if I have cool usage",
+    )
+}
+
+#[test]
 fn equals_separates_long_flag() -> TestResult {
     run_test(
         r#"'nushell' | fill --alignment right --width=10 --character='-'"#,
@@ -554,39 +570,6 @@ fn unbalanced_parens1() -> TestResult {
 #[test]
 fn unbalanced_parens2() -> TestResult {
     fail_test(r#"("("))"#, "unbalanced ( and )")
-}
-
-#[test]
-fn register_with_string_literal() -> TestResult {
-    fail_test(r#"register 'nu-plugin-math'"#, "File not found")
-}
-
-#[test]
-fn register_with_string_constant() -> TestResult {
-    let input = "\
-const file = 'nu-plugin-math'
-register $file
-";
-    // should not fail with `not a constant`
-    fail_test(input, "File not found")
-}
-
-#[test]
-fn register_with_string_variable() -> TestResult {
-    let input = "\
-let file = 'nu-plugin-math'
-register $file
-";
-    fail_test(input, "Value is not a parse-time constant")
-}
-
-#[test]
-fn register_with_non_string_constant() -> TestResult {
-    let input = "\
-const file = 6
-register $file
-";
-    fail_test(input, "expected string, found int")
 }
 
 #[test]

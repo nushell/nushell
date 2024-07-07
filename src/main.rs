@@ -25,10 +25,11 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Value,
+    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned,
+    Value,
 };
 use nu_std::load_standard_library;
-use nu_utils::utils::perf;
+use nu_utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{
@@ -103,7 +104,9 @@ fn main() -> Result<()> {
                         default: nushell_config_path.display().to_string(),
                     },
                 );
-            } else if let Some(old_config) = nu_path::config_dir_old().map(|p| p.join("nushell")) {
+            } else if let Some(old_config) =
+                nu_path::get_canonicalized_path(dirs_next::config_dir()).map(|p| p.join("nushell"))
+            {
                 let xdg_config_empty = nushell_config_path
                     .read_dir()
                     .map_or(true, |mut dir| dir.next().is_none());
@@ -124,13 +127,22 @@ fn main() -> Result<()> {
         }
     }
 
+    let default_nushell_completions_path = if let Some(mut path) = nu_path::data_dir() {
+        path.push("nushell");
+        path.push("completions");
+        path
+    } else {
+        std::path::PathBuf::new()
+    };
+
     let mut default_nu_lib_dirs_path = nushell_config_path.clone();
     default_nu_lib_dirs_path.push("scripts");
     engine_state.add_env_var(
         "NU_LIB_DIRS".to_string(),
-        Value::test_list(vec![Value::test_string(
-            default_nu_lib_dirs_path.to_string_lossy(),
-        )]),
+        Value::test_list(vec![
+            Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
+            Value::test_string(default_nushell_completions_path.to_string_lossy()),
+        ]),
     );
 
     let mut default_nu_plugin_dirs_path = nushell_config_path;
@@ -155,7 +167,10 @@ fn main() -> Result<()> {
 
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
-        .unwrap_or_else(|_| std::process::exit(1));
+        .unwrap_or_else(|err| {
+            report_error_new(&engine_state, &err);
+            std::process::exit(1)
+        });
 
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
@@ -168,6 +183,8 @@ fn main() -> Result<()> {
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
+
+    // Set up logger
     if let Some(level) = parsed_nu_cli_args
         .log_level
         .as_ref()
@@ -187,16 +204,22 @@ fn main() -> Result<()> {
             .map(|target| target.item.clone())
             .unwrap_or_else(|| "stderr".to_string());
 
-        logger(|builder| configure(&level, &target, builder))?;
+        let make_filters = |filters: &Option<Vec<Spanned<String>>>| {
+            filters.as_ref().map(|filters| {
+                filters
+                    .iter()
+                    .map(|filter| filter.item.clone())
+                    .collect::<Vec<String>>()
+            })
+        };
+        let filters = logger::Filters {
+            include: make_filters(&parsed_nu_cli_args.log_include),
+            exclude: make_filters(&parsed_nu_cli_args.log_exclude),
+        };
+
+        logger(|builder| configure(&level, &target, filters, builder))?;
         // info!("start logging {}:{}:{}", file!(), line!(), column!());
-        perf(
-            "start logging",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("start logging", start_time, use_color);
     }
 
     start_time = std::time::Instant::now();
@@ -215,27 +238,13 @@ fn main() -> Result<()> {
         "env-path",
         parsed_nu_cli_args.env_file.as_ref(),
     );
-    perf(
-        "set_config_path",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("set_config_path", start_time, use_color);
 
     #[cfg(unix)]
     {
         start_time = std::time::Instant::now();
         terminal::acquire(engine_state.is_interactive);
-        perf(
-            "acquire_terminal",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("acquire_terminal", start_time, use_color);
     }
 
     start_time = std::time::Instant::now();
@@ -249,26 +258,12 @@ fn main() -> Result<()> {
 
         engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
     }
-    perf(
-        "NU_LIB_DIRS setup",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("NU_LIB_DIRS setup", start_time, use_color);
 
     start_time = std::time::Instant::now();
     // First, set up env vars as strings only
     gather_parent_env_vars(&mut engine_state, &init_cwd);
-    perf(
-        "gather env vars",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("gather env vars", start_time, use_color);
 
     engine_state.add_env_var(
         "NU_VERSION".to_string(),
@@ -329,14 +324,7 @@ fn main() -> Result<()> {
         }
         std::process::exit(0)
     }
-    perf(
-        "run test_bins",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("run test_bins", start_time, use_color);
 
     start_time = std::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
@@ -346,31 +334,17 @@ fn main() -> Result<()> {
         trace!("not redirecting stdin");
         PipelineData::empty()
     };
-    perf(
-        "redirect stdin",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("redirect stdin", start_time, use_color);
 
     start_time = std::time::Instant::now();
     // Set up the $nu constant before evaluating config files (need to have $nu available in them)
     engine_state.generate_nu_constant();
-    perf(
-        "create_nu_constant",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    perf!("create_nu_constant", start_time, use_color);
 
     #[cfg(feature = "plugin")]
     if let Some(plugins) = &parsed_nu_cli_args.plugins {
         use nu_plugin_engine::{GetPlugin, PluginDeclaration};
-        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity};
+        use nu_protocol::{engine::StateWorkingSet, ErrSpan, PluginIdentity, RegisteredPlugin};
 
         // Load any plugins specified with --plugins
         start_time = std::time::Instant::now();
@@ -389,34 +363,26 @@ fn main() -> Result<()> {
             // Create the plugin and add it to the working set
             let plugin = nu_plugin_engine::add_plugin_to_working_set(&mut working_set, &identity)?;
 
-            // Spawn the plugin to get its signatures, and then add the commands to the working set
-            for signature in plugin.clone().get_plugin(None)?.get_signature()? {
+            // Spawn the plugin to get the metadata and signatures
+            let interface = plugin.clone().get_plugin(None)?;
+
+            // Set its metadata
+            plugin.set_metadata(Some(interface.get_metadata()?));
+
+            // Add the commands from the signature to the working set
+            for signature in interface.get_signature()? {
                 let decl = PluginDeclaration::new(plugin.clone(), signature);
                 working_set.add_decl(Box::new(decl));
             }
         }
         engine_state.merge_delta(working_set.render())?;
 
-        perf(
-            "load plugins specified in --plugins",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        )
+        perf!("load plugins specified in --plugins", start_time, use_color)
     }
 
     start_time = std::time::Instant::now();
     if parsed_nu_cli_args.lsp {
-        perf(
-            "lsp starting",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
+        perf!("lsp starting", start_time, use_color);
 
         if parsed_nu_cli_args.no_config_file.is_none() {
             let mut stack = nu_protocol::engine::Stack::new();

@@ -8,6 +8,6 @@ To install:
 cargo install --path .
 ```
 
-To register (from inside Nushell):
+To add the plugin (from inside Nushell):
 ```
-register <path to installed plugin>
+> plugin add <path to installed plugin>

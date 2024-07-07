@@ -170,7 +170,10 @@ impl Command for Table {
                     }),
                     Value::test_record(record! {
                         "a" =>  Value::test_int(3),
-                        "b" =>  Value::test_int(4),
+                        "b" =>  Value::test_list(vec![
+                            Value::test_int(4),
+                            Value::test_int(4),
+                        ])
                     }),
                 ])),
             },
@@ -184,7 +187,10 @@ impl Command for Table {
                     }),
                     Value::test_record(record! {
                         "a" =>  Value::test_int(3),
-                        "b" =>  Value::test_int(4),
+                        "b" =>  Value::test_list(vec![
+                            Value::test_int(4),
+                            Value::test_int(4),
+                        ])
                     }),
                 ])),
             },
@@ -599,6 +605,7 @@ fn handle_row_stream(
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
+            ..
         }) => {
             let config = get_config(input.engine_state, input.stack);
             let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
@@ -630,6 +637,7 @@ fn handle_row_stream(
         // Next, `to html -l` sources:
         Some(PipelineMetadata {
             data_source: DataSource::HtmlThemes,
+            ..
         }) => {
             stream.map(|mut value| {
                 if let Value::Record { val: record, .. } = &mut value {

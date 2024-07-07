@@ -63,8 +63,71 @@ fn into_filesize_negative_filesize() {
 }
 
 #[test]
-fn into_negative_filesize() {
+fn into_filesize_negative_str_filesize() {
+    let actual = nu!("'-3kib' | into filesize");
+
+    assert!(actual.out.contains("-3.0 KiB"));
+}
+
+#[test]
+fn into_filesize_wrong_negative_str_filesize() {
+    let actual = nu!("'--3kib' | into filesize");
+
+    assert!(actual.err.contains("can't convert string to filesize"));
+}
+
+#[test]
+fn into_filesize_large_negative_str_filesize() {
+    let actual = nu!("'-10000PiB' | into filesize");
+
+    assert!(actual.err.contains("can't convert string to filesize"));
+}
+
+#[test]
+fn into_filesize_negative_str() {
     let actual = nu!("'-1' | into filesize");
 
     assert!(actual.out.contains("-1 B"));
+}
+
+#[test]
+fn into_filesize_wrong_negative_str() {
+    let actual = nu!("'--1' | into filesize");
+
+    assert!(actual.err.contains("can't convert string to filesize"));
+}
+
+#[test]
+fn into_filesize_positive_str_filesize() {
+    let actual = nu!("'+1Kib' | into filesize");
+
+    assert!(actual.out.contains("1.0 KiB"));
+}
+
+#[test]
+fn into_filesize_wrong_positive_str_filesize() {
+    let actual = nu!("'++1Kib' | into filesize");
+
+    assert!(actual.err.contains("can't convert string to filesize"));
+}
+
+#[test]
+fn into_filesize_large_positive_str_filesize() {
+    let actual = nu!("'+10000PiB' | into filesize");
+
+    assert!(actual.err.contains("can't convert string to filesize"));
+}
+
+#[test]
+fn into_filesize_positive_str() {
+    let actual = nu!("'+1' | into filesize");
+
+    assert!(actual.out.contains("1 B"));
+}
+
+#[test]
+fn into_filesize_wrong_positive_str() {
+    let actual = nu!("'++1' | into filesize");
+
+    assert!(actual.err.contains("can't convert string to filesize"));
 }

@@ -56,16 +56,7 @@ impl Command for ErrorMake {
             Example {
                 description: "Create a simple custom error",
                 example: r#"error make {msg: "my custom error message"}"#,
-                result: Some(Value::error(
-                    ShellError::GenericError {
-                        error: "my custom error message".into(),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    },
-                    Span::unknown(),
-                )),
+                result: None,
             },
             Example {
                 description: "Create a more complex custom error",
@@ -82,16 +73,7 @@ impl Command for ErrorMake {
         }
         help: "A help string, suggesting a fix to the user"  # optional
     }"#,
-                result: Some(Value::error(
-                    ShellError::GenericError {
-                        error: "my custom error message".into(),
-                        msg: "my custom label text".into(),
-                        span: Some(Span::new(123, 456)),
-                        help: Some("A help string, suggesting a fix to the user".into()),
-                        inner: vec![],
-                    },
-                    Span::unknown(),
-                )),
+                result: None,
             },
             Example {
                 description:

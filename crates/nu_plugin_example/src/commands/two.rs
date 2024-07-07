@@ -1,5 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
-use nu_protocol::{record, Category, LabeledError, Signature, SyntaxShape, Value};
+use nu_protocol::{Category, IntoValue, LabeledError, Signature, SyntaxShape, Value};
 
 use crate::ExamplePlugin;
 
@@ -38,14 +38,22 @@ impl SimplePluginCommand for Two {
     ) -> Result<Value, LabeledError> {
         plugin.print_values(2, call, input)?;
 
+        // Use the IntoValue derive macro and trait to easily design output data.
+        #[derive(IntoValue)]
+        struct Output {
+            one: i64,
+            two: i64,
+            three: i64,
+        }
+
         let vals = (0..10i64)
             .map(|i| {
-                let record = record! {
-                    "one" => Value::int(i, call.head),
-                    "two" => Value::int(2 * i, call.head),
-                    "three" => Value::int(3 * i, call.head),
-                };
-                Value::record(record, call.head)
+                Output {
+                    one: i,
+                    two: 2 * i,
+                    three: 3 * i,
+                }
+                .into_value(call.head)
             })
             .collect();
 

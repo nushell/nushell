@@ -24,10 +24,20 @@ impl SimplePluginCommand for QueryWeb {
             .switch("as-html", "return the query output as html", Some('m'))
             .named(
                 "attribute",
-                SyntaxShape::String,
+                SyntaxShape::Any,
                 "downselect based on the given attribute",
                 Some('a'),
             )
+            // TODO: use detailed shape when https://github.com/nushell/nushell/issues/13253 is resolved
+            // .named(
+            //     "attribute",
+            //     SyntaxShape::OneOf(vec![
+            //         SyntaxShape::List(Box::new(SyntaxShape::String)),
+            //         SyntaxShape::String,
+            //     ]),
+            //     "downselect based on the given attribute",
+            //     Some('a'),
+            // )
             .named(
                 "as-table",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
@@ -79,6 +89,11 @@ pub fn web_examples() -> Vec<Example<'static>> {
             example: "http get https://example.org | query web --query a --attribute href",
             description: "Retrieve a specific html attribute instead of the default text",
             result: None,
+        },
+        Example {
+            example: r#"http get https://www.rust-lang.org | query web --query 'meta[property^="og:"]' --attribute [ property content ]"#,
+            description: r#"Retrieve the OpenGraph properties (`<meta property="og:...">`) from a web page"#,
+            result: None,
         }
     ]
 }
@@ -86,7 +101,7 @@ pub fn web_examples() -> Vec<Example<'static>> {
 pub struct Selector {
     pub query: String,
     pub as_html: bool,
-    pub attribute: String,
+    pub attribute: Value,
     pub as_table: Value,
     pub inspect: bool,
 }
@@ -96,7 +111,7 @@ impl Selector {
         Selector {
             query: String::new(),
             as_html: false,
-            attribute: String::new(),
+            attribute: Value::string("".to_string(), Span::unknown()),
             as_table: Value::string("".to_string(), Span::unknown()),
             inspect: false,
         }
@@ -113,7 +128,9 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     let head = call.head;
     let query: Option<Spanned<String>> = call.get_flag("query")?;
     let as_html = call.has_flag("as-html")?;
-    let attribute = call.get_flag("attribute")?.unwrap_or_default();
+    let attribute = call
+        .get_flag("attribute")?
+        .unwrap_or_else(|| Value::nothing(head));
     let as_table: Value = call
         .get_flag("as-table")?
         .unwrap_or_else(|| Value::nothing(head));
@@ -160,11 +177,19 @@ fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> V
             selector.inspect,
             span,
         )
+    } else if let Value::List { .. } = selector.attribute {
+        execute_selector_query_with_attributes(
+            input_html.as_str(),
+            selector.query.as_str(),
+            &selector.attribute,
+            selector.inspect,
+            span,
+        )
     } else {
         execute_selector_query_with_attribute(
             input_html.as_str(),
             selector.query.as_str(),
-            selector.attribute.as_str(),
+            selector.attribute.as_str().unwrap_or(""),
             selector.inspect,
             span,
         )
@@ -317,6 +342,40 @@ fn execute_selector_query_with_attribute(
     Value::list(vals, span)
 }
 
+fn execute_selector_query_with_attributes(
+    input_string: &str,
+    query_string: &str,
+    attributes: &Value,
+    inspect: bool,
+    span: Span,
+) -> Value {
+    let doc = Html::parse_fragment(input_string);
+
+    let mut attrs: Vec<String> = Vec::new();
+    if let Value::List { vals, .. } = &attributes {
+        for x in vals {
+            if let Value::String { val, .. } = x {
+                attrs.push(val.to_string())
+            }
+        }
+    }
+
+    let vals: Vec<Value> = doc
+        .select(&css(query_string, inspect))
+        .map(|selection| {
+            let mut record = Record::new();
+            for attr in &attrs {
+                record.push(
+                    attr.to_string(),
+                    Value::string(selection.value().attr(attr).unwrap_or("").to_string(), span),
+                );
+            }
+            Value::record(record, span)
+        })
+        .collect();
+    Value::list(vals, span)
+}
+
 fn execute_selector_query(
     input_string: &str,
     query_string: &str,
@@ -369,6 +428,10 @@ mod tests {
      "#;
 
     const NESTED_TEXT: &str = r#"<p>Hello there, <span style="color: red;">World</span></p>"#;
+    const MULTIPLE_ATTRIBUTES: &str = r#"
+        <a href="https://example.org" target="_blank">Example</a>
+        <a href="https://example.com" target="_self">Example</a>
+    "#;
 
     #[test]
     fn test_first_child_is_not_empty() {
@@ -423,5 +486,49 @@ mod tests {
             out,
             vec![vec!["Hello there, ".to_string(), "World".to_string()]],
         );
+    }
+
+    #[test]
+    fn test_multiple_attributes() {
+        let item = execute_selector_query_with_attributes(
+            MULTIPLE_ATTRIBUTES,
+            "a",
+            &Value::list(
+                vec![
+                    Value::string("href".to_string(), Span::unknown()),
+                    Value::string("target".to_string(), Span::unknown()),
+                ],
+                Span::unknown(),
+            ),
+            false,
+            Span::test_data(),
+        );
+        let out = item
+            .into_list()
+            .unwrap()
+            .into_iter()
+            .map(|matches| {
+                matches
+                    .into_record()
+                    .unwrap()
+                    .into_iter()
+                    .map(|(key, value)| (key, value.coerce_into_string().unwrap()))
+                    .collect::<Vec<(String, String)>>()
+            })
+            .collect::<Vec<Vec<(String, String)>>>();
+
+        assert_eq!(
+            out,
+            vec![
+                vec![
+                    ("href".to_string(), "https://example.org".to_string()),
+                    ("target".to_string(), "_blank".to_string())
+                ],
+                vec![
+                    ("href".to_string(), "https://example.com".to_string()),
+                    ("target".to_string(), "_self".to_string())
+                ]
+            ]
+        )
     }
 }

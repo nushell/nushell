@@ -147,6 +147,7 @@ impl Command for Open {
                         ByteStream::file(file, call_span, ctrlc.clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
+                            content_type: None,
                         }),
                     );
 

@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginSignature, ShellError, Span,
-    Spanned, Value,
+    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
+    ShellError, Span, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap},
@@ -716,6 +716,7 @@ impl PluginInterface {
 
         // Convert the call into one with a header and handle the stream, if necessary
         let (call, writer) = match call {
+            PluginCall::Metadata => (PluginCall::Metadata, Default::default()),
             PluginCall::Signature => (PluginCall::Signature, Default::default()),
             PluginCall::CustomValueOp(value, op) => {
                 (PluginCall::CustomValueOp(value, op), Default::default())
@@ -911,6 +912,17 @@ impl PluginInterface {
         result.writer.write_background()?;
 
         self.receive_plugin_call_response(result.receiver, context, result.state)
+    }
+
+    /// Get the metadata from the plugin.
+    pub fn get_metadata(&self) -> Result<PluginMetadata, ShellError> {
+        match self.plugin_call(PluginCall::Metadata, None)? {
+            PluginCallResponse::Metadata(meta) => Ok(meta),
+            PluginCallResponse::Error(err) => Err(err.into()),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response to plugin Metadata call".into(),
+            }),
+        }
     }
 
     /// Get the command signatures from the plugin.
@@ -1206,6 +1218,7 @@ impl CurrentCallState {
         source: &PluginSource,
     ) -> Result<(), ShellError> {
         match call {
+            PluginCall::Metadata => Ok(()),
             PluginCall::Signature => Ok(()),
             PluginCall::Run(CallInfo { call, .. }) => self.prepare_call_args(call, source),
             PluginCall::CustomValueOp(_, op) => {

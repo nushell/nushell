@@ -9,7 +9,6 @@ mod filter_with;
 mod first;
 mod get;
 mod last;
-mod melt;
 mod open;
 mod query_df;
 mod rename;
@@ -28,6 +27,7 @@ mod to_df;
 mod to_json_lines;
 mod to_nu;
 mod to_parquet;
+mod unpivot;
 mod with_column;
 
 use crate::PolarsPlugin;
@@ -44,7 +44,6 @@ pub use filter_with::FilterWith;
 pub use first::FirstDF;
 pub use get::GetDF;
 pub use last::LastDF;
-pub use melt::MeltDF;
 use nu_plugin::PluginCommand;
 pub use query_df::QueryDf;
 pub use rename::RenameDF;
@@ -62,6 +61,7 @@ pub use to_df::ToDataFrame;
 pub use to_json_lines::ToJsonLines;
 pub use to_nu::ToNu;
 pub use to_parquet::ToParquet;
+pub use unpivot::UnpivotDF;
 pub use with_column::WithColumn;
 
 pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
@@ -76,7 +76,7 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(FilterWith),
         Box::new(GetDF),
         Box::new(OpenDataFrame),
-        Box::new(MeltDF),
+        Box::new(UnpivotDF),
         Box::new(Summary),
         Box::new(FirstDF),
         Box::new(LastDF),
