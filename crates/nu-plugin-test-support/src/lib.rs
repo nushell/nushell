@@ -8,8 +8,8 @@
 //! use nu_plugin::*;
 //! use nu_plugin_test_support::PluginTest;
 //! use nu_protocol::{
-//!     Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signature,
-//!     Span, Type, Value,
+//!     Example, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError, Signals,
+//!     Signature, Span, Type, Value,
 //! };
 //!
 //! struct LowercasePlugin;
@@ -60,7 +60,7 @@
 //!                     // Errors in a stream should be returned as values.
 //!                     .unwrap_or_else(|err| Value::error(err, span))
 //!             },
-//!             None,
+//!             &Signals::empty(),
 //!         )?)
 //!     }
 //! }
@@ -83,7 +83,7 @@
 //!
 //! // #[test]
 //! fn test_lowercase() -> Result<(), ShellError> {
-//!     let input = vec![Value::test_string("FooBar")].into_pipeline_data(Span::test_data(), None);
+//!     let input = vec![Value::test_string("FooBar")].into_pipeline_data(Span::test_data(), Signals::empty());
 //!     let output = PluginTest::new("lowercase", LowercasePlugin.into())?
 //!         .eval_with("lowercase", input)?
 //!         .into_value(Span::test_data())?;

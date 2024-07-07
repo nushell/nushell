@@ -1,10 +1,7 @@
-use std::{
-    io::{BufRead, Cursor},
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, PipelineMetadata};
+use nu_protocol::{ListStream, PipelineMetadata, Signals};
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -80,7 +77,12 @@ impl Command for FromJson {
             match input {
                 PipelineData::Value(Value::String { val, .. }, metadata) => {
                     Ok(PipelineData::ListStream(
-                        read_json_lines(Cursor::new(val), span, strict, engine_state.ctrlc.clone()),
+                        read_json_lines(
+                            Cursor::new(val),
+                            span,
+                            strict,
+                            engine_state.signals().clone(),
+                        ),
                         update_metadata(metadata),
                     ))
                 }
@@ -89,7 +91,7 @@ impl Command for FromJson {
                 {
                     if let Some(reader) = stream.reader() {
                         Ok(PipelineData::ListStream(
-                            read_json_lines(reader, span, strict, None),
+                            read_json_lines(reader, span, strict, Signals::empty()),
                             update_metadata(metadata),
                         ))
                     } else {
@@ -127,7 +129,7 @@ fn read_json_lines(
     input: impl BufRead + Send + 'static,
     span: Span,
     strict: bool,
-    interrupt: Option<Arc<AtomicBool>>,
+    signals: Signals,
 ) -> ListStream {
     let iter = input
         .lines()
@@ -142,7 +144,7 @@ fn read_json_lines(
         })
         .map(move |result| result.unwrap_or_else(|err| Value::error(err, span)));
 
-    ListStream::new(iter, span, interrupt)
+    ListStream::new(iter, span, signals)
 }
 
 fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {

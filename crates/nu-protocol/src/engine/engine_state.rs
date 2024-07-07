@@ -8,7 +8,7 @@ use crate::{
     },
     eval_const::create_nu_constant,
     BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ShellError, Signals, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -85,7 +85,7 @@ pub struct EngineState {
     pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
-    pub ctrlc: Option<Arc<AtomicBool>>,
+    signals: Signals,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
@@ -145,7 +145,7 @@ impl EngineState {
                 0,
                 false,
             ),
-            ctrlc: None,
+            signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
                     .into_iter()
@@ -176,6 +176,18 @@ impl EngineState {
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
         }
+    }
+
+    pub fn signals(&self) -> &Signals {
+        &self.signals
+    }
+
+    pub fn reset_signals(&mut self) {
+        self.signals.reset()
+    }
+
+    pub fn set_signals(&mut self, signals: Signals) {
+        self.signals = signals;
     }
 
     /// Merges a `StateDelta` onto the current state. These deltas come from a system, like the parser, that

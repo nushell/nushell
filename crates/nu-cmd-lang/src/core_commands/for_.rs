@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
-use nu_protocol::engine::CommandType;
+use nu_protocol::{engine::CommandType, Signals};
 
 #[derive(Clone)]
 pub struct For;
@@ -72,7 +72,6 @@ impl Command for For {
 
         let value = eval_expression(engine_state, stack, keyword_expr)?;
 
-        let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(block_id);
 
@@ -82,9 +81,7 @@ impl Command for For {
         match value {
             Value::List { vals, .. } => {
                 for x in vals.into_iter() {
-                    if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-                        break;
-                    }
+                    engine_state.signals().check(head)?;
 
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
@@ -116,7 +113,8 @@ impl Command for For {
                 }
             }
             Value::Range { val, .. } => {
-                for x in val.into_range_iter(span, ctrlc) {
+                for x in val.into_range_iter(span, Signals::empty()) {
+                    engine_state.signals().check(head)?;
                     stack.add_var(var_id, x);
 
                     match eval_block(&engine_state, stack, block, PipelineData::empty()) {

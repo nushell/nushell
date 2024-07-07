@@ -199,7 +199,7 @@ fn guess_width(
                     Err(e) => Value::error(e, input_span),
                 }
             })
-            .into_pipeline_data(input_span, engine_state.ctrlc.clone()))
+            .into_pipeline_data(input_span, engine_state.signals().clone()))
     } else {
         let length = result[0].len();
         let columns: Vec<String> = (0..length).map(|n| format!("column{n}")).collect();
@@ -224,7 +224,7 @@ fn guess_width(
                     Err(e) => Value::error(e, input_span),
                 }
             })
-            .into_pipeline_data(input_span, engine_state.ctrlc.clone()))
+            .into_pipeline_data(input_span, engine_state.signals().clone()))
     }
 }
 
@@ -235,7 +235,6 @@ fn detect_columns(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
-    let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config();
     let input = input.collect_string("", config)?;
 
@@ -316,7 +315,7 @@ fn detect_columns(
                     None => Value::record(record, name_span),
                 }
             })
-            .into_pipeline_data(call.head, ctrlc))
+            .into_pipeline_data(call.head, engine_state.signals().clone()))
     } else {
         Ok(PipelineData::empty())
     }

@@ -102,7 +102,11 @@ fn drop_cols(
                             Err(e) => Value::error(e, head),
                         }
                     }))
-                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+                    .into_pipeline_data_with_metadata(
+                        head,
+                        engine_state.signals().clone(),
+                        metadata,
+                    ))
             } else {
                 Ok(PipelineData::Empty)
             }

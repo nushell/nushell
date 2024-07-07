@@ -188,7 +188,6 @@ fn which(
         applications: call.rest(engine_state, stack, 0)?,
         all: call.has_flag(engine_state, stack, "all")?,
     };
-    let ctrlc = engine_state.ctrlc.clone();
 
     if which_args.applications.is_empty() {
         return Err(ShellError::MissingParameter {
@@ -214,7 +213,9 @@ fn which(
         output.extend(values);
     }
 
-    Ok(output.into_iter().into_pipeline_data(head, ctrlc))
+    Ok(output
+        .into_iter()
+        .into_pipeline_data(head, engine_state.signals().clone()))
 }
 
 #[cfg(test)]

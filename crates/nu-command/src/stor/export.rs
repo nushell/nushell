@@ -1,5 +1,6 @@
 use crate::database::{SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct StorExport;
@@ -58,7 +59,10 @@ impl Command for StorExport {
         };
 
         // Open the in-mem database
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
 
         if let Ok(conn) = db.open_connection() {
             // This uses vacuum. I'm not really sure if this is the best way to do this.

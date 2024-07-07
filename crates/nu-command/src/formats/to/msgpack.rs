@@ -5,7 +5,7 @@ use std::io;
 
 use byteorder::{BigEndian, WriteBytesExt};
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, Spanned};
+use nu_protocol::{ast::PathMember, Signals, Spanned};
 use rmp::encode as mp;
 
 /// Max recursion depth
@@ -189,7 +189,7 @@ pub(crate) fn write_value(
             // Convert range to list
             write_value(
                 out,
-                &Value::list(val.into_range_iter(span, None).collect(), span),
+                &Value::list(val.into_range_iter(span, Signals::empty()).collect(), span),
                 depth,
             )?;
         }

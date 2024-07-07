@@ -60,7 +60,12 @@ impl Command for BytesCollect {
         )
         .flatten();
 
-        let output = ByteStream::from_result_iter(iter, span, None, ByteStreamType::Binary);
+        let output = ByteStream::from_result_iter(
+            iter,
+            span,
+            engine_state.signals().clone(),
+            ByteStreamType::Binary,
+        );
 
         Ok(PipelineData::ByteStream(output, metadata))
     }

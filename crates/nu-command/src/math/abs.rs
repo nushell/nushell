@@ -42,10 +42,7 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        input.map(
-            move |value| abs_helper(value, head),
-            engine_state.ctrlc.clone(),
-        )
+        input.map(move |value| abs_helper(value, head), engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

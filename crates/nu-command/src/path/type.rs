@@ -62,7 +62,7 @@ If the path does not exist, null will be returned."#
         }
         input.map(
             move |value| super::operate(&path_type, &args, value, head),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 
@@ -83,7 +83,7 @@ If the path does not exist, null will be returned."#
         }
         input.map(
             move |value| super::operate(&path_type, &args, value, head),
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 
