@@ -8,7 +8,7 @@ pub use general::JustTable;
 
 use crate::{common::INDEX_COLUMN_NAME, NuTable};
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Interrupt, Span, TableIndexMode, TableMode};
+use nu_protocol::{Config, Signals, Span, TableIndexMode, TableMode};
 
 pub struct TableOutput {
     pub table: NuTable,
@@ -28,7 +28,7 @@ impl TableOutput {
 
 #[derive(Debug, Clone)]
 pub struct TableOpts<'a> {
-    interrupt: &'a Interrupt,
+    signals: &'a Signals,
     config: &'a Config,
     style_computer: &'a StyleComputer<'a>,
     span: Span,
@@ -44,7 +44,7 @@ impl<'a> TableOpts<'a> {
     pub fn new(
         config: &'a Config,
         style_computer: &'a StyleComputer<'a>,
-        interrupt: &'a Interrupt,
+        signals: &'a Signals,
         span: Span,
         width: usize,
         indent: (usize, usize),
@@ -53,7 +53,7 @@ impl<'a> TableOpts<'a> {
         index_remove: bool,
     ) -> Self {
         Self {
-            interrupt,
+            signals,
             config,
             style_computer,
             span,

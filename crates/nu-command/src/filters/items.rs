@@ -67,7 +67,7 @@ impl Command for Items {
                                     }
                                 }
                             })
-                            .into_pipeline_data(head, engine_state.interrupt().clone()))
+                            .into_pipeline_data(head, engine_state.signals().clone()))
                     }
                     Value::Error { error, .. } => Err(*error),
                     other => Err(ShellError::OnlySupportsThisInputType {

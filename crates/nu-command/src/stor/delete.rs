@@ -1,6 +1,6 @@
 use crate::database::{SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
-use nu_protocol::Interrupt;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct StorDelete;
@@ -85,7 +85,7 @@ impl Command for StorDelete {
         // Open the in-mem database
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
-            Interrupt::empty(),
+            Signals::empty(),
         ));
 
         if let Some(new_table_name) = table_name_opt {

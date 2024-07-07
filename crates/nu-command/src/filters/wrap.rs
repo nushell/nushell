@@ -44,7 +44,7 @@ impl Command for Wrap {
                 .map(move |x| Value::record(record! { name.clone() => x }, span))
                 .into_pipeline_data_with_metadata(
                     span,
-                    engine_state.interrupt().clone(),
+                    engine_state.signals().clone(),
                     metadata,
                 )),
             PipelineData::ByteStream(stream, ..) => Ok(Value::record(

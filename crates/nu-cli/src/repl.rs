@@ -271,8 +271,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("merge env", start_time, use_color);
 
     start_time = std::time::Instant::now();
-    engine_state.reset_interrupt();
-    perf!("reset interrupt", start_time, use_color);
+    engine_state.reset_signals();
+    perf!("reset signals", start_time, use_color);
 
     start_time = std::time::Instant::now();
     // Right before we start our prompt and take input from the user,

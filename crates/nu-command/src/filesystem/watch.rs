@@ -255,7 +255,7 @@ impl Command for Watch {
                 }
                 Err(RecvTimeoutError::Timeout) => {}
             }
-            if engine_state.interrupt().triggered() {
+            if engine_state.signals().interrupted() {
                 break;
             }
         }

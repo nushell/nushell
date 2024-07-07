@@ -233,7 +233,7 @@ fn run(
                 ),
             }
         },
-        engine_state.interrupt(),
+        engine_state.signals(),
     )
 }
 

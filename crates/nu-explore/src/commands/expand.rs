@@ -70,7 +70,7 @@ fn convert_value_to_string(
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
         Ok(nu_common::try_build_table(
-            engine_state.interrupt(),
+            engine_state.signals(),
             config,
             &style_computer,
             value,

@@ -3,8 +3,8 @@ use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Redirection, Stack},
-    Config, Interrupt, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Span,
-    Spanned, Value,
+    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Signals, Span, Spanned,
+    Value,
 };
 use std::{
     borrow::Cow,
@@ -16,8 +16,8 @@ use std::{
 pub trait PluginExecutionContext: Send + Sync {
     /// A span pointing to the command being executed
     fn span(&self) -> Span;
-    /// The interrupt signal, if present
-    fn interrupt(&self) -> &Interrupt;
+    /// The [`Signals`] struct, if present
+    fn signals(&self) -> &Signals;
     /// The pipeline externals state, for tracking the foreground process group, if present
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>>;
     /// Get engine configuration
@@ -78,8 +78,8 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         self.call.head
     }
 
-    fn interrupt(&self) -> &Interrupt {
-        self.engine_state.interrupt()
+    fn signals(&self) -> &Signals {
+        self.engine_state.signals()
     }
 
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {
@@ -232,8 +232,8 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         Span::test_data()
     }
 
-    fn interrupt(&self) -> &Interrupt {
-        &Interrupt::EMPTY
+    fn signals(&self) -> &Signals {
+        &Signals::EMPTY
     }
 
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>> {

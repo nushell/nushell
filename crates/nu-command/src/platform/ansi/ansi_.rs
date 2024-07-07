@@ -1,6 +1,6 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, Interrupt};
+use nu_protocol::{engine::StateWorkingSet, Signals};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
@@ -657,7 +657,7 @@ Operating system commands:
 
         if list {
             return Ok(generate_ansi_code_list(
-                engine_state.interrupt().clone(),
+                engine_state.signals().clone(),
                 call.head,
                 use_ansi_coloring,
             ));
@@ -694,7 +694,7 @@ Operating system commands:
 
         if list {
             return Ok(generate_ansi_code_list(
-                working_set.permanent().interrupt().clone(),
+                working_set.permanent().signals().clone(),
                 call.head,
                 use_ansi_coloring,
             ));
@@ -830,7 +830,7 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 }
 
 fn generate_ansi_code_list(
-    interrupt: Interrupt,
+    signals: Signals,
     call_span: Span,
     use_ansi_coloring: bool,
 ) -> PipelineData {
@@ -865,7 +865,7 @@ fn generate_ansi_code_list(
 
             Value::record(record, call_span)
         })
-        .into_pipeline_data(call_span, interrupt.clone())
+        .into_pipeline_data(call_span, signals.clone())
 }
 
 fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {

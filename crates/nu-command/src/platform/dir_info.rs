@@ -1,6 +1,6 @@
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
-use nu_protocol::{record, Interrupt, ShellError, Span, Value};
+use nu_protocol::{record, ShellError, Signals, Span, Value};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -80,7 +80,7 @@ impl DirInfo {
         params: &DirBuilder,
         depth: Option<u64>,
         span: Span,
-        interrupt: &Interrupt,
+        signals: &Signals,
     ) -> Result<Self, ShellError> {
         let path = path.into();
 
@@ -105,12 +105,12 @@ impl DirInfo {
         match std::fs::read_dir(&s.path) {
             Ok(d) => {
                 for f in d {
-                    interrupt.check(span)?;
+                    signals.check(span)?;
 
                     match f {
                         Ok(i) => match i.file_type() {
                             Ok(t) if t.is_dir() => {
-                                s = s.add_dir(i.path(), depth, params, span, interrupt)?
+                                s = s.add_dir(i.path(), depth, params, span, signals)?
                             }
                             Ok(_t) => s = s.add_file(i.path(), params),
                             Err(e) => s = s.add_error(e.into()),
@@ -130,7 +130,7 @@ impl DirInfo {
         mut depth: Option<u64>,
         params: &DirBuilder,
         span: Span,
-        interrupt: &Interrupt,
+        signals: &Signals,
     ) -> Result<Self, ShellError> {
         if let Some(current) = depth {
             if let Some(new) = current.checked_sub(1) {
@@ -140,7 +140,7 @@ impl DirInfo {
             }
         }
 
-        let d = DirInfo::new(path, params, depth, span, interrupt)?;
+        let d = DirInfo::new(path, params, depth, span, signals)?;
         self.size += d.size;
         self.blocks += d.blocks;
         self.dirs.push(d);

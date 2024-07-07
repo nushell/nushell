@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Interrupt;
+use nu_protocol::Signals;
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
@@ -216,7 +216,7 @@ impl Command for Glob {
                 })?
                 .flatten();
             glob_to_value(
-                engine_state.interrupt(),
+                engine_state.signals(),
                 glob_results,
                 no_dirs,
                 no_files,
@@ -234,7 +234,7 @@ impl Command for Glob {
                 )
                 .flatten();
             glob_to_value(
-                engine_state.interrupt(),
+                engine_state.signals(),
                 glob_results,
                 no_dirs,
                 no_files,
@@ -245,7 +245,7 @@ impl Command for Glob {
 
         Ok(result
             .into_iter()
-            .into_pipeline_data(span, engine_state.interrupt().clone()))
+            .into_pipeline_data(span, engine_state.signals().clone()))
     }
 }
 
@@ -265,7 +265,7 @@ fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
 }
 
 fn glob_to_value<'a>(
-    interrupt: &Interrupt,
+    signals: &Signals,
     glob_results: impl Iterator<Item = WalkEntry<'a>>,
     no_dirs: bool,
     no_files: bool,
@@ -274,7 +274,7 @@ fn glob_to_value<'a>(
 ) -> Result<Vec<Value>, ShellError> {
     let mut result: Vec<Value> = Vec::new();
     for entry in glob_results {
-        interrupt.check(span)?;
+        signals.check(span)?;
         let file_type = entry.file_type();
 
         if !(no_dirs && file_type.is_dir()

@@ -124,7 +124,7 @@ impl Command for Open {
                         let res = SQLiteDatabase::try_from_path(
                             path,
                             arg_span,
-                            engine_state.interrupt().clone(),
+                            engine_state.signals().clone(),
                         )
                         .map(|db| db.into_value(call.head).into_pipeline_data());
 
@@ -147,7 +147,7 @@ impl Command for Open {
                     };
 
                     let stream = PipelineData::ByteStream(
-                        ByteStream::file(file, call_span, engine_state.interrupt().clone()),
+                        ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
                             content_type: None,
@@ -206,7 +206,7 @@ impl Command for Open {
             Ok(output
                 .into_iter()
                 .flatten()
-                .into_pipeline_data(call_span, engine_state.interrupt().clone()))
+                .into_pipeline_data(call_span, engine_state.signals().clone()))
         }
     }
 

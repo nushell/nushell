@@ -17,8 +17,8 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     ast::{Math, Operator},
     engine::Closure,
-    ByteStreamType, CustomValue, Interrupt, IntoInterruptiblePipelineData, IntoSpanned,
-    PipelineData, PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
+    ByteStreamType, CustomValue, IntoInterruptiblePipelineData, IntoSpanned, PipelineData,
+    PluginMetadata, PluginSignature, ShellError, Signals, Span, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -56,7 +56,7 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
             id: 0,
             span: Span::test_data(),
         }),
-        &Interrupt::empty(),
+        &Signals::empty(),
     )?;
 
     // and an interface...
@@ -112,7 +112,7 @@ fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError
             id: 0,
             span: Span::test_data(),
         }),
-        &Interrupt::empty(),
+        &Signals::empty(),
     )?;
 
     manager
@@ -159,7 +159,7 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
             span: Span::test_data(),
             type_: ByteStreamType::Unknown,
         }),
-        &Interrupt::empty(),
+        &Signals::empty(),
     )?;
 
     manager
@@ -190,7 +190,7 @@ fn fake_plugin_call(
         PluginCallState {
             sender: Some(tx),
             dont_send_response: false,
-            interrupt: Interrupt::empty(),
+            signals: Signals::empty(),
             context_rx: None,
             span: None,
             keep_plugin_custom_values: mpsc::channel(),
@@ -493,7 +493,7 @@ fn manager_handle_engine_call_after_response_received() -> Result<(), ShellError
         PluginCallState {
             sender: None,
             dont_send_response: false,
-            interrupt: Interrupt::empty(),
+            signals: Signals::empty(),
             context_rx: Some(context_rx),
             span: None,
             keep_plugin_custom_values: mpsc::channel(),
@@ -559,7 +559,7 @@ fn manager_send_plugin_call_response_removes_context_only_if_no_streams_to_read(
             PluginCallState {
                 sender: None,
                 dont_send_response: false,
-                interrupt: Interrupt::empty(),
+                signals: Signals::empty(),
                 context_rx: None,
                 span: None,
                 keep_plugin_custom_values: mpsc::channel(),
@@ -595,7 +595,7 @@ fn manager_consume_stream_end_removes_context_only_if_last_stream() -> Result<()
             PluginCallState {
                 sender: None,
                 dont_send_response: false,
-                interrupt: Interrupt::empty(),
+                signals: Signals::empty(),
                 context_rx: None,
                 span: None,
                 keep_plugin_custom_values: mpsc::channel(),
@@ -678,7 +678,7 @@ fn manager_prepare_pipeline_data_adds_source_to_list_streams() -> Result<(), She
         [Value::test_custom_value(Box::new(
             test_plugin_custom_value(),
         ))]
-        .into_pipeline_data(Span::test_data(), Interrupt::empty()),
+        .into_pipeline_data(Span::test_data(), Signals::empty()),
     )?;
 
     let value = data
@@ -854,7 +854,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
             },
             input: values
                 .clone()
-                .into_pipeline_data(Span::test_data(), Interrupt::empty()),
+                .into_pipeline_data(Span::test_data(), Signals::empty()),
         }),
         None,
     )?;
@@ -1152,7 +1152,7 @@ fn interface_prepare_pipeline_data_accepts_normal_streams() -> Result<(), ShellE
     let data = interface.prepare_pipeline_data(
         values
             .clone()
-            .into_pipeline_data(Span::test_data(), Interrupt::empty()),
+            .into_pipeline_data(Span::test_data(), Signals::empty()),
         &state,
     )?;
 
@@ -1217,7 +1217,7 @@ fn interface_prepare_pipeline_data_rejects_bad_custom_value_in_a_stream() -> Res
     let data = interface.prepare_pipeline_data(
         values
             .clone()
-            .into_pipeline_data(Span::test_data(), Interrupt::empty()),
+            .into_pipeline_data(Span::test_data(), Signals::empty()),
         &state,
     )?;
 

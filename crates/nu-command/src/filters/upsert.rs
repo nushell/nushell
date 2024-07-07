@@ -249,7 +249,7 @@ fn upsert(
                     .chain(stream)
                     .into_pipeline_data_with_metadata(
                         head,
-                        engine_state.interrupt().clone(),
+                        engine_state.signals().clone(),
                         metadata,
                     ))
             } else if let Value::Closure { val, .. } = replacement {

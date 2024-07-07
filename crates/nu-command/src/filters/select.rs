@@ -217,7 +217,7 @@ fn select(
         }
         .into_pipeline_data_with_metadata(
             call_span,
-            engine_state.interrupt().clone(),
+            engine_state.signals().clone(),
             metadata,
         )
     } else {
@@ -259,7 +259,7 @@ fn select(
 
                     Ok(output.into_iter().into_pipeline_data_with_metadata(
                         call_span,
-                        engine_state.interrupt().clone(),
+                        engine_state.signals().clone(),
                         metadata,
                     ))
                 }
@@ -308,7 +308,7 @@ fn select(
 
             Ok(values.into_pipeline_data_with_metadata(
                 call_span,
-                engine_state.interrupt().clone(),
+                engine_state.signals().clone(),
                 metadata,
             ))
         }

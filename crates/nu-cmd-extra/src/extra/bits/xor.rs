@@ -80,7 +80,7 @@ impl Command for BitsXor {
 
         input.map(
             move |value| binary_op(&value, &target, little_endian, |(l, r)| l ^ r, head),
-            engine_state.interrupt(),
+            engine_state.signals(),
         )
     }
 

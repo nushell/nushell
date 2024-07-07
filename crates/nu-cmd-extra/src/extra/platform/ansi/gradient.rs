@@ -140,7 +140,7 @@ fn operate(
                 ret
             }
         },
-        engine_state.interrupt(),
+        engine_state.signals(),
     )
 }
 

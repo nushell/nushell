@@ -60,7 +60,7 @@ impl Command for While {
         let stack = &mut stack.push_redirection(None, None);
 
         loop {
-            engine_state.interrupt().check(head)?;
+            engine_state.signals().check(head)?;
 
             let result = eval_expression(engine_state, stack, cond)?;
 

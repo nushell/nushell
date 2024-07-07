@@ -3,7 +3,7 @@ use crate::{DirBuilder, DirInfo, FileInfo};
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_glob::Pattern;
-use nu_protocol::{Interrupt, NuGlob};
+use nu_protocol::{NuGlob, Signals};
 use serde::Deserialize;
 use std::path::Path;
 
@@ -119,8 +119,8 @@ impl Command for Du {
                     min_size,
                 };
                 Ok(
-                    du_for_one_pattern(args, &current_dir, tag, engine_state.interrupt())?
-                        .into_pipeline_data(tag, engine_state.interrupt().clone()),
+                    du_for_one_pattern(args, &current_dir, tag, engine_state.signals())?
+                        .into_pipeline_data(tag, engine_state.signals().clone()),
                 )
             }
             Some(paths) => {
@@ -138,7 +138,7 @@ impl Command for Du {
                         args,
                         &current_dir,
                         tag,
-                        engine_state.interrupt(),
+                        engine_state.signals(),
                     )?)
                 }
 
@@ -146,7 +146,7 @@ impl Command for Du {
                 Ok(result_iters
                     .into_iter()
                     .flatten()
-                    .into_pipeline_data(tag, engine_state.interrupt().clone()))
+                    .into_pipeline_data(tag, engine_state.signals().clone()))
             }
         }
     }
@@ -164,7 +164,7 @@ fn du_for_one_pattern(
     args: DuArgs,
     current_dir: &Path,
     span: Span,
-    interrupt: &Interrupt,
+    signals: &Signals,
 ) -> Result<impl Iterator<Item = Value> + Send, ShellError> {
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(x.item.as_ref())
@@ -216,7 +216,7 @@ fn du_for_one_pattern(
         match p {
             Ok(a) => {
                 if a.is_dir() {
-                    output.push(DirInfo::new(a, &params, max_depth, span, interrupt)?.into());
+                    output.push(DirInfo::new(a, &params, max_depth, span, signals)?.into());
                 } else if let Ok(v) = FileInfo::new(a, deref, span) {
                     output.push(v.into());
                 }

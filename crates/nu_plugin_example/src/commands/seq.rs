@@ -1,6 +1,6 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, Interrupt, LabeledError, ListStream, PipelineData, Signature, SyntaxShape,
+    Category, Example, Signals, LabeledError, ListStream, PipelineData, Signature, SyntaxShape,
     Type, Value,
 };
 
@@ -55,7 +55,7 @@ impl PluginCommand for Seq {
         let first: i64 = call.req(0)?;
         let last: i64 = call.req(1)?;
         let iter = (first..=last).map(move |number| Value::int(number, head));
-        Ok(ListStream::new(iter, head, Interrupt::empty()).into())
+        Ok(ListStream::new(iter, head, Signals::empty()).into())
     }
 }
 

@@ -5,7 +5,7 @@ use crate::network::http::client::{
     request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::Interrupt;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -132,7 +132,7 @@ fn run_head(
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
     };
 
-    helper(engine_state, stack, call, args, engine_state.interrupt())
+    helper(engine_state, stack, call, args, engine_state.signals())
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
@@ -142,7 +142,7 @@ fn helper(
     stack: &mut Stack,
     call: &Call,
     args: Arguments,
-    interrupt: &Interrupt,
+    signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
@@ -155,7 +155,7 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request, HttpBody::None, None, call.head, interrupt);
+    let response = send_request(request, HttpBody::None, None, call.head, signals);
     check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response_headers(span, response)
 }

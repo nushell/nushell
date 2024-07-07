@@ -220,7 +220,7 @@ fn helper(
         args.data,
         args.content_type,
         call.head,
-        engine_state.interrupt(),
+        engine_state.signals(),
     );
 
     let request_flags = RequestFlags {

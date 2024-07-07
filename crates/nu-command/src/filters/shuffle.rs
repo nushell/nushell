@@ -35,7 +35,7 @@ impl Command for Shuffle {
         let iter = values.into_iter();
         Ok(iter.into_pipeline_data_with_metadata(
             call.head,
-            engine_state.interrupt().clone(),
+            engine_state.signals().clone(),
             metadata,
         ))
     }

@@ -102,7 +102,7 @@ impl Command for BytesEndsWith {
                 pattern,
                 cell_paths,
             };
-            operate(ends_with, arg, input, head, engine_state.interrupt())
+            operate(ends_with, arg, input, head, engine_state.signals())
         }
     }
 

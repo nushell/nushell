@@ -96,7 +96,7 @@ where
             }
         } else {
             let args = Arguments { binary, cell_paths };
-            operate(action::<D>, args, input, head, engine_state.interrupt())
+            operate(action::<D>, args, input, head, engine_state.signals())
         }
     }
 }

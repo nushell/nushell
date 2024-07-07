@@ -1,7 +1,7 @@
 use nu_plugin::*;
 use nu_plugin_test_support::PluginTest;
 use nu_protocol::{
-    Example, Interrupt, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError,
+    Example, Signals, IntoInterruptiblePipelineData, LabeledError, PipelineData, ShellError,
     Signature, Span, Type, Value,
 };
 
@@ -53,7 +53,7 @@ impl PluginCommand for Lowercase {
                     // Errors in a stream should be returned as values.
                     .unwrap_or_else(|err| Value::error(err, span))
             },
-            &Interrupt::empty(),
+            &Signals::empty(),
         )?)
     }
 }
@@ -73,7 +73,7 @@ fn test_lowercase_using_eval_with() -> Result<(), ShellError> {
     let result = PluginTest::new("lowercase", LowercasePlugin.into())?.eval_with(
         "lowercase",
         vec![Value::test_string("HeLlO wOrLd")]
-            .into_pipeline_data(Span::test_data(), Interrupt::empty()),
+            .into_pipeline_data(Span::test_data(), Signals::empty()),
     )?;
 
     assert_eq!(

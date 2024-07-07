@@ -451,7 +451,7 @@ fn rm(
     });
 
     for result in iter {
-        engine_state.interrupt().check(call.head)?;
+        engine_state.signals().check(call.head)?;
         match result {
             Ok(None) => {}
             Ok(Some(msg)) => eprintln!("{msg}"),

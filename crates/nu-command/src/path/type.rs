@@ -64,7 +64,7 @@ If the path does not exist, null will be returned."#
         }
         input.map(
             move |value| super::operate(&path_type, &args, value, head),
-            engine_state.interrupt(),
+            engine_state.signals(),
         )
     }
 
@@ -85,7 +85,7 @@ If the path does not exist, null will be returned."#
         }
         input.map(
             move |value| super::operate(&path_type, &args, value, head),
-            working_set.permanent().interrupt(),
+            working_set.permanent().signals(),
         )
     }
 

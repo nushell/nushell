@@ -123,7 +123,7 @@ fn into_bits(
         Ok(Value::binary(stream.into_bytes()?, head).into_pipeline_data())
     } else {
         let args = Arguments { cell_paths };
-        operate(action, args, input, call.head, engine_state.interrupt())
+        operate(action, args, input, call.head, engine_state.signals())
     }
 }
 

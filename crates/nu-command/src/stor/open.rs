@@ -1,6 +1,6 @@
 use crate::database::{SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
-use nu_protocol::Interrupt;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct StorOpen;
@@ -57,7 +57,7 @@ impl Command for StorOpen {
         // Just create an empty database with MEMORY_DB and nothing else
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
-            Interrupt::empty(),
+            Signals::empty(),
         ));
 
         // dbg!(db.clone());

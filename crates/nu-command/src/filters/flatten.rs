@@ -127,7 +127,7 @@ fn flatten(
     input
         .flat_map(
             move |item| flat_value(&columns, item, flatten_all),
-            engine_state.interrupt(),
+            engine_state.signals(),
         )
         .map(|x| x.set_metadata(metadata))
 }

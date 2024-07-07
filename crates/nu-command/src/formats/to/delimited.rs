@@ -1,7 +1,7 @@
 use csv::WriterBuilder;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{
-    ByteStream, ByteStreamType, Config, Interrupt, PipelineData, ShellError, Span, Spanned, Value,
+    ByteStream, ByteStreamType, Config, Signals, PipelineData, ShellError, Span, Spanned, Value,
 };
 use std::{iter, sync::Arc};
 
@@ -130,7 +130,7 @@ pub fn to_delimited_data(
 
     let stream = ByteStream::from_fn(
         head,
-        Interrupt::empty(),
+        Signals::empty(),
         ByteStreamType::String,
         move |buffer| {
             let mut wtr = WriterBuilder::new()

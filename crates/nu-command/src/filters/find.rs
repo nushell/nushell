@@ -245,7 +245,7 @@ fn find_with_regex(
             Value::List { vals, .. } => values_match_find(vals, &re, &config, invert),
             _ => false,
         },
-        engine_state.interrupt(),
+        engine_state.signals(),
     )
 }
 
@@ -398,7 +398,7 @@ fn find_with_rest_and_highlight(
                         _ => x,
                     }
                 },
-                engine_state.interrupt(),
+                engine_state.signals(),
             )?
             .filter(
                 move |value| {
@@ -411,7 +411,7 @@ fn find_with_rest_and_highlight(
                         invert,
                     )
                 },
-                engine_state.interrupt(),
+                engine_state.signals(),
             ),
         PipelineData::ListStream(stream, metadata) => {
             let stream = stream.modify(|iter| {

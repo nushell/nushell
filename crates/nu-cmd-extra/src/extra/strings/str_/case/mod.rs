@@ -44,7 +44,7 @@ where
         case_operation,
         cell_paths,
     };
-    general_operate(action, args, input, call.head, engine_state.interrupt())
+    general_operate(action, args, input, call.head, engine_state.signals())
 }
 
 fn action<F>(input: &Value, args: &Arguments<F>, head: Span) -> Value

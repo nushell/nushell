@@ -165,7 +165,7 @@ fn helper(
         HttpBody::None,
         None,
         call.head,
-        engine_state.interrupt(),
+        engine_state.signals(),
     );
 
     // http options' response always showed in header, so we set full to true.

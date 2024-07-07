@@ -247,12 +247,12 @@ pub fn uniq(
     let flag_ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
     let flag_only_uniques = call.has_flag(engine_state, stack, "unique")?;
 
-    let interrupt = engine_state.interrupt().clone();
+    let signals = engine_state.signals().clone();
     let uniq_values = input
         .into_iter()
         .enumerate()
         .map_while(|(index, item)| {
-            if interrupt.triggered() {
+            if signals.interrupted() {
                 return None;
             }
             Some(item_mapper(ItemMapperState {

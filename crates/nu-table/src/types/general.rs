@@ -43,7 +43,7 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
 fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
     let mut data = vec![Vec::with_capacity(2); record.len()];
     for ((column, value), row) in record.iter().zip(data.iter_mut()) {
-        opts.interrupt.check(opts.span)?;
+        opts.signals.check(opts.span)?;
 
         let value = nu_value_to_string_colored(value, opts.config, opts.style_computer);
 
@@ -121,7 +121,7 @@ fn to_table_with_header(
     }
 
     for (row, item) in input.iter().enumerate() {
-        opts.interrupt.check(opts.span)?;
+        opts.signals.check(opts.span)?;
 
         if let Value::Error { error, .. } = item {
             return Err(*error.clone());
@@ -154,7 +154,7 @@ fn to_table_with_no_header(
     table.set_index_style(get_index_style(opts.style_computer));
 
     for (row, item) in input.iter().enumerate() {
-        opts.interrupt.check(opts.span)?;
+        opts.signals.check(opts.span)?;
 
         if let Value::Error { error, .. } = item {
             return Err(*error.clone());

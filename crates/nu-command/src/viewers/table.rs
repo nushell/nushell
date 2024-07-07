@@ -7,8 +7,7 @@ use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env::get_config, env_to_string};
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ByteStream, Config, DataSource, Interrupt, ListStream, PipelineMetadata, TableMode,
-    ValueIterator,
+    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode, ValueIterator,
 };
 use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
@@ -377,8 +376,8 @@ fn handle_table_command(
         ),
         PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let interrupt = input.engine_state.interrupt().clone();
-            let stream = ByteStream::read_binary(val, input.call.head, interrupt);
+            let signals = input.engine_state.signals().clone();
+            let stream = ByteStream::read_binary(val, input.call.head, signals);
             Ok(PipelineData::ByteStream(
                 pretty_hex_stream(stream, input.call.head),
                 None,
@@ -386,8 +385,8 @@ fn handle_table_command(
         }
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
-            let interrupt = input.engine_state.interrupt().clone();
-            let stream = ListStream::new(vals.into_iter(), span, interrupt);
+            let signals = input.engine_state.signals().clone();
+            let stream = ListStream::new(vals.into_iter(), span, signals);
             input.data = PipelineData::Empty;
 
             handle_row_stream(input, cfg, stream, metadata)
@@ -410,12 +409,9 @@ fn handle_table_command(
             Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
-            let interrupt = input.engine_state.interrupt().clone();
-            let stream = ListStream::new(
-                val.into_range_iter(span, Interrupt::empty()),
-                span,
-                interrupt,
-            );
+            let signals = input.engine_state.signals().clone();
+            let stream =
+                ListStream::new(val.into_range_iter(span, Signals::empty()), span, signals);
             input.data = PipelineData::Empty;
             handle_row_stream(input, cfg, stream, metadata)
         }
@@ -441,12 +437,12 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
         reader
     } else {
         // No stream to read from
-        return ByteStream::read_string("".into(), span, Interrupt::empty());
+        return ByteStream::read_string("".into(), span, Signals::empty());
     };
 
     ByteStream::from_fn(
         span,
-        Interrupt::empty(),
+        Signals::empty(),
         ByteStreamType::String,
         move |buffer| {
             // Turn the buffer into a String we can write to
@@ -524,7 +520,7 @@ fn handle_record(
     let opts = TableOpts::new(
         &config,
         styles,
-        input.engine_state.interrupt(),
+        input.engine_state.signals(),
         span,
         cfg.term_width,
         indent,
@@ -536,7 +532,7 @@ fn handle_record(
 
     let result = match result {
         Some(output) => maybe_strip_color(output, &config),
-        None => report_unsuccessful_output(input.engine_state.interrupt(), cfg.term_width),
+        None => report_unsuccessful_output(input.engine_state.signals(), cfg.term_width),
     };
 
     let val = Value::string(result, span);
@@ -544,8 +540,8 @@ fn handle_record(
     Ok(val.into_pipeline_data())
 }
 
-fn report_unsuccessful_output(interrupt: &Interrupt, term_width: usize) -> String {
-    if interrupt.triggered() {
+fn report_unsuccessful_output(signals: &Signals, term_width: usize) -> String {
+    if signals.interrupted() {
         "".into()
     } else {
         // assume this failed because the table was too wide
@@ -690,7 +686,7 @@ fn handle_row_stream(
     let stream = ByteStream::from_result_iter(
         paginator,
         input.call.head,
-        Interrupt::empty(),
+        Signals::empty(),
         ByteStreamType::String,
     );
     Ok(PipelineData::ByteStream(stream, None))
@@ -802,7 +798,7 @@ impl PagingTableCreator {
         TableOpts::new(
             cfg,
             style_comp,
-            self.engine_state.interrupt(),
+            self.engine_state.signals(),
             self.head,
             self.cfg.term_width,
             (cfg.table_indent.left, cfg.table_indent.right),
@@ -834,18 +830,15 @@ impl Iterator for PagingTableCreator {
 
         match self.cfg.abbreviation {
             Some(abbr) => {
-                (batch, _, end) = stream_collect_abbriviated(
-                    &mut self.stream,
-                    abbr,
-                    self.engine_state.interrupt(),
-                );
+                (batch, _, end) =
+                    stream_collect_abbriviated(&mut self.stream, abbr, self.engine_state.signals());
             }
             None => {
                 // Pull from stream until time runs out or we have enough items
                 (batch, end) = stream_collect(
                     &mut self.stream,
                     STREAM_PAGE_SIZE,
-                    self.engine_state.interrupt(),
+                    self.engine_state.signals(),
                 );
             }
         }
@@ -883,7 +876,7 @@ impl Iterator for PagingTableCreator {
         convert_table_to_output(
             table,
             &config,
-            self.engine_state.interrupt(),
+            self.engine_state.signals(),
             self.cfg.term_width,
         )
     }
@@ -892,7 +885,7 @@ impl Iterator for PagingTableCreator {
 fn stream_collect(
     stream: impl Iterator<Item = Value>,
     size: usize,
-    interrupt: &Interrupt,
+    signals: &Signals,
 ) -> (Vec<Value>, bool) {
     let start_time = Instant::now();
     let mut end = true;
@@ -912,7 +905,7 @@ fn stream_collect(
             break;
         }
 
-        if interrupt.triggered() {
+        if signals.interrupted() {
             break;
         }
     }
@@ -923,7 +916,7 @@ fn stream_collect(
 fn stream_collect_abbriviated(
     stream: impl Iterator<Item = Value>,
     size: usize,
-    interrupt: &Interrupt,
+    signals: &Signals,
 ) -> (Vec<Value>, usize, bool) {
     let mut end = true;
     let mut read = 0;
@@ -946,7 +939,7 @@ fn stream_collect_abbriviated(
             tail.push_back(item);
         }
 
-        if interrupt.triggered() {
+        if signals.interrupted() {
             end = false;
             break;
         }
@@ -1078,7 +1071,7 @@ fn create_empty_placeholder(
 fn convert_table_to_output(
     table: Result<Option<String>, ShellError>,
     config: &Config,
-    interrupt: &Interrupt,
+    signals: &Signals,
     term_width: usize,
 ) -> Option<Result<Vec<u8>, ShellError>> {
     match table {
@@ -1091,7 +1084,7 @@ fn convert_table_to_output(
             Some(Ok(bytes))
         }
         Ok(None) => {
-            let msg = if interrupt.triggered() {
+            let msg = if signals.interrupted() {
                 String::from("")
             } else {
                 // assume this failed because the table was too wide

@@ -156,7 +156,7 @@ impl Command for DropNth {
                             .take(start)
                             .into_pipeline_data_with_metadata(
                                 head,
-                                engine_state.interrupt().clone(),
+                                engine_state.signals().clone(),
                                 metadata,
                             ))
                     }
@@ -177,7 +177,7 @@ impl Command for DropNth {
             rows,
             current: 0,
         }
-        .into_pipeline_data_with_metadata(head, engine_state.interrupt().clone(), metadata))
+        .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

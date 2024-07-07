@@ -65,7 +65,7 @@ impl Command for Enumerate {
                     head,
                 )
             })
-            .into_pipeline_data_with_metadata(head, engine_state.interrupt().clone(), metadata))
+            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

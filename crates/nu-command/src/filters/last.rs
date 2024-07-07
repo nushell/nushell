@@ -99,7 +99,7 @@ impl Command for Last {
                 let mut buf = VecDeque::new();
 
                 for row in iterator {
-                    engine_state.interrupt().check(head)?;
+                    engine_state.signals().check(head)?;
                     if buf.len() == rows {
                         buf.pop_front();
                     }

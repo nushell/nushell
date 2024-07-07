@@ -48,7 +48,7 @@ impl Command for MetadataSet {
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
-        let interrupt = engine_state.interrupt().clone();
+        let signals = engine_state.signals().clone();
         let metadata = input
             .metadata()
             .clone()
@@ -58,15 +58,15 @@ impl Command for MetadataSet {
         match (ds_fp, ds_ls) {
             (Some(path), false) => Ok(input.into_pipeline_data_with_metadata(
                 head,
-                interrupt,
+                signals,
                 metadata.with_data_source(DataSource::FilePath(path.into())),
             )),
             (None, true) => Ok(input.into_pipeline_data_with_metadata(
                 head,
-                interrupt,
+                signals,
                 metadata.with_data_source(DataSource::Ls),
             )),
-            _ => Ok(input.into_pipeline_data_with_metadata(head, interrupt, metadata)),
+            _ => Ok(input.into_pipeline_data_with_metadata(head, signals, metadata)),
         }
     }
 

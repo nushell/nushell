@@ -79,7 +79,7 @@ impl Command for IntoValue {
             display_as_filesizes,
             span,
         }
-        .into_pipeline_data(span, engine_state.interrupt().clone())
+        .into_pipeline_data(span, engine_state.signals().clone())
         .set_metadata(metadata))
     }
 }

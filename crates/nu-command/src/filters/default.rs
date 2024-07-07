@@ -107,7 +107,7 @@ fn default(
                     }
                     _ => item,
                 },
-                engine_state.interrupt(),
+                engine_state.signals(),
             )
             .map(|x| x.set_metadata(metadata))
     } else if input.is_nothing() {
@@ -119,7 +119,7 @@ fn default(
                     Value::Nothing { .. } => value.clone(),
                     x => x,
                 },
-                engine_state.interrupt(),
+                engine_state.signals(),
             )
             .map(|x| x.set_metadata(metadata))
     }

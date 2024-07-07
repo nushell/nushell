@@ -11,7 +11,7 @@ use nu_plugin_protocol::{
     ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, Interrupt, LabeledError, PipelineData, PluginMetadata,
+    engine::Closure, Config, Signals, LabeledError, PipelineData, PluginMetadata,
     PluginSignature, ShellError, Span, Spanned, Value,
 };
 use std::{
@@ -275,7 +275,7 @@ impl InterfaceManager for EngineInterfaceManager {
                 let interface = self.interface_for_context(id);
                 // Read streams in the input
                 let call = match call
-                    .map_data(|input| self.read_pipeline_data(input, &Interrupt::empty()))
+                    .map_data(|input| self.read_pipeline_data(input, &Signals::empty()))
                 {
                     Ok(call) => call,
                     Err(err) => {
@@ -322,7 +322,7 @@ impl InterfaceManager for EngineInterfaceManager {
             }
             PluginInput::EngineCallResponse(id, response) => {
                 let response = response
-                    .map_data(|header| self.read_pipeline_data(header, &Interrupt::empty()))
+                    .map_data(|header| self.read_pipeline_data(header, &Signals::empty()))
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to an engine
                         // call error response, but send it anyway

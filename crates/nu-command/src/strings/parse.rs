@@ -1,6 +1,6 @@
 use fancy_regex::{Captures, Regex};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, Interrupt, ListStream};
+use nu_protocol::{engine::StateWorkingSet, ListStream, Signals};
 use std::collections::VecDeque;
 
 #[derive(Clone)]
@@ -187,10 +187,10 @@ fn operate(
                     columns,
                     iter,
                     span: head,
-                    interrupt: engine_state.interrupt().clone(),
+                    signals: engine_state.signals().clone(),
                 };
 
-                Ok(ListStream::new(iter, head, Interrupt::empty()).into())
+                Ok(ListStream::new(iter, head, Signals::empty()).into())
             }
             value => Err(ShellError::PipelineMismatch {
                 exp_input_type: "string".into(),
@@ -215,7 +215,7 @@ fn operate(
                     columns,
                     iter,
                     span: head,
-                    interrupt: engine_state.interrupt().clone(),
+                    signals: engine_state.signals().clone(),
                 }
             })
             .into()),
@@ -227,10 +227,10 @@ fn operate(
                     columns,
                     iter: lines,
                     span: head,
-                    interrupt: engine_state.interrupt().clone(),
+                    signals: engine_state.signals().clone(),
                 };
 
-                Ok(ListStream::new(iter, head, Interrupt::empty()).into())
+                Ok(ListStream::new(iter, head, Signals::empty()).into())
             } else {
                 Ok(PipelineData::Empty)
             }
@@ -297,7 +297,7 @@ struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
     columns: Vec<String>,
     iter: I,
     span: Span,
-    interrupt: Interrupt,
+    signals: Signals,
 }
 
 impl<I: Iterator<Item = Result<String, ShellError>>> ParseIter<I> {
@@ -315,7 +315,7 @@ impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
 
     fn next(&mut self) -> Option<Value> {
         loop {
-            if self.interrupt.triggered() {
+            if self.signals.interrupted() {
                 return None;
             }
 

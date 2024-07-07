@@ -198,7 +198,7 @@ fn render_ui(
     let mut view_stack = ViewStack::new(view, Vec::new());
 
     loop {
-        if engine_state.interrupt().triggered() {
+        if engine_state.signals().interrupted() {
             break Ok(None);
         }
 

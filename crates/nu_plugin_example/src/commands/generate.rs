@@ -1,6 +1,6 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, Interrupt, IntoInterruptiblePipelineData, LabeledError, PipelineData,
+    Category, Example, Signals, IntoInterruptiblePipelineData, LabeledError, PipelineData,
     Signature, SyntaxShape, Type, Value,
 };
 
@@ -85,7 +85,7 @@ impl PluginCommand for Generate {
                 })
                 .map(|result| result.unwrap_or_else(|err| Value::error(err, head)))
         })
-        .into_pipeline_data(head, Interrupt::empty()))
+        .into_pipeline_data(head, Signals::empty()))
     }
 }
 

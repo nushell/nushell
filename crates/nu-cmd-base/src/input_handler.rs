@@ -1,4 +1,4 @@
-use nu_protocol::{ast::CellPath, Interrupt, PipelineData, ShellError, Span, Value};
+use nu_protocol::{ast::CellPath, PipelineData, ShellError, Signals, Span, Value};
 use std::sync::Arc;
 
 pub trait CmdArgument {
@@ -40,7 +40,7 @@ pub fn operate<C, A>(
     mut arg: A,
     input: PipelineData,
     span: Span,
-    interrupt: &Interrupt,
+    signals: &Signals,
 ) -> Result<PipelineData, ShellError>
 where
     A: CmdArgument + Send + Sync + 'static,
@@ -55,7 +55,7 @@ where
                     _ => cmd(&v, &arg, span),
                 }
             },
-            interrupt,
+            signals,
         ),
         Some(column_paths) => {
             let arg = Arc::new(arg);
@@ -79,7 +79,7 @@ where
                     }
                     v
                 },
-                interrupt,
+                signals,
             )
         }
     }

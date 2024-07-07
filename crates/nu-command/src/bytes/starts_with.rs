@@ -79,7 +79,7 @@ impl Command for BytesStartsWith {
                 pattern,
                 cell_paths,
             };
-            operate(starts_with, arg, input, head, engine_state.interrupt())
+            operate(starts_with, arg, input, head, engine_state.signals())
         }
     }
 

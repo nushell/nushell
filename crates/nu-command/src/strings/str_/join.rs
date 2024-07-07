@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Interrupt;
+use nu_protocol::Signals;
 
 use std::io::Write;
 
@@ -91,7 +91,7 @@ fn run(
 
     let output = ByteStream::from_fn(
         span,
-        Interrupt::empty(),
+        Signals::empty(),
         ByteStreamType::String,
         move |buffer| {
             // Write each input to the buffer

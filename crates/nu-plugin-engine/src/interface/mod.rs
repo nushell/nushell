@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    ast::Operator, CustomValue, Interrupt, IntoSpanned, PipelineData, PluginMetadata,
-    PluginSignature, ShellError, Span, Spanned, Value,
+    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
+    ShellError, Signals, Span, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap},
@@ -103,8 +103,8 @@ struct PluginCallState {
     /// Don't try to send the plugin call response. This is only used for `Dropped` to avoid an
     /// error
     dont_send_response: bool,
-    /// Interrupt signal to be used for stream iterators
-    interrupt: Interrupt,
+    /// Signals to be used for stream iterators
+    signals: Signals,
     /// Channel to receive context on to be used if needed
     context_rx: Option<mpsc::Receiver<Context>>,
     /// Span associated with the call, if any
@@ -231,14 +231,14 @@ impl PluginInterfaceManager {
         }
     }
 
-    /// Find the interrupt handler corresponding to the given plugin call id
-    fn get_interrupt(&mut self, id: PluginCallId) -> Result<Interrupt, ShellError> {
+    /// Find the [`Signals`] struct corresponding to the given plugin call id
+    fn get_signals(&mut self, id: PluginCallId) -> Result<Signals, ShellError> {
         // Make sure we're up to date
         self.receive_plugin_call_subscriptions();
         // Find the subscription and return the context
         self.plugin_call_states
             .get(&id)
-            .map(|state| state.interrupt.clone())
+            .map(|state| state.signals.clone())
             .ok_or_else(|| ShellError::PluginFailedToDecode {
                 msg: format!("Unknown plugin call ID: {id}"),
             })
@@ -517,14 +517,14 @@ impl InterfaceManager for PluginInterfaceManager {
                 // Handle reading the pipeline data, if any
                 let response = response
                     .map_data(|data| {
-                        let interrupt = self.get_interrupt(id)?;
+                        let signals = self.get_signals(id)?;
 
                         // Register the stream in the response
                         if let Some(stream_id) = data.stream_id() {
                             self.recv_stream_started(id, stream_id);
                         }
 
-                        self.read_pipeline_data(data, &interrupt)
+                        self.read_pipeline_data(data, &signals)
                     })
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to a plugin
@@ -544,8 +544,8 @@ impl InterfaceManager for PluginInterfaceManager {
                 let call = call
                     // Handle reading the pipeline data, if any
                     .map_data(|input| {
-                        let interrupt = self.get_interrupt(context)?;
-                        self.read_pipeline_data(input, &interrupt)
+                        let signals = self.get_signals(context)?;
+                        self.read_pipeline_data(input, &signals)
                     })
                     // Do anything extra needed for each engine call setup
                     .and_then(|mut engine_call| {
@@ -698,9 +698,9 @@ impl PluginInterface {
         context: Option<&dyn PluginExecutionContext>,
     ) -> Result<WritePluginCallResult, ShellError> {
         let id = self.state.plugin_call_id_sequence.next()?;
-        let interrupt = context
-            .map(|c| c.interrupt().clone())
-            .unwrap_or_else(Interrupt::empty);
+        let signals = context
+            .map(|c| c.signals().clone())
+            .unwrap_or_else(Signals::empty);
         let (tx, rx) = mpsc::channel();
         let (context_tx, context_rx) = mpsc::channel();
         let keep_plugin_custom_values = mpsc::channel();
@@ -748,7 +748,7 @@ impl PluginInterface {
                 PluginCallState {
                     sender: Some(tx).filter(|_| !dont_send_response),
                     dont_send_response,
-                    interrupt,
+                    signals,
                     context_rx: Some(context_rx),
                     span: call.span(),
                     keep_plugin_custom_values,

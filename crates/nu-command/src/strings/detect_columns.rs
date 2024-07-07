@@ -199,7 +199,7 @@ fn guess_width(
                     Err(e) => Value::error(e, input_span),
                 }
             })
-            .into_pipeline_data(input_span, engine_state.interrupt().clone()))
+            .into_pipeline_data(input_span, engine_state.signals().clone()))
     } else {
         let length = result[0].len();
         let columns: Vec<String> = (0..length).map(|n| format!("column{n}")).collect();
@@ -224,7 +224,7 @@ fn guess_width(
                     Err(e) => Value::error(e, input_span),
                 }
             })
-            .into_pipeline_data(input_span, engine_state.interrupt().clone()))
+            .into_pipeline_data(input_span, engine_state.signals().clone()))
     }
 }
 
@@ -315,7 +315,7 @@ fn detect_columns(
                     None => Value::record(record, name_span),
                 }
             })
-            .into_pipeline_data(call.head, engine_state.interrupt().clone()))
+            .into_pipeline_data(call.head, engine_state.signals().clone()))
     } else {
         Ok(PipelineData::empty())
     }

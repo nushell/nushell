@@ -90,7 +90,7 @@ If multiple cell paths are given, this will produce a list of values."#
 
             Ok(output
                 .into_iter()
-                .into_pipeline_data(span, engine_state.interrupt().clone()))
+                .into_pipeline_data(span, engine_state.signals().clone()))
         }
         .map(|x| x.set_metadata(metadata))
     }

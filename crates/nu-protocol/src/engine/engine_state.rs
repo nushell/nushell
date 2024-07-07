@@ -7,8 +7,8 @@ use crate::{
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Interrupt, Module, ModuleId,
-    OverlayId, ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Module, ModuleId, OverlayId,
+    ShellError, Signals, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -84,7 +84,7 @@ pub struct EngineState {
     pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
-    interrupt: Interrupt,
+    signals: Signals,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
@@ -144,7 +144,7 @@ impl EngineState {
                 0,
                 false,
             ),
-            interrupt: Interrupt::empty(),
+            signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
                     .into_iter()
@@ -177,16 +177,16 @@ impl EngineState {
         }
     }
 
-    pub fn interrupt(&self) -> &Interrupt {
-        &self.interrupt
+    pub fn signals(&self) -> &Signals {
+        &self.signals
     }
 
-    pub fn reset_interrupt(&mut self) {
-        self.interrupt.reset()
+    pub fn reset_signals(&mut self) {
+        self.signals.reset()
     }
 
-    pub fn set_interrupt(&mut self, interrupt: Interrupt) {
-        self.interrupt = interrupt;
+    pub fn set_signals(&mut self, signals: Signals) {
+        self.signals = signals;
     }
 
     /// Merges a `StateDelta` onto the current state. These deltas come from a system, like the parser, that

@@ -50,7 +50,7 @@ impl Command for Loop {
         let stack = &mut stack.push_redirection(None, None);
 
         loop {
-            engine_state.interrupt().check(head)?;
+            engine_state.signals().check(head)?;
 
             match eval_block(engine_state, stack, block, PipelineData::empty()) {
                 Err(ShellError::Break { .. }) => {

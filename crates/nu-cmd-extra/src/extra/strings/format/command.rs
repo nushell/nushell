@@ -223,7 +223,7 @@ fn format(
             Ok(ListStream::new(
                 list.into_iter(),
                 head_span,
-                engine_state.interrupt().clone(),
+                engine_state.signals().clone(),
             )
             .into())
         }

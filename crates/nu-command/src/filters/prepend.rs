@@ -119,7 +119,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             .chain(input)
             .into_pipeline_data_with_metadata(
                 call.head,
-                engine_state.interrupt().clone(),
+                engine_state.signals().clone(),
                 metadata,
             ))
     }

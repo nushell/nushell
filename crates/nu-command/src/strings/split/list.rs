@@ -215,7 +215,7 @@ fn split_list(
 
     let matcher = Matcher::new(has_regex, separator)?;
     for val in input {
-        engine_state.interrupt().check(call.head)?;
+        engine_state.signals().check(call.head)?;
 
         if matcher.compare(&val)? {
             if !temp_list.is_empty() {

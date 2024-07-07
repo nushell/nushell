@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Interrupt;
+use nu_protocol::Signals;
 use std::io::Read;
 
 #[derive(Clone)]
@@ -58,7 +58,7 @@ impl Command for Take {
                         .take(rows_desired)
                         .into_pipeline_data_with_metadata(
                             head,
-                            engine_state.interrupt().clone(),
+                            engine_state.signals().clone(),
                             metadata,
                         )),
                     Value::Binary { val, .. } => {
@@ -66,11 +66,11 @@ impl Command for Take {
                         Ok(PipelineData::Value(Value::binary(slice, span), metadata))
                     }
                     Value::Range { val, .. } => Ok(val
-                        .into_range_iter(span, Interrupt::empty())
+                        .into_range_iter(span, Signals::empty())
                         .take(rows_desired)
                         .into_pipeline_data_with_metadata(
                             head,
-                            engine_state.interrupt().clone(),
+                            engine_state.signals().clone(),
                             metadata,
                         )),
                     // Propagate errors by explicitly matching them before the final case.
@@ -95,7 +95,7 @@ impl Command for Take {
                             ByteStream::read(
                                 reader.take(rows_desired as u64),
                                 head,
-                                Interrupt::empty(),
+                                Signals::empty(),
                                 ByteStreamType::Binary,
                             ),
                             metadata,

@@ -1,7 +1,7 @@
 use indexmap::{indexmap, IndexMap};
 use nu_engine::command_prelude::*;
 
-use nu_protocol::Interrupt;
+use nu_protocol::Signals;
 use once_cell::sync::Lazy;
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
@@ -233,7 +233,7 @@ impl Command for Char {
         // handle -l flag
         if list {
             return Ok(generate_character_list(
-                working_set.permanent().interrupt().clone(),
+                working_set.permanent().signals().clone(),
                 call.head,
             ));
         }
@@ -270,7 +270,7 @@ impl Command for Char {
         // handle -l flag
         if list {
             return Ok(generate_character_list(
-                engine_state.interrupt().clone(),
+                engine_state.signals().clone(),
                 call_span,
             ));
         }
@@ -293,7 +293,7 @@ impl Command for Char {
     }
 }
 
-fn generate_character_list(interrupt: Interrupt, call_span: Span) -> PipelineData {
+fn generate_character_list(signals: Signals, call_span: Span) -> PipelineData {
     CHAR_MAP
         .iter()
         .map(move |(name, s)| {
@@ -312,7 +312,7 @@ fn generate_character_list(interrupt: Interrupt, call_span: Span) -> PipelineDat
 
             Value::record(record, call_span)
         })
-        .into_pipeline_data(call_span, interrupt)
+        .into_pipeline_data(call_span, signals)
 }
 
 fn handle_integer_flag(

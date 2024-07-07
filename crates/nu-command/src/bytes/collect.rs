@@ -63,7 +63,7 @@ impl Command for BytesCollect {
         let output = ByteStream::from_result_iter(
             iter,
             span,
-            engine_state.interrupt().clone(),
+            engine_state.signals().clone(),
             ByteStreamType::Binary,
         );
 

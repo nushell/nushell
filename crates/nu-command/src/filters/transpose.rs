@@ -285,7 +285,7 @@ pub fn transpose(
     } else {
         Ok(result_data.into_pipeline_data_with_metadata(
             name,
-            engine_state.interrupt().clone(),
+            engine_state.signals().clone(),
             metadata,
         ))
     }

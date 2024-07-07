@@ -56,7 +56,7 @@ impl Command for StorCreate {
         let columns: Option<Record> = call.get_flag(engine_state, stack, "columns")?;
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
-            engine_state.interrupt().clone(),
+            engine_state.signals().clone(),
         ));
 
         process(table_name, span, &db, columns)?;
@@ -144,7 +144,7 @@ fn process(
 
 #[cfg(test)]
 mod test {
-    use nu_protocol::Interrupt;
+    use nu_protocol::Signals;
 
     use super::*;
 
@@ -161,7 +161,7 @@ mod test {
         let span = Span::unknown();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
-            Interrupt::empty(),
+            Signals::empty(),
         ));
         let mut columns = Record::new();
         columns.insert(
@@ -180,7 +180,7 @@ mod test {
         let span = Span::unknown();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
-            Interrupt::empty(),
+            Signals::empty(),
         ));
         let mut columns = Record::new();
         columns.insert(
@@ -203,7 +203,7 @@ mod test {
         let span = Span::unknown();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
-            Interrupt::empty(),
+            Signals::empty(),
         ));
 
         let result = process(table_name, span, &db, None);
@@ -221,7 +221,7 @@ mod test {
         let span = Span::unknown();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
-            Interrupt::empty(),
+            Signals::empty(),
         ));
         let mut columns = Record::new();
         let column_datatype = "bogus_data_type".to_string();

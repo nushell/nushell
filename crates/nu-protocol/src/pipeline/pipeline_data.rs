@@ -2,8 +2,8 @@ use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     process::{ChildPipe, ChildProcess, ExitStatus},
-    ByteStream, ByteStreamType, Config, ErrSpan, Interrupt, ListStream, OutDest, PipelineMetadata,
-    Range, ShellError, Span, Type, Value,
+    ByteStream, ByteStreamType, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range,
+    ShellError, Signals, Span, Type, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
 use std::io::{Cursor, Read, Write};
@@ -193,21 +193,21 @@ impl PipelineData {
                 let val_span = value.span();
                 match value {
                     Value::List { vals, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(vals.into_iter(), val_span, Interrupt::empty()).into_iter(),
+                        ListStream::new(vals.into_iter(), val_span, Signals::empty()).into_iter(),
                     ),
                     Value::Binary { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
                             val.into_iter().map(move |x| Value::int(x as i64, val_span)),
                             val_span,
-                            Interrupt::empty(),
+                            Signals::empty(),
                         )
                         .into_iter(),
                     ),
                     Value::Range { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_range_iter(val_span, Interrupt::empty()),
+                            val.into_range_iter(val_span, Signals::empty()),
                             val_span,
-                            Interrupt::empty(),
+                            Signals::empty(),
                         )
                         .into_iter(),
                     ),
@@ -302,7 +302,7 @@ impl PipelineData {
     }
 
     /// Simplified mapper to help with simple values also. For full iterator support use `.into_iter()` instead
-    pub fn map<F>(self, mut f: F, interrupt: &Interrupt) -> Result<PipelineData, ShellError>
+    pub fn map<F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         F: FnMut(Value) -> Value + 'static + Send,
@@ -314,11 +314,11 @@ impl PipelineData {
                     Value::List { vals, .. } => vals
                         .into_iter()
                         .map(f)
-                        .into_pipeline_data(span, interrupt.clone()),
+                        .into_pipeline_data(span, signals.clone()),
                     Value::Range { val, .. } => val
-                        .into_range_iter(span, Interrupt::empty())
+                        .into_range_iter(span, Signals::empty())
                         .map(f)
-                        .into_pipeline_data(span, interrupt.clone()),
+                        .into_pipeline_data(span, signals.clone()),
                     value => match f(value) {
                         Value::Error { error, .. } => return Err(*error),
                         v => v.into_pipeline_data(),
@@ -337,7 +337,7 @@ impl PipelineData {
     }
 
     /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
-    pub fn flat_map<U, F>(self, mut f: F, interrupt: &Interrupt) -> Result<PipelineData, ShellError>
+    pub fn flat_map<U, F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         U: IntoIterator<Item = Value> + 'static,
@@ -352,14 +352,14 @@ impl PipelineData {
                     Value::List { vals, .. } => vals
                         .into_iter()
                         .flat_map(f)
-                        .into_pipeline_data(span, interrupt.clone()),
+                        .into_pipeline_data(span, signals.clone()),
                     Value::Range { val, .. } => val
-                        .into_range_iter(span, Interrupt::empty())
+                        .into_range_iter(span, Signals::empty())
                         .flat_map(f)
-                        .into_pipeline_data(span, interrupt.clone()),
+                        .into_pipeline_data(span, signals.clone()),
                     value => f(value)
                         .into_iter()
-                        .into_pipeline_data(span, interrupt.clone()),
+                        .into_pipeline_data(span, signals.clone()),
                 };
                 Ok(pipeline.set_metadata(metadata))
             }
@@ -379,14 +379,14 @@ impl PipelineData {
                 };
                 Ok(iter.into_iter().into_pipeline_data_with_metadata(
                     span,
-                    interrupt.clone(),
+                    signals.clone(),
                     metadata,
                 ))
             }
         }
     }
 
-    pub fn filter<F>(self, mut f: F, interrupt: &Interrupt) -> Result<PipelineData, ShellError>
+    pub fn filter<F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         F: FnMut(&Value) -> bool + 'static + Send,
@@ -399,11 +399,11 @@ impl PipelineData {
                     Value::List { vals, .. } => vals
                         .into_iter()
                         .filter(f)
-                        .into_pipeline_data(span, interrupt.clone()),
+                        .into_pipeline_data(span, signals.clone()),
                     Value::Range { val, .. } => val
-                        .into_range_iter(span, Interrupt::empty())
+                        .into_range_iter(span, Signals::empty())
                         .filter(f)
-                        .into_pipeline_data(span, interrupt.clone()),
+                        .into_pipeline_data(span, signals.clone()),
                     value => {
                         if f(&value) {
                             value.into_pipeline_data()
@@ -535,7 +535,7 @@ impl PipelineData {
                             }
                         }
                         let range_values: Vec<Value> =
-                            val.into_range_iter(span, Interrupt::empty()).collect();
+                            val.into_range_iter(span, Signals::empty()).collect();
                         Ok(PipelineData::Value(Value::list(range_values, span), None))
                     }
                     x => Ok(PipelineData::Value(x, metadata)),
@@ -635,13 +635,13 @@ impl IntoIterator for PipelineData {
                 let span = value.span();
                 match value {
                     Value::List { vals, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(vals.into_iter(), span, Interrupt::empty()).into_iter(),
+                        ListStream::new(vals.into_iter(), span, Signals::empty()).into_iter(),
                     ),
                     Value::Range { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_range_iter(span, Interrupt::empty()),
+                            val.into_range_iter(span, Signals::empty()),
                             span,
-                            Interrupt::empty(),
+                            Signals::empty(),
                         )
                         .into_iter(),
                     ),
@@ -705,11 +705,11 @@ where
 }
 
 pub trait IntoInterruptiblePipelineData {
-    fn into_pipeline_data(self, span: Span, interrupt: Interrupt) -> PipelineData;
+    fn into_pipeline_data(self, span: Span, signals: Signals) -> PipelineData;
     fn into_pipeline_data_with_metadata(
         self,
         span: Span,
-        interrupt: Interrupt,
+        signals: Signals,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData;
 }
@@ -720,18 +720,18 @@ where
     I::IntoIter: Send + 'static,
     <I::IntoIter as Iterator>::Item: Into<Value>,
 {
-    fn into_pipeline_data(self, span: Span, interrupt: Interrupt) -> PipelineData {
-        ListStream::new(self.into_iter().map(Into::into), span, interrupt).into()
+    fn into_pipeline_data(self, span: Span, signals: Signals) -> PipelineData {
+        ListStream::new(self.into_iter().map(Into::into), span, signals).into()
     }
 
     fn into_pipeline_data_with_metadata(
         self,
         span: Span,
-        interrupt: Interrupt,
+        signals: Signals,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData {
         PipelineData::ListStream(
-            ListStream::new(self.into_iter().map(Into::into), span, interrupt),
+            ListStream::new(self.into_iter().map(Into::into), span, signals),
             metadata.into(),
         )
     }

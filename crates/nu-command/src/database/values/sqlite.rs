@@ -2,7 +2,7 @@ use super::definitions::{
     db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
     db_index::DbIndex, db_table::DbTable,
 };
-use nu_protocol::{CustomValue, Interrupt, PipelineData, Record, ShellError, Span, Spanned, Value};
+use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value};
 use rusqlite::{
     types::ValueRef, Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement,
     ToSql,
@@ -23,25 +23,21 @@ pub struct SQLiteDatabase {
     // 1) YAGNI, 2) it's not obvious how cloning a connection could work, 3) state
     // management gets tricky quick. Revisit this approach if we find a compelling use case.
     pub path: PathBuf,
-    #[serde(skip, default = "Interrupt::empty")]
+    #[serde(skip, default = "Signals::empty")]
     // this understandably can't be serialized. think that's OK, I'm not aware of a
     // reason why a CustomValue would be serialized outside of a plugin
-    interrupt: Interrupt,
+    signals: Signals,
 }
 
 impl SQLiteDatabase {
-    pub fn new(path: &Path, interrupt: Interrupt) -> Self {
+    pub fn new(path: &Path, signals: Signals) -> Self {
         Self {
             path: PathBuf::from(path),
-            interrupt,
+            signals,
         }
     }
 
-    pub fn try_from_path(
-        path: &Path,
-        span: Span,
-        interrupt: Interrupt,
-    ) -> Result<Self, ShellError> {
+    pub fn try_from_path(path: &Path, span: Span, signals: Signals) -> Result<Self, ShellError> {
         let mut file = File::open(path).map_err(|e| ShellError::ReadingFile {
             msg: e.to_string(),
             span,
@@ -55,7 +51,7 @@ impl SQLiteDatabase {
             })
             .and_then(|_| {
                 if buf == SQLITE_MAGIC_BYTES {
-                    Ok(SQLiteDatabase::new(path, interrupt))
+                    Ok(SQLiteDatabase::new(path, signals))
                 } else {
                     Err(ShellError::ReadingFile {
                         msg: "Not a SQLite file".into(),
@@ -71,7 +67,7 @@ impl SQLiteDatabase {
             Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(db) => Ok(Self {
                     path: db.path.clone(),
-                    interrupt: db.interrupt.clone(),
+                    signals: db.signals.clone(),
                 }),
                 None => Err(ShellError::CantConvert {
                     to_type: "database".into(),
@@ -106,7 +102,7 @@ impl SQLiteDatabase {
         call_span: Span,
     ) -> Result<Value, ShellError> {
         let conn = open_sqlite_db(&self.path, call_span)?;
-        let stream = run_sql_query(conn, sql, params, &self.interrupt)
+        let stream = run_sql_query(conn, sql, params, &self.signals)
             .map_err(|e| e.into_shell_error(sql.span, "Failed to query SQLite database"))?;
 
         Ok(stream)
@@ -352,7 +348,7 @@ impl CustomValue for SQLiteDatabase {
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, span)?;
-        read_entire_sqlite_db(db, span, &self.interrupt)
+        read_entire_sqlite_db(db, span, &self.signals)
             .map_err(|e| e.into_shell_error(span, "Failed to read from SQLite database"))
     }
 
@@ -381,7 +377,7 @@ impl CustomValue for SQLiteDatabase {
         path_span: Span,
     ) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, path_span)?;
-        read_single_table(db, column_name, path_span, &self.interrupt)
+        read_single_table(db, column_name, path_span, &self.signals)
             .map_err(|e| e.into_shell_error(path_span, "Failed to read from SQLite database"))
     }
 
@@ -413,10 +409,10 @@ fn run_sql_query(
     conn: Connection,
     sql: &Spanned<String>,
     params: NuSqlParams,
-    interrupt: &Interrupt,
+    signals: &Signals,
 ) -> Result<Value, SqliteOrShellError> {
     let stmt = conn.prepare(&sql.item)?;
-    prepared_statement_to_nu_list(stmt, params, sql.span, interrupt)
+    prepared_statement_to_nu_list(stmt, params, sql.span, signals)
 }
 
 // This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
@@ -543,18 +539,18 @@ fn read_single_table(
     conn: Connection,
     table_name: String,
     call_span: Span,
-    interrupt: &Interrupt,
+    signals: &Signals,
 ) -> Result<Value, SqliteOrShellError> {
     // TODO: Should use params here?
     let stmt = conn.prepare(&format!("SELECT * FROM [{table_name}]"))?;
-    prepared_statement_to_nu_list(stmt, NuSqlParams::default(), call_span, interrupt)
+    prepared_statement_to_nu_list(stmt, NuSqlParams::default(), call_span, signals)
 }
 
 fn prepared_statement_to_nu_list(
     mut stmt: Statement,
     params: NuSqlParams,
     call_span: Span,
-    interrupt: &Interrupt,
+    signals: &Signals,
 ) -> Result<Value, SqliteOrShellError> {
     let column_names = stmt
         .column_names()
@@ -581,7 +577,7 @@ fn prepared_statement_to_nu_list(
             let mut row_values = vec![];
 
             for row_result in row_results {
-                interrupt.check(call_span)?;
+                signals.check(call_span)?;
                 if let Ok(row_value) = row_result {
                     row_values.push(row_value);
                 }
@@ -607,7 +603,7 @@ fn prepared_statement_to_nu_list(
             let mut row_values = vec![];
 
             for row_result in row_results {
-                interrupt.check(call_span)?;
+                signals.check(call_span)?;
                 if let Ok(row_value) = row_result {
                     row_values.push(row_value);
                 }
@@ -623,7 +619,7 @@ fn prepared_statement_to_nu_list(
 fn read_entire_sqlite_db(
     conn: Connection,
     call_span: Span,
-    interrupt: &Interrupt,
+    signals: &Signals,
 ) -> Result<Value, SqliteOrShellError> {
     let mut tables = Record::new();
 
@@ -635,12 +631,8 @@ fn read_entire_sqlite_db(
         let table_name: String = row?;
         // TODO: Should use params here?
         let table_stmt = conn.prepare(&format!("select * from [{table_name}]"))?;
-        let rows = prepared_statement_to_nu_list(
-            table_stmt,
-            NuSqlParams::default(),
-            call_span,
-            interrupt,
-        )?;
+        let rows =
+            prepared_statement_to_nu_list(table_stmt, NuSqlParams::default(), call_span, signals)?;
         tables.push(table_name, rows);
     }
 
@@ -707,8 +699,7 @@ mod test {
     #[test]
     fn can_read_empty_db() {
         let db = open_connection_in_memory().unwrap();
-        let converted_db =
-            read_entire_sqlite_db(db, Span::test_data(), &Interrupt::empty()).unwrap();
+        let converted_db = read_entire_sqlite_db(db, Span::test_data(), &Signals::empty()).unwrap();
 
         let expected = Value::test_record(Record::new());
 
@@ -728,8 +719,7 @@ mod test {
             [],
         )
         .unwrap();
-        let converted_db =
-            read_entire_sqlite_db(db, Span::test_data(), &Interrupt::empty()).unwrap();
+        let converted_db = read_entire_sqlite_db(db, Span::test_data(), &Signals::empty()).unwrap();
 
         let expected = Value::test_record(record! {
             "person" => Value::test_list(vec![]),
@@ -758,7 +748,7 @@ mod test {
         db.execute("INSERT INTO item (id, name) VALUES (456, 'foo bar')", [])
             .unwrap();
 
-        let converted_db = read_entire_sqlite_db(db, span, &Interrupt::empty()).unwrap();
+        let converted_db = read_entire_sqlite_db(db, span, &Signals::empty()).unwrap();
 
         let expected = Value::test_record(record! {
             "item" => Value::test_list(

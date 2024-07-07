@@ -65,7 +65,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         }
         input.map(
             move |value| super::operate(&exists, &args, value, head),
-            engine_state.interrupt(),
+            engine_state.signals(),
         )
     }
 
@@ -87,7 +87,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         }
         input.map(
             move |value| super::operate(&exists, &args, value, head),
-            working_set.permanent().interrupt(),
+            working_set.permanent().signals(),
         )
     }
 

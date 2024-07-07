@@ -122,7 +122,7 @@ fn stats(
                 ),
             }
         },
-        engine_state.interrupt(),
+        engine_state.signals(),
     )
 }
 

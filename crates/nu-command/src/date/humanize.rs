@@ -50,7 +50,7 @@ impl Command for SubCommand {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        input.map(move |value| helper(value, head), engine_state.interrupt())
+        input.map(move |value| helper(value, head), engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

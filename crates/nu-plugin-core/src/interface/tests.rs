@@ -10,7 +10,7 @@ use nu_plugin_protocol::{
     StreamMessage,
 };
 use nu_protocol::{
-    ByteStream, ByteStreamSource, ByteStreamType, DataSource, Interrupt, ListStream, PipelineData,
+    ByteStream, ByteStreamSource, ByteStreamType, DataSource, Signals, ListStream, PipelineData,
     PipelineMetadata, ShellError, Span, Value,
 };
 use std::{path::Path, sync::Arc};
@@ -129,7 +129,7 @@ fn read_pipeline_data_empty() -> Result<(), ShellError> {
     let header = PipelineDataHeader::Empty;
 
     assert!(matches!(
-        manager.read_pipeline_data(header, &Interrupt::empty())?,
+        manager.read_pipeline_data(header, &Signals::empty())?,
         PipelineData::Empty
     ));
     Ok(())
@@ -141,7 +141,7 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
     let value = Value::test_int(4);
     let header = PipelineDataHeader::Value(value.clone());
 
-    match manager.read_pipeline_data(header, &Interrupt::empty())? {
+    match manager.read_pipeline_data(header, &Signals::empty())? {
         PipelineData::Value(read_value, ..) => assert_eq!(value, read_value),
         PipelineData::ListStream(..) => panic!("unexpected ListStream"),
         PipelineData::ByteStream(..) => panic!("unexpected ByteStream"),
@@ -168,7 +168,7 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
         span: Span::test_data(),
     });
 
-    let pipe = manager.read_pipeline_data(header, &Interrupt::empty())?;
+    let pipe = manager.read_pipeline_data(header, &Signals::empty())?;
     assert!(
         matches!(pipe, PipelineData::ListStream(..)),
         "unexpected PipelineData: {pipe:?}"
@@ -212,7 +212,7 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
         type_: ByteStreamType::Unknown,
     });
 
-    let pipe = manager.read_pipeline_data(header, &Interrupt::empty())?;
+    let pipe = manager.read_pipeline_data(header, &Signals::empty())?;
 
     // need to consume input
     manager.consume_all()?;
@@ -257,7 +257,7 @@ fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
         id: 0,
         span: Span::test_data(),
     });
-    match manager.read_pipeline_data(header, &Interrupt::empty())? {
+    match manager.read_pipeline_data(header, &Signals::empty())? {
         PipelineData::ListStream(_, meta) => match meta {
             Some(PipelineMetadata { data_source, .. }) => match data_source {
                 DataSource::FilePath(path) => {
@@ -356,7 +356,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
         ListStream::new(
             values.clone().into_iter(),
             Span::test_data(),
-            Interrupt::empty(),
+            Signals::empty(),
         ),
         None,
     );
@@ -410,7 +410,7 @@ fn write_pipeline_data_byte_stream() -> Result<(), ShellError> {
         ByteStream::read(
             std::io::Cursor::new(expected),
             span,
-            Interrupt::empty(),
+            Signals::empty(),
             ByteStreamType::Unknown,
         ),
         None,

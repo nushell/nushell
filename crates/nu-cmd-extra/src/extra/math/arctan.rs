@@ -45,7 +45,7 @@ impl Command for SubCommand {
         }
         input.map(
             move |value| operate(value, head, use_degrees),
-            engine_state.interrupt(),
+            engine_state.signals(),
         )
     }
 

@@ -159,7 +159,7 @@ impl Command for Move {
 
                 Ok(res.into_pipeline_data_with_metadata(
                     head,
-                    engine_state.interrupt().clone(),
+                    engine_state.signals().clone(),
                     metadata,
                 ))
             }

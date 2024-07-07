@@ -166,7 +166,7 @@ fn into_duration(
                 ret
             }
         },
-        engine_state.interrupt(),
+        engine_state.signals(),
     )
 }
 

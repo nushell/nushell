@@ -215,7 +215,7 @@ fn which(
 
     Ok(output
         .into_iter()
-        .into_pipeline_data(head, engine_state.interrupt().clone()))
+        .into_pipeline_data(head, engine_state.signals().clone()))
 }
 
 #[cfg(test)]

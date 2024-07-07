@@ -186,7 +186,7 @@ fn helper(
         HttpBody::None,
         None,
         call.head,
-        engine_state.interrupt(),
+        engine_state.signals(),
     );
 
     let request_flags = RequestFlags {

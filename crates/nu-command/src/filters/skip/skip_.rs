@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Interrupt;
+use nu_protocol::Signals;
 use std::io::{self, Read};
 
 #[derive(Clone)]
@@ -104,7 +104,7 @@ impl Command for Skip {
                             ByteStream::read(
                                 reader,
                                 call.head,
-                                Interrupt::empty(),
+                                Signals::empty(),
                                 ByteStreamType::Binary,
                             ),
                             metadata,
@@ -130,7 +130,7 @@ impl Command for Skip {
                 .skip(n)
                 .into_pipeline_data_with_metadata(
                     input_span,
-                    engine_state.interrupt().clone(),
+                    engine_state.signals().clone(),
                     metadata,
                 )),
         }

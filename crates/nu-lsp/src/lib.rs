@@ -69,11 +69,11 @@ impl LanguageServer {
         let _initialization_params = self
             .connection
             .initialize_while(server_capabilities, || {
-                !engine_state.interrupt().triggered()
+                !engine_state.signals().interrupted()
             })
             .into_diagnostic()?;
 
-        while !engine_state.interrupt().triggered() {
+        while !engine_state.signals().interrupted() {
             let msg = match self
                 .connection
                 .receiver

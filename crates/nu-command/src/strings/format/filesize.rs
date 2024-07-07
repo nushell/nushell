@@ -76,7 +76,7 @@ impl Command for FormatFilesize {
             arg,
             input,
             call.head,
-            engine_state.interrupt(),
+            engine_state.signals(),
         )
     }
 
@@ -101,7 +101,7 @@ impl Command for FormatFilesize {
             arg,
             input,
             call.head,
-            working_set.permanent().interrupt(),
+            working_set.permanent().signals(),
         )
     }
 

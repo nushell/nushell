@@ -44,7 +44,7 @@ impl Command for SubCommand {
         let head = call.head;
         input.map(
             move |value| abs_helper(value, head),
-            engine_state.interrupt(),
+            engine_state.signals(),
         )
     }
 

@@ -90,7 +90,7 @@ impl Command for Lines {
                             Ok(line) => Value::string(line, head),
                             Err(err) => Value::error(err, head),
                         })
-                        .into_pipeline_data(head, engine_state.interrupt().clone()))
+                        .into_pipeline_data(head, engine_state.signals().clone()))
                 } else {
                     Ok(PipelineData::empty())
                 }

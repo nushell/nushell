@@ -23,7 +23,7 @@ use crate::{
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
-    Config, Interrupt, ShellError, Span, Type,
+    Config, Signals, ShellError, Span, Type,
 };
 use chrono::{DateTime, Datelike, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
@@ -1018,7 +1018,7 @@ impl Value {
                         }
                         Value::Range { ref val, .. } => {
                             if let Some(item) = val
-                                .into_range_iter(current.span(), Interrupt::empty())
+                                .into_range_iter(current.span(), Signals::empty())
                                 .nth(*count)
                             {
                                 current = item;

@@ -182,5 +182,5 @@ fn run_ps(
 
     Ok(output
         .into_iter()
-        .into_pipeline_data(span, engine_state.interrupt().clone()))
+        .into_pipeline_data(span, engine_state.signals().clone()))
 }

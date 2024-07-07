@@ -1,4 +1,4 @@
-use crate::{Config, Interrupt, PipelineData, ShellError, Span, Value};
+use crate::{Config, PipelineData, ShellError, Signals, Span, Value};
 use std::fmt::Debug;
 
 pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
@@ -18,10 +18,10 @@ impl ListStream {
     pub fn new(
         iter: impl Iterator<Item = Value> + Send + 'static,
         span: Span,
-        interrupt: Interrupt,
+        signals: Signals,
     ) -> Self {
         Self {
-            stream: Box::new(InterruptIter::new(iter, interrupt)),
+            stream: Box::new(InterruptIter::new(iter, signals)),
             span,
         }
     }
@@ -66,10 +66,10 @@ impl ListStream {
     /// E.g., `take`, `filter`, `step_by`, and more.
     ///
     /// ```
-    /// use nu_protocol::{Interrupt, ListStream, Span, Value};
+    /// use nu_protocol::{ListStream, Signals, Span, Value};
     ///
     /// let span = Span::unknown();
-    /// let stream = ListStream::new(std::iter::repeat(Value::int(0, span)), span, Interrupt::empty());
+    /// let stream = ListStream::new(std::iter::repeat(Value::int(0, span)), span, Signals::empty());
     /// let new_stream = stream.modify(|iter| iter.take(100));
     /// ```
     pub fn modify<I>(self, f: impl FnOnce(ValueIterator) -> I) -> Self
@@ -127,12 +127,12 @@ impl Iterator for IntoIter {
 
 struct InterruptIter<I: Iterator> {
     iter: I,
-    interrupt: Interrupt,
+    signals: Signals,
 }
 
 impl<I: Iterator> InterruptIter<I> {
-    fn new(iter: I, interrupt: Interrupt) -> Self {
-        Self { iter, interrupt }
+    fn new(iter: I, signals: Signals) -> Self {
+        Self { iter, signals }
     }
 }
 
@@ -140,7 +140,7 @@ impl<I: Iterator> Iterator for InterruptIter<I> {
     type Item = <I as Iterator>::Item;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.interrupt.triggered() {
+        if self.signals.interrupted() {
             None
         } else {
             self.iter.next()

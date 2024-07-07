@@ -1,11 +1,11 @@
 //! A Range is an iterator over integers or floats.
 
-use crate::{ast::RangeInclusion, Interrupt, ShellError, Span, Value};
+use crate::{ast::RangeInclusion, ShellError, Signals, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display};
 
 mod int_range {
-    use crate::{ast::RangeInclusion, Interrupt, ShellError, Span, Value};
+    use crate::{ast::RangeInclusion, ShellError, Signals, Span, Value};
     use serde::{Deserialize, Serialize};
     use std::{cmp::Ordering, fmt::Display, ops::Bound};
 
@@ -111,12 +111,12 @@ mod int_range {
             }
         }
 
-        pub fn into_range_iter(self, interrupt: Interrupt) -> Iter {
+        pub fn into_range_iter(self, signals: Signals) -> Iter {
             Iter {
                 current: Some(self.start),
                 step: self.step,
                 end: self.end,
-                interrupt,
+                signals,
             }
         }
     }
@@ -190,7 +190,7 @@ mod int_range {
         current: Option<i64>,
         step: i64,
         end: Bound<i64>,
-        interrupt: Interrupt,
+        signals: Signals,
     }
 
     impl Iterator for Iter {
@@ -206,7 +206,7 @@ mod int_range {
                     (_, Bound::Unbounded) => true, // will stop once integer overflows
                 };
 
-                if not_end && !self.interrupt.triggered() {
+                if not_end && !self.signals.interrupted() {
                     self.current = current.checked_add(self.step);
                     Some(current)
                 } else {
@@ -221,7 +221,7 @@ mod int_range {
 }
 
 mod float_range {
-    use crate::{ast::RangeInclusion, IntRange, Interrupt, Range, ShellError, Span, Value};
+    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, Signals, Span, Value};
     use serde::{Deserialize, Serialize};
     use std::{cmp::Ordering, fmt::Display, ops::Bound};
 
@@ -346,13 +346,13 @@ mod float_range {
             }
         }
 
-        pub fn into_range_iter(self, interrupt: Interrupt) -> Iter {
+        pub fn into_range_iter(self, signals: Signals) -> Iter {
             Iter {
                 start: self.start,
                 step: self.step,
                 end: self.end,
                 iter: Some(0),
-                interrupt,
+                signals,
             }
         }
     }
@@ -458,7 +458,7 @@ mod float_range {
         step: f64,
         end: Bound<f64>,
         iter: Option<u64>,
-        interrupt: Interrupt,
+        signals: Signals,
     }
 
     impl Iterator for Iter {
@@ -476,7 +476,7 @@ mod float_range {
                     (_, Bound::Unbounded) => current.is_finite(),
                 };
 
-                if not_end && !self.interrupt.triggered() {
+                if not_end && !self.signals.interrupted() {
                     self.iter = iter.checked_add(1);
                     Some(current)
                 } else {
@@ -530,10 +530,10 @@ impl Range {
         }
     }
 
-    pub fn into_range_iter(self, span: Span, interrupt: Interrupt) -> Iter {
+    pub fn into_range_iter(self, span: Span, signals: Signals) -> Iter {
         match self {
-            Range::IntRange(range) => Iter::IntIter(range.into_range_iter(interrupt), span),
-            Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(interrupt), span),
+            Range::IntRange(range) => Iter::IntIter(range.into_range_iter(signals), span),
+            Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(signals), span),
         }
     }
 }

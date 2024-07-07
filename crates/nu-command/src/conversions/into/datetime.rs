@@ -141,7 +141,7 @@ impl Command for SubCommand {
                 zone_options,
                 cell_paths,
             };
-            operate(action, args, input, call.head, engine_state.interrupt())
+            operate(action, args, input, call.head, engine_state.signals())
         }
     }
 

@@ -102,7 +102,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         for (row, item) in input.iter().enumerate() {
-            cfg.opts.interrupt.check(cfg.opts.span)?;
+            cfg.opts.signals.check(cfg.opts.span)?;
 
             if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
@@ -141,7 +141,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         for (row, item) in input.iter().enumerate() {
-            cfg.opts.interrupt.check(cfg.opts.span)?;
+            cfg.opts.signals.check(cfg.opts.span)?;
 
             if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
@@ -226,7 +226,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         }
 
         for (row, item) in input.iter().enumerate() {
-            cfg.opts.interrupt.check(cfg.opts.span)?;
+            cfg.opts.signals.check(cfg.opts.span)?;
 
             if let Value::Error { error, .. } = item {
                 return Err(*error.clone());
@@ -347,7 +347,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> StringResult {
 
     let mut data = Vec::with_capacity(record.len());
     for (key, value) in record {
-        cfg.opts.interrupt.check(cfg.opts.span)?;
+        cfg.opts.signals.check(cfg.opts.span)?;
 
         let (value, is_expanded) = match expand_table_value(value, value_width, &cfg)? {
             Some(val) => val,
