@@ -15,11 +15,11 @@
 //! `--no-config-file`, otherwise Nushell will ask if you want to create one
 //! with default, and that messes up the input.
 //!
-//! Step 3: Wait for Nushell to initialize (sleeping for 500ms should do). On
-//! Linux, trying to write to the PTY before Nushell finishes initialization
-//! appears to succeed, but the data will be lost. I'm not sure if this is a bug
-//! or just weird behavior of Linux PTY. It's not necessary on Windows, but it
-//! won't hurt either.
+//! Step 3: Wait for Nushell to initialize (sleeping for 500ms should do).
+//! `pty_with_nushell()` also does that for you. On Linux, trying to write to
+//! the PTY before Nushell finishes initialization appears to succeed, but the
+//! data will be lost. I'm not sure if this is a bug or just weird behavior of
+//! Linux PTY. It's not necessary on Windows, but it won't hurt either.
 //!
 //! Step 4: Write data to the PTY. Any data you sent will appear to Nushell as
 //! if they were typed in a terminal. ANSI escape codes are used for special
@@ -73,8 +73,9 @@ pub fn default_terminal() -> (Term<EventProxy>, mpsc::Receiver<Event>) {
     (Term::new(config, &size, EventProxy(tx)), rx)
 }
 
-/// Creates a PTY and connect the slave end to a Nushell process. If `pwd` is
-/// None, the Nushell process will inherit PWD from the current process.
+/// Creates a PTY and connect the slave end to a Nushell process, then wait for
+/// Nushell to initialize. If `pwd` is None, the Nushell process will inherit
+/// PWD from the current process.
 pub fn pty_with_nushell(args: Vec<&str>, pwd: Option<PathBuf>) -> Pty {
     let executable = crate::fs::executable_path().to_string_lossy().to_string();
     let options = Options {
@@ -92,7 +93,12 @@ pub fn pty_with_nushell(args: Vec<&str>, pwd: Option<PathBuf>) -> Pty {
         cell_width: 0,
         cell_height: 0,
     };
-    tty::new(&options, window_size, 0).expect("creating a PTY succeeds")
+    let pty = tty::new(&options, window_size, 0).expect("creating a PTY should succeed");
+
+    // Wait for Nushell to initialize.
+    std::thread::sleep(Duration::from_millis(500));
+
+    pty
 }
 
 /// Reads from `pty` until no more data is available. Will periodically call

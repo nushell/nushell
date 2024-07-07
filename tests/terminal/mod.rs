@@ -3,7 +3,7 @@ use nu_test_support::terminal::{
     default_terminal, extract_cursor, extract_text, pty_with_nushell, pty_write_handler,
     read_to_end,
 };
-use std::{io::Write, time::Duration};
+use std::io::Write;
 
 #[test]
 fn auto_cd_works() {
@@ -14,9 +14,6 @@ fn auto_cd_works() {
     // Create the PTY and the terminal.
     let mut pty = pty_with_nushell(vec!["--no-config-file"], Some(cwd.path().to_path_buf()));
     let (mut term, mut events) = default_terminal();
-
-    // Wait for Nushell to initialize.
-    std::thread::sleep(Duration::from_millis(500));
 
     #[cfg(windows)]
     pty.writer().write_all(b".\\foo\r").unwrap();
@@ -61,9 +58,6 @@ fn command_hints_are_pwd_aware() {
         Some(cwd.path().to_path_buf()),
     );
     let (mut term, mut events) = default_terminal();
-
-    // Wait for Nushell to initialize.
-    std::thread::sleep(Duration::from_millis(500));
 
     pty.writer().write_all(b"cd foo\r").unwrap();
     pty.writer().write_all(b"print 'FOO'\r").unwrap();
