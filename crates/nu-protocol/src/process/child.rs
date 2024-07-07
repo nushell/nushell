@@ -23,7 +23,21 @@ impl ExitStatusFuture {
             ExitStatusFuture::Finished(Err(err)) => Err(err.as_ref().clone()),
             ExitStatusFuture::Running(receiver) => {
                 let code = match receiver.recv() {
-                    Ok(Ok(status)) => Ok(status),
+                    Ok(Ok(status)) => {
+                        #[cfg(unix)]
+                        if let ExitStatus::Signaled {
+                            signal,
+                            core_dumped: true,
+                        } = status
+                        {
+                            return Err(ShellError::CoredumpErrorSpanned {
+                                msg: format!("coredump detected. received signal: {signal}"),
+                                signal,
+                                span,
+                            });
+                        }
+                        Ok(status)
+                    }
                     Ok(Err(err)) => Err(ShellError::IOErrorSpanned {
                         msg: format!("failed to get exit code: {err:?}"),
                         span,

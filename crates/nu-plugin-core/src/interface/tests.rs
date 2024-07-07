@@ -18,6 +18,7 @@ use std::{path::Path, sync::Arc};
 fn test_metadata() -> PipelineMetadata {
     PipelineMetadata {
         data_source: DataSource::FilePath("/test/path".into()),
+        content_type: None,
     }
 }
 
@@ -258,7 +259,7 @@ fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
     });
     match manager.read_pipeline_data(header, None)? {
         PipelineData::ListStream(_, meta) => match meta {
-            Some(PipelineMetadata { data_source }) => match data_source {
+            Some(PipelineMetadata { data_source, .. }) => match data_source {
                 DataSource::FilePath(path) => {
                     assert_eq!(Path::new("/test/path"), path);
                     Ok(())

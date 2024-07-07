@@ -1,5 +1,6 @@
 use super::Layout;
 use crate::{
+    explore::TableConfig,
     nu_common::{truncate_str, NuStyle, NuText},
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
@@ -12,18 +13,15 @@ use ratatui::{
     text::Span,
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
-use std::{
-    borrow::Cow,
-    cmp::{max, Ordering},
-};
+use std::cmp::{max, Ordering};
 
 #[derive(Debug, Clone)]
 pub struct TableWidget<'a> {
-    columns: Cow<'a, [String]>,
-    data: Cow<'a, [Vec<NuText>]>,
+    columns: &'a [String],
+    data: &'a [Vec<NuText>],
     index_row: usize,
     index_column: usize,
-    style: TableStyle,
+    config: TableConfig,
     header_position: Orientation,
     style_computer: &'a StyleComputer<'a>,
 }
@@ -35,33 +33,24 @@ pub enum Orientation {
     Left,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct TableStyle {
-    pub splitline_style: NuStyle,
-    pub show_index: bool,
-    pub show_header: bool,
-    pub column_padding_left: usize,
-    pub column_padding_right: usize,
-}
-
 impl<'a> TableWidget<'a> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        columns: impl Into<Cow<'a, [String]>>,
-        data: impl Into<Cow<'a, [Vec<NuText>]>>,
+        columns: &'a [String],
+        data: &'a [Vec<NuText>],
         style_computer: &'a StyleComputer<'a>,
         index_row: usize,
         index_column: usize,
-        style: TableStyle,
+        config: TableConfig,
         header_position: Orientation,
     ) -> Self {
         Self {
-            columns: columns.into(),
-            data: data.into(),
+            columns,
+            data,
             style_computer,
             index_row,
             index_column,
-            style,
+            config,
             header_position,
         }
     }
@@ -99,14 +88,15 @@ impl StatefulWidget for TableWidget<'_> {
 
 // todo: refactoring these to methods as they have quite a bit in common.
 impl<'a> TableWidget<'a> {
+    // header at the top; header is always 1 line
     fn render_table_horizontal(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
-        let padding_l = self.style.column_padding_left as u16;
-        let padding_r = self.style.column_padding_right as u16;
+        let padding_l = self.config.column_padding_left as u16;
+        let padding_r = self.config.column_padding_right as u16;
 
-        let show_index = self.style.show_index;
-        let show_head = self.style.show_header;
+        let show_index = self.config.show_index;
+        let show_head = self.config.show_header;
 
-        let splitline_s = self.style.splitline_style;
+        let separator_s = self.config.separator_style;
 
         let mut data_height = area.height;
         let mut data_y = area.y;
@@ -137,29 +127,20 @@ impl<'a> TableWidget<'a> {
         }
 
         if show_head {
-            render_header_borders(buf, area, 1, splitline_s);
+            render_header_borders(buf, area, 1, separator_s);
         }
 
         if show_index {
-            let area = Rect::new(width, data_y, area.width, data_height);
             width += render_index(
                 buf,
-                area,
+                Rect::new(width, data_y, area.width, data_height),
                 self.style_computer,
                 self.index_row,
                 padding_l,
                 padding_r,
             );
 
-            width += render_vertical_line_with_split(
-                buf,
-                width,
-                data_y,
-                data_height,
-                show_head,
-                false,
-                splitline_s,
-            );
+            width += render_split_line(buf, width, area.y, area.height, show_head, separator_s);
         }
 
         // if there is more data than we can show, add an ellipsis to the column headers to hint at that
@@ -173,6 +154,11 @@ impl<'a> TableWidget<'a> {
         }
 
         for col in self.index_column..self.columns.len() {
+            let need_split_line = state.count_columns > 0 && width < area.width;
+            if need_split_line {
+                width += render_split_line(buf, width, area.y, area.height, show_head, separator_s);
+            }
+
             let mut column = create_column(data, col);
             let column_width = calculate_column_width(&column);
 
@@ -205,22 +191,26 @@ impl<'a> TableWidget<'a> {
             }
 
             if show_head {
-                let mut header = [head_row_text(&head, self.style_computer)];
+                let head_style = head_style(&head, self.style_computer);
                 if head_width > use_space as usize {
-                    truncate_str(&mut header[0].0, use_space as usize)
+                    truncate_str(&mut head, use_space as usize)
                 }
+                let head_iter = [(&head, head_style)].into_iter();
 
+                // we don't change width here cause the whole column have the same width; so we add it when we print data
                 let mut w = width;
                 w += render_space(buf, w, head_y, 1, padding_l);
-                w += render_column(buf, w, head_y, use_space, &header);
+                w += render_column(buf, w, head_y, use_space, head_iter);
                 w += render_space(buf, w, head_y, 1, padding_r);
 
                 let x = w - padding_r - use_space;
-                state.layout.push(&header[0].0, x, head_y, use_space, 1);
+                state.layout.push(&head, x, head_y, use_space, 1);
             }
 
+            let column_rows = column.iter().map(|(t, s)| (t, *s));
+
             width += render_space(buf, width, data_y, data_height, padding_l);
-            width += render_column(buf, width, data_y, use_space, &column);
+            width += render_column(buf, width, data_y, use_space, column_rows);
             width += render_space(buf, width, data_y, data_height, padding_r);
 
             for (row, (text, _)) in column.iter().enumerate() {
@@ -243,15 +233,7 @@ impl<'a> TableWidget<'a> {
         }
 
         if width < area.width {
-            width += render_vertical_line_with_split(
-                buf,
-                width,
-                data_y,
-                data_height,
-                show_head,
-                false,
-                splitline_s,
-            );
+            width += render_split_line(buf, width, area.y, area.height, show_head, separator_s);
         }
 
         let rest = area.width.saturating_sub(width);
@@ -263,17 +245,18 @@ impl<'a> TableWidget<'a> {
         }
     }
 
+    // header at the left; header is always 1 line
     fn render_table_vertical(self, area: Rect, buf: &mut Buffer, state: &mut TableWidgetState) {
         if area.width == 0 || area.height == 0 {
             return;
         }
 
-        let padding_l = self.style.column_padding_left as u16;
-        let padding_r = self.style.column_padding_right as u16;
+        let padding_l = self.config.column_padding_left as u16;
+        let padding_r = self.config.column_padding_right as u16;
 
-        let show_index = self.style.show_index;
-        let show_head = self.style.show_header;
-        let splitline_s = self.style.splitline_style;
+        let show_index = self.config.show_index;
+        let show_head = self.config.show_header;
+        let separator_s = self.config.separator_style;
 
         let mut left_w = 0;
 
@@ -295,7 +278,7 @@ impl<'a> TableWidget<'a> {
                 area.height,
                 false,
                 false,
-                splitline_s,
+                separator_s,
             );
         }
 
@@ -313,10 +296,9 @@ impl<'a> TableWidget<'a> {
                 return;
             }
 
-            let columns = columns
+            let columns_iter = columns
                 .iter()
-                .map(|s| head_row_text(s, self.style_computer))
-                .collect::<Vec<_>>();
+                .map(|s| (s.clone(), head_style(s, self.style_computer)));
 
             if !show_index {
                 let x = area.x + left_w;
@@ -327,19 +309,19 @@ impl<'a> TableWidget<'a> {
                     area.height,
                     false,
                     false,
-                    splitline_s,
+                    separator_s,
                 );
             }
 
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, 1, padding_l);
             let x = area.x + left_w;
-            left_w += render_column(buf, x, area.y, columns_width as u16, &columns);
+            left_w += render_column(buf, x, area.y, columns_width as u16, columns_iter);
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, 1, padding_r);
 
             let layout_x = left_w - padding_r - columns_width as u16;
-            for (i, (text, _)) in columns.iter().enumerate() {
+            for (i, text) in columns.iter().enumerate() {
                 state
                     .layout
                     .push(text, layout_x, area.y + i as u16, columns_width as u16, 1);
@@ -352,7 +334,7 @@ impl<'a> TableWidget<'a> {
                 area.height,
                 false,
                 false,
-                splitline_s,
+                separator_s,
             );
         }
 
@@ -362,12 +344,22 @@ impl<'a> TableWidget<'a> {
         state.count_rows = columns.len();
         state.count_columns = 0;
 
+        // note: is there a time where we would have more then 1 column?
+        // seems like not really; cause it's literally KV table, or am I wrong?
+
         for col in self.index_column..self.data.len() {
             let mut column =
                 self.data[col][self.index_row..self.index_row + columns.len()].to_vec();
             let column_width = calculate_column_width(&column);
             if column_width > u16::MAX as usize {
                 break;
+            }
+
+            // see KV comment; this block might never got used
+            let need_split_line = state.count_columns > 0 && left_w < area.width;
+            if need_split_line {
+                render_vertical_line(buf, area.x + left_w, area.y, area.height, separator_s);
+                left_w += 1;
             }
 
             let column_width = column_width as u16;
@@ -385,10 +377,12 @@ impl<'a> TableWidget<'a> {
                 break;
             }
 
+            let head_rows = column.iter().map(|(t, s)| (t, *s));
+
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, area.height, padding_l);
             let x = area.x + left_w;
-            left_w += render_column(buf, x, area.y, column_width, &column);
+            left_w += render_column(buf, x, area.y, column_width, head_rows);
             let x = area.x + left_w;
             left_w += render_space(buf, x, area.y, area.height, padding_r);
 
@@ -562,6 +556,51 @@ fn render_index(
     width
 }
 
+fn render_split_line(
+    buf: &mut Buffer,
+    x: u16,
+    y: u16,
+    height: u16,
+    has_head: bool,
+    style: NuStyle,
+) -> u16 {
+    if has_head {
+        render_vertical_split_line(buf, x, y, height, &[0], &[2], &[], style);
+    } else {
+        render_vertical_split_line(buf, x, y, height, &[], &[], &[], style);
+    }
+
+    1
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_vertical_split_line(
+    buf: &mut Buffer,
+    x: u16,
+    y: u16,
+    height: u16,
+    top_slit: &[u16],
+    inner_slit: &[u16],
+    bottom_slit: &[u16],
+    style: NuStyle,
+) -> u16 {
+    render_vertical_line(buf, x, y, height, style);
+
+    for &y in top_slit {
+        render_top_connector(buf, x, y, style);
+    }
+
+    for &y in inner_slit {
+        render_inner_connector(buf, x, y, style);
+    }
+
+    for &y in bottom_slit {
+        render_bottom_connector(buf, x, y, style);
+    }
+
+    1
+}
+
 fn render_vertical_line_with_split(
     buf: &mut Buffer,
     x: u16,
@@ -627,14 +666,14 @@ fn repeat_vertical(
     c: char,
     style: TextStyle,
 ) {
-    let text = std::iter::repeat(c)
-        .take(width as usize)
-        .collect::<String>();
+    let text = String::from(c);
     let style = text_style_to_tui_style(style);
-    let span = Span::styled(text, style);
+    let span = Span::styled(&text, style);
 
     for row in 0..height {
-        buf.set_span(x, y + row, &span, width);
+        for col in 0..width {
+            buf.set_span(x + col, y + row, &span, 1);
+        }
     }
 }
 
@@ -675,6 +714,12 @@ fn render_bottom_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
     buf.set_span(x, y, &span, 1);
 }
 
+fn render_inner_connector(buf: &mut Buffer, x: u16, y: u16, style: NuStyle) {
+    let style = nu_style_to_tui(style);
+    let span = Span::styled("┼", style);
+    buf.set_span(x, y, &span, 1);
+}
+
 fn calculate_column_width(column: &[NuText]) -> usize {
     column
         .iter()
@@ -684,35 +729,28 @@ fn calculate_column_width(column: &[NuText]) -> usize {
         .unwrap_or(0)
 }
 
-fn render_column(
+fn render_column<T, S>(
     buf: &mut ratatui::buffer::Buffer,
     x: u16,
     y: u16,
     available_width: u16,
-    rows: &[NuText],
-) -> u16 {
-    for (row, (text, style)) in rows.iter().enumerate() {
-        let style = text_style_to_tui_style(*style);
-        let text = strip_string(text);
-        let span = Span::styled(text, style);
+    rows: impl Iterator<Item = (T, S)>,
+) -> u16
+where
+    T: AsRef<str>,
+    S: Into<TextStyle>,
+{
+    for (row, (text, style)) in rows.enumerate() {
+        let style = text_style_to_tui_style(style.into());
+        let span = Span::styled(text.as_ref(), style);
         buf.set_span(x, y + row as u16, &span, available_width);
     }
 
     available_width
 }
 
-fn strip_string(text: &str) -> String {
-    String::from_utf8(strip_ansi_escapes::strip(text))
-        .map_err(|_| ())
-        .unwrap_or_else(|_| text.to_owned())
-}
-
-fn head_row_text(head: &str, style_computer: &StyleComputer) -> NuText {
-    (
-        String::from(head),
-        TextStyle::with_style(
-            Alignment::Center,
-            style_computer.compute("header", &Value::string(head, nu_protocol::Span::unknown())),
-        ),
-    )
+fn head_style(head: &str, style_computer: &StyleComputer) -> TextStyle {
+    let style =
+        style_computer.compute("header", &Value::string(head, nu_protocol::Span::unknown()));
+    TextStyle::with_style(Alignment::Center, style)
 }

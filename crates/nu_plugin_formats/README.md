@@ -12,7 +12,7 @@ A nushell plugin to convert data to nushell tables.
 
 # Usage
 1. compile the binary: `cargo build`
-2. register plugin(assume it's compiled in ./target/debug/):
+2. plugin add plugin(assume it's compiled in ./target/debug/):
 ```
-register ./target/debug/nu_plugin_formats
+plugin add ./target/debug/nu_plugin_formats
 ```

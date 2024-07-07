@@ -77,14 +77,17 @@ impl NuLazyFrame {
         Self::new(self.from_eager, new_frame)
     }
 
-    pub fn schema(&self) -> Result<NuSchema, ShellError> {
-        let internal_schema = self.lazy.schema().map_err(|e| ShellError::GenericError {
-            error: "Error getting schema from lazy frame".into(),
-            msg: e.to_string(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })?;
+    pub fn schema(&mut self) -> Result<NuSchema, ShellError> {
+        let internal_schema =
+            Arc::make_mut(&mut self.lazy)
+                .schema()
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error getting schema from lazy frame".into(),
+                    msg: e.to_string(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                })?;
         Ok(internal_schema.into())
     }
 
@@ -160,7 +163,15 @@ impl CustomValueSupport for NuLazyFrame {
             .unwrap_or_else(|_| "<NOT AVAILABLE>".to_string());
         Ok(Value::record(
             record! {
-                "plan" => Value::string(self.lazy.describe_plan(), span),
+                "plan" => Value::string(
+                    self.lazy.describe_plan().map_err(|e| ShellError::GenericError {
+                        error: "Error getting plan".into(),
+                        msg: e.to_string(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    })?,
+                    span),
                 "optimized_plan" => Value::string(optimized_plan, span),
             },
             span,

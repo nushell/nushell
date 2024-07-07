@@ -4,8 +4,9 @@ use nu_test_support::nu;
 fn error_label_works() {
     let actual = nu!("error make {msg:foo label:{text:unseen}}");
 
-    assert!(actual.err.contains("unseen"));
-    assert!(actual.err.contains("╰──"));
+    assert!(actual
+        .err
+        .contains("label at line 1, columns 1 to 10: unseen"));
 }
 
 #[test]

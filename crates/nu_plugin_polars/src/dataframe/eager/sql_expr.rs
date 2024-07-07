@@ -3,7 +3,8 @@ use polars::prelude::{col, lit, DataType, Expr, LiteralValue, PolarsResult as Re
 
 use sqlparser::ast::{
     ArrayElemTypeDef, BinaryOperator as SQLBinaryOperator, DataType as SQLDataType,
-    Expr as SqlExpr, Function as SQLFunction, Value as SqlValue, WindowType,
+    DuplicateTreatment, Expr as SqlExpr, Function as SQLFunction, FunctionArguments,
+    Value as SqlValue, WindowType,
 };
 
 fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
@@ -33,7 +34,7 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         SQLDataType::Interval => DataType::Duration(TimeUnit::Microseconds),
         SQLDataType::Array(array_type_def) => match array_type_def {
             ArrayElemTypeDef::AngleBracket(inner_type)
-            | ArrayElemTypeDef::SquareBracket(inner_type) => {
+            | ArrayElemTypeDef::SquareBracket(inner_type, _) => {
                 DataType::List(Box::new(map_sql_polars_datatype(inner_type)?))
             }
             _ => {
@@ -120,9 +121,7 @@ pub fn parse_sql_expr(expr: &SqlExpr) -> Result<Expr> {
         }
         SqlExpr::Function(sql_function) => parse_sql_function(sql_function)?,
         SqlExpr::Cast {
-            expr,
-            data_type,
-            format: _,
+            expr, data_type, ..
         } => cast_(parse_sql_expr(expr)?, data_type)?,
         SqlExpr::Nested(expr) => parse_sql_expr(expr)?,
         SqlExpr::Value(value) => literal_expr(value)?,
@@ -162,8 +161,17 @@ fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
     use sqlparser::ast::{FunctionArg, FunctionArgExpr};
     // Function name mostly do not have name space, so it mostly take the first args
     let function_name = sql_function.name.0[0].value.to_ascii_lowercase();
-    let args = sql_function
-        .args
+
+    // One day this should support the additional argument types supported with 0.40
+    let (args, distinct) = match &sql_function.args {
+        FunctionArguments::List(list) => (
+            list.args.clone(),
+            list.duplicate_treatment == Some(DuplicateTreatment::Distinct),
+        ),
+        _ => (vec![], false),
+    };
+
+    let args = args
         .iter()
         .map(|arg| match arg {
             FunctionArg::Named { arg, .. } => arg,
@@ -174,15 +182,15 @@ fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
         match (
             function_name.as_str(),
             args.as_slice(),
-            sql_function.distinct,
+            distinct,
         ) {
-            ("sum", [FunctionArgExpr::Expr(expr)], false) => {
+            ("sum", [FunctionArgExpr::Expr(ref expr)], false) => {
                 apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.sum()
             }
-            ("count", [FunctionArgExpr::Expr(expr)], false) => {
+            ("count", [FunctionArgExpr::Expr(ref expr)], false) => {
                 apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.count()
             }
-            ("count", [FunctionArgExpr::Expr(expr)], true) => {
+            ("count", [FunctionArgExpr::Expr(ref expr)], true) => {
                 apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.n_unique()
             }
             // Special case for wildcard args to count function.

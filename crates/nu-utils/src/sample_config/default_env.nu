@@ -1,6 +1,6 @@
 # Nushell Environment Config File
 #
-# version = "0.94.2"
+# version = "0.95.1"
 
 def create_left_prompt [] {
     let dir = match (do --ignore-shell-errors { $env.PWD | path relative-to $nu.home-path }) {
@@ -77,6 +77,7 @@ $env.ENV_CONVERSIONS = {
 # The default for this is $nu.default-config-dir/scripts
 $env.NU_LIB_DIRS = [
     ($nu.default-config-dir | path join 'scripts') # add <nushell-config-dir>/scripts
+    ($nu.data-dir | path join 'completions') # default home for nushell completions
 ]
 
 # Directories to search for plugin binaries when calling register

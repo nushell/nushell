@@ -10,9 +10,9 @@ use self::{
 };
 use super::views::{Layout, View};
 use crate::{
-    nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
+    explore::ExploreConfig,
+    nu_common::{CtrlC, NuColor, NuConfig, NuStyle},
     registry::{Command, CommandRegistry},
-    util::map_into_value,
     views::{util::nu_style_to_tui, ViewConfig},
 };
 use anyhow::Result;
@@ -26,15 +26,14 @@ use crossterm::{
 };
 use events::UIEvents;
 use lscolors::LsColors;
-use nu_color_config::{lookup_ansi_color_style, StyleComputer};
+use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Record, Value,
+    Value,
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 use std::{
     cmp::min,
-    collections::HashMap,
     io::{self, Stdout},
     result,
     sync::atomic::Ordering,
@@ -42,7 +41,6 @@ use std::{
 
 pub type Frame<'a> = ratatui::Frame<'a>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
-pub type ConfigMap = HashMap<String, Value>;
 
 #[derive(Debug, Clone)]
 pub struct Pager<'a> {
@@ -73,19 +71,6 @@ struct CommandBuf {
     cmd_exec_info: Option<String>,
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct StyleConfig {
-    pub status_info: NuStyle,
-    pub status_success: NuStyle,
-    pub status_warn: NuStyle,
-    pub status_error: NuStyle,
-    pub status_bar_background: NuStyle,
-    pub status_bar_text: NuStyle,
-    pub cmd_bar_text: NuStyle,
-    pub cmd_bar_background: NuStyle,
-    pub highlight: NuStyle,
-}
-
 impl<'a> Pager<'a> {
     pub fn new(config: PagerConfig<'a>) -> Self {
         Self {
@@ -100,45 +85,47 @@ impl<'a> Pager<'a> {
         self.message = Some(text.into());
     }
 
-    pub fn set_config(&mut self, path: &[String], value: Value) -> bool {
-        let path = path.iter().map(|s| s.as_str()).collect::<Vec<_>>();
-
-        match &path[..] {
-            ["status_bar_text"] => value_as_style(&mut self.config.style.status_bar_text, &value),
-            ["status_bar_background"] => {
-                value_as_style(&mut self.config.style.status_bar_background, &value)
-            }
-            ["command_bar_text"] => value_as_style(&mut self.config.style.cmd_bar_text, &value),
-            ["command_bar_background"] => {
-                value_as_style(&mut self.config.style.cmd_bar_background, &value)
-            }
-            ["highlight"] => value_as_style(&mut self.config.style.highlight, &value),
-            ["status", "info"] => value_as_style(&mut self.config.style.status_info, &value),
-            ["status", "success"] => value_as_style(&mut self.config.style.status_success, &value),
-            ["status", "warn"] => value_as_style(&mut self.config.style.status_warn, &value),
-            ["status", "error"] => value_as_style(&mut self.config.style.status_error, &value),
-            path => set_config(&mut self.config.config, path, value),
-        }
-    }
-
     pub fn run(
         &mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
         ctrlc: CtrlC,
-        mut view: Option<Page>,
+        view: Option<Page>,
         commands: CommandRegistry,
     ) -> Result<Option<Value>> {
-        if let Some(page) = &mut view {
-            page.view.setup(ViewConfig::new(
-                self.config.nu_config,
-                self.config.style_computer,
-                &self.config.config,
-                self.config.lscolors,
-            ))
+        // setup terminal
+        enable_raw_mode()?;
+        let mut stdout = io::stdout();
+        execute!(stdout, EnterAlternateScreen, Clear(ClearType::All))?;
+
+        let backend = CrosstermBackend::new(stdout);
+        let mut terminal = Terminal::new(backend)?;
+
+        let mut info = ViewInfo {
+            status: Some(Report::default()),
+            ..Default::default()
+        };
+
+        if let Some(text) = self.message.take() {
+            info.status = Some(Report::message(text, Severity::Info));
         }
 
-        run_pager(engine_state, stack, ctrlc, self, view, commands)
+        let result = render_ui(
+            &mut terminal,
+            engine_state,
+            stack,
+            ctrlc,
+            self,
+            &mut info,
+            view,
+            commands,
+        )?;
+
+        // restore terminal
+        disable_raw_mode()?;
+        execute!(io::stdout(), LeaveAlternateScreen)?;
+
+        Ok(result)
     }
 }
 
@@ -153,10 +140,9 @@ pub enum Transition {
 #[derive(Debug, Clone)]
 pub struct PagerConfig<'a> {
     pub nu_config: &'a NuConfig,
+    pub explore_config: &'a ExploreConfig,
     pub style_computer: &'a StyleComputer<'a>,
     pub lscolors: &'a LsColors,
-    pub config: ConfigMap,
-    pub style: StyleConfig,
     // If true, when quitting output the value of the cell the cursor was on
     pub peek_value: bool,
     pub tail: bool,
@@ -165,63 +151,21 @@ pub struct PagerConfig<'a> {
 impl<'a> PagerConfig<'a> {
     pub fn new(
         nu_config: &'a NuConfig,
+        explore_config: &'a ExploreConfig,
         style_computer: &'a StyleComputer,
         lscolors: &'a LsColors,
-        config: ConfigMap,
+        peek_value: bool,
+        tail: bool,
     ) -> Self {
         Self {
             nu_config,
+            explore_config,
             style_computer,
-            config,
             lscolors,
-            peek_value: false,
-            tail: false,
-            style: StyleConfig::default(),
+            peek_value,
+            tail,
         }
     }
-}
-
-fn run_pager(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    ctrlc: CtrlC,
-    pager: &mut Pager,
-    view: Option<Page>,
-    commands: CommandRegistry,
-) -> Result<Option<Value>> {
-    // setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, Clear(ClearType::All))?;
-
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
-
-    let mut info = ViewInfo {
-        status: Some(Report::default()),
-        ..Default::default()
-    };
-
-    if let Some(text) = pager.message.take() {
-        info.status = Some(Report::message(text, Severity::Info));
-    }
-
-    let result = render_ui(
-        &mut terminal,
-        engine_state,
-        stack,
-        ctrlc,
-        pager,
-        &mut info,
-        view,
-        commands,
-    )?;
-
-    // restore terminal
-    disable_raw_mode()?;
-    execute!(io::stdout(), LeaveAlternateScreen)?;
-
-    Ok(result)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -401,7 +345,7 @@ fn draw_frame(
 
     draw_info(f, pager, info);
 
-    highlight_search_results(f, pager, layout, pager.config.style.highlight);
+    highlight_search_results(f, pager, layout, pager.config.explore_config.highlight);
     set_cursor_cmd_bar(f, area, pager);
 }
 
@@ -411,19 +355,24 @@ fn draw_info(f: &mut Frame, pager: &mut Pager<'_>, info: ViewInfo) {
     if let Some(report) = info.status {
         let last_2nd_line = area.bottom().saturating_sub(2);
         let area = Rect::new(area.left(), last_2nd_line, area.width, 1);
-        render_status_bar(f, area, report, &pager.config.style);
+        render_status_bar(f, area, report, pager.config.explore_config);
     }
 
     {
         let last_line = area.bottom().saturating_sub(1);
         let area = Rect::new(area.left(), last_line, area.width, 1);
-        render_cmd_bar(f, area, pager, info.report, &pager.config.style);
+        render_cmd_bar(f, area, pager, info.report, pager.config.explore_config);
     }
 }
 
 fn create_view_config<'a>(pager: &'a Pager<'_>) -> ViewConfig<'a> {
     let cfg = &pager.config;
-    ViewConfig::new(cfg.nu_config, cfg.style_computer, &cfg.config, cfg.lscolors)
+    ViewConfig::new(
+        cfg.nu_config,
+        cfg.explore_config,
+        cfg.style_computer,
+        cfg.lscolors,
+    )
 }
 
 fn pager_run_command(
@@ -463,16 +412,7 @@ fn run_command(
             let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
             let transition = command.react(engine_state, stack, pager, value)?;
             match transition {
-                Transition::Ok => {
-                    // so we basically allow a change of a config inside a command,
-                    // and cause of this we wanna update all of our views.
-                    //
-                    // THOUGH: MOST LIKELY IT WON'T BE CHANGED AND WE DO A WASTE.......
-
-                    update_view_stack_setup(view_stack, &pager.config);
-
-                    Ok(CmdResult::new(false, false, String::new()))
-                }
+                Transition::Ok => Ok(CmdResult::new(false, false, String::new())),
                 Transition::Exit => Ok(CmdResult::new(true, false, String::new())),
                 Transition::Cmd { .. } => todo!("not used so far"),
             }
@@ -480,34 +420,25 @@ fn run_command(
         Command::View { mut cmd, stackable } => {
             // what we do we just replace the view.
             let value = view_stack.curr_view.as_mut().and_then(|p| p.view.exit());
-            let mut new_view = cmd.spawn(engine_state, stack, value)?;
+            let view_cfg = ViewConfig::new(
+                pager.config.nu_config,
+                pager.config.explore_config,
+                pager.config.style_computer,
+                pager.config.lscolors,
+            );
+
+            let new_view = cmd.spawn(engine_state, stack, value, &view_cfg)?;
             if let Some(view) = view_stack.curr_view.take() {
                 if !view.stackable {
                     view_stack.stack.push(view);
                 }
             }
 
-            update_view_setup(&mut new_view, &pager.config);
             view_stack.curr_view = Some(Page::raw(new_view, stackable));
 
             Ok(CmdResult::new(false, true, cmd.name().to_owned()))
         }
     }
-}
-
-fn update_view_stack_setup(view_stack: &mut ViewStack, cfg: &PagerConfig<'_>) {
-    if let Some(page) = view_stack.curr_view.as_mut() {
-        update_view_setup(&mut page.view, cfg);
-    }
-
-    for page in &mut view_stack.stack {
-        update_view_setup(&mut page.view, cfg);
-    }
-}
-
-fn update_view_setup(view: &mut Box<dyn View>, cfg: &PagerConfig<'_>) {
-    let cfg = ViewConfig::new(cfg.nu_config, cfg.style_computer, &cfg.config, cfg.lscolors);
-    view.setup(cfg);
 }
 
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
@@ -528,7 +459,7 @@ fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     }
 }
 
-fn render_status_bar(f: &mut Frame, area: Rect, report: Report, theme: &StyleConfig) {
+fn render_status_bar(f: &mut Frame, area: Rect, report: Report, theme: &ExploreConfig) {
     let msg_style = report_msg_style(&report, theme, theme.status_bar_text);
     let mut status_bar = create_status_bar(report);
     status_bar.set_background_style(theme.status_bar_background);
@@ -549,11 +480,11 @@ fn create_status_bar(report: Report) -> StatusBar {
     )
 }
 
-fn report_msg_style(report: &Report, theme: &StyleConfig, style: NuStyle) -> NuStyle {
+fn report_msg_style(report: &Report, config: &ExploreConfig, style: NuStyle) -> NuStyle {
     if matches!(report.level, Severity::Info) {
         style
     } else {
-        report_level_style(report.level, theme)
+        report_level_style(report.level, config)
     }
 }
 
@@ -562,15 +493,15 @@ fn render_cmd_bar(
     area: Rect,
     pager: &Pager,
     report: Option<Report>,
-    theme: &StyleConfig,
+    config: &ExploreConfig,
 ) {
     if let Some(report) = report {
-        let style = report_msg_style(&report, theme, theme.cmd_bar_text);
+        let style = report_msg_style(&report, config, config.cmd_bar_text);
         let bar = CommandBar::new(
             &report.message,
             &report.context1,
             style,
-            theme.cmd_bar_background,
+            config.cmd_bar_background,
         );
 
         f.render_widget(bar, area);
@@ -578,16 +509,16 @@ fn render_cmd_bar(
     }
 
     if pager.cmd_buf.is_cmd_input {
-        render_cmd_bar_cmd(f, area, pager, theme);
+        render_cmd_bar_cmd(f, area, pager, config);
         return;
     }
 
     if pager.search_buf.is_search_input || !pager.search_buf.buf_cmd_input.is_empty() {
-        render_cmd_bar_search(f, area, pager, theme);
+        render_cmd_bar_search(f, area, pager, config);
     }
 }
 
-fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &StyleConfig) {
+fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, config: &ExploreConfig) {
     if pager.search_buf.search_results.is_empty() && !pager.search_buf.is_search_input {
         let message = format!("Pattern not found: {}", pager.search_buf.buf_cmd_input);
         let style = NuStyle {
@@ -596,7 +527,7 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &S
             ..Default::default()
         };
 
-        let bar = CommandBar::new(&message, "", style, theme.cmd_bar_background);
+        let bar = CommandBar::new(&message, "", style, config.cmd_bar_background);
         f.render_widget(bar, area);
         return;
     }
@@ -615,11 +546,11 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, theme: &S
         format!("[{index}/{total}]")
     };
 
-    let bar = CommandBar::new(&text, &info, theme.cmd_bar_text, theme.cmd_bar_background);
+    let bar = CommandBar::new(&text, &info, config.cmd_bar_text, config.cmd_bar_background);
     f.render_widget(bar, area);
 }
 
-fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, theme: &StyleConfig) {
+fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, config: &ExploreConfig) {
     let mut input = pager.cmd_buf.buf_cmd2.as_str();
     if input.len() > area.width as usize + 1 {
         // in such case we take last max_cmd_len chars
@@ -637,7 +568,7 @@ fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, theme: &StyleCon
     let prefix = ':';
     let text = format!("{prefix}{input}");
 
-    let bar = CommandBar::new(&text, "", theme.cmd_bar_text, theme.cmd_bar_background);
+    let bar = CommandBar::new(&text, "", config.cmd_bar_text, config.cmd_bar_background);
     f.render_widget(bar, area);
 }
 
@@ -998,72 +929,12 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
     }
 }
 
-fn value_as_style(style: &mut nu_ansi_term::Style, value: &Value) -> bool {
-    match value.coerce_str() {
-        Ok(s) => {
-            *style = lookup_ansi_color_style(&s);
-            true
-        }
-        Err(_) => false,
-    }
-}
-
-fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> bool {
-    if path.is_empty() {
-        return false;
-    }
-
-    let key = path[0];
-
-    if !hm.contains_key(key) {
-        hm.insert(
-            key.to_string(),
-            Value::record(Record::new(), NuSpan::unknown()),
-        );
-    }
-
-    let val = hm.get_mut(key).expect("...");
-
-    if path.len() == 1 {
-        *val = value;
-        return true;
-    }
-
-    match val {
-        Value::Record { val: record, .. } => {
-            if path.len() == 2 {
-                let key = path[1];
-
-                record.to_mut().insert(key, value);
-            } else {
-                let mut hm2: HashMap<String, Value> = HashMap::new();
-                for (k, v) in record.iter() {
-                    hm2.insert(k.to_string(), v.clone());
-                }
-
-                let result = set_config(&mut hm2, &path[1..], value);
-                if !result {
-                    *val = map_into_value(hm2);
-                }
-
-                if path.len() == 2 {
-                } else {
-                    return false;
-                }
-            }
-
-            true
-        }
-        _ => false,
-    }
-}
-
-fn report_level_style(level: Severity, theme: &StyleConfig) -> NuStyle {
+fn report_level_style(level: Severity, config: &ExploreConfig) -> NuStyle {
     match level {
-        Severity::Info => theme.status_info,
-        Severity::Success => theme.status_success,
-        Severity::Warn => theme.status_warn,
-        Severity::Err => theme.status_error,
+        Severity::Info => config.status_info,
+        Severity::Success => config.status_success,
+        Severity::Warn => config.status_warn,
+        Severity::Err => config.status_error,
     }
 }
 

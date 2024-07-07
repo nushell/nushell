@@ -208,11 +208,13 @@ fn eval_external(
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
-        .ok_or(ShellError::ExternalNotSupported { span: head.span })?;
+        .ok_or(ShellError::ExternalNotSupported {
+            span: head.span(&engine_state),
+        })?;
 
     let command = engine_state.get_decl(decl_id);
 
-    let mut call = Call::new(head.span);
+    let mut call = Call::new(head.span(&engine_state));
 
     call.add_positional(head.clone());
 
@@ -712,7 +714,7 @@ impl Eval for EvalRuntime {
         args: &[ExternalArgument],
         _: Span,
     ) -> Result<Value, ShellError> {
-        let span = head.span;
+        let span = head.span(&engine_state);
         // FIXME: protect this collect with ctrl-c
         eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span)
     }
@@ -779,9 +781,11 @@ impl Eval for EvalRuntime {
                 let var_info = engine_state.get_var(*var_id);
                 if var_info.mutable {
                     stack.add_var(*var_id, rhs);
-                    Ok(Value::nothing(lhs.span))
+                    Ok(Value::nothing(lhs.span(&engine_state)))
                 } else {
-                    Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                    Err(ShellError::AssignmentRequiresMutableVar {
+                        lhs_span: lhs.span(&engine_state),
+                    })
                 }
             }
             Expr::FullCellPath(cell_path) => {
@@ -797,7 +801,7 @@ impl Eval for EvalRuntime {
                                 // Reject attempts to assign to the entire $env
                                 if cell_path.tail.is_empty() {
                                     return Err(ShellError::CannotReplaceEnv {
-                                        span: cell_path.head.span,
+                                        span: cell_path.head.span(&engine_state),
                                     });
                                 }
 
@@ -837,15 +841,21 @@ impl Eval for EvalRuntime {
                                 lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                 stack.add_var(*var_id, lhs);
                             }
-                            Ok(Value::nothing(cell_path.head.span))
+                            Ok(Value::nothing(cell_path.head.span(&engine_state)))
                         } else {
-                            Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                            Err(ShellError::AssignmentRequiresMutableVar {
+                                lhs_span: lhs.span(&engine_state),
+                            })
                         }
                     }
-                    _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+                    _ => Err(ShellError::AssignmentRequiresVar {
+                        lhs_span: lhs.span(&engine_state),
+                    }),
                 }
             }
-            _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+            _ => Err(ShellError::AssignmentRequiresVar {
+                lhs_span: lhs.span(&engine_state),
+            }),
         }
     }
 
@@ -882,8 +892,8 @@ impl Eval for EvalRuntime {
         Ok(Value::string(name, span))
     }
 
-    fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
-        Ok(Value::nothing(expr.span))
+    fn unreachable(engine_state: &EngineState, expr: &Expression) -> Result<Value, ShellError> {
+        Ok(Value::nothing(expr.span(&engine_state)))
     }
 }
 

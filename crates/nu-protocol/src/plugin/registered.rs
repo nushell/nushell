@@ -1,6 +1,6 @@
 use std::{any::Any, sync::Arc};
 
-use crate::{PluginGcConfig, PluginIdentity, ShellError};
+use crate::{PluginGcConfig, PluginIdentity, PluginMetadata, ShellError};
 
 /// Trait for plugins registered in the [`EngineState`](crate::engine::EngineState).
 pub trait RegisteredPlugin: Send + Sync {
@@ -13,6 +13,12 @@ pub trait RegisteredPlugin: Send + Sync {
     /// Process ID of the plugin executable, if running.
     fn pid(&self) -> Option<u32>;
 
+    /// Get metadata for the plugin, if set.
+    fn metadata(&self) -> Option<PluginMetadata>;
+
+    /// Set metadata for the plugin.
+    fn set_metadata(&self, metadata: Option<PluginMetadata>);
+
     /// Set garbage collection config for the plugin.
     fn set_gc_config(&self, gc_config: &PluginGcConfig);
 
@@ -20,7 +26,7 @@ pub trait RegisteredPlugin: Send + Sync {
     fn stop(&self) -> Result<(), ShellError>;
 
     /// Stop the plugin and reset any state so that we don't make any assumptions about the plugin
-    /// next time it launches. This is used on `register`.
+    /// next time it launches. This is used on `plugin add`.
     fn reset(&self) -> Result<(), ShellError>;
 
     /// Cast the pointer to an [`Any`] so that its concrete type can be retrieved.

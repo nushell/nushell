@@ -1,6 +1,7 @@
 use chrono::{Datelike, Local, NaiveDate};
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
+use nu_protocol::ast::{Expr, Expression};
 
 use std::collections::VecDeque;
 
@@ -14,6 +15,7 @@ struct Arguments {
     month_names: bool,
     full_year: Option<Spanned<i64>>,
     week_start: Option<Spanned<String>>,
+    as_table: bool,
 }
 
 impl Command for Cal {
@@ -26,6 +28,7 @@ impl Command for Cal {
             .switch("year", "Display the year column", Some('y'))
             .switch("quarter", "Display the quarter column", Some('q'))
             .switch("month", "Display the month column", Some('m'))
+            .switch("as-table", "output as a table", Some('t'))
             .named(
                 "full-year",
                 SyntaxShape::Int,
@@ -43,7 +46,10 @@ impl Command for Cal {
                 "Display the month names instead of integers",
                 None,
             )
-            .input_output_types(vec![(Type::Nothing, Type::table())])
+            .input_output_types(vec![
+                (Type::Nothing, Type::table()),
+                (Type::Nothing, Type::String),
+            ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .category(Category::Generators)
     }
@@ -75,8 +81,13 @@ impl Command for Cal {
                 result: None,
             },
             Example {
-                description: "This month's calendar with the week starting on monday",
+                description: "This month's calendar with the week starting on Monday",
                 example: "cal --week-start mo",
+                result: None,
+            },
+            Example {
+                description: "How many 'Friday the Thirteenths' occurred in 2015?",
+                example: "cal --as-table --full-year 2015 | where fr == 13 | length",
                 result: None,
             },
         ]
@@ -101,6 +112,7 @@ pub fn cal(
         quarter: call.has_flag(engine_state, stack, "quarter")?,
         full_year: call.get_flag(engine_state, stack, "full-year")?,
         week_start: call.get_flag(engine_state, stack, "week-start")?,
+        as_table: call.has_flag(engine_state, stack, "as-table")?,
     };
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
@@ -131,7 +143,27 @@ pub fn cal(
         style_computer,
     )?;
 
-    Ok(Value::list(calendar_vec_deque.into_iter().collect(), tag).into_pipeline_data())
+    let mut table_no_index = Call::new(Span::unknown());
+    table_no_index.add_named((
+        Spanned {
+            item: "index".to_string(),
+            span: Span::unknown(),
+        },
+        None,
+        Some(Expression::new_unknown(
+            Expr::Bool(false),
+            Span::unknown(),
+            Type::Bool,
+        )),
+    ));
+
+    let cal_table_output =
+        Value::list(calendar_vec_deque.into_iter().collect(), tag).into_pipeline_data();
+    if !arguments.as_table {
+        crate::Table.run(engine_state, stack, &table_no_index, cal_table_output)
+    } else {
+        Ok(cal_table_output)
+    }
 }
 
 fn get_invalid_year_shell_error(head: Span) -> ShellError {

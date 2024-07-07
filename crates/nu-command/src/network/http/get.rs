@@ -5,6 +5,8 @@ use crate::network::http::client::{
 };
 use nu_engine::command_prelude::*;
 
+use super::client::HttpBody;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -180,7 +182,7 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request.clone(), None, None, ctrl_c);
+    let response = send_request(request.clone(), HttpBody::None, None, ctrl_c);
 
     let request_flags = RequestFlags {
         raw: args.raw,

@@ -7,7 +7,7 @@
 # decode and encode information that is read and written to stdin and stdout
 #
 # To register the plugin use:
-# 	register <path-to-py-file>
+# 	plugin add <path-to-py-file>
 #
 # Be careful with the spans. Miette will crash if a span is outside the
 # size of the contents vector. We strongly suggest using the span found in the
@@ -27,7 +27,8 @@ import sys
 import json
 
 
-NUSHELL_VERSION = "0.94.2"
+NUSHELL_VERSION = "0.95.1"
+PLUGIN_VERSION = "0.1.0" # bump if you change commands!
 
 
 def signatures():
@@ -124,7 +125,7 @@ def process_call(id, plugin_call):
     span = plugin_call["call"]["head"]
 
     # Creates a Value of type List that will be encoded and sent to Nushell
-    f = lambda x, y: {
+    def f(x, y): return {
         "Int": {
             "val": x * y,
             "span": span
@@ -169,7 +170,7 @@ def tell_nushell_hello():
     """
     hello = {
         "Hello": {
-            "protocol": "nu-plugin", # always this value
+            "protocol": "nu-plugin",  # always this value
             "version": NUSHELL_VERSION,
             "features": []
         }
@@ -228,7 +229,13 @@ def handle_input(input):
         exit(0)
     elif "Call" in input:
         [id, plugin_call] = input["Call"]
-        if plugin_call == "Signature":
+        if plugin_call == "Metadata":
+            write_response(id, {
+                "Metadata": {
+                    "version": PLUGIN_VERSION,
+                }
+            })
+        elif plugin_call == "Signature":
             write_response(id, signatures())
         elif "Run" in plugin_call:
             process_call(id, plugin_call["Run"])
@@ -245,6 +252,7 @@ def plugin():
     for line in sys.stdin:
         input = json.loads(line)
         handle_input(input)
+
 
 if __name__ == "__main__":
     if len(sys.argv) == 2 and sys.argv[1] == "--stdio":
