@@ -43,7 +43,7 @@ use std::{
     io::{self, IsTerminal, Write},
     panic::{catch_unwind, AssertUnwindSafe},
     path::{Path, PathBuf},
-    sync::{atomic::Ordering, Arc},
+    sync::Arc,
     time::{Duration, Instant},
 };
 use sysinfo::System;
@@ -271,11 +271,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("merge env", start_time, use_color);
 
     start_time = std::time::Instant::now();
-    // Reset the ctrl-c handler
-    if let Some(ctrlc) = &mut engine_state.ctrlc {
-        ctrlc.store(false, Ordering::SeqCst);
-    }
-    perf!("reset ctrlc", start_time, use_color);
+    engine_state.reset_signals();
+    perf!("reset signals", start_time, use_color);
 
     start_time = std::time::Instant::now();
     // Right before we start our prompt and take input from the user,

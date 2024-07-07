@@ -3,6 +3,7 @@ use std::io::{self, Read, Write};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
+use nu_protocol::Signals;
 use num_traits::ToPrimitive;
 
 pub struct Arguments {
@@ -127,31 +128,36 @@ fn into_bits(
         ))
     } else {
         let args = Arguments { cell_paths };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
     }
 }
 
 fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
     if let Some(mut reader) = stream.reader() {
         let mut is_first = true;
-        ByteStream::from_fn(head, None, ByteStreamType::String, move |buffer| {
-            let mut byte = [0];
-            if reader.read(&mut byte[..]).err_span(head)? > 0 {
-                // Format the byte as bits
-                if is_first {
-                    is_first = false;
+        ByteStream::from_fn(
+            head,
+            Signals::empty(),
+            ByteStreamType::String,
+            move |buffer| {
+                let mut byte = [0];
+                if reader.read(&mut byte[..]).err_span(head)? > 0 {
+                    // Format the byte as bits
+                    if is_first {
+                        is_first = false;
+                    } else {
+                        buffer.push(b' ');
+                    }
+                    write!(buffer, "{:08b}", byte[0]).expect("format failed");
+                    Ok(true)
                 } else {
-                    buffer.push(b' ');
+                    // EOF
+                    Ok(false)
                 }
-                write!(buffer, "{:08b}", byte[0]).expect("format failed");
-                Ok(true)
-            } else {
-                // EOF
-                Ok(false)
-            }
-        })
+            },
+        )
     } else {
-        ByteStream::read(io::empty(), head, None, ByteStreamType::String)
+        ByteStream::read(io::empty(), head, Signals::empty(), ByteStreamType::String)
     }
 }
 

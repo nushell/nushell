@@ -37,6 +37,7 @@ impl Command for Loop {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let block_id = call
             .positional_nth(0)
             .expect("checked through parser")
@@ -49,9 +50,7 @@ impl Command for Loop {
         let stack = &mut stack.push_redirection(None, None);
 
         loop {
-            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-                break;
-            }
+            engine_state.signals().check(head)?;
 
             match eval_block(engine_state, stack, block, PipelineData::empty()) {
                 Err(ShellError::Break { .. }) => {

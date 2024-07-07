@@ -1,10 +1,7 @@
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
-use nu_protocol::{record, ShellError, Span, Value};
-use std::{
-    path::PathBuf,
-    sync::{atomic::AtomicBool, Arc},
-};
+use nu_protocol::{record, ShellError, Signals, Span, Value};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct DirBuilder {
@@ -82,8 +79,9 @@ impl DirInfo {
         path: impl Into<PathBuf>,
         params: &DirBuilder,
         depth: Option<u64>,
-        ctrl_c: Option<Arc<AtomicBool>>,
-    ) -> Self {
+        span: Span,
+        signals: &Signals,
+    ) -> Result<Self, ShellError> {
         let path = path.into();
 
         let mut s = Self {
@@ -107,14 +105,12 @@ impl DirInfo {
         match std::fs::read_dir(&s.path) {
             Ok(d) => {
                 for f in d {
-                    if nu_utils::ctrl_c::was_pressed(&ctrl_c) {
-                        break;
-                    }
+                    signals.check(span)?;
 
                     match f {
                         Ok(i) => match i.file_type() {
                             Ok(t) if t.is_dir() => {
-                                s = s.add_dir(i.path(), depth, params, ctrl_c.clone())
+                                s = s.add_dir(i.path(), depth, params, span, signals)?
                             }
                             Ok(_t) => s = s.add_file(i.path(), params),
                             Err(e) => s = s.add_error(e.into()),
@@ -125,7 +121,7 @@ impl DirInfo {
             }
             Err(e) => s = s.add_error(e.into()),
         }
-        s
+        Ok(s)
     }
 
     fn add_dir(
@@ -133,21 +129,22 @@ impl DirInfo {
         path: impl Into<PathBuf>,
         mut depth: Option<u64>,
         params: &DirBuilder,
-        ctrl_c: Option<Arc<AtomicBool>>,
-    ) -> Self {
+        span: Span,
+        signals: &Signals,
+    ) -> Result<Self, ShellError> {
         if let Some(current) = depth {
             if let Some(new) = current.checked_sub(1) {
                 depth = Some(new);
             } else {
-                return self;
+                return Ok(self);
             }
         }
 
-        let d = DirInfo::new(path, params, depth, ctrl_c);
+        let d = DirInfo::new(path, params, depth, span, signals)?;
         self.size += d.size;
         self.blocks += d.blocks;
         self.dirs.push(d);
-        self
+        Ok(self)
     }
 
     fn add_file(mut self, f: impl Into<PathBuf>, params: &DirBuilder) -> Self {

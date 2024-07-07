@@ -215,7 +215,11 @@ fn select(
             rows: unique_rows.into_iter().peekable(),
             current: 0,
         }
-        .into_pipeline_data_with_metadata(call_span, engine_state.ctrlc.clone(), metadata)
+        .into_pipeline_data_with_metadata(
+            call_span,
+            engine_state.signals().clone(),
+            metadata,
+        )
     } else {
         input
     };
@@ -255,7 +259,7 @@ fn select(
 
                     Ok(output.into_iter().into_pipeline_data_with_metadata(
                         call_span,
-                        engine_state.ctrlc.clone(),
+                        engine_state.signals().clone(),
                         metadata,
                     ))
                 }
@@ -304,7 +308,7 @@ fn select(
 
             Ok(values.into_pipeline_data_with_metadata(
                 call_span,
-                engine_state.ctrlc.clone(),
+                engine_state.signals().clone(),
                 metadata,
             ))
         }

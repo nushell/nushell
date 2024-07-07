@@ -89,7 +89,7 @@ impl Command for EachWhile {
                         }
                     })
                     .fuse()
-                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                    .into_pipeline_data(head, engine_state.signals().clone()))
             }
             PipelineData::ByteStream(stream, ..) => {
                 let span = stream.span();
@@ -107,7 +107,7 @@ impl Command for EachWhile {
                             }
                         })
                         .fuse()
-                        .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                        .into_pipeline_data(head, engine_state.signals().clone()))
                 } else {
                     Ok(PipelineData::Empty)
                 }

@@ -22,7 +22,7 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{Signature, PipelineData, Type, Value, LabeledError};
+/// # use nu_protocol::{LabeledError, PipelineData, Signals, Signature, Type, Value};
 /// struct LowercasePlugin;
 /// struct Lowercase;
 ///
@@ -55,7 +55,7 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 ///                 .map(|string| Value::string(string.to_lowercase(), span))
 ///                 // Errors in a stream should be returned as values.
 ///                 .unwrap_or_else(|err| Value::error(err, span))
-///         }, None)?)
+///         }, &Signals::empty())?)
 ///     }
 /// }
 ///
