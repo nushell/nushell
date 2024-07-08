@@ -8,7 +8,7 @@ use polars_ops::pivot::{pivot, PivotAgg};
 
 use crate::{
     dataframe::values::utils::convert_columns_string,
-    values::{CustomValueSupport, PolarsPluginObject},
+    values::{Column, CustomValueSupport, PolarsPluginObject},
     PolarsPlugin,
 };
 
@@ -72,7 +72,33 @@ impl PluginCommand for PivotDF {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                example: "[[name subject test_1 test_2]; [Cady maths 98 100] [Cady physics 99 100] [Karen maths 61 60] [Karen physics 58 60]] | polars into-df |  polars pivot --on [subject] --index [name] --values [test_1]",
+                description: "Perform a pivot in order to show individuals test score by subject", 
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "name".to_string(),
+                                vec![Value::string("Cady", Span::test_data()), Value::string("Karen", Span::test_data())],
+                            ),
+                            Column::new(
+                                "maths".to_string(),
+                                vec![Value::int(98, Span::test_data()), Value::int(61, Span::test_data())],
+                            ),
+                            Column::new(
+                                "physics".to_string(),
+                                vec![Value::int(99, Span::test_data()), Value::int(58, Span::test_data())],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::unknown())
+                )
+            }
+        ]
     }
 
     fn run(
