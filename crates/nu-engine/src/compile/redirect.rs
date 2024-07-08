@@ -28,13 +28,6 @@ impl RedirectModes {
         }
     }
 
-    pub(crate) fn with_pipe_out(&self, span: Span) -> Self {
-        RedirectModes {
-            out: Some(RedirectMode::Pipe.into_spanned(span)),
-            err: self.err.clone(),
-        }
-    }
-
     pub(crate) fn with_capture_out(&self, span: Span) -> Self {
         RedirectModes {
             out: Some(RedirectMode::Capture.into_spanned(span)),
@@ -134,7 +127,7 @@ pub(crate) fn finish_redirection(
             builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
         }
         Some(Spanned {
-            item: RedirectMode::Pipe | RedirectMode::Capture,
+            item: RedirectMode::Pipe,
             span,
         }) => {
             builder.push(Instruction::CheckErrRedirected { src: out_reg }.into_spanned(span))?;

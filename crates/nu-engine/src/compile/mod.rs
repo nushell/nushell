@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::{Block, Pipeline, PipelineRedirection, RedirectionSource},
     engine::StateWorkingSet,
-    ir::{Instruction, IrBlock},
+    ir::{Instruction, IrBlock, RedirectMode},
     CompileError, IntoSpanned, RegId, Span,
 };
 
@@ -113,20 +113,24 @@ fn compile_pipeline(
         // element, then it's from whatever is passed in as the mode to use.
 
         let next_redirect_modes = if let Some(next_element) = iter.peek() {
-            // If there's a next element we always pipe out *unless* this is a single redirection
-            // to stderr (e>|)
-            let modes = redirect_modes_of_expression(working_set, &next_element.expr, span)?;
-            if matches!(
-                element.redirection,
-                Some(PipelineRedirection::Single {
-                    source: RedirectionSource::Stderr,
-                    ..
-                })
-            ) {
-                modes
-            } else {
-                modes.with_pipe_out(next_element.pipe.unwrap_or(next_element.expr.span))
+            let mut modes = redirect_modes_of_expression(working_set, &next_element.expr, span)?;
+
+            // If there's a next element with no inherent redirection we always pipe out *unless*
+            // this is a single redirection to stderr (e>|)
+            if modes.out.is_none()
+                && !matches!(
+                    element.redirection,
+                    Some(PipelineRedirection::Single {
+                        source: RedirectionSource::Stderr,
+                        ..
+                    })
+                )
+            {
+                let pipe_span = next_element.pipe.unwrap_or(next_element.expr.span);
+                modes.out = Some(RedirectMode::Pipe.into_spanned(pipe_span));
             }
+
+            modes
         } else {
             redirect_modes
                 .take()
