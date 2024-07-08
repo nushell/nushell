@@ -18,11 +18,15 @@ impl Command for ViewIr {
                 SyntaxShape::Closure(None),
                 "the closure to see compiled code for",
             )
-            .switch("json", "Dump the raw block data as JSON", Some('j'))
+            .switch(
+                "json",
+                "Dump the raw block data as JSON (unstable)",
+                Some('j'),
+            )
     }
 
     fn usage(&self) -> &str {
-        "View the compiled IR code for a block of code"
+        "View the compiled IR code for a block of code."
     }
 
     fn run(
