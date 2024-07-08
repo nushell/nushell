@@ -21,6 +21,13 @@ impl RedirectModes {
         }
     }
 
+    pub(crate) fn caller(span: Span) -> RedirectModes {
+        RedirectModes {
+            out: Some(RedirectMode::Caller.into_spanned(span)),
+            err: Some(RedirectMode::Caller.into_spanned(span)),
+        }
+    }
+
     pub(crate) fn with_pipe_out(&self, span: Span) -> Self {
         RedirectModes {
             out: Some(RedirectMode::Pipe.into_spanned(span)),

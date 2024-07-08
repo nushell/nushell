@@ -254,6 +254,7 @@ impl fmt::Display for RedirectMode {
             RedirectMode::Null => write!(f, "null"),
             RedirectMode::Inherit => write!(f, "inherit"),
             RedirectMode::File { path, append } => write!(f, "file({path}, append={append})"),
+            RedirectMode::Caller => write!(f, "caller"),
         }
     }
 }

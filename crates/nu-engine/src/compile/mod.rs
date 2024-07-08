@@ -25,20 +25,19 @@ const BLOCK_INPUT: RegId = RegId(0);
 pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, CompileError> {
     let mut builder = BlockBuilder::new();
 
+    let span = block.span.unwrap_or(Span::unknown());
+
     compile_block(
         working_set,
         &mut builder,
         block,
-        RedirectModes::default(),
+        RedirectModes::caller(span),
         Some(BLOCK_INPUT),
         BLOCK_INPUT,
     )?;
 
     // A complete block has to end with a `return`
-    builder.push(
-        Instruction::Return { src: BLOCK_INPUT }
-            .into_spanned(block.span.unwrap_or(Span::unknown())),
-    )?;
+    builder.push(Instruction::Return { src: BLOCK_INPUT }.into_spanned(span))?;
 
     Ok(builder.finish())
 }

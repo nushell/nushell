@@ -371,13 +371,11 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::RedirectOut { mode } => {
-            let out_dest = eval_redirection(ctx, mode, *span)?;
-            ctx.redirect_out = Some(out_dest);
+            ctx.redirect_out = eval_redirection(ctx, mode, *span, RedirectionStream::Out)?;
             Ok(Continue)
         }
         Instruction::RedirectErr { mode } => {
-            let out_dest = eval_redirection(ctx, mode, *span)?;
-            ctx.redirect_err = Some(out_dest);
+            ctx.redirect_err = eval_redirection(ctx, mode, *span, RedirectionStream::Err)?;
             Ok(Continue)
         }
         Instruction::Call { decl_id, src_dst } => {
@@ -1093,17 +1091,23 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
     Ok(PipelineData::Value(value, metadata))
 }
 
+enum RedirectionStream {
+    Out,
+    Err,
+}
+
 /// Set up a [`Redirection`] from a [`RedirectMode`]
 fn eval_redirection(
     ctx: &mut EvalContext<'_>,
     mode: &RedirectMode,
     span: Span,
-) -> Result<Redirection, ShellError> {
+    which: RedirectionStream,
+) -> Result<Option<Redirection>, ShellError> {
     match mode {
-        RedirectMode::Pipe => Ok(Redirection::Pipe(OutDest::Pipe)),
-        RedirectMode::Capture => Ok(Redirection::Pipe(OutDest::Capture)),
-        RedirectMode::Null => Ok(Redirection::Pipe(OutDest::Null)),
-        RedirectMode::Inherit => Ok(Redirection::Pipe(OutDest::Inherit)),
+        RedirectMode::Pipe => Ok(Some(Redirection::Pipe(OutDest::Pipe))),
+        RedirectMode::Capture => Ok(Some(Redirection::Pipe(OutDest::Capture))),
+        RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
+        RedirectMode::Inherit => Ok(Some(Redirection::Pipe(OutDest::Inherit))),
         RedirectMode::File { path, append } => {
             let path = ctx.collect_reg(*path, span)?;
             let path_expanded =
@@ -1118,8 +1122,12 @@ fn eval_redirection(
                 .create(true)
                 .open(path_expanded)
                 .map_err(|err| err.into_spanned(span))?;
-            Ok(Redirection::File(file.into()))
+            Ok(Some(Redirection::File(file.into())))
         }
+        RedirectMode::Caller => Ok(match which {
+            RedirectionStream::Out => ctx.stack.pipe_stdout().cloned().map(Redirection::Pipe),
+            RedirectionStream::Err => ctx.stack.pipe_stderr().cloned().map(Redirection::Pipe),
+        }),
     }
 }
 

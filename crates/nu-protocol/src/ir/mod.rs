@@ -300,6 +300,8 @@ pub enum RedirectMode {
         path: RegId,
         append: bool,
     },
+    /// Use the redirection mode requested by the caller, for a pre-return call.
+    Caller,
 }
 
 /// Just a hack to allow `Arc<[u8]>` to be serialized and deserialized
