@@ -134,10 +134,21 @@ pub enum Instruction {
         name: DataSlice,
         info: Box<Expression>,
     },
-    /// Set the redirection for stdout for the next call (only)
+    /// Set the redirection for stdout for the next call (only).
+    ///
+    /// The register for a file redirection is not consumed.
     RedirectOut { mode: RedirectMode },
-    /// Set the redirection for stderr for the next call (only)
+    /// Set the redirection for stderr for the next call (only).
+    ///
+    /// The register for a file redirection is not consumed.
     RedirectErr { mode: RedirectMode },
+    /// Open a file for redirection, pushing it onto the file stack.
+    OpenFile { path: RegId, append: bool },
+    /// Write data from the register to a file. This is done to finish a file redirection, in case
+    /// an internal command or expression was evaluated rather than an external one.
+    WriteFile { src: RegId },
+    /// Pop a file used for redirection from the file stack.
+    CloseFile,
     /// Make a call. The input is taken from `src_dst`, and the output is placed in `src_dst`,
     /// overwriting it. The argument stack is used implicitly and cleared when the call ends.
     Call { decl_id: DeclId, src_dst: RegId },
@@ -295,11 +306,8 @@ pub enum RedirectMode {
     Capture,
     Null,
     Inherit,
-    /// File path to be used in register.
-    File {
-        path: RegId,
-        append: bool,
-    },
+    /// Use the file on the top of the file stack.
+    File,
     /// Use the redirection mode requested by the caller, for a pre-return call.
     Caller,
 }

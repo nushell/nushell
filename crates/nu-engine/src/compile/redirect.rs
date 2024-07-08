@@ -1,8 +1,8 @@
 use nu_protocol::{
     ast::{Expression, RedirectionTarget},
     engine::StateWorkingSet,
-    ir::RedirectMode,
-    IntoSpanned, OutDest, Span, Spanned,
+    ir::{Instruction, RedirectMode},
+    IntoSpanned, OutDest, RegId, Span, Spanned,
 };
 
 use super::{compile_expression, BlockBuilder, CompileError};
@@ -64,11 +64,14 @@ pub(crate) fn redirection_target_to_mode(
                 None,
                 path_reg,
             )?;
-            RedirectMode::File {
-                path: path_reg,
-                append: *append,
-            }
-            .into_spanned(*redir_span)
+            builder.push(
+                Instruction::OpenFile {
+                    path: path_reg,
+                    append: *append,
+                }
+                .into_spanned(*redir_span),
+            )?;
+            RedirectMode::File.into_spanned(*redir_span)
         }
         RedirectionTarget::Pipe { span } => (if separate {
             RedirectMode::Capture
@@ -95,6 +98,37 @@ pub(crate) fn redirect_modes_of_expression(
             .transpose()?
             .map(|mode| mode.into_spanned(redir_span)),
     })
+}
+
+/// Finish the redirection for an expression, writing to and closing files as necessary
+pub(crate) fn finish_redirection(
+    builder: &mut BlockBuilder,
+    modes: RedirectModes,
+    out_reg: RegId,
+) -> Result<(), CompileError> {
+    match modes.out {
+        Some(Spanned {
+            item: RedirectMode::File,
+            span,
+        }) => {
+            builder.push(Instruction::WriteFile { src: out_reg }.into_spanned(span))?;
+            builder.load_empty(out_reg)?;
+            builder.push(Instruction::CloseFile.into_spanned(span))?;
+        }
+        _ => (),
+    }
+
+    match modes.err {
+        Some(Spanned {
+            item: RedirectMode::File,
+            span,
+        }) => {
+            builder.push(Instruction::CloseFile.into_spanned(span))?;
+        }
+        _ => (),
+    }
+
+    Ok(())
 }
 
 pub(crate) fn out_dest_to_redirect_mode(out_dest: OutDest) -> Result<RedirectMode, CompileError> {

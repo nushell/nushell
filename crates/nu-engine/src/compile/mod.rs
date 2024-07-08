@@ -154,20 +154,22 @@ fn compile_pipeline(
             },
         };
 
-        let out_mode = spec_redirect_modes.out.or(next_redirect_modes.out);
-        let err_mode = spec_redirect_modes.err.or(next_redirect_modes.err);
+        let redirect_modes = RedirectModes {
+            out: spec_redirect_modes.out.or(next_redirect_modes.out),
+            err: spec_redirect_modes.err.or(next_redirect_modes.err),
+        };
 
         compile_expression(
             working_set,
             builder,
             &element.expr,
-            RedirectModes {
-                out: out_mode,
-                err: err_mode,
-            },
+            redirect_modes.clone(),
             in_reg,
             out_reg,
         )?;
+
+        // Clean up the redirection
+        finish_redirection(builder, redirect_modes, out_reg)?;
 
         // The next pipeline element takes input from this output
         in_reg = Some(out_reg);

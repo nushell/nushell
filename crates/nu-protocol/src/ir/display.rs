@@ -119,6 +119,15 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::RedirectErr { mode } => {
                 write!(f, "{:WIDTH$} {mode}", "redirect-err")
             }
+            Instruction::OpenFile { path, append } => {
+                write!(f, "{:WIDTH$} {path}, append = {append:?}", "open-file")
+            }
+            Instruction::WriteFile { src } => {
+                write!(f, "{:WIDTH$} {src}", "write-file")
+            }
+            Instruction::CloseFile => {
+                write!(f, "{:WIDTH$}", "close-file")
+            }
             Instruction::Call { decl_id, src_dst } => {
                 let decl = FmtDecl::new(self.engine_state, *decl_id);
                 write!(f, "{:WIDTH$} {decl}, {src_dst}", "call")
@@ -253,7 +262,7 @@ impl fmt::Display for RedirectMode {
             RedirectMode::Capture => write!(f, "capture"),
             RedirectMode::Null => write!(f, "null"),
             RedirectMode::Inherit => write!(f, "inherit"),
-            RedirectMode::File { path, append } => write!(f, "file({path}, append={append})"),
+            RedirectMode::File => write!(f, "file"),
             RedirectMode::Caller => write!(f, "caller"),
         }
     }

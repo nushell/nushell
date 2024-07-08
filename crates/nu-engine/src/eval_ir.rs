@@ -6,9 +6,9 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    record, DeclId, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest, PipelineData,
-    PositionalArg, Range, Record, RegId, ShellError, Signature, Span, Spanned, Value, VarId,
-    ENV_VARIABLE_ID,
+    record, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PositionalArg, Range, Record, RegId, ShellError, Signature, Span, Spanned, Value,
+    VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -55,6 +55,7 @@ pub fn eval_ir_block<D: DebugContext>(
                 error_handler_base,
                 redirect_out: None,
                 redirect_err: None,
+                file_stack: vec![],
                 matches: vec![],
                 registers: &mut registers[..],
             },
@@ -95,6 +96,8 @@ struct EvalContext<'a> {
     redirect_out: Option<Redirection>,
     /// State set by redirect-err
     redirect_err: Option<Redirection>,
+    /// Files used for redirection
+    file_stack: Vec<Arc<File>>,
     /// Scratch space to use for `match`
     matches: Vec<(VarId, Value)>,
     registers: &'a mut [PipelineData],
@@ -113,6 +116,28 @@ impl<'a> EvalContext<'a> {
     fn take_reg(&mut self, reg_id: RegId) -> PipelineData {
         // log::trace!("<- {reg_id}");
         std::mem::replace(&mut self.registers[reg_id.0 as usize], PipelineData::Empty)
+    }
+
+    /// Clone data from a register. Must be collected first.
+    fn clone_reg(&mut self, reg_id: RegId, error_span: Span) -> Result<PipelineData, ShellError> {
+        match &self.registers[reg_id.0 as usize] {
+            PipelineData::Empty => Ok(PipelineData::Empty),
+            PipelineData::Value(val, meta) => Ok(PipelineData::Value(val.clone(), meta.clone())),
+            _ => Err(ShellError::IrEvalError {
+                msg: "Must collect to value before using instruction that clones from a register"
+                    .into(),
+                span: Some(error_span),
+            }),
+        }
+    }
+
+    /// Clone a value from a register. Must be collected first.
+    fn clone_reg_value(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
+        match self.clone_reg(reg_id, fallback_span)? {
+            PipelineData::Empty => Ok(Value::nothing(fallback_span)),
+            PipelineData::Value(val, _) => Ok(val),
+            _ => unreachable!("clone_reg should never return stream data"),
+        }
     }
 
     /// Take and implicitly collect a register to a value
@@ -234,22 +259,8 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::Clone { dst, src } => {
-            let data1 = ctx.take_reg(*src);
-            let data2 = match &data1 {
-                PipelineData::Empty => PipelineData::Empty,
-                PipelineData::Value(val, meta) => PipelineData::Value(val.clone(), meta.clone()),
-                _ => {
-                    return Err(ShellError::GenericError {
-                        error: "IR error: must collect before clone if a stream is expected".into(),
-                        msg: "error occurred here".into(),
-                        span: Some(*span),
-                        help: Some("this is a compiler bug".into()),
-                        inner: vec![],
-                    })
-                }
-            };
-            ctx.put_reg(*src, data1);
-            ctx.put_reg(*dst, data2);
+            let data = ctx.clone_reg(*src, *span)?;
+            ctx.put_reg(*dst, data);
             Ok(Continue)
         }
         Instruction::Collect { src_dst } => {
@@ -378,6 +389,38 @@ fn eval_instruction<D: DebugContext>(
             ctx.redirect_err = eval_redirection(ctx, mode, *span, RedirectionStream::Err)?;
             Ok(Continue)
         }
+        Instruction::OpenFile { path, append } => {
+            let path = ctx.collect_reg(*path, *span)?;
+            let file = open_file(ctx, &path, *append)?;
+            ctx.file_stack.push(file);
+            Ok(Continue)
+        }
+        Instruction::WriteFile { src } => {
+            let src = ctx.take_reg(*src);
+            let file = ctx
+                .file_stack
+                .last()
+                .cloned()
+                .ok_or_else(|| ShellError::IrEvalError {
+                    msg: "Tried to write file without opening a file first".into(),
+                    span: Some(*span),
+                })?;
+            let mut stack = ctx
+                .stack
+                .push_redirection(Some(Redirection::File(file)), None);
+            src.write_to_out_dests(ctx.engine_state, &mut stack)?;
+            Ok(Continue)
+        }
+        Instruction::CloseFile => {
+            if ctx.file_stack.pop().is_some() {
+                Ok(Continue)
+            } else {
+                Err(ShellError::IrEvalError {
+                    msg: "Tried to close file without opening a file first".into(),
+                    span: Some(*span),
+                })
+            }
+        }
         Instruction::Call { decl_id, src_dst } => {
             let input = ctx.take_reg(*src_dst);
             let result = eval_call::<D>(ctx, *decl_id, *span, input)?;
@@ -498,25 +541,17 @@ fn eval_instruction<D: DebugContext>(
             }
         }
         Instruction::CloneCellPath { dst, src, path } => {
-            let data = ctx.take_reg(*src);
+            let value = ctx.clone_reg_value(*src, *span)?;
             let path = ctx.take_reg(*path);
-            if let PipelineData::Value(value, _) = &data {
-                if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
-                    // TODO: make follow_cell_path() not have to take ownership, probably using Cow
-                    let value = value.clone().follow_cell_path(&path.members, true)?;
-                    ctx.put_reg(*src, data);
-                    ctx.put_reg(*dst, value.into_pipeline_data());
-                    Ok(Continue)
-                } else {
-                    Err(ShellError::TypeMismatch {
-                        err_message: "cell path".into(),
-                        span: path.span().unwrap_or(*span),
-                    })
-                }
+            if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path {
+                // TODO: make follow_cell_path() not have to take ownership, probably using Cow
+                let value = value.follow_cell_path(&path.members, true)?;
+                ctx.put_reg(*dst, value.into_pipeline_data());
+                Ok(Continue)
             } else {
-                Err(ShellError::IrEvalError {
-                    msg: "must collect value before clone-cell-path".into(),
-                    span: Some(*span),
+                Err(ShellError::TypeMismatch {
+                    err_message: "cell path".into(),
+                    span: path.span().unwrap_or(*span),
                 })
             }
         }
@@ -577,13 +612,7 @@ fn eval_instruction<D: DebugContext>(
             src,
             index,
         } => {
-            let data = ctx.take_reg(*src);
-            let PipelineData::Value(value, metadata) = data else {
-                return Err(ShellError::IrEvalError {
-                    msg: "must collect value before match".into(),
-                    span: Some(*span),
-                });
-            };
+            let value = ctx.clone_reg_value(*src, *span)?;
             ctx.matches.clear();
             if pattern.match_value(&value, &mut ctx.matches) {
                 // Match succeeded: set variables and branch
@@ -594,7 +623,6 @@ fn eval_instruction<D: DebugContext>(
             } else {
                 // Failed to match, put back original value
                 ctx.matches.clear();
-                ctx.put_reg(*src, PipelineData::Value(value, metadata));
                 Ok(Continue)
             }
         }
@@ -1096,6 +1124,23 @@ enum RedirectionStream {
     Err,
 }
 
+/// Open a file for redirection
+fn open_file(ctx: &EvalContext<'_>, path: &Value, append: bool) -> Result<Arc<File>, ShellError> {
+    let path_expanded =
+        expand_path_with(path.as_str()?, ctx.engine_state.cwd(Some(ctx.stack))?, true);
+    let mut options = File::options();
+    if append {
+        options.append(true);
+    } else {
+        options.write(true).truncate(true);
+    }
+    let file = options
+        .create(true)
+        .open(path_expanded)
+        .err_span(path.span())?;
+    Ok(Arc::new(file))
+}
+
 /// Set up a [`Redirection`] from a [`RedirectMode`]
 fn eval_redirection(
     ctx: &mut EvalContext<'_>,
@@ -1108,21 +1153,16 @@ fn eval_redirection(
         RedirectMode::Capture => Ok(Some(Redirection::Pipe(OutDest::Capture))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
         RedirectMode::Inherit => Ok(Some(Redirection::Pipe(OutDest::Inherit))),
-        RedirectMode::File { path, append } => {
-            let path = ctx.collect_reg(*path, span)?;
-            let path_expanded =
-                expand_path_with(path.as_str()?, ctx.engine_state.cwd(Some(ctx.stack))?, true);
-            let mut options = File::options();
-            if *append {
-                options.append(true);
-            } else {
-                options.write(true).truncate(true);
-            }
-            let file = options
-                .create(true)
-                .open(path_expanded)
-                .map_err(|err| err.into_spanned(span))?;
-            Ok(Some(Redirection::File(file.into())))
+        RedirectMode::File => {
+            let file = ctx
+                .file_stack
+                .last()
+                .cloned()
+                .ok_or_else(|| ShellError::IrEvalError {
+                    msg: "Tried to redirect to file without opening a file first".into(),
+                    span: Some(span),
+                })?;
+            Ok(Some(Redirection::File(file)))
         }
         RedirectMode::Caller => Ok(match which {
             RedirectionStream::Out => ctx.stack.pipe_stdout().cloned().map(Redirection::Pipe),

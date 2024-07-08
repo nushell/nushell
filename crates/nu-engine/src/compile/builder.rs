@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
+    ir::{DataSlice, Instruction, IrAstRef, IrBlock, Literal},
     CompileError, IntoSpanned, RegId, Span, Spanned,
 };
 
@@ -168,10 +168,11 @@ impl BlockBuilder {
             Instruction::PushFlag { name: _ } => Ok(()),
             Instruction::PushNamed { name: _, src } => allocate(&[*src], &[]),
             Instruction::PushParserInfo { name: _, info: _ } => Ok(()),
-            Instruction::RedirectOut { mode } | Instruction::RedirectErr { mode } => match mode {
-                RedirectMode::File { path, .. } => allocate(&[*path], &[]),
-                _ => Ok(()),
-            },
+            Instruction::RedirectOut { mode: _ } => Ok(()),
+            Instruction::RedirectErr { mode: _ } => Ok(()),
+            Instruction::OpenFile { path, append: _ } => allocate(&[*path], &[]),
+            Instruction::WriteFile { src } => allocate(&[*src], &[]),
+            Instruction::CloseFile => Ok(()),
             Instruction::Call {
                 decl_id: _,
                 src_dst,
