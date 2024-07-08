@@ -22,7 +22,8 @@ pub struct IrBlock {
     #[serde(with = "serde_arc_u8_array")]
     pub data: Arc<[u8]>,
     pub ast: Vec<Option<IrAstRef>>,
-    pub register_count: usize,
+    pub register_count: u32,
+    pub file_count: u32,
 }
 
 impl fmt::Debug for IrBlock {
@@ -33,6 +34,7 @@ impl fmt::Debug for IrBlock {
             .field("spans", &self.spans)
             .field("data", &self.data)
             .field("register_count", &self.register_count)
+            .field("file_count", &self.register_count)
             .finish_non_exhaustive()
     }
 }
@@ -143,12 +145,16 @@ pub enum Instruction {
     /// The register for a file redirection is not consumed.
     RedirectErr { mode: RedirectMode },
     /// Open a file for redirection, pushing it onto the file stack.
-    OpenFile { path: RegId, append: bool },
+    OpenFile {
+        file_num: u32,
+        path: RegId,
+        append: bool,
+    },
     /// Write data from the register to a file. This is done to finish a file redirection, in case
     /// an internal command or expression was evaluated rather than an external one.
-    WriteFile { src: RegId },
+    WriteFile { file_num: u32, src: RegId },
     /// Pop a file used for redirection from the file stack.
-    CloseFile,
+    CloseFile { file_num: u32 },
     /// Make a call. The input is taken from `src_dst`, and the output is placed in `src_dst`,
     /// overwriting it. The argument stack is used implicitly and cleared when the call ends.
     Call { decl_id: DeclId, src_dst: RegId },
@@ -306,8 +312,10 @@ pub enum RedirectMode {
     Capture,
     Null,
     Inherit,
-    /// Use the file on the top of the file stack.
-    File,
+    /// Use the given numbered file.
+    File {
+        file_num: u32,
+    },
     /// Use the redirection mode requested by the caller, for a pre-return call.
     Caller,
 }

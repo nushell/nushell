@@ -11,6 +11,7 @@ pub(crate) struct BlockBuilder {
     pub(crate) data: Vec<u8>,
     pub(crate) ast: Vec<Option<IrAstRef>>,
     pub(crate) register_allocation_state: Vec<bool>,
+    pub(crate) file_count: u32,
 }
 
 impl BlockBuilder {
@@ -22,6 +23,7 @@ impl BlockBuilder {
             data: vec![],
             ast: vec![],
             register_allocation_state: vec![true],
+            file_count: 0,
         }
     }
 
@@ -170,9 +172,13 @@ impl BlockBuilder {
             Instruction::PushParserInfo { name: _, info: _ } => Ok(()),
             Instruction::RedirectOut { mode: _ } => Ok(()),
             Instruction::RedirectErr { mode: _ } => Ok(()),
-            Instruction::OpenFile { path, append: _ } => allocate(&[*path], &[]),
-            Instruction::WriteFile { src } => allocate(&[*src], &[]),
-            Instruction::CloseFile => Ok(()),
+            Instruction::OpenFile {
+                file_num: _,
+                path,
+                append: _,
+            } => allocate(&[*path], &[]),
+            Instruction::WriteFile { file_num: _, src } => allocate(&[*src], &[]),
+            Instruction::CloseFile { file_num: _ } => Ok(()),
             Instruction::Call {
                 decl_id: _,
                 src_dst,
@@ -402,6 +408,16 @@ impl BlockBuilder {
         self.instructions.len()
     }
 
+    /// Allocate a new file number, for redirection.
+    pub(crate) fn next_file_num(&mut self) -> Result<u32, CompileError> {
+        let next = self.file_count;
+        self.file_count = self
+            .file_count
+            .checked_add(1)
+            .ok_or_else(|| CompileError::FileOverflow)?;
+        Ok(next)
+    }
+
     /// Consume the builder and produce the final [`IrBlock`].
     pub(crate) fn finish(self) -> IrBlock {
         IrBlock {
@@ -409,7 +425,12 @@ impl BlockBuilder {
             spans: self.spans,
             data: self.data.into(),
             ast: self.ast,
-            register_count: self.register_allocation_state.len(),
+            register_count: self
+                .register_allocation_state
+                .len()
+                .try_into()
+                .expect("register count overflowed in finish() despite previous checks"),
+            file_count: self.file_count,
         }
     }
 }

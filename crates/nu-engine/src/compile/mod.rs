@@ -113,9 +113,20 @@ fn compile_pipeline(
         // element, then it's from whatever is passed in as the mode to use.
 
         let next_redirect_modes = if let Some(next_element) = iter.peek() {
-            // If there's a next element we always pipe out
-            redirect_modes_of_expression(working_set, &next_element.expr, span)?
-                .with_pipe_out(next_element.pipe.unwrap_or(next_element.expr.span))
+            // If there's a next element we always pipe out *unless* this is a single redirection
+            // to stderr (e>|)
+            let modes = redirect_modes_of_expression(working_set, &next_element.expr, span)?;
+            if matches!(
+                element.redirection,
+                Some(PipelineRedirection::Single {
+                    source: RedirectionSource::Stderr,
+                    ..
+                })
+            ) {
+                modes
+            } else {
+                modes.with_pipe_out(next_element.pipe.unwrap_or(next_element.expr.span))
+            }
         } else {
             redirect_modes
                 .take()

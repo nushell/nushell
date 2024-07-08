@@ -55,6 +55,7 @@ pub(crate) fn redirection_target_to_mode(
             append,
             span: redir_span,
         } => {
+            let file_num = builder.next_file_num()?;
             let path_reg = builder.next_register()?;
             compile_expression(
                 working_set,
@@ -66,12 +67,13 @@ pub(crate) fn redirection_target_to_mode(
             )?;
             builder.push(
                 Instruction::OpenFile {
+                    file_num,
                     path: path_reg,
                     append: *append,
                 }
                 .into_spanned(*redir_span),
             )?;
-            RedirectMode::File.into_spanned(*redir_span)
+            RedirectMode::File { file_num }.into_spanned(*redir_span)
         }
         RedirectionTarget::Pipe { span } => (if separate {
             RedirectMode::Capture
@@ -108,22 +110,28 @@ pub(crate) fn finish_redirection(
 ) -> Result<(), CompileError> {
     match modes.out {
         Some(Spanned {
-            item: RedirectMode::File,
+            item: RedirectMode::File { file_num },
             span,
         }) => {
-            builder.push(Instruction::WriteFile { src: out_reg }.into_spanned(span))?;
+            builder.push(
+                Instruction::WriteFile {
+                    file_num,
+                    src: out_reg,
+                }
+                .into_spanned(span),
+            )?;
             builder.load_empty(out_reg)?;
-            builder.push(Instruction::CloseFile.into_spanned(span))?;
+            builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
         }
         _ => (),
     }
 
     match modes.err {
         Some(Spanned {
-            item: RedirectMode::File,
+            item: RedirectMode::File { file_num },
             span,
         }) => {
-            builder.push(Instruction::CloseFile.into_spanned(span))?;
+            builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
         }
         _ => (),
     }

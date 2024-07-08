@@ -16,12 +16,20 @@ impl<'a> fmt::Display for FmtIrBlock<'a> {
             f,
             "# {} register{}, {} instruction{}, {} byte{} of data",
             self.ir_block.register_count,
-            plural(self.ir_block.register_count),
+            plural(self.ir_block.register_count as usize),
             self.ir_block.instructions.len(),
             plural(self.ir_block.instructions.len()),
             self.ir_block.data.len(),
             plural(self.ir_block.data.len()),
         )?;
+        if self.ir_block.file_count > 0 {
+            writeln!(
+                f,
+                "# {} file{} used for redirection",
+                self.ir_block.file_count,
+                plural(self.ir_block.file_count as usize)
+            )?;
+        }
         for (index, instruction) in self.ir_block.instructions.iter().enumerate() {
             writeln!(
                 f,
@@ -119,14 +127,22 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::RedirectErr { mode } => {
                 write!(f, "{:WIDTH$} {mode}", "redirect-err")
             }
-            Instruction::OpenFile { path, append } => {
-                write!(f, "{:WIDTH$} {path}, append = {append:?}", "open-file")
+            Instruction::OpenFile {
+                file_num,
+                path,
+                append,
+            } => {
+                write!(
+                    f,
+                    "{:WIDTH$} file({file_num}), {path}, append = {append:?}",
+                    "open-file"
+                )
             }
-            Instruction::WriteFile { src } => {
-                write!(f, "{:WIDTH$} {src}", "write-file")
+            Instruction::WriteFile { file_num, src } => {
+                write!(f, "{:WIDTH$} file({file_num}), {src}", "write-file")
             }
-            Instruction::CloseFile => {
-                write!(f, "{:WIDTH$}", "close-file")
+            Instruction::CloseFile { file_num } => {
+                write!(f, "{:WIDTH$} file({file_num})", "close-file")
             }
             Instruction::Call { decl_id, src_dst } => {
                 let decl = FmtDecl::new(self.engine_state, *decl_id);
@@ -262,7 +278,7 @@ impl fmt::Display for RedirectMode {
             RedirectMode::Capture => write!(f, "capture"),
             RedirectMode::Null => write!(f, "null"),
             RedirectMode::Inherit => write!(f, "inherit"),
-            RedirectMode::File => write!(f, "file"),
+            RedirectMode::File { file_num } => write!(f, "file({file_num})"),
             RedirectMode::Caller => write!(f, "caller"),
         }
     }

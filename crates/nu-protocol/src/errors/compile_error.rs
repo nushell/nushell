@@ -41,6 +41,13 @@ pub enum CompileError {
     )]
     DataOverflow,
 
+    #[error("Block contains too many files.")]
+    #[diagnostic(
+        code(nu::compile::register_overflow),
+        help("try using fewer file redirections")
+    )]
+    FileOverflow,
+
     #[error("Invalid redirect mode: File should not be specified by commands.")]
     #[diagnostic(code(nu::compile::invalid_redirect_mode), help("this is a command bug. Please report it at https://github.com/nushell/nushell/issues/new"))]
     InvalidRedirectMode,

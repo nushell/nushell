@@ -41,9 +41,13 @@ pub fn eval_ir_block<D: DebugContext>(
 
         // Allocate and initialize registers. I've found that it's not really worth trying to avoid
         // the heap allocation here by reusing buffers - our allocator is fast enough
-        let mut registers = Vec::with_capacity(ir_block.register_count);
-        let empty = std::iter::repeat_with(|| PipelineData::Empty);
-        registers.extend(empty.take(ir_block.register_count));
+        let mut registers = Vec::with_capacity(ir_block.register_count as usize);
+        for _ in 0..ir_block.register_count {
+            registers.push(PipelineData::Empty);
+        }
+
+        // Initialize file storage.
+        let mut files = vec![None; ir_block.file_count as usize];
 
         let result = eval_ir_block_impl::<D>(
             &mut EvalContext {
@@ -55,9 +59,9 @@ pub fn eval_ir_block<D: DebugContext>(
                 error_handler_base,
                 redirect_out: None,
                 redirect_err: None,
-                file_stack: vec![],
                 matches: vec![],
                 registers: &mut registers[..],
+                files: &mut files[..],
             },
             ir_block,
             input,
@@ -96,11 +100,12 @@ struct EvalContext<'a> {
     redirect_out: Option<Redirection>,
     /// State set by redirect-err
     redirect_err: Option<Redirection>,
-    /// Files used for redirection
-    file_stack: Vec<Arc<File>>,
     /// Scratch space to use for `match`
     matches: Vec<(VarId, Value)>,
+    /// Intermediate pipeline data storage used by instructions, indexed by RegId
     registers: &'a mut [PipelineData],
+    /// Holds open files used by redirections
+    files: &'a mut [Option<Arc<File>>],
 }
 
 impl<'a> EvalContext<'a> {
@@ -389,20 +394,25 @@ fn eval_instruction<D: DebugContext>(
             ctx.redirect_err = eval_redirection(ctx, mode, *span, RedirectionStream::Err)?;
             Ok(Continue)
         }
-        Instruction::OpenFile { path, append } => {
+        Instruction::OpenFile {
+            file_num,
+            path,
+            append,
+        } => {
             let path = ctx.collect_reg(*path, *span)?;
             let file = open_file(ctx, &path, *append)?;
-            ctx.file_stack.push(file);
+            ctx.files[*file_num as usize] = Some(file);
             Ok(Continue)
         }
-        Instruction::WriteFile { src } => {
+        Instruction::WriteFile { file_num, src } => {
             let src = ctx.take_reg(*src);
             let file = ctx
-                .file_stack
-                .last()
+                .files
+                .get(*file_num as usize)
                 .cloned()
+                .flatten()
                 .ok_or_else(|| ShellError::IrEvalError {
-                    msg: "Tried to write file without opening a file first".into(),
+                    msg: format!("Tried to write to file #{file_num}, but it is not open"),
                     span: Some(*span),
                 })?;
             let mut stack = ctx
@@ -411,12 +421,12 @@ fn eval_instruction<D: DebugContext>(
             src.write_to_out_dests(ctx.engine_state, &mut stack)?;
             Ok(Continue)
         }
-        Instruction::CloseFile => {
-            if ctx.file_stack.pop().is_some() {
+        Instruction::CloseFile { file_num } => {
+            if ctx.files[*file_num as usize].take().is_some() {
                 Ok(Continue)
             } else {
                 Err(ShellError::IrEvalError {
-                    msg: "Tried to close file without opening a file first".into(),
+                    msg: format!("Tried to close file #{file_num}, but it is not open"),
                     span: Some(*span),
                 })
             }
@@ -1153,13 +1163,14 @@ fn eval_redirection(
         RedirectMode::Capture => Ok(Some(Redirection::Pipe(OutDest::Capture))),
         RedirectMode::Null => Ok(Some(Redirection::Pipe(OutDest::Null))),
         RedirectMode::Inherit => Ok(Some(Redirection::Pipe(OutDest::Inherit))),
-        RedirectMode::File => {
+        RedirectMode::File { file_num } => {
             let file = ctx
-                .file_stack
-                .last()
+                .files
+                .get(*file_num as usize)
                 .cloned()
+                .flatten()
                 .ok_or_else(|| ShellError::IrEvalError {
-                    msg: "Tried to redirect to file without opening a file first".into(),
+                    msg: format!("Tried to redirect to file #{file_num}, but it is not open"),
                     span: Some(span),
                 })?;
             Ok(Some(Redirection::File(file)))
