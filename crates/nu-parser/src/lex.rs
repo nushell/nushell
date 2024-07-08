@@ -580,7 +580,10 @@ fn lex_internal(
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
         } else {
-            let token = try_lex_special_piped_item(input, &mut curr_offset, span_offset);
+            let (token, err) = try_lex_special_piped_item(input, &mut curr_offset, span_offset);
+            if error.is_none() {
+                error = err;
+            }
             if let Some(token) = token {
                 output.push(token);
                 is_complete = false;
@@ -614,40 +617,60 @@ fn try_lex_special_piped_item(
     input: &[u8],
     curr_offset: &mut usize,
     span_offset: usize,
-) -> Option<Token> {
+) -> (Option<Token>, Option<ParseError>) {
     let c = input[*curr_offset];
     let e_pipe_len = 3;
     let eo_pipe_len = 5;
+    let o_pipe_len = 3;
     let offset = *curr_offset;
     if c == b'e' {
         // expect `e>|`
         if (offset + e_pipe_len <= input.len()) && (&input[offset..offset + e_pipe_len] == b"e>|") {
             *curr_offset += e_pipe_len;
-            return Some(Token::new(
-                TokenContents::ErrGreaterPipe,
-                Span::new(span_offset + offset, span_offset + offset + e_pipe_len),
-            ));
+            return (
+                Some(Token::new(
+                    TokenContents::ErrGreaterPipe,
+                    Span::new(span_offset + offset, span_offset + offset + e_pipe_len),
+                )),
+                None,
+            );
         }
         if (offset + eo_pipe_len <= input.len())
             && (&input[offset..offset + eo_pipe_len] == b"e+o>|")
         {
             *curr_offset += eo_pipe_len;
-            return Some(Token::new(
-                TokenContents::OutErrGreaterPipe,
-                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
-            ));
+            return (
+                Some(Token::new(
+                    TokenContents::OutErrGreaterPipe,
+                    Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+                )),
+                None,
+            );
         }
     } else if c == b'o' {
+        // indicates an error if user happened to type `o>|`
+        if offset + o_pipe_len <= input.len() && (&input[offset..offset + o_pipe_len] == b"o>|") {
+            return (
+                None,
+                Some(ParseError::Expected(
+                    "|, note: redirection stdout to pipe is the same as piping directly.",
+                    Span::new(span_offset + offset, span_offset + offset + o_pipe_len),
+                )),
+            );
+        }
         // it can be the following case: `o+e>|`
         if (offset + eo_pipe_len <= input.len())
             && (&input[offset..offset + eo_pipe_len] == b"o+e>|")
         {
             *curr_offset += eo_pipe_len;
-            return Some(Token::new(
-                TokenContents::OutErrGreaterPipe,
-                Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
-            ));
+            return (
+                Some(Token::new(
+                    TokenContents::OutErrGreaterPipe,
+                    Span::new(span_offset + offset, span_offset + offset + eo_pipe_len),
+                )),
+                None,
+            );
         }
     }
-    None
+    (None, None)
 }
