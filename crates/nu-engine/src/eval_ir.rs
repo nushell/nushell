@@ -6,9 +6,9 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    record, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PositionalArg, Range, Record, RegId, ShellError, Signature, Span, Spanned, Value,
-    VarId, ENV_VARIABLE_ID,
+    record, ByteStreamSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
+    OutDest, PipelineData, PositionalArg, Range, Record, RegId, ShellError, Signature, Span,
+    Spanned, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -393,6 +393,24 @@ fn eval_instruction<D: DebugContext>(
         Instruction::RedirectErr { mode } => {
             ctx.redirect_err = eval_redirection(ctx, mode, *span, RedirectionStream::Err)?;
             Ok(Continue)
+        }
+        Instruction::CheckErrRedirected { src } => {
+            let data = ctx.take_reg(*src);
+            match &data {
+                PipelineData::ByteStream(stream, _)
+                    if matches!(stream.source(), ByteStreamSource::Child(_)) =>
+                {
+                    ctx.put_reg(*src, data);
+                    Ok(Continue)
+                }
+                _ => Err(ShellError::GenericError {
+                    error: "Can't redirect stderr of internal command output".into(),
+                    msg: "piping stderr only works on external commands".into(),
+                    span: Some(*span),
+                    help: None,
+                    inner: vec![],
+                }),
+            }
         }
         Instruction::OpenFile {
             file_num,

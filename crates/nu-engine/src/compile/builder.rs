@@ -172,6 +172,7 @@ impl BlockBuilder {
             Instruction::PushParserInfo { name: _, info: _ } => Ok(()),
             Instruction::RedirectOut { mode: _ } => Ok(()),
             Instruction::RedirectErr { mode: _ } => Ok(()),
+            Instruction::CheckErrRedirected { src } => allocate(&[*src], &[*src]),
             Instruction::OpenFile {
                 file_num: _,
                 path,

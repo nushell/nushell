@@ -133,6 +133,12 @@ pub(crate) fn finish_redirection(
         }) => {
             builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
         }
+        Some(Spanned {
+            item: RedirectMode::Pipe | RedirectMode::Capture,
+            span,
+        }) => {
+            builder.push(Instruction::CheckErrRedirected { src: out_reg }.into_spanned(span))?;
+        }
         _ => (),
     }
 

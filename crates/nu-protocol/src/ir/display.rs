@@ -127,6 +127,9 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::RedirectErr { mode } => {
                 write!(f, "{:WIDTH$} {mode}", "redirect-err")
             }
+            Instruction::CheckErrRedirected { src } => {
+                write!(f, "{:WIDTH$} {src}", "check-err-redirected")
+            }
             Instruction::OpenFile {
                 file_num,
                 path,

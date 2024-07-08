@@ -144,6 +144,8 @@ pub enum Instruction {
     ///
     /// The register for a file redirection is not consumed.
     RedirectErr { mode: RedirectMode },
+    /// Throw an error if stderr wasn't redirected in the given stream. `src` is preserved.
+    CheckErrRedirected { src: RegId },
     /// Open a file for redirection, pushing it onto the file stack.
     OpenFile {
         file_num: u32,
