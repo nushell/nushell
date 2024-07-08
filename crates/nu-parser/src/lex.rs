@@ -653,7 +653,7 @@ fn try_lex_special_piped_item(
             return (
                 None,
                 Some(ParseError::Expected(
-                    "|, note: redirection stdout to pipe is the same as piping directly.",
+                    "|.  Note: redirection stdout to pipe is the same as piping directly.",
                     Span::new(span_offset + offset, span_offset + offset + o_pipe_len),
                 )),
             );
