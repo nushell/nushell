@@ -1,7 +1,7 @@
 use super::ViewCommand;
 use crate::{
     nu_common::collect_input,
-    views::{Orientation, RecordView},
+    views::{Orientation, RecordView, ViewConfig},
 };
 use anyhow::Result;
 use nu_protocol::{
@@ -49,20 +49,21 @@ impl ViewCommand for TableCmd {
         _: &EngineState,
         _: &mut Stack,
         value: Option<Value>,
+        config: &ViewConfig,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
         let is_record = matches!(value, Value::Record { .. });
 
         let (columns, data) = collect_input(value)?;
 
-        let mut view = RecordView::new(columns, data);
+        let mut view = RecordView::new(columns, data, config.explore_config.clone());
 
         if is_record {
-            view.set_orientation_current(Orientation::Left);
+            view.set_top_layer_orientation(Orientation::Left);
         }
 
         if let Some(o) = self.settings.orientation {
-            view.set_orientation_current(o);
+            view.set_top_layer_orientation(o);
         }
 
         if self.settings.turn_on_cursor_mode {

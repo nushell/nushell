@@ -63,7 +63,6 @@ impl Command for Explore {
         let tail: bool = call.has_flag(engine_state, stack, "tail")?;
         let peek_value: bool = call.has_flag(engine_state, stack, "peek")?;
 
-        let ctrlc = engine_state.ctrlc.clone();
         let nu_config = engine_state.get_config();
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
@@ -83,7 +82,7 @@ impl Command for Explore {
             tail,
         );
 
-        let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
+        let result = run_pager(engine_state, &mut stack.clone(), input, config);
 
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),

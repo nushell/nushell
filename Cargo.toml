@@ -120,7 +120,7 @@ num-format = "0.4"
 num-traits = "0.2"
 omnipath = "0.1"
 once_cell = "1.18"
-open = "5.1"
+open = "5.2"
 os_pipe = { version = "1.2", features = ["io_safety"] }
 pathdiff = "0.2"
 percent-encoding = "2"
@@ -166,13 +166,13 @@ unicode-segmentation = "1.11"
 unicode-width = "0.1"
 ureq = { version = "2.9", default-features = false }
 url = "2.2"
-uu_cp = "0.0.26"
-uu_mkdir = "0.0.26"
-uu_mktemp = "0.0.26"
-uu_mv = "0.0.26"
-uu_whoami = "0.0.26"
-uu_uname = "0.0.26"
-uucore = "0.0.26"
+uu_cp = "0.0.27"
+uu_mkdir = "0.0.27"
+uu_mktemp = "0.0.27"
+uu_mv = "0.0.27"
+uu_whoami = "0.0.27"
+uu_uname = "0.0.27"
+uucore = "0.0.27"
 uuid = "1.9.1"
 v_htmlescape = "0.15.0"
 wax = "0.6"
@@ -197,7 +197,6 @@ nu-protocol = { path = "./crates/nu-protocol", version = "0.95.1" }
 nu-std = { path = "./crates/nu-std", version = "0.95.1" }
 nu-system = { path = "./crates/nu-system", version = "0.95.1" }
 nu-utils = { path = "./crates/nu-utils", version = "0.95.1" }
-
 reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 
 crossterm = { workspace = true }
@@ -304,7 +303,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = {git = "https://github.com/nushell/nu-ansi-term.git", branch = "main"}
 
 # Run all benchmarks with `cargo bench`

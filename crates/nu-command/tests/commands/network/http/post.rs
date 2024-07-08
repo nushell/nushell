@@ -19,6 +19,24 @@ fn http_post_is_success() {
 
     assert!(actual.out.is_empty())
 }
+#[test]
+fn http_post_is_success_pipeline() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("POST", "/").match_body("foo").create();
+
+    let actual = nu!(pipeline(
+        format!(
+            r#"
+        "foo" | http post {url}
+        "#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(actual.out.is_empty())
+}
 
 #[test]
 fn http_post_failed_due_to_server_error() {
@@ -55,7 +73,9 @@ fn http_post_failed_due_to_missing_body() {
         .as_str()
     ));
 
-    assert!(actual.err.contains("Usage: http post"))
+    assert!(actual
+        .err
+        .contains("Data must be provided either through pipeline or positional argument"))
 }
 
 #[test]

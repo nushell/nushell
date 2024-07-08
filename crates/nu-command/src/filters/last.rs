@@ -99,14 +99,10 @@ impl Command for Last {
                 let mut buf = VecDeque::new();
 
                 for row in iterator {
-                    if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-                        return Err(ShellError::InterruptedByUser { span: Some(head) });
-                    }
-
+                    engine_state.signals().check(head)?;
                     if buf.len() == rows {
                         buf.pop_front();
                     }
-
                     buf.push_back(row);
                 }
 

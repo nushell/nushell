@@ -56,7 +56,7 @@ impl Command for SubCommand {
             cell_paths,
             config: config.clone(),
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

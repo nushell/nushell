@@ -80,8 +80,6 @@ fn default(
     let value: Value = call.req(engine_state, stack, 0)?;
     let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
-    let ctrlc = engine_state.ctrlc.clone();
-
     if let Some(column) = column {
         input
             .map(
@@ -109,7 +107,7 @@ fn default(
                     }
                     _ => item,
                 },
-                ctrlc,
+                engine_state.signals(),
             )
             .map(|x| x.set_metadata(metadata))
     } else if input.is_nothing() {
@@ -121,7 +119,7 @@ fn default(
                     Value::Nothing { .. } => value.clone(),
                     x => x,
                 },
-                ctrlc,
+                engine_state.signals(),
             )
             .map(|x| x.set_metadata(metadata))
     }

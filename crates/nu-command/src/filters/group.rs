@@ -55,10 +55,7 @@ impl Command for Group {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
-        let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
-
-        //FIXME: add in support for external redirection when engine-q supports it generally
 
         let each_group_iterator = EachGroupIterator {
             group_size: group_size.item,
@@ -66,7 +63,11 @@ impl Command for Group {
             span: head,
         };
 
-        Ok(each_group_iterator.into_pipeline_data_with_metadata(head, ctrlc, metadata))
+        Ok(each_group_iterator.into_pipeline_data_with_metadata(
+            head,
+            engine_state.signals().clone(),
+            metadata,
+        ))
     }
 }
 

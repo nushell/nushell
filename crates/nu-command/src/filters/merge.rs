@@ -88,7 +88,6 @@ repeating this process with row 1, and so on."#
         let head = call.head;
         let merge_value: Value = call.req(engine_state, stack, 0)?;
         let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
 
         match (&input, merge_value) {
             // table (list of records)
@@ -110,7 +109,11 @@ repeating this process with row 1, and so on."#
                             (Err(error), _) => Value::error(error, head),
                         });
 
-                Ok(res.into_pipeline_data_with_metadata(head, ctrlc, metadata))
+                Ok(res.into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.signals().clone(),
+                    metadata,
+                ))
             }
             // record
             (

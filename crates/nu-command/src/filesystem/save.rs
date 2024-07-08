@@ -5,15 +5,14 @@ use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{Expr, Expression},
-    byte_stream::copy_with_interrupt,
+    byte_stream::copy_with_signals,
     process::ChildPipe,
-    ByteStreamSource, DataSource, OutDest, PipelineMetadata,
+    ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals,
 };
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
-    sync::{atomic::AtomicBool, Arc},
     thread,
 };
 
@@ -120,30 +119,30 @@ impl Command for Save {
                 )?;
 
                 let size = stream.known_size();
-                let ctrlc = engine_state.ctrlc.clone();
+                let signals = engine_state.signals();
 
                 match stream.into_source() {
                     ByteStreamSource::Read(read) => {
-                        stream_to_file(read, size, ctrlc, file, span, progress)?;
+                        stream_to_file(read, size, signals, file, span, progress)?;
                     }
                     ByteStreamSource::File(source) => {
-                        stream_to_file(source, size, ctrlc, file, span, progress)?;
+                        stream_to_file(source, size, signals, file, span, progress)?;
                     }
                     ByteStreamSource::Child(mut child) => {
                         fn write_or_consume_stderr(
                             stderr: ChildPipe,
                             file: Option<File>,
                             span: Span,
-                            ctrlc: Option<Arc<AtomicBool>>,
+                            signals: &Signals,
                             progress: bool,
                         ) -> Result<(), ShellError> {
                             if let Some(file) = file {
                                 match stderr {
                                     ChildPipe::Pipe(pipe) => {
-                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                        stream_to_file(pipe, None, signals, file, span, progress)
                                     }
                                     ChildPipe::Tee(tee) => {
-                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                        stream_to_file(tee, None, signals, file, span, progress)
                                     }
                                 }?
                             } else {
@@ -163,14 +162,14 @@ impl Command for Save {
                                 // delegate a thread to redirect stderr to result.
                                 let handler = stderr
                                     .map(|stderr| {
-                                        let ctrlc = ctrlc.clone();
+                                        let signals = signals.clone();
                                         thread::Builder::new().name("stderr saver".into()).spawn(
                                             move || {
                                                 write_or_consume_stderr(
                                                     stderr,
                                                     stderr_file,
                                                     span,
-                                                    ctrlc,
+                                                    &signals,
                                                     progress,
                                                 )
                                             },
@@ -181,10 +180,10 @@ impl Command for Save {
 
                                 let res = match stdout {
                                     ChildPipe::Pipe(pipe) => {
-                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                        stream_to_file(pipe, None, signals, file, span, progress)
                                     }
                                     ChildPipe::Tee(tee) => {
-                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                        stream_to_file(tee, None, signals, file, span, progress)
                                     }
                                 };
                                 if let Some(h) = handler {
@@ -202,7 +201,7 @@ impl Command for Save {
                                     stderr,
                                     stderr_file,
                                     span,
-                                    ctrlc,
+                                    signals,
                                     progress,
                                 )?;
                             }
@@ -461,7 +460,7 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
     };
 
     file.map_err(|e| ShellError::GenericError {
-        error: "Permission denied".into(),
+        error: format!("Problem with [{}], Permission denied", path.display()),
         msg: e.to_string(),
         span: Some(span),
         help: None,
@@ -510,7 +509,7 @@ fn get_files(
 fn stream_to_file(
     source: impl Read,
     known_size: Option<u64>,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: &Signals,
     mut file: File,
     span: Span,
     progress: bool,
@@ -526,9 +525,9 @@ fn stream_to_file(
         let mut reader = BufReader::new(source);
 
         let res = loop {
-            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            if let Err(err) = signals.check(span) {
                 bar.abandoned_msg("# Cancelled #".to_owned());
-                return Ok(());
+                return Err(err);
             }
 
             match reader.fill_buf() {
@@ -555,7 +554,7 @@ fn stream_to_file(
             Ok(())
         }
     } else {
-        copy_with_interrupt(source, file, span, ctrlc.as_deref())?;
+        copy_with_signals(source, file, span, signals)?;
         Ok(())
     }
 }

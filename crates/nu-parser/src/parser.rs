@@ -4950,7 +4950,7 @@ pub fn parse_math_expression(
     let mut expr_stack: Vec<Expression> = vec![];
 
     let mut idx = 0;
-    let mut last_prec = 1000000;
+    let mut last_prec = u8::MAX;
 
     let first_span = working_set.get_span_contents(spans[0]);
 
@@ -5275,15 +5275,6 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             }
             b"where" => parse_where_expr(working_set, &spans[pos..]),
             #[cfg(feature = "plugin")]
-            b"register" => {
-                working_set.error(ParseError::BuiltinCommandInPipeline(
-                    "register".into(),
-                    spans[0],
-                ));
-
-                parse_call(working_set, &spans[pos..], spans[0])
-            }
-            #[cfg(feature = "plugin")]
             b"plugin" => {
                 if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"use" {
                     // only 'plugin use' is banned
@@ -5419,8 +5410,6 @@ pub fn parse_builtin_commands(
         b"export" => parse_export_in_block(working_set, lite_command),
         b"hide" => parse_hide(working_set, lite_command),
         b"where" => parse_where(working_set, lite_command),
-        #[cfg(feature = "plugin")]
-        b"register" => parse_register(working_set, lite_command),
         // Only "plugin use" is a keyword
         #[cfg(feature = "plugin")]
         b"plugin"

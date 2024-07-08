@@ -42,6 +42,7 @@ impl EngineWrapper for &EngineInterface {
     }
 
     fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
+        debug!("set_gc_disabled called with {disabled}");
         EngineInterface::set_gc_disabled(self, disabled)
     }
 }
@@ -73,7 +74,7 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Box<dyn CustomValue>,
     ) -> Result<(), LabeledError> {
-        debug!("cache_value_dropped called {:?}", custom_value);
+        debug!("custom_value_dropped called {:?}", custom_value);
         if !self.disable_cache_drop {
             let id = CustomValueType::try_from_custom_value(custom_value)?.id();
             let _ = self.cache.remove(engine, &id, false);
