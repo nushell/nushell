@@ -2892,6 +2892,6 @@ fn table_list() {
 
 #[test]
 fn table_kv_header_on_separator_trim_algorithm() {
-    let actual = nu!("{key1: '111111111111111111111111111111111111111111111111111111111111'} | table --width=60 --theme basic");
+    let actual = nu!("$env.config.table.header_on_separator = true; {key1: '111111111111111111111111111111111111111111111111111111111111'} | table --width=60 --theme basic");
     assert_eq!(actual.out, "+------+---------------------------------------------------+| key1 | 1111111111111111111111111111111111111111111111111 ||      | 11111111111                                       |+------+---------------------------------------------------+");
 }
