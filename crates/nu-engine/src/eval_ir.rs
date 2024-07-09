@@ -565,7 +565,13 @@ fn eval_instruction<D: DebugContext>(
                 .into_record()
                 .map_err(|_| ShellError::CannotSpreadAsRecord { span: items_span })?
             {
-                record.insert(key, val);
+                if let Some(first_value) = record.insert(&key, val) {
+                    return Err(ShellError::ColumnDefinedTwice {
+                        col_name: key,
+                        second_use: *span,
+                        first_use: first_value.span(),
+                    });
+                }
             }
             ctx.put_reg(
                 *src_dst,
