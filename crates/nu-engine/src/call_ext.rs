@@ -215,7 +215,10 @@ impl CallExt for ir::Call {
         Ok(self
             .named_iter(stack)
             .find(|(name, _)| name.item == flag_name)
-            .is_some())
+            .is_some_and(|(_, value)| {
+                // Handle --flag=false
+                !matches!(value, Some(Value::Bool { val: false, .. }))
+            }))
     }
 
     fn get_flag<T: FromValue>(
