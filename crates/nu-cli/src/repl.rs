@@ -336,6 +336,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_cwd(Some(
             engine_state
                 .cwd(None)
+                .map(|cwd| cwd.into_std_path_buf())
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string(),

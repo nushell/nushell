@@ -1,3 +1,4 @@
+use nu_path::AbsolutePathBuf;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Range, ShellError, Span, Value,
@@ -15,6 +16,7 @@ pub fn get_init_cwd() -> PathBuf {
 pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
     engine_state
         .cwd(Some(stack))
+        .map(AbsolutePathBuf::into_std_path_buf)
         .unwrap_or(crate::util::get_init_cwd())
 }
 

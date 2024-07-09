@@ -79,7 +79,7 @@ impl Command for External {
             // Determine the PATH to be used and then use `which` to find it - though this has no
             // effect if it's an absolute path already
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = which(expanded_name, &paths, &cwd) else {
+            let Some(executable) = which(expanded_name, &paths, cwd.as_ref()) else {
                 return Err(command_not_found(&name_str, call.head, engine_state, stack));
             };
             executable
@@ -228,7 +228,7 @@ pub fn eval_arguments_from_call(
             match arg {
                 // Expand globs passed to run-external
                 Value::Glob { val, no_expand, .. } if !no_expand => args.extend(
-                    expand_glob(&val, &cwd, expr.span, engine_state.signals())?
+                    expand_glob(&val, cwd.as_ref(), expr.span, engine_state.signals())?
                         .into_iter()
                         .map(|s| s.into_spanned(expr.span)),
                 ),

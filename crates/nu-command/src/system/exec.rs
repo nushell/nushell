@@ -39,7 +39,7 @@ On Windows based systems, Nushell will wait for the command to finish and then e
         let name: Spanned<String> = call.req(engine_state, stack, 0)?;
         let executable = {
             let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
-            let Some(executable) = crate::which(&name.item, &paths, &cwd) else {
+            let Some(executable) = crate::which(&name.item, &paths, cwd.as_ref()) else {
                 return Err(crate::command_not_found(
                     &name.item,
                     call.head,
