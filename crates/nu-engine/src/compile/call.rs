@@ -153,22 +153,24 @@ pub(crate) fn compile_call(
                 builder.set_last_ast(ast_ref);
             }
             CompiledArg::Named(name, short, Some(reg), span, ast_ref) => {
-                let name = builder.data(name)?;
-                let short = builder.data(short.unwrap_or(""))?;
-                builder.push(
-                    Instruction::PushNamed {
-                        name,
-                        short,
-                        src: reg,
-                    }
-                    .into_spanned(span),
-                )?;
+                if !name.is_empty() {
+                    let name = builder.data(name)?;
+                    builder.push(Instruction::PushNamed { name, src: reg }.into_spanned(span))?;
+                } else {
+                    let short = builder.data(short.unwrap_or(""))?;
+                    builder
+                        .push(Instruction::PushShortNamed { short, src: reg }.into_spanned(span))?;
+                }
                 builder.set_last_ast(ast_ref);
             }
             CompiledArg::Named(name, short, None, span, ast_ref) => {
-                let name = builder.data(name)?;
-                let short = builder.data(short.unwrap_or(""))?;
-                builder.push(Instruction::PushFlag { name, short }.into_spanned(span))?;
+                if !name.is_empty() {
+                    let name = builder.data(name)?;
+                    builder.push(Instruction::PushFlag { name }.into_spanned(span))?;
+                } else {
+                    let short = builder.data(short.unwrap_or(""))?;
+                    builder.push(Instruction::PushShortFlag { short }.into_spanned(span))?;
+                }
                 builder.set_last_ast(ast_ref);
             }
             CompiledArg::Spread(reg, span, ast_ref) => {

@@ -112,15 +112,21 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::AppendRest { src } => {
                 write!(f, "{:WIDTH$} {src}", "append-rest")
             }
-            Instruction::PushFlag { name, short } => {
+            Instruction::PushFlag { name } => {
                 let name = FmtData(self.data, *name);
-                let short = FmtData(self.data, *short);
-                write!(f, "{:WIDTH$} {name}, {short}", "push-flag")
+                write!(f, "{:WIDTH$} {name}", "push-flag")
             }
-            Instruction::PushNamed { name, short, src } => {
-                let name = FmtData(self.data, *name);
+            Instruction::PushShortFlag { short } => {
                 let short = FmtData(self.data, *short);
-                write!(f, "{:WIDTH$} {name}, {short}, {src}", "push-named")
+                write!(f, "{:WIDTH$} {short}", "push-short-flag")
+            }
+            Instruction::PushNamed { name, src } => {
+                let name = FmtData(self.data, *name);
+                write!(f, "{:WIDTH$} {name}, {src}", "push-named")
+            }
+            Instruction::PushShortNamed { short, src } => {
+                let short = FmtData(self.data, *short);
+                write!(f, "{:WIDTH$} {short}, {src}", "push-short-named")
             }
             Instruction::PushParserInfo { name, info } => {
                 let name = FmtData(self.data, *name);

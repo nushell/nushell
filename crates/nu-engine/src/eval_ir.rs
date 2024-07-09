@@ -386,22 +386,45 @@ fn eval_instruction<D: DebugContext>(
             });
             Ok(Continue)
         }
-        Instruction::PushFlag { name, short } => {
+        Instruction::PushFlag { name } => {
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Flag {
                 data,
                 name: *name,
+                short: DataSlice::empty(),
+                span: *span,
+            });
+            Ok(Continue)
+        }
+        Instruction::PushShortFlag { short } => {
+            let data = ctx.data.clone();
+            ctx.stack.arguments.push(Argument::Flag {
+                data,
+                name: DataSlice::empty(),
                 short: *short,
                 span: *span,
             });
             Ok(Continue)
         }
-        Instruction::PushNamed { name, short, src } => {
+        Instruction::PushNamed { name, src } => {
             let val = ctx.collect_reg(*src, *span)?;
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Named {
                 data,
                 name: *name,
+                short: DataSlice::empty(),
+                span: *span,
+                val,
+                ast: ast.clone().map(|ast_ref| ast_ref.0),
+            });
+            Ok(Continue)
+        }
+        Instruction::PushShortNamed { short, src } => {
+            let val = ctx.collect_reg(*src, *span)?;
+            let data = ctx.data.clone();
+            ctx.stack.arguments.push(Argument::Named {
+                data,
+                name: DataSlice::empty(),
                 short: *short,
                 span: *span,
                 val,
