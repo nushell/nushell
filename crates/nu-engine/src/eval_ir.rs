@@ -973,6 +973,11 @@ fn find_named_var_id(sig: &Signature, name: &[u8], span: Span) -> Result<VarId, 
                 n.long.as_bytes() == name
             } else {
                 // If the arg has no long name, then compare against its short name
+                //
+                // One limitation here is that it effectively makes them share the same namespace,
+                // if only for args that don't have any long name defined. This probably isn't a
+                // problem in practice, but TODO it would probably be good to have a parser error
+                // forbidding a long arg and short arg from having the same name?
                 n.short
                     .is_some_and(|s| s.encode_utf8(&mut [0; 4]).as_bytes() == name)
             }
