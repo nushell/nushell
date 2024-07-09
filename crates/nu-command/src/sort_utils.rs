@@ -3,7 +3,7 @@ use nu_engine::ClosureEval;
 use nu_protocol::{
     ast::CellPath,
     engine::{Closure, EngineState, Stack},
-    PipelineData, ShellError, Span, Value,
+    PipelineData, Record, ShellError, Span, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
@@ -17,56 +17,33 @@ pub enum Comparator {
     CellPath(CellPath),
 }
 
-/// Sort a value. This only makes sense for lists and list-like things,
-/// so for everything else we just return the value as-is.
-/// CustomValues are converted to their base value and then sorted.
-pub fn sort_value(
-    val: &Value,
-    comparators: Vec<Comparator>,
-    ascending: bool,
-    insensitive: bool,
-    natural: bool,
-) -> Result<Value, ShellError> {
-    let span = val.span();
-    match val {
-        Value::List { vals, .. } => {
-            let mut vals = vals.clone();
-            sort(&mut vals, comparators, span, insensitive, natural)?;
+pub fn sort(vec: &mut [Value], insensitive: bool, natural: bool) -> Result<(), ShellError> {
+    // to apply insensitive or natural sorting, all values must be strings
+    let string_sort: bool = vec
+        .iter()
+        .all(|value| matches!(value, &Value::String { .. }));
 
-            if !ascending {
-                vals.reverse();
-            }
+    // allow the comparator function to indicate error
+    // by mutating this option captured by the closure,
+    // since sort_by closure must be infallible
+    let mut compare_err: Option<ShellError> = None;
 
-            Ok(Value::list(vals, span))
-        }
-        Value::Custom { val, .. } => {
-            let base_val = val.to_base_value(span)?;
-            sort_value(&base_val, comparators, ascending, insensitive, natural)
-        }
-        _ => Ok(val.to_owned()),
+    vec.sort_by(|a, b| {
+        crate::compare_values(a, b, insensitive && string_sort, natural && string_sort)
+            .unwrap_or_else(|err| {
+                compare_err.get_or_insert(err);
+                Ordering::Equal
+            })
+    });
+
+    if let Some(err) = compare_err {
+        Err(err)
+    } else {
+        Ok(())
     }
 }
 
-/// Sort a value in-place. This is more efficient than sort_value() because it
-/// avoids cloning, but it does not work for CustomValues; they are returned as-is.
-pub fn sort_value_in_place(
-    val: &mut Value,
-    comparators: Vec<Comparator>,
-    ascending: bool,
-    insensitive: bool,
-    natural: bool,
-) -> Result<(), ShellError> {
-    let span = val.span();
-    if let Value::List { vals, .. } = val {
-        sort(vals, comparators, span, insensitive, natural)?;
-        if !ascending {
-            vals.reverse();
-        }
-    }
-    Ok(())
-}
-
-pub fn sort(
+pub fn sort_by(
     vec: &mut [Value],
     comparators: Vec<Comparator>,
     span: Span,
@@ -102,7 +79,7 @@ pub fn sort(
     let mut compare_err: Option<ShellError> = None;
 
     vec.sort_by(|a, b| {
-        compare(
+        compare_by(
             a,
             b,
             &comparators,
@@ -120,7 +97,43 @@ pub fn sort(
     }
 }
 
-pub fn compare(
+pub fn sort_record(
+    record: Record,
+    sort_by_value: bool,
+    reverse: bool,
+    insensitive: bool,
+    natural: bool,
+) -> Result<Record, ShellError> {
+    let mut input_pairs: Vec<(String, Value)> = record.into_iter().collect();
+
+    // allow the comparator function to indicate error
+    // by mutating this option captured by the closure,
+    // since sort_by closure must be infallible
+    let mut compare_err: Option<ShellError> = None;
+
+    input_pairs.sort_by(|a, b| {
+        if sort_by_value {
+            compare_values(&a.1, &b.1, insensitive, natural).unwrap_or_else(|err| {
+                compare_err.get_or_insert(err);
+                Ordering::Equal
+            })
+        } else {
+            compare_strings(&a.0, &b.0, insensitive, natural)
+        }
+    });
+
+    if reverse {
+        input_pairs.reverse()
+    }
+
+    if let Some(err) = compare_err {
+        return Err(err);
+    }
+
+    Ok(input_pairs.into_iter().collect())
+}
+
+pub fn compare_by(
     left: &Value,
     right: &Value,
     comparators: &[Comparator],
@@ -153,6 +166,48 @@ pub fn compare(
     Ordering::Equal
 }
 
+pub fn compare_values(
+    left: &Value,
+    right: &Value,
+    insensitive: bool,
+    natural: bool,
+) -> Result<Ordering, ShellError> {
+    if insensitive || natural {
+        let left_str = left.coerce_string()?;
+        let right_str = right.coerce_string()?;
+        Ok(compare_strings(&left_str, &right_str, insensitive, natural))
+    } else {
+        Ok(left.partial_cmp(&right).unwrap_or(Ordering::Equal))
+    }
+}
+
+pub fn compare_strings(
+    left: &String,
+    right: &String,
+    insensitive: bool,
+    natural: bool,
+) -> Ordering {
+    // declare these names now to appease compiler
+    // not needed in nightly, but needed as of 1.77.2, so can be removed later
+    let (left_copy, right_copy);
+
+    // only allocate new String if necessary for case folding,
+    // so callers don't need to pass an owned String
+    let (left_str, right_str) = if insensitive {
+        left_copy = left.to_folded_case();
+        right_copy = right.to_folded_case();
+        (&left_copy, &right_copy)
+    } else {
+        (left, right)
+    };
+
+    if natural {
+        alphanumeric_sort::compare_str(left_str, right_str)
+    } else {
+        left_str.partial_cmp(right_str).unwrap_or(Ordering::Equal)
+    }
+}
+
 pub fn compare_cell_path(
     left: &Value,
     right: &Value,
@@ -162,23 +217,7 @@ pub fn compare_cell_path(
 ) -> Result<Ordering, ShellError> {
     let left = left.clone().follow_cell_path(&cell_path.members, false)?;
     let right = right.clone().follow_cell_path(&cell_path.members, false)?;
-
-    if insensitive || natural {
-        let mut left_str = left.coerce_into_string()?;
-        let mut right_str = right.coerce_into_string()?;
-        if insensitive {
-            left_str = left_str.to_folded_case();
-            right_str = right_str.to_folded_case();
-        }
-
-        if natural {
-            Ok(compare_str(left_str, right_str))
-        } else {
-            Ok(left_str.partial_cmp(&right_str).unwrap_or(Ordering::Equal))
-        }
-    } else {
-        Ok(left.partial_cmp(&right).unwrap_or(Ordering::Equal))
-    }
+    compare_values(&left, &right, insensitive, natural)
 }
 
 pub fn compare_closure(

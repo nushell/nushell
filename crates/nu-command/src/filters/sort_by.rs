@@ -125,7 +125,7 @@ impl Command for SortBy {
             }
         }
 
-        crate::sort(&mut vec, comparators, head, insensitive, natural)?;
+        crate::sort_by(&mut vec, comparators, head, insensitive, natural)?;
 
         if reverse {
             vec.reverse()
