@@ -1,5 +1,6 @@
 use nu_cmd_base::util::get_init_cwd;
 use nu_engine::command_prelude::*;
+use nu_path::AbsolutePathBuf;
 use nu_utils::filesystem::{have_permission, PermissionResult};
 
 #[derive(Clone)]
@@ -45,7 +46,7 @@ impl Command for Cd {
         // user can use `cd` to recover PWD to a good state.
         let cwd = engine_state
             .cwd(Some(stack))
-            .map(Into::into)
+            .map(AbsolutePathBuf::into_std_path_buf)
             .unwrap_or(get_init_cwd());
 
         let path_val = {
