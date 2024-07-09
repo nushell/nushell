@@ -297,12 +297,13 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    // Use IR evaluator (or set $env.NU_TEST_USE_IR to always do this)
-    if opts
-        .use_ir
-        .unwrap_or_else(|| std::env::var("NU_TEST_USE_IR").is_ok())
-    {
-        command.arg("--use-ir");
+    // Explicitly set NU_USE_IR
+    if let Some(use_ir) = opts.use_ir {
+        if use_ir {
+            command.env("NU_USE_IR", "1");
+        } else {
+            command.env_remove("NU_USE_IR");
+        }
     }
 
     // Uncomment to debug the command being run:
@@ -383,32 +384,24 @@ where
         executable_path = crate::fs::installed_nu_path();
     }
 
-    let mut nu = setup_command(&executable_path, &target_cwd);
-
-    nu.envs(envs);
-
-    nu.arg("--commands");
-    nu.arg(command);
-    // Use plain errors to help make error text matching more consistent
-    nu.args(["--error-style", "plain"]);
-    nu.arg("--config");
-    nu.arg(temp_config_file);
-    nu.arg("--env-config");
-    nu.arg(temp_env_config_file);
-    nu.arg("--plugin-config");
-    nu.arg(temp_plugin_file);
-    nu.arg("--plugins");
-    nu.arg(plugins_arg);
-
-    // Test plugin tests with IR too, if asked to
-    if std::env::var("NU_TEST_USE_IR").is_ok() {
-        nu.arg("--use-ir");
-    }
-
-    nu.stdout(Stdio::piped());
-    nu.stderr(Stdio::piped());
-
-    let process = match nu.spawn() {
+    let process = match setup_command(&executable_path, &target_cwd)
+        .envs(envs)
+        .arg("--commands")
+        .arg(command)
+        // Use plain errors to help make error text matching more consistent
+        .args(["--error-style", "plain"])
+        .arg("--config")
+        .arg(temp_config_file)
+        .arg("--env-config")
+        .arg(temp_env_config_file)
+        .arg("--plugin-config")
+        .arg(temp_plugin_file)
+        .arg("--plugins")
+        .arg(plugins_arg)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
         Ok(child) => child,
         Err(why) => panic!("Can't run test {}", why),
     };

@@ -49,12 +49,6 @@ impl Command for Do {
                 "catch errors as the closure runs, and return them",
                 Some('c'),
             )
-            // FIXME: for testing only
-            .switch(
-                "use-ir",
-                "use the compiled IR instead of evaluating the expression",
-                None,
-            )
             .switch(
                 "env",
                 "keep the environment defined inside the command",
@@ -84,7 +78,6 @@ impl Command for Do {
         let ignore_program_errors = ignore_all_errors
             || call.has_flag(engine_state, caller_stack, "ignore-program-errors")?;
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
-        let use_ir = call.has_flag(engine_state, caller_stack, "use-ir")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
         let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(block.captures);
@@ -94,9 +87,7 @@ impl Command for Do {
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
 
         // Applies to all block evaluation once set true
-        if use_ir {
-            caller_stack.use_ir = true;
-        }
+        callee_stack.use_ir = caller_stack.has_env_var(engine_state, "NU_USE_IR");
 
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 

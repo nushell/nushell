@@ -107,7 +107,6 @@ pub(crate) fn parse_commandline_args(
             let error_style: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "error-style")?;
             let no_newline = call.get_named_arg("no-newline");
-            let use_ir = call.has_flag(engine_state, &mut stack, "use-ir")?;
 
             // ide flags
             let lsp = call.has_flag(engine_state, &mut stack, "lsp")?;
@@ -252,7 +251,6 @@ pub(crate) fn parse_commandline_args(
                 table_mode,
                 error_style,
                 no_newline,
-                use_ir,
             });
         }
     }
@@ -294,7 +292,6 @@ pub(crate) struct NushellCliArgs {
     pub(crate) ide_complete: Option<Value>,
     pub(crate) ide_check: Option<Value>,
     pub(crate) ide_ast: Option<Spanned<String>>,
-    pub(crate) use_ir: bool,
 }
 
 #[derive(Clone)]
@@ -371,7 +368,6 @@ impl Command for Nu {
                 "start with an alternate environment config file",
                 None,
             )
-            .switch("use-ir", "EXPERIMENTAL: use the IR evaluation engine on launch", None)
             .switch(
                "lsp",
                "start nu's language server protocol",
