@@ -1,137 +1,6 @@
-use std::fmt::Display;
+use nu_path::AbsolutePathBuf;
 use std::io::Read;
-use std::ops::Div;
 use std::path::{Path, PathBuf};
-
-pub struct AbsoluteFile {
-    inner: PathBuf,
-}
-
-impl AbsoluteFile {
-    pub fn new(path: impl AsRef<Path>) -> AbsoluteFile {
-        let path = path.as_ref();
-
-        if !path.is_absolute() {
-            panic!(
-                "AbsoluteFile::new must take an absolute path :: {}",
-                path.display()
-            )
-        } else if path.is_dir() {
-            // At the moment, this is not an invariant, but rather a way to catch bugs
-            // in tests.
-            panic!(
-                "AbsoluteFile::new must not take a directory :: {}",
-                path.display()
-            )
-        } else {
-            AbsoluteFile {
-                inner: path.to_path_buf(),
-            }
-        }
-    }
-
-    pub fn dir(&self) -> AbsolutePath {
-        AbsolutePath::new(if let Some(parent) = self.inner.parent() {
-            parent
-        } else {
-            unreachable!("Internal error: could not get parent in dir")
-        })
-    }
-}
-
-impl From<AbsoluteFile> for PathBuf {
-    fn from(file: AbsoluteFile) -> Self {
-        file.inner
-    }
-}
-
-pub struct AbsolutePath {
-    pub inner: PathBuf,
-}
-
-impl AbsolutePath {
-    pub fn new(path: impl AsRef<Path>) -> AbsolutePath {
-        let path = path.as_ref();
-
-        if path.is_absolute() {
-            AbsolutePath {
-                inner: path.to_path_buf(),
-            }
-        } else {
-            panic!("AbsolutePath::new must take an absolute path")
-        }
-    }
-}
-
-impl Div<&str> for &AbsolutePath {
-    type Output = AbsolutePath;
-
-    fn div(self, rhs: &str) -> Self::Output {
-        let parts = rhs.split('/');
-        let mut result = self.inner.clone();
-
-        for part in parts {
-            result = result.join(part);
-        }
-
-        AbsolutePath::new(result)
-    }
-}
-
-impl AsRef<Path> for AbsolutePath {
-    fn as_ref(&self) -> &Path {
-        self.inner.as_path()
-    }
-}
-
-pub struct RelativePath {
-    inner: PathBuf,
-}
-
-impl RelativePath {
-    pub fn new(path: impl Into<PathBuf>) -> RelativePath {
-        let path = path.into();
-
-        if path.is_relative() {
-            RelativePath { inner: path }
-        } else {
-            panic!("RelativePath::new must take a relative path")
-        }
-    }
-}
-
-impl<T: AsRef<str>> Div<T> for &RelativePath {
-    type Output = RelativePath;
-
-    fn div(self, rhs: T) -> Self::Output {
-        let parts = rhs.as_ref().split('/');
-        let mut result = self.inner.clone();
-
-        for part in parts {
-            result = result.join(part);
-        }
-
-        RelativePath::new(result)
-    }
-}
-
-impl Display for AbsoluteFile {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.inner.display())
-    }
-}
-
-impl Display for AbsolutePath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.inner.display())
-    }
-}
-
-impl Display for RelativePath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.inner.display())
-    }
-}
 
 pub enum Stub<'a> {
     FileWithContent(&'a str, &'a str),
@@ -204,7 +73,7 @@ pub fn delete_directory_at(full_path: &str) {
 pub fn executable_path() -> PathBuf {
     let mut path = binaries();
     path.push("nu");
-    path
+    path.into()
 }
 
 pub fn installed_nu_path() -> PathBuf {
@@ -212,11 +81,12 @@ pub fn installed_nu_path() -> PathBuf {
     which::which_in("nu", path, ".").unwrap_or_else(|_| executable_path())
 }
 
-pub fn root() -> PathBuf {
+pub fn root() -> AbsolutePathBuf {
     let manifest_dir = if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-        PathBuf::from(manifest_dir)
+        AbsolutePathBuf::try_from(manifest_dir).expect("CARGO_MANIFEST_DIR is not an absolute path")
     } else {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        AbsolutePathBuf::try_from(env!("CARGO_MANIFEST_DIR"))
+            .expect("CARGO_MANIFEST_DIR is not an absolute path")
     };
 
     let test_path = manifest_dir.join("Cargo.lock");
@@ -228,11 +98,11 @@ pub fn root() -> PathBuf {
             .expect("Couldn't find the debug binaries directory")
             .parent()
             .expect("Couldn't find the debug binaries directory")
-            .to_path_buf()
+            .into()
     }
 }
 
-pub fn binaries() -> PathBuf {
+pub fn binaries() -> AbsolutePathBuf {
     let build_target = std::env::var("CARGO_BUILD_TARGET").unwrap_or_default();
 
     let profile = if let Ok(env_profile) = std::env::var("NUSHELL_CARGO_PROFILE") {
@@ -244,26 +114,27 @@ pub fn binaries() -> PathBuf {
     };
 
     std::env::var("CARGO_TARGET_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| root().join("target"))
+        .ok()
+        .and_then(|p| AbsolutePathBuf::try_from(p).ok())
+        .unwrap_or_else(|| root().join("target"))
         .join(build_target)
         .join(profile)
 }
 
-pub fn fixtures() -> PathBuf {
+pub fn fixtures() -> AbsolutePathBuf {
     root().join("tests").join("fixtures")
 }
 
-pub fn assets() -> PathBuf {
-    root().join("tests/assets")
+pub fn assets() -> AbsolutePathBuf {
+    root().join("tests").join("assets")
 }
 
 pub fn in_directory(str: impl AsRef<Path>) -> String {
     let path = str.as_ref();
     let path = if path.is_relative() {
-        root().join(path)
+        root().join(path).into_any()
     } else {
-        path.to_path_buf()
+        path.into()
     };
 
     path.display().to_string()

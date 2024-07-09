@@ -437,7 +437,7 @@ fn rm_prints_filenames_on_error() {
             .collect();
         sandbox.with_files(&with_files);
 
-        let test_dir = dirs.test();
+        let test_dir = dirs.test().as_std_path();
 
         set_dir_read_only(test_dir, true);
         let _cleanup = Cleanup {

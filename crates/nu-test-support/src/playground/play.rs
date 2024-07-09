@@ -1,7 +1,7 @@
 use super::Director;
-use crate::fs;
-use crate::fs::Stub;
+use crate::fs::{self, Stub};
 use nu_glob::glob;
+use nu_path::{AbsolutePath, AbsolutePathBuf};
 use std::path::{Path, PathBuf};
 use std::str;
 use tempfile::{tempdir, TempDir};
@@ -22,46 +22,46 @@ impl EnvironmentVariable {
 }
 
 pub struct Playground<'a> {
-    root: TempDir,
+    _root: TempDir,
     tests: String,
-    cwd: PathBuf,
+    cwd: AbsolutePathBuf,
     config: Option<PathBuf>,
     environment_vars: Vec<EnvironmentVariable>,
     dirs: &'a Dirs,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Dirs {
-    pub root: PathBuf,
-    pub test: PathBuf,
-    pub fixtures: PathBuf,
+    pub root: AbsolutePathBuf,
+    pub test: AbsolutePathBuf,
+    pub fixtures: AbsolutePathBuf,
 }
 
 impl Dirs {
-    pub fn formats(&self) -> PathBuf {
+    pub fn formats(&self) -> AbsolutePathBuf {
         self.fixtures.join("formats")
     }
 
-    pub fn root(&self) -> &Path {
-        self.root.as_path()
+    pub fn root(&self) -> &AbsolutePath {
+        &self.root
     }
 
-    pub fn test(&self) -> &Path {
-        self.test.as_path()
+    pub fn test(&self) -> &AbsolutePath {
+        &self.test
     }
 }
 
 impl<'a> Playground<'a> {
-    pub fn root(&self) -> &Path {
-        self.root.path()
+    pub fn root(&self) -> &AbsolutePath {
+        &self.dirs.root
     }
 
-    pub fn cwd(&self) -> &Path {
+    pub fn cwd(&self) -> &AbsolutePath {
         &self.cwd
     }
 
     pub fn back_to_playground(&mut self) -> &mut Self {
-        self.cwd = PathBuf::from(self.root()).join(self.tests.clone());
+        self.cwd = self.root().join(&self.tests);
         self
     }
 
@@ -70,62 +70,40 @@ impl<'a> Playground<'a> {
     }
 
     pub fn setup(topic: &str, block: impl FnOnce(Dirs, &mut Playground)) {
-        let root = tempdir().expect("Couldn't create a tempdir");
-        let nuplay_dir = root.path().join(topic);
+        let temp = tempdir().expect("Could not create a tempdir");
 
-        if PathBuf::from(&nuplay_dir).exists() {
-            std::fs::remove_dir_all(PathBuf::from(&nuplay_dir)).expect("can not remove directory");
+        let root = AbsolutePathBuf::try_from(temp.path())
+            .expect("Tempdir is not an absolute path")
+            .canonicalize()
+            .expect("Could not canonicalize tempdir");
+
+        let test = root.join(topic);
+        if test.exists() {
+            std::fs::remove_dir_all(&test).expect("Could not remove directory");
         }
+        std::fs::create_dir(&test).expect("Could not create directory");
+        let test = test
+            .canonicalize()
+            .expect("Could not canonicalize test path");
 
-        std::fs::create_dir(PathBuf::from(&nuplay_dir)).expect("can not create directory");
-
-        let fixtures = fs::fixtures();
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let fixtures = nu_path::canonicalize_with(fixtures.clone(), cwd).unwrap_or_else(|e| {
-            panic!(
-                "Couldn't canonicalize fixtures path {}: {:?}",
-                fixtures.display(),
-                e
-            )
-        });
-
-        let mut playground = Playground {
-            root,
-            tests: topic.to_string(),
-            cwd: nuplay_dir,
-            config: None,
-            environment_vars: Vec::default(),
-            dirs: &Dirs::default(),
-        };
-
-        let playground_root = playground.root.path();
-
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let test =
-            nu_path::canonicalize_with(playground_root.join(topic), cwd).unwrap_or_else(|e| {
-                panic!(
-                    "Couldn't canonicalize test path {}: {:?}",
-                    playground_root.join(topic).display(),
-                    e
-                )
-            });
-
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let root = nu_path::canonicalize_with(playground_root, cwd).unwrap_or_else(|e| {
-            panic!(
-                "Couldn't canonicalize tests root path {}: {:?}",
-                playground_root.display(),
-                e
-            )
-        });
+        let fixtures = fs::fixtures()
+            .canonicalize()
+            .expect("Could not canonicalize fixtures path");
 
         let dirs = Dirs {
-            root,
-            test,
-            fixtures,
+            root: root.into(),
+            test: test.as_path().into(),
+            fixtures: fixtures.into(),
         };
 
-        playground.dirs = &dirs;
+        let mut playground = Playground {
+            _root: temp,
+            tests: topic.to_string(),
+            cwd: test.into(),
+            config: None,
+            environment_vars: Vec::default(),
+            dirs: &dirs,
+        };
 
         block(dirs.clone(), &mut playground);
     }
@@ -173,8 +151,8 @@ impl<'a> Playground<'a> {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn symlink(&mut self, from: impl AsRef<Path>, to: impl AsRef<Path>) -> &mut Self {
-        let from = self.cwd.join(from);
-        let to = self.cwd.join(to);
+        let from = self.cwd.join(from.as_ref());
+        let to = self.cwd.join(to.as_ref());
 
         let create_symlink = {
             #[cfg(unix)]

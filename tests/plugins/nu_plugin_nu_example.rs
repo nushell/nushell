@@ -4,7 +4,7 @@ use assert_cmd::Command;
 fn call() {
     // Add the `nu` binaries to the path env
     let path_env = std::env::join_paths(
-        std::iter::once(nu_test_support::fs::binaries()).chain(
+        std::iter::once(nu_test_support::fs::binaries().into()).chain(
             std::env::var_os(nu_test_support::NATIVE_PATH_ENV_VAR)
                 .as_deref()
                 .map(std::env::split_paths)

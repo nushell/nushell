@@ -721,7 +721,7 @@ fn file_completion_quoted() {
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
         "`te(st).txt`".to_string(),
-        format!("`{}`", folder("test dir".into())),
+        format!("`{}`", folder("test dir")),
     ];
 
     match_suggestions(expected_paths, suggestions);
