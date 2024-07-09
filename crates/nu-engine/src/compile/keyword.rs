@@ -2,7 +2,7 @@ use nu_protocol::{
     ast::{Block, Call, Expr, Expression},
     engine::StateWorkingSet,
     ir::Instruction,
-    IntoSpanned, RegId, VarId,
+    IntoSpanned, RegId, Type, VarId,
 };
 
 use super::{compile_block, compile_expression, BlockBuilder, CompileError, RedirectModes};
@@ -302,6 +302,8 @@ pub(crate) fn compile_let(
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
+    let variable = working_set.get_variable(var_id);
+
     compile_block(
         working_set,
         builder,
@@ -310,6 +312,17 @@ pub(crate) fn compile_let(
         Some(io_reg),
         io_reg,
     )?;
+
+    // If the variable is a glob type variable, we should cast it with GlobFrom
+    if variable.ty == Type::Glob {
+        builder.push(
+            Instruction::GlobFrom {
+                src_dst: io_reg,
+                no_expand: true,
+            }
+            .into_spanned(call.head),
+        )?;
+    }
 
     builder.push(
         Instruction::StoreVariable {

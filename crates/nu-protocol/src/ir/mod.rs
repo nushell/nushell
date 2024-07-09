@@ -169,7 +169,8 @@ pub enum Instruction {
     /// Append a value onto the end of a string. Uses `to_expanded_string(", ", ...)` on the value.
     /// Used for string interpolation literals. Not the same thing as the `++` operator.
     StringAppend { src_dst: RegId, val: RegId },
-    /// Convert a string into a glob. Used for glob interpolation.
+    /// Convert a string into a glob. Used for glob interpolation and setting glob variables. If the
+    /// value is already a glob, it won't be modified (`no_expand` will have no effect).
     GlobFrom { src_dst: RegId, no_expand: bool },
     /// Push a value onto the end of a list. Used to construct list literals.
     ListPush { src_dst: RegId, item: RegId },

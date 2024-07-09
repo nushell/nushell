@@ -503,8 +503,14 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::GlobFrom { src_dst, no_expand } => {
             let string_value = ctx.collect_reg(*src_dst, *span)?;
-            let string = string_value.into_string()?;
-            let glob_value = Value::glob(string, *no_expand, *span);
+            let glob_value = if matches!(string_value, Value::Glob { .. }) {
+                // It already is a glob, so don't touch it.
+                string_value
+            } else {
+                // Treat it as a string, then cast
+                let string = string_value.into_string()?;
+                Value::glob(string, *no_expand, *span)
+            };
             ctx.put_reg(*src_dst, glob_value.into_pipeline_data());
             Ok(Continue)
         }
