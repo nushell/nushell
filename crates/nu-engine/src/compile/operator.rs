@@ -157,10 +157,10 @@ pub(crate) fn compile_assignment(
                     // Default to empty record so we can do further upserts
                     builder.branch_if_empty(
                         head_reg,
-                        builder.next_instruction_index() + 1,
+                        builder.next_instruction_index() + 2,
                         assignment_span,
                     )?;
-                    builder.jump(builder.next_instruction_index() + 1, assignment_span)?;
+                    builder.jump(builder.next_instruction_index() + 2, assignment_span)?;
                     builder.load_literal(
                         head_reg,
                         Literal::Record { capacity: 0 }.into_spanned(lhs.span),
