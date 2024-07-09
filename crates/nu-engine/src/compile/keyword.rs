@@ -335,24 +335,31 @@ pub(crate) fn compile_try(
 ) -> Result<(), CompileError> {
     // Pseudocode (literal block):
     //
-    //      on-error-with ERR, %io_reg           // or without
-    //      %io_reg <- <...block...> <- %io_reg
-    //      pop-error-handler
-    //      jump END
-    // ERR: store-variable $err_var, %io_reg     // or without
-    //      %io_reg <- <...catch block...>       // set to empty if no catch block
+    //       on-error-with ERR, %io_reg           // or without
+    //       %io_reg <- <...block...> <- %io_reg
+    //       pop-error-handler
+    //       check-external-failed %failed_reg, %io_reg
+    //       branch-if %failed_reg, FAIL
+    //       jump END
+    // FAIL: drain %io_reg
+    // ERR:  store-variable $err_var, %io_reg     // or without
+    //       %io_reg <- <...catch block...>       // set to empty if no catch block
     // END:
     //
     // with expression that can't be inlined:
     //
-    //      %closure_reg <- <catch_expr>
-    //      on-error-with ERR, %io_reg
-    //      %io_reg <- <...block...> <- %io_reg
-    //      pop-error-handler
-    //      jump END
-    // ERR: push-positional %closure_reg
-    //      push-positional %io_reg
-    //      call "do", %io_reg
+    //       %closure_reg <- <catch_expr>
+    //       on-error-with ERR, %io_reg
+    //       %io_reg <- <...block...> <- %io_reg
+    //       pop-error-handler
+    //       check-external-failed %failed_reg, %io_reg
+    //       branch-if %failed_reg, FAIL
+    //       jump END
+    // FAIL: drain %io_reg
+    // ERR:  push-positional %closure_reg
+    //       push-positional %io_reg
+    //       call "do", %io_reg
+    // END:
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "try".into(),
         span: call.head,
@@ -366,6 +373,7 @@ pub(crate) fn compile_try(
         Some(kw_expr) => Some(kw_expr.as_keyword().ok_or_else(invalid)?),
         None => None,
     };
+    let catch_span = catch_expr.map(|e| e.span).unwrap_or(call.head);
 
     // We have two ways of executing `catch`: if it was provided as a literal, we can inline it.
     // Otherwise, we have to evaluate the expression and keep it as a register, and then call `do`.
@@ -439,11 +447,27 @@ pub(crate) fn compile_try(
     // Successful case: pop the error handler
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
+    // Check for external command exit code failure, and also redirect that to the catch handler
+    let failed_reg = builder.next_register()?;
+    builder.push(
+        Instruction::CheckExternalFailed {
+            dst: failed_reg,
+            src: io_reg,
+        }
+        .into_spanned(catch_span),
+    )?;
+    let external_failed_branch = builder.branch_if_placeholder(failed_reg, catch_span)?;
+
     // Jump over the failure case
-    let catch_span = catch_expr.map(|e| e.span).unwrap_or(call.head);
     let jump_index = builder.jump_placeholder(catch_span)?;
 
-    // This is the error handler - go back and set the right branch destination
+    // Set up an error handler preamble for failed external.
+    // Draining the %io_reg results in Empty in that register, and also sets $env.LAST_EXIT_CODE
+    // for us.
+    builder.set_branch_target(external_failed_branch, builder.next_instruction_index())?;
+    builder.drain(io_reg, catch_span)?;
+
+    // This is the real error handler - go back and set the right branch destination
     builder.set_branch_target(error_handler_index, builder.next_instruction_index())?;
 
     // Mark out register as likely not clean - state in error handler is not well defined

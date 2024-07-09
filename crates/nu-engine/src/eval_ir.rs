@@ -677,6 +677,13 @@ fn eval_instruction<D: DebugContext>(
             ctx.stack.error_handlers.pop(ctx.error_handler_base);
             Ok(Continue)
         }
+        Instruction::CheckExternalFailed { dst, src } => {
+            let data = ctx.take_reg(*src);
+            let (data, failed) = data.check_external_failed()?;
+            ctx.put_reg(*src, data);
+            ctx.put_reg(*dst, Value::bool(failed, *span).into_pipeline_data());
+            Ok(Continue)
+        }
         Instruction::Return { src } => Ok(Return(*src)),
     }
 }
