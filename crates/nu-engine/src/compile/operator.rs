@@ -4,6 +4,7 @@ use nu_protocol::{
     ir::{Instruction, Literal},
     IntoSpanned, RegId, Span, Spanned, ENV_VARIABLE_ID,
 };
+use nu_utils::IgnoreCaseExt;
 
 use super::{compile_expression, BlockBuilder, CompileError, RedirectModes};
 
@@ -137,6 +138,15 @@ pub(crate) fn compile_assignment(
                 let Some(PathMember::String { val: key, .. }) = path.tail.first() else {
                     return Err(CompileError::CannotReplaceEnv { span: lhs.span });
                 };
+
+                // Some env vars can't be set by Nushell code.
+                const AUTOMATIC_NAMES: &[&str] = &["PWD", "FILE_PWD", "CURRENT_FILE"];
+                if AUTOMATIC_NAMES.iter().any(|name| key.eq_ignore_case(name)) {
+                    return Err(CompileError::AutomaticEnvVarSetManually {
+                        envvar_name: "PWD".into(),
+                        span: lhs.span,
+                    });
+                }
 
                 let key_data = builder.data(key)?;
 

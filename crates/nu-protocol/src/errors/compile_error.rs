@@ -97,6 +97,11 @@ pub enum CompileError {
     #[diagnostic(code(nu::compile::instruction_index_out_of_range))]
     InstructionIndexOutOfRange { index: usize },
 
+    /// You're trying to run an unsupported external command.
+    ///
+    /// ## Resolution
+    ///
+    /// Make sure there's an appropriate `run-external` declaration for this external command.
     #[error("External calls are not supported.")]
     #[diagnostic(
         code(nu::compile::run_external_not_found),
@@ -107,6 +112,11 @@ pub enum CompileError {
         span: Span,
     },
 
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a variable or variable cell path.
     #[error("Assignment operations require a variable.")]
     #[diagnostic(
         code(nu::compile::assignment_requires_variable),
@@ -117,7 +127,12 @@ pub enum CompileError {
         span: Span,
     },
 
-    #[error("Attempted to modify immutable variable.")]
+    /// Invalid assignment left-hand side
+    ///
+    /// ## Resolution
+    ///
+    /// Assignment requires that you assign to a mutable variable or cell path.
+    #[error("Assignment to an immutable variable.")]
     #[diagnostic(
         code(nu::compile::assignment_requires_mutable_variable),
         help("declare the variable with `mut`, or shadow it again with `let`")
@@ -127,6 +142,30 @@ pub enum CompileError {
         span: Span,
     },
 
+    /// This environment variable cannot be set manually.
+    ///
+    /// ## Resolution
+    ///
+    /// This environment variable is set automatically by Nushell and cannot not be set manually.
+    #[error("{envvar_name} cannot be set manually.")]
+    #[diagnostic(
+        code(nu::compile::automatic_env_var_set_manually),
+        help(
+            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."#
+        )
+    )]
+    AutomaticEnvVarSetManually {
+        envvar_name: String,
+        #[label("cannot set '{envvar_name}' manually")]
+        span: Span,
+    },
+
+    /// It is not possible to replace the entire environment at once
+    ///
+    /// ## Resolution
+    ///
+    /// Setting the entire environment is not allowed. Change environment variables individually
+    /// instead.
     #[error("Cannot replace environment.")]
     #[diagnostic(
         code(nu::compile::cannot_replace_env),
