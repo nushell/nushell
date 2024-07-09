@@ -1167,5 +1167,5 @@ fn error_on_out_greater_pipe() {
     let actual = nu!(r#""foo" o>| print"#);
     assert!(actual
         .err
-        .contains("Redirection stdout to pipe is the same as piping directly"))
+        .contains("Redirecting stdout to a pipe is the same as normal piping"))
 }
