@@ -377,7 +377,7 @@ fn eval_instruction<D: DebugContext>(
             }
         }
         Instruction::PushPositional { src } => {
-            let val = ctx.collect_reg(*src, *span)?;
+            let val = ctx.collect_reg(*src, *span)?.with_span(*span);
             ctx.stack.arguments.push(Argument::Positional {
                 span: *span,
                 val,
@@ -386,7 +386,7 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::AppendRest { src } => {
-            let vals = ctx.collect_reg(*src, *span)?;
+            let vals = ctx.collect_reg(*src, *span)?.with_span(*span);
             ctx.stack.arguments.push(Argument::Spread {
                 span: *span,
                 vals,
@@ -415,7 +415,7 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::PushNamed { name, src } => {
-            let val = ctx.collect_reg(*src, *span)?;
+            let val = ctx.collect_reg(*src, *span)?.with_span(*span);
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Named {
                 data,
@@ -428,7 +428,7 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::PushShortNamed { short, src } => {
-            let val = ctx.collect_reg(*src, *span)?;
+            let val = ctx.collect_reg(*src, *span)?.with_span(*span);
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Named {
                 data,
