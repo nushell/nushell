@@ -54,7 +54,7 @@ pub struct FmtInstruction<'a> {
 
 impl<'a> fmt::Display for FmtInstruction<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const WIDTH: usize = 20;
+        const WIDTH: usize = 22;
 
         match self.instruction {
             Instruction::LoadLiteral { dst, lit } => {
