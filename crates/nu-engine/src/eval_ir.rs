@@ -588,9 +588,11 @@ fn eval_instruction<D: DebugContext>(
                 let value = data.follow_cell_path(&path.members, *span, true)?;
                 ctx.put_reg(*src_dst, value.into_pipeline_data());
                 Ok(Continue)
+            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
+                Err(*error)
             } else {
                 Err(ShellError::TypeMismatch {
-                    err_message: "cell path".into(),
+                    err_message: "expected cell path".into(),
                     span: path.span().unwrap_or(*span),
                 })
             }
@@ -603,9 +605,11 @@ fn eval_instruction<D: DebugContext>(
                 let value = value.follow_cell_path(&path.members, true)?;
                 ctx.put_reg(*dst, value.into_pipeline_data());
                 Ok(Continue)
+            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
+                Err(*error)
             } else {
                 Err(ShellError::TypeMismatch {
-                    err_message: "cell path".into(),
+                    err_message: "expected cell path".into(),
                     span: path.span().unwrap_or(*span),
                 })
             }
@@ -625,9 +629,11 @@ fn eval_instruction<D: DebugContext>(
                 value.upsert_data_at_cell_path(&path.members, new_value)?;
                 ctx.put_reg(*src_dst, value.into_pipeline_data_with_metadata(metadata));
                 Ok(Continue)
+            } else if let PipelineData::Value(Value::Error { error, .. }, _) = path {
+                Err(*error)
             } else {
                 Err(ShellError::TypeMismatch {
-                    err_message: "cell path".into(),
+                    err_message: "expected cell path".into(),
                     span: path.span().unwrap_or(*span),
                 })
             }
@@ -636,11 +642,17 @@ fn eval_instruction<D: DebugContext>(
         Instruction::BranchIf { cond, index } => {
             let data = ctx.take_reg(*cond);
             let data_span = data.span();
-            let PipelineData::Value(Value::Bool { val, .. }, _) = data else {
-                return Err(ShellError::TypeMismatch {
-                    err_message: "expected bool".into(),
-                    span: data_span.unwrap_or(*span),
-                });
+            let val = match data {
+                PipelineData::Value(Value::Bool { val, .. }, _) => val,
+                PipelineData::Value(Value::Error { error, .. }, _) => {
+                    return Err(*error);
+                }
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "expected bool".into(),
+                        span: data_span.unwrap_or(*span),
+                    });
+                }
             };
             if val {
                 Ok(Branch(*index))
@@ -826,6 +838,14 @@ fn binary_op(
 ) -> Result<InstructionResult, ShellError> {
     let lhs_val = ctx.collect_reg(lhs_dst, span)?;
     let rhs_val = ctx.collect_reg(rhs, span)?;
+
+    // Handle binary op errors early
+    if let Value::Error { error, .. } = lhs_val {
+        return Err(*error);
+    }
+    if let Value::Error { error, .. } = rhs_val {
+        return Err(*error);
+    }
 
     // FIXME: there should be a span for both the operator and for the expr?
     let op_span = span;
@@ -1061,6 +1081,8 @@ fn gather_arguments(
             Argument::Spread { vals, .. } => {
                 if let Value::List { vals, .. } = vals {
                     rest.extend(vals);
+                } else if let Value::Error { error, .. } = vals {
+                    return Err(*error);
                 } else {
                     return Err(ShellError::CannotSpreadAsList { span: vals.span() });
                 }
