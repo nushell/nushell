@@ -124,7 +124,15 @@ pub(crate) fn finish_redirection(
             item: RedirectMode::File { file_num },
             span,
         }) => {
-            builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
+            // Close the file, unless it's the same as out (in which case it was already closed)
+            if !modes.out.is_some_and(|out_mode| match out_mode.item {
+                RedirectMode::File {
+                    file_num: out_file_num,
+                } => file_num == out_file_num,
+                _ => false,
+            }) {
+                builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
+            }
         }
         Some(Spanned {
             item: RedirectMode::Pipe,
