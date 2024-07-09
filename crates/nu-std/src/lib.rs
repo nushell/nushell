@@ -98,8 +98,7 @@ use std pwd
 
     eval_block::<WithoutDebug>(engine_state, &mut stack, &block, pipeline_data)?;
 
-    let cwd = engine_state.cwd(Some(&stack))?;
-    engine_state.merge_env(&mut stack, cwd)?;
+    engine_state.merge_env(&mut stack)?;
 
     Ok(())
 }
