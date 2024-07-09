@@ -8,7 +8,7 @@ use nu_protocol::{
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     record, ByteStreamSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
     OutDest, PipelineData, PositionalArg, Range, Record, RegId, ShellError, Signature, Span,
-    Spanned, Value, VarId, ENV_VARIABLE_ID,
+    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -912,6 +912,7 @@ fn eval_call<D: DebugContext>(
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
         gather_arguments(
+            engine_state,
             block,
             &mut caller_stack,
             &mut callee_stack,
@@ -1000,6 +1001,7 @@ fn expect_positional_var_id(arg: &PositionalArg, span: Span) -> Result<VarId, Sh
 
 /// Move arguments from the stack into variables for a custom command
 fn gather_arguments(
+    engine_state: &EngineState,
     block: &Block,
     caller_stack: &mut Stack,
     callee_stack: &mut Stack,
@@ -1011,7 +1013,14 @@ fn gather_arguments(
         .signature
         .required_positional
         .iter()
-        .chain(&block.signature.optional_positional);
+        .map(|p| (p, true))
+        .chain(
+            block
+                .signature
+                .optional_positional
+                .iter()
+                .map(|p| (p, false)),
+        );
 
     // Arguments that didn't get consumed by required/optional
     let mut rest = vec![];
@@ -1019,8 +1028,14 @@ fn gather_arguments(
     for arg in caller_stack.arguments.drain_args(args_base, args_len) {
         match arg {
             Argument::Positional { span, val, .. } => {
-                if let Some(positional_arg) = positional_iter.next() {
+                if let Some((positional_arg, required)) = positional_iter.next() {
                     let var_id = expect_positional_var_id(positional_arg, span)?;
+                    if required {
+                        // By checking the type of the bound variable rather than converting the
+                        // SyntaxShape here, we might be able to save some allocations and effort
+                        let variable = engine_state.get_var(var_id);
+                        check_type(&val, &variable.ty)?;
+                    }
                     callee_stack.add_var(var_id, val);
                 } else {
                     rest.push(val);
@@ -1059,7 +1074,7 @@ fn gather_arguments(
     }
 
     // Check for arguments that haven't yet been set and set them to their defaults
-    for positional_arg in positional_iter {
+    for (positional_arg, _) in positional_iter {
         let var_id = expect_positional_var_id(positional_arg, call_head)?;
         callee_stack.add_var(
             var_id,
@@ -1089,6 +1104,26 @@ fn gather_arguments(
     }
 
     Ok(())
+}
+
+/// Type check helper. Produces `CantConvert` error if `val` is not compatible with `ty`.
+fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
+    if match val {
+        // An empty list is compatible with any list or table type
+        Value::List { vals, .. } if vals.is_empty() => matches!(ty, Type::List(_) | Type::Table(_)),
+        // FIXME: the allocation that might be required here is not great, it would be nice to be
+        // able to just directly check whether a value is compatible with a type
+        _ => val.get_type().is_subtype(ty),
+    } {
+        Ok(())
+    } else {
+        Err(ShellError::CantConvert {
+            to_type: ty.to_string(),
+            from_type: val.get_type().to_string(),
+            span: val.span(),
+            help: None,
+        })
+    }
 }
 
 /// Get variable from [`Stack`] or [`EngineState`]
