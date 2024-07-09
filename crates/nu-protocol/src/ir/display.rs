@@ -216,6 +216,9 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
                 };
                 write!(f, "{:WIDTH$} ({pattern}), {src}, {index}", "match")
             }
+            Instruction::CheckMatchGuard { src } => {
+                write!(f, "{:WIDTH$} {src}", "check-match-guard")
+            }
             Instruction::Iterate {
                 dst,
                 stream,

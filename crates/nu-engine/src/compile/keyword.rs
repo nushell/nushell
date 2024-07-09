@@ -149,6 +149,7 @@ pub(crate) fn compile_match(
     //         drop %match_reg
     //         jump END
     // PAT1:   %guard_reg <- <guard_expr>
+    //         check-match-guard %guard_reg
     //         not %guard_reg
     //         branch-if %guard_reg, MATCH2
     //         drop %match_reg
@@ -224,6 +225,8 @@ pub(crate) fn compile_match(
                 None,
                 guard_reg,
             )?;
+            builder
+                .push(Instruction::CheckMatchGuard { src: guard_reg }.into_spanned(guard.span))?;
             builder.push(Instruction::Not { src_dst: guard_reg }.into_spanned(guard.span))?;
             // Branch to the next match instruction if the branch fails to match
             builder.push(

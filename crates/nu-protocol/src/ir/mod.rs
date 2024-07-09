@@ -223,6 +223,9 @@ pub enum Instruction {
         src: RegId,
         index: usize,
     },
+    /// Check that a match guard is a boolean, throwing
+    /// [`MatchGuardNotBool`](crate::ShellError::MatchGuardNotBool) if it isn't. Preserves `src`.
+    CheckMatchGuard { src: RegId },
     /// Iterate on register `stream`, putting the next value in `dst` if present, or jumping to
     /// `end_index` if the iterator is finished
     Iterate {

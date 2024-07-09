@@ -116,6 +116,12 @@ impl<'a> EvalContext<'a> {
         self.registers[reg_id.0 as usize] = new_value;
     }
 
+    /// Borrow the contents of a register.
+    #[inline]
+    fn borrow_reg(&self, reg_id: RegId) -> &PipelineData {
+        &self.registers[reg_id.0 as usize]
+    }
+
     /// Replace the contents of a register with `Empty` and then return the value that it contained
     #[inline]
     fn take_reg(&mut self, reg_id: RegId) -> PipelineData {
@@ -422,24 +428,20 @@ fn eval_instruction<D: DebugContext>(
             ctx.redirect_err = eval_redirection(ctx, mode, *span, RedirectionStream::Err)?;
             Ok(Continue)
         }
-        Instruction::CheckErrRedirected { src } => {
-            let data = ctx.take_reg(*src);
-            match &data {
-                PipelineData::ByteStream(stream, _)
-                    if matches!(stream.source(), ByteStreamSource::Child(_)) =>
-                {
-                    ctx.put_reg(*src, data);
-                    Ok(Continue)
-                }
-                _ => Err(ShellError::GenericError {
-                    error: "Can't redirect stderr of internal command output".into(),
-                    msg: "piping stderr only works on external commands".into(),
-                    span: Some(*span),
-                    help: None,
-                    inner: vec![],
-                }),
+        Instruction::CheckErrRedirected { src } => match ctx.borrow_reg(*src) {
+            PipelineData::ByteStream(stream, _)
+                if matches!(stream.source(), ByteStreamSource::Child(_)) =>
+            {
+                Ok(Continue)
             }
-        }
+            _ => Err(ShellError::GenericError {
+                error: "Can't redirect stderr of internal command output".into(),
+                msg: "piping stderr only works on external commands".into(),
+                span: Some(*span),
+                help: None,
+                inner: vec![],
+            }),
+        },
         Instruction::OpenFile {
             file_num,
             path,
@@ -656,12 +658,10 @@ fn eval_instruction<D: DebugContext>(
             }
         }
         Instruction::BranchIfEmpty { src, index } => {
-            let data = ctx.take_reg(*src);
             let is_empty = matches!(
-                data,
+                ctx.borrow_reg(*src),
                 PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, _)
             );
-            ctx.put_reg(*src, data);
 
             if is_empty {
                 Ok(Branch(*index))
@@ -686,6 +686,16 @@ fn eval_instruction<D: DebugContext>(
                 // Failed to match, put back original value
                 ctx.matches.clear();
                 Ok(Continue)
+            }
+        }
+        Instruction::CheckMatchGuard { src } => {
+            if matches!(
+                ctx.borrow_reg(*src),
+                PipelineData::Value(Value::Bool { .. }, _)
+            ) {
+                Ok(Continue)
+            } else {
+                Err(ShellError::MatchGuardNotBool { span: *span })
             }
         }
         Instruction::Iterate {

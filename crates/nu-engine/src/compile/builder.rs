@@ -227,6 +227,7 @@ impl BlockBuilder {
                 src,
                 index: _,
             } => allocate(&[*src], &[*src]),
+            Instruction::CheckMatchGuard { src } => allocate(&[*src], &[*src]),
             Instruction::Iterate {
                 dst,
                 stream,
