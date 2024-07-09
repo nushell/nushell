@@ -234,35 +234,28 @@ macro_rules! nu_with_plugins {
 }
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
-use std::ffi::OsStr;
+use nu_path::{AbsolutePath, AbsolutePathBuf, Path};
 use std::{
-    path::Path,
+    ffi::OsStr,
     process::{Command, Stdio},
 };
 use tempfile::tempdir;
 
 #[derive(Default)]
 pub struct NuOpts {
-    pub cwd: Option<String>,
+    pub cwd: Option<AbsolutePathBuf>,
     pub locale: Option<String>,
     pub envs: Option<Vec<(String, String)>>,
     pub collapse_output: Option<bool>,
 }
 
 pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> Outcome {
-    let test_bins = crate::fs::binaries();
-
-    let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    let test_bins = nu_path::canonicalize_with(&test_bins, cwd).unwrap_or_else(|e| {
-        panic!(
-            "Couldn't canonicalize dummy binaries path {}: {:?}",
-            test_bins.display(),
-            e
-        )
-    });
+    let test_bins = crate::fs::binaries()
+        .canonicalize()
+        .expect("Could not canonicalize dummy binaries path");
 
     let mut paths = crate::shell_os_paths();
-    paths.insert(0, test_bins);
+    paths.insert(0, test_bins.into());
 
     let commands = commands.as_ref().lines().collect::<Vec<_>>().join("; ");
 
@@ -271,7 +264,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
         Err(_) => panic!("Couldn't join paths for PATH var."),
     };
 
-    let target_cwd = opts.cwd.unwrap_or(".".to_string());
+    let target_cwd = opts.cwd.unwrap_or_else(crate::fs::root);
     let locale = opts.locale.unwrap_or("en_US.UTF-8".to_string());
     let executable_path = crate::fs::executable_path();
 
@@ -439,7 +432,7 @@ fn collapse_output(out: &str) -> String {
     out.replace('\n', "")
 }
 
-fn setup_command(executable_path: &Path, target_cwd: &str) -> Command {
+fn setup_command(executable_path: &AbsolutePath, target_cwd: &AbsolutePath) -> Command {
     let mut command = Command::new(executable_path);
 
     command

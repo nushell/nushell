@@ -10,7 +10,7 @@ fn sources_also_files_under_custom_lib_dirs_path() {
         let file = dirs.test().join("config.toml");
         let library_path = dirs.test().join("lib");
 
-        nu.with_config(&file);
+        nu.with_config(file);
         nu.with_files(&[FileWithContent(
             "config.toml",
             &format!(

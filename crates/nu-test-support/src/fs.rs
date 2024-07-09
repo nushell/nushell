@@ -1,6 +1,5 @@
-use nu_path::AbsolutePathBuf;
+use nu_path::{AbsolutePath, AbsolutePathBuf, Path};
 use std::io::Read;
-use std::path::{Path, PathBuf};
 
 pub enum Stub<'a> {
     FileWithContent(&'a str, &'a str),
@@ -9,7 +8,7 @@ pub enum Stub<'a> {
     FileWithPermission(&'a str, bool),
 }
 
-pub fn file_contents(full_path: impl AsRef<Path>) -> String {
+pub fn file_contents(full_path: impl AsRef<AbsolutePath>) -> String {
     let mut file = std::fs::File::open(full_path.as_ref()).expect("can not open file");
     let mut contents = String::new();
     file.read_to_string(&mut contents)
@@ -17,7 +16,7 @@ pub fn file_contents(full_path: impl AsRef<Path>) -> String {
     contents
 }
 
-pub fn file_contents_binary(full_path: impl AsRef<Path>) -> Vec<u8> {
+pub fn file_contents_binary(full_path: impl AsRef<AbsolutePath>) -> Vec<u8> {
     let mut file = std::fs::File::open(full_path.as_ref()).expect("can not open file");
     let mut contents = Vec::new();
     file.read_to_end(&mut contents).expect("can not read file");
@@ -36,49 +35,24 @@ pub fn line_ending() -> String {
     }
 }
 
-pub fn delete_file_at(full_path: impl AsRef<Path>) {
-    let full_path = full_path.as_ref();
-
-    if full_path.exists() {
-        std::fs::remove_file(full_path).expect("can not delete file");
-    }
+pub fn files_exist_at(files: Vec<impl AsRef<Path>>, path: impl AsRef<AbsolutePath>) -> bool {
+    let path = path.as_ref();
+    files.iter().all(|f| path.join(f.as_ref()).exists())
 }
 
-pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error> {
-    let full_path = full_path.as_ref();
-
-    if full_path.parent().is_some() {
-        panic!("path exists");
-    }
-
-    std::fs::write(full_path, b"fake data")
-}
-
-pub fn copy_file_to(source: &str, destination: &str) {
-    std::fs::copy(source, destination).expect("can not copy file");
-}
-
-pub fn files_exist_at(files: Vec<impl AsRef<Path>>, path: impl AsRef<Path>) -> bool {
-    files.iter().all(|f| {
-        let mut loc = PathBuf::from(path.as_ref());
-        loc.push(f);
-        loc.exists()
-    })
-}
-
-pub fn delete_directory_at(full_path: &str) {
-    std::fs::remove_dir_all(PathBuf::from(full_path)).expect("can not remove directory");
-}
-
-pub fn executable_path() -> PathBuf {
+pub fn executable_path() -> AbsolutePathBuf {
     let mut path = binaries();
     path.push("nu");
-    path.into()
+    path
 }
 
-pub fn installed_nu_path() -> PathBuf {
+pub fn installed_nu_path() -> AbsolutePathBuf {
     let path = std::env::var_os(crate::NATIVE_PATH_ENV_VAR);
-    which::which_in("nu", path, ".").unwrap_or_else(|_| executable_path())
+    if let Ok(path) = which::which_in("nu", path, ".") {
+        AbsolutePathBuf::try_from(path).expect("installed nushell path is absolute")
+    } else {
+        executable_path()
+    }
 }
 
 pub fn root() -> AbsolutePathBuf {
@@ -122,20 +96,20 @@ pub fn binaries() -> AbsolutePathBuf {
 }
 
 pub fn fixtures() -> AbsolutePathBuf {
-    root().join("tests").join("fixtures")
+    let mut path = root();
+    path.push("tests");
+    path.push("fixtures");
+    path
 }
 
-pub fn assets() -> AbsolutePathBuf {
-    root().join("tests").join("assets")
-}
+// FIXME: re-enable nu_json tests
+// pub fn assets() -> AbsolutePathBuf {
+//     let mut path = root();
+//     path.push("tests");
+//     path.push("assets");
+//     path
+// }
 
-pub fn in_directory(str: impl AsRef<Path>) -> String {
-    let path = str.as_ref();
-    let path = if path.is_relative() {
-        root().join(path).into_any()
-    } else {
-        path.into()
-    };
-
-    path.display().to_string()
+pub fn in_directory(path: impl AsRef<nu_path::Path>) -> AbsolutePathBuf {
+    root().join(path)
 }

@@ -1,8 +1,9 @@
 use super::Director;
 use crate::fs::{self, Stub};
 use nu_glob::glob;
+#[cfg(not(target_arch = "wasm32"))]
+use nu_path::Path;
 use nu_path::{AbsolutePath, AbsolutePathBuf};
-use std::path::{Path, PathBuf};
 use std::str;
 use tempfile::{tempdir, TempDir};
 
@@ -25,7 +26,7 @@ pub struct Playground<'a> {
     _root: TempDir,
     tests: String,
     cwd: AbsolutePathBuf,
-    config: Option<PathBuf>,
+    config: Option<AbsolutePathBuf>,
     environment_vars: Vec<EnvironmentVariable>,
     dirs: &'a Dirs,
 }
@@ -108,8 +109,8 @@ impl<'a> Playground<'a> {
         block(dirs.clone(), &mut playground);
     }
 
-    pub fn with_config(&mut self, source_file: impl AsRef<Path>) -> &mut Self {
-        self.config = Some(source_file.as_ref().to_path_buf());
+    pub fn with_config(&mut self, source_file: AbsolutePathBuf) -> &mut Self {
+        self.config = Some(source_file);
         self
     }
 
@@ -151,8 +152,8 @@ impl<'a> Playground<'a> {
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn symlink(&mut self, from: impl AsRef<Path>, to: impl AsRef<Path>) -> &mut Self {
-        let from = self.cwd.join(from.as_ref());
-        let to = self.cwd.join(to.as_ref());
+        let from = self.cwd.join(from);
+        let to = self.cwd.join(to);
 
         let create_symlink = {
             #[cfg(unix)]
@@ -183,7 +184,6 @@ impl<'a> Playground<'a> {
         files
             .iter()
             .map(|f| {
-                let mut path = PathBuf::from(&self.cwd);
                 let mut permission_set = false;
                 let mut write_able = true;
                 let (file_name, contents) = match *f {
@@ -205,7 +205,7 @@ impl<'a> Playground<'a> {
                     }
                 };
 
-                path.push(file_name);
+                let path = self.cwd.join(file_name);
 
                 std::fs::write(&path, contents.as_bytes()).expect("can not create file");
                 if permission_set {
@@ -230,7 +230,7 @@ impl<'a> Playground<'a> {
         self
     }
 
-    pub fn glob_vec(pattern: &str) -> Vec<PathBuf> {
+    pub fn glob_vec(pattern: &str) -> Vec<std::path::PathBuf> {
         let glob = glob(pattern);
 
         glob.expect("invalid pattern")
