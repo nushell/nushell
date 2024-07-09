@@ -1070,10 +1070,15 @@ fn gather_arguments(
     // Arguments that didn't get consumed by required/optional
     let mut rest = vec![];
 
+    // If we encounter a spread, all further positionals should go to rest
+    let mut always_spread = false;
+
     for arg in caller_stack.arguments.drain_args(args_base, args_len) {
         match arg {
             Argument::Positional { span, val, .. } => {
-                if let Some((positional_arg, required)) = positional_iter.next() {
+                // Don't check next positional arg if we encountered a spread previously
+                let next = (!always_spread).then(|| positional_iter.next()).flatten();
+                if let Some((positional_arg, required)) = next {
                     let var_id = expect_positional_var_id(positional_arg, span)?;
                     if required {
                         // By checking the type of the bound variable rather than converting the
@@ -1089,6 +1094,8 @@ fn gather_arguments(
             Argument::Spread { vals, .. } => {
                 if let Value::List { vals, .. } = vals {
                     rest.extend(vals);
+                    // All further positional args should go to spread
+                    always_spread = true;
                 } else if let Value::Error { error, .. } = vals {
                     return Err(*error);
                 } else {
