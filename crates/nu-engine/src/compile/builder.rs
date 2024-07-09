@@ -420,7 +420,7 @@ impl BlockBuilder {
         self.file_count = self
             .file_count
             .checked_add(1)
-            .ok_or_else(|| CompileError::FileOverflow)?;
+            .ok_or(CompileError::FileOverflow)?;
         Ok(next)
     }
 

@@ -53,7 +53,7 @@ impl Call<'_> {
     pub fn assert_ast_call(&self) -> Result<&ast::Call, ShellError> {
         match &self.inner {
             CallImpl::AstRef(call) => Ok(call),
-            CallImpl::AstBox(call) => Ok(&call),
+            CallImpl::AstBox(call) => Ok(call),
             _ => Err(ShellError::NushellFailedSpanned {
                 msg: "Can't be used in IR context".into(),
                 label: "this command is not yet supported by IR evaluation".into(),

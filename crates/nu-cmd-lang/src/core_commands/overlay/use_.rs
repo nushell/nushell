@@ -67,7 +67,7 @@ impl Command for OverlayUse {
         let maybe_origin_module_id =
             if let Some(overlay_expr) = call.get_parser_info(caller_stack, "overlay_expr") {
                 if let Expr::Overlay(module_id) = &overlay_expr.expr {
-                    module_id.clone()
+                    *module_id
                 } else {
                     return Err(ShellError::NushellFailedSpanned {
                         msg: "Not an overlay".to_string(),

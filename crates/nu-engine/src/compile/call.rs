@@ -230,7 +230,7 @@ pub(crate) fn compile_external_call(
     // Pass everything to run-external
     let run_external_id = working_set
         .find_decl(b"run-external")
-        .ok_or_else(|| CompileError::RunExternalNotFound { span: head.span })?;
+        .ok_or(CompileError::RunExternalNotFound { span: head.span })?;
 
     let mut call = Call::new(head.span);
     call.decl_id = run_external_id;

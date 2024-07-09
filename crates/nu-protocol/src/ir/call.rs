@@ -155,8 +155,7 @@ impl Call {
                 _ => None,
             })
             .nth(index)
-            .map(|option| option.as_ref())
-            .flatten()
+            .and_then(|option| option.as_ref())
     }
 
     /// Returns every argument to the rest parameter, as well as whether each argument

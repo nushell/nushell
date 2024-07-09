@@ -133,7 +133,7 @@ pub(crate) fn compile_expression(
         Expr::Call(call) => {
             move_in_reg_to_out_reg(builder)?;
 
-            compile_call(working_set, builder, &call, redirect_modes, out_reg)
+            compile_call(working_set, builder, call, redirect_modes, out_reg)
         }
         Expr::ExternalCall(head, args) => {
             move_in_reg_to_out_reg(builder)?;
@@ -161,9 +161,9 @@ pub(crate) fn compile_expression(
                 compile_binary_op(
                     working_set,
                     builder,
-                    &lhs,
+                    lhs,
                     operator.clone().into_spanned(op.span),
-                    &rhs,
+                    rhs,
                     out_reg,
                 )
             } else {
@@ -172,14 +172,7 @@ pub(crate) fn compile_expression(
         }
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-            compile_block(
-                working_set,
-                builder,
-                &block,
-                redirect_modes,
-                in_reg,
-                out_reg,
-            )
+            compile_block(working_set, builder, block, redirect_modes, in_reg, out_reg)
         }
         Expr::Block(block_id) => lit(builder, Literal::Block(*block_id)),
         Expr::Closure(block_id) => lit(builder, Literal::Closure(*block_id)),

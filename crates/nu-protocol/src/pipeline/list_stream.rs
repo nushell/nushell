@@ -40,7 +40,7 @@ impl ListStream {
     }
 
     /// Take a single value from the inner `Iterator`, modifying the stream.
-    pub fn next(&mut self) -> Option<Value> {
+    pub fn next_value(&mut self) -> Option<Value> {
         self.stream.next()
     }
 

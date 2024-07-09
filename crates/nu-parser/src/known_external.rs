@@ -62,15 +62,15 @@ impl Command for KnownExternal {
                 command.run(engine_state, stack, &(&extern_call).into(), input)
             }
             CallImpl::AstBox(call) => {
-                let extern_call = ast_call_to_extern_call(engine_state, &call, &extern_name)?;
+                let extern_call = ast_call_to_extern_call(engine_state, call, &extern_name)?;
                 command.run(engine_state, stack, &(&extern_call).into(), input)
             }
             CallImpl::IrRef(call) => {
-                let extern_call = ir_call_to_extern_call(stack, &call, &extern_name)?;
+                let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
                 command.run(engine_state, stack, &(&extern_call).into(), input)
             }
             CallImpl::IrBox(call) => {
-                let extern_call = ir_call_to_extern_call(stack, &call, &extern_name)?;
+                let extern_call = ir_call_to_extern_call(stack, call, &extern_name)?;
                 command.run(engine_state, stack, &(&extern_call).into(), input)
             }
         }
@@ -100,7 +100,7 @@ fn ast_call_to_extern_call(
 
     extern_call.add_positional(arg_extern_name);
 
-    for subcommand in extern_name.into_iter().skip(1) {
+    for subcommand in extern_name.iter().skip(1) {
         extern_call.add_positional(Expression::new_existing(
             Expr::String(subcommand.to_string()),
             call.head,

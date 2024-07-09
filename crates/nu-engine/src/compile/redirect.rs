@@ -31,7 +31,7 @@ impl RedirectModes {
     pub(crate) fn with_capture_out(&self, span: Span) -> Self {
         RedirectModes {
             out: Some(RedirectMode::Capture.into_spanned(span)),
-            err: self.err.clone(),
+            err: self.err,
         }
     }
 }
@@ -76,14 +76,14 @@ pub(crate) fn redirect_modes_of_expression(
     expression: &Expression,
     redir_span: Span,
 ) -> Result<RedirectModes, CompileError> {
-    let (out, err) = expression.expr.pipe_redirection(&working_set);
+    let (out, err) = expression.expr.pipe_redirection(working_set);
     Ok(RedirectModes {
         out: out
-            .map(|out| out_dest_to_redirect_mode(out))
+            .map(out_dest_to_redirect_mode)
             .transpose()?
             .map(|mode| mode.into_spanned(redir_span)),
         err: err
-            .map(|err| out_dest_to_redirect_mode(err))
+            .map(out_dest_to_redirect_mode)
             .transpose()?
             .map(|mode| mode.into_spanned(redir_span)),
     })
@@ -95,32 +95,30 @@ pub(crate) fn finish_redirection(
     modes: RedirectModes,
     out_reg: RegId,
 ) -> Result<(), CompileError> {
-    match modes.out {
-        Some(Spanned {
-            item: RedirectMode::File { file_num },
-            span,
-        }) => {
-            // If out is a file and err is a pipe, we must not consume the expression result -
-            // that is actually the err, in that case.
-            if !matches!(
-                modes.err,
-                Some(Spanned {
-                    item: RedirectMode::Pipe { .. },
-                    ..
-                })
-            ) {
-                builder.push(
-                    Instruction::WriteFile {
-                        file_num,
-                        src: out_reg,
-                    }
-                    .into_spanned(span),
-                )?;
-                builder.load_empty(out_reg)?;
-            }
-            builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
+    if let Some(Spanned {
+        item: RedirectMode::File { file_num },
+        span,
+    }) = modes.out
+    {
+        // If out is a file and err is a pipe, we must not consume the expression result -
+        // that is actually the err, in that case.
+        if !matches!(
+            modes.err,
+            Some(Spanned {
+                item: RedirectMode::Pipe { .. },
+                ..
+            })
+        ) {
+            builder.push(
+                Instruction::WriteFile {
+                    file_num,
+                    src: out_reg,
+                }
+                .into_spanned(span),
+            )?;
+            builder.load_empty(out_reg)?;
         }
-        _ => (),
+        builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
     }
 
     match modes.err {

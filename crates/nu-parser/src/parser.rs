@@ -5849,7 +5849,7 @@ pub fn parse_block(
 
 /// Compile an IR block for the `Block`, adding a parse warning on failure
 fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
-    match nu_engine::compile(working_set, &block) {
+    match nu_engine::compile(working_set, block) {
         Ok(ir_block) => {
             block.ir_block = Some(ir_block);
         }

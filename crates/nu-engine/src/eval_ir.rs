@@ -811,7 +811,7 @@ fn literal_value(
         }
         Literal::String(s) => Value::string(ctx.get_str(*s, span)?, span),
         Literal::RawString(s) => Value::string(ctx.get_str(*s, span)?, span),
-        Literal::CellPath(path) => Value::cell_path(CellPath::clone(&path), span),
+        Literal::CellPath(path) => Value::cell_path(CellPath::clone(path), span),
         Literal::Date(dt) => Value::date(**dt, span),
         Literal::Nothing => Value::nothing(span),
     })
@@ -928,7 +928,7 @@ fn eval_call<D: DebugContext>(
 
         // Move environment variables back into the caller stack scope if requested to do so
         if block.redirect_env {
-            redirect_env(engine_state, &mut caller_stack, &mut callee_stack);
+            redirect_env(engine_state, &mut caller_stack, &callee_stack);
         }
     } else {
         // FIXME: precalculate this and save it somewhere
@@ -937,7 +937,7 @@ fn eval_call<D: DebugContext>(
                 caller_stack
                     .arguments
                     .get_args(*args_base, args_len)
-                    .into_iter()
+                    .iter()
                     .flat_map(|arg| arg.span()),
             ),
         );
@@ -1134,8 +1134,7 @@ fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> 
                 .active_overlays
                 .iter()
                 .rev()
-                .map(|name| overlays.get(name))
-                .flatten()
+                .filter_map(|name| overlays.get(name))
         })
         .find_map(|map| {
             // Use the hashmap first to try to be faster?
@@ -1163,18 +1162,17 @@ fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str
                 .active_overlays
                 .iter()
                 .rev()
-                .map(|name| overlays.get(name))
-                .flatten()
+                .filter_map(|name| overlays.get(name))
         })
         .find_map(|map| {
             // Use the hashmap first to try to be faster?
             if map.contains_key(key) {
                 Some(Cow::Borrowed(key))
-            } else if let Some(k) = map.keys().find(|k| k.eq_ignore_case(key)) {
-                // it exists, but with a different case
-                Some(Cow::Owned(k.to_owned()))
             } else {
-                None
+                map.keys().find(|k| k.eq_ignore_case(key)).map(|k| {
+                    // it exists, but with a different case
+                    Cow::Owned(k.to_owned())
+                })
             }
         })
         // didn't exist.
@@ -1271,7 +1269,7 @@ fn eval_iterate(
     let mut data = ctx.take_reg(stream);
     if let PipelineData::ListStream(list_stream, _) = &mut data {
         // Modify the stream, taking one value off, and branching if it's empty
-        if let Some(val) = list_stream.next() {
+        if let Some(val) = list_stream.next_value() {
             ctx.put_reg(dst, val.into_pipeline_data());
             ctx.put_reg(stream, data); // put the stream back so it can be iterated on again
             Ok(InstructionResult::Continue)
@@ -1294,6 +1292,7 @@ fn eval_iterate(
 
 /// Redirect environment from the callee stack to the caller stack
 fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_stack: &Stack) {
+    // TODO: make this more efficient
     // Grab all environment variables from the callee
     let caller_env_vars = caller_stack.get_env_var_names(engine_state);
 

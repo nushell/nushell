@@ -45,14 +45,12 @@ impl Command for ViewIr {
         // This helps display the actual compilation error
         let ir_block = match &block.ir_block {
             Some(ir_block) => Cow::Borrowed(ir_block),
-            None => Cow::Owned(
-                compile(&StateWorkingSet::new(engine_state), &block).map_err(|err| {
-                    ShellError::IrCompileError {
-                        span: block.span,
-                        errors: vec![err],
-                    }
-                })?,
-            ),
+            None => Cow::Owned(compile(&StateWorkingSet::new(engine_state), block).map_err(
+                |err| ShellError::IrCompileError {
+                    span: block.span,
+                    errors: vec![err],
+                },
+            )?),
         };
 
         let formatted = if json {
