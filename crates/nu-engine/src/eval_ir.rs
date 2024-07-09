@@ -1185,7 +1185,9 @@ fn gather_arguments(
 fn check_type(val: &Value, ty: &Type) -> Result<(), ShellError> {
     if match val {
         // An empty list is compatible with any list or table type
-        Value::List { vals, .. } if vals.is_empty() => matches!(ty, Type::List(_) | Type::Table(_)),
+        Value::List { vals, .. } if vals.is_empty() => {
+            matches!(ty, Type::Any | Type::List(_) | Type::Table(_))
+        }
         // FIXME: the allocation that might be required here is not great, it would be nice to be
         // able to just directly check whether a value is compatible with a type
         _ => val.get_type().is_subtype(ty),
