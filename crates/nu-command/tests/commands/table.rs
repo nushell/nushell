@@ -2889,3 +2889,9 @@ fn table_list() {
     let actual = nu!("table --list --theme basic");
     assert_eq!(actual.out, "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  │╰────┴────────────────╯");
 }
+
+#[test]
+fn table_kv_header_on_separator_trim_algorithm() {
+    let actual = nu!("{key1: '111111111111111111111111111111111111111111111111111111111111'} | table --width=60 --theme basic");
+    assert_eq!(actual.out, "+------+---------------------------------------------------+| key1 | 1111111111111111111111111111111111111111111111111 ||      | 11111111111                                       |+------+---------------------------------------------------+");
+}

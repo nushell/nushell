@@ -355,11 +355,14 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
         let total_width = get_total_width2(&self.width, cfg);
 
         if total_width > self.max {
+            let has_header = self.cfg.with_header && rec.count_rows() > 1;
+            let trim_as_head = has_header && self.cfg.header_on_border;
+
             TableTrim {
                 max: self.max,
                 strategy: self.cfg.trim,
                 width: self.width,
-                do_as_head: self.cfg.header_on_border,
+                trim_as_head,
             }
             .change(rec, cfg, dim);
         } else if self.cfg.expand && self.max > total_width {
@@ -375,7 +378,7 @@ struct TableTrim {
     width: Vec<usize>,
     strategy: TrimStrategy,
     max: usize,
-    do_as_head: bool,
+    trim_as_head: bool,
 }
 
 impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for TableTrim {
@@ -387,7 +390,7 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
     ) {
         // we already must have been estimated that it's safe to do.
         // and all dims will be suffitient
-        if self.do_as_head {
+        if self.trim_as_head {
             if recs.is_empty() {
                 return;
             }
@@ -544,7 +547,10 @@ fn maybe_truncate_columns(
     const TERMWIDTH_THRESHOLD: usize = 120;
 
     let preserve_content = termwidth > TERMWIDTH_THRESHOLD;
-    let truncate = if cfg.header_on_border {
+    let has_header = cfg.with_header && data.count_rows() > 1;
+    let is_header_on_border = has_header && cfg.header_on_border;
+
+    let truncate = if is_header_on_border {
         truncate_columns_by_head
     } else if preserve_content {
         truncate_columns_by_columns
