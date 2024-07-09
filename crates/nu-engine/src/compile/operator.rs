@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ast::{Assignment, CellPath, Expr, Expression, Math, Operator, PathMember},
+    ast::{Assignment, Boolean, CellPath, Expr, Expression, Math, Operator, PathMember},
     engine::StateWorkingSet,
     ir::{Instruction, Literal},
     IntoSpanned, RegId, Span, Spanned, ENV_VARIABLE_ID,
@@ -56,25 +56,75 @@ pub(crate) fn compile_binary_op(
             lhs_reg,
         )?;
 
-        let rhs_reg = builder.next_register()?;
+        match op.item {
+            // `and` / `or` are short-circuiting, and we can get by with one register and a branch
+            Operator::Boolean(Boolean::And) => {
+                builder.branch_if(lhs_reg, builder.next_instruction_index() + 2, op.span)?;
 
-        compile_expression(
-            working_set,
-            builder,
-            rhs,
-            RedirectModes::capture_out(rhs.span),
-            None,
-            rhs_reg,
-        )?;
+                // If the branch was not taken it's false, so short circuit to load false
+                let jump_false = builder.jump_placeholder(op.span)?;
 
-        builder.push(
-            Instruction::BinaryOp {
-                lhs_dst: lhs_reg,
-                op: op.item,
-                rhs: rhs_reg,
+                compile_expression(
+                    working_set,
+                    builder,
+                    rhs,
+                    RedirectModes::capture_out(rhs.span),
+                    None,
+                    lhs_reg,
+                )?;
+
+                let jump_end = builder.jump_placeholder(op.span)?;
+
+                // Consumed by `branch-if`, so we have to set it false again
+                builder.set_branch_target(jump_false, builder.next_instruction_index())?;
+                builder.load_literal(lhs_reg, Literal::Bool(false).into_spanned(lhs.span))?;
+
+                builder.set_branch_target(jump_end, builder.next_instruction_index())?;
             }
-            .into_spanned(op.span),
-        )?;
+            Operator::Boolean(Boolean::Or) => {
+                let branch_true = builder.branch_if_placeholder(lhs_reg, op.span)?;
+
+                // If the branch was not taken it's false, so do the right-side expression
+                compile_expression(
+                    working_set,
+                    builder,
+                    rhs,
+                    RedirectModes::capture_out(rhs.span),
+                    None,
+                    lhs_reg,
+                )?;
+
+                let jump_end = builder.jump_placeholder(op.span)?;
+
+                // Consumed by `branch-if`, so we have to set it true again
+                builder.set_branch_target(branch_true, builder.next_instruction_index())?;
+                builder.load_literal(lhs_reg, Literal::Bool(true).into_spanned(lhs.span))?;
+
+                builder.set_branch_target(jump_end, builder.next_instruction_index())?;
+            }
+            _ => {
+                // Any other operator, via `binary-op`
+                let rhs_reg = builder.next_register()?;
+
+                compile_expression(
+                    working_set,
+                    builder,
+                    rhs,
+                    RedirectModes::capture_out(rhs.span),
+                    None,
+                    rhs_reg,
+                )?;
+
+                builder.push(
+                    Instruction::BinaryOp {
+                        lhs_dst: lhs_reg,
+                        op: op.item,
+                        rhs: rhs_reg,
+                    }
+                    .into_spanned(op.span),
+                )?;
+            }
+        }
 
         if lhs_reg != out_reg {
             builder.push(
