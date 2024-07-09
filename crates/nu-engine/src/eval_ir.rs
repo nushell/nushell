@@ -871,8 +871,12 @@ fn binary_op(
             Bits::ShiftLeft => lhs_val.bit_shl(op_span, &rhs_val, span)?,
             Bits::ShiftRight => lhs_val.bit_shr(op_span, &rhs_val, span)?,
         },
-        // FIXME: assignments probably shouldn't be implemented here, so this should be an error
-        Operator::Assignment(_asg) => todo!(),
+        Operator::Assignment(_asg) => {
+            return Err(ShellError::IrEvalError {
+                msg: "can't eval assignment with the `binary-op` instruction".into(),
+                span: Some(span),
+            })
+        }
     };
 
     ctx.put_reg(lhs_dst, PipelineData::Value(result, None));
