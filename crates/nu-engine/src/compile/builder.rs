@@ -115,6 +115,7 @@ impl BlockBuilder {
         };
 
         let allocate_result = match &instruction.item {
+            Instruction::Unreachable => Ok(()),
             Instruction::LoadLiteral { dst, lit } => {
                 allocate(&[], &[*dst]).and(
                     // Free any registers on the literal
@@ -483,6 +484,11 @@ impl BlockBuilder {
         }
 
         Ok(())
+    }
+
+    /// Mark an unreachable code path. Produces an error at runtime if executed.
+    pub(crate) fn unreachable(&mut self, span: Span) -> Result<usize, CompileError> {
+        self.push(Instruction::Unreachable.into_spanned(span))
     }
 
     /// Consume the builder and produce the final [`IrBlock`].

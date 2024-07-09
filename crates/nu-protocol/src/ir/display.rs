@@ -57,6 +57,9 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
         const WIDTH: usize = 22;
 
         match self.instruction {
+            Instruction::Unreachable => {
+                write!(f, "{:WIDTH$}", "unreachable")
+            }
             Instruction::LoadLiteral { dst, lit } => {
                 let lit = FmtLiteral {
                     literal: lit,

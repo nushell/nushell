@@ -192,10 +192,22 @@ fn eval_ir_block_impl<D: DebugContext>(
             Ok(InstructionResult::Return(reg_id)) => {
                 return Ok(ctx.take_reg(reg_id));
             }
+            Ok(InstructionResult::ExitCode(exit_code)) => {
+                if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                    // If an error handler is set, branch there
+                    prepare_error_handler(ctx, error_handler, None);
+                    pc = error_handler.handler_index;
+                } else {
+                    // If not, exit the block with the exit code
+                    return Ok(PipelineData::new_external_stream_with_only_exit_code(
+                        exit_code,
+                    ));
+                }
+            }
             Err(err) => {
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
                     // If an error handler is set, branch there
-                    prepare_error_handler(ctx, error_handler, err.into_spanned(*span));
+                    prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
                 } else {
                     // If not, exit the block with the error
@@ -219,19 +231,24 @@ fn eval_ir_block_impl<D: DebugContext>(
 fn prepare_error_handler(
     ctx: &mut EvalContext<'_>,
     error_handler: ErrorHandler,
-    error: Spanned<ShellError>,
+    error: Option<Spanned<ShellError>>,
 ) {
     if let Some(reg_id) = error_handler.error_register {
-        // Create the error value and put it in the register
-        let value = Value::record(
-            record! {
-                "msg" => Value::string(format!("{}", error.item), error.span),
-                "debug" => Value::string(format!("{:?}", error.item), error.span),
-                "raw" => Value::error(error.item, error.span),
-            },
-            error.span,
-        );
-        ctx.put_reg(reg_id, PipelineData::Value(value, None));
+        if let Some(error) = error {
+            // Create the error value and put it in the register
+            let value = Value::record(
+                record! {
+                    "msg" => Value::string(format!("{}", error.item), error.span),
+                    "debug" => Value::string(format!("{:?}", error.item), error.span),
+                    "raw" => Value::error(error.item, error.span),
+                },
+                error.span,
+            );
+            ctx.put_reg(reg_id, PipelineData::Value(value, None));
+        } else {
+            // Set the register to empty
+            ctx.put_reg(reg_id, PipelineData::Empty);
+        }
     }
 }
 
@@ -241,6 +258,7 @@ enum InstructionResult {
     Continue,
     Branch(usize),
     Return(RegId),
+    ExitCode(i32),
 }
 
 /// Perform an instruction
@@ -253,6 +271,10 @@ fn eval_instruction<D: DebugContext>(
     use self::InstructionResult::*;
 
     match instruction {
+        Instruction::Unreachable => Err(ShellError::IrEvalError {
+            msg: "Reached unreachable code".into(),
+            span: Some(*span),
+        }),
         Instruction::LoadLiteral { dst, lit } => load_literal(ctx, *dst, lit, *span),
         Instruction::LoadValue { dst, val } => {
             ctx.put_reg(*dst, Value::clone(val).into_pipeline_data());
@@ -285,8 +307,14 @@ fn eval_instruction<D: DebugContext>(
                     "LAST_EXIT_CODE".into(),
                     Value::int(exit_status.code() as i64, *span),
                 );
+                if exit_status.code() == 0 {
+                    Ok(Continue)
+                } else {
+                    Ok(ExitCode(exit_status.code()))
+                }
+            } else {
+                Ok(Continue)
             }
-            Ok(Continue)
         }
         Instruction::LoadVariable { dst, var_id } => {
             let value = get_var(ctx, *var_id, *span)?;

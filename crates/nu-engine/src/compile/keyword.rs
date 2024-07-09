@@ -335,29 +335,33 @@ pub(crate) fn compile_try(
 ) -> Result<(), CompileError> {
     // Pseudocode (literal block):
     //
-    //       on-error-with ERR, %io_reg           // or without
+    //       on-error-into ERR, %io_reg           // or without
     //       %io_reg <- <...block...> <- %io_reg
-    //       pop-error-handler
     //       check-external-failed %failed_reg, %io_reg
     //       branch-if %failed_reg, FAIL
+    //       pop-error-handler
     //       jump END
     // FAIL: drain %io_reg
-    // ERR:  store-variable $err_var, %io_reg     // or without
-    //       %io_reg <- <...catch block...>       // set to empty if no catch block
+    //       unreachable
+    // ERR:  clone %err_reg, %io_reg
+    //       store-variable $err_var, %err_reg         // or without
+    //       %io_reg <- <...catch block...> <- %io_reg // set to empty if no catch block
     // END:
     //
     // with expression that can't be inlined:
     //
     //       %closure_reg <- <catch_expr>
-    //       on-error-with ERR, %io_reg
+    //       on-error-into ERR, %io_reg
     //       %io_reg <- <...block...> <- %io_reg
-    //       pop-error-handler
     //       check-external-failed %failed_reg, %io_reg
     //       branch-if %failed_reg, FAIL
+    //       pop-error-handler
     //       jump END
     // FAIL: drain %io_reg
-    // ERR:  push-positional %closure_reg
-    //       push-positional %io_reg
+    //       unreachable
+    // ERR:  clone %err_reg, %io_reg
+    //       push-positional %closure_reg
+    //       push-positional %err_reg
     //       call "do", %io_reg
     // END:
     let invalid = || CompileError::InvalidKeywordCall {
@@ -410,18 +414,9 @@ pub(crate) fn compile_try(
         })
         .transpose()?;
 
-    // Put the error handler placeholder. If the catch argument is a non-block expression or a block
-    // that takes an argument, we should capture the error into `io_reg` since we safely don't need
-    // that.
-    let error_handler_index = if matches!(
-        catch_type,
-        Some(
-            CatchType::Block {
-                var_id: Some(_),
-                ..
-            } | CatchType::Closure { .. }
-        )
-    ) {
+    // Put the error handler placeholder. If we have a catch expression then we should capture the
+    // error.
+    let error_handler_index = if catch_type.is_some() {
         builder.push(
             Instruction::OnErrorInto {
                 index: usize::MAX,
@@ -444,9 +439,6 @@ pub(crate) fn compile_try(
         io_reg,
     )?;
 
-    // Successful case: pop the error handler
-    builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
-
     // Check for external command exit code failure, and also redirect that to the catch handler
     let failed_reg = builder.next_register()?;
     builder.push(
@@ -458,14 +450,18 @@ pub(crate) fn compile_try(
     )?;
     let external_failed_branch = builder.branch_if_placeholder(failed_reg, catch_span)?;
 
+    // Successful case: pop the error handler
+    builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+
     // Jump over the failure case
     let jump_index = builder.jump_placeholder(catch_span)?;
 
     // Set up an error handler preamble for failed external.
-    // Draining the %io_reg results in Empty in that register, and also sets $env.LAST_EXIT_CODE
-    // for us.
+    // Draining the %io_reg results in the error handler being called with Empty, and sets
+    // $env.LAST_EXIT_CODE
     builder.set_branch_target(external_failed_branch, builder.next_instruction_index())?;
     builder.drain(io_reg, catch_span)?;
+    builder.unreachable(catch_span)?;
 
     // This is the real error handler - go back and set the right branch destination
     builder.set_branch_target(error_handler_index, builder.next_instruction_index())?;
@@ -476,19 +472,35 @@ pub(crate) fn compile_try(
     // Now compile whatever is necessary for the error handler
     match catch_type {
         Some(CatchType::Block { block, var_id }) => {
+            // Error will be in io_reg
+            builder.mark_register(io_reg)?;
             if let Some(var_id) = var_id {
-                // Error will be in io_reg
-                builder.mark_register(io_reg)?;
+                // Take a copy of the error as $err, since it will also be input
+                let err_reg = builder.next_register()?;
+                builder.push(
+                    Instruction::Clone {
+                        dst: err_reg,
+                        src: io_reg,
+                    }
+                    .into_spanned(catch_span),
+                )?;
                 builder.push(
                     Instruction::StoreVariable {
                         var_id,
-                        src: io_reg,
+                        src: err_reg,
                     }
                     .into_spanned(catch_span),
                 )?;
             }
             // Compile the block, now that the variable is set
-            compile_block(working_set, builder, block, redirect_modes, None, io_reg)?;
+            compile_block(
+                working_set,
+                builder,
+                block,
+                redirect_modes,
+                Some(io_reg),
+                io_reg,
+            )?;
         }
         Some(CatchType::Closure { closure_reg }) => {
             // We should call `do`. Error will be in io_reg
@@ -498,17 +510,24 @@ pub(crate) fn compile_try(
                     span: call.head,
                 }
             })?;
+
+            // Take a copy of io_reg, because we pass it both as an argument and input
             builder.mark_register(io_reg)?;
+            let err_reg = builder.next_register()?;
+            builder.push(
+                Instruction::Clone {
+                    dst: err_reg,
+                    src: io_reg,
+                }
+                .into_spanned(catch_span),
+            )?;
 
             // Push the closure and the error
             builder
                 .push(Instruction::PushPositional { src: closure_reg }.into_spanned(catch_span))?;
-            builder.push(Instruction::PushPositional { src: io_reg }.into_spanned(catch_span))?;
+            builder.push(Instruction::PushPositional { src: err_reg }.into_spanned(catch_span))?;
 
-            // Empty input to the block
-            builder.load_empty(io_reg)?;
-
-            // Call `do $closure $err`
+            // Call `$err | do $closure $err`
             builder.push(
                 Instruction::Call {
                     decl_id: do_decl_id,
@@ -540,10 +559,8 @@ pub(crate) fn compile_loop(
     // Pseudocode:
     //
     //       drop %io_reg
-    // LOOP: ...<block>...
-    //       check-external-failed %failed_reg, %io_reg
+    // LOOP: %io_reg <- ...<block>...
     //       drain %io_reg
-    //       branch-if %failed_reg, END
     //       jump %LOOP
     // END:  drop %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
@@ -569,22 +586,12 @@ pub(crate) fn compile_loop(
         io_reg,
     )?;
 
-    // Check for failed externals, and drain the output
-    let failed_reg = builder.next_register()?;
-    builder.push(
-        Instruction::CheckExternalFailed {
-            dst: failed_reg,
-            src: io_reg,
-        }
-        .into_spanned(call.head),
-    )?;
+    // Drain the output, just like for a semicolon
     builder.drain(io_reg, call.head)?;
-    let failed_index = builder.branch_if_placeholder(failed_reg, call.head)?;
 
     builder.jump(loop_index, call.head)?;
 
     let end_index = builder.next_instruction_index();
-    builder.set_branch_target(failed_index, end_index)?;
     builder.end_loop(end_index, loop_index)?;
 
     // State of %io_reg is not necessarily well defined here due to control flow, so make sure it's
@@ -605,14 +612,11 @@ pub(crate) fn compile_while(
 ) -> Result<(), CompileError> {
     // Pseudocode:
     //
-    //        drop %io_reg
     // LOOP:  %io_reg <- <condition>
     //        branch-if %io_reg, TRUE
     //        jump FALSE
-    // TRUE:  ...<block>...
-    //        check-external-failed %failed_reg, %io_reg
+    // TRUE:  %io_reg <- ...<block>...
     //        drain %io_reg
-    //        branch-if %failed_reg, FALSE
     //        jump LOOP
     // FALSE: drop %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
@@ -626,7 +630,6 @@ pub(crate) fn compile_while(
     let block = working_set.get_block(block_id);
 
     builder.begin_loop();
-    builder.load_empty(io_reg)?;
 
     let loop_index = builder.next_instruction_index();
 
@@ -653,23 +656,13 @@ pub(crate) fn compile_while(
         io_reg,
     )?;
 
-    // We have to check the result for a failed external, and drain the output on each iteration
-    let failed_reg = builder.next_register()?;
-    builder.push(
-        Instruction::CheckExternalFailed {
-            dst: failed_reg,
-            src: io_reg,
-        }
-        .into_spanned(call.head),
-    )?;
+    // Drain the result, just like for a semicolon
     builder.drain(io_reg, call.head)?;
-    let failed_index = builder.branch_if_placeholder(failed_reg, call.head)?;
 
     builder.jump(loop_index, call.head)?;
 
     let end_index = builder.next_instruction_index();
     builder.set_branch_target(jump_false_index, end_index)?;
-    builder.set_branch_target(failed_index, end_index)?;
 
     builder.end_loop(end_index, loop_index)?;
 
@@ -695,9 +688,7 @@ pub(crate) fn compile_for(
     // LOOP: iterate %io_reg, %stream_reg, END
     //       store-variable $var, %io_reg
     //       %io_reg <- <...block...>
-    //       check-external-failed %failed_reg, %io_reg
     //       drain %io_reg
-    //       branch-if %failed_reg, END
     //       jump LOOP
     // END:  drop %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
@@ -767,28 +758,14 @@ pub(crate) fn compile_for(
         io_reg,
     )?;
 
-    // Check for failed external
-    let failed_reg = builder.next_register()?;
-    builder.push(
-        Instruction::CheckExternalFailed {
-            dst: failed_reg,
-            src: io_reg,
-        }
-        .into_spanned(call.head),
-    )?;
-
-    // Drain the output
+    // Drain the output, just like for a semicolon
     builder.drain(io_reg, call.head)?;
-
-    // End the loop if there was a failure
-    let failed_index = builder.branch_if_placeholder(failed_reg, call.head)?;
 
     // Loop back to iterate to get the next value
     builder.jump(iterate_index, call.head)?;
 
     // Update the iterate target to the end of the loop
     let end_index = builder.next_instruction_index();
-    builder.set_branch_target(failed_index, end_index)?;
     builder.set_branch_target(iterate_index, end_index)?;
 
     // Handle break/continue

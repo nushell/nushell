@@ -98,6 +98,8 @@ impl<'de> Deserialize<'de> for IrAstRef {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Instruction {
+    /// Unreachable code path (error)
+    Unreachable,
     /// Load a literal value into the `dst` register
     LoadLiteral { dst: RegId, lit: Literal },
     /// Load a clone of a boxed value into the `dst` register (e.g. from const evaluation)
@@ -110,7 +112,11 @@ pub enum Instruction {
     Collect { src_dst: RegId },
     /// Drop the value/straem in a register, without draining
     Drop { src: RegId },
-    /// Drain the value/stream in a register and discard (e.g. semicolon)
+    /// Drain the value/stream in a register and discard (e.g. semicolon).
+    ///
+    /// If passed a stream from an external command, sets $env.LAST_EXIT_CODE to the resulting exit
+    /// code, and invokes any available error handler with Empty, or if not available, returns an
+    /// exit-code-only stream, leaving the block.
     Drain { src: RegId },
     /// Load the value of a variable into the `dst` register
     LoadVariable { dst: RegId, var_id: VarId },
