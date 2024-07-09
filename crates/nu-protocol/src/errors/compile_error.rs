@@ -136,6 +136,7 @@ pub enum CompileError {
     },
 
     #[error("Missing required declaration: `{decl_name}`")]
+    #[diagnostic(code(nu::compile::missing_required_declaration))]
     MissingRequiredDeclaration {
         decl_name: String,
         #[label("`{decl_name}` must be in scope to compile this expression")]
@@ -143,9 +144,18 @@ pub enum CompileError {
     },
 
     #[error("Invalid literal")]
+    #[diagnostic(code(nu::compile::invalid_literal))]
     InvalidLiteral {
         msg: String,
         #[label("{msg}")]
         span: Span,
+    },
+
+    #[error("{msg}")]
+    #[diagnostic(code(nu::compile::not_in_a_loop))]
+    NotInALoop {
+        msg: String,
+        #[label("can't be used outside of a loop")]
+        span: Option<Span>,
     },
 }

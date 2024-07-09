@@ -12,6 +12,7 @@ pub(crate) struct BlockBuilder {
     pub(crate) ast: Vec<Option<IrAstRef>>,
     pub(crate) register_allocation_state: Vec<bool>,
     pub(crate) file_count: u32,
+    pub(crate) loop_stack: Vec<LoopState>,
 }
 
 impl BlockBuilder {
@@ -24,6 +25,7 @@ impl BlockBuilder {
             ast: vec![],
             register_allocation_state: vec![true],
             file_count: 0,
+            loop_stack: vec![],
         }
     }
 
@@ -420,6 +422,69 @@ impl BlockBuilder {
         Ok(next)
     }
 
+    /// Push a new loop state onto the builder.
+    pub(crate) fn begin_loop(&mut self) {
+        self.loop_stack.push(LoopState::new());
+    }
+
+    /// True if we are currently in a loop.
+    pub(crate) fn is_in_loop(&self) -> bool {
+        !self.loop_stack.is_empty()
+    }
+
+    /// Add a loop breaking jump instruction.
+    pub(crate) fn push_break(&mut self, span: Span) -> Result<usize, CompileError> {
+        let index = self.jump_placeholder(span)?;
+        self.loop_stack
+            .last_mut()
+            .ok_or_else(|| CompileError::NotInALoop {
+                msg: "`break` called from outside of a loop".into(),
+                span: Some(span),
+            })?
+            .break_branches
+            .push(index);
+        Ok(index)
+    }
+
+    /// Add a loop continuing jump instruction.
+    pub(crate) fn push_continue(&mut self, span: Span) -> Result<usize, CompileError> {
+        let index = self.jump_placeholder(span)?;
+        self.loop_stack
+            .last_mut()
+            .ok_or_else(|| CompileError::NotInALoop {
+                msg: "`continue` called from outside of a loop".into(),
+                span: Some(span),
+            })?
+            .continue_branches
+            .push(index);
+        Ok(index)
+    }
+
+    /// Pop the loop state and set any `break` or `continue` instructions to their appropriate
+    /// target instruction indexes.
+    pub(crate) fn end_loop(
+        &mut self,
+        break_target_index: usize,
+        continue_target_index: usize,
+    ) -> Result<(), CompileError> {
+        let loop_state = self
+            .loop_stack
+            .pop()
+            .ok_or_else(|| CompileError::NotInALoop {
+                msg: "end_loop() called outside of a loop".into(),
+                span: None,
+            })?;
+
+        for break_index in loop_state.break_branches {
+            self.set_branch_target(break_index, break_target_index)?;
+        }
+        for continue_index in loop_state.continue_branches {
+            self.set_branch_target(continue_index, continue_target_index)?;
+        }
+
+        Ok(())
+    }
+
     /// Consume the builder and produce the final [`IrBlock`].
     pub(crate) fn finish(self) -> IrBlock {
         IrBlock {
@@ -433,6 +498,22 @@ impl BlockBuilder {
                 .try_into()
                 .expect("register count overflowed in finish() despite previous checks"),
             file_count: self.file_count,
+        }
+    }
+}
+
+/// Keeps track of `break` and `continue` branches that need to be set up after a loop is compiled.
+#[derive(Debug)]
+pub(crate) struct LoopState {
+    break_branches: Vec<usize>,
+    continue_branches: Vec<usize>,
+}
+
+impl LoopState {
+    pub(crate) const fn new() -> Self {
+        LoopState {
+            break_branches: vec![],
+            continue_branches: vec![],
         }
     }
 }

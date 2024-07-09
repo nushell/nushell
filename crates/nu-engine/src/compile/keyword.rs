@@ -539,9 +539,13 @@ pub(crate) fn compile_loop(
 ) -> Result<(), CompileError> {
     // Pseudocode:
     //
-    // LOOP: drain %io_reg
-    //       ...<block>...
+    //       drop %io_reg
+    // LOOP: ...<block>...
+    //       check-external-failed %failed_reg, %io_reg
+    //       drain %io_reg
+    //       branch-if %failed_reg, END
     //       jump %LOOP
+    // END:  drop %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "loop".into(),
         span: call.head,
@@ -551,7 +555,10 @@ pub(crate) fn compile_loop(
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
-    let loop_index = builder.drain(io_reg, call.head)?;
+    builder.begin_loop();
+    builder.load_empty(io_reg)?;
+
+    let loop_index = builder.next_instruction_index();
 
     compile_block(
         working_set,
@@ -562,8 +569,27 @@ pub(crate) fn compile_loop(
         io_reg,
     )?;
 
+    // Check for failed externals, and drain the output
+    let failed_reg = builder.next_register()?;
+    builder.push(
+        Instruction::CheckExternalFailed {
+            dst: failed_reg,
+            src: io_reg,
+        }
+        .into_spanned(call.head),
+    )?;
+    builder.drain(io_reg, call.head)?;
+    let failed_index = builder.branch_if_placeholder(failed_reg, call.head)?;
+
     builder.jump(loop_index, call.head)?;
 
+    let end_index = builder.next_instruction_index();
+    builder.set_branch_target(failed_index, end_index)?;
+    builder.end_loop(end_index, loop_index)?;
+
+    // State of %io_reg is not necessarily well defined here due to control flow, so make sure it's
+    // empty.
+    builder.mark_register(io_reg)?;
     builder.load_empty(io_reg)?;
 
     Ok(())
@@ -579,13 +605,16 @@ pub(crate) fn compile_while(
 ) -> Result<(), CompileError> {
     // Pseudocode:
     //
-    // LOOP:  drain %io_reg
-    //        %io_reg <- <condition>
+    //        drop %io_reg
+    // LOOP:  %io_reg <- <condition>
     //        branch-if %io_reg, TRUE
     //        jump FALSE
     // TRUE:  ...<block>...
+    //        check-external-failed %failed_reg, %io_reg
+    //        drain %io_reg
+    //        branch-if %failed_reg, FALSE
     //        jump LOOP
-    // FALSE:
+    // FALSE: drop %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "while".into(),
         span: call.head,
@@ -596,7 +625,10 @@ pub(crate) fn compile_while(
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
-    let loop_index = builder.drain(io_reg, call.head)?;
+    builder.begin_loop();
+    builder.load_empty(io_reg)?;
+
+    let loop_index = builder.next_instruction_index();
 
     compile_expression(
         working_set,
@@ -621,10 +653,29 @@ pub(crate) fn compile_while(
         io_reg,
     )?;
 
+    // We have to check the result for a failed external, and drain the output on each iteration
+    let failed_reg = builder.next_register()?;
+    builder.push(
+        Instruction::CheckExternalFailed {
+            dst: failed_reg,
+            src: io_reg,
+        }
+        .into_spanned(call.head),
+    )?;
+    builder.drain(io_reg, call.head)?;
+    let failed_index = builder.branch_if_placeholder(failed_reg, call.head)?;
+
     builder.jump(loop_index, call.head)?;
 
-    builder.set_branch_target(jump_false_index, builder.next_instruction_index())?;
+    let end_index = builder.next_instruction_index();
+    builder.set_branch_target(jump_false_index, end_index)?;
+    builder.set_branch_target(failed_index, end_index)?;
 
+    builder.end_loop(end_index, loop_index)?;
+
+    // State of %io_reg is not necessarily well defined here due to control flow, so make sure it's
+    // empty.
+    builder.mark_register(io_reg)?;
     builder.load_empty(io_reg)?;
 
     Ok(())
@@ -644,9 +695,11 @@ pub(crate) fn compile_for(
     // LOOP: iterate %io_reg, %stream_reg, END
     //       store-variable $var, %io_reg
     //       %io_reg <- <...block...>
+    //       check-external-failed %failed_reg, %io_reg
     //       drain %io_reg
+    //       branch-if %failed_reg, END
     //       jump LOOP
-    // END:
+    // END:  drop %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "for".into(),
         span: call.head,
@@ -669,6 +722,9 @@ pub(crate) fn compile_for(
 
     // Ensure io_reg is marked so we don't use it
     builder.mark_register(io_reg)?;
+
+    // Set up loop state
+    builder.begin_loop();
 
     let stream_reg = builder.next_register()?;
 
@@ -711,21 +767,87 @@ pub(crate) fn compile_for(
         io_reg,
     )?;
 
+    // Check for failed external
+    let failed_reg = builder.next_register()?;
+    builder.push(
+        Instruction::CheckExternalFailed {
+            dst: failed_reg,
+            src: io_reg,
+        }
+        .into_spanned(call.head),
+    )?;
+
     // Drain the output
     builder.drain(io_reg, call.head)?;
+
+    // End the loop if there was a failure
+    let failed_index = builder.branch_if_placeholder(failed_reg, call.head)?;
 
     // Loop back to iterate to get the next value
     builder.jump(iterate_index, call.head)?;
 
     // Update the iterate target to the end of the loop
-    let target_index = builder.next_instruction_index();
-    builder.set_branch_target(iterate_index, target_index)?;
+    let end_index = builder.next_instruction_index();
+    builder.set_branch_target(failed_index, end_index)?;
+    builder.set_branch_target(iterate_index, end_index)?;
+
+    // Handle break/continue
+    builder.end_loop(end_index, iterate_index)?;
 
     // We don't need stream_reg anymore, after the loop
-    // io_reg is guaranteed to be Empty due to the iterate instruction before
+    // io_reg may or may not be empty, so be sure it is
     builder.free_register(stream_reg)?;
+    builder.mark_register(io_reg)?;
     builder.load_empty(io_reg)?;
 
+    Ok(())
+}
+
+/// Compile a call to `break`.
+pub(crate) fn compile_break(
+    _working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    _redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    if builder.is_in_loop() {
+        builder.load_empty(io_reg)?;
+        builder.push_break(call.head)?;
+    } else {
+        // Fall back to calling the command if we can't find the loop target statically
+        builder.push(
+            Instruction::Call {
+                decl_id: call.decl_id,
+                src_dst: io_reg,
+            }
+            .into_spanned(call.head),
+        )?;
+    }
+    Ok(())
+}
+
+/// Compile a call to `continue`.
+pub(crate) fn compile_continue(
+    _working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    _redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    if builder.is_in_loop() {
+        builder.load_empty(io_reg)?;
+        builder.push_continue(call.head)?;
+    } else {
+        // Fall back to calling the command if we can't find the loop target statically
+        builder.push(
+            Instruction::Call {
+                decl_id: call.decl_id,
+                src_dst: io_reg,
+            }
+            .into_spanned(call.head),
+        )?;
+    }
     Ok(())
 }
 

@@ -62,6 +62,12 @@ pub(crate) fn compile_call(
             "for" => {
                 return compile_for(working_set, builder, call, redirect_modes, io_reg);
             }
+            "break" => {
+                return compile_break(working_set, builder, call, redirect_modes, io_reg);
+            }
+            "continue" => {
+                return compile_continue(working_set, builder, call, redirect_modes, io_reg);
+            }
             "return" => {
                 return compile_return(working_set, builder, call, redirect_modes, io_reg);
             }
