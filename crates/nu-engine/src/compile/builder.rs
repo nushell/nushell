@@ -241,6 +241,7 @@ impl BlockBuilder {
             Instruction::OnErrorInto { index: _, dst } => allocate(&[], &[*dst]),
             Instruction::PopErrorHandler => Ok(()),
             Instruction::CheckExternalFailed { dst, src } => allocate(&[*src], &[*dst, *src]),
+            Instruction::ReturnEarly { src } => allocate(&[*src], &[]),
             Instruction::Return { src } => allocate(&[*src], &[]),
         };
 

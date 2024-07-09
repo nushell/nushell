@@ -240,6 +240,9 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::CheckExternalFailed { dst, src } => {
                 write!(f, "{:WIDTH$} {dst}, {src}", "check-external-failed")
             }
+            Instruction::ReturnEarly { src } => {
+                write!(f, "{:WIDTH$} {src}", "return-early")
+            }
             Instruction::Return { src } => {
                 write!(f, "{:WIDTH$} {src}", "return")
             }

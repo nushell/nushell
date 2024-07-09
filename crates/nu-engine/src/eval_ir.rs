@@ -210,6 +210,14 @@ fn eval_ir_block_impl<D: DebugContext>(
                     ));
                 }
             }
+            Err(
+                err @ (ShellError::Return { .. }
+                | ShellError::Continue { .. }
+                | ShellError::Break { .. }),
+            ) => {
+                // These block control related errors should be passed through
+                return Err(err);
+            }
             Err(err) => {
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
                     // If an error handler is set, branch there
@@ -738,6 +746,13 @@ fn eval_instruction<D: DebugContext>(
             ctx.put_reg(*src, data);
             ctx.put_reg(*dst, Value::bool(failed, *span).into_pipeline_data());
             Ok(Continue)
+        }
+        Instruction::ReturnEarly { src } => {
+            let val = ctx.collect_reg(*src, *span)?;
+            Err(ShellError::Return {
+                span: *span,
+                value: Box::new(val),
+            })
         }
         Instruction::Return { src } => Ok(Return(*src)),
     }

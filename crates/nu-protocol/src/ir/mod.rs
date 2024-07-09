@@ -248,6 +248,10 @@ pub enum Instruction {
     /// Check if an external command failed. Boolean value into `dst`. `src` is preserved, but it
     /// does require waiting for the command to exit.
     CheckExternalFailed { dst: RegId, src: RegId },
+    /// Return early from the block, raising a `ShellError::Return` instead.
+    ///
+    /// Collecting the value is unavoidable.
+    ReturnEarly { src: RegId },
     /// Return from the block with the value in the register
     Return { src: RegId },
 }

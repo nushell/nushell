@@ -844,7 +844,7 @@ pub(crate) fn compile_continue(
     Ok(())
 }
 
-/// Compile a call to `return` as a `return` instruction.
+/// Compile a call to `return` as a `return-early` instruction.
 ///
 /// This is not strictly necessary, but it is more efficient.
 pub(crate) fn compile_return(
@@ -857,7 +857,7 @@ pub(crate) fn compile_return(
     // Pseudocode:
     //
     // %io_reg <- <arg_expr>
-    // return %io_reg
+    // return-early %io_reg
     if let Some(arg_expr) = call.positional_nth(0) {
         compile_expression(
             working_set,
@@ -871,7 +871,9 @@ pub(crate) fn compile_return(
         builder.load_empty(io_reg)?;
     }
 
-    builder.push(Instruction::Return { src: io_reg }.into_spanned(call.head))?;
+    // TODO: It would be nice if this could be `return` instead, but there is a little bit of
+    // behaviour remaining that still depends on `ShellError::Return`
+    builder.push(Instruction::ReturnEarly { src: io_reg }.into_spanned(call.head))?;
 
     // io_reg is supposed to remain allocated
     builder.load_empty(io_reg)?;
