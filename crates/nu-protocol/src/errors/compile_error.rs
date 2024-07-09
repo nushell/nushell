@@ -107,23 +107,33 @@ pub enum CompileError {
         span: Span,
     },
 
-    #[error("Invalid left-hand side for assignment.")]
+    #[error("Assignment operations require a variable.")]
     #[diagnostic(
-        code(nu::compile::invalid_lhs_for_assignment),
-        help("try assigning to a variable, environment variable, or sub-path of either")
+        code(nu::compile::assignment_requires_variable),
+        help("try assigning to a variable or a cell path of a variable")
     )]
-    InvalidLhsForAssignment {
-        #[label("this is not an assignable expression")]
+    AssignmentRequiresVar {
+        #[label("needs to be a variable")]
         span: Span,
     },
 
     #[error("Attempted to modify immutable variable.")]
     #[diagnostic(
-        code(nu::compile::modify_immutable_variable),
+        code(nu::compile::assignment_requires_mutable_variable),
         help("declare the variable with `mut`, or shadow it again with `let`")
     )]
-    ModifyImmutableVariable {
-        #[label("this variable was not declared as mutable")]
+    AssignmentRequiresMutableVar {
+        #[label("needs to be a mutable variable")]
+        span: Span,
+    },
+
+    #[error("Cannot replace environment.")]
+    #[diagnostic(
+        code(nu::compile::cannot_replace_env),
+        help("Assigning a value to '$env' is not allowed.")
+    )]
+    CannotReplaceEnv {
+        #[label("setting '$env' not allowed")]
         span: Span,
     },
 

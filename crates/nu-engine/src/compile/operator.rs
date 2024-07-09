@@ -113,7 +113,7 @@ pub(crate) fn compile_assignment(
         Expr::Var(var_id) => {
             // Double check that the variable is supposed to be mutable
             if !working_set.get_variable(var_id).mutable {
-                return Err(CompileError::ModifyImmutableVariable { span: lhs.span });
+                return Err(CompileError::AssignmentRequiresMutableVar { span: lhs.span });
             }
 
             builder.push(
@@ -135,7 +135,7 @@ pub(crate) fn compile_assignment(
             ) if *var_id == ENV_VARIABLE_ID => {
                 // This will be an assignment to an environment variable.
                 let Some(PathMember::String { val: key, .. }) = path.tail.first() else {
-                    return Err(CompileError::InvalidLhsForAssignment { span: lhs.span });
+                    return Err(CompileError::CannotReplaceEnv { span: lhs.span });
                 };
 
                 let key_data = builder.data(key)?;
@@ -225,7 +225,7 @@ pub(crate) fn compile_assignment(
             }
         },
         Expr::Garbage => Err(CompileError::Garbage { span: lhs.span }),
-        _ => Err(CompileError::InvalidLhsForAssignment { span: lhs.span }),
+        _ => Err(CompileError::AssignmentRequiresVar { span: lhs.span }),
     }
 }
 
