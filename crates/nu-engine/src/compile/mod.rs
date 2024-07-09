@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ast::{Block, Pipeline, PipelineRedirection, RedirectionSource},
+    ast::{Block, Pipeline, PipelineRedirection, RedirectionSource, RedirectionTarget},
     engine::StateWorkingSet,
     ir::{Instruction, IrBlock, RedirectMode},
     CompileError, IntoSpanned, RegId, Span,
@@ -116,13 +116,13 @@ fn compile_pipeline(
             let mut modes = redirect_modes_of_expression(working_set, &next_element.expr, span)?;
 
             // If there's a next element with no inherent redirection we always pipe out *unless*
-            // this is a single redirection to stderr (e>|)
+            // this is a single redirection of stderr to pipe (e>|)
             if modes.out.is_none()
                 && !matches!(
                     element.redirection,
                     Some(PipelineRedirection::Single {
                         source: RedirectionSource::Stderr,
-                        ..
+                        target: RedirectionTarget::Pipe { .. }
                     })
                 )
             {
@@ -139,7 +139,7 @@ fn compile_pipeline(
 
         let spec_redirect_modes = match &element.redirection {
             Some(PipelineRedirection::Single { source, target }) => {
-                let mode = redirection_target_to_mode(working_set, builder, target, false)?;
+                let mode = redirection_target_to_mode(working_set, builder, target)?;
                 match source {
                     RedirectionSource::Stdout => RedirectModes {
                         out: Some(mode),
@@ -156,8 +156,19 @@ fn compile_pipeline(
                 }
             }
             Some(PipelineRedirection::Separate { out, err }) => {
-                let out = redirection_target_to_mode(working_set, builder, out, true)?;
-                let err = redirection_target_to_mode(working_set, builder, err, true)?;
+                // In this case, out and err must not both be Pipe
+                assert!(
+                    !matches!(
+                        (out, err),
+                        (
+                            RedirectionTarget::Pipe { .. },
+                            RedirectionTarget::Pipe { .. }
+                        )
+                    ),
+                    "for Separate redirection, out and err targets must not both be Pipe"
+                );
+                let out = redirection_target_to_mode(working_set, builder, out)?;
+                let err = redirection_target_to_mode(working_set, builder, err)?;
                 RedirectModes {
                     out: Some(out),
                     err: Some(err),

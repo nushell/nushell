@@ -132,7 +132,8 @@ impl PipelineData {
     /// without consuming input and without writing anything.
     ///
     /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
-    /// and `PipelineData::Empty` will be returned.
+    /// and `PipelineData::Empty` will be returned, unless the data is from an external stream,
+    /// in which case an external stream containing only that exit code will be returned.
     pub fn write_to_out_dests(
         self,
         engine_state: &EngineState,
@@ -140,7 +141,11 @@ impl PipelineData {
     ) -> Result<PipelineData, ShellError> {
         match (self, stack.stdout()) {
             (PipelineData::ByteStream(stream, ..), stdout) => {
-                stream.write_to_out_dests(stdout, stack.stderr())?;
+                if let Some(exit_status) = stream.write_to_out_dests(stdout, stack.stderr())? {
+                    return Ok(PipelineData::new_external_stream_with_only_exit_code(
+                        exit_status.code(),
+                    ));
+                }
             }
             (data, OutDest::Pipe | OutDest::Capture) => return Ok(data),
             (PipelineData::Empty, ..) => {}

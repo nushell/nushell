@@ -308,19 +308,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Drain { src } => {
             let data = ctx.take_reg(*src);
-            if let Some(exit_status) = data.drain()? {
-                ctx.stack.add_env_var(
-                    "LAST_EXIT_CODE".into(),
-                    Value::int(exit_status.code() as i64, *span),
-                );
-                if exit_status.code() == 0 {
-                    Ok(Continue)
-                } else {
-                    Ok(ExitCode(exit_status.code()))
-                }
-            } else {
-                Ok(Continue)
-            }
+            drain(ctx, data)
         }
         Instruction::LoadVariable { dst, var_id } => {
             let value = get_var(ctx, *var_id, *span)?;
@@ -463,11 +451,14 @@ fn eval_instruction<D: DebugContext>(
                     msg: format!("Tried to write to file #{file_num}, but it is not open"),
                     span: Some(*span),
                 })?;
-            let mut stack = ctx
-                .stack
-                .push_redirection(Some(Redirection::File(file)), None);
-            src.write_to_out_dests(ctx.engine_state, &mut stack)?;
-            Ok(Continue)
+            let result = {
+                let mut stack = ctx
+                    .stack
+                    .push_redirection(Some(Redirection::File(file)), None);
+                src.write_to_out_dests(ctx.engine_state, &mut stack)?
+            };
+            // Abort execution if there's an exit code from a failed external
+            drain(ctx, result)
         }
         Instruction::CloseFile { file_num } => {
             if ctx.files[*file_num as usize].take().is_some() {
@@ -1196,6 +1187,25 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
     let metadata = data.metadata();
     let value = data.into_value(span)?;
     Ok(PipelineData::Value(value, metadata))
+}
+
+/// Helper for drain behavior. Returns `Ok(ExitCode)` on failed external.
+fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionResult, ShellError> {
+    use self::InstructionResult::*;
+    let span = data.span().unwrap_or(Span::unknown());
+    if let Some(exit_status) = data.drain()? {
+        ctx.stack.add_env_var(
+            "LAST_EXIT_CODE".into(),
+            Value::int(exit_status.code() as i64, span),
+        );
+        if exit_status.code() == 0 {
+            Ok(Continue)
+        } else {
+            Ok(ExitCode(exit_status.code()))
+        }
+    } else {
+        Ok(Continue)
+    }
 }
 
 enum RedirectionStream {

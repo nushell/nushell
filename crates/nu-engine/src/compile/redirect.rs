@@ -40,7 +40,6 @@ pub(crate) fn redirection_target_to_mode(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     target: &RedirectionTarget,
-    separate: bool,
 ) -> Result<Spanned<RedirectMode>, CompileError> {
     Ok(match target {
         RedirectionTarget::File {
@@ -68,12 +67,7 @@ pub(crate) fn redirection_target_to_mode(
             )?;
             RedirectMode::File { file_num }.into_spanned(*redir_span)
         }
-        RedirectionTarget::Pipe { span } => (if separate {
-            RedirectMode::Capture
-        } else {
-            RedirectMode::Pipe
-        })
-        .into_spanned(*span),
+        RedirectionTarget::Pipe { span } => RedirectMode::Pipe.into_spanned(*span),
     })
 }
 
@@ -106,14 +100,24 @@ pub(crate) fn finish_redirection(
             item: RedirectMode::File { file_num },
             span,
         }) => {
-            builder.push(
-                Instruction::WriteFile {
-                    file_num,
-                    src: out_reg,
-                }
-                .into_spanned(span),
-            )?;
-            builder.load_empty(out_reg)?;
+            // If out is a file and err is a pipe, we must not consume the expression result -
+            // that is actually the err, in that case.
+            if !matches!(
+                modes.err,
+                Some(Spanned {
+                    item: RedirectMode::Pipe { .. },
+                    ..
+                })
+            ) {
+                builder.push(
+                    Instruction::WriteFile {
+                        file_num,
+                        src: out_reg,
+                    }
+                    .into_spanned(span),
+                )?;
+                builder.load_empty(out_reg)?;
+            }
             builder.push(Instruction::CloseFile { file_num }.into_spanned(span))?;
         }
         _ => (),
