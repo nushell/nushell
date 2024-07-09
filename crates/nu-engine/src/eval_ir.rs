@@ -968,7 +968,15 @@ fn eval_call<D: DebugContext>(
 fn find_named_var_id(sig: &Signature, name: &[u8], span: Span) -> Result<VarId, ShellError> {
     sig.named
         .iter()
-        .find(|n| n.long.as_bytes() == name)
+        .find(|n| {
+            if !n.long.is_empty() {
+                n.long.as_bytes() == name
+            } else {
+                // If the arg has no long name, then compare against its short name
+                n.short
+                    .is_some_and(|s| s.encode_utf8(&mut [0; 4]).as_bytes() == name)
+            }
+        })
         .ok_or_else(|| ShellError::IrEvalError {
             msg: format!(
                 "block does not have an argument named `{}`",

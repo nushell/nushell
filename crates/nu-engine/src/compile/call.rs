@@ -124,8 +124,12 @@ pub(crate) fn compile_call(
                     ast_ref,
                 ))
             }
-            Argument::Named((name, _, _)) => compiled_args.push(CompiledArg::Named(
-                name.item.as_str(),
+            Argument::Named((name, short, _)) => compiled_args.push(CompiledArg::Named(
+                if name.item.is_empty() {
+                    &short.as_ref().expect("no long name and no short name").item
+                } else {
+                    &name.item
+                },
                 arg_reg,
                 arg.span(),
                 ast_ref,
