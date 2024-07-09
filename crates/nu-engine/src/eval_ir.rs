@@ -284,6 +284,8 @@ fn eval_instruction<D: DebugContext>(
 ) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
 
+    // See the docs for `Instruction` for more information on what these instructions are supposed
+    // to do.
     match instruction {
         Instruction::Unreachable => Err(ShellError::IrEvalError {
             msg: "Reached unreachable code".into(),
@@ -308,6 +310,12 @@ fn eval_instruction<D: DebugContext>(
             let data = ctx.take_reg(*src_dst);
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, value);
+            Ok(Continue)
+        }
+        Instruction::Span { src_dst } => {
+            let data = ctx.take_reg(*src_dst);
+            let spanned = data.with_span(*span);
+            ctx.put_reg(*src_dst, spanned);
             Ok(Continue)
         }
         Instruction::Drop { src } => {
@@ -893,7 +901,8 @@ fn binary_op(
         return Err(*error);
     }
 
-    // FIXME: there should be a span for both the operator and for the expr?
+    // We only have access to one span here, but the generated code usually adds a `span`
+    // instruction to set the output span to the right span.
     let op_span = span;
 
     let result = match op {

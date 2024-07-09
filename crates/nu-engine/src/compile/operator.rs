@@ -14,6 +14,7 @@ pub(crate) fn compile_binary_op(
     lhs: &Expression,
     op: Spanned<Operator>,
     rhs: &Expression,
+    span: Span,
     out_reg: RegId,
 ) -> Result<(), CompileError> {
     if let Operator::Assignment(assign_op) = op.item {
@@ -25,6 +26,7 @@ pub(crate) fn compile_binary_op(
                 lhs,
                 decomposed_op.into_spanned(op.span),
                 rhs,
+                span,
                 out_reg,
             )?;
         } else {
@@ -135,6 +137,8 @@ pub(crate) fn compile_binary_op(
                 .into_spanned(op.span),
             )?;
         }
+
+        builder.push(Instruction::Span { src_dst: out_reg }.into_spanned(span))?;
 
         Ok(())
     }

@@ -99,6 +99,24 @@ impl PipelineData {
         }
     }
 
+    /// Change the span of the [`PipelineData`].
+    ///
+    /// Returns `Value(Nothing)` with the given span if it was [`PipelineData::Empty`].
+    pub fn with_span(self, span: Span) -> Self {
+        match self {
+            PipelineData::Empty => PipelineData::Value(Value::nothing(span), None),
+            PipelineData::Value(value, metadata) => {
+                PipelineData::Value(value.with_span(span), metadata)
+            }
+            PipelineData::ListStream(stream, metadata) => {
+                PipelineData::ListStream(stream.with_span(span), metadata)
+            }
+            PipelineData::ByteStream(stream, metadata) => {
+                PipelineData::ByteStream(stream.with_span(span), metadata)
+            }
+        }
+    }
+
     /// Get a type that is representative of the `PipelineData`.
     ///
     /// The type returned here makes no effort to collect a stream, so it may be a different type

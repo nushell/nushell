@@ -110,7 +110,9 @@ pub enum Instruction {
     Clone { dst: RegId, src: RegId },
     /// Collect a stream in a register to a value
     Collect { src_dst: RegId },
-    /// Drop the value/straem in a register, without draining
+    /// Change the span of the contents of a register to the span of this instruction.
+    Span { src_dst: RegId },
+    /// Drop the value/stream in a register, without draining
     Drop { src: RegId },
     /// Drain the value/stream in a register and discard (e.g. semicolon).
     ///

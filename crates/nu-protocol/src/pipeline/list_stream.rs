@@ -34,6 +34,12 @@ impl ListStream {
         self.span
     }
 
+    /// Changes the [`Span`] associated with this [`ListStream`].
+    pub fn with_span(mut self, span: Span) -> Self {
+        self.span = span;
+        self
+    }
+
     /// Convert a [`ListStream`] into its inner [`Value`] `Iterator`.
     pub fn into_inner(self) -> ValueIterator {
         self.stream

@@ -164,6 +164,7 @@ pub(crate) fn compile_expression(
                     lhs,
                     operator.clone().into_spanned(op.span),
                     rhs,
+                    expr.span,
                     out_reg,
                 )
             } else {
