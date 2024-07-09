@@ -16,13 +16,14 @@ impl Command for ViewIr {
             .required(
                 "closure",
                 SyntaxShape::Closure(None),
-                "the closure to see compiled code for",
+                "The closure to see compiled code for.",
             )
             .switch(
                 "json",
-                "Dump the raw block data as JSON (unstable)",
+                "Dump the raw block data as JSON (unstable).",
                 Some('j'),
             )
+            .input_output_type(Type::Nothing, Type::String)
     }
 
     fn usage(&self) -> &str {
