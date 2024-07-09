@@ -86,7 +86,13 @@ pub(crate) fn compile_call(
     // it.
     enum CompiledArg<'a> {
         Positional(RegId, Span, Option<IrAstRef>),
-        Named(&'a str, Option<RegId>, Span, Option<IrAstRef>),
+        Named(
+            &'a str,
+            Option<&'a str>,
+            Option<RegId>,
+            Span,
+            Option<IrAstRef>,
+        ),
         Spread(RegId, Span, Option<IrAstRef>),
     }
 
@@ -125,11 +131,8 @@ pub(crate) fn compile_call(
                 ))
             }
             Argument::Named((name, short, _)) => compiled_args.push(CompiledArg::Named(
-                if name.item.is_empty() {
-                    &short.as_ref().expect("no long name and no short name").item
-                } else {
-                    &name.item
-                },
+                &name.item,
+                short.as_ref().map(|spanned| spanned.item.as_str()),
                 arg_reg,
                 arg.span(),
                 ast_ref,
@@ -149,14 +152,23 @@ pub(crate) fn compile_call(
                 builder.push(Instruction::PushPositional { src: reg }.into_spanned(span))?;
                 builder.set_last_ast(ast_ref);
             }
-            CompiledArg::Named(name, Some(reg), span, ast_ref) => {
+            CompiledArg::Named(name, short, Some(reg), span, ast_ref) => {
                 let name = builder.data(name)?;
-                builder.push(Instruction::PushNamed { name, src: reg }.into_spanned(span))?;
+                let short = builder.data(short.unwrap_or(""))?;
+                builder.push(
+                    Instruction::PushNamed {
+                        name,
+                        short,
+                        src: reg,
+                    }
+                    .into_spanned(span),
+                )?;
                 builder.set_last_ast(ast_ref);
             }
-            CompiledArg::Named(name, None, span, ast_ref) => {
+            CompiledArg::Named(name, short, None, span, ast_ref) => {
                 let name = builder.data(name)?;
-                builder.push(Instruction::PushFlag { name }.into_spanned(span))?;
+                let short = builder.data(short.unwrap_or(""))?;
+                builder.push(Instruction::PushFlag { name, short }.into_spanned(span))?;
                 builder.set_last_ast(ast_ref);
             }
             CompiledArg::Spread(reg, span, ast_ref) => {

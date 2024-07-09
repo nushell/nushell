@@ -21,12 +21,14 @@ pub enum Argument {
     Flag {
         data: Arc<[u8]>,
         name: DataSlice,
+        short: DataSlice,
         span: Span,
     },
     /// A named argument with a value, e.g. `--flag value` or `--flag=`
     Named {
         data: Arc<[u8]>,
         name: DataSlice,
+        short: DataSlice,
         span: Span,
         val: Value,
         ast: Option<Arc<Expression>>,

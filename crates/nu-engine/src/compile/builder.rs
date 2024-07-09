@@ -170,8 +170,12 @@ impl BlockBuilder {
             Instruction::StoreEnv { key: _, src } => allocate(&[*src], &[]),
             Instruction::PushPositional { src } => allocate(&[*src], &[]),
             Instruction::AppendRest { src } => allocate(&[*src], &[]),
-            Instruction::PushFlag { name: _ } => Ok(()),
-            Instruction::PushNamed { name: _, src } => allocate(&[*src], &[]),
+            Instruction::PushFlag { name: _, short: _ } => Ok(()),
+            Instruction::PushNamed {
+                name: _,
+                short: _,
+                src,
+            } => allocate(&[*src], &[]),
             Instruction::PushParserInfo { name: _, info: _ } => Ok(()),
             Instruction::RedirectOut { mode: _ } => Ok(()),
             Instruction::RedirectErr { mode: _ } => Ok(()),
@@ -310,13 +314,16 @@ impl BlockBuilder {
 
     /// Add data to the `data` array and return a [`DataSlice`] referencing it.
     pub(crate) fn data(&mut self, data: impl AsRef<[u8]>) -> Result<DataSlice, CompileError> {
+        let data = data.as_ref();
         let start = self.data.len();
-        if start + data.as_ref().len() < u32::MAX as usize {
+        if data.is_empty() {
+            Ok(DataSlice::empty())
+        } else if start + data.len() < u32::MAX as usize {
             let slice = DataSlice {
                 start: start as u32,
-                len: data.as_ref().len() as u32,
+                len: data.len() as u32,
             };
-            self.data.extend_from_slice(data.as_ref());
+            self.data.extend_from_slice(data);
             Ok(slice)
         } else {
             Err(CompileError::DataOverflow)

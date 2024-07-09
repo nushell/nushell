@@ -2,7 +2,7 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{
     ast::{self, Expr, Expression},
     engine::{self, CallImpl, CommandType, UNKNOWN_SPAN_ID},
-    ir,
+    ir::{self, DataSlice},
 };
 
 #[derive(Clone)]
@@ -159,13 +159,15 @@ fn ir_call_to_extern_call(
     // Add the arguments, reformatting named arguments into string positionals
     for index in 0..call.args_len {
         match &call.arguments(stack)[index] {
-            engine::Argument::Flag { data, name, span } => {
+            engine::Argument::Flag {
+                data,
+                name,
+                short,
+                span,
+            } => {
                 let name_arg = engine::Argument::Positional {
                     span: *span,
-                    val: Value::string(
-                        std::str::from_utf8(&data[*name]).expect("invalid flag name"),
-                        *span,
-                    ),
+                    val: Value::string(known_external_option_name(&data, *name, *short), *span),
                     ast: None,
                 };
                 extern_call.add_argument(stack, name_arg);
@@ -173,16 +175,14 @@ fn ir_call_to_extern_call(
             engine::Argument::Named {
                 data,
                 name,
+                short,
                 span,
                 val,
                 ..
             } => {
                 let name_arg = engine::Argument::Positional {
                     span: *span,
-                    val: Value::string(
-                        std::str::from_utf8(&data[*name]).expect("invalid arg name"),
-                        *span,
-                    ),
+                    val: Value::string(known_external_option_name(&data, *name, *short), *span),
                     ast: None,
                 };
                 let val_arg = engine::Argument::Positional {
@@ -203,4 +203,18 @@ fn ir_call_to_extern_call(
     }
 
     Ok(extern_call.finish())
+}
+
+fn known_external_option_name(data: &[u8], name: DataSlice, short: DataSlice) -> String {
+    if !data[name].is_empty() {
+        format!(
+            "--{}",
+            std::str::from_utf8(&data[name]).expect("invalid utf-8 in flag name")
+        )
+    } else {
+        format!(
+            "-{}",
+            std::str::from_utf8(&data[short]).expect("invalid utf-8 in flag short name")
+        )
+    }
 }

@@ -270,13 +270,23 @@ impl CallBuilder {
     }
 
     /// Add a flag (no-value named) argument to the [`Stack`] and reference it from the [`Call`].
-    pub fn add_flag(&mut self, stack: &mut Stack, name: impl AsRef<str>, span: Span) -> &mut Self {
-        let data: Arc<[u8]> = name.as_ref().as_bytes().into();
-        let name = DataSlice {
-            start: 0,
-            len: data.len().try_into().expect("flag name too big"),
-        };
-        self.add_argument(stack, Argument::Flag { data, name, span })
+    pub fn add_flag(
+        &mut self,
+        stack: &mut Stack,
+        name: impl AsRef<str>,
+        short: impl AsRef<str>,
+        span: Span,
+    ) -> &mut Self {
+        let (data, name, short) = data_from_name_and_short(name.as_ref(), short.as_ref());
+        self.add_argument(
+            stack,
+            Argument::Flag {
+                data,
+                name,
+                short,
+                span,
+            },
+        )
     }
 
     /// Add a named argument to the [`Stack`] and reference it from the [`Call`].
@@ -284,19 +294,17 @@ impl CallBuilder {
         &mut self,
         stack: &mut Stack,
         name: impl AsRef<str>,
+        short: impl AsRef<str>,
         span: Span,
         val: Value,
     ) -> &mut Self {
-        let data: Arc<[u8]> = name.as_ref().as_bytes().into();
-        let name = DataSlice {
-            start: 0,
-            len: data.len().try_into().expect("arg name too big"),
-        };
+        let (data, name, short) = data_from_name_and_short(name.as_ref(), short.as_ref());
         self.add_argument(
             stack,
             Argument::Named {
                 data,
                 name,
+                short,
                 span,
                 val,
                 ast: None,
@@ -326,4 +334,18 @@ impl CallBuilder {
         self.inner.leave(stack);
         result
     }
+}
+
+fn data_from_name_and_short(name: &str, short: &str) -> (Arc<[u8]>, DataSlice, DataSlice) {
+    let data: Vec<u8> = name.bytes().chain(short.bytes()).collect();
+    let data: Arc<[u8]> = data.into();
+    let name = DataSlice {
+        start: 0,
+        len: name.len().try_into().expect("flag name too big"),
+    };
+    let short = DataSlice {
+        start: name.start.checked_add(name.len).expect("flag name too big"),
+        len: short.len().try_into().expect("flag short name too big"),
+    };
+    (data, name, short)
 }

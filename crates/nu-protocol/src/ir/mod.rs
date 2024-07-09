@@ -134,9 +134,13 @@ pub enum Instruction {
     /// Add a list of args to the next (internal) call (spread/rest).
     AppendRest { src: RegId },
     /// Add a named arg with no value to the next (internal) call.
-    PushFlag { name: DataSlice },
+    PushFlag { name: DataSlice, short: DataSlice },
     /// Add a named arg with a value to the next (internal) call.
-    PushNamed { name: DataSlice, src: RegId },
+    PushNamed {
+        name: DataSlice,
+        short: DataSlice,
+        src: RegId,
+    },
     /// Add parser info to the next (internal) call.
     PushParserInfo {
         name: DataSlice,

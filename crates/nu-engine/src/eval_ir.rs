@@ -378,21 +378,23 @@ fn eval_instruction<D: DebugContext>(
             });
             Ok(Continue)
         }
-        Instruction::PushFlag { name } => {
+        Instruction::PushFlag { name, short } => {
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Flag {
                 data,
                 name: *name,
+                short: *short,
                 span: *span,
             });
             Ok(Continue)
         }
-        Instruction::PushNamed { name, src } => {
+        Instruction::PushNamed { name, short, src } => {
             let val = ctx.collect_reg(*src, *span)?;
             let data = ctx.data.clone();
             ctx.stack.arguments.push(Argument::Named {
                 data,
                 name: *name,
+                short: *short,
                 span: *span,
                 val,
                 ast: ast.clone().map(|ast_ref| ast_ref.0),
@@ -989,21 +991,21 @@ fn eval_call<D: DebugContext>(
     result
 }
 
-fn find_named_var_id(sig: &Signature, name: &[u8], span: Span) -> Result<VarId, ShellError> {
+fn find_named_var_id(
+    sig: &Signature,
+    name: &[u8],
+    short: &[u8],
+    span: Span,
+) -> Result<VarId, ShellError> {
     sig.named
         .iter()
         .find(|n| {
             if !n.long.is_empty() {
                 n.long.as_bytes() == name
             } else {
-                // If the arg has no long name, then compare against its short name
-                //
-                // One limitation here is that it effectively makes them share the same namespace,
-                // if only for args that don't have any long name defined. This probably isn't a
-                // problem in practice, but TODO it would probably be good to have a parser error
-                // forbidding a long arg and short arg from having the same name?
+                // It's possible to only have a short name and no long name
                 n.short
-                    .is_some_and(|s| s.encode_utf8(&mut [0; 4]).as_bytes() == name)
+                    .is_some_and(|s| s.encode_utf8(&mut [0; 4]).as_bytes() == short)
             }
         })
         .ok_or_else(|| ShellError::IrEvalError {
@@ -1087,18 +1089,24 @@ fn gather_arguments(
                     return Err(ShellError::CannotSpreadAsList { span: vals.span() });
                 }
             }
-            Argument::Flag { data, name, span } => {
-                let var_id = find_named_var_id(&block.signature, &data[name], span)?;
+            Argument::Flag {
+                data,
+                name,
+                short,
+                span,
+            } => {
+                let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
                 callee_stack.add_var(var_id, Value::bool(true, span))
             }
             Argument::Named {
                 data,
                 name,
+                short,
                 span,
                 val,
                 ..
             } => {
-                let var_id = find_named_var_id(&block.signature, &data[name], span)?;
+                let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
                 callee_stack.add_var(var_id, val)
             }
             Argument::ParserInfo { .. } => (),
