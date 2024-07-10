@@ -966,10 +966,10 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
                     .collect();
             }
             None => {
-                // we don't have widths cached; which means that NO widtds adjustmens were done
+                // we don't have widths cached; which means that NO width adjustments were done
                 // which means we are OK to leave columns as they are.
                 //
-                // but we are actually always got to have widths at this point
+                // but we actually always have to have widths at this point
             }
         };
 
