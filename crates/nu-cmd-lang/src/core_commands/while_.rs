@@ -46,7 +46,9 @@ impl Command for While {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let call = call.assert_ast_call()?; // FIXME
+        // This is compiled specially by the IR compiler. The code here is never used in when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let head = call.head;
         let cond = call.positional_nth(0).expect("checked through parser");
         let block_id = call
