@@ -170,7 +170,7 @@ pub fn complete_item(
         }
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
             components.next();
-            cwd = home_dir().unwrap_or(cwd_pathbuf);
+            cwd = home_dir().map(Into::into).unwrap_or(cwd_pathbuf);
             prefix_len = 1;
             original_cwd = OriginalCwd::Home;
         }

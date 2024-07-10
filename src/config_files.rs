@@ -121,7 +121,7 @@ pub(crate) fn read_config_file(
             }
         }
 
-        eval_config_contents(config_path, engine_state, stack);
+        eval_config_contents(config_path.into(), engine_state, stack);
     }
 }
 
@@ -141,7 +141,7 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
         warn!("loginshell_file: {}", config_path.display());
 
         if config_path.exists() {
-            eval_config_contents(config_path, engine_state, stack);
+            eval_config_contents(config_path.into(), engine_state, stack);
         }
     }
 }
@@ -303,7 +303,7 @@ pub(crate) fn set_config_path(
         Some(s) => canonicalize_with(&s.item, cwd).ok(),
         None => nu_path::config_dir().map(|mut p| {
             p.push(NUSHELL_FOLDER);
-            let mut p = canonicalize_with(&p, cwd).unwrap_or(p);
+            let mut p = canonicalize_with(&p, cwd).unwrap_or(p.into());
             p.push(default_config_name);
             canonicalize_with(&p, cwd).unwrap_or(p)
         }),

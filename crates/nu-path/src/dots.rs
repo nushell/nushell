@@ -1,4 +1,5 @@
-use super::helpers;
+#[cfg(windows)]
+use omnipath::WinPathExt;
 use std::path::{Component, Path, PathBuf};
 
 /// Normalize the path, expanding occurrences of n-dots.
@@ -63,7 +64,18 @@ pub fn expand_dots(path: impl AsRef<Path>) -> PathBuf {
         }
     }
 
-    helpers::simiplified(&result)
+    simiplified(&result)
+}
+
+#[cfg(windows)]
+fn simiplified(path: &std::path::Path) -> PathBuf {
+    path.to_winuser_path()
+        .unwrap_or_else(|_| path.to_path_buf())
+}
+
+#[cfg(not(windows))]
+fn simiplified(path: &std::path::Path) -> PathBuf {
+    path.to_path_buf()
 }
 
 #[cfg(test)]
