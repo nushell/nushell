@@ -47,7 +47,7 @@ impl Command for Try {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // This is compiled specially by the IR compiler. The code here is never used in when
+        // This is compiled specially by the IR compiler. The code here is never used when
         // running in IR mode.
         let call = call.assert_ast_call()?;
         let try_block = call
