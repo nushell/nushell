@@ -1,6 +1,4 @@
-use std::borrow::Cow;
-
-use nu_engine::{command_prelude::*, compile};
+use nu_engine::command_prelude::*;
 use nu_protocol::engine::Closure;
 
 #[derive(Clone)]
@@ -41,17 +39,16 @@ impl Command for ViewIr {
         let json = call.has_flag(engine_state, stack, "json")?;
 
         let block = engine_state.get_block(closure.block_id);
-        // Use the pre-compiled block if available, otherwise try to compile it
-        // This helps display the actual compilation error
-        let ir_block = match &block.ir_block {
-            Some(ir_block) => Cow::Borrowed(ir_block),
-            None => Cow::Owned(compile(&StateWorkingSet::new(engine_state), block).map_err(
-                |err| ShellError::IrCompileError {
-                    span: block.span,
-                    errors: vec![err],
-                },
-            )?),
-        };
+        let ir_block = block
+            .ir_block
+            .as_ref()
+            .ok_or_else(|| ShellError::GenericError {
+                error: "Can't view IR for this block".into(),
+                msg: "block is missing compiled representation".into(),
+                span: block.span,
+                help: Some("the IrBlock is probably missing due to a compilation error".into()),
+                inner: vec![],
+            })?;
 
         let formatted = if json {
             let formatted_instructions = ir_block

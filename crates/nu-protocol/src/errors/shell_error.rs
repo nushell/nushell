@@ -4,8 +4,8 @@ use std::io;
 use thiserror::Error;
 
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_error, CompileError, LabeledError, ParseError,
-    Span, Spanned, Value,
+    ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, Span, Spanned,
+    Value,
 };
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
@@ -1369,21 +1369,6 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         help("Set XDG_CONFIG_HOME to an absolute path, or set it to an empty string to ignore it")
     )]
     InvalidXdgConfig { xdg: String, default: String },
-
-    /// An error occurred with the IR compiler.
-    ///
-    /// ## Resolution
-    ///
-    /// The IR compiler is in very early development, so code that can't be compiled is quite
-    /// expected. If you think it should be working, please report it to us.
-    #[error("IR compile error")]
-    #[diagnostic(code(nu::shell::ir_compile_error))]
-    IrCompileError {
-        #[label("failed to compile this code to IR instructions")]
-        span: Option<Span>,
-        #[related]
-        errors: Vec<CompileError>,
-    },
 
     /// An unexpected error occurred during IR evaluation.
     ///

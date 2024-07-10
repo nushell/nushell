@@ -12,8 +12,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DidYouMean, Flag,
-    ParseError, ParseWarning, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId,
-    ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
+    IN_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -5847,18 +5847,13 @@ pub fn parse_block(
     block
 }
 
-/// Compile an IR block for the `Block`, adding a parse warning on failure
+/// Compile an IR block for the `Block`, adding a compile error on failure
 fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
     match nu_engine::compile(working_set, block) {
         Ok(ir_block) => {
             block.ir_block = Some(ir_block);
         }
-        Err(err) => working_set
-            .parse_warnings
-            .push(ParseWarning::IrCompileError {
-                span: block.span.unwrap_or(Span::unknown()),
-                errors: vec![err],
-            }),
+        Err(err) => working_set.compile_errors.push(err),
     }
 }
 
