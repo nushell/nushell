@@ -14,6 +14,7 @@ use nu_protocol::{
     engine::Closure, Config, LabeledError, PipelineData, PluginMetadata, PluginSignature,
     ShellError, Signals, Span, Spanned, Value,
 };
+use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
     sync::{mpsc, Arc},
@@ -525,9 +526,9 @@ impl EngineInterface {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn get_config(&self) -> Result<Box<Config>, ShellError> {
+    pub fn get_config(&self) -> Result<Arc<Config>, ShellError> {
         match self.engine_call(EngineCall::GetConfig)? {
-            EngineCallResponse::Config(config) => Ok(config),
+            EngineCallResponse::Config(config) => Ok(SharedCow::into_arc(config)),
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response for EngineCall::GetConfig".into(),

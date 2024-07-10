@@ -1,5 +1,5 @@
 #[allow(deprecated)]
-use crate::{current_dir, get_config, get_full_help};
+use crate::{current_dir, get_full_help};
 use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{
@@ -13,7 +13,7 @@ use nu_protocol::{
     Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
-use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
+use std::{fs::OpenOptions, path::PathBuf, sync::Arc};
 
 pub fn eval_call<D: DebugContext>(
     engine_state: &EngineState,
@@ -195,6 +195,9 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     for (var, value) in callee_stack.get_stack_env_vars() {
         caller_stack.add_env_var(var, value);
     }
+
+    // set config to callee config, to capture any updates to that
+    caller_stack.config = callee_stack.config.clone();
 }
 
 fn eval_external(
@@ -646,8 +649,8 @@ impl Eval for EvalRuntime {
 
     type MutState = Stack;
 
-    fn get_config<'a>(engine_state: Self::State<'a>, stack: &mut Stack) -> Cow<'a, Config> {
-        Cow::Owned(get_config(engine_state, stack))
+    fn get_config(engine_state: Self::State<'_>, stack: &mut Stack) -> Arc<Config> {
+        stack.get_config(engine_state)
     }
 
     fn eval_filepath(
@@ -837,7 +840,14 @@ impl Eval for EvalRuntime {
                                     });
                                 }
 
+                                let is_config = original_key == "config";
+
                                 stack.add_env_var(original_key, value);
+
+                                // Trigger the update to config, if we modified that.
+                                if is_config {
+                                    stack.update_config(engine_state)?;
+                                }
                             } else {
                                 lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                 stack.add_var(*var_id, lhs);

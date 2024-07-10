@@ -213,7 +213,7 @@ fn find_with_regex(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let config = engine_state.get_config().clone();
+    let config = stack.get_config(engine_state);
 
     let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
     let multiline = call.has_flag(engine_state, stack, "multiline")?;
@@ -348,8 +348,8 @@ fn find_with_rest_and_highlight(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let config = engine_state.get_config().clone();
-    let filter_config = engine_state.get_config().clone();
+    let config = stack.get_config(engine_state);
+    let filter_config = config.clone();
     let invert = call.has_flag(engine_state, stack, "invert")?;
     let terms = call.rest::<Value>(engine_state, stack, 0)?;
     let lower_terms = terms

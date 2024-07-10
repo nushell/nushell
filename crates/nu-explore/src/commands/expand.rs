@@ -64,8 +64,8 @@ fn convert_value_to_string(
     let has_no_head = cols.is_empty() || (cols.len() == 1 && cols[0].is_empty());
     let has_single_value = vals.len() == 1 && vals[0].len() == 1;
     if !has_no_head && has_single_value {
-        let config = engine_state.get_config();
-        Ok(vals[0][0].to_abbreviated_string(config))
+        let config = stack.get_config(engine_state);
+        Ok(vals[0][0].to_abbreviated_string(&config))
     } else {
         let config = engine_state.get_config();
         let style_computer = StyleComputer::from_config(engine_state, stack);

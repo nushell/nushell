@@ -294,7 +294,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("env-change hook", start_time, use_color);
 
     let engine_reference = Arc::new(engine_state.clone());
-    let config = engine_state.get_config();
+    let config = stack.get_config(engine_state);
 
     start_time = std::time::Instant::now();
     // Find the configured cursor shapes for each mode
@@ -320,7 +320,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             engine_state: engine_reference.clone(),
             // STACK-REFERENCE 1
             stack: stack_arc.clone(),
-            config: config.clone(),
         }))
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),

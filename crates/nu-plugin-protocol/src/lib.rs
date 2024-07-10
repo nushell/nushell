@@ -25,6 +25,7 @@ use nu_protocol::{
     ast::Operator, engine::Closure, ByteStreamType, Config, LabeledError, PipelineData,
     PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
 };
+use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -553,7 +554,7 @@ impl<D> EngineCall<D> {
 pub enum EngineCallResponse<D> {
     Error(ShellError),
     PipelineData(D),
-    Config(Box<Config>),
+    Config(SharedCow<Config>),
     ValueMap(HashMap<String, Value>),
 }
 

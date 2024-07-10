@@ -301,28 +301,11 @@ impl EngineState {
         stack: &mut Stack,
         cwd: impl AsRef<Path>,
     ) -> Result<(), ShellError> {
-        let mut config_updated = false;
-
         for mut scope in stack.env_vars.drain(..) {
             for (overlay_name, mut env) in scope.drain() {
                 if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
                     // Updating existing overlay
-                    for (k, v) in env.drain() {
-                        if k == "config" {
-                            // Don't insert the record as the "config" env var as-is.
-                            // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
-                            let mut new_record = v.clone();
-                            let (config, error) = new_record.parse_as_config(&self.config);
-                            self.config = Arc::new(config);
-                            config_updated = true;
-                            env_vars.insert(k, new_record);
-                            if let Some(e) = error {
-                                return Err(e);
-                            }
-                        } else {
-                            env_vars.insert(k, v);
-                        }
-                    }
+                    env_vars.extend(env.drain());
                 } else {
                     // Pushing a new overlay
                     Arc::make_mut(&mut self.env_vars).insert(overlay_name, env);
@@ -333,7 +316,10 @@ impl EngineState {
         // TODO: better error
         std::env::set_current_dir(cwd)?;
 
-        if config_updated {
+        if let Some(config) = stack.config.take() {
+            // If config was updated in the stack, replace it.
+            self.config = config;
+
             // Make plugin GC config changes take effect immediately.
             #[cfg(feature = "plugin")]
             self.update_plugin_gc_configs(&self.config.plugin_gc);
@@ -738,18 +724,24 @@ impl EngineState {
         &[0u8; 0]
     }
 
-    pub fn get_config(&self) -> &Config {
+    /// Get the global config from the engine state.
+    ///
+    /// Use [`Stack::get_config()`] instead whenever the `Stack` is available, as it takes into
+    /// account local changes to `$env.config`.
+    pub fn get_config(&self) -> &Arc<Config> {
         &self.config
     }
 
-    pub fn set_config(&mut self, conf: Config) {
+    pub fn set_config(&mut self, conf: impl Into<Arc<Config>>) {
+        let conf = conf.into();
+
         #[cfg(feature = "plugin")]
         if conf.plugin_gc != self.config.plugin_gc {
             // Make plugin GC config changes take effect immediately.
             self.update_plugin_gc_configs(&conf.plugin_gc);
         }
 
-        self.config = Arc::new(conf);
+        self.config = conf;
     }
 
     /// Fetch the configuration for a plugin
@@ -1137,7 +1129,7 @@ mod engine_state_tests {
         let mut plugins = HashMap::new();
         plugins.insert("example".into(), Value::string("value", Span::test_data()));
 
-        let mut config = engine_state.get_config().clone();
+        let mut config = Config::clone(engine_state.get_config());
         config.plugins = plugins;
 
         engine_state.set_config(config);

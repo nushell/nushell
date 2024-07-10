@@ -170,7 +170,7 @@ fn rm(
     }
 
     let span = call.head;
-    let rm_always_trash = engine_state.get_config().rm_always_trash;
+    let rm_always_trash = stack.get_config(engine_state).rm_always_trash;
 
     if !TRASH_SUPPORTED {
         if rm_always_trash {

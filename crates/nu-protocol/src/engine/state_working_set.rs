@@ -619,9 +619,9 @@ impl<'a> StateWorkingSet<'a> {
 
     /// Returns a reference to the config stored at permanent state
     ///
-    /// At runtime, you most likely want to call nu_engine::env::get_config because this method
-    /// does not capture environment updates during runtime.
-    pub fn get_config(&self) -> &Config {
+    /// At runtime, you most likely want to call [`Stack::get_config()`][super::Stack::get_config()]
+    /// because this method does not capture environment updates during runtime.
+    pub fn get_config(&self) -> &Arc<Config> {
         &self.permanent_state.config
     }
 
