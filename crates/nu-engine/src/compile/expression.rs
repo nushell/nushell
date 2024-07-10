@@ -90,7 +90,7 @@ pub(crate) fn compile_expression(
                         working_set,
                         builder,
                         part_expr,
-                        redirect_modes.with_capture_out(part_expr.span),
+                        RedirectModes::capture_out(part_expr.span),
                         None,
                         reg,
                     )?;
@@ -148,7 +148,7 @@ pub(crate) fn compile_expression(
                 working_set,
                 builder,
                 subexpr,
-                redirect_modes.with_capture_out(subexpr.span),
+                RedirectModes::capture_out(subexpr.span),
                 None,
                 out_reg,
             )?;
@@ -196,7 +196,7 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     expr,
-                    redirect_modes.with_capture_out(expr.span),
+                    RedirectModes::capture_out(expr.span),
                     None,
                     reg,
                 )?;
@@ -244,7 +244,7 @@ pub(crate) fn compile_expression(
                         working_set,
                         builder,
                         column,
-                        redirect_modes.with_capture_out(column.span),
+                        RedirectModes::capture_out(column.span),
                         None,
                         reg,
                     )?;
@@ -269,7 +269,7 @@ pub(crate) fn compile_expression(
                         working_set,
                         builder,
                         item,
-                        redirect_modes.with_capture_out(item.span),
+                        RedirectModes::capture_out(item.span),
                         None,
                         item_reg,
                     )?;
@@ -316,7 +316,7 @@ pub(crate) fn compile_expression(
                             working_set,
                             builder,
                             key,
-                            redirect_modes.with_capture_out(key.span),
+                            RedirectModes::capture_out(key.span),
                             None,
                             key_reg,
                         )?;
@@ -324,7 +324,7 @@ pub(crate) fn compile_expression(
                             working_set,
                             builder,
                             val,
-                            redirect_modes.with_capture_out(val.span),
+                            RedirectModes::capture_out(val.span),
                             None,
                             val_reg,
                         )?;
@@ -344,7 +344,7 @@ pub(crate) fn compile_expression(
                             working_set,
                             builder,
                             expr,
-                            redirect_modes.with_capture_out(expr.span),
+                            RedirectModes::capture_out(expr.span),
                             None,
                             reg,
                         )?;
@@ -462,7 +462,7 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     exprs_iter.next().expect("peek() was Some"),
-                    redirect_modes.with_capture_out(expr.span),
+                    RedirectModes::capture_out(expr.span),
                     None,
                     out_reg,
                 )?;
@@ -478,7 +478,7 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     expr,
-                    redirect_modes.with_capture_out(expr.span),
+                    RedirectModes::capture_out(expr.span),
                     None,
                     scratch_reg,
                 )?;

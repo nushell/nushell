@@ -27,13 +27,6 @@ impl RedirectModes {
             err: Some(RedirectMode::Caller.into_spanned(span)),
         }
     }
-
-    pub(crate) fn with_capture_out(&self, span: Span) -> Self {
-        RedirectModes {
-            out: Some(RedirectMode::Capture.into_spanned(span)),
-            err: self.err,
-        }
-    }
 }
 
 pub(crate) fn redirection_target_to_mode(

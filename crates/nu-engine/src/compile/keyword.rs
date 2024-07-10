@@ -47,7 +47,7 @@ pub(crate) fn compile_if(
             working_set,
             builder,
             condition,
-            redirect_modes.with_capture_out(condition.span),
+            RedirectModes::capture_out(condition.span),
             None,
             condition_reg,
         )?;
@@ -181,7 +181,7 @@ pub(crate) fn compile_match(
         working_set,
         builder,
         match_expr,
-        redirect_modes.with_capture_out(match_expr.span),
+        RedirectModes::capture_out(match_expr.span),
         None,
         match_reg,
     )?;
@@ -233,7 +233,7 @@ pub(crate) fn compile_match(
                 working_set,
                 builder,
                 guard,
-                redirect_modes.with_capture_out(guard.span),
+                RedirectModes::capture_out(guard.span),
                 None,
                 guard_reg,
             )?;
@@ -294,7 +294,7 @@ pub(crate) fn compile_let(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
-    redirect_modes: RedirectModes,
+    _redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -319,7 +319,7 @@ pub(crate) fn compile_let(
         working_set,
         builder,
         block,
-        redirect_modes.with_capture_out(call.head),
+        RedirectModes::capture_out(call.head),
         Some(io_reg),
         io_reg,
     )?;
@@ -434,7 +434,7 @@ pub(crate) fn compile_try(
                     working_set,
                     builder,
                     catch_expr,
-                    redirect_modes.with_capture_out(catch_expr.span),
+                    RedirectModes::capture_out(catch_expr.span),
                     None,
                     closure_reg,
                 )?;
@@ -640,7 +640,7 @@ pub(crate) fn compile_while(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
-    redirect_modes: RedirectModes,
+    _redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -671,7 +671,7 @@ pub(crate) fn compile_while(
         working_set,
         builder,
         cond_arg,
-        redirect_modes.with_capture_out(call.head),
+        RedirectModes::capture_out(call.head),
         None,
         io_reg,
     )?;
@@ -714,7 +714,7 @@ pub(crate) fn compile_for(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
-    redirect_modes: RedirectModes,
+    _redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -755,7 +755,7 @@ pub(crate) fn compile_for(
         working_set,
         builder,
         in_expr,
-        redirect_modes.with_capture_out(in_expr.span),
+        RedirectModes::capture_out(in_expr.span),
         None,
         stream_reg,
     )?;
@@ -871,7 +871,7 @@ pub(crate) fn compile_return(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
-    redirect_modes: RedirectModes,
+    _redirect_modes: RedirectModes,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -883,7 +883,7 @@ pub(crate) fn compile_return(
             working_set,
             builder,
             arg_expr,
-            redirect_modes.with_capture_out(arg_expr.span),
+            RedirectModes::capture_out(arg_expr.span),
             None,
             io_reg,
         )?;
