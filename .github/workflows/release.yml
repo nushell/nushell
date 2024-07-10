@@ -49,13 +49,13 @@ jobs:
           extra: msi
           os: windows-latest
         - target: x86_64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-22.04
         - target: x86_64-unknown-linux-musl
-          os: ubuntu-20.04
+          os: ubuntu-22.04
         - target: aarch64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-22.04
         - target: armv7-unknown-linux-gnueabihf
-          os: ubuntu-20.04
+          os: ubuntu-22.04
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
 
@@ -76,9 +76,9 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.11
+      uses: hustcer/setup-nu@v3.12
       with:
-        version: 0.93.0
+        version: 0.95.0
 
     - name: Release Nu Binary
       id: nu
@@ -91,7 +91,7 @@ jobs:
 
     # REF: https://github.com/marketplace/actions/gh-release
     - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.5
+      uses: softprops/action-gh-release@v2.0.6
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
         draft: true

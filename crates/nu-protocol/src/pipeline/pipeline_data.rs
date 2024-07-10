@@ -3,13 +3,10 @@ use crate::{
     engine::{EngineState, Stack},
     process::{ChildPipe, ChildProcess, ExitStatus},
     ByteStream, ByteStreamType, Config, ErrSpan, ListStream, OutDest, PipelineMetadata, Range,
-    ShellError, Span, Type, Value,
+    ShellError, Signals, Span, Type, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
-use std::{
-    io::{Cursor, Read, Write},
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::io::{Cursor, Read, Write};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -219,19 +216,23 @@ impl PipelineData {
                 let val_span = value.span();
                 match value {
                     Value::List { vals, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(vals.into_iter(), val_span, None).into_iter(),
+                        ListStream::new(vals.into_iter(), val_span, Signals::empty()).into_iter(),
                     ),
                     Value::Binary { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
                             val.into_iter().map(move |x| Value::int(x as i64, val_span)),
                             val_span,
-                            None,
+                            Signals::empty(),
                         )
                         .into_iter(),
                     ),
                     Value::Range { val, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(val.into_range_iter(val_span, None), val_span, None)
-                            .into_iter(),
+                        ListStream::new(
+                            val.into_range_iter(val_span, Signals::empty()),
+                            val_span,
+                            Signals::empty(),
+                        )
+                        .into_iter(),
                     ),
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => return Err(*error),
@@ -324,11 +325,7 @@ impl PipelineData {
     }
 
     /// Simplified mapper to help with simple values also. For full iterator support use `.into_iter()` instead
-    pub fn map<F>(
-        self,
-        mut f: F,
-        ctrlc: Option<Arc<AtomicBool>>,
-    ) -> Result<PipelineData, ShellError>
+    pub fn map<F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         F: FnMut(Value) -> Value + 'static + Send,
@@ -337,13 +334,14 @@ impl PipelineData {
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
-                    Value::List { vals, .. } => {
-                        vals.into_iter().map(f).into_pipeline_data(span, ctrlc)
-                    }
-                    Value::Range { val, .. } => val
-                        .into_range_iter(span, ctrlc.clone())
+                    Value::List { vals, .. } => vals
+                        .into_iter()
                         .map(f)
-                        .into_pipeline_data(span, ctrlc),
+                        .into_pipeline_data(span, signals.clone()),
+                    Value::Range { val, .. } => val
+                        .into_range_iter(span, Signals::empty())
+                        .map(f)
+                        .into_pipeline_data(span, signals.clone()),
                     value => match f(value) {
                         Value::Error { error, .. } => return Err(*error),
                         v => v.into_pipeline_data(),
@@ -362,11 +360,7 @@ impl PipelineData {
     }
 
     /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
-    pub fn flat_map<U, F>(
-        self,
-        mut f: F,
-        ctrlc: Option<Arc<AtomicBool>>,
-    ) -> Result<PipelineData, ShellError>
+    pub fn flat_map<U, F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         U: IntoIterator<Item = Value> + 'static,
@@ -378,14 +372,17 @@ impl PipelineData {
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
-                    Value::List { vals, .. } => {
-                        vals.into_iter().flat_map(f).into_pipeline_data(span, ctrlc)
-                    }
-                    Value::Range { val, .. } => val
-                        .into_range_iter(span, ctrlc.clone())
+                    Value::List { vals, .. } => vals
+                        .into_iter()
                         .flat_map(f)
-                        .into_pipeline_data(span, ctrlc),
-                    value => f(value).into_iter().into_pipeline_data(span, ctrlc),
+                        .into_pipeline_data(span, signals.clone()),
+                    Value::Range { val, .. } => val
+                        .into_range_iter(span, Signals::empty())
+                        .flat_map(f)
+                        .into_pipeline_data(span, signals.clone()),
+                    value => f(value)
+                        .into_iter()
+                        .into_pipeline_data(span, signals.clone()),
                 };
                 Ok(pipeline.set_metadata(metadata))
             }
@@ -403,18 +400,16 @@ impl PipelineData {
                     }
                     Err(err) => f(Value::binary(err.into_bytes(), span)),
                 };
-                Ok(iter
-                    .into_iter()
-                    .into_pipeline_data_with_metadata(span, ctrlc, metadata))
+                Ok(iter.into_iter().into_pipeline_data_with_metadata(
+                    span,
+                    signals.clone(),
+                    metadata,
+                ))
             }
         }
     }
 
-    pub fn filter<F>(
-        self,
-        mut f: F,
-        ctrlc: Option<Arc<AtomicBool>>,
-    ) -> Result<PipelineData, ShellError>
+    pub fn filter<F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
         F: FnMut(&Value) -> bool + 'static + Send,
@@ -424,13 +419,14 @@ impl PipelineData {
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
-                    Value::List { vals, .. } => {
-                        vals.into_iter().filter(f).into_pipeline_data(span, ctrlc)
-                    }
-                    Value::Range { val, .. } => val
-                        .into_range_iter(span, ctrlc.clone())
+                    Value::List { vals, .. } => vals
+                        .into_iter()
                         .filter(f)
-                        .into_pipeline_data(span, ctrlc),
+                        .into_pipeline_data(span, signals.clone()),
+                    Value::Range { val, .. } => val
+                        .into_range_iter(span, Signals::empty())
+                        .filter(f)
+                        .into_pipeline_data(span, signals.clone()),
                     value => {
                         if f(&value) {
                             value.into_pipeline_data()
@@ -476,7 +472,10 @@ impl PipelineData {
     /// Currently this will consume an external command to completion.
     pub fn check_external_failed(self) -> Result<(Self, bool), ShellError> {
         if let PipelineData::ByteStream(stream, metadata) = self {
+            // Preserve stream attributes
             let span = stream.span();
+            let type_ = stream.type_();
+            let known_size = stream.known_size();
             match stream.into_child() {
                 Ok(mut child) => {
                     // Only check children without stdout. This means that nothing
@@ -508,10 +507,12 @@ impl PipelineData {
                             child.stderr = Some(ChildPipe::Tee(Box::new(Cursor::new(stderr))));
                         }
                         child.set_exit_code(code);
-                        let stream = ByteStream::child(child, span);
+                        let stream = ByteStream::child(child, span).with_type(type_);
                         Ok((PipelineData::ByteStream(stream, metadata), code != 0))
                     } else {
-                        let stream = ByteStream::child(child, span);
+                        let stream = ByteStream::child(child, span)
+                            .with_type(type_)
+                            .with_known_size(known_size);
                         Ok((PipelineData::ByteStream(stream, metadata), false))
                     }
                 }
@@ -556,7 +557,8 @@ impl PipelineData {
                                 }
                             }
                         }
-                        let range_values: Vec<Value> = val.into_range_iter(span, None).collect();
+                        let range_values: Vec<Value> =
+                            val.into_range_iter(span, Signals::empty()).collect();
                         Ok(PipelineData::Value(Value::list(range_values, span), None))
                     }
                     x => Ok(PipelineData::Value(x, metadata)),
@@ -656,10 +658,15 @@ impl IntoIterator for PipelineData {
                 let span = value.span();
                 match value {
                     Value::List { vals, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(vals.into_iter(), span, None).into_iter(),
+                        ListStream::new(vals.into_iter(), span, Signals::empty()).into_iter(),
                     ),
                     Value::Range { val, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(val.into_range_iter(span, None), span, None).into_iter(),
+                        ListStream::new(
+                            val.into_range_iter(span, Signals::empty()),
+                            span,
+                            Signals::empty(),
+                        )
+                        .into_iter(),
                     ),
                     x => PipelineIteratorInner::Value(x),
                 }
@@ -721,11 +728,11 @@ where
 }
 
 pub trait IntoInterruptiblePipelineData {
-    fn into_pipeline_data(self, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData;
+    fn into_pipeline_data(self, span: Span, signals: Signals) -> PipelineData;
     fn into_pipeline_data_with_metadata(
         self,
         span: Span,
-        ctrlc: Option<Arc<AtomicBool>>,
+        signals: Signals,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData;
 }
@@ -736,18 +743,18 @@ where
     I::IntoIter: Send + 'static,
     <I::IntoIter as Iterator>::Item: Into<Value>,
 {
-    fn into_pipeline_data(self, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData {
-        ListStream::new(self.into_iter().map(Into::into), span, ctrlc).into()
+    fn into_pipeline_data(self, span: Span, signals: Signals) -> PipelineData {
+        ListStream::new(self.into_iter().map(Into::into), span, signals).into()
     }
 
     fn into_pipeline_data_with_metadata(
         self,
         span: Span,
-        ctrlc: Option<Arc<AtomicBool>>,
+        signals: Signals,
         metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData {
         PipelineData::ListStream(
-            ListStream::new(self.into_iter().map(Into::into), span, ctrlc),
+            ListStream::new(self.into_iter().map(Into::into), span, signals),
             metadata.into(),
         )
     }

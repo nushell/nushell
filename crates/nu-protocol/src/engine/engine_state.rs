@@ -8,10 +8,11 @@ use crate::{
     },
     eval_const::create_nu_constant,
     BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ShellError, Signals, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
+use nu_path::AbsolutePathBuf;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -84,7 +85,7 @@ pub struct EngineState {
     pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
-    pub ctrlc: Option<Arc<AtomicBool>>,
+    signals: Signals,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
@@ -144,7 +145,7 @@ impl EngineState {
                 0,
                 false,
             ),
-            ctrlc: None,
+            signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
                     .into_iter()
@@ -175,6 +176,18 @@ impl EngineState {
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),
         }
+    }
+
+    pub fn signals(&self) -> &Signals {
+        &self.signals
+    }
+
+    pub fn reset_signals(&mut self) {
+        self.signals.reset()
+    }
+
+    pub fn set_signals(&mut self, signals: Signals) {
+        self.signals = signals;
     }
 
     /// Merges a `StateDelta` onto the current state. These deltas come from a system, like the parser, that
@@ -741,8 +754,8 @@ impl EngineState {
 
     /// Fetch the configuration for a plugin
     ///
-    /// The `plugin` must match the registered name of a plugin.  For `register nu_plugin_example`
-    /// the plugin name to use will be `"example"`
+    /// The `plugin` must match the registered name of a plugin.  For `plugin add
+    /// nu_plugin_example` the plugin name to use will be `"example"`
     pub fn get_plugin_config(&self, plugin: &str) -> Option<&Value> {
         self.config.plugins.get(plugin)
     }
@@ -910,58 +923,44 @@ impl EngineState {
     ///
     /// If `stack` is supplied, also considers modifications to the working
     /// directory on the stack that have yet to be merged into the engine state.
-    pub fn cwd(&self, stack: Option<&Stack>) -> Result<PathBuf, ShellError> {
+    pub fn cwd(&self, stack: Option<&Stack>) -> Result<AbsolutePathBuf, ShellError> {
         // Helper function to create a simple generic error.
-        fn error(msg: &str, cwd: impl AsRef<Path>) -> Result<PathBuf, ShellError> {
-            Err(ShellError::GenericError {
+        fn error(msg: &str, cwd: impl AsRef<nu_path::Path>) -> ShellError {
+            ShellError::GenericError {
                 error: msg.into(),
                 msg: format!("$env.PWD = {}", cwd.as_ref().display()),
                 span: None,
                 help: Some("Use `cd` to reset $env.PWD into a good state".into()),
                 inner: vec![],
-            })
-        }
-
-        // Helper function to check if a path is a root path.
-        fn is_root(path: &Path) -> bool {
-            path.parent().is_none()
-        }
-
-        // Helper function to check if a path has trailing slashes.
-        fn has_trailing_slash(path: &Path) -> bool {
-            nu_path::components(path).last()
-                == Some(std::path::Component::Normal(std::ffi::OsStr::new("")))
+            }
         }
 
         // Retrieve $env.PWD from the stack or the engine state.
         let pwd = if let Some(stack) = stack {
             stack.get_env_var(self, "PWD")
         } else {
-            self.get_env_var("PWD").map(ToOwned::to_owned)
+            self.get_env_var("PWD").cloned()
         };
 
-        if let Some(pwd) = pwd {
-            if let Value::String { val, .. } = pwd {
-                let path = PathBuf::from(val);
+        let pwd = pwd.ok_or_else(|| error("$env.PWD not found", ""))?;
 
-                // Technically, a root path counts as "having trailing slashes", but
-                // for the purpose of PWD, a root path is acceptable.
-                if !is_root(&path) && has_trailing_slash(&path) {
-                    error("$env.PWD contains trailing slashes", path)
-                } else if !path.is_absolute() {
-                    error("$env.PWD is not an absolute path", path)
-                } else if !path.exists() {
-                    error("$env.PWD points to a non-existent directory", path)
-                } else if !path.is_dir() {
-                    error("$env.PWD points to a non-directory", path)
-                } else {
-                    Ok(path)
-                }
+        if let Value::String { val, .. } = pwd {
+            let path = AbsolutePathBuf::try_from(val)
+                .map_err(|path| error("$env.PWD is not an absolute path", path))?;
+
+            // Technically, a root path counts as "having trailing slashes", but
+            // for the purpose of PWD, a root path is acceptable.
+            if path.parent().is_some() && nu_path::has_trailing_slash(path.as_ref()) {
+                Err(error("$env.PWD contains trailing slashes", &path))
+            } else if !path.exists() {
+                Err(error("$env.PWD points to a non-existent directory", &path))
+            } else if !path.is_dir() {
+                Err(error("$env.PWD points to a non-directory", &path))
             } else {
-                error("$env.PWD is not a string", format!("{pwd:?}"))
+                Ok(path)
             }
         } else {
-            error("$env.PWD not found", "")
+            Err(error("$env.PWD is not a string", format!("{pwd:?}")))
         }
     }
 

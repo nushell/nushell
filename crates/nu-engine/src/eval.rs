@@ -1,7 +1,7 @@
 use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::{current_dir, get_config, get_full_help};
-use nu_path::expand_path_with;
+use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{
         Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
@@ -22,9 +22,7 @@ pub fn eval_call<D: DebugContext>(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-        return Ok(Value::nothing(call.head).into_pipeline_data());
-    }
+    engine_state.signals().check(call.head)?;
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
@@ -687,7 +685,10 @@ impl Eval for EvalRuntime {
         } else if quoted {
             Ok(Value::string(path, span))
         } else {
-            let cwd = engine_state.cwd(Some(stack)).unwrap_or_default();
+            let cwd = engine_state
+                .cwd(Some(stack))
+                .map(AbsolutePathBuf::into_std_path_buf)
+                .unwrap_or_default();
             let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))

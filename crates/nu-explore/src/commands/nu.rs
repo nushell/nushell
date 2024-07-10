@@ -48,6 +48,7 @@ impl ViewCommand for NuCmd {
         engine_state: &EngineState,
         stack: &mut Stack,
         value: Option<Value>,
+        config: &ViewConfig,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
 
@@ -62,10 +63,10 @@ impl ViewCommand for NuCmd {
             return Ok(NuView::Preview(Preview::new(&text)));
         }
 
-        let mut view = RecordView::new(columns, values);
+        let mut view = RecordView::new(columns, values, config.explore_config.clone());
 
         if is_record {
-            view.set_orientation_current(Orientation::Left);
+            view.set_top_layer_orientation(Orientation::Left);
         }
 
         Ok(NuView::Records(view))
@@ -117,13 +118,6 @@ impl View for NuView {
         match self {
             NuView::Records(v) => v.exit(),
             NuView::Preview(v) => v.exit(),
-        }
-    }
-
-    fn setup(&mut self, config: ViewConfig<'_>) {
-        match self {
-            NuView::Records(v) => v.setup(config),
-            NuView::Preview(v) => v.setup(config),
         }
     }
 }

@@ -1187,6 +1187,13 @@ pub enum ShellError {
         span: Option<Span>,
     },
 
+    /// Operation interrupted
+    #[error("Operation interrupted")]
+    Interrupted {
+        #[label("This operation was interrupted")]
+        span: Span,
+    },
+
     /// Operation interrupted by user
     #[error("Operation interrupted by user")]
     InterruptedByUser {

@@ -83,7 +83,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
-                        &cwd,
+                        cwd.as_ref(),
                     )?)
                 } else {
                     Ok(PipelineData::empty())
@@ -101,7 +101,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
-                        &cwd,
+                        cwd.as_ref(),
                     )?)
                 } else {
                     // dbg!(data);
@@ -124,7 +124,7 @@ prints out the list properly."#
                     separator_param,
                     env_str,
                     use_grid_icons,
-                    &cwd,
+                    cwd.as_ref(),
                 )?)
             }
             x => {

@@ -20,6 +20,7 @@ bench = false
 nu-protocol = { path = "../nu-protocol", version = "0.95.1" }
 nu-plugin = { path = "../nu-plugin", version = "0.95.1" }
 nu-path = { path = "../nu-path", version = "0.95.1" }
+nu-utils = { path = "../nu-utils", version = "0.95.1" }
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
@@ -30,13 +31,15 @@ mimalloc = { version = "0.1.42" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.47"}
-polars-io = { version = "0.40", features = ["avro"]}
-polars-arrow = { version = "0.40"}
-polars-ops = { version = "0.40"}
-polars-plan = { version = "0.40", features = ["regex"]}
-polars-utils = { version = "0.40"}
+polars-io = { version = "0.41", features = ["avro"]}
+polars-arrow = { version = "0.41"}
+polars-ops = { version = "0.41", features = ["pivot"]}
+polars-plan = { version = "0.41", features = ["regex"]}
+polars-utils = { version = "0.41"}
 typetag = "0.2"
-uuid = { version = "1.7", features = ["v4", "serde"] }
+env_logger = "0.11.3"
+log.workspace = true
+uuid = { version = "1.9", features = ["v4", "serde"] }
 
 [dependencies.polars]
 features = [
@@ -70,7 +73,7 @@ features = [
 	"to_dummies",
 ]
 optional = false
-version = "0.40"
+version = "0.41"
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.95.1" }

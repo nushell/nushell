@@ -127,7 +127,7 @@ fn run(
             Some(format) => format_helper(value, format.item.as_str(), format.span, head),
             None => format_helper_rfc2822(value, head),
         },
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 

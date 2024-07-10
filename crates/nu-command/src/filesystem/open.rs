@@ -51,7 +51,6 @@ impl Command for Open {
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let call_span = call.head;
-        let ctrlc = engine_state.ctrlc.clone();
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
@@ -122,8 +121,12 @@ impl Command for Open {
                 } else {
                     #[cfg(feature = "sqlite")]
                     if !raw {
-                        let res = SQLiteDatabase::try_from_path(path, arg_span, ctrlc.clone())
-                            .map(|db| db.into_value(call.head).into_pipeline_data());
+                        let res = SQLiteDatabase::try_from_path(
+                            path,
+                            arg_span,
+                            engine_state.signals().clone(),
+                        )
+                        .map(|db| db.into_value(call.head).into_pipeline_data());
 
                         if res.is_ok() {
                             return res;
@@ -144,9 +147,10 @@ impl Command for Open {
                     };
 
                     let stream = PipelineData::ByteStream(
-                        ByteStream::file(file, call_span, ctrlc.clone()),
+                        ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
+                            content_type: None,
                         }),
                     );
 
@@ -203,7 +207,7 @@ impl Command for Open {
             Ok(output
                 .into_iter()
                 .flatten()
-                .into_pipeline_data(call_span, ctrlc))
+                .into_pipeline_data(call_span, engine_state.signals().clone()))
         }
     }
 

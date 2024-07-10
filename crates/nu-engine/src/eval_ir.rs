@@ -1,14 +1,14 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
-use nu_path::expand_path_with;
+use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     record, ByteStreamSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
-    OutDest, PipelineData, PositionalArg, Range, Record, RegId, ShellError, Signature, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    OutDest, PipelineData, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature,
+    Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -866,7 +866,11 @@ fn literal_value(
             } else if *no_expand {
                 Value::string(path, span)
             } else {
-                let cwd = ctx.engine_state.cwd(Some(ctx.stack)).unwrap_or_default();
+                let cwd = ctx
+                    .engine_state
+                    .cwd(Some(ctx.stack))
+                    .map(AbsolutePathBuf::into_std_path_buf)
+                    .unwrap_or_default();
                 let path = expand_path_with(path, cwd, true);
 
                 Value::string(path.to_string_lossy(), span)
@@ -1428,7 +1432,10 @@ fn eval_iterate(
         let span = data.span().unwrap_or(Span::unknown());
         ctx.put_reg(
             stream,
-            PipelineData::ListStream(ListStream::new(data.into_iter(), span, None), metadata),
+            PipelineData::ListStream(
+                ListStream::new(data.into_iter(), span, Signals::EMPTY),
+                metadata,
+            ),
         );
         eval_iterate(ctx, dst, stream, end_index)
     }

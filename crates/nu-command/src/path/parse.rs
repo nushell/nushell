@@ -63,7 +63,7 @@ On Windows, an extra 'prefix' column is added."#
         }
         input.map(
             move |value| super::operate(&parse, &args, value, head),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 
@@ -84,7 +84,7 @@ On Windows, an extra 'prefix' column is added."#
         }
         input.map(
             move |value| super::operate(&parse, &args, value, head),
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 

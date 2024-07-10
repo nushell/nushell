@@ -1,25 +1,13 @@
 //! A Range is an iterator over integers or floats.
 
+use crate::{ast::RangeInclusion, ShellError, Signals, Span, Value};
 use serde::{Deserialize, Serialize};
-use std::{
-    cmp::Ordering,
-    fmt::Display,
-    sync::{atomic::AtomicBool, Arc},
-};
-
-use crate::{ast::RangeInclusion, ShellError, Span, Value};
+use std::{cmp::Ordering, fmt::Display};
 
 mod int_range {
-    use std::{
-        cmp::Ordering,
-        fmt::Display,
-        ops::Bound,
-        sync::{atomic::AtomicBool, Arc},
-    };
-
+    use crate::{ast::RangeInclusion, ShellError, Signals, Span, Value};
     use serde::{Deserialize, Serialize};
-
-    use crate::{ast::RangeInclusion, ShellError, Span, Value};
+    use std::{cmp::Ordering, fmt::Display, ops::Bound};
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct IntRange {
@@ -123,12 +111,12 @@ mod int_range {
             }
         }
 
-        pub fn into_range_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
+        pub fn into_range_iter(self, signals: Signals) -> Iter {
             Iter {
                 current: Some(self.start),
                 step: self.step,
                 end: self.end,
-                ctrlc,
+                signals,
             }
         }
     }
@@ -202,7 +190,7 @@ mod int_range {
         current: Option<i64>,
         step: i64,
         end: Bound<i64>,
-        ctrlc: Option<Arc<AtomicBool>>,
+        signals: Signals,
     }
 
     impl Iterator for Iter {
@@ -218,7 +206,7 @@ mod int_range {
                     (_, Bound::Unbounded) => true, // will stop once integer overflows
                 };
 
-                if not_end && !nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+                if not_end && !self.signals.interrupted() {
                     self.current = current.checked_add(self.step);
                     Some(current)
                 } else {
@@ -233,16 +221,9 @@ mod int_range {
 }
 
 mod float_range {
-    use std::{
-        cmp::Ordering,
-        fmt::Display,
-        ops::Bound,
-        sync::{atomic::AtomicBool, Arc},
-    };
-
+    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, Signals, Span, Value};
     use serde::{Deserialize, Serialize};
-
-    use crate::{ast::RangeInclusion, IntRange, Range, ShellError, Span, Value};
+    use std::{cmp::Ordering, fmt::Display, ops::Bound};
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct FloatRange {
@@ -365,13 +346,13 @@ mod float_range {
             }
         }
 
-        pub fn into_range_iter(self, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
+        pub fn into_range_iter(self, signals: Signals) -> Iter {
             Iter {
                 start: self.start,
                 step: self.step,
                 end: self.end,
                 iter: Some(0),
-                ctrlc,
+                signals,
             }
         }
     }
@@ -477,7 +458,7 @@ mod float_range {
         step: f64,
         end: Bound<f64>,
         iter: Option<u64>,
-        ctrlc: Option<Arc<AtomicBool>>,
+        signals: Signals,
     }
 
     impl Iterator for Iter {
@@ -495,7 +476,7 @@ mod float_range {
                     (_, Bound::Unbounded) => current.is_finite(),
                 };
 
-                if not_end && !nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+                if not_end && !self.signals.interrupted() {
                     self.iter = iter.checked_add(1);
                     Some(current)
                 } else {
@@ -549,10 +530,10 @@ impl Range {
         }
     }
 
-    pub fn into_range_iter(self, span: Span, ctrlc: Option<Arc<AtomicBool>>) -> Iter {
+    pub fn into_range_iter(self, span: Span, signals: Signals) -> Iter {
         match self {
-            Range::IntRange(range) => Iter::IntIter(range.into_range_iter(ctrlc), span),
-            Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(ctrlc), span),
+            Range::IntRange(range) => Iter::IntIter(range.into_range_iter(signals), span),
+            Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(signals), span),
         }
     }
 }

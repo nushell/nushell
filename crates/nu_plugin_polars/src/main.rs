@@ -5,5 +5,6 @@ use nu_plugin_polars::PolarsPlugin;
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn main() {
+    env_logger::init();
     serve_plugin(&PolarsPlugin::default(), MsgPackSerializer {})
 }

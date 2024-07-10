@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use cache::cache_commands;
 pub use cache::{Cache, Cacheable};
 use dataframe::{stub::PolarsCmd, values::CustomValueType};
+use log::debug;
 use nu_plugin::{EngineInterface, Plugin, PluginCommand};
 
 mod cache;
@@ -41,53 +42,8 @@ impl EngineWrapper for &EngineInterface {
     }
 
     fn set_gc_disabled(&self, disabled: bool) -> Result<(), ShellError> {
+        debug!("set_gc_disabled called with {disabled}");
         EngineInterface::set_gc_disabled(self, disabled)
-    }
-}
-
-#[macro_export]
-macro_rules! plugin_debug {
-    ($env_var_provider:tt, $($arg:tt)*) => {{
-        if $env_var_provider.get_env_var("POLARS_PLUGIN_DEBUG")
-            .filter(|s|  s == "1" || s == "true")
-            .is_some() {
-            eprintln!($($arg)*);
-        }
-    }};
-}
-
-pub fn perf(
-    env: impl EngineWrapper,
-    msg: &str,
-    dur: std::time::Instant,
-    file: &str,
-    line: u32,
-    column: u32,
-) {
-    if env
-        .get_env_var("POLARS_PLUGIN_PERF")
-        .filter(|s| s == "1" || s == "true")
-        .is_some()
-    {
-        if env.use_color() {
-            eprintln!(
-                "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
-                file,
-                line,
-                column,
-                msg,
-                dur.elapsed(),
-            );
-        } else {
-            eprintln!(
-                "perf: {}:{}:{} {} took {:?}",
-                file,
-                line,
-                column,
-                msg,
-                dur.elapsed(),
-            );
-        }
     }
 }
 
@@ -118,6 +74,7 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Box<dyn CustomValue>,
     ) -> Result<(), LabeledError> {
+        debug!("custom_value_dropped called {:?}", custom_value);
         if !self.disable_cache_drop {
             let id = CustomValueType::try_from_custom_value(custom_value)?.id();
             let _ = self.cache.remove(engine, &id, false);
