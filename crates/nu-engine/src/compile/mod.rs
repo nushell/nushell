@@ -23,7 +23,7 @@ const BLOCK_INPUT: RegId = RegId(0);
 /// Compile Nushell pipeline abstract syntax tree (AST) to internal representation (IR) instructions
 /// for evaluation.
 pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, CompileError> {
-    let mut builder = BlockBuilder::new();
+    let mut builder = BlockBuilder::new(block.span);
 
     let span = block.span.unwrap_or(Span::unknown());
 

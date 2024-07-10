@@ -10,6 +10,7 @@ pub(crate) struct LabelId(pub usize);
 /// Builds [`IrBlock`]s progressively by consuming instructions and handles register allocation.
 #[derive(Debug)]
 pub(crate) struct BlockBuilder {
+    pub(crate) block_span: Option<Span>,
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) spans: Vec<Span>,
     /// The actual instruction index that a label refers to. While building IR, branch targets are
@@ -28,8 +29,9 @@ pub(crate) struct BlockBuilder {
 
 impl BlockBuilder {
     /// Starts a new block, with the first register (`%0`) allocated as input.
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(block_span: Option<Span>) -> Self {
         BlockBuilder {
+            block_span,
             instructions: vec![],
             spans: vec![],
             labels: vec![],
@@ -62,7 +64,9 @@ impl BlockBuilder {
             self.register_allocation_state.push(true);
             Ok(reg_id)
         } else {
-            Err(CompileError::RegisterOverflow)
+            Err(CompileError::RegisterOverflow {
+                block_span: self.block_span,
+            })
         }
     }
 
@@ -79,7 +83,9 @@ impl BlockBuilder {
             *is_allocated = true;
             Ok(())
         } else {
-            Err(CompileError::RegisterOverflow)
+            Err(CompileError::RegisterOverflow {
+                block_span: self.block_span,
+            })
         }
     }
 
@@ -366,7 +372,9 @@ impl BlockBuilder {
             self.data.extend_from_slice(data);
             Ok(slice)
         } else {
-            Err(CompileError::DataOverflow)
+            Err(CompileError::DataOverflow {
+                block_span: self.block_span,
+            })
         }
     }
 
@@ -425,7 +433,9 @@ impl BlockBuilder {
         self.file_count = self
             .file_count
             .checked_add(1)
-            .ok_or(CompileError::FileOverflow)?;
+            .ok_or(CompileError::FileOverflow {
+                block_span: self.block_span,
+            })?;
         Ok(next)
     }
 
@@ -481,7 +491,9 @@ impl BlockBuilder {
         if ended_loop == loop_ {
             Ok(())
         } else {
-            Err(CompileError::IncoherentLoopState)
+            Err(CompileError::IncoherentLoopState {
+                block_span: self.block_span,
+            })
         }
     }
 

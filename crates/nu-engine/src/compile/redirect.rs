@@ -72,13 +72,13 @@ pub(crate) fn redirect_modes_of_expression(
     let (out, err) = expression.expr.pipe_redirection(working_set);
     Ok(RedirectModes {
         out: out
+            .map(|r| r.into_spanned(redir_span))
             .map(out_dest_to_redirect_mode)
-            .transpose()?
-            .map(|mode| mode.into_spanned(redir_span)),
+            .transpose()?,
         err: err
+            .map(|r| r.into_spanned(redir_span))
             .map(out_dest_to_redirect_mode)
-            .transpose()?
-            .map(|mode| mode.into_spanned(redir_span)),
+            .transpose()?,
     })
 }
 
@@ -141,12 +141,17 @@ pub(crate) fn finish_redirection(
     Ok(())
 }
 
-pub(crate) fn out_dest_to_redirect_mode(out_dest: OutDest) -> Result<RedirectMode, CompileError> {
-    match out_dest {
-        OutDest::Pipe => Ok(RedirectMode::Pipe),
-        OutDest::Capture => Ok(RedirectMode::Capture),
-        OutDest::Null => Ok(RedirectMode::Null),
-        OutDest::Inherit => Ok(RedirectMode::Inherit),
-        OutDest::File(_) => Err(CompileError::InvalidRedirectMode),
-    }
+pub(crate) fn out_dest_to_redirect_mode(
+    out_dest: Spanned<OutDest>,
+) -> Result<Spanned<RedirectMode>, CompileError> {
+    let span = out_dest.span;
+    out_dest
+        .map(|out_dest| match out_dest {
+            OutDest::Pipe => Ok(RedirectMode::Pipe),
+            OutDest::Capture => Ok(RedirectMode::Capture),
+            OutDest::Null => Ok(RedirectMode::Null),
+            OutDest::Inherit => Ok(RedirectMode::Inherit),
+            OutDest::File(_) => Err(CompileError::InvalidRedirectMode { span }),
+        })
+        .transpose()
 }

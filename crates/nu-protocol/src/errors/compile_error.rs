@@ -8,11 +8,11 @@ use thiserror::Error;
 #[derive(Debug, Clone, Error, Diagnostic, PartialEq, Serialize, Deserialize)]
 pub enum CompileError {
     #[error("Register overflow.")]
-    #[diagnostic(
-        code(nu::compile::register_overflow),
-        help("the code being compiled is probably too large")
-    )]
-    RegisterOverflow,
+    #[diagnostic(code(nu::compile::register_overflow))]
+    RegisterOverflow {
+        #[label("the code being compiled is probably too large")]
+        block_span: Option<Span>,
+    },
 
     #[error("Register {reg_id} was uninitialized when used, possibly reused.")]
     #[diagnostic(
@@ -39,18 +39,30 @@ pub enum CompileError {
         code(nu::compile::data_overflow),
         help("try loading the string data from a file instead")
     )]
-    DataOverflow,
+    DataOverflow {
+        #[label("while compiling this block")]
+        block_span: Option<Span>,
+    },
 
     #[error("Block contains too many files.")]
     #[diagnostic(
         code(nu::compile::register_overflow),
         help("try using fewer file redirections")
     )]
-    FileOverflow,
+    FileOverflow {
+        #[label("while compiling this block")]
+        block_span: Option<Span>,
+    },
 
     #[error("Invalid redirect mode: File should not be specified by commands.")]
-    #[diagnostic(code(nu::compile::invalid_redirect_mode), help("this is a command bug. Please report it at https://github.com/nushell/nushell/issues/new"))]
-    InvalidRedirectMode,
+    #[diagnostic(
+        code(nu::compile::invalid_redirect_mode),
+        help("this is a command bug. Please report it at https://github.com/nushell/nushell/issues/new")
+    )]
+    InvalidRedirectMode {
+        #[label("while compiling this expression")]
+        span: Span,
+    },
 
     #[error("Encountered garbage, likely due to parse error.")]
     #[diagnostic(code(nu::compile::garbage))]
@@ -91,10 +103,6 @@ pub enum CompileError {
         #[label("tried to modify: {instruction}")]
         span: Span,
     },
-
-    #[error("Instruction index out of range: {index}.")]
-    #[diagnostic(code(nu::compile::instruction_index_out_of_range))]
-    InstructionIndexOutOfRange { index: usize },
 
     /// You're trying to run an unsupported external command.
     ///
@@ -212,7 +220,10 @@ pub enum CompileError {
         code(nu::compile::incoherent_loop_state),
         help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
     )]
-    IncoherentLoopState,
+    IncoherentLoopState {
+        #[label("while compiling this block")]
+        block_span: Option<Span>,
+    },
 
     #[error("Undefined label `{label_id}`.")]
     #[diagnostic(
@@ -224,11 +235,4 @@ pub enum CompileError {
         #[label("label was used while compiling this code")]
         span: Option<Span>,
     },
-
-    #[error("Offset overflow: tried to add {offset} to {here}.")]
-    #[diagnostic(
-        code(nu::compile::offset_overflow),
-        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
-    )]
-    OffsetOverflow { here: usize, offset: isize },
 }
