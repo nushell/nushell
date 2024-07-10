@@ -61,11 +61,14 @@ pub(crate) fn compile_binary_op(
         match op.item {
             // `and` / `or` are short-circuiting, and we can get by with one register and a branch
             Operator::Boolean(Boolean::And) => {
-                builder.branch_if(lhs_reg, builder.next_instruction_index() + 2, op.span)?;
+                let true_label = builder.label(None);
+                builder.branch_if(lhs_reg, true_label, op.span)?;
 
                 // If the branch was not taken it's false, so short circuit to load false
-                let jump_false = builder.jump_placeholder(op.span)?;
+                let false_label = builder.label(None);
+                builder.jump(false_label, op.span)?;
 
+                builder.set_label(true_label, builder.here())?;
                 compile_expression(
                     working_set,
                     builder,
@@ -75,16 +78,18 @@ pub(crate) fn compile_binary_op(
                     lhs_reg,
                 )?;
 
-                let jump_end = builder.jump_placeholder(op.span)?;
+                let end_label = builder.label(None);
+                builder.jump(end_label, op.span)?;
 
                 // Consumed by `branch-if`, so we have to set it false again
-                builder.set_branch_target(jump_false, builder.next_instruction_index())?;
+                builder.set_label(false_label, builder.here())?;
                 builder.load_literal(lhs_reg, Literal::Bool(false).into_spanned(lhs.span))?;
 
-                builder.set_branch_target(jump_end, builder.next_instruction_index())?;
+                builder.set_label(end_label, builder.here())?;
             }
             Operator::Boolean(Boolean::Or) => {
-                let branch_true = builder.branch_if_placeholder(lhs_reg, op.span)?;
+                let true_label = builder.label(None);
+                builder.branch_if(lhs_reg, true_label, op.span)?;
 
                 // If the branch was not taken it's false, so do the right-side expression
                 compile_expression(
@@ -96,13 +101,14 @@ pub(crate) fn compile_binary_op(
                     lhs_reg,
                 )?;
 
-                let jump_end = builder.jump_placeholder(op.span)?;
+                let end_label = builder.label(None);
+                builder.jump(end_label, op.span)?;
 
                 // Consumed by `branch-if`, so we have to set it true again
-                builder.set_branch_target(branch_true, builder.next_instruction_index())?;
+                builder.set_label(true_label, builder.here())?;
                 builder.load_literal(lhs_reg, Literal::Bool(true).into_spanned(lhs.span))?;
 
-                builder.set_branch_target(jump_end, builder.next_instruction_index())?;
+                builder.set_label(end_label, builder.here())?;
             }
             _ => {
                 // Any other operator, via `binary-op`
@@ -219,18 +225,19 @@ pub(crate) fn compile_assignment(
                     )?;
 
                     // Default to empty record so we can do further upserts
-                    builder.branch_if_empty(
-                        head_reg,
-                        builder.next_instruction_index() + 2,
-                        assignment_span,
-                    )?;
-                    builder.jump(builder.next_instruction_index() + 2, assignment_span)?;
+                    let default_label = builder.label(None);
+                    let upsert_label = builder.label(None);
+                    builder.branch_if_empty(head_reg, default_label, assignment_span)?;
+                    builder.jump(upsert_label, assignment_span)?;
+
+                    builder.set_label(default_label, builder.here())?;
                     builder.load_literal(
                         head_reg,
                         Literal::Record { capacity: 0 }.into_spanned(lhs.span),
                     )?;
 
                     // Do the upsert on the current value to incorporate rhs
+                    builder.set_label(upsert_label, builder.here())?;
                     compile_upsert_cell_path(
                         builder,
                         (&path.tail[1..]).into_spanned(lhs.span),

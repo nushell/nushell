@@ -22,6 +22,8 @@ pub struct IrBlock {
     #[serde(with = "serde_arc_u8_array")]
     pub data: Arc<[u8]>,
     pub ast: Vec<Option<IrAstRef>>,
+    /// Additional information that can be added to help with debugging
+    pub comments: Vec<Box<str>>,
     pub register_count: u32,
     pub file_count: u32,
 }
@@ -33,6 +35,7 @@ impl fmt::Debug for IrBlock {
             .field("instructions", &self.instructions)
             .field("spans", &self.spans)
             .field("data", &self.data)
+            .field("comments", &self.comments)
             .field("register_count", &self.register_count)
             .field("file_count", &self.register_count)
             .finish_non_exhaustive()
@@ -271,6 +274,55 @@ impl Instruction {
             instruction: self,
             data,
         }
+    }
+
+    /// Returns the branch target index of the instruction if this is a branching instruction.
+    pub fn branch_target(&self) -> Option<usize> {
+        match self {
+            Instruction::Jump { index } => Some(*index),
+            Instruction::BranchIf { cond: _, index } => Some(*index),
+            Instruction::BranchIfEmpty { src: _, index } => Some(*index),
+            Instruction::Match {
+                pattern: _,
+                src: _,
+                index,
+            } => Some(*index),
+
+            Instruction::Iterate {
+                dst: _,
+                stream: _,
+                end_index,
+            } => Some(*end_index),
+            Instruction::OnError { index } => Some(*index),
+            Instruction::OnErrorInto { index, dst: _ } => Some(*index),
+            _ => None,
+        }
+    }
+
+    /// Sets the branch target of the instruction if this is a branching instruction.
+    ///
+    /// Returns `Err(target_index)` if it isn't a branching instruction.
+    pub fn set_branch_target(&mut self, target_index: usize) -> Result<(), usize> {
+        match self {
+            Instruction::Jump { index } => *index = target_index,
+            Instruction::BranchIf { cond: _, index } => *index = target_index,
+            Instruction::BranchIfEmpty { src: _, index } => *index = target_index,
+            Instruction::Match {
+                pattern: _,
+                src: _,
+                index,
+            } => *index = target_index,
+
+            Instruction::Iterate {
+                dst: _,
+                stream: _,
+                end_index,
+            } => *end_index = target_index,
+            Instruction::OnError { index } => *index = target_index,
+            Instruction::OnErrorInto { index, dst: _ } => *index = target_index,
+            _ => return Err(target_index),
+        }
+        Ok(())
     }
 }
 

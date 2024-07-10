@@ -39,7 +39,7 @@ pub fn compile(working_set: &StateWorkingSet, block: &Block) -> Result<IrBlock, 
     // A complete block has to end with a `return`
     builder.push(Instruction::Return { src: BLOCK_INPUT }.into_spanned(span))?;
 
-    Ok(builder.finish())
+    builder.finish()
 }
 
 /// Compiles a [`Block`] in-place into an IR block. This can be used in a nested manner, for example

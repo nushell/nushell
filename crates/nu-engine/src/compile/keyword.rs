@@ -36,6 +36,10 @@ pub(crate) fn compile_if(
     let true_block_id = true_block_arg.as_block().ok_or_else(invalid)?;
     let true_block = working_set.get_block(true_block_id);
 
+    let true_label = builder.label(None);
+    let false_label = builder.label(None);
+    let end_label = builder.label(None);
+
     let not_condition_reg = {
         // Compile the condition first
         let condition_reg = builder.next_register()?;
@@ -59,10 +63,12 @@ pub(crate) fn compile_if(
         condition_reg
     };
 
-    // Set up a branch if the condition is false. Will go back and fix this to the right offset
-    let index_of_branch_if = builder.branch_if_placeholder(not_condition_reg, call.head)?;
+    // Set up a branch if the condition is false.
+    builder.branch_if(not_condition_reg, false_label, call.head)?;
+    builder.add_comment("if false");
 
     // Compile the true case
+    builder.set_label(true_label, builder.here())?;
     compile_block(
         working_set,
         builder,
@@ -73,12 +79,11 @@ pub(crate) fn compile_if(
     )?;
 
     // Add a jump over the false case
-    let index_of_jump = builder.jump_placeholder(else_arg.map(|e| e.span).unwrap_or(call.head))?;
-
-    // Change the branch-if target to after the jump
-    builder.set_branch_target(index_of_branch_if, index_of_jump + 1)?;
+    builder.jump(end_label, else_arg.map(|e| e.span).unwrap_or(call.head))?;
+    builder.add_comment("end if");
 
     // On the else side now, assert that io_reg is still valid
+    builder.set_label(false_label, builder.here())?;
     builder.mark_register(io_reg)?;
 
     if let Some(else_arg) = else_arg {
@@ -125,8 +130,8 @@ pub(crate) fn compile_if(
         builder.load_empty(io_reg)?;
     }
 
-    // Change the jump target to the next index (out of the if-else)
-    builder.set_branch_target(index_of_jump, builder.next_instruction_index())?;
+    // Set the end label
+    builder.set_label(end_label, builder.here())?;
 
     Ok(())
 }
@@ -185,34 +190,41 @@ pub(crate) fn compile_match(
     builder.push(Instruction::Collect { src_dst: match_reg }.into_spanned(match_expr.span))?;
 
     // Generate the `match` instructions. Guards are not used at this stage.
-    let match_offset = builder.next_instruction_index();
+    let mut match_labels = Vec::with_capacity(match_block.len());
+    let mut next_labels = Vec::with_capacity(match_block.len());
+    let end_label = builder.label(None);
 
     for (pattern, _) in match_block {
+        let match_label = builder.label(None);
+        match_labels.push(match_label);
         builder.push(
             Instruction::Match {
                 pattern: Box::new(pattern.pattern.clone()),
                 src: match_reg,
-                index: usize::MAX, // placeholder
+                index: match_label.0,
             }
             .into_spanned(pattern.span),
         )?;
+        // Also add a label for the next match instruction or failure case
+        next_labels.push(builder.label(Some(builder.here())));
     }
-
-    let mut end_jumps = Vec::with_capacity(match_block.len() + 1);
 
     // Match fall-through to jump to the end, if no match
     builder.load_empty(io_reg)?;
     builder.drop_reg(match_reg)?;
-    end_jumps.push(builder.jump_placeholder(call.head)?);
+    builder.jump(end_label, call.head)?;
 
     // Generate each of the match expressions. Handle guards here, if present.
     for (index, (pattern, expr)) in match_block.iter().enumerate() {
+        let match_label = match_labels[index];
+        let next_label = next_labels[index];
+
         // `io_reg` and `match_reg` are still valid at each of these branch targets
         builder.mark_register(io_reg)?;
         builder.mark_register(match_reg)?;
 
         // Set the original match instruction target here
-        builder.set_branch_target(match_offset + index, builder.next_instruction_index())?;
+        builder.set_label(match_label, builder.here())?;
 
         // Handle guard, if present
         if let Some(guard) = &pattern.guard {
@@ -229,19 +241,16 @@ pub(crate) fn compile_match(
                 .push(Instruction::CheckMatchGuard { src: guard_reg }.into_spanned(guard.span))?;
             builder.push(Instruction::Not { src_dst: guard_reg }.into_spanned(guard.span))?;
             // Branch to the next match instruction if the branch fails to match
-            builder.push(
-                Instruction::BranchIf {
-                    cond: guard_reg,
-                    index: match_offset + index + 1,
-                }
-                .into_spanned(
-                    // Span the branch with the next pattern, or the head if this is the end
-                    match_block
-                        .get(index + 1)
-                        .map(|b| b.0.span)
-                        .unwrap_or(call.head),
-                ),
+            builder.branch_if(
+                guard_reg,
+                next_label,
+                // Span the branch with the next pattern, or the head if this is the end
+                match_block
+                    .get(index + 1)
+                    .map(|b| b.0.span)
+                    .unwrap_or(call.head),
             )?;
+            builder.add_comment("if match guard false");
         }
 
         // match_reg no longer needed, successful match
@@ -269,14 +278,13 @@ pub(crate) fn compile_match(
             )?;
         }
 
-        // Rewrite this jump to the end afterward
-        end_jumps.push(builder.jump_placeholder(call.head)?);
+        // Jump to the end after the match logic is done
+        builder.jump(end_label, call.head)?;
+        builder.add_comment("end match");
     }
 
-    // Rewrite the end jumps to the next instruction
-    for index in end_jumps {
-        builder.set_branch_target(index, builder.next_instruction_index())?;
-    }
+    // Set the end destination
+    builder.set_label(end_label, builder.here())?;
 
     Ok(())
 }
@@ -334,6 +342,7 @@ pub(crate) fn compile_let(
         }
         .into_spanned(call.head),
     )?;
+    builder.add_comment("let");
 
     // Don't forget to set io_reg to Empty afterward, as that's the result of an assignment
     builder.load_empty(io_reg)?;
@@ -395,6 +404,10 @@ pub(crate) fn compile_try(
     };
     let catch_span = catch_expr.map(|e| e.span).unwrap_or(call.head);
 
+    let err_label = builder.label(None);
+    let failed_label = builder.label(None);
+    let end_label = builder.label(None);
+
     // We have two ways of executing `catch`: if it was provided as a literal, we can inline it.
     // Otherwise, we have to evaluate the expression and keep it as a register, and then call `do`.
     enum CatchType<'a> {
@@ -430,20 +443,22 @@ pub(crate) fn compile_try(
         })
         .transpose()?;
 
-    // Put the error handler placeholder. If we have a catch expression then we should capture the
+    // Put the error handler instruction. If we have a catch expression then we should capture the
     // error.
-    let error_handler_index = if catch_type.is_some() {
+    if catch_type.is_some() {
         builder.push(
             Instruction::OnErrorInto {
-                index: usize::MAX,
+                index: err_label.0,
                 dst: io_reg,
             }
             .into_spanned(call.head),
         )?
     } else {
         // Otherwise, we don't need the error value.
-        builder.push(Instruction::OnError { index: usize::MAX }.into_spanned(call.head))?
+        builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?
     };
+
+    builder.add_comment("try");
 
     // Compile the block
     compile_block(
@@ -464,23 +479,24 @@ pub(crate) fn compile_try(
         }
         .into_spanned(catch_span),
     )?;
-    let external_failed_branch = builder.branch_if_placeholder(failed_reg, catch_span)?;
+    builder.branch_if(failed_reg, failed_label, catch_span)?;
 
     // Successful case: pop the error handler
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
     // Jump over the failure case
-    let jump_index = builder.jump_placeholder(catch_span)?;
+    builder.jump(end_label, catch_span)?;
 
     // Set up an error handler preamble for failed external.
     // Draining the %io_reg results in the error handler being called with Empty, and sets
     // $env.LAST_EXIT_CODE
-    builder.set_branch_target(external_failed_branch, builder.next_instruction_index())?;
+    builder.set_label(failed_label, builder.here())?;
     builder.drain(io_reg, catch_span)?;
+    builder.add_comment("branches to err");
     builder.unreachable(catch_span)?;
 
-    // This is the real error handler - go back and set the right branch destination
-    builder.set_branch_target(error_handler_index, builder.next_instruction_index())?;
+    // This is the real error handler
+    builder.set_label(err_label, builder.here())?;
 
     // Mark out register as likely not clean - state in error handler is not well defined
     builder.mark_register(io_reg)?;
@@ -559,7 +575,7 @@ pub(crate) fn compile_try(
     }
 
     // This is the end - if we succeeded, should jump here
-    builder.set_branch_target(jump_index, builder.next_instruction_index())?;
+    builder.set_label(end_label, builder.here())?;
 
     Ok(())
 }
@@ -588,10 +604,10 @@ pub(crate) fn compile_loop(
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
-    builder.begin_loop();
+    let loop_ = builder.begin_loop();
     builder.load_empty(io_reg)?;
 
-    let loop_index = builder.next_instruction_index();
+    builder.set_label(loop_.continue_label, builder.here())?;
 
     compile_block(
         working_set,
@@ -605,10 +621,11 @@ pub(crate) fn compile_loop(
     // Drain the output, just like for a semicolon
     builder.drain(io_reg, call.head)?;
 
-    builder.jump(loop_index, call.head)?;
+    builder.jump(loop_.continue_label, call.head)?;
+    builder.add_comment("loop");
 
-    let end_index = builder.next_instruction_index();
-    builder.end_loop(end_index, loop_index)?;
+    builder.set_label(loop_.break_label, builder.here())?;
+    builder.end_loop(loop_)?;
 
     // State of %io_reg is not necessarily well defined here due to control flow, so make sure it's
     // empty.
@@ -645,9 +662,10 @@ pub(crate) fn compile_while(
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
-    builder.begin_loop();
+    let loop_ = builder.begin_loop();
+    builder.set_label(loop_.continue_label, builder.here())?;
 
-    let loop_index = builder.next_instruction_index();
+    let true_label = builder.label(None);
 
     compile_expression(
         working_set,
@@ -658,10 +676,12 @@ pub(crate) fn compile_while(
         io_reg,
     )?;
 
-    let branch_true_index = builder.branch_if_placeholder(io_reg, call.head)?;
-    let jump_false_index = builder.jump_placeholder(call.head)?;
+    builder.branch_if(io_reg, true_label, call.head)?;
+    builder.add_comment("while");
+    builder.jump(loop_.break_label, call.head)?;
+    builder.add_comment("end while");
 
-    builder.set_branch_target(branch_true_index, builder.next_instruction_index())?;
+    builder.set_label(true_label, builder.here())?;
 
     compile_block(
         working_set,
@@ -675,12 +695,11 @@ pub(crate) fn compile_while(
     // Drain the result, just like for a semicolon
     builder.drain(io_reg, call.head)?;
 
-    builder.jump(loop_index, call.head)?;
+    builder.jump(loop_.continue_label, call.head)?;
+    builder.add_comment("while");
 
-    let end_index = builder.next_instruction_index();
-    builder.set_branch_target(jump_false_index, end_index)?;
-
-    builder.end_loop(end_index, loop_index)?;
+    builder.set_label(loop_.break_label, builder.here())?;
+    builder.end_loop(loop_)?;
 
     // State of %io_reg is not necessarily well defined here due to control flow, so make sure it's
     // empty.
@@ -730,9 +749,6 @@ pub(crate) fn compile_for(
     // Ensure io_reg is marked so we don't use it
     builder.mark_register(io_reg)?;
 
-    // Set up loop state
-    builder.begin_loop();
-
     let stream_reg = builder.next_register()?;
 
     compile_expression(
@@ -744,16 +760,21 @@ pub(crate) fn compile_for(
         stream_reg,
     )?;
 
+    // Set up loop state
+    let loop_ = builder.begin_loop();
+    builder.set_label(loop_.continue_label, builder.here())?;
+
     // This gets a value from the stream each time it's executed
     // io_reg basically will act as our scratch register here
-    let iterate_index = builder.push(
+    builder.push(
         Instruction::Iterate {
             dst: io_reg,
             stream: stream_reg,
-            end_index: usize::MAX, // placeholder
+            end_index: loop_.break_label.0,
         }
         .into_spanned(call.head),
     )?;
+    builder.add_comment("for");
 
     // Put the received value in the variable
     builder.push(
@@ -778,14 +799,11 @@ pub(crate) fn compile_for(
     builder.drain(io_reg, call.head)?;
 
     // Loop back to iterate to get the next value
-    builder.jump(iterate_index, call.head)?;
+    builder.jump(loop_.continue_label, call.head)?;
 
-    // Update the iterate target to the end of the loop
-    let end_index = builder.next_instruction_index();
-    builder.set_branch_target(iterate_index, end_index)?;
-
-    // Handle break/continue
-    builder.end_loop(end_index, iterate_index)?;
+    // Set the end of the loop
+    builder.set_label(loop_.break_label, builder.here())?;
+    builder.end_loop(loop_)?;
 
     // We don't need stream_reg anymore, after the loop
     // io_reg may or may not be empty, so be sure it is
@@ -807,6 +825,7 @@ pub(crate) fn compile_break(
     if builder.is_in_loop() {
         builder.load_empty(io_reg)?;
         builder.push_break(call.head)?;
+        builder.add_comment("break");
     } else {
         // Fall back to calling the command if we can't find the loop target statically
         builder.push(
@@ -831,6 +850,7 @@ pub(crate) fn compile_continue(
     if builder.is_in_loop() {
         builder.load_empty(io_reg)?;
         builder.push_continue(call.head)?;
+        builder.add_comment("continue");
     } else {
         // Fall back to calling the command if we can't find the loop target statically
         builder.push(

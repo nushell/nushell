@@ -31,8 +31,7 @@ impl<'a> fmt::Display for FmtIrBlock<'a> {
             )?;
         }
         for (index, instruction) in self.ir_block.instructions.iter().enumerate() {
-            writeln!(
-                f,
+            let formatted = format!(
                 "{:-4}: {}",
                 index,
                 FmtInstruction {
@@ -40,7 +39,13 @@ impl<'a> fmt::Display for FmtIrBlock<'a> {
                     instruction,
                     data: &self.ir_block.data,
                 }
-            )?;
+            );
+            let comment = &self.ir_block.comments[index];
+            if comment.is_empty() {
+                writeln!(f, "{formatted}")?;
+            } else {
+                writeln!(f, "{formatted:40} # {comment}")?;
+            }
         }
         Ok(())
     }

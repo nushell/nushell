@@ -3,16 +3,27 @@ use nu_protocol::{
     CompileError, IntoSpanned, RegId, Span, Spanned,
 };
 
+/// A label identifier. Only exists while building code. Replaced with the actual target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LabelId(pub usize);
+
 /// Builds [`IrBlock`]s progressively by consuming instructions and handles register allocation.
 #[derive(Debug)]
 pub(crate) struct BlockBuilder {
     pub(crate) instructions: Vec<Instruction>,
     pub(crate) spans: Vec<Span>,
+    /// The actual instruction index that a label refers to. While building IR, branch targets are
+    /// specified as indices into this array rather than the true instruction index. This makes it
+    /// easier to make modifications to code, as just this array needs to be changed, and it's also
+    /// less error prone as during `finish()` we check to make sure all of the used labels have had
+    /// an index actually set.
+    pub(crate) labels: Vec<Option<usize>>,
     pub(crate) data: Vec<u8>,
     pub(crate) ast: Vec<Option<IrAstRef>>,
+    pub(crate) comments: Vec<String>,
     pub(crate) register_allocation_state: Vec<bool>,
     pub(crate) file_count: u32,
-    pub(crate) loop_stack: Vec<LoopState>,
+    pub(crate) loop_stack: Vec<Loop>,
 }
 
 impl BlockBuilder {
@@ -21,8 +32,10 @@ impl BlockBuilder {
         BlockBuilder {
             instructions: vec![],
             spans: vec![],
+            labels: vec![],
             data: vec![],
             ast: vec![],
+            comments: vec![],
             register_allocation_state: vec![true],
             file_count: 0,
             loop_stack: vec![],
@@ -91,15 +104,34 @@ impl BlockBuilder {
         }
     }
 
+    /// Define a label, which can be used by branch instructions. The target can optionally be
+    /// specified now.
+    pub(crate) fn label(&mut self, target_index: Option<usize>) -> LabelId {
+        let label_id = self.labels.len();
+        self.labels.push(target_index);
+        LabelId(label_id)
+    }
+
+    /// Change the target of a label.
+    pub(crate) fn set_label(
+        &mut self,
+        label_id: LabelId,
+        target_index: usize,
+    ) -> Result<(), CompileError> {
+        *self
+            .labels
+            .get_mut(label_id.0)
+            .ok_or(CompileError::UndefinedLabel {
+                label_id: label_id.0,
+                span: None,
+            })? = Some(target_index);
+        Ok(())
+    }
+
     /// Insert an instruction into the block, automatically marking any registers populated by
     /// the instruction, and freeing any registers consumed by the instruction.
-    ///
-    /// Returns the offset of the inserted instruction.
     #[track_caller]
-    pub(crate) fn push(
-        &mut self,
-        instruction: Spanned<Instruction>,
-    ) -> Result<usize, CompileError> {
+    pub(crate) fn push(&mut self, instruction: Spanned<Instruction>) -> Result<(), CompileError> {
         // Free read registers, and mark write registers.
         //
         // If a register is both read and written, it should be on both sides, so that we can verify
@@ -258,16 +290,24 @@ impl BlockBuilder {
             Err(err) => return Err(err),
         }
 
-        let index = self.next_instruction_index();
         self.instructions.push(instruction.item);
         self.spans.push(instruction.span);
         self.ast.push(None);
-        Ok(index)
+        self.comments.push(String::new());
+        Ok(())
     }
 
     /// Set the AST of the last instruction. Separate method because it's rarely used.
     pub(crate) fn set_last_ast(&mut self, ast_ref: Option<IrAstRef>) {
         *self.ast.last_mut().expect("no last instruction") = ast_ref;
+    }
+
+    /// Add a comment to the last instruction.
+    pub(crate) fn add_comment(&mut self, comment: impl std::fmt::Display) {
+        add_comment(
+            self.comments.last_mut().expect("no last instruction"),
+            comment,
+        )
     }
 
     /// Load a register with a literal.
@@ -308,7 +348,7 @@ impl BlockBuilder {
     }
 
     /// Drain the stream in a register (fully consuming it)
-    pub(crate) fn drain(&mut self, src: RegId, span: Span) -> Result<usize, CompileError> {
+    pub(crate) fn drain(&mut self, src: RegId, span: Span) -> Result<(), CompileError> {
         self.push(Instruction::Drain { src }.into_spanned(span))
     }
 
@@ -341,83 +381,41 @@ impl BlockBuilder {
     pub(crate) fn branch_if(
         &mut self,
         cond: RegId,
-        index: usize,
+        label_id: LabelId,
         span: Span,
-    ) -> Result<usize, CompileError> {
-        self.push(Instruction::BranchIf { cond, index }.into_spanned(span))
-    }
-
-    /// Add a placeholder `branch-if` instruction, which must be updated with
-    /// [`.set_branch_target()`]
-    pub(crate) fn branch_if_placeholder(
-        &mut self,
-        cond: RegId,
-        span: Span,
-    ) -> Result<usize, CompileError> {
-        self.branch_if(cond, usize::MAX, span)
+    ) -> Result<(), CompileError> {
+        self.push(
+            Instruction::BranchIf {
+                cond,
+                index: label_id.0,
+            }
+            .into_spanned(span),
+        )
     }
 
     /// Add a `branch-if-empty` instruction
     pub(crate) fn branch_if_empty(
         &mut self,
         src: RegId,
-        index: usize,
+        label_id: LabelId,
         span: Span,
-    ) -> Result<usize, CompileError> {
-        self.push(Instruction::BranchIfEmpty { src, index }.into_spanned(span))
+    ) -> Result<(), CompileError> {
+        self.push(
+            Instruction::BranchIfEmpty {
+                src,
+                index: label_id.0,
+            }
+            .into_spanned(span),
+        )
     }
 
     /// Add a `jump` instruction
-    pub(crate) fn jump(&mut self, index: usize, span: Span) -> Result<usize, CompileError> {
-        self.push(Instruction::Jump { index }.into_spanned(span))
-    }
-
-    /// Add a placeholder `jump` instruction, which must be updated with [`.set_branch_target()`]
-    pub(crate) fn jump_placeholder(&mut self, span: Span) -> Result<usize, CompileError> {
-        self.jump(usize::MAX, span)
-    }
-
-    /// Modify a branching instruction's branch target `index`
-    #[track_caller]
-    pub(crate) fn set_branch_target(
-        &mut self,
-        instruction_index: usize,
-        target_index: usize,
-    ) -> Result<(), CompileError> {
-        match self.instructions.get_mut(instruction_index) {
-            Some(
-                Instruction::BranchIf { index, .. }
-                | Instruction::BranchIfEmpty { index, .. }
-                | Instruction::Jump { index }
-                | Instruction::Match { index, .. }
-                | Instruction::Iterate {
-                    end_index: index, ..
-                }
-                | Instruction::OnError { index }
-                | Instruction::OnErrorInto { index, .. },
-            ) => {
-                *index = target_index;
-                Ok(())
-            }
-            Some(_) => {
-                let other = &self.instructions[instruction_index];
-
-                log::warn!("set branch target failed ({instruction_index} => {target_index}), target instruction = {other:?}, builder = {self:#?}");
-
-                Err(CompileError::SetBranchTargetOfNonBranchInstruction {
-                    instruction: format!("{other:?}"),
-                    span: self.spans[instruction_index],
-                    caller: std::panic::Location::caller().to_string(),
-                })
-            }
-            None => Err(CompileError::InstructionIndexOutOfRange {
-                index: instruction_index,
-            }),
-        }
+    pub(crate) fn jump(&mut self, label_id: LabelId, span: Span) -> Result<(), CompileError> {
+        self.push(Instruction::Jump { index: label_id.0 }.into_spanned(span))
     }
 
     /// The index that the next instruction [`.push()`]ed will have.
-    pub(crate) fn next_instruction_index(&self) -> usize {
+    pub(crate) fn here(&self) -> usize {
         self.instructions.len()
     }
 
@@ -431,9 +429,14 @@ impl BlockBuilder {
         Ok(next)
     }
 
-    /// Push a new loop state onto the builder.
-    pub(crate) fn begin_loop(&mut self) {
-        self.loop_stack.push(LoopState::new());
+    /// Push a new loop state onto the builder. Creates new labels that must be set.
+    pub(crate) fn begin_loop(&mut self) -> Loop {
+        let loop_ = Loop {
+            break_label: self.label(None),
+            continue_label: self.label(None),
+        };
+        self.loop_stack.push(loop_);
+        loop_
     }
 
     /// True if we are currently in a loop.
@@ -442,41 +445,32 @@ impl BlockBuilder {
     }
 
     /// Add a loop breaking jump instruction.
-    pub(crate) fn push_break(&mut self, span: Span) -> Result<usize, CompileError> {
-        let index = self.jump_placeholder(span)?;
-        self.loop_stack
-            .last_mut()
+    pub(crate) fn push_break(&mut self, span: Span) -> Result<(), CompileError> {
+        let loop_ = self
+            .loop_stack
+            .last()
             .ok_or_else(|| CompileError::NotInALoop {
                 msg: "`break` called from outside of a loop".into(),
                 span: Some(span),
-            })?
-            .break_branches
-            .push(index);
-        Ok(index)
+            })?;
+        self.jump(loop_.break_label, span)
     }
 
     /// Add a loop continuing jump instruction.
-    pub(crate) fn push_continue(&mut self, span: Span) -> Result<usize, CompileError> {
-        let index = self.jump_placeholder(span)?;
-        self.loop_stack
-            .last_mut()
+    pub(crate) fn push_continue(&mut self, span: Span) -> Result<(), CompileError> {
+        let loop_ = self
+            .loop_stack
+            .last()
             .ok_or_else(|| CompileError::NotInALoop {
                 msg: "`continue` called from outside of a loop".into(),
                 span: Some(span),
-            })?
-            .continue_branches
-            .push(index);
-        Ok(index)
+            })?;
+        self.jump(loop_.continue_label, span)
     }
 
-    /// Pop the loop state and set any `break` or `continue` instructions to their appropriate
-    /// target instruction indexes.
-    pub(crate) fn end_loop(
-        &mut self,
-        break_target_index: usize,
-        continue_target_index: usize,
-    ) -> Result<(), CompileError> {
-        let loop_state = self
+    /// Pop the loop state. Checks that the loop being ended is the same one that was expected.
+    pub(crate) fn end_loop(&mut self, loop_: Loop) -> Result<(), CompileError> {
+        let ended_loop = self
             .loop_stack
             .pop()
             .ok_or_else(|| CompileError::NotInALoop {
@@ -484,50 +478,86 @@ impl BlockBuilder {
                 span: None,
             })?;
 
-        for break_index in loop_state.break_branches {
-            self.set_branch_target(break_index, break_target_index)?;
+        if ended_loop == loop_ {
+            Ok(())
+        } else {
+            Err(CompileError::IncoherentLoopState)
         }
-        for continue_index in loop_state.continue_branches {
-            self.set_branch_target(continue_index, continue_target_index)?;
-        }
-
-        Ok(())
     }
 
     /// Mark an unreachable code path. Produces an error at runtime if executed.
-    pub(crate) fn unreachable(&mut self, span: Span) -> Result<usize, CompileError> {
+    pub(crate) fn unreachable(&mut self, span: Span) -> Result<(), CompileError> {
         self.push(Instruction::Unreachable.into_spanned(span))
     }
 
     /// Consume the builder and produce the final [`IrBlock`].
-    pub(crate) fn finish(self) -> IrBlock {
-        IrBlock {
+    pub(crate) fn finish(mut self) -> Result<IrBlock, CompileError> {
+        // Add comments to label targets
+        for (index, label_target) in self.labels.iter().enumerate() {
+            if let Some(label_target) = label_target {
+                add_comment(
+                    &mut self.comments[*label_target],
+                    format_args!("label({index})"),
+                );
+            }
+        }
+
+        // Populate the actual target indices of labels into the instructions
+        for ((index, instruction), span) in
+            self.instructions.iter_mut().enumerate().zip(&self.spans)
+        {
+            if let Some(label_id) = instruction.branch_target() {
+                let target_index = self.labels.get(label_id).cloned().flatten().ok_or(
+                    CompileError::UndefinedLabel {
+                        label_id,
+                        span: Some(*span),
+                    },
+                )?;
+                // Add a comment to the target index that we come from here
+                add_comment(
+                    &mut self.comments[target_index],
+                    format_args!("from({index}:)"),
+                );
+                instruction.set_branch_target(target_index).map_err(|_| {
+                    CompileError::SetBranchTargetOfNonBranchInstruction {
+                        instruction: format!("{:?}", instruction),
+                        span: *span,
+                    }
+                })?;
+            }
+        }
+
+        Ok(IrBlock {
             instructions: self.instructions,
             spans: self.spans,
             data: self.data.into(),
             ast: self.ast,
+            comments: self.comments.into_iter().map(|s| s.into()).collect(),
             register_count: self
                 .register_allocation_state
                 .len()
                 .try_into()
                 .expect("register count overflowed in finish() despite previous checks"),
             file_count: self.file_count,
-        }
+        })
     }
 }
 
-/// Keeps track of `break` and `continue` branches that need to be set up after a loop is compiled.
-#[derive(Debug)]
-pub(crate) struct LoopState {
-    break_branches: Vec<usize>,
-    continue_branches: Vec<usize>,
+/// Keeps track of the `break` and `continue` target labels for a loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Loop {
+    pub(crate) break_label: LabelId,
+    pub(crate) continue_label: LabelId,
 }
 
-impl LoopState {
-    pub(crate) const fn new() -> Self {
-        LoopState {
-            break_branches: vec![],
-            continue_branches: vec![],
-        }
-    }
+/// Add a new comment to an existing one
+fn add_comment(comment: &mut String, new_comment: impl std::fmt::Display) {
+    use std::fmt::Write;
+    write!(
+        comment,
+        "{}{}",
+        if comment.is_empty() { "" } else { ", " },
+        new_comment
+    )
+    .expect("formatting failed");
 }

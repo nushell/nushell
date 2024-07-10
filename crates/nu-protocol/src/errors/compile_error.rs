@@ -84,13 +84,12 @@ pub enum CompileError {
     #[error("Attempted to set branch target of non-branch instruction.")]
     #[diagnostic(
         code(nu::compile::set_branch_target_of_non_branch_instruction),
-        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new\nfrom: {caller}"),
+        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
     )]
     SetBranchTargetOfNonBranchInstruction {
         instruction: String,
         #[label("tried to modify: {instruction}")]
         span: Span,
-        caller: String,
     },
 
     #[error("Instruction index out of range: {index}.")]
@@ -207,4 +206,29 @@ pub enum CompileError {
         #[label("can't be used outside of a loop")]
         span: Option<Span>,
     },
+
+    #[error("Incoherent loop state: the loop that ended was not the one we were expecting.")]
+    #[diagnostic(
+        code(nu::compile::incoherent_loop_state),
+        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
+    )]
+    IncoherentLoopState,
+
+    #[error("Undefined label `{label_id}`.")]
+    #[diagnostic(
+        code(nu::compile::undefined_label),
+        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
+    )]
+    UndefinedLabel {
+        label_id: usize,
+        #[label("label was used while compiling this code")]
+        span: Option<Span>,
+    },
+
+    #[error("Offset overflow: tried to add {offset} to {here}.")]
+    #[diagnostic(
+        code(nu::compile::offset_overflow),
+        help("this is a compiler bug. Please report it at https://github.com/nushell/nushell/issues/new"),
+    )]
+    OffsetOverflow { here: usize, offset: isize },
 }
