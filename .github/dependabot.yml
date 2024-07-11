@@ -26,6 +26,13 @@ updates:
         patterns:
           - "polars"
           - "polars-*"
+      # uutils/coreutils also versions all their workspace crates the same at the moment
+      # Most of them have bleeding edge version requirements (some not)
+      # see: https://github.com/uutils/coreutils/blob/main/Cargo.toml
+      uutils:
+        patterns:
+          - "uucore"
+          - "uu_*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
