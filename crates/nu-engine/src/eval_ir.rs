@@ -6,9 +6,9 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    record, ByteStreamSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
-    OutDest, PipelineData, PositionalArg, Range, Record, RegId, ShellError, Signals, Signature,
-    Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    record, ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned,
+    ListStream, OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId,
+    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -1332,9 +1332,19 @@ fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str
 }
 
 /// Helper to collect values into [`PipelineData`], preserving original span and metadata
+///
+/// The metadata is removed if it is the file data source, as that's just meant to mark streams.
 fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, ShellError> {
     let span = data.span().unwrap_or(fallback_span);
-    let metadata = data.metadata();
+    let metadata = match data.metadata() {
+        // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
+        // check where some input came from.
+        Some(PipelineMetadata {
+            data_source: DataSource::FilePath(_),
+            content_type: None,
+        }) => None,
+        other => other,
+    };
     let value = data.into_value(span)?;
     Ok(PipelineData::Value(value, metadata))
 }

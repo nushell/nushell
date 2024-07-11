@@ -350,6 +350,63 @@ pub(crate) fn compile_let(
     Ok(())
 }
 
+/// Compile a call to `collect`
+pub(crate) fn compile_collect(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    let block_id = call
+        .positional_nth(0)
+        .map(|expr| {
+            expr.as_block().ok_or(CompileError::UnexpectedExpression {
+                expr_name: format!("{:?}", expr),
+                span: expr.span,
+            })
+        })
+        .transpose()?;
+
+    if let Some(block_id) = block_id {
+        let block = working_set.get_block(block_id);
+
+        if let Some(var_id) = block.signature.get_positional(0).and_then(|var| var.var_id) {
+            // Pseudocode:
+            //
+            // store-variable $var, %io_reg
+            // ...<block>...
+            builder.push(
+                Instruction::StoreVariable {
+                    var_id,
+                    src: io_reg,
+                }
+                .into_spanned(block.span.unwrap_or(call.head)),
+            )?;
+            compile_block(working_set, builder, block, redirect_modes, None, io_reg)
+        } else {
+            // Pseudocode:
+            //
+            // collect %io_reg
+            // ...<block>...
+            builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(call.head))?;
+            compile_block(
+                working_set,
+                builder,
+                block,
+                redirect_modes,
+                Some(io_reg),
+                io_reg,
+            )
+        }
+    } else {
+        // Pseudocode:
+        //
+        // collect %io_reg
+        builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(call.head))
+    }
+}
+
 /// Compile a call to `try`, setting an error handler over the evaluated block
 pub(crate) fn compile_try(
     working_set: &StateWorkingSet,
