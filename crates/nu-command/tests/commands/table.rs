@@ -2895,3 +2895,9 @@ fn table_kv_header_on_separator_trim_algorithm() {
     let actual = nu!("$env.config.table.header_on_separator = true; {key1: '111111111111111111111111111111111111111111111111111111111111'} | table --width=60 --theme basic");
     assert_eq!(actual.out, "+------+---------------------------------------------------+| key1 | 1111111111111111111111111111111111111111111111111 ||      | 11111111111                                       |+------+---------------------------------------------------+");
 }
+
+#[test]
+fn table_general_header_on_separator_trim_algorithm() {
+    let actual = nu!("$env.config.table.header_on_separator = true; [[a b]; ['11111111111111111111111111111111111111' 2] ] | table --width=20 --theme basic");
+    assert_eq!(actual.out, "+-#-+----a-----+-b-+| 0 | 11111111 | 2 ||   | 11111111 |   ||   | 11111111 |   ||   | 11111111 |   ||   | 111111   |   |+---+----------+---+");
+}
