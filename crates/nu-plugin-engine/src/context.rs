@@ -20,7 +20,7 @@ pub trait PluginExecutionContext: Send + Sync {
     /// The pipeline externals state, for tracking the foreground process group, if present
     fn pipeline_externals_state(&self) -> Option<&Arc<(AtomicU32, AtomicU32)>>;
     /// Get engine configuration
-    fn get_config(&self) -> Result<Config, ShellError>;
+    fn get_config(&self) -> Result<Arc<Config>, ShellError>;
     /// Get plugin configuration
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError>;
     /// Get an environment variable from `$env`
@@ -85,8 +85,8 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         Some(&self.engine_state.pipeline_externals_state)
     }
 
-    fn get_config(&self) -> Result<Config, ShellError> {
-        Ok(nu_engine::get_config(&self.engine_state, &self.stack))
+    fn get_config(&self) -> Result<Arc<Config>, ShellError> {
+        Ok(self.stack.get_config(&self.engine_state))
     }
 
     fn get_plugin_config(&self) -> Result<Option<Value>, ShellError> {
@@ -239,7 +239,7 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
         None
     }
 
-    fn get_config(&self) -> Result<Config, ShellError> {
+    fn get_config(&self) -> Result<Arc<Config>, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "get_config not implemented on bogus".into(),
         })

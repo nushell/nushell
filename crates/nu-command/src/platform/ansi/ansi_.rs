@@ -653,7 +653,7 @@ Operating system commands:
         let list: bool = call.has_flag(engine_state, stack, "list")?;
         let escape: bool = call.has_flag(engine_state, stack, "escape")?;
         let osc: bool = call.has_flag(engine_state, stack, "osc")?;
-        let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
+        let use_ansi_coloring = stack.get_config(engine_state).use_ansi_coloring;
 
         if list {
             return Ok(generate_ansi_code_list(

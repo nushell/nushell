@@ -3,7 +3,7 @@ use crate::{
         ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
         StackCaptureGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
     },
-    OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
+    Config, OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -51,6 +51,8 @@ pub struct Stack {
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
     pub parent_deletions: Vec<VarId>,
+    /// Locally updated config. Use [`.get_config()`] to access correctly.
+    pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
 }
 
@@ -80,6 +82,7 @@ impl Stack {
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
+            config: None,
             out_dest: StackOutDest::new(),
         }
     }
@@ -100,6 +103,7 @@ impl Stack {
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
+            config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
             parent_stack: Some(parent),
         }
@@ -126,6 +130,7 @@ impl Stack {
         unique_stack.env_vars = child.env_vars;
         unique_stack.env_hidden = child.env_hidden;
         unique_stack.active_overlays = child.active_overlays;
+        unique_stack.config = child.config;
         unique_stack
     }
 
@@ -189,6 +194,36 @@ impl Stack {
                 }
                 Err(ShellError::VariableNotFoundAtRuntime { span })
             }
+        }
+    }
+
+    /// Get the local config if set, otherwise the config from the engine state.
+    ///
+    /// This is the canonical way to get [`Config`] when [`Stack`] is available.
+    pub fn get_config(&self, engine_state: &EngineState) -> Arc<Config> {
+        self.config
+            .clone()
+            .unwrap_or_else(|| engine_state.config.clone())
+    }
+
+    /// Update the local config with the config stored in the `config` environment variable. Run
+    /// this after assigning to `$env.config`.
+    ///
+    /// The config will be updated with successfully parsed values even if an error occurs.
+    pub fn update_config(&mut self, engine_state: &EngineState) -> Result<(), ShellError> {
+        if let Some(mut config) = self.get_env_var(engine_state, "config") {
+            let existing_config = self.get_config(engine_state);
+            let (new_config, error) = config.parse_as_config(&existing_config);
+            self.config = Some(new_config.into());
+            // The config value is modified by the update, so we should add it again
+            self.add_env_var("config".into(), config);
+            match error {
+                None => Ok(()),
+                Some(err) => Err(err),
+            }
+        } else {
+            self.config = None;
+            Ok(())
         }
     }
 
@@ -272,6 +307,7 @@ impl Stack {
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
+            config: self.config.clone(),
             out_dest: self.out_dest.clone(),
         }
     }
@@ -305,6 +341,7 @@ impl Stack {
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
+            config: self.config.clone(),
             out_dest: self.out_dest.clone(),
         }
     }

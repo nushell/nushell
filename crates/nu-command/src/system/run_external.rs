@@ -366,7 +366,7 @@ pub fn command_not_found(
     stack: &mut Stack,
 ) -> ShellError {
     // Run the `command_not_found` hook if there is one.
-    if let Some(hook) = &engine_state.config.hooks.command_not_found {
+    if let Some(hook) = &stack.get_config(engine_state).hooks.command_not_found {
         let mut stack = stack.start_capture();
         // Set a special environment variable to avoid infinite loops when the
         // `command_not_found` hook triggers itself.

@@ -4,7 +4,7 @@
 
 use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
-use nu_engine::{command_prelude::*, env::get_config, env_to_string};
+use nu_engine::{command_prelude::*, env_to_string};
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
     ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode, ValueIterator,
@@ -258,7 +258,7 @@ fn parse_table_config(
     let flatten_separator: Option<String> = call.get_flag(state, stack, "flatten-separator")?;
     let abbrivation: Option<usize> = call
         .get_flag(state, stack, "abbreviated")?
-        .or_else(|| get_config(state, stack).table_abbreviation_threshold);
+        .or_else(|| stack.get_config(state).table_abbreviation_threshold);
     let table_view = match (expand, collapse) {
         (false, false) => TableView::General,
         (_, true) => TableView::Collapsed,
@@ -269,7 +269,7 @@ fn parse_table_config(
         },
     };
     let theme =
-        get_theme_flag(call, state, stack)?.unwrap_or_else(|| get_config(state, stack).table_mode);
+        get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table_mode);
     let index = get_index_flag(call, state, stack)?;
 
     let term_width = get_width_param(width_param);
@@ -493,7 +493,11 @@ fn handle_record(
     cfg: TableConfig,
     mut record: Record,
 ) -> Result<PipelineData, ShellError> {
-    let config = get_config(input.engine_state, input.stack);
+    let config = {
+        let state = input.engine_state;
+        let stack: &Stack = input.stack;
+        stack.get_config(state)
+    };
     let span = input.data.span().unwrap_or(input.call.head);
     let styles = &StyleComputer::from_config(input.engine_state, input.stack);
 
@@ -608,7 +612,11 @@ fn handle_row_stream(
             data_source: DataSource::Ls,
             ..
         }) => {
-            let config = get_config(input.engine_state, input.stack);
+            let config = {
+                let state = input.engine_state;
+                let stack: &Stack = input.stack;
+                stack.get_config(state)
+            };
             let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
                 Some(v) => Some(env_to_string(
                     "LS_COLORS",
@@ -758,7 +766,11 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        let cfg = get_config(&self.engine_state, &self.stack);
+        let cfg = {
+            let state = &self.engine_state;
+            let stack = &self.stack;
+            stack.get_config(state)
+        };
         let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
         let opts = self.create_table_opts(&cfg, &style_comp);
         let view = TableView::Expanded {
@@ -775,7 +787,11 @@ impl PagingTableCreator {
             return Ok(None);
         }
 
-        let cfg = get_config(&self.engine_state, &self.stack);
+        let cfg = {
+            let state = &self.engine_state;
+            let stack = &self.stack;
+            stack.get_config(state)
+        };
         let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
         let opts = self.create_table_opts(&cfg, &style_comp);
 
@@ -783,7 +799,11 @@ impl PagingTableCreator {
     }
 
     fn build_general(&mut self, batch: Vec<Value>) -> StringResult {
-        let cfg = get_config(&self.engine_state, &self.stack);
+        let cfg = {
+            let state = &self.engine_state;
+            let stack = &self.stack;
+            stack.get_config(state)
+        };
         let style_comp = StyleComputer::from_config(&self.engine_state, &self.stack);
         let opts = self.create_table_opts(&cfg, &style_comp);
 
@@ -872,7 +892,11 @@ impl Iterator for PagingTableCreator {
 
         self.row_offset += batch_size;
 
-        let config = get_config(&self.engine_state, &self.stack);
+        let config = {
+            let state = &self.engine_state;
+            let stack = &self.stack;
+            stack.get_config(state)
+        };
         convert_table_to_output(
             table,
             &config,
@@ -1049,7 +1073,7 @@ fn create_empty_placeholder(
     engine_state: &EngineState,
     stack: &Stack,
 ) -> String {
-    let config = get_config(engine_state, stack);
+    let config = stack.get_config(engine_state);
     if !config.table_show_empty {
         return String::new();
     }

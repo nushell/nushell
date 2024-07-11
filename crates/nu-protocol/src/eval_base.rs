@@ -7,7 +7,7 @@ use crate::{
     debugger::DebugContext,
     Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::{borrow::Cow, collections::HashMap};
+use std::{collections::HashMap, sync::Arc};
 
 /// To share implementations for regular eval and const eval
 pub trait Eval {
@@ -316,7 +316,7 @@ pub trait Eval {
         }
     }
 
-    fn get_config<'a>(state: Self::State<'a>, mut_state: &mut Self::MutState) -> Cow<'a, Config>;
+    fn get_config(state: Self::State<'_>, mut_state: &mut Self::MutState) -> Arc<Config>;
 
     fn eval_filepath(
         state: Self::State<'_>,

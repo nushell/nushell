@@ -11,8 +11,8 @@ use crate::{
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
-    borrow::Cow,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 /// Create a Value for `$nu`.
@@ -364,8 +364,8 @@ impl Eval for EvalConst {
 
     type MutState = ();
 
-    fn get_config<'a>(state: Self::State<'a>, _: &mut ()) -> Cow<'a, Config> {
-        Cow::Borrowed(state.get_config())
+    fn get_config(state: Self::State<'_>, _: &mut ()) -> Arc<Config> {
+        state.get_config().clone()
     }
 
     fn eval_filepath(

@@ -14,6 +14,7 @@ use nu_protocol::{
     ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
     ShellError, Signals, Span, Spanned, Value,
 };
+use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap},
     sync::{mpsc, Arc, OnceLock},
@@ -1260,7 +1261,7 @@ pub(crate) fn handle_engine_call(
 
     match call {
         EngineCall::GetConfig => {
-            let config = Box::new(context.get_config()?);
+            let config = SharedCow::from(context.get_config()?);
             Ok(EngineCallResponse::Config(config))
         }
         EngineCall::GetPluginConfig => {

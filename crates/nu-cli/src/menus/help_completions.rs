@@ -1,25 +1,31 @@
 use nu_engine::documentation::get_flags_section;
-use nu_protocol::{engine::EngineState, levenshtein_distance};
+use nu_protocol::{engine::EngineState, levenshtein_distance, Config};
 use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
 use std::{fmt::Write, sync::Arc};
 
-pub struct NuHelpCompleter(Arc<EngineState>);
+pub struct NuHelpCompleter {
+    engine_state: Arc<EngineState>,
+    config: Arc<Config>,
+}
 
 impl NuHelpCompleter {
-    pub fn new(engine_state: Arc<EngineState>) -> Self {
-        Self(engine_state)
+    pub fn new(engine_state: Arc<EngineState>, config: Arc<Config>) -> Self {
+        Self {
+            engine_state,
+            config,
+        }
     }
 
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<Suggestion> {
         let folded_line = line.to_folded_case();
 
         let mut commands = self
-            .0
+            .engine_state
             .get_decls_sorted(false)
             .into_iter()
             .filter_map(|(_, decl_id)| {
-                let decl = self.0.get_decl(decl_id);
+                let decl = self.engine_state.get_decl(decl_id);
                 (decl.name().to_folded_case().contains(&folded_line)
                     || decl.usage().to_folded_case().contains(&folded_line)
                     || decl
@@ -54,9 +60,12 @@ impl NuHelpCompleter {
                 let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
 
                 if !sig.named.is_empty() {
-                    long_desc.push_str(&get_flags_section(Some(&*self.0.clone()), &sig, |v| {
-                        v.to_parsable_string(", ", &self.0.config)
-                    }))
+                    long_desc.push_str(&get_flags_section(
+                        Some(&self.engine_state),
+                        Some(&self.config),
+                        &sig,
+                        |v| v.to_parsable_string(", ", &self.config),
+                    ))
                 }
 
                 if !sig.required_positional.is_empty()
@@ -71,7 +80,7 @@ impl NuHelpCompleter {
                         let opt_suffix = if let Some(value) = &positional.default_value {
                             format!(
                                 " (optional, default: {})",
-                                &value.to_parsable_string(", ", &self.0.config),
+                                &value.to_parsable_string(", ", &self.config),
                             )
                         } else {
                             (" (optional)").to_string()
@@ -138,7 +147,8 @@ mod test {
     ) {
         let engine_state =
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
-        let mut completer = NuHelpCompleter::new(engine_state.into());
+        let config = engine_state.get_config().clone();
+        let mut completer = NuHelpCompleter::new(engine_state.into(), config);
         let suggestions = completer.complete(line, end);
 
         assert_eq!(

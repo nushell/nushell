@@ -65,7 +65,7 @@ impl Command for StorInsert {
         let span = call.head;
         let table_name: Option<String> = call.get_flag(engine_state, stack, "table-name")?;
         let data_record: Option<Record> = call.get_flag(engine_state, stack, "data-record")?;
-        // let config = engine_state.get_config();
+        // let config = stack.get_config(engine_state);
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             Signals::empty(),

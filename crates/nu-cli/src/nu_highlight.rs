@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nu_engine::command_prelude::*;
 use reedline::{Highlighter, StyledText};
 
@@ -33,13 +35,10 @@ impl Command for NuHighlight {
         let head = call.head;
 
         let signals = engine_state.signals();
-        let engine_state = std::sync::Arc::new(engine_state.clone());
-        let config = engine_state.get_config().clone();
 
         let highlighter = crate::NuHighlighter {
-            engine_state,
-            stack: std::sync::Arc::new(stack.clone()),
-            config,
+            engine_state: Arc::new(engine_state.clone()),
+            stack: Arc::new(stack.clone()),
         };
 
         input.map(

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::Config;
 use url::Url;
 
 #[derive(Clone)]
@@ -38,11 +39,15 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        parse(input.into_value(call.head)?, call.head, engine_state)
+        parse(
+            input.into_value(call.head)?,
+            call.head,
+            &stack.get_config(engine_state),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -68,12 +73,12 @@ impl Command for SubCommand {
     }
 }
 
-fn get_url_string(value: &Value, engine_state: &EngineState) -> String {
-    value.to_expanded_string("", engine_state.get_config())
+fn get_url_string(value: &Value, config: &Config) -> String {
+    value.to_expanded_string("", config)
 }
 
-fn parse(value: Value, head: Span, engine_state: &EngineState) -> Result<PipelineData, ShellError> {
-    let url_string = get_url_string(&value, engine_state);
+fn parse(value: Value, head: Span, config: &Config) -> Result<PipelineData, ShellError> {
+    let url_string = get_url_string(&value, config);
 
     let result_url = Url::parse(url_string.as_str());
 
