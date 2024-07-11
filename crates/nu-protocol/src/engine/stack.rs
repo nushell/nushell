@@ -1,7 +1,7 @@
 use crate::{
     engine::{
-        EngineState, Redirection, StackCallArgGuard, StackCaptureGuard, StackIoGuard, StackOutDest,
-        DEFAULT_OVERLAY_NAME,
+        ArgumentStack, EngineState, ErrorHandlerStack, Redirection, StackCallArgGuard,
+        StackCaptureGuard, StackIoGuard, StackOutDest, DEFAULT_OVERLAY_NAME,
     },
     OutDest, ShellError, Span, Value, VarId, ENV_VARIABLE_ID, NU_VARIABLE_ID,
 };
@@ -41,6 +41,12 @@ pub struct Stack {
     pub env_hidden: HashMap<String, HashSet<String>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
+    /// Argument stack for IR evaluation
+    pub arguments: ArgumentStack,
+    /// Error handler stack for IR evaluation
+    pub error_handlers: ErrorHandlerStack,
+    /// Set true to always use IR mode
+    pub use_ir: bool,
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -68,6 +74,9 @@ impl Stack {
             env_vars: Vec::new(),
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
+            use_ir: false,
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -85,6 +94,9 @@ impl Stack {
             env_vars: parent.env_vars.clone(),
             env_hidden: parent.env_hidden.clone(),
             active_overlays: parent.active_overlays.clone(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
+            use_ir: parent.use_ir,
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
@@ -254,6 +266,9 @@ impl Stack {
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
+            use_ir: self.use_ir,
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
@@ -284,6 +299,9 @@ impl Stack {
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
+            arguments: ArgumentStack::new(),
+            error_handlers: ErrorHandlerStack::new(),
+            use_ir: self.use_ir,
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],

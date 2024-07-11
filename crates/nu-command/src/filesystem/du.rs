@@ -102,7 +102,7 @@ impl Command for Du {
         let current_dir = current_dir(engine_state, stack)?;
 
         let paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
-        let paths = if call.rest_iter(0).count() == 0 {
+        let paths = if !call.has_positional_args(stack, 0) {
             None
         } else {
             Some(paths)

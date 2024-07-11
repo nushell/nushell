@@ -56,7 +56,7 @@ impl Command for SourceEnv {
             &source_filename.item,
             engine_state,
             caller_stack,
-            get_dirs_var_from_call(call),
+            get_dirs_var_from_call(caller_stack, call),
         )? {
             PathBuf::from(&path)
         } else {

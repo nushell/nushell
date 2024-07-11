@@ -45,10 +45,12 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
         let decl = engine_state.get_decl(highlighter);
 
+        let call = Call::new(Span::unknown());
+
         if let Ok(output) = decl.run(
             engine_state,
             stack,
-            &Call::new(Span::unknown()),
+            &(&call).into(),
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
@@ -269,11 +271,12 @@ fn get_documentation(
             let _ = write!(long_desc, "\n  > {}\n", example.example);
         } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
             let decl = engine_state.get_decl(highlighter);
+            let call = Call::new(Span::unknown());
 
             match decl.run(
                 engine_state,
                 stack,
-                &Call::new(Span::unknown()),
+                &(&call).into(),
                 Value::string(example.example, Span::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
@@ -326,7 +329,7 @@ fn get_documentation(
                         .run(
                             engine_state,
                             stack,
-                            &table_call,
+                            &(&table_call).into(),
                             PipelineData::Value(result.clone(), None),
                         )
                         .ok()

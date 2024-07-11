@@ -1,3 +1,4 @@
+use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::{current_dir, get_config, get_full_help};
 use nu_path::{expand_path_with, AbsolutePathBuf};
@@ -7,7 +8,7 @@ use nu_protocol::{
         PipelineRedirection, RedirectionSource, RedirectionTarget,
     },
     debugger::DebugContext,
-    engine::{Closure, EngineState, Redirection, Stack},
+    engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet},
     eval_base::Eval,
     ByteStreamSource, Config, FromValue, IntoPipelineData, OutDest, PipelineData, ShellError, Span,
     Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
@@ -174,7 +175,7 @@ pub fn eval_call<D: DebugContext>(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        decl.run(engine_state, caller_stack, call, input)
+        decl.run(engine_state, caller_stack, &call.into(), input)
     }
 }
 
@@ -223,7 +224,7 @@ fn eval_external(
         }
     }
 
-    command.run(engine_state, stack, &call, input)
+    command.run(engine_state, stack, &(&call).into(), input)
 }
 
 pub fn eval_expression<D: DebugContext>(
@@ -507,6 +508,11 @@ pub fn eval_block<D: DebugContext>(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    // Remove once IR is the default.
+    if stack.use_ir {
+        return eval_ir_block::<D>(engine_state, stack, block, input);
+    }
+
     D::enter_block(engine_state, block);
 
     let num_pipelines = block.len();
@@ -521,7 +527,7 @@ pub fn eval_block<D: DebugContext>(
 
         for (i, element) in elements.iter().enumerate() {
             let next = elements.get(i + 1).unwrap_or(last);
-            let (next_out, next_err) = next.pipe_redirection(engine_state);
+            let (next_out, next_err) = next.pipe_redirection(&StateWorkingSet::new(engine_state));
             let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
                 stack,
@@ -903,7 +909,7 @@ impl Eval for EvalRuntime {
 ///
 /// An automatic environment variable cannot be assigned to by user code.
 /// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
-fn is_automatic_env_var(var: &str) -> bool {
+pub(crate) fn is_automatic_env_var(var: &str) -> bool {
     let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
     names.iter().any(|&name| {
         if cfg!(windows) {

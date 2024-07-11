@@ -1,6 +1,5 @@
 use crate::{
-    ast::Call,
-    engine::{Command, CommandType, EngineState, Stack},
+    engine::{Call, Command, CommandType, EngineState, Stack},
     BlockId, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
 };
 use serde::{Deserialize, Serialize};

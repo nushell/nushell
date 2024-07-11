@@ -1,9 +1,7 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{command_prelude::*, env_to_strings, get_eval_expression};
 use nu_path::{dots::expand_ndots, expand_tilde};
-use nu_protocol::{
-    ast::Expression, did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals,
-};
+use nu_protocol::{did_you_mean, process::ChildProcess, ByteStream, NuGlob, OutDest, Signals};
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
@@ -222,20 +220,21 @@ pub fn eval_arguments_from_call(
     call: &Call,
 ) -> Result<Vec<Spanned<OsString>>, ShellError> {
     let cwd = engine_state.cwd(Some(stack))?;
-    let mut args: Vec<Spanned<OsString>> = vec![];
-    for (expr, spread) in call.rest_iter(1) {
-        for arg in eval_argument(engine_state, stack, expr, spread)? {
-            match arg {
-                // Expand globs passed to run-external
-                Value::Glob { val, no_expand, .. } if !no_expand => args.extend(
-                    expand_glob(&val, cwd.as_ref(), expr.span, engine_state.signals())?
-                        .into_iter()
-                        .map(|s| s.into_spanned(expr.span)),
-                ),
-                other => {
-                    args.push(OsString::from(coerce_into_string(other)?).into_spanned(expr.span))
-                }
-            }
+    let eval_expression = get_eval_expression(engine_state);
+    let call_args = call.rest_iter_flattened(engine_state, stack, eval_expression, 1)?;
+    let mut args: Vec<Spanned<OsString>> = Vec::with_capacity(call_args.len());
+
+    for arg in call_args {
+        let span = arg.span();
+        match arg {
+            // Expand globs passed to run-external
+            Value::Glob { val, no_expand, .. } if !no_expand => args.extend(
+                expand_glob(&val, cwd.as_std_path(), span, engine_state.signals())?
+                    .into_iter()
+                    .map(|s| s.into_spanned(span)),
+            ),
+            other => args
+                .push(OsString::from(coerce_into_string(engine_state, other)?).into_spanned(span)),
         }
     }
     Ok(args)
@@ -243,39 +242,14 @@ pub fn eval_arguments_from_call(
 
 /// Custom `coerce_into_string()`, including globs, since those are often args to `run-external`
 /// as well
-fn coerce_into_string(val: Value) -> Result<String, ShellError> {
+fn coerce_into_string(engine_state: &EngineState, val: Value) -> Result<String, ShellError> {
     match val {
+        Value::List { .. } => Err(ShellError::CannotPassListToExternal {
+            arg: String::from_utf8_lossy(engine_state.get_span_contents(val.span())).into_owned(),
+            span: val.span(),
+        }),
         Value::Glob { val, .. } => Ok(val),
         _ => val.coerce_into_string(),
-    }
-}
-
-/// Evaluate an argument, returning more than one value if it was a list to be spread.
-fn eval_argument(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    expr: &Expression,
-    spread: bool,
-) -> Result<Vec<Value>, ShellError> {
-    let eval = get_eval_expression(engine_state);
-    match eval(engine_state, stack, expr)? {
-        Value::List { vals, .. } => {
-            if spread {
-                Ok(vals)
-            } else {
-                Err(ShellError::CannotPassListToExternal {
-                    arg: String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).into(),
-                    span: expr.span,
-                })
-            }
-        }
-        value => {
-            if spread {
-                Err(ShellError::CannotSpreadAsList { span: expr.span })
-            } else {
-                Ok(vec![value])
-            }
-        }
     }
 }
 

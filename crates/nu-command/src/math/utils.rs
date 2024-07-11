@@ -1,6 +1,6 @@
 use core::slice;
 use indexmap::IndexMap;
-use nu_protocol::{ast::Call, IntoPipelineData, PipelineData, ShellError, Signals, Span, Value};
+use nu_protocol::{engine::Call, IntoPipelineData, PipelineData, ShellError, Signals, Span, Value};
 
 pub fn run_with_function(
     call: &Call,

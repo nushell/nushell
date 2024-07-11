@@ -307,7 +307,7 @@ fn eval_const_call(
         return Err(ShellError::NotAConstHelp { span: call.head });
     }
 
-    decl.run_const(working_set, call, input)
+    decl.run_const(working_set, &call.into(), input)
 }
 
 pub fn eval_const_subexpression(

@@ -96,6 +96,24 @@ impl PipelineData {
         }
     }
 
+    /// Change the span of the [`PipelineData`].
+    ///
+    /// Returns `Value(Nothing)` with the given span if it was [`PipelineData::Empty`].
+    pub fn with_span(self, span: Span) -> Self {
+        match self {
+            PipelineData::Empty => PipelineData::Value(Value::nothing(span), None),
+            PipelineData::Value(value, metadata) => {
+                PipelineData::Value(value.with_span(span), metadata)
+            }
+            PipelineData::ListStream(stream, metadata) => {
+                PipelineData::ListStream(stream.with_span(span), metadata)
+            }
+            PipelineData::ByteStream(stream, metadata) => {
+                PipelineData::ByteStream(stream.with_span(span), metadata)
+            }
+        }
+    }
+
     /// Get a type that is representative of the `PipelineData`.
     ///
     /// The type returned here makes no effort to collect a stream, so it may be a different type
@@ -129,7 +147,8 @@ impl PipelineData {
     /// without consuming input and without writing anything.
     ///
     /// For the other [`OutDest`]s, the given `PipelineData` will be completely consumed
-    /// and `PipelineData::Empty` will be returned.
+    /// and `PipelineData::Empty` will be returned, unless the data is from an external stream,
+    /// in which case an external stream containing only that exit code will be returned.
     pub fn write_to_out_dests(
         self,
         engine_state: &EngineState,
@@ -137,7 +156,11 @@ impl PipelineData {
     ) -> Result<PipelineData, ShellError> {
         match (self, stack.stdout()) {
             (PipelineData::ByteStream(stream, ..), stdout) => {
-                stream.write_to_out_dests(stdout, stack.stderr())?;
+                if let Some(exit_status) = stream.write_to_out_dests(stdout, stack.stderr())? {
+                    return Ok(PipelineData::new_external_stream_with_only_exit_code(
+                        exit_status.code(),
+                    ));
+                }
             }
             (data, OutDest::Pipe | OutDest::Capture) => return Ok(data),
             (PipelineData::Empty, ..) => {}
@@ -570,7 +593,7 @@ impl PipelineData {
                         self.write_all_and_flush(engine_state, no_newline, to_stderr)
                     } else {
                         let call = Call::new(Span::new(0, 0));
-                        let table = command.run(engine_state, stack, &call, self)?;
+                        let table = command.run(engine_state, stack, &(&call).into(), self)?;
                         table.write_all_and_flush(engine_state, no_newline, to_stderr)
                     }
                 } else {

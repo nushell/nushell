@@ -3302,6 +3302,8 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
                 default_value: None,
             });
 
+            compile_block(working_set, &mut block);
+
             working_set.add_block(Arc::new(block))
         }
     };
@@ -4445,7 +4447,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                 &SyntaxShape::MathExpression,
             );
 
-            pattern.guard = Some(guard);
+            pattern.guard = Some(Box::new(guard));
             position += if found { start + 1 } else { start };
             connector = working_set.get_span_contents(output[position].span);
         }
@@ -5298,6 +5300,8 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             let ty = output.ty.clone();
             block.pipelines = vec![Pipeline::from_vec(vec![output])];
 
+            compile_block(working_set, &mut block);
+
             let block_id = working_set.add_block(Arc::new(block));
 
             let mut env_vars = vec![];
@@ -5853,7 +5857,23 @@ pub fn parse_block(
         working_set.parse_errors.extend_from_slice(&errors);
     }
 
+    // Do not try to compile blocks that are subexpressions, or when we've already had a parse
+    // failure as that definitely will fail to compile
+    if !is_subexpression && working_set.parse_errors.is_empty() {
+        compile_block(working_set, &mut block);
+    }
+
     block
+}
+
+/// Compile an IR block for the `Block`, adding a compile error on failure
+fn compile_block(working_set: &mut StateWorkingSet<'_>, block: &mut Block) {
+    match nu_engine::compile(working_set, block) {
+        Ok(ir_block) => {
+            block.ir_block = Some(ir_block);
+        }
+        Err(err) => working_set.compile_errors.push(err),
+    }
 }
 
 pub fn discover_captures_in_closure(
@@ -6298,11 +6318,13 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             default_value: None,
         });
 
-        let block = Block {
+        let mut block = Block {
             pipelines: vec![Pipeline::from_vec(vec![expr.clone()])],
             signature: Box::new(signature),
             ..Default::default()
         };
+
+        compile_block(working_set, &mut block);
 
         let block_id = working_set.add_block(Arc::new(block));
 

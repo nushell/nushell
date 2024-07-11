@@ -53,6 +53,22 @@ impl<T> Spanned<T> {
     }
 }
 
+impl<T, E> Spanned<Result<T, E>> {
+    /// Move the `Result` to the outside, resulting in a spanned `Ok` or unspanned `Err`.
+    pub fn transpose(self) -> Result<Spanned<T>, E> {
+        match self {
+            Spanned {
+                item: Ok(item),
+                span,
+            } => Ok(Spanned { item, span }),
+            Spanned {
+                item: Err(err),
+                span: _,
+            } => Err(err),
+        }
+    }
+}
+
 /// Helper trait to create [`Spanned`] more ergonomically.
 pub trait IntoSpanned: Sized {
     /// Wrap items together with a span into [`Spanned`].

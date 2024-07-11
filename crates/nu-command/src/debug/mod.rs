@@ -10,6 +10,7 @@ mod profile;
 mod timeit;
 mod view;
 mod view_files;
+mod view_ir;
 mod view_source;
 mod view_span;
 
@@ -25,5 +26,6 @@ pub use profile::DebugProfile;
 pub use timeit::TimeIt;
 pub use view::View;
 pub use view_files::ViewFiles;
+pub use view_ir::ViewIr;
 pub use view_source::ViewSource;
 pub use view_span::ViewSpan;

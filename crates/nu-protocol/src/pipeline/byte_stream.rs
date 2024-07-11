@@ -352,6 +352,12 @@ impl ByteStream {
         self.span
     }
 
+    /// Changes the [`Span`] associated with the [`ByteStream`].
+    pub fn with_span(mut self, span: Span) -> Self {
+        self.span = span;
+        self
+    }
+
     /// Returns the [`ByteStreamType`] associated with the [`ByteStream`].
     pub fn type_(&self) -> ByteStreamType {
         self.type_

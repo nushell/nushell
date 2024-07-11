@@ -4,8 +4,8 @@ use crate::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility,
     },
-    BlockId, Category, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError, ParseWarning,
-    Span, SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError,
+    ParseWarning, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -31,6 +31,7 @@ pub struct StateWorkingSet<'a> {
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
+    pub compile_errors: Vec<CompileError>,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -50,6 +51,7 @@ impl<'a> StateWorkingSet<'a> {
             search_predecls: true,
             parse_errors: vec![],
             parse_warnings: vec![],
+            compile_errors: vec![],
         }
     }
 
@@ -260,6 +262,12 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn add_block(&mut self, block: Arc<Block>) -> BlockId {
+        log::trace!(
+            "block id={} added, has IR = {:?}",
+            self.num_blocks(),
+            block.ir_block.is_some()
+        );
+
         self.delta.blocks.push(block);
 
         self.num_blocks() - 1

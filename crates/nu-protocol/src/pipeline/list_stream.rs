@@ -31,9 +31,20 @@ impl ListStream {
         self.span
     }
 
+    /// Changes the [`Span`] associated with this [`ListStream`].
+    pub fn with_span(mut self, span: Span) -> Self {
+        self.span = span;
+        self
+    }
+
     /// Convert a [`ListStream`] into its inner [`Value`] `Iterator`.
     pub fn into_inner(self) -> ValueIterator {
         self.stream
+    }
+
+    /// Take a single value from the inner `Iterator`, modifying the stream.
+    pub fn next_value(&mut self) -> Option<Value> {
+        self.stream.next()
     }
 
     /// Converts each value in a [`ListStream`] into a string and then joins the strings together
