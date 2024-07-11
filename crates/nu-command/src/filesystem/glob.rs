@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use std::sync::{atomic::AtomicBool, Arc};
+use nu_protocol::Signals;
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
@@ -125,7 +125,6 @@ impl Command for Glob {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let depth = call.get_flag(engine_state, stack, "depth")?;
@@ -216,7 +215,14 @@ impl Command for Glob {
                     inner: vec![],
                 })?
                 .flatten();
-            glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)
+            glob_to_value(
+                engine_state.signals(),
+                glob_results,
+                no_dirs,
+                no_files,
+                no_symlinks,
+                span,
+            )
         } else {
             let glob_results = glob
                 .walk_with_behavior(
@@ -227,12 +233,19 @@ impl Command for Glob {
                     },
                 )
                 .flatten();
-            glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)
+            glob_to_value(
+                engine_state.signals(),
+                glob_results,
+                no_dirs,
+                no_files,
+                no_symlinks,
+                span,
+            )
         }?;
 
         Ok(result
             .into_iter()
-            .into_pipeline_data(span, engine_state.ctrlc.clone()))
+            .into_pipeline_data(span, engine_state.signals().clone()))
     }
 }
 
@@ -252,7 +265,7 @@ fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
 }
 
 fn glob_to_value<'a>(
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: &Signals,
     glob_results: impl Iterator<Item = WalkEntry<'a>>,
     no_dirs: bool,
     no_files: bool,
@@ -261,10 +274,7 @@ fn glob_to_value<'a>(
 ) -> Result<Vec<Value>, ShellError> {
     let mut result: Vec<Value> = Vec::new();
     for entry in glob_results {
-        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
-            result.clear();
-            return Err(ShellError::InterruptedByUser { span: None });
-        }
+        signals.check(span)?;
         let file_type = entry.file_type();
 
         if !(no_dirs && file_type.is_dir()

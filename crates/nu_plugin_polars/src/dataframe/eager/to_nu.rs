@@ -35,6 +35,7 @@ impl PluginCommand for ToNu {
                 Some('n'),
             )
             .switch("tail", "shows tail rows", Some('t'))
+            .switch("index", "add an index column", Some('i'))
             .input_output_types(vec![
                 (Type::Custom("expression".into()), Type::Any),
                 (Type::Custom("dataframe".into()), Type::table()),
@@ -62,18 +63,18 @@ impl PluginCommand for ToNu {
         vec![
             Example {
                 description: "Shows head rows from dataframe",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars into-nu",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars into-nu --index",
                 result: Some(Value::list(vec![rec_1, rec_2], Span::test_data())),
             },
             Example {
                 description: "Shows tail rows from dataframe",
                 example:
-                    "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1",
+                    "[[a b]; [1 2] [5 6] [3 4]] | polars into-df | polars into-nu --tail --rows 1 --index",
                 result: Some(Value::list(vec![rec_3], Span::test_data())),
             },
             Example {
                 description: "Convert a col expression into a nushell value",
-                example: "polars col a | polars into-nu",
+                example: "polars col a | polars into-nu --index",
                 result: Some(Value::test_record(record! {
                     "expr" =>  Value::test_string("column"),
                     "value" => Value::test_string("a"),
@@ -106,17 +107,18 @@ fn dataframe_command(
 ) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.get_flag("rows")?;
     let tail: bool = call.has_flag("tail")?;
+    let index: bool = call.has_flag("index")?;
 
     let df = NuDataFrame::try_from_value_coerce(plugin, &input, call.head)?;
 
     let values = if tail {
-        df.tail(rows, call.head)?
+        df.tail(rows, index, call.head)?
     } else {
         // if rows is specified, return those rows, otherwise return everything
         if rows.is_some() {
-            df.head(rows, call.head)?
+            df.head(rows, index, call.head)?
         } else {
-            df.head(Some(df.height()), call.head)?
+            df.head(Some(df.height()), index, call.head)?
         }
     };
 

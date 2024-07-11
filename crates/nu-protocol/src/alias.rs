@@ -1,6 +1,6 @@
 use crate::{
-    ast::{Call, Expression},
-    engine::{Command, CommandType, EngineState, Stack},
+    ast::Expression,
+    engine::{Call, Command, CommandType, EngineState, Stack},
     PipelineData, ShellError, Signature,
 };
 

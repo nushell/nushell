@@ -11,12 +11,12 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginSignature, ShellError, Span,
-    Spanned, Value,
+    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
+    ShellError, Signals, Span, Spanned, Value,
 };
 use std::{
     collections::{btree_map, BTreeMap},
-    sync::{atomic::AtomicBool, mpsc, Arc, OnceLock},
+    sync::{mpsc, Arc, OnceLock},
 };
 
 use crate::{
@@ -103,8 +103,8 @@ struct PluginCallState {
     /// Don't try to send the plugin call response. This is only used for `Dropped` to avoid an
     /// error
     dont_send_response: bool,
-    /// Interrupt signal to be used for stream iterators
-    ctrlc: Option<Arc<AtomicBool>>,
+    /// Signals to be used for stream iterators
+    signals: Signals,
     /// Channel to receive context on to be used if needed
     context_rx: Option<mpsc::Receiver<Context>>,
     /// Span associated with the call, if any
@@ -231,14 +231,14 @@ impl PluginInterfaceManager {
         }
     }
 
-    /// Find the ctrlc signal corresponding to the given plugin call id
-    fn get_ctrlc(&mut self, id: PluginCallId) -> Result<Option<Arc<AtomicBool>>, ShellError> {
+    /// Find the [`Signals`] struct corresponding to the given plugin call id
+    fn get_signals(&mut self, id: PluginCallId) -> Result<Signals, ShellError> {
         // Make sure we're up to date
         self.receive_plugin_call_subscriptions();
         // Find the subscription and return the context
         self.plugin_call_states
             .get(&id)
-            .map(|state| state.ctrlc.clone())
+            .map(|state| state.signals.clone())
             .ok_or_else(|| ShellError::PluginFailedToDecode {
                 msg: format!("Unknown plugin call ID: {id}"),
             })
@@ -517,14 +517,14 @@ impl InterfaceManager for PluginInterfaceManager {
                 // Handle reading the pipeline data, if any
                 let response = response
                     .map_data(|data| {
-                        let ctrlc = self.get_ctrlc(id)?;
+                        let signals = self.get_signals(id)?;
 
                         // Register the stream in the response
                         if let Some(stream_id) = data.stream_id() {
                             self.recv_stream_started(id, stream_id);
                         }
 
-                        self.read_pipeline_data(data, ctrlc.as_ref())
+                        self.read_pipeline_data(data, &signals)
                     })
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to a plugin
@@ -544,8 +544,8 @@ impl InterfaceManager for PluginInterfaceManager {
                 let call = call
                     // Handle reading the pipeline data, if any
                     .map_data(|input| {
-                        let ctrlc = self.get_ctrlc(context)?;
-                        self.read_pipeline_data(input, ctrlc.as_ref())
+                        let signals = self.get_signals(context)?;
+                        self.read_pipeline_data(input, &signals)
                     })
                     // Do anything extra needed for each engine call setup
                     .and_then(|mut engine_call| {
@@ -698,7 +698,9 @@ impl PluginInterface {
         context: Option<&dyn PluginExecutionContext>,
     ) -> Result<WritePluginCallResult, ShellError> {
         let id = self.state.plugin_call_id_sequence.next()?;
-        let ctrlc = context.and_then(|c| c.ctrlc().cloned());
+        let signals = context
+            .map(|c| c.signals().clone())
+            .unwrap_or_else(Signals::empty);
         let (tx, rx) = mpsc::channel();
         let (context_tx, context_rx) = mpsc::channel();
         let keep_plugin_custom_values = mpsc::channel();
@@ -716,6 +718,7 @@ impl PluginInterface {
 
         // Convert the call into one with a header and handle the stream, if necessary
         let (call, writer) = match call {
+            PluginCall::Metadata => (PluginCall::Metadata, Default::default()),
             PluginCall::Signature => (PluginCall::Signature, Default::default()),
             PluginCall::CustomValueOp(value, op) => {
                 (PluginCall::CustomValueOp(value, op), Default::default())
@@ -745,7 +748,7 @@ impl PluginInterface {
                 PluginCallState {
                     sender: Some(tx).filter(|_| !dont_send_response),
                     dont_send_response,
-                    ctrlc,
+                    signals,
                     context_rx: Some(context_rx),
                     span: call.span(),
                     keep_plugin_custom_values,
@@ -911,6 +914,17 @@ impl PluginInterface {
         result.writer.write_background()?;
 
         self.receive_plugin_call_response(result.receiver, context, result.state)
+    }
+
+    /// Get the metadata from the plugin.
+    pub fn get_metadata(&self) -> Result<PluginMetadata, ShellError> {
+        match self.plugin_call(PluginCall::Metadata, None)? {
+            PluginCallResponse::Metadata(meta) => Ok(meta),
+            PluginCallResponse::Error(err) => Err(err.into()),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response to plugin Metadata call".into(),
+            }),
+        }
     }
 
     /// Get the command signatures from the plugin.
@@ -1206,6 +1220,7 @@ impl CurrentCallState {
         source: &PluginSource,
     ) -> Result<(), ShellError> {
         match call {
+            PluginCall::Metadata => Ok(()),
             PluginCall::Signature => Ok(()),
             PluginCall::Run(CallInfo { call, .. }) => self.prepare_call_args(call, source),
             PluginCall::CustomValueOp(_, op) => {

@@ -2,9 +2,9 @@ use crate::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
-    Value,
+    engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId, Spanned,
+    SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -45,10 +45,12 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
         let decl = engine_state.get_decl(highlighter);
 
+        let call = Call::new(Span::unknown());
+
         if let Ok(output) = decl.run(
             engine_state,
             stack,
-            &Call::new(Span::unknown()),
+            &(&call).into(),
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
@@ -269,11 +271,12 @@ fn get_documentation(
             let _ = write!(long_desc, "\n  > {}\n", example.example);
         } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
             let decl = engine_state.get_decl(highlighter);
+            let call = Call::new(Span::unknown());
 
             match decl.run(
                 engine_state,
                 stack,
-                &Call::new(Span::unknown()),
+                &(&call).into(),
                 Value::string(example.example, Span::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
@@ -296,6 +299,28 @@ fn get_documentation(
         }
 
         if let Some(result) = &example.result {
+            let mut table_call = Call::new(Span::unknown());
+            if example.example.ends_with("--collapse") {
+                // collapse the result
+                table_call.add_named((
+                    Spanned {
+                        item: "collapse".to_string(),
+                        span: Span::unknown(),
+                    },
+                    None,
+                    None,
+                ))
+            } else {
+                // expand the result
+                table_call.add_named((
+                    Spanned {
+                        item: "expand".to_string(),
+                        span: Span::unknown(),
+                    },
+                    None,
+                    None,
+                ))
+            }
             let table = engine_state
                 .find_decl("table".as_bytes(), &[])
                 .and_then(|decl_id| {
@@ -304,7 +329,7 @@ fn get_documentation(
                         .run(
                             engine_state,
                             stack,
-                            &Call::new(Span::new(0, 0)),
+                            &(&table_call).into(),
                             PipelineData::Value(result.clone(), None),
                         )
                         .ok()
@@ -339,8 +364,9 @@ fn get_ansi_color_for_component_or_default(
     if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
         let caller_stack = &mut Stack::new().capture();
         let span = Span::unknown();
+        let span_id = UNKNOWN_SPAN_ID;
 
-        let argument_opt = get_argument_for_color_value(engine_state, color, span);
+        let argument_opt = get_argument_for_color_value(engine_state, color, span, span_id);
 
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
@@ -371,6 +397,7 @@ fn get_argument_for_color_value(
     engine_state: &EngineState,
     color: &&Value,
     span: Span,
+    span_id: SpanId,
 ) -> Option<Argument> {
     match color {
         Value::Record { val, .. } => {
@@ -378,43 +405,43 @@ fn get_argument_for_color_value(
                 .iter()
                 .map(|(k, v)| {
                     RecordItem::Pair(
-                        Expression {
-                            expr: Expr::String(k.clone()),
+                        Expression::new_existing(
+                            Expr::String(k.clone()),
                             span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        },
-                        Expression {
-                            expr: Expr::String(
+                            span_id,
+                            Type::String,
+                        ),
+                        Expression::new_existing(
+                            Expr::String(
                                 v.clone().to_expanded_string("", engine_state.get_config()),
                             ),
                             span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        },
+                            span_id,
+                            Type::String,
+                        ),
                     )
                 })
                 .collect();
 
-            Some(Argument::Positional(Expression {
-                span: Span::unknown(),
-                ty: Type::Record(
+            Some(Argument::Positional(Expression::new_existing(
+                Expr::Record(record_exp),
+                Span::unknown(),
+                UNKNOWN_SPAN_ID,
+                Type::Record(
                     [
                         ("fg".to_string(), Type::String),
                         ("attr".to_string(), Type::String),
                     ]
                     .into(),
                 ),
-                expr: Expr::Record(record_exp),
-                custom_completion: None,
-            }))
+            )))
         }
-        Value::String { val, .. } => Some(Argument::Positional(Expression {
-            span: Span::unknown(),
-            ty: Type::String,
-            expr: Expr::String(val.clone()),
-            custom_completion: None,
-        })),
+        Value::String { val, .. } => Some(Argument::Positional(Expression::new_existing(
+            Expr::String(val.clone()),
+            Span::unknown(),
+            UNKNOWN_SPAN_ID,
+            Type::String,
+        ))),
         _ => None,
     }
 }

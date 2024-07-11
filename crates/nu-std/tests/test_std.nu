@@ -38,10 +38,36 @@ def path_add [] {
         std path add $target_paths
         assert equal (get_path) ([($target_paths | get $nu.os-info.name)] | path expand)
 
-        load-env {$path_name: [$"/foo(char esep)/bar"]}
+        load-env {$path_name: [$"(["/foo", "/bar"] | path expand | str join (char esep))"]}
         std path add "~/foo"
         assert equal (get_path) (["~/foo", "/foo", "/bar"] | path expand)
     }
+}
+
+#[test]
+def path_add_expand [] {
+    use std assert
+
+    # random paths to avoid collision, especially if left dangling on failure
+    let real_dir = $nu.temp-path | path join $"real-dir-(random chars)"
+    let link_dir = $nu.temp-path | path join $"link-dir-(random chars)"
+    mkdir $real_dir
+    let path_name = if $nu.os-info.family == 'windows' {
+        mklink /D $link_dir $real_dir
+        "Path"
+    } else {
+        ln -s $real_dir $link_dir | ignore
+        "PATH"
+    }
+
+    with-env {$path_name: []} {
+        def get_path [] { $env | get $path_name }
+
+        std path add $link_dir
+        assert equal (get_path) ([$link_dir])
+    }
+
+    rm $real_dir $link_dir
 }
 
 #[test]

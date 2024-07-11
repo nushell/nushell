@@ -1,13 +1,14 @@
+use crate::eval_ir_block;
 #[allow(deprecated)]
 use crate::{current_dir, get_config, get_full_help};
-use nu_path::expand_path_with;
+use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{
         Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
         PipelineRedirection, RedirectionSource, RedirectionTarget,
     },
     debugger::DebugContext,
-    engine::{Closure, EngineState, Redirection, Stack},
+    engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet},
     eval_base::Eval,
     ByteStreamSource, Config, FromValue, IntoPipelineData, OutDest, PipelineData, ShellError, Span,
     Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
@@ -21,9 +22,7 @@ pub fn eval_call<D: DebugContext>(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-        return Ok(Value::nothing(call.head).into_pipeline_data());
-    }
+    engine_state.signals().check(call.head)?;
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
@@ -176,7 +175,7 @@ pub fn eval_call<D: DebugContext>(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        decl.run(engine_state, caller_stack, call, input)
+        decl.run(engine_state, caller_stack, &call.into(), input)
     }
 }
 
@@ -208,11 +207,13 @@ fn eval_external(
 ) -> Result<PipelineData, ShellError> {
     let decl_id = engine_state
         .find_decl("run-external".as_bytes(), &[])
-        .ok_or(ShellError::ExternalNotSupported { span: head.span })?;
+        .ok_or(ShellError::ExternalNotSupported {
+            span: head.span(&engine_state),
+        })?;
 
     let command = engine_state.get_decl(decl_id);
 
-    let mut call = Call::new(head.span);
+    let mut call = Call::new(head.span(&engine_state));
 
     call.add_positional(head.clone());
 
@@ -223,7 +224,7 @@ fn eval_external(
         }
     }
 
-    command.run(engine_state, stack, &call, input)
+    command.run(engine_state, stack, &(&call).into(), input)
 }
 
 pub fn eval_expression<D: DebugContext>(
@@ -507,6 +508,11 @@ pub fn eval_block<D: DebugContext>(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    // Remove once IR is the default.
+    if stack.use_ir {
+        return eval_ir_block::<D>(engine_state, stack, block, input);
+    }
+
     D::enter_block(engine_state, block);
 
     let num_pipelines = block.len();
@@ -521,7 +527,7 @@ pub fn eval_block<D: DebugContext>(
 
         for (i, element) in elements.iter().enumerate() {
             let next = elements.get(i + 1).unwrap_or(last);
-            let (next_out, next_err) = next.pipe_redirection(engine_state);
+            let (next_out, next_err) = next.pipe_redirection(&StateWorkingSet::new(engine_state));
             let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
                 stack,
@@ -679,7 +685,10 @@ impl Eval for EvalRuntime {
         } else if quoted {
             Ok(Value::string(path, span))
         } else {
-            let cwd = engine_state.cwd(Some(stack)).unwrap_or_default();
+            let cwd = engine_state
+                .cwd(Some(stack))
+                .map(AbsolutePathBuf::into_std_path_buf)
+                .unwrap_or_default();
             let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
@@ -712,7 +721,7 @@ impl Eval for EvalRuntime {
         args: &[ExternalArgument],
         _: Span,
     ) -> Result<Value, ShellError> {
-        let span = head.span;
+        let span = head.span(&engine_state);
         // FIXME: protect this collect with ctrl-c
         eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span)
     }
@@ -779,9 +788,11 @@ impl Eval for EvalRuntime {
                 let var_info = engine_state.get_var(*var_id);
                 if var_info.mutable {
                     stack.add_var(*var_id, rhs);
-                    Ok(Value::nothing(lhs.span))
+                    Ok(Value::nothing(lhs.span(&engine_state)))
                 } else {
-                    Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                    Err(ShellError::AssignmentRequiresMutableVar {
+                        lhs_span: lhs.span(&engine_state),
+                    })
                 }
             }
             Expr::FullCellPath(cell_path) => {
@@ -797,7 +808,7 @@ impl Eval for EvalRuntime {
                                 // Reject attempts to assign to the entire $env
                                 if cell_path.tail.is_empty() {
                                     return Err(ShellError::CannotReplaceEnv {
-                                        span: cell_path.head.span,
+                                        span: cell_path.head.span(&engine_state),
                                     });
                                 }
 
@@ -837,15 +848,21 @@ impl Eval for EvalRuntime {
                                 lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                 stack.add_var(*var_id, lhs);
                             }
-                            Ok(Value::nothing(cell_path.head.span))
+                            Ok(Value::nothing(cell_path.head.span(&engine_state)))
                         } else {
-                            Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                            Err(ShellError::AssignmentRequiresMutableVar {
+                                lhs_span: lhs.span(&engine_state),
+                            })
                         }
                     }
-                    _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+                    _ => Err(ShellError::AssignmentRequiresVar {
+                        lhs_span: lhs.span(&engine_state),
+                    }),
                 }
             }
-            _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+            _ => Err(ShellError::AssignmentRequiresVar {
+                lhs_span: lhs.span(&engine_state),
+            }),
         }
     }
 
@@ -882,8 +899,8 @@ impl Eval for EvalRuntime {
         Ok(Value::string(name, span))
     }
 
-    fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
-        Ok(Value::nothing(expr.span))
+    fn unreachable(engine_state: &EngineState, expr: &Expression) -> Result<Value, ShellError> {
+        Ok(Value::nothing(expr.span(&engine_state)))
     }
 }
 
@@ -892,7 +909,7 @@ impl Eval for EvalRuntime {
 ///
 /// An automatic environment variable cannot be assigned to by user code.
 /// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
-fn is_automatic_env_var(var: &str) -> bool {
+pub(crate) fn is_automatic_env_var(var: &str) -> bool {
     let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
     names.iter().any(|&name| {
         if cfg!(windows) {

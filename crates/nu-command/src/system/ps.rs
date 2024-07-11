@@ -2,20 +2,13 @@
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
 
-#[cfg(all(
-    unix,
-    not(target_os = "freebsd"),
-    not(target_os = "macos"),
-    not(target_os = "windows"),
-    not(target_os = "android"),
-))]
+#[cfg(target_os = "linux")]
 use procfs::WithCurrentSystemInfo;
 use std::time::Duration;
 
 #[derive(Clone)]
 pub struct Ps;
 
-#[cfg(not(target_os = "freebsd"))]
 impl Command for Ps {
     fn name(&self) -> &str {
         "ps"
@@ -82,7 +75,6 @@ impl Command for Ps {
     }
 }
 
-#[cfg(not(target_os = "freebsd"))]
 fn run_ps(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -111,12 +103,7 @@ fn run_ps(
 
         if long {
             record.push("command", Value::string(proc.command(), span));
-            #[cfg(all(
-                unix,
-                not(target_os = "macos"),
-                not(target_os = "windows"),
-                not(target_os = "android"),
-            ))]
+            #[cfg(target_os = "linux")]
             {
                 let proc_stat = proc
                     .curr_proc
@@ -195,5 +182,5 @@ fn run_ps(
 
     Ok(output
         .into_iter()
-        .into_pipeline_data(span, engine_state.ctrlc.clone()))
+        .into_pipeline_data(span, engine_state.signals().clone()))
 }

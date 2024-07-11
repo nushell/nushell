@@ -116,11 +116,18 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
         Value::string(features_enabled().join(", "), span),
     );
 
-    // Get a list of plugin names
+    // Get a list of plugin names and versions if present
     let installed_plugins = engine_state
         .plugins()
         .iter()
-        .map(|x| x.identity().name())
+        .map(|x| {
+            let name = x.identity().name();
+            if let Some(version) = x.metadata().and_then(|m| m.version) {
+                format!("{name} {version}")
+            } else {
+                name.into()
+            }
+        })
         .collect::<Vec<_>>();
 
     record.push(
@@ -160,11 +167,6 @@ fn features_enabled() -> Vec<String> {
 
     // NOTE: There should be another way to know features on.
 
-    #[cfg(feature = "which-support")]
-    {
-        names.push("which".to_string());
-    }
-
     #[cfg(feature = "trash-support")]
     {
         names.push("trash".to_string());
@@ -173,11 +175,6 @@ fn features_enabled() -> Vec<String> {
     #[cfg(feature = "sqlite")]
     {
         names.push("sqlite".to_string());
-    }
-
-    #[cfg(feature = "dataframe")]
-    {
-        names.push("dataframe".to_string());
     }
 
     #[cfg(feature = "static-link-openssl")]

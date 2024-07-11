@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchPattern {
     pub pattern: Pattern,
-    pub guard: Option<Expression>,
+    pub guard: Option<Box<Expression>>,
     pub span: Span,
 }
 
@@ -24,7 +24,9 @@ pub enum Pattern {
     /// List destructuring
     List(Vec<MatchPattern>),
     /// Matching against a literal
-    Value(Expression),
+    // TODO: it would be nice if this didn't depend on AST
+    // maybe const evaluation can get us to a Value instead?
+    Value(Box<Expression>),
     /// binding to a variable
     Variable(VarId),
     /// the `pattern1 \ pattern2` or-pattern

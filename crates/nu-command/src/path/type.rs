@@ -1,10 +1,12 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
-use nu_path::expand_tilde;
+use nu_path::AbsolutePathBuf;
 use nu_protocol::engine::StateWorkingSet;
-use std::path::Path;
+use std::{io, path::Path};
 
-struct Arguments;
+struct Arguments {
+    pwd: AbsolutePathBuf,
+}
 
 impl PathSubcommandArguments for Arguments {}
 
@@ -35,7 +37,7 @@ impl Command for SubCommand {
 
     fn extra_usage(&self) -> &str {
         r#"This checks the file system to confirm the path's object type.
-If nothing is found, an empty string will be returned."#
+If the path does not exist, null will be returned."#
     }
 
     fn is_const(&self) -> bool {
@@ -45,20 +47,22 @@ If nothing is found, an empty string will be returned."#
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let args = Arguments;
+        let args = Arguments {
+            pwd: engine_state.cwd(Some(stack))?,
+        };
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
-            move |value| super::operate(&r#type, &args, value, head),
-            engine_state.ctrlc.clone(),
+            move |value| super::operate(&path_type, &args, value, head),
+            engine_state.signals(),
         )
     }
 
@@ -69,15 +73,17 @@ If nothing is found, an empty string will be returned."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let args = Arguments;
+        let args = Arguments {
+            pwd: working_set.permanent().cwd(None)?,
+        };
 
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
         input.map(
-            move |value| super::operate(&r#type, &args, value, head),
-            working_set.permanent().ctrlc.clone(),
+            move |value| super::operate(&path_type, &args, value, head),
+            working_set.permanent().signals(),
         )
     }
 
@@ -97,21 +103,13 @@ If nothing is found, an empty string will be returned."#
     }
 }
 
-fn r#type(path: &Path, span: Span, _: &Arguments) -> Value {
-    let meta = if path.starts_with("~") {
-        let p = expand_tilde(path);
-        std::fs::symlink_metadata(p)
-    } else {
-        std::fs::symlink_metadata(path)
-    };
-
-    Value::string(
-        match &meta {
-            Ok(data) => get_file_type(data),
-            Err(_) => "",
-        },
-        span,
-    )
+fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
+    let path = nu_path::expand_path_with(path, &args.pwd, true);
+    match path.symlink_metadata() {
+        Ok(metadata) => Value::string(get_file_type(&metadata), span),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Value::nothing(span),
+        Err(err) => Value::error(err.into_spanned(span).into(), span),
+    }
 }
 
 fn get_file_type(md: &std::fs::Metadata) -> &str {

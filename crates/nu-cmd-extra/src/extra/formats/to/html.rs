@@ -368,6 +368,7 @@ fn theme_demo(span: Span) -> PipelineData {
         .collect();
     Value::list(result, span).into_pipeline_data_with_metadata(PipelineMetadata {
         data_source: DataSource::HtmlThemes,
+        content_type: None,
     })
 }
 

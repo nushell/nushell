@@ -105,7 +105,7 @@ pub struct Config {
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
-    /// match the registered plugin name so `register nu_plugin_example` will be able to place
+    /// match the registered plugin name so `plugin add nu_plugin_example` will be able to place
     /// its configuration under a `nu_plugin_example` column.
     pub plugins: HashMap<String, Value>,
     /// Configuration for plugin garbage collection.

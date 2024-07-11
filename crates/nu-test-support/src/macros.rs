@@ -245,7 +245,9 @@ use tempfile::tempdir;
 pub struct NuOpts {
     pub cwd: Option<String>,
     pub locale: Option<String>,
+    pub envs: Option<Vec<(String, String)>>,
     pub collapse_output: Option<bool>,
+    pub use_ir: Option<bool>,
 }
 
 pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> Outcome {
@@ -278,15 +280,31 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     command
         .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
         .env(NATIVE_PATH_ENV_VAR, paths_joined);
+
+    if let Some(envs) = opts.envs {
+        command.envs(envs);
+    }
+
     // Ensure that the user's config doesn't interfere with the tests
     command.arg("--no-config-file");
     if !with_std {
         command.arg("--no-std-lib");
     }
+    // Use plain errors to help make error text matching more consistent
+    command.args(["--error-style", "plain"]);
     command
         .arg(format!("-c {}", escape_quote_string(&commands)))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
+    // Explicitly set NU_USE_IR
+    if let Some(use_ir) = opts.use_ir {
+        if use_ir {
+            command.env("NU_USE_IR", "1");
+        } else {
+            command.env_remove("NU_USE_IR");
+        }
+    }
 
     // Uncomment to debug the command being run:
     // println!("=== command\n{command:?}\n");
@@ -365,10 +383,13 @@ where
     if !executable_path.exists() {
         executable_path = crate::fs::installed_nu_path();
     }
+
     let process = match setup_command(&executable_path, &target_cwd)
         .envs(envs)
         .arg("--commands")
         .arg(command)
+        // Use plain errors to help make error text matching more consistent
+        .args(["--error-style", "plain"])
         .arg("--config")
         .arg(temp_config_file)
         .arg("--env-config")

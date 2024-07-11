@@ -5,8 +5,9 @@
 use lscolors::{LsColors, Style};
 use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
 use nu_engine::{command_prelude::*, env::get_config, env_to_string};
+use nu_pretty_hex::HexConfig;
 use nu_protocol::{
-    ByteStream, Config, DataSource, ListStream, PipelineMetadata, TableMode, ValueIterator,
+    ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode, ValueIterator,
 };
 use nu_table::{
     common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
@@ -15,10 +16,9 @@ use nu_table::{
 use nu_utils::get_ls_colors;
 use std::{
     collections::VecDeque,
-    io::{Cursor, IsTerminal},
+    io::{IsTerminal, Read},
     path::PathBuf,
     str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
     time::Instant,
 };
 use terminal_size::{Height, Width};
@@ -169,7 +169,10 @@ impl Command for Table {
                     }),
                     Value::test_record(record! {
                         "a" =>  Value::test_int(3),
-                        "b" =>  Value::test_int(4),
+                        "b" =>  Value::test_list(vec![
+                            Value::test_int(4),
+                            Value::test_int(4),
+                        ])
                     }),
                 ])),
             },
@@ -183,7 +186,10 @@ impl Command for Table {
                     }),
                     Value::test_record(record! {
                         "a" =>  Value::test_int(3),
-                        "b" =>  Value::test_int(4),
+                        "b" =>  Value::test_list(vec![
+                            Value::test_int(4),
+                            Value::test_int(4),
+                        ])
                     }),
                 ])),
             },
@@ -338,7 +344,7 @@ fn get_theme_flag(
 struct CmdInput<'a> {
     engine_state: &'a EngineState,
     stack: &'a mut Stack,
-    call: &'a Call,
+    call: &'a Call<'a>,
     data: PipelineData,
 }
 
@@ -346,7 +352,7 @@ impl<'a> CmdInput<'a> {
     fn new(
         engine_state: &'a EngineState,
         stack: &'a mut Stack,
-        call: &'a Call,
+        call: &'a Call<'a>,
         data: PipelineData,
     ) -> Self {
         Self {
@@ -364,21 +370,23 @@ fn handle_table_command(
 ) -> Result<PipelineData, ShellError> {
     let span = input.data.span().unwrap_or(input.call.head);
     match input.data {
+        // Binary streams should behave as if they really are `binary` data, and printed as hex
+        PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
+            PipelineData::ByteStream(pretty_hex_stream(stream, input.call.head), None),
+        ),
         PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
-            let bytes = {
-                let mut str = nu_pretty_hex::pretty_hex(&val);
-                str.push('\n');
-                str.into_bytes()
-            };
-            let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ByteStream::read(Cursor::new(bytes), input.call.head, ctrlc);
-            Ok(PipelineData::ByteStream(stream, None))
+            let signals = input.engine_state.signals().clone();
+            let stream = ByteStream::read_binary(val, input.call.head, signals);
+            Ok(PipelineData::ByteStream(
+                pretty_hex_stream(stream, input.call.head),
+                None,
+            ))
         }
         // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
-            let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::new(vals.into_iter(), span, ctrlc);
+            let signals = input.engine_state.signals().clone();
+            let stream = ListStream::new(vals.into_iter(), span, signals);
             input.data = PipelineData::Empty;
 
             handle_row_stream(input, cfg, stream, metadata)
@@ -401,13 +409,83 @@ fn handle_table_command(
             Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
-            let ctrlc = input.engine_state.ctrlc.clone();
-            let stream = ListStream::new(val.into_range_iter(span, ctrlc), span, None);
+            let signals = input.engine_state.signals().clone();
+            let stream =
+                ListStream::new(val.into_range_iter(span, Signals::empty()), span, signals);
             input.data = PipelineData::Empty;
             handle_row_stream(input, cfg, stream, metadata)
         }
         x => Ok(x),
     }
+}
+
+fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
+    let mut cfg = HexConfig {
+        // We are going to render the title manually first
+        title: true,
+        // If building on 32-bit, the stream size might be bigger than a usize
+        length: stream.known_size().and_then(|sz| sz.try_into().ok()),
+        ..HexConfig::default()
+    };
+
+    // This won't really work for us
+    debug_assert!(cfg.width > 0, "the default hex config width was zero");
+
+    let mut read_buf = Vec::with_capacity(cfg.width);
+
+    let mut reader = if let Some(reader) = stream.reader() {
+        reader
+    } else {
+        // No stream to read from
+        return ByteStream::read_string("".into(), span, Signals::empty());
+    };
+
+    ByteStream::from_fn(
+        span,
+        Signals::empty(),
+        ByteStreamType::String,
+        move |buffer| {
+            // Turn the buffer into a String we can write to
+            let mut write_buf = std::mem::take(buffer);
+            write_buf.clear();
+            // SAFETY: we just truncated it empty
+            let mut write_buf = unsafe { String::from_utf8_unchecked(write_buf) };
+
+            // Write the title at the beginning
+            if cfg.title {
+                nu_pretty_hex::write_title(&mut write_buf, cfg, true).expect("format error");
+                cfg.title = false;
+
+                // Put the write_buf back into buffer
+                *buffer = write_buf.into_bytes();
+
+                Ok(true)
+            } else {
+                // Read up to `cfg.width` bytes
+                read_buf.clear();
+                (&mut reader)
+                    .take(cfg.width as u64)
+                    .read_to_end(&mut read_buf)
+                    .err_span(span)?;
+
+                if !read_buf.is_empty() {
+                    nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))
+                        .expect("format error");
+                    write_buf.push('\n');
+
+                    // Advance the address offset for next time
+                    cfg.address_offset += read_buf.len();
+
+                    // Put the write_buf back into buffer
+                    *buffer = write_buf.into_bytes();
+
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
+        },
+    )
 }
 
 fn handle_record(
@@ -418,8 +496,6 @@ fn handle_record(
     let config = get_config(input.engine_state, input.stack);
     let span = input.data.span().unwrap_or(input.call.head);
     let styles = &StyleComputer::from_config(input.engine_state, input.stack);
-    let ctrlc = input.engine_state.ctrlc.clone();
-    let ctrlc1 = ctrlc.clone();
 
     if record.is_empty() {
         let value =
@@ -444,7 +520,7 @@ fn handle_record(
     let opts = TableOpts::new(
         &config,
         styles,
-        ctrlc,
+        input.engine_state.signals(),
         span,
         cfg.term_width,
         indent,
@@ -456,7 +532,7 @@ fn handle_record(
 
     let result = match result {
         Some(output) => maybe_strip_color(output, &config),
-        None => report_unsuccessful_output(ctrlc1, cfg.term_width),
+        None => report_unsuccessful_output(input.engine_state.signals(), cfg.term_width),
     };
 
     let val = Value::string(result, span);
@@ -464,8 +540,8 @@ fn handle_record(
     Ok(val.into_pipeline_data())
 }
 
-fn report_unsuccessful_output(ctrlc1: Option<Arc<AtomicBool>>, term_width: usize) -> String {
-    if nu_utils::ctrl_c::was_pressed(&ctrlc1) {
+fn report_unsuccessful_output(signals: &Signals, term_width: usize) -> String {
+    if signals.interrupted() {
         "".into()
     } else {
         // assume this failed because the table was too wide
@@ -526,12 +602,11 @@ fn handle_row_stream(
     stream: ListStream,
     metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
-    let ctrlc = input.engine_state.ctrlc.clone();
-
     let stream = match metadata.as_ref() {
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
+            ..
         }) => {
             let config = get_config(input.engine_state, input.stack);
             let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
@@ -563,6 +638,7 @@ fn handle_row_stream(
         // Next, `to html -l` sources:
         Some(PipelineMetadata {
             data_source: DataSource::HtmlThemes,
+            ..
         }) => {
             stream.map(|mut value| {
                 if let Value::Record { val: record, .. } = &mut value {
@@ -605,10 +681,14 @@ fn handle_row_stream(
         // for the values it outputs. Because engine_state is passed in, config doesn't need to.
         input.engine_state.clone(),
         input.stack.clone(),
-        ctrlc.clone(),
         cfg,
     );
-    let stream = ByteStream::from_result_iter(paginator, input.call.head, None);
+    let stream = ByteStream::from_result_iter(
+        paginator,
+        input.call.head,
+        Signals::empty(),
+        ByteStreamType::String,
+    );
     Ok(PipelineData::ByteStream(stream, None))
 }
 
@@ -641,7 +721,6 @@ struct PagingTableCreator {
     stream: ValueIterator,
     engine_state: EngineState,
     stack: Stack,
-    ctrlc: Option<Arc<AtomicBool>>,
     elements_displayed: usize,
     reached_end: bool,
     cfg: TableConfig,
@@ -654,7 +733,6 @@ impl PagingTableCreator {
         stream: ListStream,
         engine_state: EngineState,
         stack: Stack,
-        ctrlc: Option<Arc<AtomicBool>>,
         cfg: TableConfig,
     ) -> Self {
         PagingTableCreator {
@@ -662,7 +740,6 @@ impl PagingTableCreator {
             stream: stream.into_inner(),
             engine_state,
             stack,
-            ctrlc,
             cfg,
             elements_displayed: 0,
             reached_end: false,
@@ -714,14 +791,14 @@ impl PagingTableCreator {
     }
 
     fn create_table_opts<'a>(
-        &self,
+        &'a self,
         cfg: &'a Config,
         style_comp: &'a StyleComputer<'a>,
     ) -> TableOpts<'a> {
         TableOpts::new(
             cfg,
             style_comp,
-            self.ctrlc.clone(),
+            self.engine_state.signals(),
             self.head,
             self.cfg.term_width,
             (cfg.table_indent.left, cfg.table_indent.right),
@@ -754,12 +831,15 @@ impl Iterator for PagingTableCreator {
         match self.cfg.abbreviation {
             Some(abbr) => {
                 (batch, _, end) =
-                    stream_collect_abbriviated(&mut self.stream, abbr, self.ctrlc.clone());
+                    stream_collect_abbriviated(&mut self.stream, abbr, self.engine_state.signals());
             }
             None => {
                 // Pull from stream until time runs out or we have enough items
-                (batch, end) =
-                    stream_collect(&mut self.stream, STREAM_PAGE_SIZE, self.ctrlc.clone());
+                (batch, end) = stream_collect(
+                    &mut self.stream,
+                    STREAM_PAGE_SIZE,
+                    self.engine_state.signals(),
+                );
             }
         }
 
@@ -793,14 +873,19 @@ impl Iterator for PagingTableCreator {
         self.row_offset += batch_size;
 
         let config = get_config(&self.engine_state, &self.stack);
-        convert_table_to_output(table, &config, &self.ctrlc, self.cfg.term_width)
+        convert_table_to_output(
+            table,
+            &config,
+            self.engine_state.signals(),
+            self.cfg.term_width,
+        )
     }
 }
 
 fn stream_collect(
     stream: impl Iterator<Item = Value>,
     size: usize,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: &Signals,
 ) -> (Vec<Value>, bool) {
     let start_time = Instant::now();
     let mut end = true;
@@ -820,7 +905,7 @@ fn stream_collect(
             break;
         }
 
-        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+        if signals.interrupted() {
             break;
         }
     }
@@ -831,7 +916,7 @@ fn stream_collect(
 fn stream_collect_abbriviated(
     stream: impl Iterator<Item = Value>,
     size: usize,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: &Signals,
 ) -> (Vec<Value>, usize, bool) {
     let mut end = true;
     let mut read = 0;
@@ -854,7 +939,7 @@ fn stream_collect_abbriviated(
             tail.push_back(item);
         }
 
-        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+        if signals.interrupted() {
             end = false;
             break;
         }
@@ -986,7 +1071,7 @@ fn create_empty_placeholder(
 fn convert_table_to_output(
     table: Result<Option<String>, ShellError>,
     config: &Config,
-    ctrlc: &Option<Arc<AtomicBool>>,
+    signals: &Signals,
     term_width: usize,
 ) -> Option<Result<Vec<u8>, ShellError>> {
     match table {
@@ -999,7 +1084,7 @@ fn convert_table_to_output(
             Some(Ok(bytes))
         }
         Ok(None) => {
-            let msg = if nu_utils::ctrl_c::was_pressed(ctrlc) {
+            let msg = if signals.interrupted() {
                 String::from("")
             } else {
                 // assume this failed because the table was too wide

@@ -4,8 +4,8 @@ use crate::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility,
     },
-    BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, ParseWarning, Span,
-    Type, Value, VarId, VirtualPathId,
+    BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError,
+    ParseWarning, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -31,6 +31,7 @@ pub struct StateWorkingSet<'a> {
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
+    pub compile_errors: Vec<CompileError>,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -50,6 +51,7 @@ impl<'a> StateWorkingSet<'a> {
             search_predecls: true,
             parse_errors: vec![],
             parse_warnings: vec![],
+            compile_errors: vec![],
         }
     }
 
@@ -260,6 +262,12 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn add_block(&mut self, block: Arc<Block>) -> BlockId {
+        log::trace!(
+            "block id={} added, has IR = {:?}",
+            self.num_blocks(),
+            block.ir_block.is_some()
+        );
+
         self.delta.blocks.push(block);
 
         self.num_blocks() - 1
@@ -1011,6 +1019,27 @@ impl<'a> StateWorkingSet<'a> {
                 .virtual_paths
                 .get(virtual_path_id - num_permanent_virtual_paths)
                 .expect("internal error: missing virtual path")
+        }
+    }
+
+    pub fn add_span(&mut self, span: Span) -> SpanId {
+        let num_permanent_spans = self.permanent_state.spans.len();
+        self.delta.spans.push(span);
+        SpanId(num_permanent_spans + self.delta.spans.len() - 1)
+    }
+}
+
+impl<'a> GetSpan for &'a StateWorkingSet<'a> {
+    fn get_span(&self, span_id: SpanId) -> Span {
+        let num_permanent_spans = self.permanent_state.num_spans();
+        if span_id.0 < num_permanent_spans {
+            self.permanent_state.get_span(span_id)
+        } else {
+            *self
+                .delta
+                .spans
+                .get(span_id.0 - num_permanent_spans)
+                .expect("internal error: missing span")
         }
     }
 }

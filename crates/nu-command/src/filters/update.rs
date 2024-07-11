@@ -187,7 +187,11 @@ fn update(
                 Ok(pre_elems
                     .into_iter()
                     .chain(stream)
-                    .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+                    .into_pipeline_data_with_metadata(
+                        head,
+                        engine_state.signals().clone(),
+                        metadata,
+                    ))
             } else if let Value::Closure { val, .. } = replacement {
                 let mut closure = ClosureEval::new(engine_state, stack, *val);
                 let stream = stream.map(move |mut value| {
@@ -225,8 +229,8 @@ fn update(
             type_name: "empty pipeline".to_string(),
             span: head,
         }),
-        PipelineData::ByteStream(..) => Err(ShellError::IncompatiblePathAccess {
-            type_name: "byte stream".to_string(),
+        PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
+            type_name: stream.type_().describe().into(),
             span: head,
         }),
     }

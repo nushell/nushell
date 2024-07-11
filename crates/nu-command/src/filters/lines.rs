@@ -26,7 +26,6 @@ impl Command for Lines {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let ctrlc = engine_state.ctrlc.clone();
         let skip_empty = call.has_flag(engine_state, stack, "skip-empty")?;
 
         let span = input.span().unwrap_or(call.head);
@@ -91,7 +90,7 @@ impl Command for Lines {
                             Ok(line) => Value::string(line, head),
                             Err(err) => Value::error(err, head),
                         })
-                        .into_pipeline_data(head, ctrlc))
+                        .into_pipeline_data(head, engine_state.signals().clone()))
                 } else {
                     Ok(PipelineData::empty())
                 }

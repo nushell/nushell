@@ -127,15 +127,18 @@ fn into_binary(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    if let PipelineData::ByteStream(stream, ..) = input {
-        // TODO: in the future, we may want this to stream out, converting each to bytes
-        Ok(Value::binary(stream.into_bytes()?, head).into_pipeline_data())
+    if let PipelineData::ByteStream(stream, metadata) = input {
+        // Just set the type - that should be good enough
+        Ok(PipelineData::ByteStream(
+            stream.with_type(ByteStreamType::Binary),
+            metadata,
+        ))
     } else {
         let args = Arguments {
             cell_paths,
             compact: call.has_flag(engine_state, stack, "compact")?,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, engine_state.signals())
     }
 }
 

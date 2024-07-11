@@ -103,7 +103,7 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
         }
         PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, int".into(),
-            wrong_type: "byte stream".into(),
+            wrong_type: stream.type_().describe().into(),
             dst_span: head,
             src_span: stream.span(),
         }),
@@ -154,7 +154,7 @@ fn record_to_path_member(
     let Some(value) = record.get("value") else {
         return Err(ShellError::CantFindColumn {
             col_name: "value".into(),
-            span: val_span,
+            span: Some(val_span),
             src_span: span,
         });
     };

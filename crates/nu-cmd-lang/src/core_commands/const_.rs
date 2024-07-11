@@ -46,6 +46,9 @@ impl Command for Const {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let var_id = if let Some(id) = call.positional_nth(0).and_then(|pos| pos.as_var()) {
             id
         } else {

@@ -36,6 +36,20 @@ fn fails_on_string() {
 }
 
 #[test]
+fn takes_bytes() {
+    let actual = nu!("(0x[aa bb cc] | take 2) == 0x[aa bb]");
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn takes_bytes_from_stream() {
+    let actual = nu!("(1.. | each { 0x[aa bb cc] } | bytes collect | take 2) == 0x[aa bb]");
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
 // covers a situation where `take` used to behave strangely on list<binary> input
 fn works_with_binary_list() {
     let actual = nu!(r#"

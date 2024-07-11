@@ -9,8 +9,10 @@ pub mod eval_base;
 pub mod eval_const;
 mod example;
 mod id;
+pub mod ir;
 mod lev_distance;
 mod module;
+pub mod parser_path;
 mod pipeline;
 #[cfg(feature = "plugin")]
 mod plugin;
@@ -39,3 +41,5 @@ pub use span::*;
 pub use syntax_shape::*;
 pub use ty::*;
 pub use value::*;
+
+pub use nu_derive_value::*;

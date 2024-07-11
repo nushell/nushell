@@ -1,10 +1,7 @@
 use fancy_regex::{Captures, Regex};
 use nu_engine::command_prelude::*;
-use nu_protocol::ListStream;
-use std::{
-    collections::VecDeque,
-    sync::{atomic::AtomicBool, Arc},
-};
+use nu_protocol::{engine::StateWorkingSet, ListStream, Signals};
+use std::collections::VecDeque;
 
 #[derive(Clone)]
 pub struct Parse;
@@ -99,6 +96,10 @@ impl Command for Parse {
         ]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -106,19 +107,31 @@ impl Command for Parse {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input)
+        let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let regex: bool = call.has_flag(engine_state, stack, "regex")?;
+        operate(engine_state, pattern, regex, call, input)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let pattern: Spanned<String> = call.req_const(working_set, 0)?;
+        let regex: bool = call.has_flag_const(working_set, "regex")?;
+        operate(working_set.permanent(), pattern, regex, call, input)
     }
 }
 
 fn operate(
     engine_state: &EngineState,
-    stack: &mut Stack,
+    pattern: Spanned<String>,
+    regex: bool,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let regex: bool = call.has_flag(engine_state, stack, "regex")?;
 
     let pattern_item = pattern.item;
     let pattern_span = pattern.span;
@@ -147,8 +160,6 @@ fn operate(
         })
         .collect::<Vec<_>>();
 
-    let ctrlc = engine_state.ctrlc.clone();
-
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(value, ..) => match value {
@@ -176,10 +187,10 @@ fn operate(
                     columns,
                     iter,
                     span: head,
-                    ctrlc,
+                    signals: engine_state.signals().clone(),
                 };
 
-                Ok(ListStream::new(iter, head, None).into())
+                Ok(ListStream::new(iter, head, Signals::empty()).into())
             }
             value => Err(ShellError::PipelineMismatch {
                 exp_input_type: "string".into(),
@@ -204,7 +215,7 @@ fn operate(
                     columns,
                     iter,
                     span: head,
-                    ctrlc,
+                    signals: engine_state.signals().clone(),
                 }
             })
             .into()),
@@ -216,10 +227,10 @@ fn operate(
                     columns,
                     iter: lines,
                     span: head,
-                    ctrlc,
+                    signals: engine_state.signals().clone(),
                 };
 
-                Ok(ListStream::new(iter, head, None).into())
+                Ok(ListStream::new(iter, head, Signals::empty()).into())
             } else {
                 Ok(PipelineData::Empty)
             }
@@ -286,7 +297,7 @@ struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
     columns: Vec<String>,
     iter: I,
     span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: Signals,
 }
 
 impl<I: Iterator<Item = Result<String, ShellError>>> ParseIter<I> {
@@ -304,7 +315,7 @@ impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
 
     fn next(&mut self) -> Option<Value> {
         loop {
-            if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            if self.signals.interrupted() {
                 return None;
             }
 

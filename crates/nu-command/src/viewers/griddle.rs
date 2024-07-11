@@ -5,6 +5,7 @@ use nu_engine::{command_prelude::*, env_to_string};
 use nu_protocol::Config;
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
+use std::path::Path;
 use terminal_size::{Height, Width};
 
 #[derive(Clone)]
@@ -67,6 +68,7 @@ prints out the list properly."#
         };
         let use_grid_icons = config.use_grid_icons;
         let use_color: bool = color_param && config.use_ansi_coloring;
+        let cwd = engine_state.cwd(Some(stack))?;
 
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
@@ -81,6 +83,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
+                        cwd.as_ref(),
                     )?)
                 } else {
                     Ok(PipelineData::empty())
@@ -98,6 +101,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
+                        cwd.as_ref(),
                     )?)
                 } else {
                     // dbg!(data);
@@ -120,6 +124,7 @@ prints out the list properly."#
                     separator_param,
                     env_str,
                     use_grid_icons,
+                    cwd.as_ref(),
                 )?)
             }
             x => {
@@ -161,6 +166,7 @@ prints out the list properly."#
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn create_grid_output(
     items: Vec<(usize, String, String)>,
     call: &Call,
@@ -169,6 +175,7 @@ fn create_grid_output(
     separator_param: Option<String>,
     env_str: Option<String>,
     use_grid_icons: bool,
+    cwd: &Path,
 ) -> Result<PipelineData, ShellError> {
     let ls_colors = get_ls_colors(env_str);
 
@@ -196,8 +203,8 @@ fn create_grid_output(
             if use_color {
                 if use_grid_icons {
                     let no_ansi = nu_utils::strip_ansi_unlikely(&value);
-                    let path = std::path::Path::new(no_ansi.as_ref());
-                    let icon = icon_for_file(path, call.head)?;
+                    let path = cwd.join(no_ansi.as_ref());
+                    let icon = icon_for_file(&path, call.head)?;
                     let ls_colors_style = ls_colors.style_for_path(path);
 
                     let icon_style = match ls_colors_style {
