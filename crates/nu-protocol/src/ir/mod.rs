@@ -276,6 +276,63 @@ impl Instruction {
         }
     }
 
+    /// Get the output register, for instructions that produce some kind of immediate result.
+    pub fn output_register(&self) -> Option<RegId> {
+        match *self {
+            Instruction::Unreachable => None,
+            Instruction::LoadLiteral { dst, .. } => Some(dst),
+            Instruction::LoadValue { dst, .. } => Some(dst),
+            Instruction::Move { dst, .. } => Some(dst),
+            Instruction::Clone { dst, .. } => Some(dst),
+            Instruction::Collect { src_dst } => Some(src_dst),
+            Instruction::Span { src_dst } => Some(src_dst),
+            Instruction::Drop { .. } => None,
+            Instruction::Drain { .. } => None,
+            Instruction::LoadVariable { dst, .. } => Some(dst),
+            Instruction::StoreVariable { .. } => None,
+            Instruction::LoadEnv { dst, .. } => Some(dst),
+            Instruction::LoadEnvOpt { dst, .. } => Some(dst),
+            Instruction::StoreEnv { .. } => None,
+            Instruction::PushPositional { .. } => None,
+            Instruction::AppendRest { .. } => None,
+            Instruction::PushFlag { .. } => None,
+            Instruction::PushShortFlag { .. } => None,
+            Instruction::PushNamed { .. } => None,
+            Instruction::PushShortNamed { .. } => None,
+            Instruction::PushParserInfo { .. } => None,
+            Instruction::RedirectOut { .. } => None,
+            Instruction::RedirectErr { .. } => None,
+            Instruction::CheckErrRedirected { .. } => None,
+            Instruction::OpenFile { .. } => None,
+            Instruction::WriteFile { .. } => None,
+            Instruction::CloseFile { .. } => None,
+            Instruction::Call { src_dst, .. } => Some(src_dst),
+            Instruction::StringAppend { src_dst, .. } => Some(src_dst),
+            Instruction::GlobFrom { src_dst, .. } => Some(src_dst),
+            Instruction::ListPush { src_dst, .. } => Some(src_dst),
+            Instruction::ListSpread { src_dst, .. } => Some(src_dst),
+            Instruction::RecordInsert { src_dst, .. } => Some(src_dst),
+            Instruction::RecordSpread { src_dst, .. } => Some(src_dst),
+            Instruction::Not { src_dst } => Some(src_dst),
+            Instruction::BinaryOp { lhs_dst, .. } => Some(lhs_dst),
+            Instruction::FollowCellPath { src_dst, .. } => Some(src_dst),
+            Instruction::CloneCellPath { dst, .. } => Some(dst),
+            Instruction::UpsertCellPath { src_dst, .. } => Some(src_dst),
+            Instruction::Jump { .. } => None,
+            Instruction::BranchIf { .. } => None,
+            Instruction::BranchIfEmpty { .. } => None,
+            Instruction::Match { .. } => None,
+            Instruction::CheckMatchGuard { .. } => None,
+            Instruction::Iterate { dst, .. } => Some(dst),
+            Instruction::OnError { .. } => None,
+            Instruction::OnErrorInto { .. } => None,
+            Instruction::PopErrorHandler => None,
+            Instruction::CheckExternalFailed { dst, .. } => Some(dst),
+            Instruction::ReturnEarly { .. } => None,
+            Instruction::Return { .. } => None,
+        }
+    }
+
     /// Returns the branch target index of the instruction if this is a branching instruction.
     pub fn branch_target(&self) -> Option<usize> {
         match self {
