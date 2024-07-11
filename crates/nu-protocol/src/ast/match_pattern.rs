@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchPattern {
     pub pattern: Pattern,
-    pub guard: Option<Expression>,
+    pub guard: Option<Box<Expression>>,
     pub span: Span,
 }
 
@@ -19,7 +19,9 @@ impl MatchPattern {
 pub enum Pattern {
     Record(Vec<(String, MatchPattern)>),
     List(Vec<MatchPattern>),
-    Value(Expression),
+    // TODO: it would be nice if this didn't depend on AST
+    // maybe const evaluation can get us to a Value instead?
+    Value(Box<Expression>),
     Variable(VarId),
     Or(Vec<MatchPattern>),
     Rest(VarId), // the ..$foo pattern

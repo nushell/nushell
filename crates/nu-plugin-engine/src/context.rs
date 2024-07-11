@@ -1,8 +1,7 @@
 use crate::util::MutableCow;
 use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce};
 use nu_protocol::{
-    ast::Call,
-    engine::{Closure, EngineState, Redirection, Stack},
+    engine::{Call, Closure, EngineState, Redirection, Stack},
     Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Signals, Span, Spanned,
     Value,
 };
@@ -54,7 +53,7 @@ pub struct PluginExecutionCommandContext<'a> {
     identity: Arc<PluginIdentity>,
     engine_state: Cow<'a, EngineState>,
     stack: MutableCow<'a, Stack>,
-    call: Cow<'a, Call>,
+    call: Call<'a>,
 }
 
 impl<'a> PluginExecutionCommandContext<'a> {
@@ -62,13 +61,13 @@ impl<'a> PluginExecutionCommandContext<'a> {
         identity: Arc<PluginIdentity>,
         engine_state: &'a EngineState,
         stack: &'a mut Stack,
-        call: &'a Call,
+        call: &'a Call<'a>,
     ) -> PluginExecutionCommandContext<'a> {
         PluginExecutionCommandContext {
             identity,
             engine_state: Cow::Borrowed(engine_state),
             stack: MutableCow::Borrowed(stack),
-            call: Cow::Borrowed(call),
+            call: call.clone(),
         }
     }
 }
@@ -217,7 +216,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             identity: self.identity.clone(),
             engine_state: Cow::Owned(self.engine_state.clone().into_owned()),
             stack: self.stack.owned(),
-            call: Cow::Owned(self.call.clone().into_owned()),
+            call: self.call.to_owned(),
         })
     }
 }

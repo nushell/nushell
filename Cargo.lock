@@ -2900,6 +2900,7 @@ dependencies = [
  "openssl",
  "pretty_assertions",
  "reedline",
+ "regex",
  "rstest",
  "serde_json",
  "serial_test",
@@ -3151,6 +3152,7 @@ dependencies = [
 name = "nu-engine"
 version = "0.95.1"
 dependencies = [
+ "log",
  "nu-glob",
  "nu-path",
  "nu-protocol",
@@ -3341,6 +3343,7 @@ dependencies = [
  "convert_case",
  "fancy-regex",
  "indexmap",
+ "log",
  "lru",
  "miette",
  "nix",
