@@ -10,7 +10,7 @@ impl Command for ViewIr {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new(self.name())
+        Signature::build(self.name())
             .required(
                 "closure",
                 SyntaxShape::Closure(None),
@@ -22,6 +22,7 @@ impl Command for ViewIr {
                 Some('j'),
             )
             .input_output_type(Type::Nothing, Type::String)
+            .category(Category::Debug)
     }
 
     fn usage(&self) -> &str {
