@@ -367,7 +367,11 @@ fn eval_instruction<D: DebugContext>(
             let key = get_env_var_name_case_insensitive(ctx, key);
 
             if !is_automatic_env_var(&key) {
+                let is_config = key == "config";
                 ctx.stack.add_env_var(key.into_owned(), value);
+                if is_config {
+                    ctx.stack.update_config(ctx.engine_state)?;
+                }
                 Ok(Continue)
             } else {
                 Err(ShellError::AutomaticEnvVarSetManually {
