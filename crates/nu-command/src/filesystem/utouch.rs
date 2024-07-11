@@ -5,13 +5,16 @@ use chrono::{DateTime, FixedOffset};
 use filetime::FileTime;
 
 use nu_engine::CallExt;
+use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Category, Example, NuGlob, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use uu_touch::error::TouchError;
 use uu_touch::{ChangeTimes, InputFile, Options, Source};
+
+use super::util::get_rest_for_glob_pattern;
 
 #[derive(Clone)]
 pub struct UTouch;
@@ -28,21 +31,21 @@ impl Command for UTouch {
     fn signature(&self) -> Signature {
         Signature::build("utouch")
             .input_output_types(vec![ (Type::Nothing, Type::Nothing) ])
-            .required(
-                "filename",
-                SyntaxShape::Filepath,
-                "The path of the file you want to create.",
+            .rest(
+                "files",
+                SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Filepath]),
+                "The file(s) to create."
             )
             .named(
                 "reference",
                 SyntaxShape::Filepath,
-                "change the file or directory time to the time of the reference file/directory",
+                "use the access and modification times of the reference file/directory instead of the current time",
                 Some('r'),
             )
             .named(
                 "timestamp",
                 SyntaxShape::DateTime,
-                "use the given time instead of the current time",
+                "use the given timestamp instead of the current time",
                 Some('t')
             )
             .named(
@@ -53,12 +56,12 @@ impl Command for UTouch {
             )
             .switch(
                 "modified",
-                "change the modification time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
+                "change only the modification time (if used with -a, access time is changed too)",
                 Some('m'),
             )
             .switch(
                 "access",
-                "change the access time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
+                "change only the access time (if used with -m, modification time is changed too)",
                 Some('a'),
             )
             .switch(
@@ -90,8 +93,16 @@ impl Command for UTouch {
         let change_atime: bool = call.has_flag(engine_state, stack, "access")?;
         let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
         let no_deref: bool = call.has_flag(engine_state, stack, "no-dereference")?;
-        let target: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 1)?;
+        let file_globs: Vec<Spanned<NuGlob>> =
+            get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
+        let cwd = engine_state.cwd(Some(stack))?;
+
+        if file_globs.is_empty() {
+            return Err(ShellError::MissingParameter {
+                param_name: "requires file paths".to_string(),
+                span: call.head,
+            });
+        }
 
         let (reference_file, reference_span) = if let Some(reference) =
             call.get_flag::<Spanned<PathBuf>>(engine_state, stack, "reference")?
@@ -144,15 +155,14 @@ impl Command for UTouch {
             ChangeTimes::Both
         };
 
-        let mut files = vec![InputFile::Path(PathBuf::from(target.item))];
-        let mut file_spans = vec![target.span];
-        for file in rest {
-            files.push(InputFile::Path(PathBuf::from(file.item)));
-            file_spans.push(file.span);
+        let mut input_files = Vec::new();
+        for file_glob in &file_globs {
+            let path = expand_path_with(file_glob.item.as_ref(), &cwd, file_glob.item.is_expand());
+            input_files.push(InputFile::Path(path));
         }
 
         if let Err(err) = uu_touch::touch(
-            &files,
+            &input_files,
             &Options {
                 no_create,
                 no_deref,
@@ -163,13 +173,21 @@ impl Command for UTouch {
             },
         ) {
             let nu_err = match err {
+                TouchError::TouchFileError { path, index, error } => ShellError::GenericError {
+                    error: format!("Could not touch {}", path.display()),
+                    msg: error.to_string(),
+                    span: Some(file_globs[index].span),
+                    help: None,
+                    inner: Vec::new(),
+                },
                 TouchError::InvalidDateFormat(date) => ShellError::IncorrectValue {
                     msg: format!("Invalid date: {}", date),
-                    val_span: date_span.expect("utouch was given a date"),
+                    val_span: date_span.expect("utouch should've been given a date"),
                     call_span: call.head,
                 },
                 TouchError::ReferenceFileInaccessible(reference_path, io_err) => {
-                    let span = reference_span.expect("utouch was given a reference file");
+                    let span =
+                        reference_span.expect("utouch should've been given a reference file");
                     if io_err.kind() == ErrorKind::NotFound {
                         // todo merge main into this to say which file not found
                         ShellError::FileNotFound {
@@ -177,11 +195,13 @@ impl Command for UTouch {
                             file: reference_path.display().to_string(),
                         }
                     } else {
-                        io_to_nu_err(
-                            io_err,
-                            format!("Failed to read metadata of {}", reference_path.display()),
-                            span,
-                        )
+                        ShellError::GenericError {
+                            error: io_err.to_string(),
+                            msg: format!("Failed to read metadata of {}", reference_path.display()),
+                            span: Some(span),
+                            help: None,
+                            inner: Vec::new(),
+                        }
                     }
                 }
                 _ => ShellError::GenericError {
@@ -231,15 +251,5 @@ impl Command for UTouch {
                 result: None,
             },
         ]
-    }
-}
-
-fn io_to_nu_err(err: std::io::Error, msg: String, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: err.to_string(),
-        msg,
-        span: Some(span),
-        help: None,
-        inner: Vec::new(),
     }
 }
