@@ -78,6 +78,19 @@ impl Block {
             Type::Nothing
         }
     }
+
+    /// Replace any `$in` variables in the initial element of pipelines within the block
+    pub fn replace_in_variable(
+        &mut self,
+        working_set: &mut StateWorkingSet<'_>,
+        new_var_id: usize,
+    ) {
+        for pipeline in self.pipelines.iter_mut() {
+            if let Some(element) = pipeline.elements.first_mut() {
+                element.replace_in_variable(working_set, new_var_id);
+            }
+        }
+    }
 }
 
 impl<T> From<T> for Block

@@ -6308,7 +6308,12 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
     if let Some(decl_id) = working_set.find_decl(b"collect") {
         let mut output = vec![];
 
-        let var_id = IN_VARIABLE_ID;
+        // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
+        // execute as a closure
+        let var_id = working_set.add_variable(b"$in".into(), expr.span, Type::Any, false);
+        let mut expr = expr.clone();
+        expr.replace_in_variable(working_set, var_id);
+
         let mut signature = Signature::new("");
         signature.required_positional.push(PositionalArg {
             var_id: Some(var_id),

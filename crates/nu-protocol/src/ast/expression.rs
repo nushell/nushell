@@ -6,6 +6,8 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use super::ListItem;
+
 /// Wrapper around [`Expr`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
@@ -106,38 +108,9 @@ impl Expression {
                 left.has_in_variable(working_set) || right.has_in_variable(working_set)
             }
             Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
-            Expr::Block(block_id) => {
-                let block = working_set.get_block(*block_id);
-
-                if block.captures.contains(&IN_VARIABLE_ID) {
-                    return true;
-                }
-
-                if let Some(pipeline) = block.pipelines.first() {
-                    match pipeline.elements.first() {
-                        Some(element) => element.has_in_variable(working_set),
-                        None => false,
-                    }
-                } else {
-                    false
-                }
-            }
-            Expr::Closure(block_id) => {
-                let block = working_set.get_block(*block_id);
-
-                if block.captures.contains(&IN_VARIABLE_ID) {
-                    return true;
-                }
-
-                if let Some(pipeline) = block.pipelines.first() {
-                    match pipeline.elements.first() {
-                        Some(element) => element.has_in_variable(working_set),
-                        None => false,
-                    }
-                } else {
-                    false
-                }
-            }
+            // The $in variable in blocks and closures is local, as they have their own input
+            Expr::Block(_) => false,
+            Expr::Closure(_) => false,
             Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
@@ -440,6 +413,126 @@ impl Expression {
             Expr::ValueWithUnit(value) => value.expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
+        }
+    }
+
+    pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
+        match &mut self.expr {
+            Expr::Bool(_) => {}
+            Expr::Int(_) => {}
+            Expr::Float(_) => {}
+            Expr::Binary(_) => {}
+            Expr::Range(_) => {}
+            Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+                if *var_id == IN_VARIABLE_ID {
+                    *var_id = new_var_id;
+                }
+            }
+            Expr::Call(call) => {
+                for arg in call.arguments.iter_mut() {
+                    match arg {
+                        Argument::Positional(expr)
+                        | Argument::Unknown(expr)
+                        | Argument::Named((_, _, Some(expr)))
+                        | Argument::Spread(expr) => {
+                            expr.replace_in_variable(working_set, new_var_id)
+                        }
+                        Argument::Named((_, _, None)) => {}
+                    }
+                }
+                for expr in call.parser_info.values_mut() {
+                    expr.replace_in_variable(working_set, new_var_id)
+                }
+            }
+            Expr::ExternalCall(head, args) => {
+                head.replace_in_variable(working_set, new_var_id);
+                for arg in args.iter_mut() {
+                    match arg {
+                        ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
+                            expr.replace_in_variable(working_set, new_var_id)
+                        }
+                    }
+                }
+            }
+            Expr::Operator(_) => {}
+            // These have their own input
+            Expr::Block(_) | Expr::Closure(_) => {}
+            Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
+                let mut block = Block::clone(working_set.get_block(*block_id));
+                block.replace_in_variable(working_set, new_var_id);
+                *working_set.get_block_mut(*block_id) = block;
+            }
+            Expr::UnaryNot(expr) => {
+                expr.replace_in_variable(working_set, new_var_id);
+            }
+            Expr::BinaryOp(lhs, op, rhs) => {
+                for expr in [lhs, op, rhs] {
+                    expr.replace_in_variable(working_set, new_var_id);
+                }
+            }
+            Expr::MatchBlock(match_patterns) => {
+                for (_, expr) in match_patterns.iter_mut() {
+                    expr.replace_in_variable(working_set, new_var_id);
+                }
+            }
+            Expr::List(items) => {
+                for item in items.iter_mut() {
+                    match item {
+                        ListItem::Item(expr) | ListItem::Spread(_, expr) => {
+                            expr.replace_in_variable(working_set, new_var_id)
+                        }
+                    }
+                }
+            }
+            Expr::Table(table) => {
+                for col_expr in table.columns.iter_mut() {
+                    col_expr.replace_in_variable(working_set, new_var_id);
+                }
+                for row in table.rows.iter_mut() {
+                    for row_expr in row.iter_mut() {
+                        row_expr.replace_in_variable(working_set, new_var_id);
+                    }
+                }
+            }
+            Expr::Record(items) => {
+                for item in items.iter_mut() {
+                    match item {
+                        RecordItem::Pair(key, val) => {
+                            key.replace_in_variable(working_set, new_var_id);
+                            val.replace_in_variable(working_set, new_var_id);
+                        }
+                        RecordItem::Spread(_, expr) => {
+                            expr.replace_in_variable(working_set, new_var_id)
+                        }
+                    }
+                }
+            }
+            Expr::Keyword(kw) => kw.expr.replace_in_variable(working_set, new_var_id),
+            Expr::ValueWithUnit(value_with_unit) => value_with_unit
+                .expr
+                .replace_in_variable(working_set, new_var_id),
+            Expr::DateTime(_) => {}
+            Expr::Filepath(_, _) => {}
+            Expr::Directory(_, _) => {}
+            Expr::GlobPattern(_, _) => {}
+            Expr::String(_) => {}
+            Expr::RawString(_) => {}
+            Expr::CellPath(_) => {}
+            Expr::FullCellPath(full_cell_path) => {
+                full_cell_path
+                    .head
+                    .replace_in_variable(working_set, new_var_id);
+            }
+            Expr::ImportPattern(_) => {}
+            Expr::Overlay(_) => {}
+            Expr::Signature(_) => {}
+            Expr::StringInterpolation(exprs) | Expr::GlobInterpolation(exprs, _) => {
+                for expr in exprs.iter_mut() {
+                    expr.replace_in_variable(working_set, new_var_id);
+                }
+            }
+            Expr::Nothing => {}
+            Expr::Garbage => {}
         }
     }
 
