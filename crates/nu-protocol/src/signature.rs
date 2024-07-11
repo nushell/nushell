@@ -486,15 +486,14 @@ impl Signature {
         (name, s)
     }
 
-    pub fn get_positional(&self, position: usize) -> Option<PositionalArg> {
+    pub fn get_positional(&self, position: usize) -> Option<&PositionalArg> {
         if position < self.required_positional.len() {
-            self.required_positional.get(position).cloned()
+            self.required_positional.get(position)
         } else if position < (self.required_positional.len() + self.optional_positional.len()) {
             self.optional_positional
                 .get(position - self.required_positional.len())
-                .cloned()
         } else {
-            self.rest_positional.clone()
+            self.rest_positional.as_ref()
         }
     }
 
