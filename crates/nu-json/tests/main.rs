@@ -1,7 +1,5 @@
-// FIXME: re-enable tests
-/*
-use nu_json::Value;
 use fancy_regex::Regex;
+use nu_json::Value;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -21,15 +19,7 @@ fn txt(text: &str) -> String {
 }
 
 fn hjson_expectations() -> PathBuf {
-    let assets = nu_test_support::fs::assets().join("nu_json");
-
-    nu_path::canonicalize(assets.clone()).unwrap_or_else(|e| {
-        panic!(
-            "Couldn't canonicalize hjson assets path {}: {:?}",
-            assets.display(),
-            e
-        )
-    })
+    nu_test_support::fs::assets().join("nu_json")
 }
 
 fn get_test_content(name: &str) -> io::Result<String> {
@@ -73,7 +63,8 @@ macro_rules! run_test {
             let actual_hjson = txt(&actual_hjson);
             let actual_json = $fix(serde_json::to_string_pretty(&udata).unwrap());
             let actual_json = txt(&actual_json);
-            if rhjson != actual_hjson {
+            // nu_json::to_string now outputs json instead of hjson!
+            if rjson != actual_hjson {
                 println!(
                     "{:?}\n---hjson expected\n{}\n---hjson actual\n{}\n---\n",
                     name, rhjson, actual_hjson
@@ -85,7 +76,7 @@ macro_rules! run_test {
                     name, rjson, actual_json
                 );
             }
-            assert!(rhjson == actual_hjson && rjson == actual_json);
+            assert!(rjson == actual_hjson && rjson == actual_json);
         }
     }};
 }
@@ -208,5 +199,3 @@ fn test_hjson() {
         panic!();
     }
 }
-
-*/
