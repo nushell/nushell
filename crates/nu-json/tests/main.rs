@@ -9,7 +9,7 @@ fn txt(text: &str) -> String {
 
     #[cfg(windows)]
     {
-        out.replace("\r\n", "").replace("\n", "")
+        out.replace("\r\n", "").replace('\n', "")
     }
 
     #[cfg(not(windows))]
@@ -40,7 +40,7 @@ fn get_result_content(name: &str) -> io::Result<(String, String)> {
     let p1 = format!("{}/{}_result.json", expectations.display(), name);
     let p2 = format!("{}/{}_result.hjson", expectations.display(), name);
 
-    Ok((fs::read_to_string(&p1)?, fs::read_to_string(&p2)?))
+    Ok((fs::read_to_string(p1)?, fs::read_to_string(p2)?))
 }
 
 macro_rules! run_test {
@@ -189,7 +189,7 @@ fn test_hjson() {
 
     let missing = all
         .into_iter()
-        .filter(|x| done.iter().find(|y| &x == y) == None)
+        .filter(|x| !done.iter().any(|y| x == y))
         .collect::<Vec<String>>();
 
     if !missing.is_empty() {
