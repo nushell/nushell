@@ -9,6 +9,7 @@ use crate::{
     ast::ImportPattern, engine::StateWorkingSet, BlockId, OutDest, Signature, Span, VarId,
 };
 
+/// An [`Expression`] AST node
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
     Bool(bool),
@@ -127,6 +128,7 @@ impl Expr {
     }
 }
 
+/// Expressions permitted inside a record expression/literal
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RecordItem {
     /// A key: val mapping
@@ -135,6 +137,7 @@ pub enum RecordItem {
     Spread(Span, Expression),
 }
 
+/// Expressions permitted inside a list expression/literal
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ListItem {
     /// A normal expression

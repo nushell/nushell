@@ -1,3 +1,4 @@
+//! Module managing the streaming of raw bytes between pipeline elements
 use crate::{
     process::{ChildPipe, ChildProcess, ExitStatus},
     ErrSpan, IntoSpanned, OutDest, PipelineData, ShellError, Signals, Span, Type, Value,

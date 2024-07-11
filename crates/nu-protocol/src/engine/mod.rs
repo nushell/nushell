@@ -1,3 +1,4 @@
+//! Representation of the engine state and many of the details that implement the scoping
 mod argument;
 mod cached_file;
 mod call;

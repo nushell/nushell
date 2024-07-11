@@ -5,6 +5,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
+/// The signature definition of a named flag that either accepts a value or acts as a toggle flag
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Flag {
     pub long: String,
@@ -18,6 +19,7 @@ pub struct Flag {
     pub default_value: Option<Value>,
 }
 
+/// The signature definition for a positional argument
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PositionalArg {
     pub name: String,
@@ -29,6 +31,7 @@ pub struct PositionalArg {
     pub default_value: Option<Value>,
 }
 
+/// Command categories
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Category {
     Bits,
@@ -102,6 +105,7 @@ impl std::fmt::Display for Category {
     }
 }
 
+/// Signature information of a [`Command`]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Signature {
     pub name: String,

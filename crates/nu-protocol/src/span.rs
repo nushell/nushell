@@ -1,3 +1,4 @@
+//! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
 use crate::SpanId;
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
