@@ -304,7 +304,7 @@ impl EngineState {
         let mut config_updated = false;
 
         for mut scope in stack.env_vars.drain(..) {
-            for (overlay_name, mut env) in scope.drain() {
+            for (overlay_name, mut env) in Arc::make_mut(&mut scope).drain() {
                 if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
                     // Updating existing overlay
                     for (k, v) in env.drain() {

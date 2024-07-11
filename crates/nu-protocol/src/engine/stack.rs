@@ -36,9 +36,9 @@ pub struct Stack {
     /// Variables
     pub vars: Vec<(VarId, Value)>,
     /// Environment variables arranged as a stack to be able to recover values from parent scopes
-    pub env_vars: Vec<EnvVars>,
+    pub env_vars: Vec<Arc<EnvVars>>,
     /// Tells which environment variables from engine state are hidden, per overlay.
-    pub env_hidden: HashMap<String, HashSet<String>>,
+    pub env_hidden: Arc<HashMap<String, HashSet<String>>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
     /// Argument stack for IR evaluation
@@ -72,7 +72,7 @@ impl Stack {
         Self {
             vars: Vec::new(),
             env_vars: Vec::new(),
-            env_hidden: HashMap::new(),
+            env_hidden: Arc::new(HashMap::new()),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
@@ -131,8 +131,8 @@ impl Stack {
 
     pub fn with_env(
         &mut self,
-        env_vars: &[EnvVars],
-        env_hidden: &HashMap<String, HashSet<String>>,
+        env_vars: &[Arc<EnvVars>],
+        env_hidden: &Arc<HashMap<String, HashSet<String>>>,
     ) {
         // Do not clone the environment if it hasn't changed
         if self.env_vars.iter().any(|scope| !scope.is_empty()) {
@@ -219,23 +219,24 @@ impl Stack {
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
         if let Some(last_overlay) = self.active_overlays.last() {
-            if let Some(env_hidden) = self.env_hidden.get_mut(last_overlay) {
+            if let Some(env_hidden) = Arc::make_mut(&mut self.env_hidden).get_mut(last_overlay) {
                 // if the env var was hidden, let's activate it again
                 env_hidden.remove(&var);
             }
 
             if let Some(scope) = self.env_vars.last_mut() {
+                let scope = Arc::make_mut(scope);
                 if let Some(env_vars) = scope.get_mut(last_overlay) {
                     env_vars.insert(var, value);
                 } else {
                     scope.insert(last_overlay.into(), [(var, value)].into_iter().collect());
                 }
             } else {
-                self.env_vars.push(
+                self.env_vars.push(Arc::new(
                     [(last_overlay.into(), [(var, value)].into_iter().collect())]
                         .into_iter()
                         .collect(),
-                );
+                ));
             }
         } else {
             // TODO: Remove panic
@@ -257,9 +258,8 @@ impl Stack {
     }
 
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
-        // FIXME: this is probably slow
         let mut env_vars = self.env_vars.clone();
-        env_vars.push(HashMap::new());
+        env_vars.push(Arc::new(HashMap::new()));
 
         Stack {
             vars: captures,
@@ -292,7 +292,7 @@ impl Stack {
         }
 
         let mut env_vars = self.env_vars.clone();
-        env_vars.push(HashMap::new());
+        env_vars.push(Arc::new(HashMap::new()));
 
         Stack {
             vars,
@@ -462,6 +462,7 @@ impl Stack {
 
     pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
         for scope in self.env_vars.iter_mut().rev() {
+            let scope = Arc::make_mut(scope);
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get_mut(active_overlay) {
                     if env_vars.remove(name).is_some() {
@@ -474,10 +475,11 @@ impl Stack {
         for active_overlay in self.active_overlays.iter().rev() {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
                 if env_vars.get(name).is_some() {
-                    if let Some(env_hidden) = self.env_hidden.get_mut(active_overlay) {
-                        env_hidden.insert(name.into());
+                    let env_hidden = Arc::make_mut(&mut self.env_hidden);
+                    if let Some(env_hidden_in_overlay) = env_hidden.get_mut(active_overlay) {
+                        env_hidden_in_overlay.insert(name.into());
                     } else {
-                        self.env_hidden
+                        env_hidden
                             .insert(active_overlay.into(), [name.into()].into_iter().collect());
                     }
 
