@@ -262,7 +262,7 @@ impl Stack {
     }
 
     pub fn gather_captures(&self, engine_state: &EngineState, captures: &[VarId]) -> Stack {
-        let mut vars = vec![];
+        let mut vars = Vec::with_capacity(captures.len());
 
         let fake_span = Span::new(0, 0);
 
