@@ -434,9 +434,7 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
 
             let min_width_use = get_total_width2(&headers_widths, cfg);
 
-            // safe to assume cause width was estimated in such a way.
-            debug_assert!(self.width_max >= min_width_use);
-            let mut free_width = self.width_max - min_width_use;
+            let mut free_width = self.width_max.saturating_sub(min_width_use);
 
             for (i, head_width) in headers_widths.into_iter().enumerate() {
                 let head_width = head_width - self.pad;
