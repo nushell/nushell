@@ -1275,7 +1275,7 @@ fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> 
         .env_vars
         .iter()
         .rev()
-        .chain(std::iter::once(ctx.engine_state.env_vars.as_ref()))
+        .chain(std::iter::once(&ctx.engine_state.env_vars))
         .flat_map(|overlays| {
             // Read overlays in order
             ctx.stack
@@ -1303,7 +1303,7 @@ fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str
         .env_vars
         .iter()
         .rev()
-        .chain(std::iter::once(ctx.engine_state.env_vars.as_ref()))
+        .chain(std::iter::once(&ctx.engine_state.env_vars))
         .flat_map(|overlays| {
             // Read overlays in order
             ctx.stack
