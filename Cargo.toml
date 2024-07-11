@@ -164,7 +164,7 @@ trash = "3.3"
 umask = "2.1"
 unicode-segmentation = "1.11"
 unicode-width = "0.1"
-ureq = { version = "2.9", default-features = false }
+ureq = { version = "2.10", default-features = false }
 url = "2.2"
 uu_cp = "0.0.27"
 uu_mkdir = "0.0.27"
