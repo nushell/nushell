@@ -255,7 +255,8 @@ fn draw_table(
     align_table(&mut table, alignments, with_index, with_header, with_footer);
     colorize_table(&mut table, styles, with_index, with_header, with_footer);
 
-    let width_ctrl = TableWidthCtrl::new(widths, cfg, termwidth);
+    let pad = indent.0 + indent.1;
+    let width_ctrl = TableWidthCtrl::new(widths, cfg, termwidth, pad);
 
     if with_header && border_header {
         set_border_head(&mut table, with_footer, width_ctrl);
@@ -336,12 +337,18 @@ fn table_to_string(table: Table, termwidth: usize) -> Option<String> {
 struct TableWidthCtrl {
     width: Vec<usize>,
     cfg: NuTableConfig,
-    max: usize,
+    width_max: usize,
+    pad: usize,
 }
 
 impl TableWidthCtrl {
-    fn new(width: Vec<usize>, cfg: NuTableConfig, max: usize) -> Self {
-        Self { width, cfg, max }
+    fn new(width: Vec<usize>, cfg: NuTableConfig, max: usize, pad: usize) -> Self {
+        Self {
+            width,
+            cfg,
+            width_max: max,
+            pad,
+        }
     }
 }
 
@@ -354,19 +361,20 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
     ) {
         let total_width = get_total_width2(&self.width, cfg);
 
-        if total_width > self.max {
+        if total_width > self.width_max {
             let has_header = self.cfg.with_header && rec.count_rows() > 1;
             let trim_as_head = has_header && self.cfg.header_on_border;
 
-            TableTrim {
-                max: self.max,
-                strategy: self.cfg.trim,
-                width: self.width,
+            TableTrim::new(
+                self.width,
+                self.width_max,
+                self.cfg.trim,
                 trim_as_head,
-            }
+                self.pad,
+            )
             .change(rec, cfg, dim);
-        } else if self.cfg.expand && self.max > total_width {
-            Settings::new(SetDimensions(self.width), Width::increase(self.max))
+        } else if self.cfg.expand && self.width_max > total_width {
+            Settings::new(SetDimensions(self.width), Width::increase(self.width_max))
                 .change(rec, cfg, dim)
         } else {
             SetDimensions(self.width).change(rec, cfg, dim);
@@ -376,9 +384,28 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
 
 struct TableTrim {
     width: Vec<usize>,
+    width_max: usize,
     strategy: TrimStrategy,
-    max: usize,
     trim_as_head: bool,
+    pad: usize,
+}
+
+impl TableTrim {
+    fn new(
+        width: Vec<usize>,
+        width_max: usize,
+        strategy: TrimStrategy,
+        trim_as_head: bool,
+        pad: usize,
+    ) -> Self {
+        Self {
+            width,
+            strategy,
+            pad,
+            width_max,
+            trim_as_head,
+        }
+    }
 }
 
 impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for TableTrim {
@@ -395,13 +422,39 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
                 return;
             }
 
+            // even though it's safe to trim columns by header there might be left unused space
+            // so we do use it if possible prioritizing left columns
+
             let headers = recs[0].to_owned();
-            for (i, head) in headers.into_iter().enumerate() {
-                let head_width = CellInfo::width(&head);
+            let headers_widths = headers
+                .iter()
+                .map(CellInfo::width)
+                .map(|v| v + self.pad)
+                .collect::<Vec<_>>();
+
+            let min_width_use = get_total_width2(&headers_widths, cfg);
+
+            // safe to assume cause width was estimated in such a way.
+            debug_assert!(self.width_max >= min_width_use);
+            let mut free_width = self.width_max - min_width_use;
+
+            for (i, head_width) in headers_widths.into_iter().enumerate() {
+                let head_width = head_width - self.pad;
+                let column_width = self.width[i] - self.pad; // safe to assume width is bigger then paddding
+
+                let mut use_width = head_width;
+                if free_width > 0 {
+                    // it's safe to assume that column_width is always bigger or equal to head_width
+                    debug_assert!(column_width >= head_width);
+
+                    let additional_width = min(free_width, column_width - head_width);
+                    free_width -= additional_width;
+                    use_width += additional_width;
+                }
 
                 match &self.strategy {
                     TrimStrategy::Wrap { try_to_keep_words } => {
-                        let mut wrap = Width::wrap(head_width);
+                        let mut wrap = Width::wrap(use_width);
                         if *try_to_keep_words {
                             wrap = wrap.keep_words();
                         }
@@ -411,7 +464,7 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
                             .change(recs, cfg, dims);
                     }
                     TrimStrategy::Truncate { suffix } => {
-                        let mut truncate = Width::truncate(self.max);
+                        let mut truncate = Width::truncate(use_width);
                         if let Some(suffix) = suffix {
                             truncate = truncate.suffix(suffix).suffix_try_color(true);
                         }
@@ -428,7 +481,7 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
 
         match self.strategy {
             TrimStrategy::Wrap { try_to_keep_words } => {
-                let mut wrap = Width::wrap(self.max).priority::<PriorityMax>();
+                let mut wrap = Width::wrap(self.width_max).priority::<PriorityMax>();
                 if try_to_keep_words {
                     wrap = wrap.keep_words();
                 }
@@ -436,7 +489,7 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
                 Settings::new(SetDimensions(self.width), wrap).change(recs, cfg, dims);
             }
             TrimStrategy::Truncate { suffix } => {
-                let mut truncate = Width::truncate(self.max).priority::<PriorityMax>();
+                let mut truncate = Width::truncate(self.width_max).priority::<PriorityMax>();
                 if let Some(suffix) = suffix {
                     truncate = truncate.suffix(suffix).suffix_try_color(true);
                 }
