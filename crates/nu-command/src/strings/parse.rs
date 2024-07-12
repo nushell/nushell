@@ -12,11 +12,15 @@ impl Command for Parse {
     }
 
     fn usage(&self) -> &str {
-        "Parse columns from string data using a simple pattern."
+        "Parse columns from string data using a simple pattern or a supplied regular expression."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["pattern", "match", "regex", "str extract"]
+    }
+
+    fn extra_usage(&self) -> &str {
+        "The parse command always uses regular expressions even when you use a simple pattern. If a simple pattern is supplied, parse will transform that pattern into a regular expression."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -32,21 +36,24 @@ impl Command for Parse {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let result = Value::test_list(vec![Value::test_record(record! {
-            "foo" => Value::test_string("hi"),
-            "bar" => Value::test_string("there"),
-        })]);
-
         vec![
             Example {
                 description: "Parse a string into two named columns",
                 example: "\"hi there\" | parse \"{foo} {bar}\"",
-                result: Some(result.clone()),
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "foo" => Value::test_string("hi"),
+                        "bar" => Value::test_string("there"),
+                    })])),
             },
             Example {
-                description: "Parse a string using regex pattern",
-                example: "\"hi there\" | parse --regex '(?P<foo>\\w+) (?P<bar>\\w+)'",
-                result: Some(result),
+                description: "This is how the first example is interpreted in the source code",
+                example: "\"hi there\" | parse --regex '(?s)\\A(?P<foo>.*?) (?P<bar>.*?)\\z'",
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "foo" => Value::test_string("hi"),
+                        "bar" => Value::test_string("there"),
+                    })])),
             },
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
