@@ -10,8 +10,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet},
     eval_base::Eval,
-    ByteStreamSource, Config, FromValue, IntoPipelineData, OutDest, PipelineData, ShellError, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest, PipelineData,
+    PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{fs::OpenOptions, path::PathBuf, sync::Arc};
@@ -619,10 +619,28 @@ pub fn eval_collect<D: DebugContext>(
     // Evaluate the expression with the variable set to the collected input
     let span = input.span().unwrap_or(Span::unknown());
 
-    stack.add_var(var_id, input.into_value(span)?);
+    let metadata = match input.metadata() {
+        // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
+        // check where some input came from.
+        Some(PipelineMetadata {
+            data_source: DataSource::FilePath(_),
+            content_type: None,
+        }) => None,
+        other => other,
+    };
 
-    let result = eval_expression_with_input::<D>(engine_state, stack, expr, PipelineData::empty())
-        .map(|(result, _failed)| result);
+    let input = input.into_value(span)?;
+
+    stack.add_var(var_id, input.clone());
+
+    let result = eval_expression_with_input::<D>(
+        engine_state,
+        stack,
+        expr,
+        // We still have to pass it as input
+        input.into_pipeline_data_with_metadata(metadata),
+    )
+    .map(|(result, _failed)| result);
 
     stack.remove_var(var_id);
 

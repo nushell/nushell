@@ -172,23 +172,22 @@ pub(crate) fn compile_expression(
             }
         }
         Expr::Collect(var_id, expr) => {
-            let in_reg = match in_reg {
-                Some(in_reg) => in_reg,
-                None => {
-                    let reg_id = builder.next_register()?;
-                    builder.load_empty(reg_id)?;
-                    reg_id
-                }
+            let store_reg = if let Some(in_reg) = in_reg {
+                // Collect, clone, store
+                builder.push(Instruction::Collect { src_dst: in_reg }.into_spanned(expr.span))?;
+                builder.clone_reg(in_reg, expr.span)?
+            } else {
+                // Just store nothing in the variable
+                builder.literal(Literal::Nothing.into_spanned(Span::unknown()))?
             };
-            // Implicit collect
             builder.push(
                 Instruction::StoreVariable {
                     var_id: *var_id,
-                    src: in_reg,
+                    src: store_reg,
                 }
                 .into_spanned(expr.span),
             )?;
-            compile_expression(working_set, builder, expr, redirect_modes, None, out_reg)?;
+            compile_expression(working_set, builder, expr, redirect_modes, in_reg, out_reg)?;
             // Clean it up afterward
             builder.push(Instruction::DropVariable { var_id: *var_id }.into_spanned(expr.span))?;
             Ok(())
