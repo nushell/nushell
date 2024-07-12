@@ -1,4 +1,3 @@
-use nu_test_support::fs::AbsolutePath;
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::nu;
 use nu_test_support::pipeline;
@@ -7,10 +6,10 @@ use nu_test_support::playground::Playground;
 #[test]
 fn use_module_file_within_block() {
     Playground::setup("use_test_1", |dirs, nu| {
-        let file = AbsolutePath::new(dirs.test().join("spam.nu"));
+        let file = dirs.test().join("spam.nu");
 
         nu.with_files(&[FileWithContent(
-            &file.to_string(),
+            file.as_os_str().to_str().unwrap(),
             r#"
                 export def foo [] {
                     echo "hello world"
@@ -37,10 +36,10 @@ fn use_module_file_within_block() {
 #[test]
 fn use_keeps_doc_comments() {
     Playground::setup("use_doc_comments", |dirs, nu| {
-        let file = AbsolutePath::new(dirs.test().join("spam.nu"));
+        let file = dirs.test().join("spam.nu");
 
         nu.with_files(&[FileWithContent(
-            &file.to_string(),
+            file.as_os_str().to_str().unwrap(),
             r#"
                 # this is my foo command
                 export def foo [

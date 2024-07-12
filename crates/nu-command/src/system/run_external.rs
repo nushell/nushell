@@ -580,7 +580,7 @@ mod test {
         Playground::setup("test_expand_glob", |dirs, play| {
             play.with_files(&[Stub::EmptyFile("a.txt"), Stub::EmptyFile("b.txt")]);
 
-            let cwd = dirs.test();
+            let cwd = dirs.test().as_std_path();
 
             let actual = expand_glob("*.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
             let expected = &["a.txt", "b.txt"];

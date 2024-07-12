@@ -1,6 +1,6 @@
 use nu_test_support::fs::file_contents;
 use nu_test_support::fs::{
-    files_exist_at, AbsoluteFile,
+    files_exist_at,
     Stub::{EmptyFile, FileWithContent, FileWithPermission},
 };
 use nu_test_support::nu;
@@ -55,7 +55,7 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory() {
 
 fn copies_the_file_inside_directory_if_path_to_copy_is_directory_impl(progress: bool) {
     Playground::setup("ucp_test_2", |dirs, _| {
-        let expected_file = AbsoluteFile::new(dirs.test().join("sample.ini"));
+        let expected_file = dirs.test().join("sample.ini");
         let progress_flag = if progress { "-p" } else { "" };
 
         // Get the hash of the file content to check integrity after copy.
@@ -64,13 +64,13 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory_impl(progress: 
             cwd: dirs.formats(),
             "cp {} ../formats/sample.ini {}",
             progress_flag,
-            expected_file.dir()
+            expected_file.parent().unwrap().as_os_str().to_str().unwrap(),
         );
 
         assert!(dirs.test().join("sample.ini").exists());
 
         // Check the integrity of the file.
-        let after_cp_hash = get_file_hash(expected_file);
+        let after_cp_hash = get_file_hash(expected_file.display());
         assert_eq!(first_hash, after_cp_hash);
     })
 }
