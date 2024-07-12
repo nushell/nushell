@@ -61,7 +61,11 @@ pub enum ParseError {
 
     #[error("Command output doesn't match {0}.")]
     #[diagnostic(code(nu::parser::output_type_mismatch))]
-    OutputMismatch(Type, #[label("command doesn't output {0}")] Span),
+    OutputMismatch(
+        Type,
+        Type,
+        #[label("expected {0}, but command outputs {1}")] Span,
+    ),
 
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
@@ -554,7 +558,7 @@ impl ParseError {
             ParseError::TypeMismatch(_, _, s) => *s,
             ParseError::TypeMismatchHelp(_, _, s, _) => *s,
             ParseError::InputMismatch(_, s) => *s,
-            ParseError::OutputMismatch(_, s) => *s,
+            ParseError::OutputMismatch(_, _, s) => *s,
             ParseError::MissingRequiredFlag(_, s) => *s,
             ParseError::IncompleteMathExpression(s) => *s,
             ParseError::UnknownState(_, s) => *s,
