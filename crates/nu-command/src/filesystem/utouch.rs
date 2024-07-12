@@ -74,7 +74,6 @@ impl Command for UTouch {
                 "affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink)",
                 None
             )
-            .rest("rest", SyntaxShape::Filepath, "Additional files to create.")
             .category(Category::FileSystem)
     }
 
@@ -142,6 +141,7 @@ impl Command for UTouch {
                 timestamp.item.timestamp_subsec_nanos(),
             ))
         } else if let Some(reference_file) = reference_file {
+            let reference_file = expand_path_with(reference_file, &cwd, true);
             Source::Reference(reference_file)
         } else {
             Source::Now
@@ -189,7 +189,6 @@ impl Command for UTouch {
                     let span =
                         reference_span.expect("utouch should've been given a reference file");
                     if io_err.kind() == ErrorKind::NotFound {
-                        // todo merge main into this to say which file not found
                         ShellError::FileNotFound {
                             span,
                             file: reference_path.display().to_string(),
