@@ -336,6 +336,10 @@ fn eval_instruction<D: DebugContext>(
             ctx.stack.add_var(*var_id, value);
             Ok(Continue)
         }
+        Instruction::DropVariable { var_id } => {
+            ctx.stack.remove_var(*var_id);
+            Ok(Continue)
+        }
         Instruction::LoadEnv { dst, key } => {
             let key = ctx.get_str(*key, *span)?;
             if let Some(value) = get_env_var_case_insensitive(ctx, key) {

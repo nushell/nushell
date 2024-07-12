@@ -171,6 +171,28 @@ pub(crate) fn compile_expression(
                 Err(CompileError::UnsupportedOperatorExpression { span: op.span })
             }
         }
+        Expr::Collect(var_id, expr) => {
+            let in_reg = match in_reg {
+                Some(in_reg) => in_reg,
+                None => {
+                    let reg_id = builder.next_register()?;
+                    builder.load_empty(reg_id)?;
+                    reg_id
+                }
+            };
+            // Implicit collect
+            builder.push(
+                Instruction::StoreVariable {
+                    var_id: *var_id,
+                    src: in_reg,
+                }
+                .into_spanned(expr.span),
+            )?;
+            compile_expression(working_set, builder, expr, redirect_modes, None, out_reg)?;
+            // Clean it up afterward
+            builder.push(Instruction::DropVariable { var_id: *var_id }.into_spanned(expr.span))?;
+            Ok(())
+        }
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
             compile_block(working_set, builder, block, redirect_modes, in_reg, out_reg)

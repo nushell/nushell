@@ -83,7 +83,7 @@ impl Block {
     pub fn replace_in_variable(
         &mut self,
         working_set: &mut StateWorkingSet<'_>,
-        new_var_id: usize,
+        new_var_id: VarId,
     ) {
         for pipeline in self.pipelines.iter_mut() {
             if let Some(element) = pipeline.elements.first_mut() {

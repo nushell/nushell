@@ -259,6 +259,10 @@ pub fn eval_expression_with_input<D: DebugContext>(
             input = eval_external(engine_state, stack, head, args, input)?;
         }
 
+        Expr::Collect(var_id, expr) => {
+            input = eval_collect::<D>(engine_state, stack, *var_id, expr, input)?;
+        }
+
         Expr::Subexpression(block_id) => {
             let block = engine_state.get_block(*block_id);
             // FIXME: protect this collect with ctrl-c
@@ -605,6 +609,26 @@ pub fn eval_block<D: DebugContext>(
     Ok(input)
 }
 
+pub fn eval_collect<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    var_id: VarId,
+    expr: &Expression,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    // Evaluate the expression with the variable set to the collected input
+    let span = input.span().unwrap_or(Span::unknown());
+
+    stack.add_var(var_id, input.into_value(span)?);
+
+    let result = eval_expression_with_input::<D>(engine_state, stack, expr, PipelineData::empty())
+        .map(|(result, _failed)| result);
+
+    stack.remove_var(var_id);
+
+    result
+}
+
 pub fn eval_subexpression<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -727,6 +751,18 @@ impl Eval for EvalRuntime {
         let span = head.span(&engine_state);
         // FIXME: protect this collect with ctrl-c
         eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span)
+    }
+
+    fn eval_collect<D: DebugContext>(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        var_id: VarId,
+        expr: &Expression,
+    ) -> Result<Value, ShellError> {
+        // It's a little bizarre, but the expression can still have some kind of result even with
+        // nothing input
+        eval_collect::<D>(engine_state, stack, var_id, expr, PipelineData::empty())?
+            .into_value(expr.span)
     }
 
     fn eval_subexpression<D: DebugContext>(

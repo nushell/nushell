@@ -224,6 +224,9 @@ impl Expression {
             Expr::Signature(_) => false,
             Expr::String(_) => false,
             Expr::RawString(_) => false,
+            // A `$in` variable found within a `Collect` is local, as it's already been wrapped
+            // This is probably unlikely to happen anyway - the expressions are wrapped depth-first
+            Expr::Collect(_, _) => false,
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
@@ -387,6 +390,7 @@ impl Expression {
                     i.replace_span(working_set, replaced, new_span)
                 }
             }
+            Expr::Collect(_, expr) => expr.replace_span(working_set, replaced, new_span),
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let mut block = (**working_set.get_block(*block_id)).clone();
 
@@ -457,6 +461,8 @@ impl Expression {
             Expr::Operator(_) => {}
             // These have their own input
             Expr::Block(_) | Expr::Closure(_) => {}
+            // `$in` in `Collect` has already been handled, so we don't need to check further
+            Expr::Collect(_, _) => {}
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let mut block = Block::clone(working_set.get_block(*block_id));
                 block.replace_in_variable(working_set, new_var_id);

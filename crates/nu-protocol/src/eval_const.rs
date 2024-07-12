@@ -422,6 +422,15 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span })
     }
 
+    fn eval_collect<D: DebugContext>(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _var_id: VarId,
+        expr: &Expression,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span: expr.span })
+    }
+
     fn eval_subexpression<D: DebugContext>(
         working_set: &StateWorkingSet,
         _: &mut (),

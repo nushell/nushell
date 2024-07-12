@@ -1,4 +1,4 @@
-use crate::{ast::Expression, engine::StateWorkingSet, OutDest, Span};
+use crate::{ast::Expression, engine::StateWorkingSet, OutDest, Span, VarId};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -66,7 +66,7 @@ impl RedirectionTarget {
     pub fn replace_in_variable(
         &mut self,
         working_set: &mut StateWorkingSet<'_>,
-        new_var_id: usize,
+        new_var_id: VarId,
     ) {
         match self {
             RedirectionTarget::File { expr, .. } => {
@@ -92,7 +92,7 @@ impl PipelineRedirection {
     pub fn replace_in_variable(
         &mut self,
         working_set: &mut StateWorkingSet<'_>,
-        new_var_id: usize,
+        new_var_id: VarId,
     ) {
         match self {
             PipelineRedirection::Single { source: _, target } => {
@@ -154,7 +154,7 @@ impl PipelineElement {
     pub fn replace_in_variable(
         &mut self,
         working_set: &mut StateWorkingSet<'_>,
-        new_var_id: usize,
+        new_var_id: VarId,
     ) {
         self.expr.replace_in_variable(working_set, new_var_id);
         if let Some(redirection) = &mut self.redirection {

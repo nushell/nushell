@@ -1,5 +1,5 @@
-use nu_engine::{command_prelude::*, get_eval_block};
-use nu_protocol::{engine::CommandType, DataSource, PipelineMetadata};
+use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
+use nu_protocol::{engine::Closure, DataSource, PipelineMetadata};
 
 #[derive(Clone)]
 pub struct Collect;
@@ -13,15 +13,16 @@ impl Command for Collect {
         Signature::build("collect")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .optional(
-                "block",
-                SyntaxShape::Block,
-                "The block to run once the stream is collected.",
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                "The closure to run once the stream is collected.",
             )
-            .category(Category::Core)
-    }
-
-    fn command_type(&self) -> CommandType {
-        CommandType::Keyword
+            .switch(
+                "keep-env",
+                "let the closure affect environment variables",
+                None,
+            )
+            .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
@@ -29,7 +30,7 @@ impl Command for Collect {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"If provided, run a block with the collected value as input.
+        r#"If provided, run a closure with the collected value as input.
 
 The entire stream will be collected into one value in memory, so if the stream
 is particularly large, this can cause high memory usage."#
@@ -42,12 +43,7 @@ is particularly large, this can cause high memory usage."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // This is compiled specially by the IR compiler. The code here is never used when
-        // running in IR mode.
-        let call = call.assert_ast_call()?;
-        let block_id = call
-            .positional_nth(0)
-            .map(|expr| expr.as_block().expect("checked through parser"));
+        let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
 
         let metadata = match input.metadata() {
             // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
@@ -62,21 +58,40 @@ is particularly large, this can cause high memory usage."#
         let input = input.into_value(call.head)?;
         let result;
 
-        if let Some(block_id) = block_id {
-            let block = engine_state.get_block(block_id);
+        if let Some(closure) = closure {
+            let block = engine_state.get_block(closure.block_id);
+            let mut stack_captures =
+                stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
+
+            let mut saved_positional = None;
+            if let Some(var) = block.signature.get_positional(0) {
+                if let Some(var_id) = &var.var_id {
+                    stack_captures.add_var(*var_id, input.clone());
+                    saved_positional = Some(*var_id);
+                }
+            }
+
             let eval_block = get_eval_block(engine_state);
 
-            if let Some(var_id) = block.signature.get_positional(0).and_then(|var| var.var_id) {
-                stack.add_var(var_id, input);
-                result = eval_block(engine_state, stack, block, PipelineData::Empty);
-                stack.remove_var(var_id);
-            } else {
-                result = eval_block(
-                    engine_state,
-                    stack,
-                    block,
-                    input.into_pipeline_data_with_metadata(metadata),
-                );
+            result = eval_block(
+                engine_state,
+                &mut stack_captures,
+                block,
+                input.into_pipeline_data_with_metadata(metadata),
+            );
+
+            if call.has_flag(engine_state, stack, "keep-env")? {
+                redirect_env(engine_state, stack, &stack_captures);
+                // for when we support `data | let x = $in;`
+                // remove the variables added earlier
+                for (var_id, _) in closure.captures {
+                    stack_captures.remove_var(var_id);
+                }
+                if let Some(u) = saved_positional {
+                    stack_captures.remove_var(u);
+                }
+                // add any new variables to the stack
+                stack.vars.extend(stack_captures.vars);
             }
         } else {
             result = Ok(input.into_pipeline_data_with_metadata(metadata));

@@ -6220,6 +6220,10 @@ pub fn discover_captures_in_expr(
                 discover_captures_in_expr(working_set, &match_.1, seen, seen_blocks, output)?;
             }
         }
+        Expr::Collect(var_id, expr) => {
+            seen.push(*var_id);
+            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?
+        }
         Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
 
@@ -6305,58 +6309,20 @@ fn wrap_element_with_collect(
 fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
     let span = expr.span;
 
-    if let Some(decl_id) = working_set.find_decl(b"collect") {
-        let mut output = vec![];
+    // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
+    // execute as a closure
+    let var_id = working_set.add_variable(b"$in".into(), expr.span, Type::Any, false);
+    let mut expr = expr.clone();
+    expr.replace_in_variable(working_set, var_id);
 
-        // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
-        // execute as a closure
-        let var_id = working_set.add_variable(b"$in".into(), expr.span, Type::Any, false);
-        let mut expr = expr.clone();
-        expr.replace_in_variable(working_set, var_id);
-
-        let mut signature = Signature::new("");
-        signature.required_positional.push(PositionalArg {
-            var_id: Some(var_id),
-            name: "$in".into(),
-            desc: String::new(),
-            shape: SyntaxShape::Any,
-            default_value: None,
-        });
-
-        let mut block = Block {
-            pipelines: vec![Pipeline::from_vec(vec![expr.clone()])],
-            signature: Box::new(signature),
-            ..Default::default()
-        };
-
-        compile_block(working_set, &mut block);
-
-        let block_id = working_set.add_block(Arc::new(block));
-
-        output.push(Argument::Positional(Expression::new(
-            working_set,
-            Expr::Closure(block_id),
-            span,
-            Type::Any,
-        )));
-
-        // The containing, synthetic call to `collect`.
-        // We don't want to have a real span as it will confuse flattening
-        // The args are where we'll get the real info
-        Expression::new(
-            working_set,
-            Expr::Call(Box::new(Call {
-                head: Span::new(0, 0),
-                arguments: output,
-                decl_id,
-                parser_info: HashMap::new(),
-            })),
-            span,
-            Type::Any,
-        )
-    } else {
-        Expression::garbage(working_set, span)
-    }
+    // Bind the custom `$in` variable for that particular expression
+    Expression::new(
+        working_set,
+        Expr::Collect(var_id, Box::new(expr.clone())),
+        span,
+        // We can expect it to have the same result type
+        expr.ty,
+    )
 }
 
 // Parses a vector of u8 to create an AST Block. If a file name is given, then
