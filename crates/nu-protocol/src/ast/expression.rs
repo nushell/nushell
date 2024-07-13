@@ -108,9 +108,15 @@ impl Expression {
                 left.has_in_variable(working_set) || right.has_in_variable(working_set)
             }
             Expr::UnaryNot(expr) => expr.has_in_variable(working_set),
-            // The $in variable in blocks and closures is local, as they have their own input
-            Expr::Block(_) => false,
-            Expr::Closure(_) => false,
+            Expr::Block(block_id) | Expr::Closure(block_id) => {
+                let block = working_set.get_block(*block_id);
+                block.captures.contains(&IN_VARIABLE_ID)
+                    || block
+                        .pipelines
+                        .iter()
+                        .flat_map(|pipeline| pipeline.elements.get(0))
+                        .any(|element| element.has_in_variable(working_set))
+            }
             Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
@@ -459,11 +465,12 @@ impl Expression {
                 }
             }
             Expr::Operator(_) => {}
-            // These have their own input
-            Expr::Block(_) | Expr::Closure(_) => {}
             // `$in` in `Collect` has already been handled, so we don't need to check further
             Expr::Collect(_, _) => {}
-            Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
+            Expr::Block(block_id)
+            | Expr::Closure(block_id)
+            | Expr::RowCondition(block_id)
+            | Expr::Subexpression(block_id) => {
                 let mut block = Block::clone(working_set.get_block(*block_id));
                 block.replace_in_variable(working_set, new_var_id);
                 *working_set.get_block_mut(*block_id) = block;

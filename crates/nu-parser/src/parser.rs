@@ -5299,6 +5299,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             let mut block = Block::default();
             let ty = output.ty.clone();
             block.pipelines = vec![Pipeline::from_vec(vec![output])];
+            block.span = Some(Span::concat(spans));
 
             compile_block(working_set, &mut block);
 
@@ -5653,163 +5654,67 @@ pub fn parse_pipeline(
     is_subexpression: bool,
     pipeline_index: usize,
 ) -> Pipeline {
+    let first_command = pipeline.commands.get(0);
+    let first_command_name = first_command
+        .and_then(|command| command.parts.get(0))
+        .map(|span| working_set.get_span_contents(*span));
+
     if pipeline.commands.len() > 1 {
-        // Special case: allow `let` and `mut` to consume the whole pipeline, eg) `let abc = "foo" | str length`
-        if let Some(&first) = pipeline.commands[0].parts.first() {
-            let first = working_set.get_span_contents(first);
-            if first == b"let" || first == b"mut" {
-                let name = if first == b"let" { "let" } else { "mut" };
-                let mut new_command = LiteCommand {
-                    comments: vec![],
-                    parts: pipeline.commands[0].parts.clone(),
-                    pipe: None,
-                    redirection: None,
-                };
+        // Special case: allow "let" or "mut" to consume the whole pipeline, if this is a pipeline
+        // with multiple commands, and the let/mut is well-formed
+        if matches!(first_command_name, Some(b"let" | b"mut"))
+            && first_command.is_some_and(|command| command.parts.len() > 3)
+        {
+            // Merge the pipeline into one command
+            let first_command = first_command.expect("must be Some");
+            let remainder_span = Span::concat(&first_command.parts[3..]);
+            let new_command = LiteCommand {
+                pipe: None,
+                comments: pipeline
+                    .commands
+                    .iter()
+                    .flat_map(|command| command.comments.iter())
+                    .copied()
+                    .collect(),
+                parts: first_command.parts[0..3] // the let/mut start itself
+                    .iter()
+                    .copied()
+                    .chain(std::iter::once(remainder_span)) // the first command
+                    .chain(
+                        first_command
+                            .redirection
+                            .iter()
+                            .flat_map(|redirection| redirection.spans()),
+                    )
+                    .chain(
+                        pipeline.commands[1..]
+                            .iter()
+                            .flat_map(|command| command.parts.iter().copied()),
+                    )
+                    .collect(),
+                redirection: None,
+            };
+            parse_builtin_commands(working_set, &new_command)
+        } else {
+            // Parse a normal multi command pipeline
+            let mut elements: Vec<_> = pipeline
+                .commands
+                .iter()
+                .map(|element| parse_pipeline_element(working_set, element))
+                .collect();
 
-                if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
-                    working_set.error(redirecting_builtin_error(name, redirection));
-                }
-
-                for element in &pipeline.commands[1..] {
-                    if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
-                        working_set.error(redirecting_builtin_error(name, redirection));
-                    } else {
-                        new_command.parts.push(element.pipe.expect("pipe span"));
-                        new_command.comments.extend_from_slice(&element.comments);
-                        new_command.parts.extend_from_slice(&element.parts);
-                    }
-                }
-
-                // if the 'let' is complete enough, use it, if not, fall through for now
-                if new_command.parts.len() > 3 {
-                    let rhs_span = Span::concat(&new_command.parts[3..]);
-
-                    new_command.parts.truncate(3);
-                    new_command.parts.push(rhs_span);
-
-                    let mut pipeline = parse_builtin_commands(working_set, &new_command);
-
-                    if pipeline_index == 0 {
-                        let let_decl_id = working_set.find_decl(b"let");
-                        let mut_decl_id = working_set.find_decl(b"mut");
-                        for element in pipeline.elements.iter_mut() {
-                            if let Expr::Call(call) = &element.expr.expr {
-                                if Some(call.decl_id) == let_decl_id
-                                    || Some(call.decl_id) == mut_decl_id
-                                {
-                                    // Do an expansion
-                                    if let Some(Expression {
-                                        expr: Expr::Block(block_id),
-                                        ..
-                                    }) = call.positional_iter().nth(1)
-                                    {
-                                        let block = working_set.get_block(*block_id);
-
-                                        if let Some(element) = block
-                                            .pipelines
-                                            .first()
-                                            .and_then(|p| p.elements.first())
-                                            .cloned()
-                                        {
-                                            if element.has_in_variable(working_set) {
-                                                let element = wrap_element_with_collect(
-                                                    working_set,
-                                                    &element,
-                                                );
-                                                let block = working_set.get_block_mut(*block_id);
-                                                block.pipelines[0].elements[0] = element;
-                                            }
-                                        }
-                                    }
-                                    continue;
-                                } else if element.has_in_variable(working_set) && !is_subexpression
-                                {
-                                    *element = wrap_element_with_collect(working_set, element);
-                                }
-                            } else if element.has_in_variable(working_set) && !is_subexpression {
-                                *element = wrap_element_with_collect(working_set, element);
-                            }
-                        }
-                    }
-
-                    return pipeline;
-                }
-            }
-        }
-
-        let mut elements = pipeline
-            .commands
-            .iter()
-            .map(|element| parse_pipeline_element(working_set, element))
-            .collect::<Vec<_>>();
-
-        if is_subexpression {
+            // Handle $in for anything other than the first element, which is handled by block parsing
             for element in elements.iter_mut().skip(1) {
                 if element.has_in_variable(working_set) {
                     *element = wrap_element_with_collect(working_set, element);
                 }
             }
-        } else {
-            for element in elements.iter_mut() {
-                if element.has_in_variable(working_set) {
-                    *element = wrap_element_with_collect(working_set, element);
-                }
-            }
-        }
 
-        Pipeline { elements }
+            Pipeline { elements }
+        }
     } else {
-        if let Some(&first) = pipeline.commands[0].parts.first() {
-            let first = working_set.get_span_contents(first);
-            if first == b"let" || first == b"mut" {
-                if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
-                    let name = if first == b"let" { "let" } else { "mut" };
-                    working_set.error(redirecting_builtin_error(name, redirection));
-                }
-            }
-        }
-
-        let mut pipeline = parse_builtin_commands(working_set, &pipeline.commands[0]);
-
-        let let_decl_id = working_set.find_decl(b"let");
-        let mut_decl_id = working_set.find_decl(b"mut");
-
-        if pipeline_index == 0 {
-            for element in pipeline.elements.iter_mut() {
-                if let Expr::Call(call) = &element.expr.expr {
-                    if Some(call.decl_id) == let_decl_id || Some(call.decl_id) == mut_decl_id {
-                        // Do an expansion
-                        if let Some(Expression {
-                            expr: Expr::Block(block_id),
-                            ..
-                        }) = call.positional_iter().nth(1)
-                        {
-                            let block = working_set.get_block(*block_id);
-
-                            if let Some(element) = block
-                                .pipelines
-                                .first()
-                                .and_then(|p| p.elements.first())
-                                .cloned()
-                            {
-                                if element.has_in_variable(working_set) {
-                                    let element = wrap_element_with_collect(working_set, &element);
-                                    let block = working_set.get_block_mut(*block_id);
-                                    block.pipelines[0].elements[0] = element;
-                                }
-                            }
-                        }
-                        continue;
-                    } else if element.has_in_variable(working_set) && !is_subexpression {
-                        *element = wrap_element_with_collect(working_set, element);
-                    }
-                } else if element.has_in_variable(working_set) && !is_subexpression {
-                    *element = wrap_element_with_collect(working_set, element);
-                }
-            }
-        }
-
-        pipeline
+        // If there's only one command in the pipeline, this could be a builtin command
+        parse_builtin_commands(working_set, &pipeline.commands[0])
     }
 }
 
@@ -5840,17 +5745,44 @@ pub fn parse_block(
     }
 
     let mut block = Block::new_with_capacity(lite_block.block.len());
+    block.span = Some(span);
 
     for (idx, lite_pipeline) in lite_block.block.iter().enumerate() {
         let pipeline = parse_pipeline(working_set, lite_pipeline, is_subexpression, idx);
         block.pipelines.push(pipeline);
     }
 
+    // If this is not a subexpression and there are any pipelines where the first element has $in,
+    // we can wrap the whole block in collect so that they all reference the same $in
+    if !is_subexpression
+        && block
+            .pipelines
+            .iter()
+            .flat_map(|pipeline| pipeline.elements.get(0))
+            .any(|element| element.has_in_variable(working_set))
+    {
+        // Move the block out to prepare it to become a subexpression
+        let inner_block = std::mem::take(&mut block);
+        block.span = inner_block.span;
+        let ty = inner_block.output_type();
+        let block_id = working_set.add_block(Arc::new(inner_block));
+
+        // Now wrap it in a Collect expression, and put it in the block as the only pipeline
+        let subexpression = Expression::new(working_set, Expr::Subexpression(block_id), span, ty);
+        let collect = wrap_expr_with_collect(working_set, subexpression);
+
+        block.pipelines.push(Pipeline {
+            elements: vec![PipelineElement {
+                pipe: None,
+                expr: collect,
+                redirection: None,
+            }],
+        });
+    }
+
     if scoped {
         working_set.exit_scope();
     }
-
-    block.span = Some(span);
 
     let errors = type_check::check_block_input_output(working_set, &block);
     if !errors.is_empty() {
@@ -6278,7 +6210,7 @@ fn wrap_redirection_with_collect(
 ) -> RedirectionTarget {
     match target {
         RedirectionTarget::File { expr, append, span } => RedirectionTarget::File {
-            expr: wrap_expr_with_collect(working_set, expr),
+            expr: wrap_expr_with_collect(working_set, expr.clone()),
             span: *span,
             append: *append,
         },
@@ -6292,7 +6224,7 @@ fn wrap_element_with_collect(
 ) -> PipelineElement {
     PipelineElement {
         pipe: element.pipe,
-        expr: wrap_expr_with_collect(working_set, &element.expr),
+        expr: wrap_expr_with_collect(working_set, element.expr.clone()),
         redirection: element.redirection.as_ref().map(|r| match r {
             PipelineRedirection::Single { source, target } => PipelineRedirection::Single {
                 source: *source,
@@ -6306,7 +6238,7 @@ fn wrap_element_with_collect(
     }
 }
 
-fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
+fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -> Expression {
     let span = expr.span;
 
     // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
@@ -6316,12 +6248,13 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
     expr.replace_in_variable(working_set, var_id);
 
     // Bind the custom `$in` variable for that particular expression
+    let ty = expr.ty.clone();
     Expression::new(
         working_set,
-        Expr::Collect(var_id, Box::new(expr.clone())),
+        Expr::Collect(var_id, Box::new(expr)),
         span,
         // We can expect it to have the same result type
-        expr.ty,
+        ty,
     )
 }
 
