@@ -16,6 +16,7 @@
 use crate::{
     ast::{Block, PipelineElement},
     engine::EngineState,
+    ir::IrBlock,
     PipelineData, ShellError, Span, Value,
 };
 use std::{fmt::Debug, ops::DerefMut};
@@ -35,16 +36,37 @@ pub trait DebugContext: Clone + Copy + Debug {
     #[allow(unused_variables)]
     fn leave_block(engine_state: &EngineState, block: &Block) {}
 
-    /// Called when the evaluator enters a pipeline element
+    /// Called when the AST evaluator enters a pipeline element
     #[allow(unused_variables)]
     fn enter_element(engine_state: &EngineState, element: &PipelineElement) {}
 
-    /// Called when the evaluator leaves a pipeline element
+    /// Called when the AST evaluator leaves a pipeline element
     #[allow(unused_variables)]
     fn leave_element(
         engine_state: &EngineState,
         element: &PipelineElement,
         result: &Result<PipelineData, ShellError>,
+    ) {
+    }
+
+    /// Called before the IR evaluator runs an instruction
+    #[allow(unused_variables)]
+    fn enter_instruction(
+        engine_state: &EngineState,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineData],
+    ) {
+    }
+
+    /// Called after the IR evaluator runs an instruction
+    #[allow(unused_variables)]
+    fn leave_instruction(
+        engine_state: &EngineState,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineData],
+        error: Option<&ShellError>,
     ) {
     }
 }
@@ -85,6 +107,40 @@ impl DebugContext for WithDebug {
                 .leave_element(engine_state, element, result);
         }
     }
+
+    fn enter_instruction(
+        engine_state: &EngineState,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineData],
+    ) {
+        if let Ok(mut debugger) = engine_state.debugger.lock() {
+            debugger.deref_mut().enter_instruction(
+                engine_state,
+                ir_block,
+                instruction_index,
+                registers,
+            )
+        }
+    }
+
+    fn leave_instruction(
+        engine_state: &EngineState,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineData],
+        error: Option<&ShellError>,
+    ) {
+        if let Ok(mut debugger) = engine_state.debugger.lock() {
+            debugger.deref_mut().leave_instruction(
+                engine_state,
+                ir_block,
+                instruction_index,
+                registers,
+                error,
+            )
+        }
+    }
 }
 
 /// Marker struct signalizing that evaluation should NOT use a Debugger
@@ -118,17 +174,40 @@ pub trait Debugger: Send + Debug {
     #[allow(unused_variables)]
     fn leave_block(&mut self, engine_state: &EngineState, block: &Block) {}
 
-    /// Called when the evaluator enters a pipeline element
+    /// Called when the AST evaluator enters a pipeline element
     #[allow(unused_variables)]
     fn enter_element(&mut self, engine_state: &EngineState, pipeline_element: &PipelineElement) {}
 
-    /// Called when the evaluator leaves a pipeline element
+    /// Called when the AST evaluator leaves a pipeline element
     #[allow(unused_variables)]
     fn leave_element(
         &mut self,
         engine_state: &EngineState,
         element: &PipelineElement,
         result: &Result<PipelineData, ShellError>,
+    ) {
+    }
+
+    /// Called before the IR evaluator runs an instruction
+    #[allow(unused_variables)]
+    fn enter_instruction(
+        &mut self,
+        engine_state: &EngineState,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineData],
+    ) {
+    }
+
+    /// Called after the IR evaluator runs an instruction
+    #[allow(unused_variables)]
+    fn leave_instruction(
+        &mut self,
+        engine_state: &EngineState,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineData],
+        error: Option<&ShellError>,
     ) {
     }
 
