@@ -4,7 +4,6 @@ use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use rstest::rstest;
 use std::fs;
-use std::path::Path;
 
 #[test]
 fn removes_a_file() {
@@ -48,7 +47,7 @@ fn removes_files_with_wildcard() {
         );
 
         assert!(!files_exist_at(
-            vec![
+            &[
                 "src/parser/parse/token_tree.rs",
                 "src/parser/hir/baseline_parse.rs",
                 "src/parser/hir/baseline_parse_tokens.rs"
@@ -89,7 +88,7 @@ fn removes_deeply_nested_directories_with_wildcard_and_recursive_flag() {
         );
 
         assert!(!files_exist_at(
-            vec!["src/parser/parse", "src/parser/hir"],
+            &["src/parser/parse", "src/parser/hir"],
             dirs.test()
         ));
     })
@@ -275,7 +274,7 @@ fn remove_files_from_two_parents_up_using_multiple_dots_and_glob() {
         );
 
         assert!(!files_exist_at(
-            vec!["yehuda.txt", "jttxt", "kevin.txt"],
+            &["yehuda.txt", "jttxt", "kevin.txt"],
             dirs.test()
         ));
     })
@@ -303,8 +302,8 @@ fn rm_wildcard_keeps_dotfiles() {
             r#"rm *"#
         );
 
-        assert!(!files_exist_at(vec!["foo"], dirs.test()));
-        assert!(files_exist_at(vec![".bar"], dirs.test()));
+        assert!(!files_exist_at(&["foo"], dirs.test()));
+        assert!(files_exist_at(&[".bar"], dirs.test()));
     })
 }
 
@@ -318,8 +317,8 @@ fn rm_wildcard_leading_dot_deletes_dotfiles() {
             "rm .*"
         );
 
-        assert!(files_exist_at(vec!["foo"], dirs.test()));
-        assert!(!files_exist_at(vec![".bar"], dirs.test()));
+        assert!(files_exist_at(&["foo"], dirs.test()));
+        assert!(!files_exist_at(&[".bar"], dirs.test()));
     })
 }
 
@@ -448,7 +447,7 @@ fn rm_prints_filenames_on_error() {
         // This rm is expected to fail, and stderr output indicating so is also expected.
         let actual = nu!(cwd: test_dir, "rm test*.txt");
 
-        assert!(files_exist_at(file_names.clone(), test_dir));
+        assert!(files_exist_at(&file_names, test_dir));
         for file_name in file_names {
             let path = test_dir.join(file_name);
             let substr = format!("Could not delete {}", path.to_string_lossy());
@@ -477,7 +476,7 @@ fn rm_files_inside_glob_metachars_dir() {
 
         assert!(actual.err.is_empty());
         assert!(!files_exist_at(
-            vec!["test_file.txt"],
+            &["test_file.txt"],
             dirs.test().join(sub_dir)
         ));
     });
@@ -551,22 +550,16 @@ fn rm_with_tilde() {
 
         let actual = nu!(cwd: dirs.test(), "rm '~tilde/f1.txt'");
         assert!(actual.err.is_empty());
-        assert!(!files_exist_at(
-            vec![Path::new("f1.txt")],
-            dirs.test().join("~tilde")
-        ));
+        assert!(!files_exist_at(&["f1.txt"], dirs.test().join("~tilde")));
 
         // pass variable
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde/f2.txt'; rm $f");
         assert!(actual.err.is_empty());
-        assert!(!files_exist_at(
-            vec![Path::new("f2.txt")],
-            dirs.test().join("~tilde")
-        ));
+        assert!(!files_exist_at(&["f2.txt"], dirs.test().join("~tilde")));
 
         // remove directory
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde'; rm -r $f");
         assert!(actual.err.is_empty());
-        assert!(!files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+        assert!(!files_exist_at(&["~tilde"], dirs.test()));
     })
 }

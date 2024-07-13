@@ -35,7 +35,7 @@ pub fn line_ending() -> String {
     }
 }
 
-pub fn files_exist_at(files: Vec<impl AsRef<Path>>, path: impl AsRef<AbsolutePath>) -> bool {
+pub fn files_exist_at(files: &[impl AsRef<Path>], path: impl AsRef<AbsolutePath>) -> bool {
     let path = path.as_ref();
     files.iter().all(|f| path.join(f.as_ref()).exists())
 }

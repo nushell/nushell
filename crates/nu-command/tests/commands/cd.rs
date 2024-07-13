@@ -1,7 +1,7 @@
+use nu_path::Path;
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use std::path::PathBuf;
 
 #[test]
 fn cd_works_with_in_var() {
@@ -22,7 +22,7 @@ fn filesystem_change_from_current_directory_using_relative_path() {
     Playground::setup("cd_test_1", |dirs, _| {
         let actual = nu!( cwd: dirs.root(), "cd cd_test_1; $env.PWD");
 
-        assert_eq!(PathBuf::from(actual.out), *dirs.test());
+        assert_eq!(Path::new(&actual.out), dirs.test());
     })
 }
 
@@ -32,7 +32,7 @@ fn filesystem_change_from_current_directory_using_relative_path_with_trailing_sl
         // Intentionally not using correct path sep because this should work on Windows
         let actual = nu!( cwd: dirs.root(), "cd cd_test_1_slash/; $env.PWD");
 
-        assert_eq!(PathBuf::from(actual.out), *dirs.test());
+        assert_eq!(Path::new(&actual.out), *dirs.test());
     })
 }
 
@@ -48,7 +48,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() {
             dirs.formats().display()
         );
 
-        assert_eq!(PathBuf::from(actual.out), dirs.formats());
+        assert_eq!(Path::new(&actual.out), dirs.formats());
     })
 }
 
@@ -65,7 +65,7 @@ fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_sl
             std::path::MAIN_SEPARATOR_STR,
         );
 
-        assert_eq!(PathBuf::from(actual.out), dirs.formats());
+        assert_eq!(Path::new(&actual.out), dirs.formats());
     })
 }
 
@@ -84,7 +84,7 @@ fn filesystem_switch_back_to_previous_working_directory() {
             dirs.test().display()
         );
 
-        assert_eq!(PathBuf::from(actual.out), dirs.test().join("odin"));
+        assert_eq!(Path::new(&actual.out), dirs.test().join("odin"));
     })
 }
 
@@ -101,10 +101,7 @@ fn filesystem_change_from_current_directory_using_relative_path_and_dash() {
             "
         );
 
-        assert_eq!(
-            PathBuf::from(actual.out),
-            dirs.test().join("odin").join("-")
-        );
+        assert_eq!(Path::new(&actual.out), dirs.test().join("odin").join("-"));
     })
 }
 
@@ -119,7 +116,7 @@ fn filesystem_change_current_directory_to_parent_directory() {
             "
         );
 
-        assert_eq!(PathBuf::from(actual.out), *dirs.root());
+        assert_eq!(Path::new(&actual.out), *dirs.root());
     })
 }
 
@@ -136,7 +133,7 @@ fn filesystem_change_current_directory_to_two_parents_up_using_multiple_dots() {
             "
         );
 
-        assert_eq!(PathBuf::from(actual.out), *dirs.test());
+        assert_eq!(Path::new(&actual.out), *dirs.test());
     })
 }
 
@@ -151,7 +148,7 @@ fn filesystem_change_to_home_directory() {
             "
         );
 
-        assert_eq!(Some(PathBuf::from(actual.out)), dirs_next::home_dir());
+        assert_eq!(Path::new(&actual.out), dirs_next::home_dir().unwrap());
     })
 }
 
@@ -169,7 +166,7 @@ fn filesystem_change_to_a_directory_containing_spaces() {
         );
 
         assert_eq!(
-            PathBuf::from(actual.out),
+            Path::new(&actual.out),
             dirs.test().join("robalino turner katz")
         );
     })
@@ -234,7 +231,7 @@ fn filesystem_change_directory_to_symlink_relative() {
                 $env.PWD
             "
         );
-        assert_eq!(PathBuf::from(actual.out), dirs.test().join("foo_link"));
+        assert_eq!(Path::new(&actual.out), dirs.test().join("foo_link"));
 
         let actual = nu!(
             cwd: dirs.test().join("boo"),
@@ -243,7 +240,7 @@ fn filesystem_change_directory_to_symlink_relative() {
                 $env.PWD
             "
         );
-        assert_eq!(PathBuf::from(actual.out), dirs.test().join("foo"));
+        assert_eq!(Path::new(&actual.out), dirs.test().join("foo"));
     })
 }
 

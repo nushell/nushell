@@ -1,6 +1,5 @@
-use std::{io::Write, path::PathBuf};
-
 use chrono::{DateTime, FixedOffset};
+use nu_path::AbsolutePathBuf;
 use nu_protocol::{ast::PathMember, record, Span, Value};
 use nu_test_support::{
     fs::{line_ending, Stub},
@@ -13,6 +12,7 @@ use rand::{
     rngs::StdRng,
     Rng, SeedableRng,
 };
+use std::io::Write;
 
 #[test]
 fn into_sqlite_schema() {
@@ -453,7 +453,7 @@ impl Distribution<TestRow> for Standard {
     }
 }
 
-fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> PathBuf {
+fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> AbsolutePathBuf {
     let testdir = dirs.test();
     let testdb_path =
         testdir.join(testdir.file_name().unwrap().to_str().unwrap().to_owned() + ".db");
@@ -465,7 +465,7 @@ fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> PathBuf {
     );
 
     assert!(nucmd.status.success());
-    testdb_path.into()
+    testdb_path
 }
 
 fn insert_test_rows(dirs: &Dirs, nu_table: &str, sql_query: Option<&str>, expected: Vec<TestRow>) {

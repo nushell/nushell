@@ -1161,13 +1161,18 @@ mod test_cwd {
         engine::{EngineState, Stack},
         Span, Value,
     };
-    use nu_path::assert_path_eq;
-    use std::path::Path;
+    use nu_path::{assert_path_eq, AbsolutePath, Path};
     use tempfile::{NamedTempFile, TempDir};
 
     /// Creates a symlink. Works on both Unix and Windows.
     #[cfg(any(unix, windows))]
-    fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
+    fn symlink(
+        original: impl AsRef<AbsolutePath>,
+        link: impl AsRef<AbsolutePath>,
+    ) -> std::io::Result<()> {
+        let original = original.as_ref();
+        let link = link.as_ref();
+
         #[cfg(unix)]
         {
             std::os::unix::fs::symlink(original, link)
@@ -1187,10 +1192,7 @@ mod test_cwd {
         let mut engine_state = EngineState::new();
         engine_state.add_env_var(
             "PWD".into(),
-            Value::String {
-                val: path.as_ref().to_string_lossy().to_string(),
-                internal_span: Span::unknown(),
-            },
+            Value::test_string(path.as_ref().to_str().unwrap()),
         );
         engine_state
     }
@@ -1200,10 +1202,7 @@ mod test_cwd {
         let mut stack = Stack::new();
         stack.add_env_var(
             "PWD".into(),
-            Value::String {
-                val: path.as_ref().to_string_lossy().to_string(),
-                internal_span: Span::unknown(),
-            },
+            Value::test_string(path.as_ref().to_str().unwrap()),
         );
         stack
     }
@@ -1281,9 +1280,12 @@ mod test_cwd {
     #[test]
     fn pwd_points_to_symlink_to_file() {
         let file = NamedTempFile::new().unwrap();
+        let temp_file = AbsolutePath::try_new(file.path()).unwrap();
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(file.path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+
+        let link = temp.join("link");
+        symlink(temp_file, &link).unwrap();
         let engine_state = engine_state_with_pwd(&link);
 
         engine_state.cwd(None).unwrap_err();
@@ -1292,8 +1294,10 @@ mod test_cwd {
     #[test]
     fn pwd_points_to_symlink_to_directory() {
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(dir.path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+
+        let link = temp.join("link");
+        symlink(temp, &link).unwrap();
         let engine_state = engine_state_with_pwd(&link);
 
         let cwd = engine_state.cwd(None).unwrap();
@@ -1303,10 +1307,15 @@ mod test_cwd {
     #[test]
     fn pwd_points_to_broken_symlink() {
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(TempDir::new().unwrap().path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+        let other_dir = TempDir::new().unwrap();
+        let other_temp = AbsolutePath::try_new(other_dir.path()).unwrap();
+
+        let link = temp.join("link");
+        symlink(other_temp, &link).unwrap();
         let engine_state = engine_state_with_pwd(&link);
 
+        drop(other_dir);
         engine_state.cwd(None).unwrap_err();
     }
 
@@ -1349,12 +1358,14 @@ mod test_cwd {
 
     #[test]
     fn stack_pwd_points_to_normal_directory_with_symlink_components() {
-        // `/tmp/dir/link` points to `/tmp/dir`, then we set PWD to `/tmp/dir/link/foo`
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(dir.path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+
+        // `/tmp/dir/link` points to `/tmp/dir`, then we set PWD to `/tmp/dir/link/foo`
+        let link = temp.join("link");
+        symlink(temp, &link).unwrap();
         let foo = link.join("foo");
-        std::fs::create_dir(dir.path().join("foo")).unwrap();
+        std::fs::create_dir(temp.join("foo")).unwrap();
         let engine_state = EngineState::new();
         let stack = stack_with_pwd(&foo);
 

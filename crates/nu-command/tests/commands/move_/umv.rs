@@ -2,7 +2,6 @@ use nu_test_support::fs::{files_exist_at, Stub::EmptyFile, Stub::FileWithContent
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use rstest::rstest;
-use std::path::Path;
 
 #[test]
 fn moves_a_file() {
@@ -96,7 +95,7 @@ fn moves_the_directory_inside_directory_if_path_to_move_is_existing_directory() 
 
         assert!(!original_dir.exists());
         assert!(expected.exists());
-        assert!(files_exist_at(vec!["jttxt"], expected))
+        assert!(files_exist_at(&["jttxt"], expected))
     })
 }
 
@@ -125,7 +124,7 @@ fn moves_using_path_with_wildcard() {
         nu!(cwd: work_dir, "mv ../originals/*.ini ../expected");
 
         assert!(files_exist_at(
-            vec!["yehuda.ini", "jt.ini", "sample.ini", "andres.ini",],
+            &["yehuda.ini", "jt.ini", "sample.ini", "andres.ini",],
             expected
         ));
     })
@@ -152,7 +151,7 @@ fn moves_using_a_glob() {
 
         assert!(meal_dir.exists());
         assert!(files_exist_at(
-            vec!["arepa.txt", "empanada.txt", "taquiza.txt",],
+            &["arepa.txt", "empanada.txt", "taquiza.txt",],
             expected
         ));
     })
@@ -184,7 +183,7 @@ fn moves_a_directory_with_files() {
         assert!(!original_dir.exists());
         assert!(expected_dir.exists());
         assert!(files_exist_at(
-            vec![
+            &[
                 "car/car1.txt",
                 "car/car2.txt",
                 "bicycle/bicycle1.txt",
@@ -322,7 +321,7 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots() {
             "#
         );
 
-        let files = vec![
+        let files = &[
             "yehuda.yaml",
             "jtjson",
             "andres.xml",
@@ -333,7 +332,7 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots() {
         let original_dir = dirs.test().join("foo/bar");
         let destination_dir = dirs.test();
 
-        assert!(files_exist_at(files.clone(), destination_dir));
+        assert!(files_exist_at(files, destination_dir));
         assert!(!files_exist_at(files, original_dir))
     })
 }
@@ -440,10 +439,7 @@ fn mv_change_case_of_directory() {
         );
 
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-        assert!(files_exist_at(
-            vec!["somefile.txt",],
-            dirs.test().join(new_dir)
-        ));
+        assert!(files_exist_at(&["somefile.txt"], dirs.test().join(new_dir)));
 
         #[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
         _actual.err.contains("to a subdirectory of itself");
@@ -647,10 +643,10 @@ fn test_cp_inside_glob_metachars_dir() {
 
         assert!(actual.err.is_empty());
         assert!(!files_exist_at(
-            vec!["test_file.txt"],
+            &["test_file.txt"],
             dirs.test().join(sub_dir)
         ));
-        assert!(files_exist_at(vec!["test_file.txt"], dirs.test()));
+        assert!(files_exist_at(&["test_file.txt"], dirs.test()));
     });
 }
 
@@ -667,19 +663,13 @@ fn mv_with_tilde() {
         // mv file
         let actual = nu!(cwd: dirs.test(), "mv '~tilde/f1.txt' ./");
         assert!(actual.err.is_empty());
-        assert!(!files_exist_at(
-            vec![Path::new("f1.txt")],
-            dirs.test().join("~tilde")
-        ));
-        assert!(files_exist_at(vec![Path::new("f1.txt")], dirs.test()));
+        assert!(!files_exist_at(&["f1.txt"], dirs.test().join("~tilde")));
+        assert!(files_exist_at(&["f1.txt"], dirs.test()));
 
         // pass variable
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde/f2.txt'; mv $f ./");
         assert!(actual.err.is_empty());
-        assert!(!files_exist_at(
-            vec![Path::new("f2.txt")],
-            dirs.test().join("~tilde")
-        ));
-        assert!(files_exist_at(vec![Path::new("f1.txt")], dirs.test()));
+        assert!(!files_exist_at(&["f2.txt"], dirs.test().join("~tilde")));
+        assert!(files_exist_at(&["f1.txt"], dirs.test()));
     })
 }
