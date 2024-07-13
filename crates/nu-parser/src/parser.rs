@@ -5394,9 +5394,19 @@ pub fn parse_builtin_commands(
     match name {
         b"def" => parse_def(working_set, lite_command, None).0,
         b"extern" => parse_extern(working_set, lite_command, None),
-        b"let" => parse_let(working_set, &lite_command.parts),
+        b"let" => parse_let(
+            working_set,
+            &lite_command
+                .parts_including_redirection()
+                .collect::<Vec<Span>>(),
+        ),
         b"const" => parse_const(working_set, &lite_command.parts),
-        b"mut" => parse_mut(working_set, &lite_command.parts),
+        b"mut" => parse_mut(
+            working_set,
+            &lite_command
+                .parts_including_redirection()
+                .collect::<Vec<Span>>(),
+        ),
         b"for" => {
             let expr = parse_for(working_set, lite_command);
             Pipeline::from_vec(vec![expr])
@@ -5648,12 +5658,7 @@ pub(crate) fn redirecting_builtin_error(
     }
 }
 
-pub fn parse_pipeline(
-    working_set: &mut StateWorkingSet,
-    pipeline: &LitePipeline,
-    is_subexpression: bool,
-    pipeline_index: usize,
-) -> Pipeline {
+pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline) -> Pipeline {
     let first_command = pipeline.commands.get(0);
     let first_command_name = first_command
         .and_then(|command| command.parts.get(0))
@@ -5661,54 +5666,59 @@ pub fn parse_pipeline(
 
     if pipeline.commands.len() > 1 {
         // Special case: allow "let" or "mut" to consume the whole pipeline, if this is a pipeline
-        // with multiple commands, and the let/mut is well-formed
-        if matches!(first_command_name, Some(b"let" | b"mut"))
-            && first_command.is_some_and(|command| command.parts.len() > 3)
-        {
+        // with multiple commands
+        if matches!(first_command_name, Some(b"let" | b"mut")) {
             // Merge the pipeline into one command
             let first_command = first_command.expect("must be Some");
-            let remainder_span = Span::concat(&first_command.parts[3..]);
+
+            let remainder_span = first_command
+                .parts_including_redirection()
+                .skip(3)
+                .chain(
+                    pipeline.commands[1..]
+                        .iter()
+                        .flat_map(|command| command.parts_including_redirection()),
+                )
+                .reduce(Span::append);
+
+            let parts = first_command
+                .parts
+                .iter()
+                .take(3) // the let/mut start itself
+                .copied()
+                .chain(remainder_span) // everything else
+                .collect();
+
+            let comments = pipeline
+                .commands
+                .iter()
+                .flat_map(|command| command.comments.iter())
+                .copied()
+                .collect();
+
             let new_command = LiteCommand {
                 pipe: None,
-                comments: pipeline
-                    .commands
-                    .iter()
-                    .flat_map(|command| command.comments.iter())
-                    .copied()
-                    .collect(),
-                parts: first_command.parts[0..3] // the let/mut start itself
-                    .iter()
-                    .copied()
-                    .chain(std::iter::once(remainder_span)) // the first command
-                    .chain(
-                        first_command
-                            .redirection
-                            .iter()
-                            .flat_map(|redirection| redirection.spans()),
-                    )
-                    .chain(
-                        pipeline.commands[1..]
-                            .iter()
-                            .flat_map(|command| command.parts.iter().copied()),
-                    )
-                    .collect(),
+                comments,
+                parts,
                 redirection: None,
             };
             parse_builtin_commands(working_set, &new_command)
         } else {
             // Parse a normal multi command pipeline
-            let mut elements: Vec<_> = pipeline
+            let elements: Vec<_> = pipeline
                 .commands
                 .iter()
-                .map(|element| parse_pipeline_element(working_set, element))
+                .enumerate()
+                .map(|(index, element)| {
+                    let element = parse_pipeline_element(working_set, element);
+                    // Handle $in for pipeline elements beyond the first one
+                    if index > 0 && element.has_in_variable(working_set) {
+                        wrap_element_with_collect(working_set, element.clone())
+                    } else {
+                        element
+                    }
+                })
                 .collect();
-
-            // Handle $in for anything other than the first element, which is handled by block parsing
-            for element in elements.iter_mut().skip(1) {
-                if element.has_in_variable(working_set) {
-                    *element = wrap_element_with_collect(working_set, element);
-                }
-            }
 
             Pipeline { elements }
         }
@@ -5747,8 +5757,8 @@ pub fn parse_block(
     let mut block = Block::new_with_capacity(lite_block.block.len());
     block.span = Some(span);
 
-    for (idx, lite_pipeline) in lite_block.block.iter().enumerate() {
-        let pipeline = parse_pipeline(working_set, lite_pipeline, is_subexpression, idx);
+    for lite_pipeline in &lite_block.block {
+        let pipeline = parse_pipeline(working_set, lite_pipeline);
         block.pipelines.push(pipeline);
     }
 
@@ -6206,28 +6216,28 @@ pub fn discover_captures_in_expr(
 
 fn wrap_redirection_with_collect(
     working_set: &mut StateWorkingSet,
-    target: &RedirectionTarget,
+    target: RedirectionTarget,
 ) -> RedirectionTarget {
     match target {
         RedirectionTarget::File { expr, append, span } => RedirectionTarget::File {
-            expr: wrap_expr_with_collect(working_set, expr.clone()),
-            span: *span,
-            append: *append,
+            expr: wrap_expr_with_collect(working_set, expr),
+            span,
+            append,
         },
-        RedirectionTarget::Pipe { span } => RedirectionTarget::Pipe { span: *span },
+        RedirectionTarget::Pipe { span } => RedirectionTarget::Pipe { span },
     }
 }
 
 fn wrap_element_with_collect(
     working_set: &mut StateWorkingSet,
-    element: &PipelineElement,
+    element: PipelineElement,
 ) -> PipelineElement {
     PipelineElement {
         pipe: element.pipe,
-        expr: wrap_expr_with_collect(working_set, element.expr.clone()),
-        redirection: element.redirection.as_ref().map(|r| match r {
+        expr: wrap_expr_with_collect(working_set, element.expr),
+        redirection: element.redirection.map(|r| match r {
             PipelineRedirection::Single { source, target } => PipelineRedirection::Single {
-                source: *source,
+                source,
                 target: wrap_redirection_with_collect(working_set, target),
             },
             PipelineRedirection::Separate { out, err } => PipelineRedirection::Separate {

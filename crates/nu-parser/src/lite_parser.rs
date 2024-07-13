@@ -2,7 +2,7 @@
 //! can be parsed.
 
 use crate::{Token, TokenContents};
-use itertools::Either;
+use itertools::{Either, Itertools};
 use nu_protocol::{ast::RedirectionSource, ParseError, Span};
 use std::mem;
 
@@ -52,7 +52,9 @@ impl LiteRedirection {
     pub fn spans(&self) -> impl Iterator<Item = Span> {
         match self {
             LiteRedirection::Single { target, .. } => Either::Left(target.spans()),
-            LiteRedirection::Separate { out, err } => Either::Right(out.spans().chain(err.spans())),
+            LiteRedirection::Separate { out, err } => {
+                Either::Right(out.spans().chain(err.spans()).sorted())
+            }
         }
     }
 }
@@ -131,6 +133,14 @@ impl LiteCommand {
         self.redirection = Some(redirection);
 
         Ok(())
+    }
+
+    pub fn parts_including_redirection(&self) -> impl Iterator<Item = Span> + '_ {
+        self.parts.iter().copied().chain(
+            self.redirection
+                .iter()
+                .flat_map(|redirection| redirection.spans()),
+        )
     }
 }
 
