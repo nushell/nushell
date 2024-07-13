@@ -37,7 +37,7 @@ impl fmt::Debug for IrBlock {
             .field("data", &self.data)
             .field("comments", &self.comments)
             .field("register_count", &self.register_count)
-            .field("file_count", &self.register_count)
+            .field("file_count", &self.file_count)
             .finish_non_exhaustive()
     }
 }
