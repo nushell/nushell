@@ -5659,9 +5659,9 @@ pub(crate) fn redirecting_builtin_error(
 }
 
 pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline) -> Pipeline {
-    let first_command = pipeline.commands.get(0);
+    let first_command = pipeline.commands.first();
     let first_command_name = first_command
-        .and_then(|command| command.parts.get(0))
+        .and_then(|command| command.parts.first())
         .map(|span| working_set.get_span_contents(*span));
 
     if pipeline.commands.len() > 1 {
@@ -5768,7 +5768,7 @@ pub fn parse_block(
         && block
             .pipelines
             .iter()
-            .flat_map(|pipeline| pipeline.elements.get(0))
+            .flat_map(|pipeline| pipeline.elements.first())
             .any(|element| element.has_in_variable(working_set))
     {
         // Move the block out to prepare it to become a subexpression

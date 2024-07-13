@@ -114,7 +114,7 @@ impl Expression {
                     || block
                         .pipelines
                         .iter()
-                        .flat_map(|pipeline| pipeline.elements.get(0))
+                        .flat_map(|pipeline| pipeline.elements.first())
                         .any(|element| element.has_in_variable(working_set))
             }
             Expr::Binary(_) => false,
