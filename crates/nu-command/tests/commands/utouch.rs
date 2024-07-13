@@ -528,3 +528,11 @@ fn reference_respects_cwd() {
         assert!(path.exists());
     })
 }
+
+#[test]
+fn recognizes_stdout() {
+    Playground::setup("utouch_recognizes_stdout", |dirs, _sandbox| {
+        nu!(cwd: dirs.test(), "utouch -");
+        assert!(!dirs.test().join("-").exists());
+    })
+}

@@ -34,7 +34,7 @@ impl Command for UTouch {
             .rest(
                 "files",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Filepath]),
-                "The file(s) to create."
+                "The file(s) to create. '-' is used to represent stdout."
             )
             .named(
                 "reference",
@@ -71,7 +71,7 @@ impl Command for UTouch {
             )
             .switch(
                 "no-dereference",
-                "affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink)",
+                "affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink). Ignored if touching stdout",
                 None
             )
             .category(Category::FileSystem)
@@ -157,8 +157,13 @@ impl Command for UTouch {
 
         let mut input_files = Vec::new();
         for file_glob in &file_globs {
-            let path = expand_path_with(file_glob.item.as_ref(), &cwd, file_glob.item.is_expand());
-            input_files.push(InputFile::Path(path));
+            if file_glob.item.as_ref() == "-" {
+                input_files.push(InputFile::Stdout);
+            } else {
+                let path =
+                    expand_path_with(file_glob.item.as_ref(), &cwd, file_glob.item.is_expand());
+                input_files.push(InputFile::Path(path));
+            }
         }
 
         if let Err(err) = uu_touch::touch(
@@ -240,13 +245,18 @@ impl Command for UTouch {
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified time of file d and e to "fixture.json"'s last modified time"#,
+                description: r#"Changes the last modified time of files d and e to "fixture.json"'s last modified time"#,
                 example: r#"utouch -m -r fixture.json d e"#,
                 result: None,
             },
             Example {
                 description: r#"Changes the last accessed time of "fixture.json" to a datetime"#,
                 example: r#"utouch -a -t 2019-08-24T12:30:30 fixture.json"#,
+                result: None,
+            },
+            Example {
+                description: r#"Change the last accessed and last modified times of stdout"#,
+                example: r#"utouch -"#,
                 result: None,
             },
         ]
