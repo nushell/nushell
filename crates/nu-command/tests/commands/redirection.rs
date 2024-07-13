@@ -459,17 +459,17 @@ fn file_redirection_in_let_and_mut(#[case] keyword: &str, #[case] redir: &str) {
 }
 
 #[rstest::rstest]
-#[case("let", "err>|", 3)]
-#[case("let", "out+err>|", 6)]
-#[case("mut", "err>|", 3)]
-#[case("mut", "out+err>|", 6)]
+#[case("let", "err>|", "foo3")]
+#[case("let", "out+err>|", "7")]
+#[case("mut", "err>|", "foo3")]
+#[case("mut", "out+err>|", "7")]
 fn pipe_redirection_in_let_and_mut(
     #[case] keyword: &str,
     #[case] redir: &str,
-    #[case] length: usize,
+    #[case] output: &str,
 ) {
     let actual = nu!(
         format!("$env.BAZ = 'foo'; {keyword} v = nu --testbin echo_env_mixed out-err BAZ BAZ {redir} str length; $v")
     );
-    assert_eq!(actual.out.len(), length);
+    assert_eq!(actual.out, output);
 }
