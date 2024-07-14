@@ -19,7 +19,7 @@ fn txt(text: &str) -> String {
 }
 
 fn hjson_expectations() -> PathBuf {
-    nu_test_support::fs::assets().join("nu_json")
+    nu_test_support::fs::assets().join("nu_json").into()
 }
 
 fn get_test_content(name: &str) -> io::Result<String> {
