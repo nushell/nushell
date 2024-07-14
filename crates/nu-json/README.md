@@ -43,7 +43,7 @@ fn main() {
 
     let sample_text=r#"
     {
-        # specify rate in requests/second
+        ## specify rate in requests/second
         rate: 1000
         array:
         [
