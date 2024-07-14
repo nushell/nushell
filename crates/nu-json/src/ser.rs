@@ -714,7 +714,7 @@ impl<'a> HjsonFormatter<'a> {
             stack: Vec::new(),
             at_colon: false,
             indent,
-            braces_same_line: false,
+            braces_same_line: true,
         }
     }
 }

@@ -3195,7 +3195,10 @@ dependencies = [
 name = "nu-json"
 version = "0.95.1"
 dependencies = [
+ "fancy-regex",
  "linked-hash-map",
+ "nu-path",
+ "nu-test-support",
  "num-traits",
  "serde",
  "serde_json",
