@@ -35,71 +35,36 @@ impl Command for Window {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let stream_test_1 = vec![
-            Value::list(
-                vec![Value::test_int(1), Value::test_int(2)],
-                Span::test_data(),
-            ),
-            Value::list(
-                vec![Value::test_int(2), Value::test_int(3)],
-                Span::test_data(),
-            ),
-            Value::list(
-                vec![Value::test_int(3), Value::test_int(4)],
-                Span::test_data(),
-            ),
-        ];
-
-        let stream_test_2 = vec![
-            Value::list(
-                vec![Value::test_int(1), Value::test_int(2)],
-                Span::test_data(),
-            ),
-            Value::list(
-                vec![Value::test_int(4), Value::test_int(5)],
-                Span::test_data(),
-            ),
-            Value::list(
-                vec![Value::test_int(7), Value::test_int(8)],
-                Span::test_data(),
-            ),
-        ];
-
-        let stream_test_3 = vec![
-            Value::list(
-                vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                Span::test_data(),
-            ),
-            Value::list(
-                vec![Value::test_int(4), Value::test_int(5)],
-                Span::test_data(),
-            ),
-        ];
-
         vec![
             Example {
                 example: "[1 2 3 4] | window 2",
                 description: "A sliding window of two elements",
-                result: Some(Value::list(
-                    stream_test_1,
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
+                    Value::test_list(vec![Value::test_int(2), Value::test_int(3)]),
+                    Value::test_list(vec![Value::test_int(3), Value::test_int(4)]),
+                ])),
             },
             Example {
                 example: "[1, 2, 3, 4, 5, 6, 7, 8] | window 2 --stride 3",
                 description: "A sliding window of two elements, with a stride of 3",
-                result: Some(Value::list(
-                    stream_test_2,
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
+                    Value::test_list(vec![Value::test_int(4), Value::test_int(5)]),
+                    Value::test_list(vec![Value::test_int(7), Value::test_int(8)]),
+                ])),
             },
             Example {
                 example: "[1, 2, 3, 4, 5] | window 3 --stride 3 --remainder",
                 description: "A sliding window of equal stride that includes remainder. Equivalent to chunking",
-                result: Some(Value::list(
-                    stream_test_3,
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_list(vec![
+                        Value::test_int(1),
+                        Value::test_int(2),
+                        Value::test_int(3),
+                    ]),
+                    Value::test_list(vec![Value::test_int(4), Value::test_int(5)]),
+                ])),
             },
         ]
     }
