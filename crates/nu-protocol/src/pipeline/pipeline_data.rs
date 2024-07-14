@@ -635,6 +635,34 @@ impl PipelineData {
             Ok(None)
         }
     }
+
+    pub fn unsupported_input_error(
+        self,
+        expected_type: impl Into<String>,
+        span: Span,
+    ) -> ShellError {
+        match self {
+            PipelineData::Empty => ShellError::PipelineEmpty { dst_span: span },
+            PipelineData::Value(value, ..) => ShellError::OnlySupportsThisInputType {
+                exp_input_type: expected_type.into(),
+                wrong_type: value.get_type().get_non_specified_string(),
+                dst_span: span,
+                src_span: value.span(),
+            },
+            PipelineData::ListStream(stream, ..) => ShellError::OnlySupportsThisInputType {
+                exp_input_type: expected_type.into(),
+                wrong_type: "list (stream)".into(),
+                dst_span: span,
+                src_span: stream.span(),
+            },
+            PipelineData::ByteStream(stream, ..) => ShellError::OnlySupportsThisInputType {
+                exp_input_type: expected_type.into(),
+                wrong_type: stream.type_().describe().into(),
+                dst_span: span,
+                src_span: stream.span(),
+            },
+        }
+    }
 }
 
 enum PipelineIteratorInner {
