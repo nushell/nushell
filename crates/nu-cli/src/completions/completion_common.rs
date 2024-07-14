@@ -76,6 +76,13 @@ fn complete_rec(
                         completions.push(built);
                     }
                 }
+                // isdir tells us whether the current path has a trailing slash.
+                // Parsing a path string into a pathbuf loses that bit of information.
+                // We use isdir to confirm that the current component has at least one
+                // next component or a slash.
+
+                // This acts as a confirmation to ignore longer completions for components
+                // in between.
                 if entry_name.eq(base)
                     && matches!(options.match_algorithm, MatchAlgorithm::Prefix)
                     && isdir
