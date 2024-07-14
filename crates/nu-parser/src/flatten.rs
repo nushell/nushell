@@ -26,6 +26,7 @@ pub enum FlatShape {
     Flag,
     Float,
     Garbage,
+    GlobInterpolation,
     GlobPattern,
     Int,
     InternalCall(DeclId),
@@ -67,6 +68,7 @@ impl FlatShape {
             FlatShape::Flag => "shape_flag",
             FlatShape::Float => "shape_float",
             FlatShape::Garbage => "shape_garbage",
+            FlatShape::GlobInterpolation => "shape_glob_interpolation",
             FlatShape::GlobPattern => "shape_globpattern",
             FlatShape::Int => "shape_int",
             FlatShape::InternalCall(_) => "shape_internalcall",
@@ -277,7 +279,7 @@ fn flatten_expression_into(
             output[arg_start..].sort();
         }
         Expr::ExternalCall(head, args) => {
-            if let Expr::String(..) = &head.expr {
+            if let Expr::String(..) | Expr::GlobPattern(..) = &head.expr {
                 output.push((head.span, FlatShape::External));
             } else {
                 flatten_expression_into(working_set, head, output);
@@ -286,7 +288,7 @@ fn flatten_expression_into(
             for arg in args.as_ref() {
                 match arg {
                     ExternalArgument::Regular(expr) => {
-                        if let Expr::String(..) = &expr.expr {
+                        if let Expr::String(..) | Expr::GlobPattern(..) = &expr.expr {
                             output.push((expr.span, FlatShape::ExternalArg));
                         } else {
                             flatten_expression_into(working_set, expr, output);
@@ -428,6 +430,25 @@ fn flatten_expression_into(
                         FlatShape::StringInterpolation,
                     ));
                 }
+            }
+            output.extend(flattened);
+        }
+        Expr::GlobInterpolation(exprs, quoted) => {
+            let mut flattened = vec![];
+            for expr in exprs {
+                flatten_expression_into(working_set, expr, &mut flattened);
+            }
+
+            if *quoted {
+                // If we aren't a bare word interpolation, also highlight the outer quotes
+                output.push((
+                    Span::new(expr.span.start, expr.span.start + 2),
+                    FlatShape::GlobInterpolation,
+                ));
+                flattened.push((
+                    Span::new(expr.span.end - 1, expr.span.end),
+                    FlatShape::GlobInterpolation,
+                ));
             }
             output.extend(flattened);
         }

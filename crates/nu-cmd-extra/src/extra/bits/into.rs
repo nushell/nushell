@@ -1,6 +1,9 @@
+use std::io::{self, Read, Write};
+
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
+use nu_protocol::Signals;
 use num_traits::ToPrimitive;
 
 pub struct Arguments {
@@ -118,12 +121,43 @@ fn into_bits(
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-    if let PipelineData::ByteStream(stream, ..) = input {
-        // TODO: in the future, we may want this to stream out, converting each to bytes
-        Ok(Value::binary(stream.into_bytes()?, head).into_pipeline_data())
+    if let PipelineData::ByteStream(stream, metadata) = input {
+        Ok(PipelineData::ByteStream(
+            byte_stream_to_bits(stream, head),
+            metadata,
+        ))
     } else {
         let args = Arguments { cell_paths };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
+    }
+}
+
+fn byte_stream_to_bits(stream: ByteStream, head: Span) -> ByteStream {
+    if let Some(mut reader) = stream.reader() {
+        let mut is_first = true;
+        ByteStream::from_fn(
+            head,
+            Signals::empty(),
+            ByteStreamType::String,
+            move |buffer| {
+                let mut byte = [0];
+                if reader.read(&mut byte[..]).err_span(head)? > 0 {
+                    // Format the byte as bits
+                    if is_first {
+                        is_first = false;
+                    } else {
+                        buffer.push(b' ');
+                    }
+                    write!(buffer, "{:08b}", byte[0]).expect("format failed");
+                    Ok(true)
+                } else {
+                    // EOF
+                    Ok(false)
+                }
+            },
+        )
+    } else {
+        ByteStream::read(io::empty(), head, Signals::empty(), ByteStreamType::String)
     }
 }
 

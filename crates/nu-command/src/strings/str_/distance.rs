@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::levenshtein_distance;
+use nu_protocol::{engine::StateWorkingSet, levenshtein_distance};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -49,6 +49,10 @@ impl Command for SubCommand {
         vec!["edit", "levenshtein"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -63,7 +67,29 @@ impl Command for SubCommand {
             compare_string,
             cell_paths,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let compare_string: String = call.req_const(working_set, 0)?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let args = Arguments {
+            compare_string,
+            cell_paths,
+        };
+        operate(
+            action,
+            args,
+            input,
+            call.head,
+            working_set.permanent().signals(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {

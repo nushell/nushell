@@ -1,8 +1,12 @@
+//! Representation of the engine state and many of the details that implement the scoping
+mod argument;
 mod cached_file;
+mod call;
 mod call_info;
 mod capture_block;
 mod command;
 mod engine_state;
+mod error_handler;
 mod overlay;
 mod pattern_match;
 mod stack;
@@ -14,10 +18,13 @@ mod variable;
 
 pub use cached_file::CachedFile;
 
+pub use argument::*;
+pub use call::*;
 pub use call_info::*;
 pub use capture_block::*;
 pub use command::*;
 pub use engine_state::*;
+pub use error_handler::*;
 pub use overlay::*;
 pub use pattern_match::*;
 pub use stack::*;

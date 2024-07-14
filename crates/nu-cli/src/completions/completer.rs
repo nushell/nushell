@@ -51,8 +51,7 @@ impl NuCompleter {
             ..Default::default()
         };
 
-        // Fetch
-        let mut suggestions = completer.fetch(
+        completer.fetch(
             working_set,
             &self.stack,
             prefix.clone(),
@@ -60,12 +59,7 @@ impl NuCompleter {
             offset,
             pos,
             &options,
-        );
-
-        // Sort
-        suggestions = completer.sort(suggestions, prefix);
-
-        suggestions
+        )
     }
 
     fn external_completion(

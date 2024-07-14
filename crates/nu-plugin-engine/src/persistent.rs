@@ -7,7 +7,7 @@ use super::{PluginInterface, PluginSource};
 use nu_plugin_core::CommunicationMode;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
+    PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin, ShellError,
 };
 use std::{
     collections::HashMap,
@@ -31,6 +31,8 @@ pub struct PersistentPlugin {
 struct MutableState {
     /// Reference to the plugin if running
     running: Option<RunningPlugin>,
+    /// Metadata for the plugin, e.g. version.
+    metadata: Option<PluginMetadata>,
     /// Plugin's preferred communication mode (if known)
     preferred_mode: Option<PreferredCommunicationMode>,
     /// Garbage collector config
@@ -59,6 +61,7 @@ impl PersistentPlugin {
             identity,
             mutable: Mutex::new(MutableState {
                 running: None,
+                metadata: None,
                 preferred_mode: None,
                 gc_config,
             }),
@@ -266,6 +269,16 @@ impl RegisteredPlugin for PersistentPlugin {
 
     fn reset(&self) -> Result<(), ShellError> {
         self.stop_internal(true)
+    }
+
+    fn metadata(&self) -> Option<PluginMetadata> {
+        self.mutable.lock().ok().and_then(|m| m.metadata.clone())
+    }
+
+    fn set_metadata(&self, metadata: Option<PluginMetadata>) {
+        if let Ok(mut mutable) = self.mutable.lock() {
+            mutable.metadata = metadata;
+        }
     }
 
     fn set_gc_config(&self, gc_config: &PluginGcConfig) {

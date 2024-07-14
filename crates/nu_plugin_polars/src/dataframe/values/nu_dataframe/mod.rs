@@ -104,6 +104,7 @@ impl PolarsObject for DataFrameValue {
 pub struct NuDataFrame {
     pub id: Uuid,
     pub df: Arc<DataFrame>,
+    pub from_lazy: bool,
 }
 
 impl AsRef<DataFrame> for NuDataFrame {
@@ -114,16 +115,17 @@ impl AsRef<DataFrame> for NuDataFrame {
 
 impl From<DataFrame> for NuDataFrame {
     fn from(df: DataFrame) -> Self {
-        Self::new(df)
+        Self::new(false, df)
     }
 }
 
 impl NuDataFrame {
-    pub fn new(df: DataFrame) -> Self {
+    pub fn new(from_lazy: bool, df: DataFrame) -> Self {
         let id = Uuid::new_v4();
         Self {
             id,
             df: Arc::new(df),
+            from_lazy,
         }
     }
 
@@ -132,12 +134,12 @@ impl NuDataFrame {
     }
 
     pub fn lazy(&self) -> NuLazyFrame {
-        NuLazyFrame::new(self.to_polars().lazy())
+        NuLazyFrame::new(true, self.to_polars().lazy())
     }
 
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
         match DataFrame::new(vec![series]) {
-            Ok(dataframe) => Ok(NuDataFrame::new(dataframe)),
+            Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
                 msg: e.to_string(),
@@ -200,7 +202,7 @@ impl NuDataFrame {
             inner: vec![],
         })?;
 
-        Ok(Self::new(dataframe))
+        Ok(Self::new(false, dataframe))
     }
 
     pub fn try_from_columns(
@@ -274,7 +276,7 @@ impl NuDataFrame {
             inner: vec![],
         })?;
 
-        Ok(Self::new(df))
+        Ok(Self::new(false, df))
     }
 
     pub fn is_series(&self) -> bool {
@@ -324,22 +326,22 @@ impl NuDataFrame {
     }
 
     // Print is made out a head and if the dataframe is too large, then a tail
-    pub fn print(&self, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn print(&self, include_index: bool, span: Span) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let size: usize = 20;
 
         if df.height() > size {
             let sample_size = size / 2;
-            let mut values = self.head(Some(sample_size), span)?;
+            let mut values = self.head(Some(sample_size), include_index, span)?;
             conversion::add_separator(&mut values, df, self.has_index(), span);
             let remaining = df.height() - sample_size;
             let tail_size = remaining.min(sample_size);
-            let mut tail_values = self.tail(Some(tail_size), span)?;
+            let mut tail_values = self.tail(Some(tail_size), include_index, span)?;
             values.append(&mut tail_values);
 
             Ok(values)
         } else {
-            Ok(self.head(Some(size), span)?)
+            Ok(self.head(Some(size), include_index, span)?)
         }
     }
 
@@ -347,26 +349,38 @@ impl NuDataFrame {
         self.df.height()
     }
 
-    pub fn head(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn head(
+        &self,
+        rows: Option<usize>,
+        include_index: bool,
+        span: Span,
+    ) -> Result<Vec<Value>, ShellError> {
         let to_row = rows.unwrap_or(5);
-        let values = self.to_rows(0, to_row, span)?;
+        let values = self.to_rows(0, to_row, include_index, span)?;
         Ok(values)
     }
 
-    pub fn tail(&self, rows: Option<usize>, span: Span) -> Result<Vec<Value>, ShellError> {
+    pub fn tail(
+        &self,
+        rows: Option<usize>,
+        include_index: bool,
+        span: Span,
+    ) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
         let to_row = df.height();
         let size = rows.unwrap_or(DEFAULT_ROWS);
         let from_row = to_row.saturating_sub(size);
 
-        let values = self.to_rows(from_row, to_row, span)?;
+        let values = self.to_rows(from_row, to_row, include_index, span)?;
         Ok(values)
     }
 
+    /// Converts the dataframe to a nushell list of values
     pub fn to_rows(
         &self,
         from_row: usize,
         to_row: usize,
+        include_index: bool,
         span: Span,
     ) -> Result<Vec<Value>, ShellError> {
         let df = &self.df;
@@ -398,7 +412,7 @@ impl NuDataFrame {
             .map(|i| {
                 let mut record = Record::new();
 
-                if !has_index {
+                if !has_index && include_index {
                     record.push("index", Value::int((i + from_row) as i64, span));
                 }
 
@@ -600,7 +614,7 @@ impl CustomValueSupport for NuDataFrame {
     }
 
     fn base_value(self, span: Span) -> Result<Value, ShellError> {
-        let vals = self.print(span)?;
+        let vals = self.print(true, span)?;
         Ok(Value::list(vals, span))
     }
 

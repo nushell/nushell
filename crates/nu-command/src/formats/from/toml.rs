@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use std::str::FromStr;
+use toml::value::{Datetime, Offset};
 
 #[derive(Clone)]
 pub struct FromToml;
@@ -56,6 +56,54 @@ b = [1, 2]' | from toml",
     }
 }
 
+fn convert_toml_datetime_to_value(dt: &Datetime, span: Span) -> Value {
+    match &dt.clone() {
+        toml::value::Datetime {
+            date: Some(_),
+            time: _,
+            offset: _,
+        } => (),
+        _ => return Value::string(dt.to_string(), span),
+    }
+
+    let date = match dt.date {
+        Some(date) => {
+            chrono::NaiveDate::from_ymd_opt(date.year.into(), date.month.into(), date.day.into())
+        }
+        None => Some(chrono::NaiveDate::default()),
+    };
+
+    let time = match dt.time {
+        Some(time) => chrono::NaiveTime::from_hms_nano_opt(
+            time.hour.into(),
+            time.minute.into(),
+            time.second.into(),
+            time.nanosecond,
+        ),
+        None => Some(chrono::NaiveTime::default()),
+    };
+
+    let tz = match dt.offset {
+        Some(offset) => match offset {
+            Offset::Z => chrono::FixedOffset::east_opt(0),
+            Offset::Custom { minutes: min } => chrono::FixedOffset::east_opt(min as i32 * 60),
+        },
+        None => chrono::FixedOffset::east_opt(0),
+    };
+
+    let datetime = match (date, time, tz) {
+        (Some(date), Some(time), Some(tz)) => chrono::NaiveDateTime::new(date, time)
+            .and_local_timezone(tz)
+            .earliest(),
+        _ => None,
+    };
+
+    match datetime {
+        Some(datetime) => Value::date(datetime, span),
+        None => Value::string(dt.to_string(), span),
+    }
+}
+
 fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
     match value {
         toml::Value::Array(array) => {
@@ -76,13 +124,7 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
             span,
         ),
         toml::Value::String(s) => Value::string(s.clone(), span),
-        toml::Value::Datetime(d) => match chrono::DateTime::from_str(&d.to_string()) {
-            Ok(nushell_date) => Value::date(nushell_date, span),
-            // in the unlikely event that parsing goes wrong, this function still returns a valid
-            // nushell date (however the default one). This decision was made to make the output of
-            // this function uniform amongst all eventualities
-            Err(_) => Value::date(chrono::DateTime::default(), span),
-        },
+        toml::Value::Datetime(dt) => convert_toml_datetime_to_value(dt, span),
     }
 }
 
@@ -111,32 +153,6 @@ mod tests {
         use crate::test_examples;
 
         test_examples(FromToml {})
-    }
-
-    #[test]
-    fn from_toml_creates_nushell_date() {
-        let toml_date = toml::Value::Datetime(Datetime {
-            date: Option::from(toml::value::Date {
-                year: 1980,
-                month: 10,
-                day: 12,
-            }),
-            time: Option::from(toml::value::Time {
-                hour: 10,
-                minute: 12,
-                second: 44,
-                nanosecond: 0,
-            }),
-            offset: Option::from(toml::value::Offset::Custom { minutes: 120 }),
-        });
-
-        let span = Span::test_data();
-        let reference_date = Value::date(Default::default(), Span::test_data());
-
-        let result = convert_toml_to_value(&toml_date, span);
-
-        //positive test (from toml returns a nushell date)
-        assert_eq!(result.get_type(), reference_date.get_type());
     }
 
     #[test]
@@ -205,5 +221,114 @@ mod tests {
         let result = convert_string_to_value(input_string, span);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn convert_toml_datetime_to_value_date_time_offset() {
+        let toml_date = Datetime {
+            date: Option::from(toml::value::Date {
+                year: 2000,
+                month: 1,
+                day: 1,
+            }),
+            time: Option::from(toml::value::Time {
+                hour: 12,
+                minute: 12,
+                second: 12,
+                nanosecond: 0,
+            }),
+            offset: Option::from(toml::value::Offset::Custom { minutes: 120 }),
+        };
+
+        let span = Span::test_data();
+        let reference_date = Value::date(
+            chrono::FixedOffset::east_opt(60 * 120)
+                .unwrap()
+                .with_ymd_and_hms(2000, 1, 1, 12, 12, 12)
+                .unwrap(),
+            span,
+        );
+
+        let result = convert_toml_datetime_to_value(&toml_date, span);
+
+        assert_eq!(result, reference_date);
+    }
+
+    #[test]
+    fn convert_toml_datetime_to_value_date_time() {
+        let toml_date = Datetime {
+            date: Option::from(toml::value::Date {
+                year: 2000,
+                month: 1,
+                day: 1,
+            }),
+            time: Option::from(toml::value::Time {
+                hour: 12,
+                minute: 12,
+                second: 12,
+                nanosecond: 0,
+            }),
+            offset: None,
+        };
+
+        let span = Span::test_data();
+        let reference_date = Value::date(
+            chrono::FixedOffset::east_opt(0)
+                .unwrap()
+                .with_ymd_and_hms(2000, 1, 1, 12, 12, 12)
+                .unwrap(),
+            span,
+        );
+
+        let result = convert_toml_datetime_to_value(&toml_date, span);
+
+        assert_eq!(result, reference_date);
+    }
+
+    #[test]
+    fn convert_toml_datetime_to_value_date() {
+        let toml_date = Datetime {
+            date: Option::from(toml::value::Date {
+                year: 2000,
+                month: 1,
+                day: 1,
+            }),
+            time: None,
+            offset: None,
+        };
+
+        let span = Span::test_data();
+        let reference_date = Value::date(
+            chrono::FixedOffset::east_opt(0)
+                .unwrap()
+                .with_ymd_and_hms(2000, 1, 1, 0, 0, 0)
+                .unwrap(),
+            span,
+        );
+
+        let result = convert_toml_datetime_to_value(&toml_date, span);
+
+        assert_eq!(result, reference_date);
+    }
+
+    #[test]
+    fn convert_toml_datetime_to_value_only_time() {
+        let toml_date = Datetime {
+            date: None,
+            time: Option::from(toml::value::Time {
+                hour: 12,
+                minute: 12,
+                second: 12,
+                nanosecond: 0,
+            }),
+            offset: None,
+        };
+
+        let span = Span::test_data();
+        let reference_date = Value::string(toml_date.to_string(), span);
+
+        let result = convert_toml_datetime_to_value(&toml_date, span);
+
+        assert_eq!(result, reference_date);
     }
 }

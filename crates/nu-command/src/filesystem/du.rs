@@ -3,10 +3,9 @@ use crate::{DirBuilder, DirInfo, FileInfo};
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
 use nu_glob::Pattern;
-use nu_protocol::NuGlob;
+use nu_protocol::{NuGlob, Signals};
 use serde::Deserialize;
 use std::path::Path;
-use std::sync::{atomic::AtomicBool, Arc};
 
 #[derive(Clone)]
 pub struct Du;
@@ -103,7 +102,7 @@ impl Command for Du {
         let current_dir = current_dir(engine_state, stack)?;
 
         let paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
-        let paths = if call.rest_iter(0).count() == 0 {
+        let paths = if !call.has_positional_args(stack, 0) {
             None
         } else {
             Some(paths)
@@ -120,8 +119,8 @@ impl Command for Du {
                     min_size,
                 };
                 Ok(
-                    du_for_one_pattern(args, &current_dir, tag, engine_state.ctrlc.clone())?
-                        .into_pipeline_data(tag, engine_state.ctrlc.clone()),
+                    du_for_one_pattern(args, &current_dir, tag, engine_state.signals())?
+                        .into_pipeline_data(tag, engine_state.signals().clone()),
                 )
             }
             Some(paths) => {
@@ -139,7 +138,7 @@ impl Command for Du {
                         args,
                         &current_dir,
                         tag,
-                        engine_state.ctrlc.clone(),
+                        engine_state.signals(),
                     )?)
                 }
 
@@ -147,7 +146,7 @@ impl Command for Du {
                 Ok(result_iters
                     .into_iter()
                     .flatten()
-                    .into_pipeline_data(tag, engine_state.ctrlc.clone()))
+                    .into_pipeline_data(tag, engine_state.signals().clone()))
             }
         }
     }
@@ -164,8 +163,8 @@ impl Command for Du {
 fn du_for_one_pattern(
     args: DuArgs,
     current_dir: &Path,
-    call_span: Span,
-    ctrl_c: Option<Arc<AtomicBool>>,
+    span: Span,
+    signals: &Signals,
 ) -> Result<impl Iterator<Item = Value> + Send, ShellError> {
     let exclude = args.exclude.map_or(Ok(None), move |x| {
         Pattern::new(x.item.as_ref())
@@ -178,7 +177,7 @@ fn du_for_one_pattern(
 
     let include_files = args.all;
     let mut paths = match args.path {
-        Some(p) => nu_engine::glob_from(&p, current_dir, call_span, None),
+        Some(p) => nu_engine::glob_from(&p, current_dir, span, None),
         // The * pattern should never fail.
         None => nu_engine::glob_from(
             &Spanned {
@@ -186,7 +185,7 @@ fn du_for_one_pattern(
                 span: Span::unknown(),
             },
             current_dir,
-            call_span,
+            span,
             None,
         ),
     }
@@ -205,7 +204,7 @@ fn du_for_one_pattern(
     let min_size = args.min_size.map(|f| f.item as u64);
 
     let params = DirBuilder {
-        tag: call_span,
+        tag: span,
         min: min_size,
         deref,
         exclude,
@@ -217,13 +216,13 @@ fn du_for_one_pattern(
         match p {
             Ok(a) => {
                 if a.is_dir() {
-                    output.push(DirInfo::new(a, &params, max_depth, ctrl_c.clone()).into());
-                } else if let Ok(v) = FileInfo::new(a, deref, call_span) {
+                    output.push(DirInfo::new(a, &params, max_depth, span, signals)?.into());
+                } else if let Ok(v) = FileInfo::new(a, deref, span) {
                     output.push(v.into());
                 }
             }
             Err(e) => {
-                output.push(Value::error(e, call_span));
+                output.push(Value::error(e, span));
             }
         }
     }

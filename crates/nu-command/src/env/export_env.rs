@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, redirect_env};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct ExportEnv;
@@ -23,6 +24,19 @@ impl Command for ExportEnv {
         "Run a block and preserve its environment in a current scope."
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
+    }
+
+    fn requires_ast_for_arguments(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -31,7 +45,7 @@ impl Command for ExportEnv {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let block_id = call
-            .positional_nth(0)
+            .positional_nth(caller_stack, 0)
             .expect("checked through parser")
             .as_block()
             .expect("internal error: missing block");

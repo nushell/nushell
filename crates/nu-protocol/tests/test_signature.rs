@@ -39,7 +39,7 @@ fn test_signature_chained() {
 
     assert_eq!(
         signature.get_positional(0),
-        Some(PositionalArg {
+        Some(&PositionalArg {
             name: "required".to_string(),
             desc: "required description".to_string(),
             shape: SyntaxShape::String,
@@ -49,7 +49,7 @@ fn test_signature_chained() {
     );
     assert_eq!(
         signature.get_positional(1),
-        Some(PositionalArg {
+        Some(&PositionalArg {
             name: "optional".to_string(),
             desc: "optional description".to_string(),
             shape: SyntaxShape::String,
@@ -59,7 +59,7 @@ fn test_signature_chained() {
     );
     assert_eq!(
         signature.get_positional(2),
-        Some(PositionalArg {
+        Some(&PositionalArg {
             name: "rest".to_string(),
             desc: "rest description".to_string(),
             shape: SyntaxShape::String,

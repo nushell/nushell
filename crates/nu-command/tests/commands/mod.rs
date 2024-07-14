@@ -4,6 +4,7 @@ mod any;
 mod append;
 mod assignment;
 mod break_;
+mod bytes;
 mod cal;
 mod cd;
 mod compact;
@@ -124,7 +125,6 @@ mod upsert;
 mod url;
 mod use_;
 mod where_;
-#[cfg(feature = "which-support")]
 mod which;
 mod while_;
 mod with_env;

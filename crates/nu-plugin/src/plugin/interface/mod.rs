@@ -11,9 +11,10 @@ use nu_plugin_protocol::{
     ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, LabeledError, PipelineData, PluginSignature, ShellError, Span,
-    Spanned, Value,
+    engine::Closure, Config, LabeledError, PipelineData, PluginMetadata, PluginSignature,
+    ShellError, Signals, Span, Spanned, Value,
 };
+use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
     sync::{mpsc, Arc},
@@ -29,6 +30,9 @@ use std::{
 #[derive(Debug)]
 #[doc(hidden)]
 pub enum ReceivedPluginCall {
+    Metadata {
+        engine: EngineInterface,
+    },
     Signature {
         engine: EngineInterface,
     },
@@ -271,7 +275,9 @@ impl InterfaceManager for EngineInterfaceManager {
             PluginInput::Call(id, call) => {
                 let interface = self.interface_for_context(id);
                 // Read streams in the input
-                let call = match call.map_data(|input| self.read_pipeline_data(input, None)) {
+                let call = match call
+                    .map_data(|input| self.read_pipeline_data(input, &Signals::empty()))
+                {
                     Ok(call) => call,
                     Err(err) => {
                         // If there's an error with initialization of the input stream, just send
@@ -280,8 +286,11 @@ impl InterfaceManager for EngineInterfaceManager {
                     }
                 };
                 match call {
-                    // We just let the receiver handle it rather than trying to store signature here
-                    // or something
+                    // Ask the plugin for metadata
+                    PluginCall::Metadata => {
+                        self.send_plugin_call(ReceivedPluginCall::Metadata { engine: interface })
+                    }
+                    // Ask the plugin for signatures
                     PluginCall::Signature => {
                         self.send_plugin_call(ReceivedPluginCall::Signature { engine: interface })
                     }
@@ -314,7 +323,7 @@ impl InterfaceManager for EngineInterfaceManager {
             }
             PluginInput::EngineCallResponse(id, response) => {
                 let response = response
-                    .map_data(|header| self.read_pipeline_data(header, None))
+                    .map_data(|header| self.read_pipeline_data(header, &Signals::empty()))
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to an engine
                         // call error response, but send it anyway
@@ -416,6 +425,13 @@ impl EngineInterface {
         }
     }
 
+    /// Write a call response of plugin metadata.
+    pub(crate) fn write_metadata(&self, metadata: PluginMetadata) -> Result<(), ShellError> {
+        let response = PluginCallResponse::Metadata(metadata);
+        self.write(PluginOutput::CallResponse(self.context()?, response))?;
+        self.flush()
+    }
+
     /// Write a call response of plugin signatures.
     ///
     /// Any custom values in the examples will be rendered using `to_base_value()`.
@@ -510,9 +526,9 @@ impl EngineInterface {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn get_config(&self) -> Result<Box<Config>, ShellError> {
+    pub fn get_config(&self) -> Result<Arc<Config>, ShellError> {
         match self.engine_call(EngineCall::GetConfig)? {
-            EngineCallResponse::Config(config) => Ok(config),
+            EngineCallResponse::Config(config) => Ok(SharedCow::into_arc(config)),
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response for EngineCall::GetConfig".into(),

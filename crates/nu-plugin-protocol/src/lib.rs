@@ -22,9 +22,10 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ast::Operator, engine::Closure, Config, LabeledError, PipelineData, PluginSignature,
-    ShellError, Span, Spanned, Value,
+    ast::Operator, engine::Closure, ByteStreamType, Config, LabeledError, PipelineData,
+    PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
 };
+use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -112,11 +113,14 @@ pub struct ListStreamInfo {
 pub struct ByteStreamInfo {
     pub id: StreamId,
     pub span: Span,
+    #[serde(rename = "type")]
+    pub type_: ByteStreamType,
 }
 
 /// Calls that a plugin can execute. The type parameter determines the input type.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginCall<D> {
+    Metadata,
     Signature,
     Run(CallInfo<D>),
     CustomValueOp(Spanned<PluginCustomValue>, CustomValueOp),
@@ -130,6 +134,7 @@ impl<D> PluginCall<D> {
         f: impl FnOnce(D) -> Result<T, ShellError>,
     ) -> Result<PluginCall<T>, ShellError> {
         Ok(match self {
+            PluginCall::Metadata => PluginCall::Metadata,
             PluginCall::Signature => PluginCall::Signature,
             PluginCall::Run(call) => PluginCall::Run(call.map_data(f)?),
             PluginCall::CustomValueOp(custom_value, op) => {
@@ -141,6 +146,7 @@ impl<D> PluginCall<D> {
     /// The span associated with the call.
     pub fn span(&self) -> Option<Span> {
         match self {
+            PluginCall::Metadata => None,
             PluginCall::Signature => None,
             PluginCall::Run(CallInfo { call, .. }) => Some(call.head),
             PluginCall::CustomValueOp(val, _) => Some(val.span),
@@ -307,6 +313,7 @@ pub enum StreamMessage {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginCallResponse<D> {
     Error(LabeledError),
+    Metadata(PluginMetadata),
     Signature(Vec<PluginSignature>),
     Ordering(Option<Ordering>),
     PipelineData(D),
@@ -321,6 +328,7 @@ impl<D> PluginCallResponse<D> {
     ) -> Result<PluginCallResponse<T>, ShellError> {
         Ok(match self {
             PluginCallResponse::Error(err) => PluginCallResponse::Error(err),
+            PluginCallResponse::Metadata(meta) => PluginCallResponse::Metadata(meta),
             PluginCallResponse::Signature(sigs) => PluginCallResponse::Signature(sigs),
             PluginCallResponse::Ordering(ordering) => PluginCallResponse::Ordering(ordering),
             PluginCallResponse::PipelineData(input) => PluginCallResponse::PipelineData(f(input)?),
@@ -546,7 +554,7 @@ impl<D> EngineCall<D> {
 pub enum EngineCallResponse<D> {
     Error(ShellError),
     PipelineData(D),
-    Config(Box<Config>),
+    Config(SharedCow<Config>),
     ValueMap(HashMap<String, Value>),
 }
 

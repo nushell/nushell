@@ -1,3 +1,6 @@
+//! This module manages the step of turning error types into printed error messages
+//!
+//! Relies on the `miette` crate for pretty layout
 use crate::{
     engine::{EngineState, StateWorkingSet},
     ErrorStyle,
@@ -106,5 +109,9 @@ impl<'src> miette::Diagnostic for CliError<'src> {
 
     fn related<'a>(&'a self) -> Option<Box<dyn Iterator<Item = &'a dyn miette::Diagnostic> + 'a>> {
         self.0.related()
+    }
+
+    fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
+        self.0.diagnostic_source()
     }
 }

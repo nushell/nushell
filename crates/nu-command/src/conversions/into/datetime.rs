@@ -1,5 +1,5 @@
 use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::{DateTime, FixedOffset, Local, NaiveTime, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
@@ -141,7 +141,7 @@ impl Command for SubCommand {
                 zone_options,
                 cell_paths,
             };
-            operate(action, args, input, call.head, engine_state.ctrlc.clone())
+            operate(action, args, input, call.head, engine_state.signals())
         }
     }
 
@@ -162,23 +162,36 @@ impl Command for SubCommand {
         };
         vec![
             Example {
-                description: "Convert any standard timestamp string to datetime",
+                description: "Convert timestamp string to datetime with timezone offset",
                 example: "'27.02.2021 1:55 pm +0000' | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434100_000000000),
             },
             Example {
-                description: "Convert any standard timestamp string to datetime",
+                description: "Convert standard timestamp string to datetime with timezone offset",
                 example: "'2021-02-27T13:55:40.2246+00:00' | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_224600000),
             },
             Example {
                 description:
-                    "Convert non-standard timestamp string to datetime using a custom format",
+                    "Convert non-standard timestamp string, with timezone offset, to datetime using a custom format",
                 example: "'20210227_135540+0000' | into datetime --format '%Y%m%d_%H%M%S%z'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
+            },
+            Example {
+                description: "Convert non-standard timestamp string, without timezone offset, to datetime with custom formatting",
+                example: "'16.11.1984 8:00 am' | into datetime --format '%d.%m.%Y %H:%M %P'",
+                #[allow(clippy::inconsistent_digit_grouping)]
+                result: Some(Value::date(
+                    DateTime::from_naive_utc_and_offset(
+                        NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P")
+                        .expect("date calculation should not fail in test"),
+                        *Local::now().offset(),
+                    ),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
@@ -372,10 +385,21 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 Some(dt) => match DateTime::parse_from_str(val, &dt.0) {
                     Ok(d) => Value::date ( d, head ),
                     Err(reason) => {
-                        Value::error (
-                            ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
-                            head,
-                        )
+                        match NaiveDateTime::parse_from_str(val, &dt.0) {
+                            Ok(d) => Value::date (
+                                DateTime::from_naive_utc_and_offset(
+                                    d,
+                                    *Local::now().offset(),
+                                ),
+                                head,
+                            ),
+                            Err(_) => {
+                                Value::error (
+                                    ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
+                                    head,
+                                )
+                            }
+                        }
                     }
                 },
 
@@ -457,7 +481,7 @@ mod tests {
     }
 
     #[test]
-    fn takes_a_date_format() {
+    fn takes_a_date_format_with_timezone() {
         let date_str = Value::test_string("16.11.1984 8:00 am +0000");
         let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P %z".to_string()));
         let args = Arguments {
@@ -468,6 +492,26 @@ mod tests {
         let actual = action(&date_str, &args, Span::test_data());
         let expected = Value::date(
             DateTime::parse_from_str("16.11.1984 8:00 am +0000", "%d.%m.%Y %H:%M %P %z").unwrap(),
+            Span::test_data(),
+        );
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn takes_a_date_format_without_timezone() {
+        let date_str = Value::test_string("16.11.1984 8:00 am");
+        let fmt_options = Some(DatetimeFormat("%d.%m.%Y %H:%M %P".to_string()));
+        let args = Arguments {
+            zone_options: None,
+            format_options: fmt_options,
+            cell_paths: None,
+        };
+        let actual = action(&date_str, &args, Span::test_data());
+        let expected = Value::date(
+            DateTime::from_naive_utc_and_offset(
+                NaiveDateTime::parse_from_str("16.11.1984 8:00 am", "%d.%m.%Y %H:%M %P").unwrap(),
+                *Local::now().offset(),
+            ),
             Span::test_data(),
         );
         assert_eq!(actual, expected)

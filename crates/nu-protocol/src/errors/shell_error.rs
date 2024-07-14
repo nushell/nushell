@@ -557,12 +557,12 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
-    #[error("Cannot find column")]
+    #[error("Cannot find column '{col_name}'")]
     #[diagnostic(code(nu::shell::column_not_found))]
     CantFindColumn {
         col_name: String,
         #[label = "cannot find column '{col_name}'"]
-        span: Span,
+        span: Option<Span>,
         #[label = "value originates here"]
         src_span: Span,
     },
@@ -876,6 +876,21 @@ pub enum ShellError {
         span: Span,
     },
 
+    #[cfg(unix)]
+    /// An I/O operation failed.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("program coredump error")]
+    #[diagnostic(code(nu::shell::coredump_error))]
+    CoredumpErrorSpanned {
+        msg: String,
+        signal: i32,
+        #[label("{msg}")]
+        span: Span,
+    },
+
     /// Tried to `cd` to a path that isn't a directory.
     ///
     /// ## Resolution
@@ -1017,7 +1032,10 @@ pub enum ShellError {
     ///
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
-    #[diagnostic(code(nu::parser::non_utf8))]
+    #[diagnostic(
+        code(nu::parser::non_utf8),
+        help("see `decode` for handling character sets other than UTF-8")
+    )]
     NonUtf8 {
         #[label("non-UTF8 string")]
         span: Span,
@@ -1029,21 +1047,11 @@ pub enum ShellError {
     ///
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
-    #[diagnostic(code(nu::parser::non_utf8_custom))]
+    #[diagnostic(
+        code(nu::parser::non_utf8_custom),
+        help("see `decode` for handling character sets other than UTF-8")
+    )]
     NonUtf8Custom {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    /// A custom value could not be converted to a Dataframe.
-    ///
-    /// ## Resolution
-    ///
-    /// Make sure conversion to a Dataframe is possible for this value or convert it to a type that does, first.
-    #[error("Casting error")]
-    #[diagnostic(code(nu::shell::downcast_not_possible))]
-    DowncastNotPossible {
         msg: String,
         #[label("{msg}")]
         span: Span,
@@ -1177,6 +1185,13 @@ pub enum ShellError {
         recursion_limit: u64,
         #[label("This called itself too many times")]
         span: Option<Span>,
+    },
+
+    /// Operation interrupted
+    #[error("Operation interrupted")]
+    Interrupted {
+        #[label("This operation was interrupted")]
+        span: Span,
     },
 
     /// Operation interrupted by user
@@ -1361,6 +1376,23 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         help("Set XDG_CONFIG_HOME to an absolute path, or set it to an empty string to ignore it")
     )]
     InvalidXdgConfig { xdg: String, default: String },
+
+    /// An unexpected error occurred during IR evaluation.
+    ///
+    /// ## Resolution
+    ///
+    /// This is most likely a correctness issue with the IR compiler or evaluator. Please file a
+    /// bug with the minimum code needed to reproduce the issue, if possible.
+    #[error("IR evaluation error: {msg}")]
+    #[diagnostic(
+        code(nu::shell::ir_eval_error),
+        help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were running if able")
+    )]
+    IrEvalError {
+        msg: String,
+        #[label = "while running this code"]
+        span: Option<Span>,
+    },
 }
 
 // TODO: Implement as From trait

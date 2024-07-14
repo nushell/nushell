@@ -7,12 +7,30 @@ use crate::{
     ShellError, Span, Spanned, Value,
 };
 
+/// Parsed command arguments
+///
+/// Primarily for internal commands
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
+    /// A positional argument (that is not [`Argument::Spread`])
+    ///
+    /// ```nushell
+    /// my_cmd positional
+    /// ```
     Positional(Expression),
+    /// A named/flag argument that can optionally receive a [`Value`] as an [`Expression`]
+    ///
+    /// The optional second `Spanned<String>` refers to the short-flag version if used
+    /// ```nushell
+    /// my_cmd --flag
+    /// my_cmd -f
+    /// my_cmd --flag-with-value <expr>
+    /// ```
     Named((Spanned<String>, Option<Spanned<String>>, Option<Expression>)),
-    Unknown(Expression), // unknown argument used in "fall-through" signatures
-    Spread(Expression),  // a list spread to fill in rest arguments
+    /// unknown argument used in "fall-through" signatures
+    Unknown(Expression),
+    /// a list spread to fill in rest arguments
+    Spread(Expression),
 }
 
 impl Argument {
@@ -47,12 +65,24 @@ impl Argument {
     }
 }
 
+/// Argument passed to an external command
+///
+/// Here the parsing rules slightly differ to directly pass strings to the external process
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ExternalArgument {
+    /// Expression that needs to be evaluated to turn into an external process argument
     Regular(Expression),
+    /// Occurrence of a `...` spread operator that needs to be expanded
     Spread(Expression),
 }
 
+/// Parsed call of a `Command`
+///
+/// As we also implement some internal keywords in terms of the `Command` trait, this type stores the passed arguments as [`Expression`].
+/// Some of its methods lazily evaluate those to [`Value`] while others return the underlying
+/// [`Expression`].
+///
+/// For further utilities check the `nu_engine::CallExt` trait that extends [`Call`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Call {
     /// identifier of the declaration to call
@@ -338,9 +368,13 @@ impl Call {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::engine::EngineState;
 
     #[test]
     fn argument_span_named() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
         let named = Spanned {
             item: "named".to_string(),
             span: Span::new(2, 3),
@@ -349,7 +383,7 @@ mod test {
             item: "short".to_string(),
             span: Span::new(5, 7),
         };
-        let expr = Expression::garbage(Span::new(11, 13));
+        let expr = Expression::garbage(&mut working_set, Span::new(11, 13));
 
         let arg = Argument::Named((named.clone(), None, None));
 
@@ -370,8 +404,11 @@ mod test {
 
     #[test]
     fn argument_span_positional() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
         let span = Span::new(2, 3);
-        let expr = Expression::garbage(span);
+        let expr = Expression::garbage(&mut working_set, span);
         let arg = Argument::Positional(expr);
 
         assert_eq!(span, arg.span());
@@ -379,8 +416,11 @@ mod test {
 
     #[test]
     fn argument_span_unknown() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
         let span = Span::new(2, 3);
-        let expr = Expression::garbage(span);
+        let expr = Expression::garbage(&mut working_set, span);
         let arg = Argument::Unknown(expr);
 
         assert_eq!(span, arg.span());
@@ -388,9 +428,12 @@ mod test {
 
     #[test]
     fn call_arguments_span() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
         let mut call = Call::new(Span::new(0, 1));
-        call.add_positional(Expression::garbage(Span::new(2, 3)));
-        call.add_positional(Expression::garbage(Span::new(5, 7)));
+        call.add_positional(Expression::garbage(&mut working_set, Span::new(2, 3)));
+        call.add_positional(Expression::garbage(&mut working_set, Span::new(5, 7)));
 
         assert_eq!(Span::new(2, 7), call.arguments_span());
     }

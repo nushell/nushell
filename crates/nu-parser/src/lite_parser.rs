@@ -51,12 +51,21 @@ impl LiteCommand {
         self.parts.push(span);
     }
 
+    fn check_accepts_redirection(&self, span: Span) -> Option<ParseError> {
+        self.parts
+            .is_empty()
+            .then_some(ParseError::UnexpectedRedirection { span })
+    }
+
     fn try_add_redirection(
         &mut self,
         source: RedirectionSource,
         target: LiteRedirectionTarget,
     ) -> Result<(), ParseError> {
         let redirection = match (self.redirection.take(), source) {
+            (None, _) if self.parts.is_empty() => Err(ParseError::UnexpectedRedirection {
+                span: target.connector(),
+            }),
             (None, source) => Ok(LiteRedirection::Single { source, target }),
             (
                 Some(LiteRedirection::Single {
@@ -162,93 +171,58 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 
     for (idx, token) in tokens.iter().enumerate() {
         if let Some((source, append, span)) = file_redirection.take() {
-            if command.parts.is_empty() {
-                error = error.or(Some(ParseError::LabeledError(
-                    "Redirection without command or expression".into(),
-                    "there is nothing to redirect".into(),
-                    span,
-                )));
-
-                command.push(span);
-
-                match token.contents {
-                    TokenContents::Comment => {
-                        command.comments.push(token.span);
-                        curr_comment = None;
-                    }
-                    TokenContents::Pipe
-                    | TokenContents::ErrGreaterPipe
-                    | TokenContents::OutErrGreaterPipe => {
-                        pipeline.push(&mut command);
-                        command.pipe = Some(token.span);
-                    }
-                    TokenContents::Semicolon => {
-                        pipeline.push(&mut command);
-                        block.push(&mut pipeline);
-                    }
-                    TokenContents::Eol => {
-                        pipeline.push(&mut command);
-                    }
-                    _ => command.push(token.span),
+            match &token.contents {
+                TokenContents::PipePipe => {
+                    error = error.or(Some(ParseError::ShellOrOr(token.span)));
+                    command.push(span);
+                    command.push(token.span);
                 }
-            } else {
-                match &token.contents {
-                    TokenContents::PipePipe => {
-                        error = error.or(Some(ParseError::ShellOrOr(token.span)));
+                TokenContents::Item => {
+                    let target = LiteRedirectionTarget::File {
+                        connector: span,
+                        file: token.span,
+                        append,
+                    };
+                    if let Err(err) = command.try_add_redirection(source, target) {
+                        error = error.or(Some(err));
                         command.push(span);
-                        command.push(token.span);
+                        command.push(token.span)
                     }
-                    TokenContents::Item => {
-                        let target = LiteRedirectionTarget::File {
-                            connector: span,
-                            file: token.span,
-                            append,
-                        };
-                        if let Err(err) = command.try_add_redirection(source, target) {
-                            error = error.or(Some(err));
-                            command.push(span);
-                            command.push(token.span)
-                        }
-                    }
-                    TokenContents::OutGreaterThan
-                    | TokenContents::OutGreaterGreaterThan
-                    | TokenContents::ErrGreaterThan
-                    | TokenContents::ErrGreaterGreaterThan
-                    | TokenContents::OutErrGreaterThan
-                    | TokenContents::OutErrGreaterGreaterThan => {
-                        error =
-                            error.or(Some(ParseError::Expected("redirection target", token.span)));
-                        command.push(span);
-                        command.push(token.span);
-                    }
-                    TokenContents::Pipe
-                    | TokenContents::ErrGreaterPipe
-                    | TokenContents::OutErrGreaterPipe => {
-                        error =
-                            error.or(Some(ParseError::Expected("redirection target", token.span)));
-                        command.push(span);
-                        pipeline.push(&mut command);
-                        command.pipe = Some(token.span);
-                    }
-                    TokenContents::Eol => {
-                        error =
-                            error.or(Some(ParseError::Expected("redirection target", token.span)));
-                        command.push(span);
-                        pipeline.push(&mut command);
-                    }
-                    TokenContents::Semicolon => {
-                        error =
-                            error.or(Some(ParseError::Expected("redirection target", token.span)));
-                        command.push(span);
-                        pipeline.push(&mut command);
-                        block.push(&mut pipeline);
-                    }
-                    TokenContents::Comment => {
-                        error = error.or(Some(ParseError::Expected("redirection target", span)));
-                        command.push(span);
-                        command.comments.push(token.span);
-                        curr_comment = None;
-                    }
+                }
+                TokenContents::OutGreaterThan
+                | TokenContents::OutGreaterGreaterThan
+                | TokenContents::ErrGreaterThan
+                | TokenContents::ErrGreaterGreaterThan
+                | TokenContents::OutErrGreaterThan
+                | TokenContents::OutErrGreaterGreaterThan => {
+                    error = error.or(Some(ParseError::Expected("redirection target", token.span)));
+                    command.push(span);
+                    command.push(token.span);
+                }
+                TokenContents::Pipe
+                | TokenContents::ErrGreaterPipe
+                | TokenContents::OutErrGreaterPipe => {
+                    error = error.or(Some(ParseError::Expected("redirection target", token.span)));
+                    command.push(span);
+                    pipeline.push(&mut command);
+                    command.pipe = Some(token.span);
+                }
+                TokenContents::Eol => {
+                    error = error.or(Some(ParseError::Expected("redirection target", token.span)));
+                    command.push(span);
+                    pipeline.push(&mut command);
+                }
+                TokenContents::Semicolon => {
+                    error = error.or(Some(ParseError::Expected("redirection target", token.span)));
+                    command.push(span);
+                    pipeline.push(&mut command);
+                    block.push(&mut pipeline);
+                }
+                TokenContents::Comment => {
+                    error = error.or(Some(ParseError::Expected("redirection target", span)));
+                    command.push(span);
+                    command.comments.push(token.span);
+                    curr_comment = None;
                 }
             }
         } else {
@@ -278,22 +252,28 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                     command.push(token.span);
                 }
                 TokenContents::OutGreaterThan => {
+                    error = error.or(command.check_accepts_redirection(token.span));
                     file_redirection = Some((RedirectionSource::Stdout, false, token.span));
                 }
                 TokenContents::OutGreaterGreaterThan => {
+                    error = error.or(command.check_accepts_redirection(token.span));
                     file_redirection = Some((RedirectionSource::Stdout, true, token.span));
                 }
                 TokenContents::ErrGreaterThan => {
+                    error = error.or(command.check_accepts_redirection(token.span));
                     file_redirection = Some((RedirectionSource::Stderr, false, token.span));
                 }
                 TokenContents::ErrGreaterGreaterThan => {
+                    error = error.or(command.check_accepts_redirection(token.span));
                     file_redirection = Some((RedirectionSource::Stderr, true, token.span));
                 }
                 TokenContents::OutErrGreaterThan => {
+                    error = error.or(command.check_accepts_redirection(token.span));
                     file_redirection =
                         Some((RedirectionSource::StdoutAndStderr, false, token.span));
                 }
                 TokenContents::OutErrGreaterGreaterThan => {
+                    error = error.or(command.check_accepts_redirection(token.span));
                     file_redirection = Some((RedirectionSource::StdoutAndStderr, true, token.span));
                 }
                 TokenContents::ErrGreaterPipe => {

@@ -71,6 +71,10 @@ impl Command for SubCommand {
         vec!["whitespace", "strip", "lstrip", "rstrip"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -79,44 +83,37 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let character = call.get_flag::<Spanned<String>>(engine_state, stack, "char")?;
-        let to_trim = match character.as_ref() {
-            Some(v) => {
-                if v.item.chars().count() > 1 {
-                    return Err(ShellError::GenericError {
-                        error: "Trim only works with single character".into(),
-                        msg: "needs single character".into(),
-                        span: Some(v.span),
-                        help: None,
-                        inner: vec![],
-                    });
-                }
-                v.item.chars().next()
-            }
-            None => None,
-        };
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let mode = match cell_paths {
-            None => ActionMode::Global,
-            Some(_) => ActionMode::Local,
-        };
-
         let left = call.has_flag(engine_state, stack, "left")?;
         let right = call.has_flag(engine_state, stack, "right")?;
-        let trim_side = match (left, right) {
-            (true, true) => TrimSide::Both,
-            (true, false) => TrimSide::Left,
-            (false, true) => TrimSide::Right,
-            (false, false) => TrimSide::Both,
-        };
-
-        let args = Arguments {
-            to_trim,
-            trim_side,
+        run(
+            character,
             cell_paths,
-            mode,
-        };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+            (left, right),
+            call,
+            input,
+            engine_state,
+        )
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let character = call.get_flag_const::<Spanned<String>>(working_set, "char")?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let left = call.has_flag_const(working_set, "left")?;
+        let right = call.has_flag_const(working_set, "right")?;
+        run(
+            character,
+            cell_paths,
+            (left, right),
+            call,
+            input,
+            working_set.permanent(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -148,6 +145,52 @@ impl Command for SubCommand {
             },
         ]
     }
+}
+
+fn run(
+    character: Option<Spanned<String>>,
+    cell_paths: Vec<CellPath>,
+    (left, right): (bool, bool),
+    call: &Call,
+    input: PipelineData,
+    engine_state: &EngineState,
+) -> Result<PipelineData, ShellError> {
+    let to_trim = match character.as_ref() {
+        Some(v) => {
+            if v.item.chars().count() > 1 {
+                return Err(ShellError::GenericError {
+                    error: "Trim only works with single character".into(),
+                    msg: "needs single character".into(),
+                    span: Some(v.span),
+                    help: None,
+                    inner: vec![],
+                });
+            }
+            v.item.chars().next()
+        }
+        None => None,
+    };
+
+    let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+    let mode = match cell_paths {
+        None => ActionMode::Global,
+        Some(_) => ActionMode::Local,
+    };
+
+    let trim_side = match (left, right) {
+        (true, true) => TrimSide::Both,
+        (true, false) => TrimSide::Left,
+        (false, true) => TrimSide::Right,
+        (false, false) => TrimSide::Both,
+    };
+
+    let args = Arguments {
+        to_trim,
+        trim_side,
+        cell_paths,
+        mode,
+    };
+    operate(action, args, input, call.head, engine_state.signals())
 }
 
 #[derive(Debug, Copy, Clone)]

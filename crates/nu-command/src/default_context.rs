@@ -127,7 +127,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SysTemp,
             SysUsers,
             UName,
-
+            Which,
         };
 
         // Help
@@ -154,6 +154,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             TimeIt,
             View,
             ViewFiles,
+            ViewIr,
             ViewSource,
             ViewSpan,
         };
@@ -164,13 +165,13 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         #[cfg(any(
             target_os = "android",
             target_os = "linux",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd",
             target_os = "macos",
             target_os = "windows"
         ))]
         bind_command! { Ps };
-
-        #[cfg(feature = "which-support")]
-        bind_command! { Which };
 
         // Strings
         bind_command! {
@@ -189,6 +190,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Str,
             StrCapitalize,
             StrContains,
+            StrDeunicode,
             StrDistance,
             StrDowncase,
             StrEndswith,
@@ -288,7 +290,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ToText,
             ToToml,
             ToTsv,
-            Touch,
             Upsert,
             Where,
             ToXml,

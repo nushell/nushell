@@ -17,6 +17,13 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::extra_tokens), help("Try removing them."))]
     ExtraTokens(#[label = "extra tokens"] Span),
 
+    #[error("Invalid characters after closing delimiter")]
+    #[diagnostic(
+        code(nu::parser::extra_token_after_closing_delimiter),
+        help("Try removing them.")
+    )]
+    ExtraTokensAfterClosingDelimiter(#[label = "invalid characters"] Span),
+
     #[error("Extra positional argument.")]
     #[diagnostic(code(nu::parser::extra_positional), help("Usage: {0}"))]
     ExtraPositional(String, #[label = "extra positional argument"] Span),
@@ -54,7 +61,11 @@ pub enum ParseError {
 
     #[error("Command output doesn't match {0}.")]
     #[diagnostic(code(nu::parser::output_type_mismatch))]
-    OutputMismatch(Type, #[label("command doesn't output {0}")] Span),
+    OutputMismatch(
+        Type,
+        Type,
+        #[label("expected {0}, but command outputs {1}")] Span,
+    ),
 
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
@@ -92,6 +103,13 @@ pub enum ParseError {
         #[label = "first redirection"] Span,
         #[label = "second redirection"] Span,
     ),
+
+    #[error("Unexpected redirection.")]
+    #[diagnostic(code(nu::parser::unexpected_redirection))]
+    UnexpectedRedirection {
+        #[label = "redirecting nothing"]
+        span: Span,
+    },
 
     #[error("{0} is not supported on values of type {3}")]
     #[diagnostic(code(nu::parser::unsupported_operation))]
@@ -540,7 +558,7 @@ impl ParseError {
             ParseError::TypeMismatch(_, _, s) => *s,
             ParseError::TypeMismatchHelp(_, _, s, _) => *s,
             ParseError::InputMismatch(_, s) => *s,
-            ParseError::OutputMismatch(_, s) => *s,
+            ParseError::OutputMismatch(_, _, s) => *s,
             ParseError::MissingRequiredFlag(_, s) => *s,
             ParseError::IncompleteMathExpression(s) => *s,
             ParseError::UnknownState(_, s) => *s,
@@ -564,11 +582,13 @@ impl ParseError {
             ParseError::ShellErrRedirect(s) => *s,
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::MultipleRedirections(_, _, s) => *s,
+            ParseError::UnexpectedRedirection { span } => *span,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectingBuiltinCommand(_, s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
+            ParseError::ExtraTokensAfterClosingDelimiter(s) => *s,
         }
     }
 }

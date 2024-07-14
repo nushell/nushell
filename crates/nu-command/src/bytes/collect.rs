@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone, Copy)]
@@ -35,46 +36,38 @@ impl Command for BytesCollect {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let separator: Option<Vec<u8>> = call.opt(engine_state, stack, 0)?;
+
+        let span = call.head;
+
         // input should be a list of binary data.
-        let mut output_binary = vec![];
-        for value in input {
-            match value {
-                Value::Binary { mut val, .. } => {
-                    output_binary.append(&mut val);
-                    // manually concat
-                    // TODO: make use of std::slice::Join when it's available in stable.
-                    if let Some(sep) = &separator {
-                        let mut work_sep = sep.clone();
-                        output_binary.append(&mut work_sep)
-                    }
-                }
-                // Explicitly propagate errors instead of dropping them.
-                Value::Error { error, .. } => return Err(*error),
-                other => {
-                    return Err(ShellError::OnlySupportsThisInputType {
+        let metadata = input.metadata();
+        let iter = Itertools::intersperse(
+            input.into_iter_strict(span)?.map(move |value| {
+                // Everything is wrapped in Some in case there's a separator, so we can flatten
+                Some(match value {
+                    // Explicitly propagate errors instead of dropping them.
+                    Value::Error { error, .. } => Err(*error),
+                    Value::Binary { val, .. } => Ok(val),
+                    other => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "binary".into(),
                         wrong_type: other.get_type().to_string(),
-                        dst_span: call.head,
+                        dst_span: span,
                         src_span: other.span(),
-                    });
-                }
-            }
-        }
+                    }),
+                })
+            }),
+            Ok(separator).transpose(),
+        )
+        .flatten();
 
-        match separator {
-            None => Ok(Value::binary(output_binary, call.head).into_pipeline_data()),
-            Some(sep) => {
-                if output_binary.is_empty() {
-                    Ok(Value::binary(output_binary, call.head).into_pipeline_data())
-                } else {
-                    // have push one extra separator in previous step, pop them out.
-                    for _ in sep {
-                        let _ = output_binary.pop();
-                    }
-                    Ok(Value::binary(output_binary, call.head).into_pipeline_data())
-                }
-            }
-        }
+        let output = ByteStream::from_result_iter(
+            iter,
+            span,
+            engine_state.signals().clone(),
+            ByteStreamType::Binary,
+        );
+
+        Ok(PipelineData::ByteStream(output, metadata))
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -1,4 +1,4 @@
-use super::base64::{operate, ActionType, CHARACTER_SET_DESC};
+use super::base64::{operate, ActionType, Base64CommandArguments, CHARACTER_SET_DESC};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -70,6 +70,10 @@ impl Command for EncodeBase64 {
         ]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -77,7 +81,34 @@ impl Command for EncodeBase64 {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(ActionType::Encode, engine_state, stack, call, input)
+        let character_set: Option<Spanned<String>> =
+            call.get_flag(engine_state, stack, "character-set")?;
+        let binary = call.has_flag(engine_state, stack, "binary")?;
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        let args = Base64CommandArguments {
+            action_type: ActionType::Encode,
+            binary,
+            character_set,
+        };
+        operate(engine_state, call, input, cell_paths, args)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let character_set: Option<Spanned<String>> =
+            call.get_flag_const(working_set, "character-set")?;
+        let binary = call.has_flag_const(working_set, "binary")?;
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let args = Base64CommandArguments {
+            action_type: ActionType::Encode,
+            binary,
+            character_set,
+        };
+        operate(working_set.permanent(), call, input, cell_paths, args)
     }
 }
 

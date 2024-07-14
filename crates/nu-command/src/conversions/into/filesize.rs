@@ -68,7 +68,7 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -122,7 +122,7 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         Value::Filesize { .. } => input.clone(),
         Value::Int { val, .. } => Value::filesize(*val, value_span),
         Value::Float { val, .. } => Value::filesize(*val as i64, value_span),
-        Value::String { val, .. } => match int_from_string(val, value_span) {
+        Value::String { val, .. } => match i64_from_string(val, value_span) {
             Ok(val) => Value::filesize(val, value_span),
             Err(error) => Value::error(error, value_span),
         },
@@ -138,7 +138,8 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         ),
     }
 }
-fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
+
+fn i64_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     // Get the Locale so we know what the thousands separator is
     let locale = get_system_locale();
 
@@ -148,26 +149,43 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
     let clean_string = no_comma_string.trim();
 
     // Hadle negative file size
-    if let Some(stripped_string) = clean_string.strip_prefix('-') {
-        match stripped_string.parse::<bytesize::ByteSize>() {
-            Ok(n) => Ok(-(n.as_u64() as i64)),
-            Err(_) => Err(ShellError::CantConvert {
-                to_type: "int".into(),
-                from_type: "string".into(),
-                span,
-                help: None,
-            }),
+    if let Some(stripped_negative_string) = clean_string.strip_prefix('-') {
+        match stripped_negative_string.parse::<bytesize::ByteSize>() {
+            Ok(n) => i64_from_byte_size(n, true, span),
+            Err(_) => Err(string_convert_error(span)),
+        }
+    } else if let Some(stripped_positive_string) = clean_string.strip_prefix('+') {
+        match stripped_positive_string.parse::<bytesize::ByteSize>() {
+            Ok(n) if stripped_positive_string.starts_with(|c: char| c.is_ascii_digit()) => {
+                i64_from_byte_size(n, false, span)
+            }
+            _ => Err(string_convert_error(span)),
         }
     } else {
         match clean_string.parse::<bytesize::ByteSize>() {
-            Ok(n) => Ok(n.0 as i64),
-            Err(_) => Err(ShellError::CantConvert {
-                to_type: "int".into(),
-                from_type: "string".into(),
-                span,
-                help: None,
-            }),
+            Ok(n) => i64_from_byte_size(n, false, span),
+            Err(_) => Err(string_convert_error(span)),
         }
+    }
+}
+
+fn i64_from_byte_size(
+    byte_size: bytesize::ByteSize,
+    is_negative: bool,
+    span: Span,
+) -> Result<i64, ShellError> {
+    match i64::try_from(byte_size.as_u64()) {
+        Ok(n) => Ok(if is_negative { -n } else { n }),
+        Err(_) => Err(string_convert_error(span)),
+    }
+}
+
+fn string_convert_error(span: Span) -> ShellError {
+    ShellError::CantConvert {
+        to_type: "filesize".into(),
+        from_type: "string".into(),
+        span,
+        help: None,
     }
 }
 

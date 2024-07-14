@@ -515,3 +515,16 @@ fn respects_cwd() {
         assert!(path.exists());
     })
 }
+
+#[test]
+fn reference_respects_cwd() {
+    Playground::setup("touch_reference_respects_cwd", |dirs, _sandbox| {
+        nu!(
+            cwd: dirs.test(),
+            "mkdir 'dir'; cd 'dir'; touch 'ref.txt'; touch --reference 'ref.txt' 'foo.txt'"
+        );
+
+        let path = dirs.test().join("dir/foo.txt");
+        assert!(path.exists());
+    })
+}

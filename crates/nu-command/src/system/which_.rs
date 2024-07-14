@@ -92,7 +92,6 @@ fn get_entries_in_nu(
     all_entries
 }
 
-#[cfg(feature = "which-support")]
 fn get_first_entry_in_path(
     item: &str,
     span: Span,
@@ -104,17 +103,6 @@ fn get_first_entry_in_path(
         .ok()
 }
 
-#[cfg(not(feature = "which-support"))]
-fn get_first_entry_in_path(
-    _item: &str,
-    _span: Span,
-    _cwd: impl AsRef<Path>,
-    _paths: impl AsRef<OsStr>,
-) -> Option<Value> {
-    None
-}
-
-#[cfg(feature = "which-support")]
 fn get_all_entries_in_path(
     item: &str,
     span: Span,
@@ -127,16 +115,6 @@ fn get_all_entries_in_path(
                 .collect()
         })
         .unwrap_or_default()
-}
-
-#[cfg(not(feature = "which-support"))]
-fn get_all_entries_in_path(
-    _item: &str,
-    _span: Span,
-    _cwd: impl AsRef<Path>,
-    _paths: impl AsRef<OsStr>,
-) -> Vec<Value> {
-    vec![]
 }
 
 #[derive(Debug)]
@@ -210,7 +188,6 @@ fn which(
         applications: call.rest(engine_state, stack, 0)?,
         all: call.has_flag(engine_state, stack, "all")?,
     };
-    let ctrlc = engine_state.ctrlc.clone();
 
     if which_args.applications.is_empty() {
         return Err(ShellError::MissingParameter {
@@ -236,7 +213,9 @@ fn which(
         output.extend(values);
     }
 
-    Ok(output.into_iter().into_pipeline_data(head, ctrlc))
+    Ok(output
+        .into_iter()
+        .into_pipeline_data(head, engine_state.signals().clone()))
 }
 
 #[cfg(test)]

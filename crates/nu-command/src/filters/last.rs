@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
-
-use std::collections::VecDeque;
+use std::{collections::VecDeque, io::Read};
 
 #[derive(Clone)]
 pub struct Last;
@@ -100,14 +99,10 @@ impl Command for Last {
                 let mut buf = VecDeque::new();
 
                 for row in iterator {
-                    if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-                        return Err(ShellError::InterruptedByUser { span: Some(head) });
-                    }
-
+                    engine_state.signals().check(head)?;
                     if buf.len() == rows {
                         buf.pop_front();
                     }
-
                     buf.push_back(row);
                 }
 
@@ -160,12 +155,47 @@ impl Command for Last {
                     }),
                 }
             }
-            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, binary or range".into(),
-                wrong_type: "byte stream".into(),
-                dst_span: head,
-                src_span: stream.span(),
-            }),
+            PipelineData::ByteStream(stream, ..) => {
+                if stream.type_().is_binary_coercible() {
+                    let span = stream.span();
+                    if let Some(mut reader) = stream.reader() {
+                        // Have to be a bit tricky here, but just consume into a VecDeque that we
+                        // shrink to fit each time
+                        const TAKE: u64 = 8192;
+                        let mut buf = VecDeque::with_capacity(rows + TAKE as usize);
+                        loop {
+                            let taken = std::io::copy(&mut (&mut reader).take(TAKE), &mut buf)
+                                .err_span(span)?;
+                            if buf.len() > rows {
+                                buf.drain(..(buf.len() - rows));
+                            }
+                            if taken < TAKE {
+                                // This must be EOF.
+                                if return_single_element {
+                                    if !buf.is_empty() {
+                                        return Ok(
+                                            Value::int(buf[0] as i64, head).into_pipeline_data()
+                                        );
+                                    } else {
+                                        return Err(ShellError::AccessEmptyContent { span: head });
+                                    }
+                                } else {
+                                    return Ok(Value::binary(buf, head).into_pipeline_data());
+                                }
+                            }
+                        }
+                    } else {
+                        Ok(PipelineData::Empty)
+                    }
+                } else {
+                    Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: stream.type_().describe().into(),
+                        dst_span: head,
+                        src_span: stream.span(),
+                    })
+                }
+            }
             PipelineData::Empty => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "list, binary or range".into(),
                 wrong_type: "null".into(),
