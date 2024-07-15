@@ -140,7 +140,7 @@ trash-support = ["trash"]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.95.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.95.1" }
 
-dirs-next = { workspace = true }
+dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }

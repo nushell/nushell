@@ -83,7 +83,7 @@ ctrlc = "3.4"
 deunicode = "1.6.0"
 dialoguer = { default-features = false, version = "0.11" }
 digest = { default-features = false, version = "0.10" }
-dirs-next = "2.0"
+dirs = "5.0"
 dtparse = "2.0"
 encoding_rs = "0.8"
 fancy-regex = "0.13"
@@ -201,7 +201,7 @@ reedline = { workspace = true, features = ["bashisms", "sqlite"] }
 
 crossterm = { workspace = true }
 ctrlc = { workspace = true }
-dirs-next = { workspace = true }
+dirs = { workspace = true }
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 mimalloc = { version = "0.1.42", default-features = false, optional = true }
@@ -229,7 +229,7 @@ nu-test-support = { path = "./crates/nu-test-support", version = "0.95.1" }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.95.1" }
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.95.1" }
 assert_cmd = "2.0"
-dirs-next = { workspace = true }
+dirs = { workspace = true }
 tango-bench = "0.5"
 pretty_assertions = { workspace = true }
 regex = { workspace = true }
