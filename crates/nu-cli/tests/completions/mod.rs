@@ -833,7 +833,7 @@ fn variables_completions() {
         "plugin-path".into(),
         "startup-time".into(),
         "temp-path".into(),
-        "vendor-autoload-dir".into(),
+        "vendor-autoload-dirs".into(),
     ];
 
     // Match results
