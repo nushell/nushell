@@ -6,6 +6,7 @@ pub enum TokenContents {
     Comment,
     Pipe,
     PipePipe,
+    AssignmentOperator,
     ErrGreaterPipe,
     OutErrGreaterPipe,
     Semicolon,
@@ -297,6 +298,10 @@ pub fn lex_item(
 
     let mut err = None;
     let output = match &input[(span.start - span_offset)..(span.end - span_offset)] {
+        b"=" | b"+=" | b"++=" | b"-=" | b"*=" | b"/=" => Token {
+            contents: TokenContents::AssignmentOperator,
+            span,
+        },
         b"out>" | b"o>" => Token {
             contents: TokenContents::OutGreaterThan,
             span,
