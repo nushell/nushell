@@ -112,7 +112,7 @@ fn fuzzy_alpha_sort_completer() -> NuCompleter {
 
     let config = r#"
         $env.config.completions.algorithm = "fuzzy"
-        $env.config.completions.sort = "alpha"
+        $env.config.completions.sort = "alphabetical"
     "#;
     assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 

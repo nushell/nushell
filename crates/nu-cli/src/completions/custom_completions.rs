@@ -109,7 +109,7 @@ impl Completer for CustomCompletion {
                                 None => completion_options.match_algorithm,
                             },
                             sort: if should_sort {
-                                CompletionSort::Alpha
+                                CompletionSort::Alphabetical
                             } else {
                                 CompletionSort::Default
                             },

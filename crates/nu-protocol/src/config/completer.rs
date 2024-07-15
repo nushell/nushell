@@ -39,7 +39,7 @@ impl ReconstructVal for CompletionAlgorithm {
 pub enum CompletionSort {
     #[default]
     Default,
-    Alpha,
+    Alphabetical,
 }
 
 impl FromStr for CompletionSort {
@@ -48,7 +48,7 @@ impl FromStr for CompletionSort {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "default" => Ok(Self::Default),
-            "alpha" => Ok(Self::Alpha),
+            "alphabetical" => Ok(Self::Alphabetical),
             _ => Err("expected either 'default' or 'alpha'"),
         }
     }
@@ -58,7 +58,7 @@ impl ReconstructVal for CompletionSort {
     fn reconstruct_value(&self, span: Span) -> Value {
         let str = match self {
             Self::Default => "default",
-            Self::Alpha => "alpha",
+            Self::Alphabetical => "alphabetical",
         };
         Value::string(str, span)
     }
