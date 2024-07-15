@@ -308,6 +308,67 @@ fn file_completions() {
     match_suggestions(&expected_paths, &suggestions);
 }
 
+#[cfg(windows)]
+#[test]
+fn file_completions_with_mixed_separators() {
+    // Create a new engine
+    let (dir, dir_str, engine, stack) = new_dotnu_engine();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Create Expected values
+    let expected_paths: Vec<String> = vec![
+        file(dir.join("lib-dir1").join("bar.nu")),
+        file(dir.join("lib-dir1").join("baz.nu")),
+        file(dir.join("lib-dir1").join("xyzzy.nu")),
+    ];
+    let expecetd_slash_paths: Vec<String> = expected_paths
+        .iter()
+        .map(|s| s.replace(MAIN_SEPARATOR, "/"))
+        .collect();
+
+    let target_dir = format!("ls {dir_str}/lib-dir1/");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    match_suggestions(&expecetd_slash_paths, &suggestions);
+
+    let target_dir = format!("cp {dir_str}\\lib-dir1/");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    match_suggestions(&expecetd_slash_paths, &suggestions);
+
+    let target_dir = format!("ls {dir_str}/lib-dir1\\/");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    match_suggestions(&expecetd_slash_paths, &suggestions);
+
+    let target_dir = format!("ls {dir_str}\\lib-dir1\\/");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    match_suggestions(&expecetd_slash_paths, &suggestions);
+
+    let target_dir = format!("ls {dir_str}\\lib-dir1\\");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    match_suggestions(&expected_paths, &suggestions);
+
+    let target_dir = format!("ls {dir_str}/lib-dir1\\");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    match_suggestions(&expected_paths, &suggestions);
+
+    let target_dir = format!("ls {dir_str}/lib-dir1/\\");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    match_suggestions(&expected_paths, &suggestions);
+
+    let target_dir = format!("ls {dir_str}\\lib-dir1/\\");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    match_suggestions(&expected_paths, &suggestions);
+}
+
 #[test]
 fn partial_completions() {
     // Create a new engine
