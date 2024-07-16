@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod foreground;
 
 #[cfg(target_os = "freebsd")]

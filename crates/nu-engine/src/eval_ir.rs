@@ -184,11 +184,20 @@ fn eval_ir_block_impl<D: DebugContext>(
         let instruction = &ir_block.instructions[pc];
         let span = &ir_block.spans[pc];
         let ast = &ir_block.ast[pc];
-        log::trace!(
-            "{pc:-4}: {}",
-            instruction.display(ctx.engine_state, ctx.data)
+
+        D::enter_instruction(ctx.engine_state, ir_block, pc, ctx.registers);
+
+        let result = eval_instruction::<D>(ctx, instruction, span, ast);
+
+        D::leave_instruction(
+            ctx.engine_state,
+            ir_block,
+            pc,
+            ctx.registers,
+            result.as_ref().err(),
         );
-        match eval_instruction::<D>(ctx, instruction, span, ast) {
+
+        match result {
             Ok(InstructionResult::Continue) => {
                 pc += 1;
             }

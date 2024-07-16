@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod casing;
 mod deansi;
 pub mod emoji;

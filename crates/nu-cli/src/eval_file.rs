@@ -76,10 +76,19 @@ pub fn evaluate_file(
     trace!("parsing file: {}", file_path_str);
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
 
+    if let Some(warning) = working_set.parse_warnings.first() {
+        report_error(&working_set, warning);
+    }
+
     // If any parse errors were found, report the first error and exit.
     if let Some(err) = working_set.parse_errors.first() {
         report_error(&working_set, err);
         std::process::exit(1);
+    }
+
+    if let Some(err) = working_set.compile_errors.first() {
+        report_error(&working_set, err);
+        // Not a fatal error, for now
     }
 
     // Look for blocks whose name starts with "main" and replace it with the filename.

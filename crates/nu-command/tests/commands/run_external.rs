@@ -309,7 +309,7 @@ fn external_arg_expand_tilde() {
             "#
         ));
 
-        let home = dirs_next::home_dir().expect("failed to find home dir");
+        let home = dirs::home_dir().expect("failed to find home dir");
 
         assert_eq!(
             actual.out,
