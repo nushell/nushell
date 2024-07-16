@@ -1,5 +1,5 @@
 use crate::{
-    lex::{lex, lex_signature},
+    lex::{is_assignment_operator, lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
     parse_keywords::*,
     parse_patterns::parse_pattern,
@@ -3382,7 +3382,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
     for token in &output {
         match token {
             Token {
-                contents: crate::TokenContents::Item,
+                contents: crate::TokenContents::Item | crate::TokenContents::AssignmentOperator,
                 span,
             } => {
                 let span = *span;
@@ -4799,7 +4799,7 @@ pub fn parse_value(
     }
 }
 
-pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub fn parse_assignment_operator(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
     let operator = match contents {
@@ -4809,6 +4809,98 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"-=" => Operator::Assignment(Assignment::MinusAssign),
         b"*=" => Operator::Assignment(Assignment::MultiplyAssign),
         b"/=" => Operator::Assignment(Assignment::DivideAssign),
+        _ => {
+            working_set.error(ParseError::Expected("assignment operator", span));
+            return garbage(working_set, span);
+        }
+    };
+
+    Expression::new(working_set, Expr::Operator(operator), span, Type::Any)
+}
+
+pub fn parse_assignment_expression(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+) -> Expression {
+    trace!("parsing: assignment expression");
+    let expr_span = Span::concat(spans);
+
+    // Assignment always has the most precedence, and its right-hand side can be a pipeline
+    let Some(op_index) = spans
+        .iter()
+        .position(|span| is_assignment_operator(working_set.get_span_contents(*span)))
+    else {
+        working_set.error(ParseError::Expected("assignment expression", expr_span));
+        return garbage(working_set, expr_span);
+    };
+
+    let lhs_spans = &spans[0..op_index];
+    let op_span = spans[op_index];
+    let rhs_spans = &spans[(op_index + 1)..];
+
+    if lhs_spans.is_empty() {
+        working_set.error(ParseError::Expected(
+            "left hand side of assignment",
+            op_span,
+        ));
+        return garbage(working_set, expr_span);
+    }
+
+    if rhs_spans.is_empty() {
+        working_set.error(ParseError::Expected(
+            "right hand side of assignment",
+            op_span,
+        ));
+        return garbage(working_set, expr_span);
+    }
+
+    // Parse the lhs and operator as usual for a math expression
+    let lhs = parse_expression(working_set, lhs_spans);
+    let operator = parse_assignment_operator(working_set, op_span);
+
+    // Re-parse the right-hand side as a subexpression
+    let rhs_span = Span::concat(&rhs_spans);
+
+    let (rhs_tokens, rhs_error) = lex(
+        working_set.get_span_contents(rhs_span),
+        rhs_span.start,
+        &[],
+        &[],
+        true,
+    );
+    working_set.parse_errors.extend(rhs_error);
+
+    trace!("parsing: assignment right-hand side subexpression");
+    let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true);
+    let rhs_ty = rhs_block.output_type();
+    let rhs_block_id = working_set.add_block(Arc::new(rhs_block));
+    let rhs = Expression::new(
+        working_set,
+        Expr::Subexpression(rhs_block_id),
+        rhs_span,
+        rhs_ty,
+    );
+
+    if !type_compatible(&lhs.ty, &rhs.ty) {
+        working_set.parse_errors.push(ParseError::TypeMismatch(
+            lhs.ty.clone(),
+            rhs.ty.clone(),
+            rhs_span,
+        ));
+    }
+
+    Expression::new(
+        working_set,
+        Expr::BinaryOp(Box::new(lhs), Box::new(operator), Box::new(rhs)),
+        expr_span,
+        Type::Nothing,
+    )
+}
+
+pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    let contents = working_set.get_span_contents(span);
+
+    let operator = match contents {
         b"==" => Operator::Comparison(Comparison::Equal),
         b"!=" => Operator::Comparison(Comparison::NotEqual),
         b"<" => Operator::Comparison(Comparison::LessThan),
@@ -4922,6 +5014,10 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
                 },
                 span,
             ));
+            return garbage(working_set, span);
+        }
+        op if is_assignment_operator(op) => {
+            working_set.error(ParseError::Expected("a non-assignment operator", span));
             return garbage(working_set, span);
         }
         _ => {
@@ -5228,7 +5324,12 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         return garbage(working_set, Span::concat(spans));
     }
 
-    let output = if is_math_expression_like(working_set, spans[pos]) {
+    let output = if spans[pos..]
+        .iter()
+        .any(|span| is_assignment_operator(working_set.get_span_contents(*span)))
+    {
+        parse_assignment_expression(working_set, &spans[pos..])
+    } else if is_math_expression_like(working_set, spans[pos]) {
         parse_math_expression(working_set, &spans[pos..], None)
     } else {
         let bytes = working_set.get_span_contents(spans[pos]).to_vec();

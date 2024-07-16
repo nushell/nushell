@@ -70,6 +70,12 @@ fn is_item_terminator(
             || special_tokens.contains(&c))
 }
 
+/// Assignment operators have special handling distinct from math expressions, as they cause the
+/// rest of the pipeline to be consumed.
+pub fn is_assignment_operator(bytes: &[u8]) -> bool {
+    matches!(bytes, b"=" | b"+=" | b"++=" | b"-=" | b"*=" | b"/=")
+}
+
 // A special token is one that is a byte that stands alone as its own token. For example
 // when parsing a signature you may want to have `:` be able to separate tokens and also
 // to be handled as its own token to notify you you're about to parse a type in the example
@@ -298,7 +304,7 @@ pub fn lex_item(
 
     let mut err = None;
     let output = match &input[(span.start - span_offset)..(span.end - span_offset)] {
-        b"=" | b"+=" | b"++=" | b"-=" | b"*=" | b"/=" => Token {
+        bytes if is_assignment_operator(bytes) => Token {
             contents: TokenContents::AssignmentOperator,
             span,
         },
