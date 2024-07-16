@@ -35,8 +35,8 @@ use crate::{
     lite_parser::{lite_parse, LiteCommand},
     parser::{
         check_call, garbage, garbage_pipeline, parse, parse_call, parse_expression,
-        parse_full_signature, parse_import_pattern, parse_internal_call, parse_multispan_value,
-        parse_string, parse_value, parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
+        parse_full_signature, parse_import_pattern, parse_internal_call, parse_string, parse_value,
+        parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
     unescape_unquote_string, Token, TokenContents,
 };
@@ -3161,9 +3161,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
     // }
 
     if let Some(decl_id) = working_set.find_decl(b"const") {
-        let cmd = working_set.get_decl(decl_id);
-        let call_signature = cmd.signature().call_signature();
-
         if spans.len() >= 4 {
             // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
             // so that the var-id created by the variable isn't visible in the expression that init it
@@ -3171,18 +3168,29 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                 let item = working_set.get_span_contents(*span.1);
                 // const x = 'f', = at least start from index 2
                 if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
-                    let mut idx = span.0;
+                    // Parse the rvalue as a subexpression
+                    let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
 
-                    let rvalue = parse_multispan_value(
-                        working_set,
-                        spans,
-                        &mut idx,
-                        &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    let (rvalue_tokens, rvalue_error) = lex(
+                        working_set.get_span_contents(rvalue_span),
+                        rvalue_span.start,
+                        &[],
+                        &[],
+                        false,
                     );
-                    if idx < (spans.len() - 1) {
-                        working_set
-                            .error(ParseError::ExtraPositional(call_signature, spans[idx + 1]));
-                    }
+                    working_set.parse_errors.extend(rvalue_error);
+
+                    trace!("parsing: const right-hand side subexpression");
+                    let rvalue_block =
+                        parse_block(working_set, &rvalue_tokens, rvalue_span, false, true);
+                    let rvalue_ty = rvalue_block.output_type();
+                    let rvalue_block_id = working_set.add_block(Arc::new(rvalue_block));
+                    let rvalue = Expression::new(
+                        working_set,
+                        Expr::Subexpression(rvalue_block_id),
+                        rvalue_span,
+                        rvalue_ty,
+                    );
 
                     let mut idx = 0;
 
