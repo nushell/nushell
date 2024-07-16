@@ -606,7 +606,7 @@ mod test {
             assert_eq!(actual, expected);
 
             let actual = expand_glob("~/foo.txt", cwd, Span::unknown(), &Signals::empty()).unwrap();
-            let home = dirs_next::home_dir().expect("failed to get home dir");
+            let home = dirs::home_dir().expect("failed to get home dir");
             let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
             assert_eq!(actual, expected);
         })

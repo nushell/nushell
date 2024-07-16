@@ -3,14 +3,14 @@ use omnipath::WinPathExt;
 use std::path::PathBuf;
 
 pub fn home_dir() -> Option<PathBuf> {
-    dirs_next::home_dir()
+    dirs::home_dir()
 }
 
 /// Return the data directory for the current platform or XDG_DATA_HOME if specified.
 pub fn data_dir() -> Option<PathBuf> {
     match std::env::var("XDG_DATA_HOME").map(PathBuf::from) {
         Ok(xdg_data) if xdg_data.is_absolute() => Some(canonicalize(&xdg_data).unwrap_or(xdg_data)),
-        _ => get_canonicalized_path(dirs_next::data_dir()),
+        _ => get_canonicalized_path(dirs::data_dir()),
     }
 }
 
@@ -20,7 +20,7 @@ pub fn cache_dir() -> Option<PathBuf> {
         Ok(xdg_cache) if xdg_cache.is_absolute() => {
             Some(canonicalize(&xdg_cache).unwrap_or(xdg_cache))
         }
-        _ => get_canonicalized_path(dirs_next::cache_dir()),
+        _ => get_canonicalized_path(dirs::cache_dir()),
     }
 }
 
@@ -30,7 +30,7 @@ pub fn config_dir() -> Option<PathBuf> {
         Ok(xdg_config) if xdg_config.is_absolute() => {
             Some(canonicalize(&xdg_config).unwrap_or(xdg_config))
         }
-        _ => get_canonicalized_path(dirs_next::config_dir()),
+        _ => get_canonicalized_path(dirs::config_dir()),
     }
 }
 

@@ -12,7 +12,7 @@ exclude = ["/fuzz"]
 bench = false
 
 [dependencies]
-dirs-next = { workspace = true }
+dirs = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 omnipath = { workspace = true }
