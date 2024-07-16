@@ -7,6 +7,7 @@ mod break_;
 mod bytes;
 mod cal;
 mod cd;
+mod chunks;
 mod compact;
 mod complete;
 mod config_env_default;

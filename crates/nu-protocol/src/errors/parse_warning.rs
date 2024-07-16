@@ -6,11 +6,11 @@ use thiserror::Error;
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseWarning {
     #[error("Deprecated: {old_command}")]
-    #[diagnostic(help("for more info: {url}"))]
+    #[diagnostic(help("for more info see {url}"))]
     DeprecatedWarning {
         old_command: String,
         new_suggestion: String,
-        #[label("`{old_command}` is deprecated and will be removed in a future release. Please {new_suggestion} instead")]
+        #[label("`{old_command}` is deprecated and will be removed in a future release. Please {new_suggestion} instead.")]
         span: Span,
         url: String,
     },
