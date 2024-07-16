@@ -80,7 +80,7 @@ used as the next argument to the closure, otherwise generation stops.
         // A type of Option<S> is used to represent state. Invocation
         // will stop on None. Using Option<S> allows functions to output
         // one final value before stopping.
-        let mut state = Some(get_initial_state(initial, &block.signature)?);
+        let mut state = Some(get_initial_state(initial, &block.signature, call.head)?);
         // let mut state = Some(initial);
         let iter = std::iter::from_fn(move || {
             let arg = state.take()?;
@@ -183,7 +183,11 @@ mod test {
     }
 }
 
-fn get_initial_state(initial: Option<Value>, signature: &Signature) -> Result<Value, ShellError> {
+fn get_initial_state(
+    initial: Option<Value>,
+    signature: &Signature,
+    span: Span,
+) -> Result<Value, ShellError> {
     match initial {
         Some(v) => Ok(v),
         None => {
@@ -193,19 +197,22 @@ fn get_initial_state(initial: Option<Value>, signature: &Signature) -> Result<Va
                     Ok(v.clone())
                 } else {
                     Err(ShellError::GenericError {
-                        error: "".to_string(),
-                        msg: "bb".to_string(),
-                        help: None,
-                        span: None,
+                        error: "The initial value is missing".to_string(),
+                        msg: "Missing intial value".to_string(),
+                        span: Some(span),
+                        help: Some("Provide initial value to generate, or assigning default value to closure parameter".to_string()),
                         inner: vec![],
                     })
                 }
             } else {
                 Err(ShellError::GenericError {
-                    error: "aa".to_string(),
-                    msg: "bb".to_string(),
-                    help: None,
-                    span: None,
+                    error: "The initial value is missing".to_string(),
+                    msg: "Missing intial value".to_string(),
+                    span: Some(span),
+                    help: Some(
+                        "Provide initial value in generate, or assigning default value to closure parameter"
+                            .to_string(),
+                    ),
                     inner: vec![],
                 })
             }
