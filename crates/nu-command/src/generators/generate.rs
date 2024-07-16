@@ -192,18 +192,13 @@ fn get_initial_state(
         Some(v) => Ok(v),
         None => {
             // the initial state shold be referred from signature
-            if signature.optional_positional.len() > 0 {
-                if let Some(v) = &signature.optional_positional[0].default_value {
-                    Ok(v.clone())
-                } else {
-                    Err(ShellError::GenericError {
-                        error: "The initial value is missing".to_string(),
-                        msg: "Missing intial value".to_string(),
-                        span: Some(span),
-                        help: Some("Provide initial value to generate, or assigning default value to closure parameter".to_string()),
-                        inner: vec![],
-                    })
-                }
+            if signature.optional_positional.len() > 0
+                && signature.optional_positional[0].default_value.is_some()
+            {
+                Ok(signature.optional_positional[0]
+                    .default_value
+                    .clone()
+                    .expect("Already checked default value"))
             } else {
                 Err(ShellError::GenericError {
                     error: "The initial value is missing".to_string(),
