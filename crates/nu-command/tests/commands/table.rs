@@ -2901,3 +2901,9 @@ fn table_general_header_on_separator_trim_algorithm() {
     let actual = nu!("$env.config.table.header_on_separator = true; [[a b]; ['11111111111111111111111111111111111111' 2] ] | table --width=20 --theme basic");
     assert_eq!(actual.out, "+-#-+----a-----+-b-+| 0 | 11111111 | 2 ||   | 11111111 |   ||   | 11111111 |   ||   | 11111111 |   ||   | 111111   |   |+---+----------+---+");
 }
+
+#[test]
+fn table_general_header_on_separator_issue1() {
+    let actual = nu!("$env.config.table.header_on_separator = true; [['Llll oo Bbbbbbbb' 'Bbbbbbbb Aaaa' Nnnnnn Ggggg 'Xxxxx Llllllll #' Bbb 'Pppp Ccccc' 'Rrrrrrrr Dddd' Rrrrrr 'Rrrrrr Ccccc II' 'Rrrrrr Ccccc Ppppppp II' 'Pppppp Dddddddd Tttt' 'Pppppp Dddddddd Dddd' 'Rrrrrrrrr Trrrrrr' 'Pppppp Ppppp Dddd' 'Ppppp Dddd' Hhhh]; [RRRRRRR FFFFFFFF UUUU VV 202407160001 BBB 1 '7/16/2024' '' AAA-1111 AAA-1111-11 '7 YEARS' 2555 'RRRRRRRR DDDD' '7/16/2031' '7/16/2031' NN]] | table --width=87 --theme basic");
+    assert_eq!(actual.out, "+-#-+-Llll oo Bbbbbbbb-+-Bbbbbbbb Aaaa-+-Nnnnnn-+-Ggggg-+-Xxxxx Llllllll #-+-...-+| 0 | RRRRRRR          | FFFFFFFF      | UUUU   | VV    |     202407160001 | ... |+---+------------------+---------------+--------+-------+------------------+-----+");
+}
