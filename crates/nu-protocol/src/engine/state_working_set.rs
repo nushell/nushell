@@ -25,7 +25,6 @@ use crate::{PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
-    pub external_commands: Vec<Vec<u8>>,
     pub files: FileStack,
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
@@ -46,7 +45,6 @@ impl<'a> StateWorkingSet<'a> {
         Self {
             delta: StateDelta::new(permanent_state),
             permanent_state,
-            external_commands: vec![],
             files,
             search_predecls: true,
             parse_errors: vec![],
