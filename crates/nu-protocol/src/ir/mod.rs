@@ -292,6 +292,7 @@ impl Instruction {
             Instruction::Drain { .. } => None,
             Instruction::LoadVariable { dst, .. } => Some(dst),
             Instruction::StoreVariable { .. } => None,
+            Instruction::DropVariable { .. } => None,
             Instruction::LoadEnv { dst, .. } => Some(dst),
             Instruction::LoadEnvOpt { dst, .. } => Some(dst),
             Instruction::StoreEnv { .. } => None,
