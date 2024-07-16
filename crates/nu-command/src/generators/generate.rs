@@ -12,12 +12,12 @@ impl Command for Generate {
     fn signature(&self) -> Signature {
         Signature::build("generate")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
-            .required("initial", SyntaxShape::Any, "Initial value.")
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "Generator function.",
             )
+            .optional("initial", SyntaxShape::Any, "Initial value.")
             .allow_variants_without_examples(true)
             .category(Category::Generators)
     }
@@ -72,15 +72,16 @@ used as the next argument to the closure, otherwise generation stops.
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let initial: Value = call.req(engine_state, stack, 0)?;
-        let closure: Closure = call.req(engine_state, stack, 1)?;
-
+        let initial: Option<Value> = call.opt(engine_state, stack, 1)?;
+        let closure: Closure = call.req(engine_state, stack, 0)?;
+        let block = engine_state.get_block(closure.block_id);
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         // A type of Option<S> is used to represent state. Invocation
         // will stop on None. Using Option<S> allows functions to output
         // one final value before stopping.
-        let mut state = Some(initial);
+        let mut state = Some(get_initial_state(initial, &block.signature)?);
+        // let mut state = Some(initial);
         let iter = std::iter::from_fn(move || {
             let arg = state.take()?;
 
@@ -179,5 +180,35 @@ mod test {
         use crate::test_examples;
 
         test_examples(Generate {})
+    }
+}
+
+fn get_initial_state(initial: Option<Value>, signature: &Signature) -> Result<Value, ShellError> {
+    match initial {
+        Some(v) => Ok(v),
+        None => {
+            // the initial state shold be referred from signature
+            if signature.optional_positional.len() > 0 {
+                if let Some(v) = &signature.optional_positional[0].default_value {
+                    Ok(v.clone())
+                } else {
+                    Err(ShellError::GenericError {
+                        error: "".to_string(),
+                        msg: "bb".to_string(),
+                        help: None,
+                        span: None,
+                        inner: vec![],
+                    })
+                }
+            } else {
+                Err(ShellError::GenericError {
+                    error: "aa".to_string(),
+                    msg: "bb".to_string(),
+                    help: None,
+                    span: None,
+                    inner: vec![],
+                })
+            }
+        }
     }
 }
