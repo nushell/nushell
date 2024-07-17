@@ -191,8 +191,8 @@ fn get_initial_state(
     match initial {
         Some(v) => Ok(v),
         None => {
-            // the initial state shold be referred from signature
-            if signature.optional_positional.len() > 0
+            // the initial state should be referred from signature
+            if !signature.optional_positional.is_empty()
                 && signature.optional_positional[0].default_value.is_some()
             {
                 Ok(signature.optional_positional[0]
@@ -202,7 +202,7 @@ fn get_initial_state(
             } else {
                 Err(ShellError::GenericError {
                     error: "The initial value is missing".to_string(),
-                    msg: "Missing intial value".to_string(),
+                    msg: "Missing initial value".to_string(),
                     span: Some(span),
                     help: Some(
                         "Providing <initial> value to generate, or assigning default value to closure parameter"
