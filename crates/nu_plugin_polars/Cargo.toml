@@ -39,7 +39,7 @@ polars-utils = { version = "0.41"}
 typetag = "0.2"
 env_logger = "0.11.3"
 log.workspace = true
-uuid = { version = "1.9", features = ["v4", "serde"] }
+uuid = { version = "1.10", features = ["v4", "serde"] }
 
 [dependencies.polars]
 features = [
