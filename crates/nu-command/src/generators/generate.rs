@@ -79,8 +79,8 @@ used as the next argument to the closure, otherwise generation stops.
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let initial: Option<Value> = call.opt(engine_state, stack, 1)?;
         let closure: Closure = call.req(engine_state, stack, 0)?;
+        let initial: Option<Value> = call.opt(engine_state, stack, 1)?;
         let block = engine_state.get_block(closure.block_id);
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
@@ -88,7 +88,6 @@ used as the next argument to the closure, otherwise generation stops.
         // will stop on None. Using Option<S> allows functions to output
         // one final value before stopping.
         let mut state = Some(get_initial_state(initial, &block.signature, call.head)?);
-        // let mut state = Some(initial);
         let iter = std::iter::from_fn(move || {
             let arg = state.take()?;
 
