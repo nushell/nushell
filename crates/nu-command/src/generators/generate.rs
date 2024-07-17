@@ -171,18 +171,6 @@ used as the next argument to the closure, otherwise generation stops.
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Generate {})
-    }
-}
-
 fn get_initial_state(
     initial: Option<Value>,
     signature: &Signature,
@@ -212,5 +200,17 @@ fn get_initial_state(
                 })
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Generate {})
     }
 }
