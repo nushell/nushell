@@ -145,7 +145,7 @@ ropey = "1.6.1"
 roxmltree = "0.19"
 rstest = { version = "0.18", default-features = false }
 rusqlite = "0.31"
-rust-embed = "8.4.0"
+rust-embed = "8.5.0"
 same-file = "1.0"
 serde = { version = "1.0", default-features = false }
 serde_json = "1.0"
