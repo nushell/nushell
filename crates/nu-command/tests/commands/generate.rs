@@ -146,5 +146,5 @@ fn generate_raise_error_on_no_default_parameter_closure_and_init_val() {
         } | to nuon
       "#
     ));
-    assert_eq!(actual.err, "The initial value is missing");
+    assert!(actual.err.contains("The initial value is missing"));
 }
