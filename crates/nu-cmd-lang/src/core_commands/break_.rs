@@ -21,7 +21,9 @@ impl Command for Break {
 
     fn extra_usage(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+  https://www.nushell.sh/book/thinking_in_nu.html
+
+  WARN: Don't try to use it in closure.  Although it will raise error, statements before `break` will be executed"#
     }
 
     fn command_type(&self) -> CommandType {
