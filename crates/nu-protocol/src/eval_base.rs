@@ -159,6 +159,9 @@ pub trait Eval {
             Expr::ExternalCall(head, args) => {
                 Self::eval_external_call(state, mut_state, head, args, expr_span)
             }
+            Expr::Collect(var_id, expr) => {
+                Self::eval_collect::<D>(state, mut_state, *var_id, expr)
+            }
             Expr::Subexpression(block_id) => {
                 Self::eval_subexpression::<D>(state, mut_state, *block_id, expr_span)
             }
@@ -354,6 +357,13 @@ pub trait Eval {
         head: &Expression,
         args: &[ExternalArgument],
         span: Span,
+    ) -> Result<Value, ShellError>;
+
+    fn eval_collect<D: DebugContext>(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        var_id: VarId,
+        expr: &Expression,
     ) -> Result<Value, ShellError>;
 
     fn eval_subexpression<D: DebugContext>(

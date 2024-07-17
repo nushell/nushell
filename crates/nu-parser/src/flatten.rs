@@ -189,6 +189,9 @@ fn flatten_expression_into(
             ));
             flatten_expression_into(working_set, not, output);
         }
+        Expr::Collect(_, expr) => {
+            flatten_expression_into(working_set, expr, output);
+        }
         Expr::Closure(block_id) => {
             let outer_span = expr.span;
 

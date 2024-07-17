@@ -25,6 +25,7 @@ pub enum Expr {
     RowCondition(BlockId),
     UnaryNot(Box<Expression>),
     BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
+    Collect(VarId, Box<Expression>),
     Subexpression(BlockId),
     Block(BlockId),
     Closure(BlockId),
@@ -65,11 +66,13 @@ impl Expr {
         &self,
         working_set: &StateWorkingSet,
     ) -> (Option<OutDest>, Option<OutDest>) {
-        // Usages of `$in` will be wrapped by a `collect` call by the parser,
-        // so we do not have to worry about that when considering
-        // which of the expressions below may consume pipeline output.
         match self {
             Expr::Call(call) => working_set.get_decl(call.decl_id).pipe_redirection(),
+            Expr::Collect(_, _) => {
+                // A collect expression always has default redirection, it's just going to collect
+                // stdout unless another type of redirection is specified
+                (None, None)
+            },
             Expr::Subexpression(block_id) | Expr::Block(block_id) => working_set
                 .get_block(*block_id)
                 .pipe_redirection(working_set),
