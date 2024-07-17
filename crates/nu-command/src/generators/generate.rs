@@ -41,7 +41,7 @@ used as the next argument to the closure, otherwise generation stops.
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "generate 0 {|i| if $i <= 10 { {out: $i, next: ($i + 2)} }}",
+                example: "generate {|i| if $i <= 10 { {out: $i, next: ($i + 2)} }} 0",
                 description: "Generate a sequence of numbers",
                 result: Some(Value::list(
                     vec![
@@ -57,8 +57,15 @@ used as the next argument to the closure, otherwise generation stops.
             },
             Example {
                 example:
-                    "generate [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} }",
+                    "generate {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } [0, 1]",
                 description: "Generate a continuous stream of Fibonacci numbers",
+                result: None,
+            },
+            Example {
+                example:
+                    "generate {|fib=[0, 1]| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} }",
+                description:
+                    "Generate a continuous stream of Fibonacci numbers, using default parameters",
                 result: None,
             },
         ]
