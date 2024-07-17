@@ -132,3 +132,19 @@ fn generate_allow_default_parameter() {
     ));
     assert_eq!(actual.out, "[null, null, done]");
 }
+
+#[test]
+fn generate_raise_error_on_no_default_parameter_closure_and_init_val() {
+    let actual = nu!(pipeline(
+        r#"
+        generate {|x|
+          if $x == 3 {
+            {out: "done"}
+          } else {
+            {out: null, next: ($x + 1)}
+          }
+        } | to nuon
+      "#
+    ));
+    assert_eq!(actual.err, "The initial value is missing");
+}
