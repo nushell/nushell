@@ -116,6 +116,7 @@ fn handle_catch(
     stack: &mut Stack,
     eval_block_fn: EvalBlockFn,
 ) -> Result<PipelineData, ShellError> {
+    engine_state.reset_signals();
     if let Some(catch_block) = catch_block {
         let catch_block = engine_state.get_block(catch_block.block_id);
         // Put the error value in the positional closure var

@@ -182,7 +182,7 @@ impl EngineState {
         &self.signals
     }
 
-    pub fn reset_signals(&mut self) {
+    pub fn reset_signals(&self) {
         self.signals.reset()
     }
 
