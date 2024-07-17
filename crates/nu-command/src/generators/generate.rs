@@ -205,7 +205,7 @@ fn get_initial_state(
                     msg: "Missing intial value".to_string(),
                     span: Some(span),
                     help: Some(
-                        "Providing <initial> argument to generate, or assigning default value to closure parameter"
+                        "Providing <initial> value to generate, or assigning default value to closure parameter"
                             .to_string(),
                     ),
                     inner: vec![],
