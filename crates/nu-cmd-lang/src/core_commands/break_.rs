@@ -23,7 +23,7 @@ impl Command for Break {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html
 
-  WARN: Don't try to use it in closure.  Although it will raise error, statements before `break` will be executed"#
+  WARN: break should be used only in `while`, `loop`, `for`"#
     }
 
     fn command_type(&self) -> CommandType {

@@ -23,7 +23,7 @@ impl Command for Continue {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html
 
-  WARN: Don't try to use it in closure.  Although it will raise error, statements before `continue` will be executed"#
+  WARN: continue should be only used in `while`, `loop`, `for`"#
     }
 
     fn command_type(&self) -> CommandType {
