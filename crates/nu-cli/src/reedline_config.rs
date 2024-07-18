@@ -193,6 +193,29 @@ fn get_style(record: &Record, name: &str, span: Span) -> Option<Style> {
         })
 }
 
+fn with_menu_style<M: MenuBuilder>(mut menu: M, style: &Value) -> M {
+    let span = style.span();
+    let Value::Record { val, .. } = &style else {
+        return menu;
+    };
+    if let Some(style) = get_style(val, "text", span) {
+        menu = menu.with_text_style(style);
+    }
+    if let Some(style) = get_style(val, "selected_text", span) {
+        menu = menu.with_selected_text_style(style);
+    }
+    if let Some(style) = get_style(val, "description_text", span) {
+        menu = menu.with_description_text_style(style);
+    }
+    if let Some(style) = get_style(val, "match_text", span) {
+        menu = menu.with_match_text_style(style);
+    }
+    if let Some(style) = get_style(val, "selected_match_text", span) {
+        menu = menu.with_selected_match_text_style(style);
+    }
+    menu
+}
+
 // Adds a columnar menu to the editor engine
 pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
@@ -231,24 +254,7 @@ pub(crate) fn add_columnar_menu(
         };
     }
 
-    let span = menu.style.span();
-    if let Value::Record { val, .. } = &menu.style {
-        if let Some(style) = get_style(val, "text", span) {
-            columnar_menu = columnar_menu.with_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_text", span) {
-            columnar_menu = columnar_menu.with_selected_text_style(style);
-        }
-        if let Some(style) = get_style(val, "description_text", span) {
-            columnar_menu = columnar_menu.with_description_text_style(style);
-        }
-        if let Some(style) = get_style(val, "match_text", span) {
-            columnar_menu = columnar_menu.with_match_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_match_text", span) {
-            columnar_menu = columnar_menu.with_selected_match_text_style(style);
-        }
-    }
+    columnar_menu = with_menu_style(columnar_menu, &menu.style);
 
     let marker = menu.marker.to_expanded_string("", config);
     columnar_menu = columnar_menu.with_marker(&marker);
@@ -304,18 +310,7 @@ pub(crate) fn add_list_menu(
         };
     }
 
-    let span = menu.style.span();
-    if let Value::Record { val, .. } = &menu.style {
-        if let Some(style) = get_style(val, "text", span) {
-            list_menu = list_menu.with_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_text", span) {
-            list_menu = list_menu.with_selected_text_style(style);
-        }
-        if let Some(style) = get_style(val, "description_text", span) {
-            list_menu = list_menu.with_description_text_style(style);
-        }
-    }
+    list_menu = with_menu_style(list_menu, &menu.style);
 
     let marker = menu.marker.to_expanded_string("", &config);
     list_menu = list_menu.with_marker(&marker);
@@ -496,24 +491,7 @@ pub(crate) fn add_ide_menu(
         };
     }
 
-    let span = menu.style.span();
-    if let Value::Record { val, .. } = &menu.style {
-        if let Some(style) = get_style(val, "text", span) {
-            ide_menu = ide_menu.with_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_text", span) {
-            ide_menu = ide_menu.with_selected_text_style(style);
-        }
-        if let Some(style) = get_style(val, "description_text", span) {
-            ide_menu = ide_menu.with_description_text_style(style);
-        }
-        if let Some(style) = get_style(val, "match_text", span) {
-            ide_menu = ide_menu.with_match_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_match_text", span) {
-            ide_menu = ide_menu.with_selected_match_text_style(style);
-        }
-    }
+    ide_menu = with_menu_style(ide_menu, &menu.style);
 
     let marker = menu.marker.to_expanded_string("", &config);
     ide_menu = ide_menu.with_marker(&marker);
@@ -601,18 +579,7 @@ pub(crate) fn add_description_menu(
         };
     }
 
-    let span = menu.style.span();
-    if let Value::Record { val, .. } = &menu.style {
-        if let Some(style) = get_style(val, "text", span) {
-            description_menu = description_menu.with_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_text", span) {
-            description_menu = description_menu.with_selected_text_style(style);
-        }
-        if let Some(style) = get_style(val, "description_text", span) {
-            description_menu = description_menu.with_description_text_style(style);
-        }
-    }
+    description_menu = with_menu_style(description_menu, &menu.style);
 
     let marker = menu.marker.to_expanded_string("", &config);
     description_menu = description_menu.with_marker(&marker);
