@@ -25,8 +25,8 @@ use nu_cmd_base::util::get_init_cwd;
 use nu_lsp::LanguageServer;
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    engine::{ctrlc, EngineState},
-    report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned, Value,
+    engine::EngineState, report_error_new, ByteStream, PipelineData, ShellError, Span, Spanned,
+    Value,
 };
 use nu_std::load_standard_library;
 use nu_utils::perf;
@@ -70,9 +70,8 @@ fn main() -> Result<()> {
         report_error_new(&engine_state, &err);
     }
 
-    let ctrlc_handlers = ctrlc::Handlers::new();
     // TODO: make this conditional in the future
-    ctrlc_protection(&mut engine_state, &ctrlc_handlers);
+    ctrlc_protection(&mut engine_state);
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
     // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
