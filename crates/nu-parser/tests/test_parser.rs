@@ -1,7 +1,7 @@
 use nu_parser::*;
 use nu_protocol::{
-    ast::{Argument, Call, Expr, Expression, ExternalArgument, PathMember, Range},
-    engine::{Command, EngineState, Stack, StateWorkingSet},
+    ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
+    engine::{Call, Command, EngineState, Stack, StateWorkingSet},
     ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
 };
 use rstest::rstest;
@@ -1759,10 +1759,7 @@ mod range {
 #[cfg(test)]
 mod input_types {
     use super::*;
-    use nu_protocol::{
-        ast::{Argument, Call},
-        Category, PipelineData, ShellError, Type,
-    };
+    use nu_protocol::{ast::Argument, engine::Call, Category, PipelineData, ShellError, Type};
 
     #[derive(Clone)]
     pub struct LsTest;

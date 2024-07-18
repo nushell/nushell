@@ -1,3 +1,4 @@
+//! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
 use crate::SpanId;
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
@@ -49,6 +50,22 @@ impl<T> Spanned<T> {
         Spanned {
             item: f(self.item),
             span: self.span,
+        }
+    }
+}
+
+impl<T, E> Spanned<Result<T, E>> {
+    /// Move the `Result` to the outside, resulting in a spanned `Ok` or unspanned `Err`.
+    pub fn transpose(self) -> Result<Spanned<T>, E> {
+        match self {
+            Spanned {
+                item: Ok(item),
+                span,
+            } => Ok(Spanned { item, span }),
+            Spanned {
+                item: Err(err),
+                span: _,
+            } => Err(err),
         }
     }
 }

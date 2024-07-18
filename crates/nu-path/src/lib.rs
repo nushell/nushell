@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod assert_path_eq;
 mod components;
 pub mod dots;

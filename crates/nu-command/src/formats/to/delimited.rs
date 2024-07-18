@@ -1,7 +1,7 @@
 use csv::WriterBuilder;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_protocol::{
-    ByteStream, ByteStreamType, Config, PipelineData, ShellError, Span, Spanned, Value,
+    ByteStream, ByteStreamType, Config, PipelineData, ShellError, Signals, Span, Spanned, Value,
 };
 use std::{iter, sync::Arc};
 
@@ -128,37 +128,42 @@ pub fn to_delimited_data(
     // If we're configured to generate a header, we generate it first, then set this false
     let mut is_header = !noheaders;
 
-    let stream = ByteStream::from_fn(head, None, ByteStreamType::String, move |buffer| {
-        let mut wtr = WriterBuilder::new()
-            .delimiter(separator)
-            .from_writer(buffer);
+    let stream = ByteStream::from_fn(
+        head,
+        Signals::empty(),
+        ByteStreamType::String,
+        move |buffer| {
+            let mut wtr = WriterBuilder::new()
+                .delimiter(separator)
+                .from_writer(buffer);
 
-        if is_header {
-            // Unless we are configured not to write a header, we write the header row now, once,
-            // before everything else.
-            wtr.write_record(&columns)
-                .map_err(|err| make_csv_error(err, format_name, head))?;
-            is_header = false;
-            Ok(true)
-        } else if let Some(row) = iter.next() {
-            // Write each column of a normal row, in order
-            let record = row.into_record()?;
-            for column in &columns {
-                let field = record
-                    .get(column)
-                    .map(|v| to_string_tagged_value(v, &config, format_name))
-                    .unwrap_or(Ok(String::new()))?;
-                wtr.write_field(field)
+            if is_header {
+                // Unless we are configured not to write a header, we write the header row now, once,
+                // before everything else.
+                wtr.write_record(&columns)
                     .map_err(|err| make_csv_error(err, format_name, head))?;
+                is_header = false;
+                Ok(true)
+            } else if let Some(row) = iter.next() {
+                // Write each column of a normal row, in order
+                let record = row.into_record()?;
+                for column in &columns {
+                    let field = record
+                        .get(column)
+                        .map(|v| to_string_tagged_value(v, &config, format_name))
+                        .unwrap_or(Ok(String::new()))?;
+                    wtr.write_field(field)
+                        .map_err(|err| make_csv_error(err, format_name, head))?;
+                }
+                // End the row
+                wtr.write_record(iter::empty::<String>())
+                    .map_err(|err| make_csv_error(err, format_name, head))?;
+                Ok(true)
+            } else {
+                Ok(false)
             }
-            // End the row
-            wtr.write_record(iter::empty::<String>())
-                .map_err(|err| make_csv_error(err, format_name, head))?;
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    });
+        },
+    );
 
     Ok(PipelineData::ByteStream(stream, metadata))
 }

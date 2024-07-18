@@ -213,8 +213,7 @@ fn find_with_regex(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let ctrlc = engine_state.ctrlc.clone();
-    let config = engine_state.get_config().clone();
+    let config = stack.get_config(engine_state);
 
     let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
     let multiline = call.has_flag(engine_state, stack, "multiline")?;
@@ -246,7 +245,7 @@ fn find_with_regex(
             Value::List { vals, .. } => values_match_find(vals, &re, &config, invert),
             _ => false,
         },
-        ctrlc,
+        engine_state.signals(),
     )
 }
 
@@ -349,18 +348,16 @@ fn find_with_rest_and_highlight(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let ctrlc = engine_state.ctrlc.clone();
-    let engine_state = engine_state.clone();
-    let config = engine_state.get_config().clone();
-    let filter_config = engine_state.get_config().clone();
-    let invert = call.has_flag(&engine_state, stack, "invert")?;
-    let terms = call.rest::<Value>(&engine_state, stack, 0)?;
+    let config = stack.get_config(engine_state);
+    let filter_config = config.clone();
+    let invert = call.has_flag(engine_state, stack, "invert")?;
+    let terms = call.rest::<Value>(engine_state, stack, 0)?;
     let lower_terms = terms
         .iter()
         .map(|v| Value::string(v.to_expanded_string("", &config).to_lowercase(), span))
         .collect::<Vec<Value>>();
 
-    let style_computer = StyleComputer::from_config(&engine_state, stack);
+    let style_computer = StyleComputer::from_config(engine_state, stack);
     // Currently, search results all use the same style.
     // Also note that this sample string is passed into user-written code (the closure that may or may not be
     // defined for "string").
@@ -369,7 +366,7 @@ fn find_with_rest_and_highlight(
         style_computer.compute("search_result", &Value::string("search result", span));
 
     let cols_to_search_in_map: Vec<_> = call
-        .get_flag(&engine_state, stack, "columns")?
+        .get_flag(engine_state, stack, "columns")?
         .unwrap_or_default();
 
     let cols_to_search_in_filter = cols_to_search_in_map.clone();
@@ -401,7 +398,7 @@ fn find_with_rest_and_highlight(
                         _ => x,
                     }
                 },
-                ctrlc.clone(),
+                engine_state.signals(),
             )?
             .filter(
                 move |value| {
@@ -414,7 +411,7 @@ fn find_with_rest_and_highlight(
                         invert,
                     )
                 },
-                ctrlc,
+                engine_state.signals(),
             ),
         PipelineData::ListStream(stream, metadata) => {
             let stream = stream.modify(|iter| {

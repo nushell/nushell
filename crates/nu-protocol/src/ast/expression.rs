@@ -6,6 +6,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+/// Wrapper around [`Expr`]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
     pub expr: Expr,
@@ -27,42 +28,9 @@ impl Expression {
         }
     }
 
-    pub fn precedence(&self) -> usize {
+    pub fn precedence(&self) -> u8 {
         match &self.expr {
-            Expr::Operator(operator) => {
-                use super::operator::*;
-                // Higher precedence binds tighter
-
-                match operator {
-                    Operator::Math(Math::Pow) => 100,
-                    Operator::Math(Math::Multiply)
-                    | Operator::Math(Math::Divide)
-                    | Operator::Math(Math::Modulo)
-                    | Operator::Math(Math::FloorDivision) => 95,
-                    Operator::Math(Math::Plus) | Operator::Math(Math::Minus) => 90,
-                    Operator::Bits(Bits::ShiftLeft) | Operator::Bits(Bits::ShiftRight) => 85,
-                    Operator::Comparison(Comparison::NotRegexMatch)
-                    | Operator::Comparison(Comparison::RegexMatch)
-                    | Operator::Comparison(Comparison::StartsWith)
-                    | Operator::Comparison(Comparison::EndsWith)
-                    | Operator::Comparison(Comparison::LessThan)
-                    | Operator::Comparison(Comparison::LessThanOrEqual)
-                    | Operator::Comparison(Comparison::GreaterThan)
-                    | Operator::Comparison(Comparison::GreaterThanOrEqual)
-                    | Operator::Comparison(Comparison::Equal)
-                    | Operator::Comparison(Comparison::NotEqual)
-                    | Operator::Comparison(Comparison::In)
-                    | Operator::Comparison(Comparison::NotIn)
-                    | Operator::Math(Math::Append) => 80,
-                    Operator::Bits(Bits::BitAnd) => 75,
-                    Operator::Bits(Bits::BitXor) => 70,
-                    Operator::Bits(Bits::BitOr) => 60,
-                    Operator::Boolean(Boolean::And) => 50,
-                    Operator::Boolean(Boolean::Xor) => 45,
-                    Operator::Boolean(Boolean::Or) => 40,
-                    Operator::Assignment(_) => 10,
-                }
-            }
+            Expr::Operator(operator) => operator.precedence(),
             _ => 0,
         }
     }

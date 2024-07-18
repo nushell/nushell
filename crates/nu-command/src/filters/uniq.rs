@@ -241,18 +241,18 @@ pub fn uniq(
     item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
     metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
-    let ctrlc = engine_state.ctrlc.clone();
     let head = call.head;
     let flag_show_count = call.has_flag(engine_state, stack, "count")?;
     let flag_show_repeated = call.has_flag(engine_state, stack, "repeated")?;
     let flag_ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
     let flag_only_uniques = call.has_flag(engine_state, stack, "unique")?;
 
+    let signals = engine_state.signals().clone();
     let uniq_values = input
         .into_iter()
         .enumerate()
         .map_while(|(index, item)| {
-            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            if signals.interrupted() {
                 return None;
             }
             Some(item_mapper(ItemMapperState {

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 use std::io::Read;
 
 #[derive(Clone)]
@@ -46,7 +47,6 @@ impl Command for Take {
         let head = call.head;
         let rows_desired: usize = call.req(engine_state, stack, 0)?;
 
-        let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 
         match input {
@@ -56,15 +56,23 @@ impl Command for Take {
                     Value::List { vals, .. } => Ok(vals
                         .into_iter()
                         .take(rows_desired)
-                        .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
+                        .into_pipeline_data_with_metadata(
+                            head,
+                            engine_state.signals().clone(),
+                            metadata,
+                        )),
                     Value::Binary { val, .. } => {
                         let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
                         Ok(PipelineData::Value(Value::binary(slice, span), metadata))
                     }
                     Value::Range { val, .. } => Ok(val
-                        .into_range_iter(span, ctrlc.clone())
+                        .into_range_iter(span, Signals::empty())
                         .take(rows_desired)
-                        .into_pipeline_data_with_metadata(head, ctrlc, metadata)),
+                        .into_pipeline_data_with_metadata(
+                            head,
+                            engine_state.signals().clone(),
+                            metadata,
+                        )),
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(*error),
                     other => Err(ShellError::OnlySupportsThisInputType {
@@ -87,7 +95,7 @@ impl Command for Take {
                             ByteStream::read(
                                 reader.take(rows_desired as u64),
                                 head,
-                                None,
+                                Signals::empty(),
                                 ByteStreamType::Binary,
                             ),
                             metadata,

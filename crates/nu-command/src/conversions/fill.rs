@@ -165,7 +165,7 @@ fn fill(
         cell_paths,
     };
 
-    operate(action, arg, input, call.head, engine_state.ctrlc.clone())
+    operate(action, arg, input, call.head, engine_state.signals())
 }
 
 fn action(input: &Value, args: &Arguments, span: Span) -> Value {

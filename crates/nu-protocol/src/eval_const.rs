@@ -1,3 +1,7 @@
+//! Implementation of const-evaluation
+//!
+//! This enables you to assign `const`-constants and execute parse-time code dependent on this.
+//! e.g. `source $my_const`
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
@@ -7,8 +11,8 @@ use crate::{
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
-    borrow::Cow,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 /// Create a Value for `$nu`.
@@ -307,7 +311,7 @@ fn eval_const_call(
         return Err(ShellError::NotAConstHelp { span: call.head });
     }
 
-    decl.run_const(working_set, call, input)
+    decl.run_const(working_set, &call.into(), input)
 }
 
 pub fn eval_const_subexpression(
@@ -360,8 +364,8 @@ impl Eval for EvalConst {
 
     type MutState = ();
 
-    fn get_config<'a>(state: Self::State<'a>, _: &mut ()) -> Cow<'a, Config> {
-        Cow::Borrowed(state.get_config())
+    fn get_config(state: Self::State<'_>, _: &mut ()) -> Arc<Config> {
+        state.get_config().clone()
     }
 
     fn eval_filepath(

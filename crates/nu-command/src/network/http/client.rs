@@ -5,16 +5,12 @@ use base64::{
     Engine,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::ByteStream;
+use nu_protocol::{ByteStream, Signals};
 use std::{
     collections::HashMap,
     path::PathBuf,
     str::FromStr,
-    sync::{
-        atomic::AtomicBool,
-        mpsc::{self, RecvTimeoutError},
-        Arc,
-    },
+    sync::mpsc::{self, RecvTimeoutError},
     time::Duration,
 };
 use ureq::{Error, ErrorKind, Request, Response};
@@ -129,7 +125,7 @@ pub fn response_to_buffer(
     let reader = response.into_reader();
 
     PipelineData::ByteStream(
-        ByteStream::read(reader, span, engine_state.ctrlc.clone(), response_type)
+        ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
             .with_known_size(buffer_size),
         None,
     )
@@ -192,13 +188,14 @@ pub fn send_request(
     request: Request,
     http_body: HttpBody,
     content_type: Option<String>,
-    ctrl_c: Option<Arc<AtomicBool>>,
+    span: Span,
+    signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let request_url = request.url().to_string();
 
     match http_body {
         HttpBody::None => {
-            send_cancellable_request(&request_url, Box::new(|| request.call()), ctrl_c)
+            send_cancellable_request(&request_url, Box::new(|| request.call()), span, signals)
         }
         HttpBody::ByteStream(byte_stream) => {
             let req = if let Some(content_type) = content_type {
@@ -207,7 +204,7 @@ pub fn send_request(
                 request
             };
 
-            send_cancellable_request_bytes(&request_url, req, byte_stream, ctrl_c)
+            send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
         }
         HttpBody::Value(body) => {
             let (body_type, req) = match content_type {
@@ -224,20 +221,32 @@ pub fn send_request(
                 Value::Binary { val, .. } => send_cancellable_request(
                     &request_url,
                     Box::new(move || req.send_bytes(&val)),
-                    ctrl_c,
+                    span,
+                    signals,
                 ),
                 Value::String { .. } if body_type == BodyType::Json => {
                     let data = value_to_json_value(&body)?;
-                    send_cancellable_request(&request_url, Box::new(|| req.send_json(data)), ctrl_c)
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| req.send_json(data)),
+                        span,
+                        signals,
+                    )
                 }
                 Value::String { val, .. } => send_cancellable_request(
                     &request_url,
                     Box::new(move || req.send_string(&val)),
-                    ctrl_c,
+                    span,
+                    signals,
                 ),
                 Value::Record { .. } if body_type == BodyType::Json => {
                     let data = value_to_json_value(&body)?;
-                    send_cancellable_request(&request_url, Box::new(|| req.send_json(data)), ctrl_c)
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| req.send_json(data)),
+                        span,
+                        signals,
+                    )
                 }
                 Value::Record { val, .. } if body_type == BodyType::Form => {
                     let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
@@ -254,7 +263,7 @@ pub fn send_request(
                             .collect::<Vec<(&str, &str)>>();
                         req.send_form(&data)
                     };
-                    send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
+                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
                 }
                 Value::List { vals, .. } if body_type == BodyType::Form => {
                     if vals.len() % 2 != 0 {
@@ -276,11 +285,16 @@ pub fn send_request(
                             .collect::<Vec<(&str, &str)>>();
                         req.send_form(&data)
                     };
-                    send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
+                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
                 }
                 Value::List { .. } if body_type == BodyType::Json => {
                     let data = value_to_json_value(&body)?;
-                    send_cancellable_request(&request_url, Box::new(|| req.send_json(data)), ctrl_c)
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| req.send_json(data)),
+                        span,
+                        signals,
+                    )
                 }
                 _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
                     msg: "unsupported body input".into(),
@@ -295,7 +309,8 @@ pub fn send_request(
 fn send_cancellable_request(
     request_url: &str,
     request_fn: Box<dyn FnOnce() -> Result<Response, Error> + Sync + Send>,
-    ctrl_c: Option<Arc<AtomicBool>>,
+    span: Span,
+    signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let (tx, rx) = mpsc::channel::<Result<Response, Error>>();
 
@@ -310,12 +325,7 @@ fn send_cancellable_request(
 
     // ...and poll the channel for responses
     loop {
-        if nu_utils::ctrl_c::was_pressed(&ctrl_c) {
-            // Return early and give up on the background thread. The connection will either time out or be disconnected
-            return Err(ShellErrorOrRequestError::ShellError(
-                ShellError::InterruptedByUser { span: None },
-            ));
-        }
+        signals.check(span)?;
 
         // 100ms wait time chosen arbitrarily
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -336,7 +346,8 @@ fn send_cancellable_request_bytes(
     request_url: &str,
     request: Request,
     byte_stream: ByteStream,
-    ctrl_c: Option<Arc<AtomicBool>>,
+    span: Span,
+    signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let (tx, rx) = mpsc::channel::<Result<Response, ShellErrorOrRequestError>>();
     let request_url_string = request_url.to_string();
@@ -369,12 +380,7 @@ fn send_cancellable_request_bytes(
 
     // ...and poll the channel for responses
     loop {
-        if nu_utils::ctrl_c::was_pressed(&ctrl_c) {
-            // Return early and give up on the background thread. The connection will either time out or be disconnected
-            return Err(ShellErrorOrRequestError::ShellError(
-                ShellError::InterruptedByUser { span: None },
-            ));
-        }
+        signals.check(span)?;
 
         // 100ms wait time chosen arbitrarily
         match rx.recv_timeout(Duration::from_millis(100)) {

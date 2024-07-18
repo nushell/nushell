@@ -221,7 +221,7 @@ fn rename(
                     ),
                 }
             },
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
         .map(|data| data.set_metadata(metadata))
 }

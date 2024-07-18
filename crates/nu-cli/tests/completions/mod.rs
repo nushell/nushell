@@ -107,7 +107,7 @@ fn subcommand_completer() -> NuCompleter {
 }
 
 #[test]
-fn variables_dollar_sign_with_varialblecompletion() {
+fn variables_dollar_sign_with_variablecompletion() {
     let (_, _, engine, stack) = new_engine();
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -721,7 +721,7 @@ fn file_completion_quoted() {
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
         "`te(st).txt`".to_string(),
-        format!("`{}`", folder("test dir".into())),
+        format!("`{}`", folder("test dir")),
     ];
 
     match_suggestions(expected_paths, suggestions);
@@ -906,6 +906,11 @@ fn variables_completions() {
     let expected: Vec<String> = vec!["TEST".into()];
 
     // Match results
+    match_suggestions(expected, suggestions);
+
+    let suggestions = completer.complete("$", 1);
+    let expected: Vec<String> = vec!["$actor".into(), "$env".into(), "$in".into(), "$nu".into()];
+
     match_suggestions(expected, suggestions);
 }
 

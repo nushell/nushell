@@ -106,7 +106,7 @@ fn main() -> Result<()> {
                     },
                 );
             } else if let Some(old_config) =
-                nu_path::get_canonicalized_path(dirs_next::config_dir()).map(|p| p.join("nushell"))
+                nu_path::get_canonicalized_path(dirs::config_dir()).map(|p| p.join("nushell"))
             {
                 let xdg_config_empty = nushell_config_path
                     .read_dir()
@@ -398,7 +398,7 @@ fn main() -> Result<()> {
             );
         }
 
-        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc_bool)?
+        LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state)?
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,

@@ -12,9 +12,10 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     engine::{ctrlc, Closure, Sequence},
-    Config, LabeledError, PipelineData, PluginMetadata, PluginSignature, ShellError, Span, Spanned,
-    Value,
+    Config, LabeledError, PipelineData, PluginMetadata, PluginSignature, ShellError, Signals, Span,
+    Spanned, Value,
 };
+use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
     sync::{mpsc, Arc},
@@ -278,7 +279,9 @@ impl InterfaceManager for EngineInterfaceManager {
             PluginInput::Call(id, call) => {
                 let interface = self.interface_for_context(id);
                 // Read streams in the input
-                let call = match call.map_data(|input| self.read_pipeline_data(input, None)) {
+                let call = match call
+                    .map_data(|input| self.read_pipeline_data(input, &Signals::empty()))
+                {
                     Ok(call) => call,
                     Err(err) => {
                         // If there's an error with initialization of the input stream, just send
@@ -324,7 +327,7 @@ impl InterfaceManager for EngineInterfaceManager {
             }
             PluginInput::EngineCallResponse(id, response) => {
                 let response = response
-                    .map_data(|header| self.read_pipeline_data(header, None))
+                    .map_data(|header| self.read_pipeline_data(header, &Signals::empty()))
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to an engine
                         // call error response, but send it anyway
@@ -540,9 +543,9 @@ impl EngineInterface {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn get_config(&self) -> Result<Box<Config>, ShellError> {
+    pub fn get_config(&self) -> Result<Arc<Config>, ShellError> {
         match self.engine_call(EngineCall::GetConfig)? {
-            EngineCallResponse::Config(config) => Ok(config),
+            EngineCallResponse::Config(config) => Ok(SharedCow::into_arc(config)),
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response for EngineCall::GetConfig".into(),

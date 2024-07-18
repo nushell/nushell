@@ -1,3 +1,4 @@
+use nu_path::AbsolutePath;
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
@@ -405,10 +406,10 @@ fn removes_file_after_cd() {
 }
 
 struct Cleanup<'a> {
-    dir_to_clean: &'a Path,
+    dir_to_clean: &'a AbsolutePath,
 }
 
-fn set_dir_read_only(directory: &Path, read_only: bool) {
+fn set_dir_read_only(directory: &AbsolutePath, read_only: bool) {
     let mut permissions = fs::metadata(directory).unwrap().permissions();
     permissions.set_readonly(read_only);
     fs::set_permissions(directory, permissions).expect("failed to set directory permissions");
