@@ -20,33 +20,28 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
-    Config, Record, Span, Value,
+    Config, Record, Value,
 };
 use ratatui::{layout::Rect, widgets::Block};
-use std::{borrow::Cow, collections::HashMap};
+use std::collections::HashMap;
 
 pub use self::table_widget::Orientation;
 
 #[derive(Debug, Clone)]
-pub struct RecordView<'a> {
-    layer_stack: Vec<RecordLayer<'a>>,
+pub struct RecordView {
+    layer_stack: Vec<RecordLayer>,
     mode: UIMode,
     orientation: Orientation,
     cfg: ExploreConfig,
 }
 
-impl<'a> RecordView<'a> {
-    pub fn new(
-        columns: impl Into<Cow<'a, [String]>>,
-        records: impl Into<Cow<'a, [Vec<Value>]>>,
-    ) -> Self {
+impl RecordView {
+    pub fn new(columns: Vec<String>, records: Vec<Vec<Value>>, cfg: ExploreConfig) -> Self {
         Self {
             layer_stack: vec![RecordLayer::new(columns, records)],
             mode: UIMode::View,
             orientation: Orientation::Top,
-            // TODO: It's kind of gross how this temporarily has an incorrect/default config.
-            // See if we can pass correct config in through the constructor
-            cfg: ExploreConfig::default(),
+            cfg,
         }
     }
 
@@ -57,63 +52,45 @@ impl<'a> RecordView<'a> {
     }
 
     pub fn transpose(&mut self) {
-        let layer = self.get_layer_last_mut();
+        let layer = self.get_top_layer_mut();
         transpose_table(layer);
 
         layer.reset_cursor();
     }
 
-    // todo: rename to get_layer
-    pub fn get_layer_last(&self) -> &RecordLayer<'a> {
+    pub fn get_top_layer(&self) -> &RecordLayer {
         self.layer_stack
             .last()
             .expect("we guarantee that 1 entry is always in a list")
     }
 
-    pub fn get_layer_last_mut(&mut self) -> &mut RecordLayer<'a> {
+    pub fn get_top_layer_mut(&mut self) -> &mut RecordLayer {
         self.layer_stack
             .last_mut()
             .expect("we guarantee that 1 entry is always in a list")
     }
 
-    pub fn get_orientation_current(&mut self) -> Orientation {
-        self.get_layer_last().orientation
-    }
-
-    pub fn set_orientation(&mut self, orientation: Orientation) {
-        self.orientation = orientation;
-
-        // we need to reset all indexes as we can't no more use them.
-        self.reset_cursors();
-    }
-
-    fn reset_cursors(&mut self) {
-        for layer in &mut self.layer_stack {
-            layer.reset_cursor();
-        }
-    }
-
-    pub fn set_orientation_current(&mut self, orientation: Orientation) {
-        let layer = self.get_layer_last_mut();
+    pub fn set_top_layer_orientation(&mut self, orientation: Orientation) {
+        let layer = self.get_top_layer_mut();
         layer.orientation = orientation;
         layer.reset_cursor();
     }
 
     /// Get the current position of the cursor in the table as a whole
     pub fn get_cursor_position(&self) -> Position {
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
         layer.cursor.position()
     }
 
     /// Get the current position of the cursor in the window being shown
     pub fn get_cursor_position_in_window(&self) -> Position {
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
         layer.cursor.window_relative_position()
     }
 
     /// Get the origin of the window being shown. (0,0), top left corner.
     pub fn get_window_origin(&self) -> Position {
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
         layer.cursor.window_origin()
     }
 
@@ -125,33 +102,38 @@ impl<'a> RecordView<'a> {
         self.mode = UIMode::View;
     }
 
-    pub fn get_current_value(&self) -> Value {
+    pub fn get_current_value(&self) -> &Value {
         let Position { row, column } = self.get_cursor_position();
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
 
         let (row, column) = match layer.orientation {
             Orientation::Top => (row, column),
             Orientation::Left => (column, row),
         };
 
-        if layer.records.len() > row && layer.records[row].len() > column {
-            layer.records[row][column].clone()
-        } else {
-            Value::nothing(Span::unknown())
-        }
+        // These should never happen as long as the cursor is working correctly
+        assert!(row < layer.record_values.len(), "row out of bounds");
+        assert!(column < layer.column_names.len(), "column out of bounds");
+
+        &layer.record_values[row][column]
     }
 
-    /// Create a table widget.
-    /// WARNING: this is currently really slow on large data sets.
-    /// It creates a string representation of every cell in the table and looks at every row for lscolorize.
-    fn create_table_widget(&'a self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
-        let layer = self.get_layer_last();
-        let mut data = convert_records_to_string(&layer.records, cfg.nu_config, cfg.style_computer);
-        lscolorize(&layer.columns, &mut data, cfg.lscolors);
-
-        let headers = layer.columns.as_ref();
+    fn create_table_widget<'a>(&'a mut self, cfg: ViewConfig<'a>) -> TableWidget<'a> {
+        let style = self.cfg.table;
         let style_computer = cfg.style_computer;
         let Position { row, column } = self.get_window_origin();
+
+        let layer = self.get_top_layer_mut();
+        if layer.record_text.is_none() {
+            let mut data =
+                convert_records_to_string(&layer.record_values, cfg.nu_config, cfg.style_computer);
+            lscolorize(&layer.column_names, &mut data, cfg.lscolors);
+
+            layer.record_text = Some(data);
+        }
+
+        let headers = &layer.column_names;
+        let data = layer.record_text.as_ref().expect("always ok");
 
         TableWidget::new(
             headers,
@@ -159,23 +141,23 @@ impl<'a> RecordView<'a> {
             style_computer,
             row,
             column,
-            self.cfg.table,
+            style,
             layer.orientation,
         )
     }
 
     fn update_cursors(&mut self, rows: usize, columns: usize) {
-        match self.get_layer_last().orientation {
+        match self.get_top_layer().orientation {
             Orientation::Top => {
                 let _ = self
-                    .get_layer_last_mut()
+                    .get_top_layer_mut()
                     .cursor
                     .set_window_size(rows, columns);
             }
 
             Orientation::Left => {
                 let _ = self
-                    .get_layer_last_mut()
+                    .get_top_layer_mut()
                     .cursor
                     .set_window_size(rows, columns);
             }
@@ -183,7 +165,7 @@ impl<'a> RecordView<'a> {
     }
 
     fn create_records_report(&self) -> Report {
-        let layer = self.get_layer_last();
+        let layer = self.get_top_layer();
         let covered_percent = report_row_position(layer.cursor);
         let cursor = report_cursor_position(self.mode, layer.cursor);
         let message = layer.name.clone().unwrap_or_default();
@@ -197,12 +179,9 @@ impl<'a> RecordView<'a> {
     }
 }
 
-impl View for RecordView<'_> {
+impl View for RecordView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let mut table_layout = TableWidgetState::default();
-        // TODO: creating the table widget is O(N) where N is the number of cells in the grid.
-        // Way too slow to do on every draw call!
-        // To make explore work for larger data sets, this needs to be improved.
         let table = self.create_table_widget(cfg);
         f.render_stateful_widget(table, area, &mut table_layout);
 
@@ -217,7 +196,7 @@ impl View for RecordView<'_> {
                 row,
                 column,
                 table_layout.count_rows,
-                self.get_layer_last().orientation,
+                self.get_top_layer().orientation,
                 self.cfg.table.show_header,
             );
 
@@ -265,7 +244,7 @@ impl View for RecordView<'_> {
         let style_computer = StyleComputer::new(&dummy_engine_state, &dummy_stack, HashMap::new());
 
         let data = convert_records_to_string(
-            &self.get_layer_last().records,
+            &self.get_top_layer().record_values,
             &nu_protocol::Config::default(),
             &style_computer,
         );
@@ -274,7 +253,7 @@ impl View for RecordView<'_> {
     }
 
     fn show_data(&mut self, pos: usize) -> bool {
-        let data = &self.get_layer_last().records;
+        let data = &self.get_top_layer().record_values;
 
         let mut i = 0;
         for (row, cells) in data.iter().enumerate() {
@@ -285,7 +264,7 @@ impl View for RecordView<'_> {
 
             for (column, _) in cells.iter().enumerate() {
                 if i == pos {
-                    self.get_layer_last_mut()
+                    self.get_top_layer_mut()
                         .cursor
                         .set_window_start_position(row, column);
                     return true;
@@ -300,11 +279,6 @@ impl View for RecordView<'_> {
 
     fn exit(&mut self) -> Option<Value> {
         Some(build_last_value(self))
-    }
-
-    // todo: move the method to Command?
-    fn setup(&mut self, cfg: ViewConfig<'_>) {
-        self.cfg = cfg.explore_config.clone();
     }
 }
 
@@ -332,30 +306,35 @@ enum UIMode {
 }
 
 #[derive(Debug, Clone)]
-pub struct RecordLayer<'a> {
-    columns: Cow<'a, [String]>,
-    records: Cow<'a, [Vec<Value>]>,
+pub struct RecordLayer {
+    column_names: Vec<String>,
+    // These are the raw records in the current layer. The sole reason we keep this around is so we can return the original value
+    // if it's being peeked. Otherwise we could accept an iterator over it.
+    // or if it could be Clonable we could do that anyway;
+    // cause it would keep memory footprint lower while keep everything working
+    // (yee would make return O(n); we would need to traverse iterator once again; but maybe worth it)
+    record_values: Vec<Vec<Value>>,
+    // This is the text representation of the record values (the actual text that will be displayed to users).
+    // It's an Option because we need configuration to set it and we (currently) don't have access to configuration when things are created.
+    record_text: Option<Vec<Vec<NuText>>>,
     orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
     cursor: WindowCursor2D,
 }
 
-impl<'a> RecordLayer<'a> {
-    fn new(
-        columns: impl Into<Cow<'a, [String]>>,
-        records: impl Into<Cow<'a, [Vec<Value>]>>,
-    ) -> Self {
-        let columns = columns.into();
-        let records = records.into();
-
+impl RecordLayer {
+    fn new(columns: Vec<String>, records: Vec<Vec<Value>>) -> Self {
         // TODO: refactor so this is fallible and returns a Result instead of panicking
         let cursor =
             WindowCursor2D::new(records.len(), columns.len()).expect("Failed to create cursor");
 
+        let column_names = columns.iter().map(|s| strip_string(s)).collect();
+
         Self {
-            columns,
-            records,
+            column_names,
+            record_values: records,
+            record_text: None,
             cursor,
             orientation: Orientation::Top,
             name: None,
@@ -369,21 +348,21 @@ impl<'a> RecordLayer<'a> {
 
     fn count_rows(&self) -> usize {
         match self.orientation {
-            Orientation::Top => self.records.len(),
-            Orientation::Left => self.columns.len(),
+            Orientation::Top => self.record_values.len(),
+            Orientation::Left => self.column_names.len(),
         }
     }
 
     fn count_columns(&self) -> usize {
         match self.orientation {
-            Orientation::Top => self.columns.len(),
-            Orientation::Left => self.records.len(),
+            Orientation::Top => self.column_names.len(),
+            Orientation::Left => self.record_values.len(),
         }
     }
 
     fn get_column_header(&self) -> Option<String> {
         let col = self.cursor.column();
-        self.columns.get(col).map(|header| header.to_string())
+        self.column_names.get(col).map(|header| header.to_string())
     }
 
     fn reset_cursor(&mut self) {
@@ -404,7 +383,7 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
             code: KeyCode::PageUp,
             ..
         } => {
-            view.get_layer_last_mut().cursor.prev_row_page();
+            view.get_top_layer_mut().cursor.prev_row_page();
 
             return Some(Transition::Ok);
         }
@@ -417,7 +396,7 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
             code: KeyCode::PageDown,
             ..
         } => {
-            view.get_layer_last_mut().cursor.next_row_page();
+            view.get_top_layer_mut().cursor.next_row_page();
 
             return Some(Transition::Ok);
         }
@@ -447,32 +426,32 @@ fn handle_key_event_view_mode(view: &mut RecordView, key: &KeyEvent) -> Option<T
         }
         KeyCode::Char('e') => Some(Transition::Cmd(String::from("expand"))),
         KeyCode::Up | KeyCode::Char('k') => {
-            view.get_layer_last_mut().cursor.prev_row_i();
+            view.get_top_layer_mut().cursor.prev_row_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            view.get_layer_last_mut().cursor.next_row_i();
+            view.get_top_layer_mut().cursor.next_row_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Left | KeyCode::Char('h') => {
-            view.get_layer_last_mut().cursor.prev_column_i();
+            view.get_top_layer_mut().cursor.prev_column_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Right | KeyCode::Char('l') => {
-            view.get_layer_last_mut().cursor.next_column_i();
+            view.get_top_layer_mut().cursor.next_column_i();
 
             Some(Transition::Ok)
         }
         KeyCode::Home | KeyCode::Char('g') => {
-            view.get_layer_last_mut().cursor.row_move_to_start();
+            view.get_top_layer_mut().cursor.row_move_to_start();
 
             Some(Transition::Ok)
         }
         KeyCode::End | KeyCode::Char('G') => {
-            view.get_layer_last_mut().cursor.row_move_to_end();
+            view.get_top_layer_mut().cursor.row_move_to_end();
 
             Some(Transition::Ok)
         }
@@ -494,7 +473,7 @@ fn handle_key_event_cursor_mode(
             code: KeyCode::PageUp,
             ..
         } => {
-            view.get_layer_last_mut().cursor.prev_row_page();
+            view.get_top_layer_mut().cursor.prev_row_page();
 
             return Ok(Some(Transition::Ok));
         }
@@ -507,7 +486,7 @@ fn handle_key_event_cursor_mode(
             code: KeyCode::PageDown,
             ..
         } => {
-            view.get_layer_last_mut().cursor.next_row_page();
+            view.get_top_layer_mut().cursor.next_row_page();
 
             return Ok(Some(Transition::Ok));
         }
@@ -521,47 +500,55 @@ fn handle_key_event_cursor_mode(
             Ok(Some(Transition::Ok))
         }
         KeyCode::Up | KeyCode::Char('k') => {
-            view.get_layer_last_mut().cursor.prev_row();
+            view.get_top_layer_mut().cursor.prev_row();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            view.get_layer_last_mut().cursor.next_row();
+            view.get_top_layer_mut().cursor.next_row();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::Left | KeyCode::Char('h') => {
-            view.get_layer_last_mut().cursor.prev_column();
+            view.get_top_layer_mut().cursor.prev_column();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::Right | KeyCode::Char('l') => {
-            view.get_layer_last_mut().cursor.next_column();
+            view.get_top_layer_mut().cursor.next_column();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::Home | KeyCode::Char('g') => {
-            view.get_layer_last_mut().cursor.row_move_to_start();
+            view.get_top_layer_mut().cursor.row_move_to_start();
 
             Ok(Some(Transition::Ok))
         }
         KeyCode::End | KeyCode::Char('G') => {
-            view.get_layer_last_mut().cursor.row_move_to_end();
+            view.get_top_layer_mut().cursor.row_move_to_end();
 
             Ok(Some(Transition::Ok))
         }
+        // Try to "drill down" into the selected value
         KeyCode::Enter => {
             let value = view.get_current_value();
+
+            // ...but it only makes sense to drill down into a few types of values
+            if !matches!(
+                value,
+                Value::Record { .. } | Value::List { .. } | Value::Custom { .. }
+            ) {
+                return Ok(None);
+            }
+
             let is_record = matches!(value, Value::Record { .. });
-            let next_layer = create_layer(value)?;
+            let next_layer = create_layer(value.clone())?;
             push_layer(view, next_layer);
 
             if is_record {
-                view.set_orientation_current(Orientation::Left);
-            } else if view.orientation == view.get_layer_last().orientation {
-                view.get_layer_last_mut().orientation = view.orientation;
+                view.set_top_layer_orientation(Orientation::Left);
             } else {
-                view.set_orientation_current(view.orientation);
+                view.set_top_layer_orientation(view.orientation);
             }
 
             Ok(Some(Transition::Ok))
@@ -570,14 +557,14 @@ fn handle_key_event_cursor_mode(
     }
 }
 
-fn create_layer(value: Value) -> Result<RecordLayer<'static>> {
+fn create_layer(value: Value) -> Result<RecordLayer> {
     let (columns, values) = collect_input(value)?;
 
     Ok(RecordLayer::new(columns, values))
 }
 
-fn push_layer(view: &mut RecordView<'_>, mut next_layer: RecordLayer<'static>) {
-    let layer = view.get_layer_last();
+fn push_layer(view: &mut RecordView, mut next_layer: RecordLayer) {
+    let layer = view.get_top_layer();
     let header = layer.get_column_header();
 
     if let Some(header) = header {
@@ -599,9 +586,9 @@ fn estimate_page_size(area: Rect, show_head: bool) -> u16 {
 }
 
 /// scroll to the end of the data
-fn tail_data(state: &mut RecordView<'_>, page_size: usize) {
-    let layer = state.get_layer_last_mut();
-    let count_rows = layer.records.len();
+fn tail_data(state: &mut RecordView, page_size: usize) {
+    let layer = state.get_top_layer_mut();
+    let count_rows = layer.record_values.len();
     if count_rows > page_size {
         layer
             .cursor
@@ -620,6 +607,7 @@ fn convert_records_to_string(
             row.iter()
                 .map(|value| {
                     let text = value.clone().to_abbreviated_string(cfg);
+                    let text = strip_string(&text);
                     let float_precision = cfg.float_precision as usize;
 
                     make_styled_string(style_computer, text, Some(value), float_precision)
@@ -638,8 +626,8 @@ fn highlight_selected_cell(f: &mut Frame, info: ElementInfo, cfg: &ExploreConfig
 
 fn build_last_value(v: &RecordView) -> Value {
     if v.mode == UIMode::Cursor {
-        v.get_current_value()
-    } else if v.get_layer_last().count_rows() < 2 {
+        v.get_current_value().clone()
+    } else if v.get_top_layer().count_rows() < 2 {
         build_table_as_record(v)
     } else {
         build_table_as_list(v)
@@ -647,14 +635,18 @@ fn build_last_value(v: &RecordView) -> Value {
 }
 
 fn build_table_as_list(v: &RecordView) -> Value {
-    let layer = v.get_layer_last();
+    let layer = v.get_top_layer();
 
-    let cols = &layer.columns;
     let vals = layer
-        .records
+        .record_values
         .iter()
         .map(|vals| {
-            let record = cols.iter().cloned().zip(vals.iter().cloned()).collect();
+            let record = layer
+                .column_names
+                .iter()
+                .cloned()
+                .zip(vals.iter().cloned())
+                .collect();
             Value::record(record, NuSpan::unknown())
         })
         .collect();
@@ -663,18 +655,17 @@ fn build_table_as_list(v: &RecordView) -> Value {
 }
 
 fn build_table_as_record(v: &RecordView) -> Value {
-    let layer = v.get_layer_last();
+    let layer = v.get_top_layer();
 
-    let record = if let Some(row) = layer.records.first() {
-        layer
-            .columns
+    let mut record = Record::new();
+    if let Some(row) = layer.record_values.first() {
+        record = layer
+            .column_names
             .iter()
             .cloned()
             .zip(row.iter().cloned())
-            .collect()
-    } else {
-        Record::new()
-    };
+            .collect();
+    }
 
     Value::record(record, NuSpan::unknown())
 }
@@ -708,47 +699,67 @@ fn get_percentage(value: usize, max: usize) -> usize {
     ((value as f32 / max as f32) * 100.0).floor() as usize
 }
 
-fn transpose_table(layer: &mut RecordLayer<'_>) {
-    let count_rows = layer.records.len();
-    let count_columns = layer.columns.len();
-
+fn transpose_table(layer: &mut RecordLayer) {
     if layer.was_transposed {
-        let data = match &mut layer.records {
-            Cow::Owned(data) => data,
-            Cow::Borrowed(_) => unreachable!("must never happen"),
-        };
-
-        let headers = pop_first_column(data);
-        let headers = headers
-            .into_iter()
-            .map(|value| match value {
-                Value::String { val, .. } => val,
-                _ => unreachable!("must never happen"),
-            })
-            .collect();
-
-        let data = _transpose_table(data, count_rows, count_columns - 1);
-
-        layer.records = Cow::Owned(data);
-        layer.columns = Cow::Owned(headers);
+        transpose_from(layer);
     } else {
-        let mut data = _transpose_table(&layer.records, count_rows, count_columns);
-
-        for (column, column_name) in layer.columns.iter().enumerate() {
-            let value = Value::string(column_name, NuSpan::unknown());
-
-            data[column].insert(0, value);
-        }
-
-        layer.records = Cow::Owned(data);
-        layer.columns = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
+        transpose_to(layer);
     }
 
     layer.was_transposed = !layer.was_transposed;
 }
 
-fn pop_first_column(values: &mut [Vec<Value>]) -> Vec<Value> {
-    let mut data = vec![Value::default(); values.len()];
+fn transpose_from(layer: &mut RecordLayer) {
+    let count_rows = layer.record_values.len();
+    let count_columns = layer.column_names.len();
+
+    if let Some(data) = &mut layer.record_text {
+        pop_first_column(data);
+        *data = _transpose_table(data, count_rows, count_columns - 1);
+    }
+
+    let headers = pop_first_column(&mut layer.record_values);
+    let headers = headers
+        .into_iter()
+        .map(|value| match value {
+            Value::String { val, .. } => val,
+            _ => unreachable!("must never happen"),
+        })
+        .collect();
+
+    let data = _transpose_table(&layer.record_values, count_rows, count_columns - 1);
+
+    layer.record_values = data;
+    layer.column_names = headers;
+}
+
+fn transpose_to(layer: &mut RecordLayer) {
+    let count_rows = layer.record_values.len();
+    let count_columns = layer.column_names.len();
+
+    if let Some(data) = &mut layer.record_text {
+        *data = _transpose_table(data, count_rows, count_columns);
+        for (column, column_name) in layer.column_names.iter().enumerate() {
+            let value = (column_name.to_owned(), Default::default());
+            data[column].insert(0, value);
+        }
+    }
+
+    let mut data = _transpose_table(&layer.record_values, count_rows, count_columns);
+    for (column, column_name) in layer.column_names.iter().enumerate() {
+        let value = Value::string(column_name, NuSpan::unknown());
+        data[column].insert(0, value);
+    }
+
+    layer.record_values = data;
+    layer.column_names = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
+}
+
+fn pop_first_column<T>(values: &mut [Vec<T>]) -> Vec<T>
+where
+    T: Default + Clone,
+{
+    let mut data = vec![T::default(); values.len()];
     for (row, values) in values.iter_mut().enumerate() {
         data[row] = values.remove(0);
     }
@@ -756,12 +767,11 @@ fn pop_first_column(values: &mut [Vec<Value>]) -> Vec<Value> {
     data
 }
 
-fn _transpose_table(
-    values: &[Vec<Value>],
-    count_rows: usize,
-    count_columns: usize,
-) -> Vec<Vec<Value>> {
-    let mut data = vec![vec![Value::default(); count_rows]; count_columns];
+fn _transpose_table<T>(values: &[Vec<T>], count_rows: usize, count_columns: usize) -> Vec<Vec<T>>
+where
+    T: Clone + Default,
+{
+    let mut data = vec![vec![T::default(); count_rows]; count_columns];
     for (row, values) in values.iter().enumerate() {
         for (column, value) in values.iter().enumerate() {
             data[column][row].clone_from(value);
@@ -769,4 +779,10 @@ fn _transpose_table(
     }
 
     data
+}
+
+fn strip_string(text: &str) -> String {
+    String::from_utf8(strip_ansi_escapes::strip(text))
+        .map_err(|_| ())
+        .unwrap_or_else(|_| text.to_owned())
 }

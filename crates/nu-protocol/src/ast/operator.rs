@@ -68,6 +68,40 @@ pub enum Operator {
     Assignment(Assignment),
 }
 
+impl Operator {
+    pub fn precedence(&self) -> u8 {
+        match self {
+            Self::Math(Math::Pow) => 100,
+            Self::Math(Math::Multiply)
+            | Self::Math(Math::Divide)
+            | Self::Math(Math::Modulo)
+            | Self::Math(Math::FloorDivision) => 95,
+            Self::Math(Math::Plus) | Self::Math(Math::Minus) => 90,
+            Self::Bits(Bits::ShiftLeft) | Self::Bits(Bits::ShiftRight) => 85,
+            Self::Comparison(Comparison::NotRegexMatch)
+            | Self::Comparison(Comparison::RegexMatch)
+            | Self::Comparison(Comparison::StartsWith)
+            | Self::Comparison(Comparison::EndsWith)
+            | Self::Comparison(Comparison::LessThan)
+            | Self::Comparison(Comparison::LessThanOrEqual)
+            | Self::Comparison(Comparison::GreaterThan)
+            | Self::Comparison(Comparison::GreaterThanOrEqual)
+            | Self::Comparison(Comparison::Equal)
+            | Self::Comparison(Comparison::NotEqual)
+            | Self::Comparison(Comparison::In)
+            | Self::Comparison(Comparison::NotIn)
+            | Self::Math(Math::Append) => 80,
+            Self::Bits(Bits::BitAnd) => 75,
+            Self::Bits(Bits::BitXor) => 70,
+            Self::Bits(Bits::BitOr) => 60,
+            Self::Boolean(Boolean::And) => 50,
+            Self::Boolean(Boolean::Xor) => 45,
+            Self::Boolean(Boolean::Or) => 40,
+            Self::Assignment(_) => 10,
+        }
+    }
+}
+
 impl Display for Operator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -95,10 +129,10 @@ impl Display for Operator {
             Operator::Math(Math::Multiply) => write!(f, "*"),
             Operator::Math(Math::Divide) => write!(f, "/"),
             Operator::Math(Math::Modulo) => write!(f, "mod"),
-            Operator::Math(Math::FloorDivision) => write!(f, "fdiv"),
+            Operator::Math(Math::FloorDivision) => write!(f, "//"),
             Operator::Math(Math::Pow) => write!(f, "**"),
-            Operator::Boolean(Boolean::And) => write!(f, "&&"),
-            Operator::Boolean(Boolean::Or) => write!(f, "||"),
+            Operator::Boolean(Boolean::And) => write!(f, "and"),
+            Operator::Boolean(Boolean::Or) => write!(f, "or"),
             Operator::Boolean(Boolean::Xor) => write!(f, "xor"),
             Operator::Bits(Bits::BitOr) => write!(f, "bit-or"),
             Operator::Bits(Bits::BitXor) => write!(f, "bit-xor"),

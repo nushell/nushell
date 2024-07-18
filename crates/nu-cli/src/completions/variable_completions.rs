@@ -9,6 +9,8 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::str;
 
+use super::{completion_common::sort_suggestions, SortBy};
+
 #[derive(Clone)]
 pub struct VariableCompletion {
     var_context: (Vec<u8>, Vec<Vec<u8>>), // tuple with $var and the sublevels (.b.c.d)
@@ -40,6 +42,7 @@ impl Completer for VariableCompletion {
             end: span.end - offset,
         };
         let sublevels_count = self.var_context.1.len();
+        let prefix_str = String::from_utf8_lossy(&prefix);
 
         // Completions for the given variable
         if !var_str.is_empty() {
@@ -69,7 +72,7 @@ impl Completer for VariableCompletion {
                             }
                         }
 
-                        return output;
+                        return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                     }
                 } else {
                     // No nesting provided, return all env vars
@@ -94,7 +97,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return output;
+                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                 }
             }
 
@@ -118,7 +121,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return output;
+                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                 }
             }
 
@@ -140,7 +143,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return output;
+                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                 }
             }
         }
@@ -229,6 +232,8 @@ impl Completer for VariableCompletion {
                 }
             }
         }
+
+        output = sort_suggestions(&prefix_str, output, SortBy::Ascending);
 
         output.dedup(); // TODO: Removes only consecutive duplicates, is it intended?
 

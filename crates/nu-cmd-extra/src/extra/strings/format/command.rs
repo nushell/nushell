@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ast::PathMember, engine::StateWorkingSet, ListStream};
+use nu_protocol::{ast::PathMember, engine::StateWorkingSet, Config, ListStream};
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -43,6 +43,8 @@ impl Command for FormatPattern {
         let it_id = working_set.add_variable(b"$it".to_vec(), call.head, Type::Any, false);
         stack.add_var(it_id, input_val.clone());
 
+        let config = stack.get_config(engine_state);
+
         match specified_pattern {
             Err(e) => Err(e),
             Ok(pattern) => {
@@ -56,7 +58,7 @@ impl Command for FormatPattern {
                     string_span.start + 1,
                 )?;
 
-                format(input_val, &ops, engine_state, call.head)
+                format(input_val, &ops, engine_state, &config, call.head)
             }
         }
     }
@@ -181,33 +183,30 @@ fn format(
     input_data: Value,
     format_operations: &[FormatOperation],
     engine_state: &EngineState,
+    config: &Config,
     head_span: Span,
 ) -> Result<PipelineData, ShellError> {
     let data_as_value = input_data;
 
     //  We can only handle a Record or a List of Records
     match data_as_value {
-        Value::Record { .. } => {
-            match format_record(format_operations, &data_as_value, engine_state) {
-                Ok(value) => Ok(PipelineData::Value(Value::string(value, head_span), None)),
-                Err(value) => Err(value),
-            }
-        }
+        Value::Record { .. } => match format_record(format_operations, &data_as_value, config) {
+            Ok(value) => Ok(PipelineData::Value(Value::string(value, head_span), None)),
+            Err(value) => Err(value),
+        },
 
         Value::List { vals, .. } => {
             let mut list = vec![];
             for val in vals.iter() {
                 match val {
-                    Value::Record { .. } => {
-                        match format_record(format_operations, val, engine_state) {
-                            Ok(value) => {
-                                list.push(Value::string(value, head_span));
-                            }
-                            Err(value) => {
-                                return Err(value);
-                            }
+                    Value::Record { .. } => match format_record(format_operations, val, config) {
+                        Ok(value) => {
+                            list.push(Value::string(value, head_span));
                         }
-                    }
+                        Err(value) => {
+                            return Err(value);
+                        }
+                    },
                     Value::Error { error, .. } => return Err(*error.clone()),
                     _ => {
                         return Err(ShellError::OnlySupportsThisInputType {
@@ -220,7 +219,7 @@ fn format(
                 }
             }
 
-            Ok(ListStream::new(list.into_iter(), head_span, engine_state.ctrlc.clone()).into())
+            Ok(ListStream::new(list.into_iter(), head_span, engine_state.signals().clone()).into())
         }
         // Unwrapping this ShellError is a bit unfortunate.
         // Ideally, its Span would be preserved.
@@ -237,9 +236,8 @@ fn format(
 fn format_record(
     format_operations: &[FormatOperation],
     data_as_value: &Value,
-    engine_state: &EngineState,
+    config: &Config,
 ) -> Result<String, ShellError> {
-    let config = engine_state.get_config();
     let mut output = String::new();
 
     for op in format_operations {

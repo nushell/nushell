@@ -177,7 +177,7 @@ fn split_words(
 
     input.map(
         move |x| split_words_helper(&x, args.word_length, span, args.graphemes),
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 

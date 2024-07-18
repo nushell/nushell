@@ -166,7 +166,7 @@ fn into_duration(
                 ret
             }
         },
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 

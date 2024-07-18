@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use nu_utils::utils::perf;
+use nu_utils::perf;
 use std::path::Path;
 
 // This will collect environment variables from std::env and adds them to a stack.
@@ -228,13 +228,10 @@ pub fn eval_source(
         let _ = enable_vt_processing();
     }
 
-    perf(
+    perf!(
         &format!("eval_source {}", &fname),
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        engine_state.get_config().use_ansi_coloring,
+        engine_state.get_config().use_ansi_coloring
     );
 
     exit_code
@@ -263,6 +260,11 @@ fn evaluate_source(
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
             return Ok(Some(1));
+        }
+
+        if let Some(err) = working_set.compile_errors.first() {
+            report_error(&working_set, err);
+            // Not a fatal error, for now
         }
 
         (output, working_set.render())

@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 pub use self::de::{
     from_iter, from_reader, from_slice, from_str, Deserializer, StreamDeserializer,
 };

@@ -1,7 +1,7 @@
 use crate::network::http::client::{
     check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, send_request, RequestFlags,
+    request_set_timeout, send_request, HttpBody, RequestFlags,
 };
 use nu_engine::command_prelude::*;
 
@@ -15,7 +15,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("http delete")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required(
                 "URL",
@@ -132,6 +132,11 @@ impl Command for SubCommand {
                     "http delete --content-type application/json --data { field: value } https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Perform an HTTP delete with JSON content from a pipeline to example.com",
+                example: "open foo.json | http delete https://www.example.com",
+                result: None,
+            },
         ]
     }
 }
@@ -139,7 +144,7 @@ impl Command for SubCommand {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
-    data: Option<Value>,
+    data: HttpBody,
     content_type: Option<String>,
     raw: bool,
     insecure: bool,
@@ -155,13 +160,27 @@ fn run_delete(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    _input: PipelineData,
+    input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let (data, maybe_metadata) = call
+        .get_flag::<Value>(engine_state, stack, "data")?
+        .map(|v| (HttpBody::Value(v), None))
+        .unwrap_or_else(|| match input {
+            PipelineData::Value(v, metadata) => (HttpBody::Value(v), metadata),
+            PipelineData::ByteStream(byte_stream, metadata) => {
+                (HttpBody::ByteStream(byte_stream), metadata)
+            }
+            _ => (HttpBody::None, None),
+        });
+    let content_type = call
+        .get_flag(engine_state, stack, "content-type")?
+        .or_else(|| maybe_metadata.and_then(|m| m.content_type));
+
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        data: call.get_flag(engine_state, stack, "data")?,
-        content_type: call.get_flag(engine_state, stack, "content-type")?,
+        data,
+        content_type,
         raw: call.has_flag(engine_state, stack, "raw")?,
         insecure: call.has_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
@@ -184,7 +203,6 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
-    let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
@@ -195,7 +213,13 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request.clone(), args.data, args.content_type, ctrl_c);
+    let response = send_request(
+        request.clone(),
+        args.data,
+        args.content_type,
+        call.head,
+        engine_state.signals(),
+    );
 
     let request_flags = RequestFlags {
         raw: args.raw,

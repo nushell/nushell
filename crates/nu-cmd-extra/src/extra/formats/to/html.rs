@@ -239,7 +239,7 @@ fn to_html(
     let partial = call.has_flag(engine_state, stack, "partial")?;
     let list = call.has_flag(engine_state, stack, "list")?;
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
-    let config = engine_state.get_config();
+    let config = &stack.get_config(engine_state);
 
     let vec_of_values = input.into_iter().collect::<Vec<Value>>();
     let headers = merge_descriptors(&vec_of_values);
@@ -368,6 +368,7 @@ fn theme_demo(span: Span) -> PipelineData {
         .collect();
     Value::list(result, span).into_pipeline_data_with_metadata(PipelineMetadata {
         data_source: DataSource::HtmlThemes,
+        content_type: None,
     })
 }
 

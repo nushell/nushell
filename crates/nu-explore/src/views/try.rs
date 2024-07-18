@@ -1,5 +1,6 @@
 use super::{record::RecordView, util::nu_style_to_tui, Layout, Orientation, View, ViewConfig};
 use crate::{
+    explore::ExploreConfig,
     nu_common::{collect_pipeline, run_command_with_value},
     pager::{report::Report, Frame, Transition, ViewInfo},
 };
@@ -16,24 +17,26 @@ use ratatui::{
 };
 use std::cmp::min;
 
-pub struct TryView<'a> {
+pub struct TryView {
     input: Value,
     command: String,
-    reactive: bool,
-    table: Option<RecordView<'a>>,
+    immediate: bool,
+    table: Option<RecordView>,
     view_mode: bool,
     border_color: Style,
+    config: ExploreConfig,
 }
 
-impl<'a> TryView<'a> {
-    pub fn new(input: Value) -> Self {
+impl TryView {
+    pub fn new(input: Value, config: ExploreConfig) -> Self {
         Self {
             input,
             table: None,
-            reactive: false,
-            border_color: Style::default(),
+            immediate: config.try_reactive,
+            border_color: nu_style_to_tui(config.table.separator_style),
             view_mode: false,
             command: String::new(),
+            config,
         }
     }
 
@@ -42,13 +45,19 @@ impl<'a> TryView<'a> {
     }
 
     pub fn try_run(&mut self, engine_state: &EngineState, stack: &mut Stack) -> Result<()> {
-        let view = run_command(&self.command, &self.input, engine_state, stack)?;
+        let view = run_command(
+            &self.command,
+            &self.input,
+            engine_state,
+            stack,
+            &self.config,
+        )?;
         self.table = Some(view);
         Ok(())
     }
 }
 
-impl View for TryView<'_> {
+impl View for TryView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let border_color = self.border_color;
 
@@ -122,7 +131,6 @@ impl View for TryView<'_> {
         f.render_widget(table_block, table_area);
 
         if let Some(table) = &mut self.table {
-            table.setup(cfg);
             let area = Rect::new(
                 area.x + 2,
                 area.y + 4,
@@ -178,7 +186,7 @@ impl View for TryView<'_> {
                 if !self.command.is_empty() {
                     self.command.pop();
 
-                    if self.reactive {
+                    if self.immediate {
                         match self.try_run(engine_state, stack) {
                             Ok(_) => info.report = Some(Report::default()),
                             Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
@@ -191,7 +199,7 @@ impl View for TryView<'_> {
             KeyCode::Char(c) => {
                 self.command.push(*c);
 
-                if self.reactive {
+                if self.immediate {
                     match self.try_run(engine_state, stack) {
                         Ok(_) => info.report = Some(Report::default()),
                         Err(err) => info.report = Some(Report::error(format!("Error: {err}"))),
@@ -232,20 +240,6 @@ impl View for TryView<'_> {
     fn show_data(&mut self, i: usize) -> bool {
         self.table.as_mut().map_or(false, |v| v.show_data(i))
     }
-
-    fn setup(&mut self, config: ViewConfig<'_>) {
-        self.border_color = nu_style_to_tui(config.explore_config.table.separator_style);
-        self.reactive = config.explore_config.try_reactive;
-
-        let mut r = RecordView::new(vec![], vec![]);
-        r.setup(config);
-
-        if let Some(view) = &mut self.table {
-            view.setup(config);
-            view.set_orientation(r.get_orientation_current());
-            view.set_orientation_current(r.get_orientation_current());
-        }
-    }
 }
 
 fn run_command(
@@ -253,16 +247,17 @@ fn run_command(
     input: &Value,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> Result<RecordView<'static>> {
+    config: &ExploreConfig,
+) -> Result<RecordView> {
     let pipeline = run_command_with_value(command, input, engine_state, stack)?;
 
     let is_record = matches!(pipeline, PipelineData::Value(Value::Record { .. }, ..));
 
     let (columns, values) = collect_pipeline(pipeline)?;
 
-    let mut view = RecordView::new(columns, values);
+    let mut view = RecordView::new(columns, values, config.clone());
     if is_record {
-        view.set_orientation_current(Orientation::Left);
+        view.set_top_layer_orientation(Orientation::Left);
     }
 
     Ok(view)

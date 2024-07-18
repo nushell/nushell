@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct Break;
@@ -16,6 +17,15 @@ impl Command for Break {
         Signature::build("break")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .category(Category::Core)
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
     }
 
     fn run(

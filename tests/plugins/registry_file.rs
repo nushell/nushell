@@ -18,6 +18,13 @@ fn example_plugin_path() -> PathBuf {
     .expect("nu_plugin_example not found")
 }
 
+fn valid_plugin_item_data() -> PluginRegistryItemData {
+    PluginRegistryItemData::Valid {
+        metadata: Default::default(),
+        commands: vec![],
+    }
+}
+
 #[test]
 fn plugin_add_then_restart_nu() {
     let result = nu_with_plugins!(
@@ -149,15 +156,15 @@ fn plugin_rm_then_restart_nu() {
             name: "example".into(),
             filename: example_plugin_path,
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo"),
+            filename: dirs.test().join("nu_plugin_foo").into(),
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents
@@ -225,15 +232,15 @@ fn plugin_rm_from_custom_path() {
             name: "example".into(),
             filename: example_plugin_path,
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo"),
+            filename: dirs.test().join("nu_plugin_foo").into(),
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents
@@ -273,15 +280,15 @@ fn plugin_rm_using_filename() {
             name: "example".into(),
             filename: example_plugin_path.clone(),
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo"),
+            filename: dirs.test().join("nu_plugin_foo").into(),
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents
@@ -331,13 +338,13 @@ fn warning_on_invalid_plugin_item() {
             name: "example".into(),
             filename: example_plugin_path,
             shell: None,
-            data: PluginRegistryItemData::Valid { commands: vec![] },
+            data: valid_plugin_item_data(),
         });
 
         contents.upsert_plugin(PluginRegistryItem {
             name: "badtest".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_badtest"),
+            filename: dirs.test().join("nu_plugin_badtest").into(),
             shell: None,
             data: PluginRegistryItemData::Invalid,
         });

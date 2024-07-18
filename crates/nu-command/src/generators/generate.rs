@@ -1,4 +1,3 @@
-use itertools::unfold;
 use nu_engine::{command_prelude::*, ClosureEval};
 use nu_protocol::engine::Closure;
 
@@ -12,13 +11,7 @@ impl Command for Generate {
 
     fn signature(&self) -> Signature {
         Signature::build("generate")
-            .input_output_types(vec![
-                (Type::Nothing, Type::List(Box::new(Type::Any))),
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
             .required("initial", SyntaxShape::Any, "Initial value.")
             .required(
                 "closure",
@@ -63,23 +56,10 @@ used as the next argument to the closure, otherwise generation stops.
                 )),
             },
             Example {
-                example: "generate [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } | first 10",
-                description: "Generate a stream of fibonacci numbers",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(3),
-                        Value::test_int(5),
-                        Value::test_int(8),
-                        Value::test_int(13),
-                        Value::test_int(21),
-                        Value::test_int(34),
-                    ],
-                    Span::test_data(),
-                )),
+                example:
+                    "generate [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} }",
+                description: "Generate a continuous stream of Fibonacci numbers",
+                result: None,
             },
         ]
     }
@@ -100,7 +80,8 @@ used as the next argument to the closure, otherwise generation stops.
         // A type of Option<S> is used to represent state. Invocation
         // will stop on None. Using Option<S> allows functions to output
         // one final value before stopping.
-        let iter = unfold(Some(initial), move |state| {
+        let mut state = Some(initial);
+        let iter = std::iter::from_fn(move || {
             let arg = state.take()?;
 
             let (output, next_input) = match closure.run_with_value(arg) {
@@ -179,13 +160,13 @@ used as the next argument to the closure, otherwise generation stops.
             // We use `state` to control when to stop, not `output`. By wrapping
             // it in a `Some`, we allow the generator to output `None` as a valid output
             // value.
-            *state = next_input;
+            state = next_input;
             Some(output)
         });
 
         Ok(iter
             .flatten()
-            .into_pipeline_data(call.head, engine_state.ctrlc.clone()))
+            .into_pipeline_data(call.head, engine_state.signals().clone()))
     }
 }
 

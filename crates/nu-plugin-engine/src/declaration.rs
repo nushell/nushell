@@ -76,7 +76,7 @@ impl Command for PluginDeclaration {
             EvaluatedCall::try_from_call(call, engine_state, stack, eval_expression)?;
 
         // Get the engine config
-        let engine_config = nu_engine::get_config(engine_state, stack);
+        let engine_config = stack.get_config(engine_state);
 
         // Get, or start, the plugin.
         let plugin = self

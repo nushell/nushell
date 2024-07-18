@@ -465,7 +465,7 @@ fn make_sqlite_db(dirs: &Dirs, nu_table: &str) -> PathBuf {
     );
 
     assert!(nucmd.status.success());
-    testdb_path
+    testdb_path.into()
 }
 
 fn insert_test_rows(dirs: &Dirs, nu_table: &str, sql_query: Option<&str>, expected: Vec<TestRow>) {

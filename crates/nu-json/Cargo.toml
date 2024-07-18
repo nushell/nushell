@@ -1,11 +1,14 @@
 [package]
-authors = ["The Nushell Project Developers", "Christian Zangl <laktak@cdak.net>"]
+authors = [
+    "The Nushell Project Developers",
+    "Christian Zangl <laktak@cdak.net>",
+]
 description = "Fork of serde-hjson"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-json"
 edition = "2021"
 license = "MIT"
 name = "nu-json"
-version = "0.94.3"
+version = "0.95.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -19,9 +22,11 @@ default = ["preserve_order"]
 [dependencies]
 linked-hash-map = { version = "0.5", optional = true }
 num-traits = { workspace = true }
-serde = { workspace =  true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-# nu-path = { path="../nu-path", version = "0.94.3" }
-# serde_json = "1.0"
+nu-test-support = { path = "../nu-test-support", version = "0.95.1" }
+nu-path = { path = "../nu-path", version = "0.95.1" }
+serde_json = "1.0"
+fancy-regex = "0.13.0"

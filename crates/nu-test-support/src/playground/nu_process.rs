@@ -1,12 +1,13 @@
 use super::EnvironmentVariable;
 use crate::fs::{binaries as test_bins_path, executable_path};
-use std::ffi::{OsStr, OsString};
-use std::fmt;
-use std::path::Path;
-use std::process::{Command, ExitStatus};
+use std::{
+    ffi::{OsStr, OsString},
+    fmt,
+    process::{Command, ExitStatus},
+};
 
 pub trait Executable {
-    fn execute(&mut self) -> NuResult;
+    fn execute(&mut self) -> Result<Outcome, NuError>;
 }
 
 #[derive(Clone, Debug)]
@@ -23,8 +24,6 @@ impl Outcome {
         }
     }
 }
-
-pub type NuResult = Result<Outcome, NuError>;
 
 #[derive(Debug)]
 pub struct NuError {
@@ -69,14 +68,10 @@ impl NuProcess {
         self
     }
 
-    pub fn get_cwd(&self) -> Option<&Path> {
-        self.cwd.as_ref().map(Path::new)
-    }
-
     pub fn construct(&self) -> Command {
         let mut command = Command::new(executable_path());
 
-        if let Some(cwd) = self.get_cwd() {
+        if let Some(cwd) = &self.cwd {
             command.current_dir(cwd);
         }
 

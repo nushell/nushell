@@ -5,7 +5,6 @@ use nu_cmd_base::{
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::{engine::StateWorkingSet, Range};
-use std::cmp::Ordering;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -104,7 +103,7 @@ impl Command for SubCommand {
             cell_paths,
             graphemes: grapheme_flags(engine_state, stack, call)?,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
     }
 
     fn run_const(
@@ -134,7 +133,7 @@ impl Command for SubCommand {
             args,
             input,
             call.head,
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 
@@ -150,6 +149,11 @@ impl Command for SubCommand {
                 description: "Count indexes and split using grapheme clusters",
                 example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..5",
                 result: Some(Value::test_string("ふが")),
+            },
+            Example {
+                description: "sub string by negative index",
+                example: " 'good nushell' | str substring 5..-2",
+                result: Some(Value::test_string("nushel")),
             },
         ]
     }
@@ -167,56 +171,46 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                 options.0
             };
             let end: isize = if options.1 < 0 {
-                std::cmp::max(len + options.1, 0)
+                options.1 + len
             } else {
                 options.1
             };
 
-            if start < len && end >= 0 {
-                match start.cmp(&end) {
-                    Ordering::Equal => Value::string("", head),
-                    Ordering::Greater => Value::error(
-                        ShellError::TypeMismatch {
-                            err_message: "End must be greater than or equal to Start".to_string(),
-                            span: head,
-                        },
-                        head,
-                    ),
-                    Ordering::Less => Value::string(
-                        {
-                            if end == isize::MAX {
-                                if args.graphemes {
-                                    s.graphemes(true)
-                                        .skip(start as usize)
-                                        .collect::<Vec<&str>>()
-                                        .join("")
-                                } else {
-                                    String::from_utf8_lossy(
-                                        &s.bytes().skip(start as usize).collect::<Vec<_>>(),
-                                    )
-                                    .to_string()
-                                }
-                            } else if args.graphemes {
+            if start > end {
+                Value::string("", head)
+            } else {
+                Value::string(
+                    {
+                        if end == isize::MAX {
+                            if args.graphemes {
                                 s.graphemes(true)
                                     .skip(start as usize)
-                                    .take((end - start) as usize)
                                     .collect::<Vec<&str>>()
                                     .join("")
                             } else {
                                 String::from_utf8_lossy(
-                                    &s.bytes()
-                                        .skip(start as usize)
-                                        .take((end - start) as usize)
-                                        .collect::<Vec<_>>(),
+                                    &s.bytes().skip(start as usize).collect::<Vec<_>>(),
                                 )
                                 .to_string()
                             }
-                        },
-                        head,
-                    ),
-                }
-            } else {
-                Value::string("", head)
+                        } else if args.graphemes {
+                            s.graphemes(true)
+                                .skip(start as usize)
+                                .take((end - start + 1) as usize)
+                                .collect::<Vec<&str>>()
+                                .join("")
+                        } else {
+                            String::from_utf8_lossy(
+                                &s.bytes()
+                                    .skip(start as usize)
+                                    .take((end - start + 1) as usize)
+                                    .collect::<Vec<_>>(),
+                            )
+                            .to_string()
+                        }
+                    },
+                    head,
+                )
             }
         }
         // Propagate errors by explicitly matching them before the final case.
@@ -243,6 +237,7 @@ mod tests {
 
         test_examples(SubCommand {})
     }
+    #[derive(Debug)]
     struct Expectation<'a> {
         options: (isize, isize),
         expected: &'a str,
@@ -266,18 +261,19 @@ mod tests {
         let word = Value::test_string("andres");
 
         let cases = vec![
-            expectation("a", (0, 1)),
-            expectation("an", (0, 2)),
-            expectation("and", (0, 3)),
-            expectation("andr", (0, 4)),
-            expectation("andre", (0, 5)),
+            expectation("a", (0, 0)),
+            expectation("an", (0, 1)),
+            expectation("and", (0, 2)),
+            expectation("andr", (0, 3)),
+            expectation("andre", (0, 4)),
+            expectation("andres", (0, 5)),
             expectation("andres", (0, 6)),
-            expectation("", (0, -6)),
-            expectation("a", (0, -5)),
-            expectation("an", (0, -4)),
-            expectation("and", (0, -3)),
-            expectation("andr", (0, -2)),
-            expectation("andre", (0, -1)),
+            expectation("a", (0, -6)),
+            expectation("an", (0, -5)),
+            expectation("and", (0, -4)),
+            expectation("andr", (0, -3)),
+            expectation("andre", (0, -2)),
+            expectation("andres", (0, -1)),
             // str substring [ -4 , _ ]
             // str substring   -4 ,
             expectation("dres", (-4, isize::MAX)),
@@ -292,6 +288,7 @@ mod tests {
         ];
 
         for expectation in &cases {
+            println!("{:?}", expectation);
             let expected = expectation.expected;
             let actual = action(
                 &word,

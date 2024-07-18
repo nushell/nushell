@@ -4,7 +4,8 @@ use super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Value,
 };
 
 use polars::prelude::SeriesMethods;
@@ -25,6 +26,24 @@ impl PluginCommand for ValueCount {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .named(
+                "column",
+                SyntaxShape::String,
+                "Provide a custom name for the coutn column",
+                Some('c'),
+            )
+            .switch("sort", "Whether or not values should be sorted", Some('s'))
+            .switch(
+                "parallel",
+                "Use multiple threads when processing",
+                Some('p'),
+            )
+            .named(
+                "normalize",
+                SyntaxShape::String,
+                "Normalize the counts",
+                Some('n'),
+            )
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -73,11 +92,15 @@ fn command(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let column = call.get_flag("column")?.unwrap_or("count".to_string());
+    let parallel = call.has_flag("parallel")?;
+    let sort = call.has_flag("sort")?;
+    let normalize = call.has_flag("normalize")?;
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let series = df.as_series(call.head)?;
 
     let res = series
-        .value_counts(false, false)
+        .value_counts(sort, parallel, column, normalize)
         .map_err(|e| ShellError::GenericError {
             error: "Error calculating value counts values".into(),
             msg: e.to_string(),
