@@ -35,6 +35,10 @@ impl Command for Window {
         "Creates a sliding window of `window_size` that slide by n rows/elements across input."
     }
 
+    fn extra_usage(&self) -> &str {
+        "This command will error if `window_size` or `stride` are negative or zero."
+    }
+
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
