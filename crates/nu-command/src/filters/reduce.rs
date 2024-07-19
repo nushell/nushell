@@ -67,6 +67,11 @@ impl Command for Reduce {
                 result: Some(Value::test_int(20)),
             },
             Example {
+                example: r#"[[foo baz] [baz quux]] | reduce --fold "foobar" {|it, acc| $acc | str replace $it.0 $it.1}"#,
+                description: "Iteratively perform string replace (from left to right): 'foobar' -> 'bazbar' -> 'quuxbar'",
+                result: Some(Value::test_int("quuxbar")),
+            },
+            Example {
                 example: r#"[ i o t ] | reduce --fold "Arthur, King of the Britons" {|it, acc| $acc | str replace --all $it "X" }"#,
                 description: "Replace selected characters in a string with 'X'",
                 result: Some(Value::test_string("ArXhur, KXng Xf Xhe BrXXXns")),
