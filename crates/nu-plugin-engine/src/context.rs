@@ -1,9 +1,10 @@
 use crate::util::MutableCow;
 use nu_engine::{get_eval_block_with_early_return, get_full_help, ClosureEvalOnce};
+use nu_plugin_protocol::EvaluatedCall;
 use nu_protocol::{
     engine::{Call, Closure, EngineState, Redirection, Stack},
-    Config, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Signals, Span, Spanned,
-    Value,
+    ir, Config, DeclId, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Signals,
+    Span, Spanned, Value,
 };
 use std::{
     borrow::Cow,
@@ -40,6 +41,17 @@ pub trait PluginExecutionContext: Send + Sync {
         &self,
         closure: Spanned<Closure>,
         positional: Vec<Value>,
+        input: PipelineData,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError>;
+    /// Find a declaration by name
+    fn find_decl(&self, name: &str) -> Result<Option<DeclId>, ShellError>;
+    /// Call a declaration with arguments and input
+    fn call_decl(
+        &mut self,
+        decl_id: DeclId,
+        call: EvaluatedCall,
         input: PipelineData,
         redirect_stdout: bool,
         redirect_stderr: bool,
@@ -177,19 +189,10 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             .captures_to_stack(closure.item.captures)
             .reset_pipes();
 
-        let stdout = if redirect_stdout {
-            Some(Redirection::Pipe(OutDest::Capture))
-        } else {
-            None
-        };
-
-        let stderr = if redirect_stderr {
-            Some(Redirection::Pipe(OutDest::Capture))
-        } else {
-            None
-        };
-
-        let stack = &mut stack.push_redirection(stdout, stderr);
+        let stack = &mut stack.push_redirection(
+            redirect_stdout.then_some(Redirection::Pipe(OutDest::Capture)),
+            redirect_stderr.then_some(Redirection::Pipe(OutDest::Capture)),
+        );
 
         // Set up the positional arguments
         for (idx, value) in positional.into_iter().enumerate() {
@@ -209,6 +212,57 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
         let eval_block_with_early_return = get_eval_block_with_early_return(&self.engine_state);
 
         eval_block_with_early_return(&self.engine_state, stack, block, input)
+    }
+
+    fn find_decl(&self, name: &str) -> Result<Option<DeclId>, ShellError> {
+        Ok(self.engine_state.find_decl(name.as_bytes(), &[]))
+    }
+
+    fn call_decl(
+        &mut self,
+        decl_id: DeclId,
+        call: EvaluatedCall,
+        input: PipelineData,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError> {
+        if decl_id >= self.engine_state.num_decls() {
+            return Err(ShellError::GenericError {
+                error: "Plugin misbehaving".into(),
+                msg: format!("Tried to call unknown decl id: {}", decl_id),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            });
+        }
+
+        let decl = self.engine_state.get_decl(decl_id);
+
+        let stack = &mut self.stack.push_redirection(
+            redirect_stdout.then_some(Redirection::Pipe(OutDest::Capture)),
+            redirect_stderr.then_some(Redirection::Pipe(OutDest::Capture)),
+        );
+
+        let mut call_builder = ir::Call::build(decl_id, call.head);
+
+        for positional in call.positional {
+            call_builder.add_positional(stack, positional.span(), positional);
+        }
+
+        for (name, value) in call.named {
+            if let Some(value) = value {
+                call_builder.add_named(stack, &name.item, "", name.span, value);
+            } else {
+                call_builder.add_flag(stack, &name.item, "", name.span);
+            }
+        }
+
+        decl.run(
+            &self.engine_state,
+            stack,
+            &(&call_builder.finish()).into(),
+            input,
+        )
     }
 
     fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
@@ -295,6 +349,25 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
     ) -> Result<PipelineData, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "eval_closure not implemented on bogus".into(),
+        })
+    }
+
+    fn find_decl(&self, _name: &str) -> Result<Option<DeclId>, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "find_decl not implemented on bogus".into(),
+        })
+    }
+
+    fn call_decl(
+        &mut self,
+        _decl_id: DeclId,
+        _call: EvaluatedCall,
+        _input: PipelineData,
+        _redirect_stdout: bool,
+        _redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "call_decl not implemented on bogus".into(),
         })
     }
 

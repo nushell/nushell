@@ -239,7 +239,7 @@ impl CallBuilder {
         }
         self.inner.args_len += 1;
         if let Some(span) = argument.span() {
-            self.inner.span = self.inner.span.append(span);
+            self.inner.span = self.inner.span.merge(span);
         }
         stack.arguments.push(argument);
         self

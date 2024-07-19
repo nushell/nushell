@@ -27,6 +27,7 @@ impl Plugin for ExamplePlugin {
             Box::new(Env),
             Box::new(ViewSpan),
             Box::new(DisableGc),
+            Box::new(CallDecl),
             // Stream demos
             Box::new(CollectBytes),
             Box::new(Echo),
