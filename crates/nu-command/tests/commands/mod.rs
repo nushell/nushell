@@ -115,6 +115,7 @@ mod try_;
 mod ucp;
 #[cfg(unix)]
 mod ulimit;
+mod window;
 
 mod debug;
 mod umkdir;
