@@ -84,6 +84,7 @@ deunicode = "1.6.0"
 dialoguer = { default-features = false, version = "0.11" }
 digest = { default-features = false, version = "0.10" }
 dirs = "5.0"
+dirs-sys = "0.4"
 dtparse = "2.0"
 encoding_rs = "0.8"
 fancy-regex = "0.13"
@@ -178,6 +179,7 @@ v_htmlescape = "0.15.0"
 wax = "0.6"
 which = "6.0.0"
 windows = "0.54"
+windows-sys = "0.48"
 winreg = "0.52"
 
 [dependencies]
