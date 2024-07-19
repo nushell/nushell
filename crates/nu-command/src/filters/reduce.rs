@@ -36,7 +36,7 @@ impl Command for Reduce {
     }
 
     fn usage(&self) -> &str {
-        "Aggregate a list to a single value using an accumulator closure."
+        "Aggregate a list (starting from the left) to a single value using an accumulator closure."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -49,6 +49,11 @@ impl Command for Reduce {
                 example: "[ 1 2 3 4 ] | reduce {|it, acc| $it + $acc }",
                 description: "Sum values of a list (same as 'math sum')",
                 result: Some(Value::test_int(10)),
+            },
+            Example {
+                example: "[ 1 2 3 4 ] | reduce {|it, acc| $acc - $it }",
+                description: r#"`reduce` accumulates value from left to right, equivalent to (((1 - 2) - 3) - 4)."#,
+                result: Some(Value::test_int(-8)),
             },
             Example {
                 example:
