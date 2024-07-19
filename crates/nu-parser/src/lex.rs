@@ -454,6 +454,26 @@ pub fn lex_signature(
         special_tokens,
         skip_comment,
         true,
+        false,
+    )
+}
+
+// temporary name because i cant decide on a better one
+pub fn lex_but_ignore_specials_after_special(
+    input: &[u8],
+    span_offset: usize,
+    additional_whitespace: &[u8],
+    special_tokens: &[u8],
+    skip_comment: bool,
+) -> (Vec<Token>, Option<ParseError>) {
+    lex_internal(
+        input,
+        span_offset,
+        additional_whitespace,
+        special_tokens,
+        skip_comment,
+        false,
+        true,
     )
 }
 
@@ -471,6 +491,7 @@ pub fn lex(
         special_tokens,
         skip_comment,
         false,
+        false,
     )
 }
 
@@ -482,7 +503,12 @@ fn lex_internal(
     skip_comment: bool,
     // within signatures we want to treat `<` and `>` specially
     in_signature: bool,
+    // after lexing a special item, disable special items when lexing the next item.
+    // necessary because colons are special in records, but datetime literals may contain colons
+    ignore_specials_after_special: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
+    let mut specials_disabled = false;
+
     let mut error = None;
 
     let mut curr_offset = 0;
@@ -612,7 +638,22 @@ fn lex_internal(
         } else if c == b' ' || c == b'\t' || additional_whitespace.contains(&c) {
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
+        } else if ignore_specials_after_special && !specials_disabled && special_tokens.contains(&c)
+        {
+            // If disabling special items but if they're not currently disabled, handle a special item
+            // character right here, bypassing lex_item
+            output.push(Token::new(
+                TokenContents::Item,
+                Span::new(span_offset + curr_offset, span_offset + curr_offset + 1),
+            ));
+            curr_offset += 1;
+            specials_disabled = true;
         } else {
+            let special_tokens = if specials_disabled {
+                &[]
+            } else {
+                special_tokens
+            };
             let (token, err) = lex_item(
                 input,
                 &mut curr_offset,
@@ -625,6 +666,9 @@ fn lex_internal(
                 error = err;
             }
             is_complete = true;
+            if token.contents == TokenContents::Item {
+                specials_disabled = false;
+            }
             output.push(token);
         }
     }
