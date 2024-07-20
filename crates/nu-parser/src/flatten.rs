@@ -5,7 +5,7 @@ use nu_protocol::{
         RecordItem,
     },
     engine::StateWorkingSet,
-    DeclId, Span, VarId,
+    DeclId, Span, SyntaxShape, VarId,
 };
 use std::fmt::{Display, Formatter, Result};
 
@@ -166,6 +166,22 @@ fn flatten_pipeline_element_into(
     }
 }
 
+fn flatten_positional_arg_into(
+    working_set: &StateWorkingSet,
+    positional: &Expression,
+    shape: &SyntaxShape,
+    output: &mut Vec<(Span, FlatShape)>,
+) {
+    if matches!(shape, SyntaxShape::ExternalArgument)
+        && matches!(positional.expr, Expr::String(..) | Expr::GlobPattern(..))
+    {
+        // Make known external arguments look more like external arguments
+        output.push((positional.span, FlatShape::ExternalArg));
+    } else {
+        flatten_expression_into(working_set, positional, output)
+    }
+}
+
 fn flatten_expression_into(
     working_set: &StateWorkingSet,
     expr: &Expression,
@@ -249,16 +265,40 @@ fn flatten_expression_into(
             }
         }
         Expr::Call(call) => {
+            let decl = working_set.get_decl(call.decl_id);
+
             if call.head.end != 0 {
                 // Make sure we don't push synthetic calls
                 output.push((call.head, FlatShape::InternalCall(call.decl_id)));
             }
 
+            // Follow positional arguments from the signature.
+            let signature = decl.signature();
+            let mut positional_args = signature
+                .required_positional
+                .iter()
+                .chain(&signature.optional_positional);
+
             let arg_start = output.len();
             for arg in &call.arguments {
                 match arg {
-                    Argument::Positional(positional) | Argument::Unknown(positional) => {
-                        flatten_expression_into(working_set, positional, output)
+                    Argument::Positional(positional) => {
+                        let positional_arg = positional_args.next();
+                        let shape = positional_arg
+                            .or(signature.rest_positional.as_ref())
+                            .map(|arg| &arg.shape)
+                            .unwrap_or(&SyntaxShape::Any);
+
+                        flatten_positional_arg_into(working_set, positional, shape, output)
+                    }
+                    Argument::Unknown(positional) => {
+                        let shape = signature
+                            .rest_positional
+                            .as_ref()
+                            .map(|arg| &arg.shape)
+                            .unwrap_or(&SyntaxShape::Any);
+
+                        flatten_positional_arg_into(working_set, positional, shape, output)
                     }
                     Argument::Named(named) => {
                         if named.0.span.end != 0 {

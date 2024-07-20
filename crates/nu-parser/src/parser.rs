@@ -221,6 +221,22 @@ pub(crate) fn check_call(
     }
 }
 
+/// Parses an unknown argument for the given signature. This handles the parsing as appropriate to
+/// the rest type of the command.
+fn parse_unknown_arg(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    signature: &Signature,
+) -> Expression {
+    let shape = signature
+        .rest_positional
+        .as_ref()
+        .map(|arg| arg.shape.clone())
+        .unwrap_or(SyntaxShape::Any);
+
+    parse_value(working_set, span, &shape)
+}
+
 /// Parses a string in the arg or head position of an external call.
 ///
 /// If the string begins with `r#`, it is parsed as a raw string. If it doesn't contain any quotes
@@ -427,11 +443,7 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
 fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> ExternalArgument {
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$") || contents.starts_with(b"(") {
-        ExternalArgument::Regular(parse_dollar_expr(working_set, span))
-    } else if contents.starts_with(b"[") {
-        ExternalArgument::Regular(parse_list_expression(working_set, span, &SyntaxShape::Any))
-    } else if contents.len() > 3
+    if contents.len() > 3
         && contents.starts_with(b"...")
         && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
     {
@@ -441,7 +453,19 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
             &SyntaxShape::List(Box::new(SyntaxShape::Any)),
         ))
     } else {
-        ExternalArgument::Regular(parse_external_string(working_set, span))
+        ExternalArgument::Regular(parse_regular_external_arg(working_set, span))
+    }
+}
+
+fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    let contents = working_set.get_span_contents(span);
+
+    if contents.starts_with(b"$") || contents.starts_with(b"(") {
+        parse_dollar_expr(working_set, span)
+    } else if contents.starts_with(b"[") {
+        parse_list_expression(working_set, span, &SyntaxShape::Any)
+    } else {
+        parse_external_string(working_set, span)
     }
 }
 
@@ -998,7 +1022,7 @@ pub fn parse_internal_call(
                 && signature.allows_unknown_args
             {
                 working_set.parse_errors.truncate(starting_error_count);
-                let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
+                let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
                 call.add_unknown(arg);
             } else {
@@ -1040,7 +1064,7 @@ pub fn parse_internal_call(
                 && signature.allows_unknown_args
             {
                 working_set.parse_errors.truncate(starting_error_count);
-                let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
+                let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
                 call.add_unknown(arg);
             } else {
@@ -1196,7 +1220,7 @@ pub fn parse_internal_call(
             call.add_positional(arg);
             positional_idx += 1;
         } else if signature.allows_unknown_args {
-            let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
+            let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
             call.add_unknown(arg);
         } else {
@@ -4670,7 +4694,8 @@ pub fn parse_value(
             | SyntaxShape::Signature
             | SyntaxShape::Filepath
             | SyntaxShape::String
-            | SyntaxShape::GlobPattern => {}
+            | SyntaxShape::GlobPattern
+            | SyntaxShape::ExternalArgument => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(working_set, span);
@@ -4746,6 +4771,8 @@ pub fn parse_value(
 
             Expression::garbage(working_set, span)
         }
+
+        SyntaxShape::ExternalArgument => parse_regular_external_arg(working_set, span),
 
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
