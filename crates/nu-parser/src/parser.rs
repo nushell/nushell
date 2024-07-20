@@ -1159,6 +1159,10 @@ pub fn parse_internal_call(
                     call.add_positional(Expression::garbage(working_set, arg_span));
                 } else {
                     let rest_shape = match &signature.rest_positional {
+                        Some(arg) if matches!(arg.shape, SyntaxShape::ExternalArgument) => {
+                            // External args aren't parsed inside lists in spread position.
+                            SyntaxShape::Any
+                        }
                         Some(arg) => arg.shape.clone(),
                         None => SyntaxShape::Any,
                     };
