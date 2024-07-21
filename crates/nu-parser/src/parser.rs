@@ -1,5 +1,5 @@
 use crate::{
-    lex::{is_assignment_operator, lex, lex_but_ignore_specials_after_special, lex_signature},
+    lex::{is_assignment_operator, lex, lex_alternating_special_tokens, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
     parse_keywords::*,
     parse_patterns::parse_pattern,
@@ -5668,7 +5668,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     let source = working_set.get_span_contents(inner_span);
 
     let (tokens, err) =
-        lex_but_ignore_specials_after_special(source, start, &[b'\n', b'\r', b','], &[b':'], true);
+        lex_alternating_special_tokens(source, start, &[b'\n', b'\r', b','], &[b':'], true);
     if let Some(err) = err {
         working_set.error(err);
     }

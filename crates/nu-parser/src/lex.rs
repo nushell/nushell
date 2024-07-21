@@ -458,8 +458,7 @@ pub fn lex_signature(
     )
 }
 
-// temporary name because i cant decide on a better one
-pub fn lex_but_ignore_specials_after_special(
+pub fn lex_alternating_special_tokens(
     input: &[u8],
     span_offset: usize,
     additional_whitespace: &[u8],
@@ -505,7 +504,7 @@ fn lex_internal(
     in_signature: bool,
     // after lexing a special item, disable special items when lexing the next item.
     // necessary because colons are special in records, but datetime literals may contain colons
-    ignore_specials_after_special: bool,
+    alternate_specials: bool,
 ) -> (Vec<Token>, Option<ParseError>) {
     let mut specials_disabled = false;
 
@@ -638,8 +637,7 @@ fn lex_internal(
         } else if c == b' ' || c == b'\t' || additional_whitespace.contains(&c) {
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
-        } else if ignore_specials_after_special && !specials_disabled && special_tokens.contains(&c)
-        {
+        } else if alternate_specials && !specials_disabled && special_tokens.contains(&c) {
             // If disabling special items but if they're not currently disabled, handle a special item
             // character right here, bypassing lex_item
             output.push(Token::new(
