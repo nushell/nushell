@@ -5761,20 +5761,18 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             idx += 1;
 
             let bareword_error = |string_value: &Expression| {
-                let string_span = working_set.get_span_contents(string_value.span);
-                let colon_position = string_span
+                working_set
+                    .get_span_contents(string_value.span)
                     .iter()
                     .find_position(|b| **b == b':')
-                    .map(|(i, _)| string_value.span.start + i);
-                if let Some(colon_position) = colon_position {
-                    Some(ParseError::InvalidLiteral(
-                        "colon".to_string(),
-                        "bare word specifying record value".to_string(),
-                        Span::new(colon_position, colon_position + 1),
-                    ))
-                } else {
-                    None
-                }
+                    .map(|(i, _)| {
+                        let colon_position = i + string_value.span.start;
+                        ParseError::InvalidLiteral(
+                            "colon".to_string(),
+                            "bare word specifying record value".to_string(),
+                            Span::new(colon_position, colon_position + 1),
+                        )
+                    })
             };
             let value_span = working_set.get_span_contents(value.span);
             let parse_error = match value.expr {
