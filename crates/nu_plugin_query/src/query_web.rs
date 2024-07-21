@@ -76,7 +76,7 @@ pub fn web_examples() -> Vec<Example<'static>> {
         },
         Example {
             example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population |
-        query web --as-table [City 'Population(2011)[3]' 'Population(2001)[3][a]' 'State or unionterritory' 'Ref']",
+        query web --as-table [City 'Population(2011)[3]' 'Population(2001)[3][a]' 'State or unionterritory' 'Reference']",
             description: "Retrieve a html table from Wikipedia and parse it into a nushell table using table headers as guides",
             result: None
         },
