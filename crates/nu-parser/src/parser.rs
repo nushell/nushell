@@ -5760,6 +5760,51 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
             idx += 1;
 
+            let bareword_error = |string_value: &Expression| {
+                let string_span = working_set.get_span_contents(string_value.span);
+                let colon_position = string_span
+                    .iter()
+                    .find_position(|b| **b == b':')
+                    .map(|(i, _)| string_value.span.start + i);
+                if let Some(colon_position) = colon_position {
+                    Some(ParseError::InvalidLiteral(
+                        "colon".to_string(),
+                        "bare word specifying record value".to_string(),
+                        Span::new(colon_position, colon_position + 1),
+                    ))
+                } else {
+                    None
+                }
+            };
+            let value_span = working_set.get_span_contents(value.span);
+            let parse_error = match value.expr {
+                Expr::String(_) => {
+                    if ![b'"', b'\'', b'`'].contains(&value_span[0]) {
+                        bareword_error(&value)
+                    } else {
+                        None
+                    }
+                }
+                Expr::StringInterpolation(ref expressions) => {
+                    if value_span[0] != b'$' {
+                        expressions
+                            .iter()
+                            .filter(|expr| matches!(expr.expr, Expr::String(_)))
+                            .filter_map(bareword_error)
+                            .next()
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            };
+            let value = if let Some(parse_error) = parse_error {
+                working_set.error(parse_error);
+                garbage(working_set, value.span)
+            } else {
+                value
+            };
+
             if let Some(field) = field.as_string() {
                 if let Some(fields) = &mut field_types {
                     fields.push((field, value.ty.clone()));
