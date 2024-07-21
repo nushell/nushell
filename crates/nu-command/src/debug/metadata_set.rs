@@ -42,32 +42,32 @@ impl Command for MetadataSet {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
-        let signals = engine_state.signals().clone();
-        let metadata = input
-            .metadata()
-            .clone()
-            .unwrap_or_default()
-            .with_content_type(content_type);
+
+        let mut metadata = match &mut input {
+            PipelineData::Value(_, metadata)
+            | PipelineData::ListStream(_, metadata)
+            | PipelineData::ByteStream(_, metadata) => metadata.take().unwrap_or_default(),
+            PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
+        };
+
+        if let Some(content_type) = content_type {
+            metadata.content_type = Some(content_type);
+        }
 
         match (ds_fp, ds_ls) {
-            (Some(path), false) => Ok(input.into_pipeline_data_with_metadata(
-                head,
-                signals,
-                metadata.with_data_source(DataSource::FilePath(path.into())),
-            )),
-            (None, true) => Ok(input.into_pipeline_data_with_metadata(
-                head,
-                signals,
-                metadata.with_data_source(DataSource::Ls),
-            )),
-            _ => Ok(input.into_pipeline_data_with_metadata(head, signals, metadata)),
+            (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
+            (None, true) => metadata.data_source = DataSource::Ls,
+            (Some(_), true) => (), // TODO: error here
+            (None, false) => (),
         }
+
+        Ok(input.set_metadata(Some(metadata)))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -85,7 +85,9 @@ impl Command for MetadataSet {
             Example {
                 description: "Set the metadata of a file path",
                 example: "'crates' | metadata set --content-type text/plain | metadata",
-                result: Some(Value::record(record!("content_type" => Value::string("text/plain", Span::test_data())), Span::test_data())),
+                result: Some(Value::test_record(record! {
+                    "content_type" => Value::test_string("text/plain"),
+                })),
             },
         ]
     }
