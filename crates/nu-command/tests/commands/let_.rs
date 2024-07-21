@@ -24,6 +24,13 @@ fn let_takes_pipeline() {
 }
 
 #[test]
+fn let_takes_pipeline_with_declared_type() {
+    let actual = nu!(r#"let x: list<string> = [] | append "hello world"; print $x.0"#);
+
+    assert_eq!(actual.out, "hello world");
+}
+
+#[test]
 fn let_pipeline_allows_in() {
     let actual =
         nu!(r#"def foo [] { let x = $in | str length; print ($x + 10) }; "hello world" | foo"#);
