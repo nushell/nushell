@@ -484,11 +484,11 @@ fn save_from_child_process_dont_sink_stderr() {
         );
         assert_eq!(actual.err.trim_end(), " New Err");
 
-        let actual = file_contents(expected_file).trim_end();
-        assert_eq!(actual, "Old New");
+        let actual = file_contents(expected_file);
+        assert_eq!(actual.trim_end(), "Old New");
 
-        let actual = file_contents(expected_stderr_file).trim_end();
-        assert_eq!(actual, "Old Err");
+        let actual = file_contents(expected_stderr_file);
+        assert_eq!(actual.trim_end(), "Old Err");
     })
 }
 
@@ -515,13 +515,13 @@ fn parent_redirection_doesnt_affect_save() {
         );
         assert_eq!(actual.err.trim_end(), " New Err");
 
-        let actual = file_contents(expected_file).trim_end();
-        assert_eq!(actual, "Old New");
+        let actual = file_contents(expected_file);
+        assert_eq!(actual.trim_end(), "Old New");
 
-        let actual = file_contents(expected_stderr_file).trim_end();
-        assert_eq!(actual, "Old Err");
+        let actual = file_contents(expected_stderr_file);
+        assert_eq!(actual.trim_end(), "Old Err");
 
-        let actual = file_contents(dirs.test().join("empty_file")).trim_end();
-        assert_eq!(actual, "");
+        let actual = file_contents(dirs.test().join("empty_file"));
+        assert_eq!(actual.trim_end(), "");
     })
 }
