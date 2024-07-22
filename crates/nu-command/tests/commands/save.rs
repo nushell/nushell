@@ -463,3 +463,65 @@ fn save_same_file_with_collect_and_filter() {
         assert_eq!("helloworld", actual.out);
     })
 }
+
+#[test]
+fn save_from_child_process_dont_sink_stderr() {
+    Playground::setup("save_test_22", |dirs, sandbox| {
+        sandbox.with_files(&[
+            Stub::FileWithContent("log.txt", "Old"),
+            Stub::FileWithContent("err.txt", "Old Err"),
+        ]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("err.txt");
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"
+            $env.FOO = " New";
+            $env.BAZ = " New Err";
+            do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_22/log.txt"#,
+        );
+        assert_eq!(actual.err, " New Err\n");
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "Old New\n");
+
+        let actual = file_contents(expected_stderr_file);
+        assert_eq!(actual, "Old Err\n");
+    })
+}
+
+#[test]
+fn parent_redirection_doesnt_affect_save() {
+    Playground::setup("save_test_22", |dirs, sandbox| {
+        sandbox.with_files(&[
+            Stub::FileWithContent("log.txt", "Old"),
+            Stub::FileWithContent("err.txt", "Old Err"),
+        ]);
+
+        let expected_file = dirs.test().join("log.txt");
+        let expected_stderr_file = dirs.test().join("err.txt");
+
+        let actual = nu!(
+            cwd: dirs.root(),
+            r#"
+            $env.FOO = " New";
+            $env.BAZ = " New Err";
+            def test [] {
+                do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_22/log.txt,
+            };
+            test e> empty_file"#
+        );
+        assert_eq!(actual.err, " New Err\n");
+
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, "Old New\n");
+
+        let actual = file_contents(expected_stderr_file);
+        assert_eq!(actual, "Old Err\n");
+
+        let actual = file_contents(dirs.test().join("empty_file"));
+        assert_eq!(actual, "");
+    })
+}
