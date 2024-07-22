@@ -14,3 +14,4 @@ mod plugins;
 mod repl;
 mod scope;
 mod shell;
+mod terminal;
