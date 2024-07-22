@@ -494,7 +494,7 @@ fn save_from_child_process_dont_sink_stderr() {
 
 #[test]
 fn parent_redirection_doesnt_affect_save() {
-    Playground::setup("save_test_22", |dirs, sandbox| {
+    Playground::setup("save_test_23", |dirs, sandbox| {
         sandbox.with_files(&[
             Stub::FileWithContent("log.txt", "Old"),
             Stub::FileWithContent("err.txt", "Old Err"),
@@ -508,10 +508,10 @@ fn parent_redirection_doesnt_affect_save() {
             r#"
             $env.FOO = " New";
             $env.BAZ = " New Err";
-            def test [] {
-                do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_22/log.txt,
+            def tttt [] {
+                do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_23/log.txt
             };
-            test e> empty_file"#
+            tttt e> ("save_test_23" | path join empty_file)"#
         );
         assert_eq!(actual.err, " New Err\n");
 
@@ -519,7 +519,7 @@ fn parent_redirection_doesnt_affect_save() {
         assert_eq!(actual, "Old New\n");
 
         let actual = file_contents(expected_stderr_file);
-        assert_eq!(actual, "Old Err\n");
+        assert_eq!(actual, "Old Err");
 
         let actual = file_contents(dirs.test().join("empty_file"));
         assert_eq!(actual, "");
