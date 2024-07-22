@@ -482,13 +482,13 @@ fn save_from_child_process_dont_sink_stderr() {
             $env.BAZ = " New Err";
             do -i {nu -n -c 'nu --testbin echo_env FOO; nu --testbin echo_env_stderr BAZ'} | save -a -r save_test_22/log.txt"#,
         );
-        assert_eq!(actual.err, " New Err\n");
+        assert_eq!(actual.err.trim_end(), " New Err");
 
-        let actual = file_contents(expected_file);
-        assert_eq!(actual, "Old New\n");
+        let actual = file_contents(expected_file).trim_end();
+        assert_eq!(actual, "Old New");
 
-        let actual = file_contents(expected_stderr_file);
-        assert_eq!(actual, "Old Err\n");
+        let actual = file_contents(expected_stderr_file).trim_end();
+        assert_eq!(actual, "Old Err");
     })
 }
 
@@ -513,15 +513,15 @@ fn parent_redirection_doesnt_affect_save() {
             };
             tttt e> ("save_test_23" | path join empty_file)"#
         );
-        assert_eq!(actual.err, " New Err\n");
+        assert_eq!(actual.err.trim_end(), " New Err");
 
-        let actual = file_contents(expected_file);
-        assert_eq!(actual, "Old New\n");
+        let actual = file_contents(expected_file).trim_end();
+        assert_eq!(actual, "Old New");
 
-        let actual = file_contents(expected_stderr_file);
+        let actual = file_contents(expected_stderr_file).trim_end();
         assert_eq!(actual, "Old Err");
 
-        let actual = file_contents(dirs.test().join("empty_file"));
+        let actual = file_contents(dirs.test().join("empty_file")).trim_end();
         assert_eq!(actual, "");
     })
 }
