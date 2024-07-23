@@ -1178,7 +1178,10 @@ fn test_nothing_comparison_eq() {
 #[case(b"let a = 1 err> /dev/null")]
 #[case(b"let a = 1 out> /dev/null")]
 #[case(b"let a = 1 out+err> /dev/null")]
-fn test_redirection_with_let(#[case] phase: &[u8]) {
+#[case(b"mut a = 1 err> /dev/null")]
+#[case(b"mut a = 1 out> /dev/null")]
+#[case(b"mut a = 1 out+err> /dev/null")]
+fn test_redirection_with_letmut(#[case] phase: &[u8]) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
     working_set.add_decl(Box::new(Let));
