@@ -3,6 +3,7 @@ use nu_engine::command_prelude::*;
 
 use nu_protocol::Signals;
 use once_cell::sync::Lazy;
+use std::collections::HashSet;
 
 // Character used to separate directories in a Path Environment variable on windows is ";"
 #[cfg(target_family = "windows")]
@@ -147,6 +148,24 @@ static CHAR_MAP: Lazy<IndexMap<&'static str, String>> = Lazy::new(|| {
         "unit_sep" => '\x1f'.to_string(),
         "us" => '\x1f'.to_string(),
     }
+});
+
+static NO_OUTPUT_CHARS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
+    [
+        // If the character is in the this set, we don't output it to prevent
+        // the broken of `char --list` command table format and alignment.
+        "newline",
+        "enter",
+        "nl",
+        "line_feed",
+        "lf",
+        "cr",
+        "crlf",
+        "bel",
+        "backspace",
+    ]
+    .into_iter()
+    .collect()
 });
 
 impl Command for Char {
@@ -297,6 +316,11 @@ fn generate_character_list(signals: Signals, call_span: Span) -> PipelineData {
     CHAR_MAP
         .iter()
         .map(move |(name, s)| {
+            let character = if NO_OUTPUT_CHARS.contains(name) {
+                Value::string("", call_span)
+            } else {
+                Value::string(s, call_span)
+            };
             let unicode = Value::string(
                 s.chars()
                     .map(|c| format!("{:x}", c as u32))
@@ -306,7 +330,7 @@ fn generate_character_list(signals: Signals, call_span: Span) -> PipelineData {
             );
             let record = record! {
                 "name" => Value::string(*name, call_span),
-                "character" => Value::string(s, call_span),
+                "character" => character,
                 "unicode" => unicode,
             };
 

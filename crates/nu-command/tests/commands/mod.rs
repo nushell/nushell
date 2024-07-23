@@ -7,6 +7,7 @@ mod break_;
 mod bytes;
 mod cal;
 mod cd;
+mod chunks;
 mod compact;
 mod complete;
 mod config_env_default;
@@ -114,6 +115,7 @@ mod try_;
 mod ucp;
 #[cfg(unix)]
 mod ulimit;
+mod window;
 
 mod debug;
 mod umkdir;

@@ -100,7 +100,7 @@ fn main() -> Result<()> {
                     },
                 );
             } else if let Some(old_config) =
-                nu_path::get_canonicalized_path(dirs_next::config_dir()).map(|p| p.join("nushell"))
+                nu_path::get_canonicalized_path(dirs::config_dir()).map(|p| p.join("nushell"))
             {
                 let xdg_config_empty = nushell_config_path
                     .read_dir()

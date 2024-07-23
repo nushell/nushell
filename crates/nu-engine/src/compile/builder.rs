@@ -204,6 +204,7 @@ impl BlockBuilder {
             Instruction::Drain { src } => allocate(&[*src], &[]),
             Instruction::LoadVariable { dst, var_id: _ } => allocate(&[], &[*dst]),
             Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[]),
+            Instruction::DropVariable { var_id: _ } => Ok(()),
             Instruction::LoadEnv { dst, key: _ } => allocate(&[], &[*dst]),
             Instruction::LoadEnvOpt { dst, key: _ } => allocate(&[], &[*dst]),
             Instruction::StoreEnv { key: _, src } => allocate(&[*src], &[]),

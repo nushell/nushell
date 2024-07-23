@@ -10,8 +10,8 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet},
     eval_base::Eval,
-    ByteStreamSource, Config, FromValue, IntoPipelineData, OutDest, PipelineData, ShellError, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest, PipelineData,
+    PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 use std::{fs::OpenOptions, path::PathBuf, sync::Arc};
@@ -257,6 +257,10 @@ pub fn eval_expression_with_input<D: DebugContext>(
         }
         Expr::ExternalCall(head, args) => {
             input = eval_external(engine_state, stack, head, args, input)?;
+        }
+
+        Expr::Collect(var_id, expr) => {
+            input = eval_collect::<D>(engine_state, stack, *var_id, expr, input)?;
         }
 
         Expr::Subexpression(block_id) => {
@@ -605,6 +609,44 @@ pub fn eval_block<D: DebugContext>(
     Ok(input)
 }
 
+pub fn eval_collect<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    var_id: VarId,
+    expr: &Expression,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    // Evaluate the expression with the variable set to the collected input
+    let span = input.span().unwrap_or(Span::unknown());
+
+    let metadata = match input.metadata() {
+        // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
+        // check where some input came from.
+        Some(PipelineMetadata {
+            data_source: DataSource::FilePath(_),
+            content_type: None,
+        }) => None,
+        other => other,
+    };
+
+    let input = input.into_value(span)?;
+
+    stack.add_var(var_id, input.clone());
+
+    let result = eval_expression_with_input::<D>(
+        engine_state,
+        stack,
+        expr,
+        // We still have to pass it as input
+        input.into_pipeline_data_with_metadata(metadata),
+    )
+    .map(|(result, _failed)| result);
+
+    stack.remove_var(var_id);
+
+    result
+}
+
 pub fn eval_subexpression<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -727,6 +769,18 @@ impl Eval for EvalRuntime {
         let span = head.span(&engine_state);
         // FIXME: protect this collect with ctrl-c
         eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span)
+    }
+
+    fn eval_collect<D: DebugContext>(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        var_id: VarId,
+        expr: &Expression,
+    ) -> Result<Value, ShellError> {
+        // It's a little bizarre, but the expression can still have some kind of result even with
+        // nothing input
+        eval_collect::<D>(engine_state, stack, var_id, expr, PipelineData::empty())?
+            .into_value(expr.span)
     }
 
     fn eval_subexpression<D: DebugContext>(

@@ -418,62 +418,7 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
         // we already must have been estimated that it's safe to do.
         // and all dims will be suffitient
         if self.trim_as_head {
-            if recs.is_empty() {
-                return;
-            }
-
-            // even though it's safe to trim columns by header there might be left unused space
-            // so we do use it if possible prioritizing left columns
-
-            let headers = recs[0].to_owned();
-            let headers_widths = headers
-                .iter()
-                .map(CellInfo::width)
-                .map(|v| v + self.pad)
-                .collect::<Vec<_>>();
-
-            let min_width_use = get_total_width2(&headers_widths, cfg);
-
-            let mut free_width = self.width_max.saturating_sub(min_width_use);
-
-            for (i, head_width) in headers_widths.into_iter().enumerate() {
-                let head_width = head_width - self.pad;
-                let column_width = self.width[i] - self.pad; // safe to assume width is bigger then paddding
-
-                let mut use_width = head_width;
-                if free_width > 0 {
-                    // it's safe to assume that column_width is always bigger or equal to head_width
-                    debug_assert!(column_width >= head_width);
-
-                    let additional_width = min(free_width, column_width - head_width);
-                    free_width -= additional_width;
-                    use_width += additional_width;
-                }
-
-                match &self.strategy {
-                    TrimStrategy::Wrap { try_to_keep_words } => {
-                        let mut wrap = Width::wrap(use_width);
-                        if *try_to_keep_words {
-                            wrap = wrap.keep_words();
-                        }
-
-                        Modify::new(Columns::single(i))
-                            .with(wrap)
-                            .change(recs, cfg, dims);
-                    }
-                    TrimStrategy::Truncate { suffix } => {
-                        let mut truncate = Width::truncate(use_width);
-                        if let Some(suffix) = suffix {
-                            truncate = truncate.suffix(suffix).suffix_try_color(true);
-                        }
-
-                        Modify::new(Columns::single(i))
-                            .with(truncate)
-                            .change(recs, cfg, dims);
-                    }
-                }
-            }
-
+            trim_as_header(recs, cfg, dims, self);
             return;
         }
 
@@ -493,6 +438,67 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
                 }
 
                 Settings::new(SetDimensions(self.width), truncate).change(recs, cfg, dims);
+            }
+        }
+    }
+}
+
+fn trim_as_header(
+    recs: &mut VecRecords<CellInfo<String>>,
+    cfg: &mut ColoredConfig,
+    dims: &mut CompleteDimensionVecRecords,
+    trim: TableTrim,
+) {
+    if recs.is_empty() {
+        return;
+    }
+
+    let headers = recs[0].to_owned();
+    let headers_widths = headers
+        .iter()
+        .map(CellInfo::width)
+        .map(|v| v + trim.pad)
+        .collect::<Vec<_>>();
+    let min_width_use = get_total_width2(&headers_widths, cfg);
+    let mut free_width = trim.width_max.saturating_sub(min_width_use);
+
+    // even though it's safe to trim columns by header there might be left unused space
+    // so we do use it if possible prioritizing left columns
+
+    for (i, head_width) in headers_widths.into_iter().enumerate() {
+        let head_width = head_width - trim.pad;
+        let column_width = trim.width[i] - trim.pad; // safe to assume width is bigger then paddding
+
+        let mut use_width = head_width;
+        if free_width > 0 {
+            // it's safe to assume that column_width is always bigger or equal to head_width
+            debug_assert!(column_width >= head_width);
+
+            let additional_width = min(free_width, column_width - head_width);
+            free_width -= additional_width;
+            use_width += additional_width;
+        }
+
+        match &trim.strategy {
+            TrimStrategy::Wrap { try_to_keep_words } => {
+                let mut wrap = Width::wrap(use_width);
+                if *try_to_keep_words {
+                    wrap = wrap.keep_words();
+                }
+
+                Modify::new(Columns::single(i))
+                    .with(wrap)
+                    .change(recs, cfg, dims);
+            }
+            TrimStrategy::Truncate { suffix } => {
+                let mut truncate = Width::truncate(use_width);
+                if let Some(suffix) = suffix {
+                    truncate = truncate.suffix(suffix).suffix_try_color(true);
+                }
+
+                Modify::new(Columns::single(i))
+                    .with(truncate)
+                    .change(recs, cfg, dims);
             }
         }
     }
@@ -793,14 +799,14 @@ fn truncate_columns_by_head(
     let mut truncate_pos = 0;
     for (i, column_header) in head.iter().enumerate() {
         let column_header_width = Cell::width(column_header);
-        width += column_header_width;
+        width += column_header_width + pad;
 
         if i > 0 {
             width += has_vertical as usize;
         }
 
         if width >= termwidth {
-            width -= column_header_width + (i > 0 && has_vertical) as usize;
+            width -= column_header_width + (i > 0 && has_vertical) as usize + pad;
             break;
         }
 

@@ -171,6 +171,27 @@ pub(crate) fn compile_expression(
                 Err(CompileError::UnsupportedOperatorExpression { span: op.span })
             }
         }
+        Expr::Collect(var_id, expr) => {
+            let store_reg = if let Some(in_reg) = in_reg {
+                // Collect, clone, store
+                builder.push(Instruction::Collect { src_dst: in_reg }.into_spanned(expr.span))?;
+                builder.clone_reg(in_reg, expr.span)?
+            } else {
+                // Just store nothing in the variable
+                builder.literal(Literal::Nothing.into_spanned(Span::unknown()))?
+            };
+            builder.push(
+                Instruction::StoreVariable {
+                    var_id: *var_id,
+                    src: store_reg,
+                }
+                .into_spanned(expr.span),
+            )?;
+            compile_expression(working_set, builder, expr, redirect_modes, in_reg, out_reg)?;
+            // Clean it up afterward
+            builder.push(Instruction::DropVariable { var_id: *var_id }.into_spanned(expr.span))?;
+            Ok(())
+        }
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
             compile_block(working_set, builder, block, redirect_modes, in_reg, out_reg)

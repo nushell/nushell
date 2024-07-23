@@ -2,6 +2,7 @@
 //! can be parsed.
 
 use crate::{Token, TokenContents};
+use itertools::{Either, Itertools};
 use nu_protocol::{ast::RedirectionSource, ParseError, Span};
 use std::mem;
 
@@ -24,6 +25,15 @@ impl LiteRedirectionTarget {
             | LiteRedirectionTarget::Pipe { connector } => *connector,
         }
     }
+
+    pub fn spans(&self) -> impl Iterator<Item = Span> {
+        match *self {
+            LiteRedirectionTarget::File {
+                connector, file, ..
+            } => Either::Left([connector, file].into_iter()),
+            LiteRedirectionTarget::Pipe { connector } => Either::Right(std::iter::once(connector)),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -36,6 +46,17 @@ pub enum LiteRedirection {
         out: LiteRedirectionTarget,
         err: LiteRedirectionTarget,
     },
+}
+
+impl LiteRedirection {
+    pub fn spans(&self) -> impl Iterator<Item = Span> {
+        match self {
+            LiteRedirection::Single { target, .. } => Either::Left(target.spans()),
+            LiteRedirection::Separate { out, err } => {
+                Either::Right(out.spans().chain(err.spans()).sorted())
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -112,6 +133,14 @@ impl LiteCommand {
         self.redirection = Some(redirection);
 
         Ok(())
+    }
+
+    pub fn parts_including_redirection(&self) -> impl Iterator<Item = Span> + '_ {
+        self.parts.iter().copied().chain(
+            self.redirection
+                .iter()
+                .flat_map(|redirection| redirection.spans()),
+        )
     }
 }
 
