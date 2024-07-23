@@ -1,42 +1,52 @@
-use nu_protocol::{PipelineData, ShellError, Span, Value};
+use data_encoding::Encoding;
 
-mod decode;
-mod encode;
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
 
-pub use decode::DecodeBase;
-pub use encode::EncodeBase;
+mod decode_base32;
+mod decode_base32hex;
+mod decode_base64;
+mod decode_hex;
+mod encode_base32;
+mod encode_base32hex;
+mod encode_base64;
+mod encode_hex;
 
-pub fn encoding(
-    name: &str,
-    val_span: Span,
+mod base32;
+
+fn decode(
+    encoding: Encoding,
     call_span: Span,
-) -> Result<data_encoding::Encoding, ShellError> {
-    match name {
-        "base32" => Ok(data_encoding::BASE32),
-        "base32hex" => Ok(data_encoding::BASE32HEX),
-        "base32hex_nopad" => Ok(data_encoding::BASE32HEX_NOPAD),
-        "base32_dnscurve" => Ok(data_encoding::BASE32_DNSCURVE),
-        "base32_dnssec" => Ok(data_encoding::BASE32_DNSSEC),
-        "base32_nopad" => Ok(data_encoding::BASE32_NOPAD),
-        "base64" => Ok(data_encoding::BASE64),
-        "base64url" => Ok(data_encoding::BASE64URL),
-        "base64url_nopad" => Ok(data_encoding::BASE64URL_NOPAD),
-        "base64_mime" => Ok(data_encoding::BASE64_MIME),
-        "base64_mime_permissive" => Ok(data_encoding::BASE64_MIME_PERMISSIVE),
-        "base64_nopad" => Ok(data_encoding::BASE64_NOPAD),
-        "hexlower" => Ok(data_encoding::HEXLOWER),
-        "hexlower_permissive" => Ok(data_encoding::HEXLOWER_PERMISSIVE),
-        "hexupper" => Ok(data_encoding::HEXUPPER),
-        "hexupper_permissive" => Ok(data_encoding::HEXUPPER_PERMISSIVE),
-        _ => Err(ShellError::IncorrectValue {
-            msg: format!("Encoding '{name}' not found"),
-            val_span,
-            call_span,
-        }),
-    }
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let metadata = input.metadata();
+    let (input_str, input_span) = get_string(input, call_span)?;
+    let output = match encoding.decode(input_str.as_bytes()) {
+        Ok(output) => output,
+        Err(err) => {
+            return Err(ShellError::IncorrectValue {
+                msg: err.to_string(),
+                val_span: input_span,
+                call_span,
+            });
+        }
+    };
+
+    Ok(Value::binary(output, call_span).into_pipeline_data_with_metadata(metadata))
 }
 
-pub fn get_string(input: PipelineData, call_span: Span) -> Result<(String, Span), ShellError> {
+fn encode(
+    encoding: Encoding,
+    call_span: Span,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let metadata = input.metadata();
+    let (input_bytes, _) = get_binary(input, call_span)?;
+    let output = encoding.encode(&input_bytes);
+
+    Ok(Value::string(output, call_span).into_pipeline_data_with_metadata(metadata))
+}
+
+fn get_string(input: PipelineData, call_span: Span) -> Result<(String, Span), ShellError> {
     match input {
         PipelineData::Value(val, ..) => {
             let span = val.span();
@@ -55,19 +65,19 @@ pub fn get_string(input: PipelineData, call_span: Span) -> Result<(String, Span)
             let span = stream.span();
             Ok((stream.into_string()?, span))
         }
-        PipelineData::Empty => {
-            todo!("Can't have empty data");
-        }
+        PipelineData::Empty => Err(ShellError::PipelineEmpty {
+            dst_span: call_span,
+        }),
     }
 }
 
-pub fn get_binary(input: PipelineData, call_span: Span) -> Result<(Vec<u8>, Span), ShellError> {
+fn get_binary(input: PipelineData, call_span: Span) -> Result<(Vec<u8>, Span), ShellError> {
     match input {
         PipelineData::Value(val, ..) => {
             let span = val.span();
             match val {
                 Value::Binary { val, .. } => Ok((val, span)),
-		Value::String { val, .. } => Ok((val.into_bytes(), span)),
+                Value::String { val, .. } => Ok((val.into_bytes(), span)),
 
                 _ => {
                     todo!("Invalid type")
