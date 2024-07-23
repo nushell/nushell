@@ -61,7 +61,7 @@ prints out the list properly."#
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag(engine_state, stack, "color")?;
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
-        let config = engine_state.get_config();
+        let config = &stack.get_config(engine_state);
         let env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
             Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
             None => None,
@@ -83,7 +83,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
-                        &cwd,
+                        cwd.as_ref(),
                     )?)
                 } else {
                     Ok(PipelineData::empty())
@@ -101,7 +101,7 @@ prints out the list properly."#
                         separator_param,
                         env_str,
                         use_grid_icons,
-                        &cwd,
+                        cwd.as_ref(),
                     )?)
                 } else {
                     // dbg!(data);
@@ -124,7 +124,7 @@ prints out the list properly."#
                     separator_param,
                     env_str,
                     use_grid_icons,
-                    &cwd,
+                    cwd.as_ref(),
                 )?)
             }
             x => {

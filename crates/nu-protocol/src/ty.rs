@@ -36,6 +36,10 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn list(inner: Type) -> Self {
+        Self::List(Box::new(inner))
+    }
+
     pub fn record() -> Self {
         Self::Record([].into())
     }

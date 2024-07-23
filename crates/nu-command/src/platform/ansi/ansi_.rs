@@ -1,11 +1,8 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::{engine::StateWorkingSet, Signals};
 use once_cell::sync::Lazy;
-use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct AnsiCommand;
@@ -656,11 +653,14 @@ Operating system commands:
         let list: bool = call.has_flag(engine_state, stack, "list")?;
         let escape: bool = call.has_flag(engine_state, stack, "escape")?;
         let osc: bool = call.has_flag(engine_state, stack, "osc")?;
-        let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
-        let ctrlc = engine_state.ctrlc.clone();
+        let use_ansi_coloring = stack.get_config(engine_state).use_ansi_coloring;
 
         if list {
-            return Ok(generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring));
+            return Ok(generate_ansi_code_list(
+                engine_state.signals().clone(),
+                call.head,
+                use_ansi_coloring,
+            ));
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
@@ -676,7 +676,7 @@ Operating system commands:
             }
         };
 
-        let output = heavy_lifting(code, escape, osc, call)?;
+        let output = heavy_lifting(code, escape, osc, stack, call)?;
 
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
@@ -691,10 +691,13 @@ Operating system commands:
         let escape: bool = call.has_flag_const(working_set, "escape")?;
         let osc: bool = call.has_flag_const(working_set, "osc")?;
         let use_ansi_coloring = working_set.get_config().use_ansi_coloring;
-        let ctrlc = working_set.permanent().ctrlc.clone();
 
         if list {
-            return Ok(generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring));
+            return Ok(generate_ansi_code_list(
+                working_set.permanent().signals().clone(),
+                call.head,
+                use_ansi_coloring,
+            ));
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
@@ -710,26 +713,30 @@ Operating system commands:
             }
         };
 
-        let output = heavy_lifting(code, escape, osc, call)?;
+        let output = heavy_lifting(code, escape, osc, &Stack::new(), call)?;
 
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
 }
 
-fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<String, ShellError> {
+fn heavy_lifting(
+    code: Value,
+    escape: bool,
+    osc: bool,
+    stack: &Stack,
+    call: &Call,
+) -> Result<String, ShellError> {
     let param_is_string = matches!(code, Value::String { .. });
     if escape && osc {
         return Err(ShellError::IncompatibleParameters {
             left_message: "escape".into(),
             left_span: call
-                .get_named_arg("escape")
-                .expect("Unexpected missing argument")
-                .span,
+                .get_flag_span(stack, "escape")
+                .expect("Unexpected missing argument"),
             right_message: "osc".into(),
             right_span: call
-                .get_named_arg("osc")
-                .expect("Unexpected missing argument")
-                .span,
+                .get_flag_span(stack, "osc")
+                .expect("Unexpected missing argument"),
         });
     }
     let code_string = if param_is_string {
@@ -741,10 +748,7 @@ fn heavy_lifting(code: Value, escape: bool, osc: bool, call: &Call) -> Result<St
     if (escape || osc) && (param_is_valid_string) {
         let code_vec: Vec<char> = code_string.chars().collect();
         if code_vec[0] == '\\' {
-            let span = match call.get_flag_expr("escape") {
-                Some(expr) => expr.span,
-                None => call.head,
-            };
+            let span = call.get_flag_span(stack, "escape").unwrap_or(call.head);
 
             return Err(ShellError::TypeMismatch {
                 err_message: "no need for escape characters".into(),
@@ -827,7 +831,7 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 }
 
 fn generate_ansi_code_list(
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: Signals,
     call_span: Span,
     use_ansi_coloring: bool,
 ) -> PipelineData {
@@ -862,7 +866,7 @@ fn generate_ansi_code_list(
 
             Value::record(record, call_span)
         })
-        .into_pipeline_data(call_span, ctrlc)
+        .into_pipeline_data(call_span, signals.clone())
 }
 
 fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {

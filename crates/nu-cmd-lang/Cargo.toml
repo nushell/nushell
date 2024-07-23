@@ -6,22 +6,22 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-lang"
 edition = "2021"
 license = "MIT"
 name = "nu-cmd-lang"
-version = "0.94.3"
+version = "0.95.1"
 
 [lib]
 bench = false
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.94.3" }
-nu-parser = { path = "../nu-parser", version = "0.94.3" }
-nu-protocol = { path = "../nu-protocol", version = "0.94.3" }
-nu-utils = { path = "../nu-utils", version = "0.94.3" }
+nu-engine = { path = "../nu-engine", version = "0.95.1" }
+nu-parser = { path = "../nu-parser", version = "0.95.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.95.1" }
+nu-utils = { path = "../nu-utils", version = "0.95.1" }
 
 itertools = { workspace = true }
-shadow-rs = { version = "0.28", default-features = false }
+shadow-rs = { version = "0.29", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "0.28", default-features = false }
+shadow-rs = { version = "0.29", default-features = false }
 
 [features]
 mimalloc = []

@@ -57,7 +57,7 @@ This command is a parser keyword. For details, check:
         let Some(Expression {
             expr: Expr::ImportPattern(import_pattern),
             ..
-        }) = call.get_parser_info("import_pattern")
+        }) = call.get_parser_info(caller_stack, "import_pattern")
         else {
             return Err(ShellError::GenericError {
                 error: "Unexpected import".into(),
@@ -67,6 +67,9 @@ This command is a parser keyword. For details, check:
                 inner: vec![],
             });
         };
+
+        // Necessary so that we can modify the stack.
+        let import_pattern = import_pattern.clone();
 
         if let Some(module_id) = import_pattern.head.id {
             // Add constants
@@ -99,7 +102,7 @@ This command is a parser keyword. For details, check:
                     &module_arg_str,
                     engine_state,
                     caller_stack,
-                    get_dirs_var_from_call(call),
+                    get_dirs_var_from_call(caller_stack, call),
                 )?;
                 let maybe_parent = maybe_file_path
                     .as_ref()

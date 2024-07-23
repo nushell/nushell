@@ -1,3 +1,4 @@
+use nu_path::AbsolutePathBuf;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Range, ShellError, Span, Value,
@@ -15,18 +16,20 @@ pub fn get_init_cwd() -> PathBuf {
 pub fn get_guaranteed_cwd(engine_state: &EngineState, stack: &Stack) -> PathBuf {
     engine_state
         .cwd(Some(stack))
+        .map(AbsolutePathBuf::into_std_path_buf)
         .unwrap_or(crate::util::get_init_cwd())
 }
 
 type MakeRangeError = fn(&str, Span) -> ShellError;
 
+/// Returns a inclusive pair of boundary in given `range`.
 pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     match range {
         Range::IntRange(range) => {
             let start = range.start().try_into().unwrap_or(0);
             let end = match range.end() {
-                Bound::Included(v) => (v + 1) as isize,
-                Bound::Excluded(v) => v as isize,
+                Bound::Included(v) => v as isize,
+                Bound::Excluded(v) => (v - 1) as isize,
                 Bound::Unbounded => isize::MAX,
             };
             Ok((start, end))

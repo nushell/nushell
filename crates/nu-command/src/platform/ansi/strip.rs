@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 
 pub struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
-    config: Config,
+    config: Arc<Config>,
 }
 
 impl CmdArgument for Arguments {
@@ -51,12 +53,9 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let config = engine_state.get_config();
-        let args = Arguments {
-            cell_paths,
-            config: config.clone(),
-        };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        let config = stack.get_config(engine_state);
+        let args = Arguments { cell_paths, config };
+        operate(action, args, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

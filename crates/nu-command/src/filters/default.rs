@@ -51,11 +51,11 @@ impl Command for Default {
                 description:
                     "Get the env value of `MY_ENV` with a default value 'abc' if not present",
                 example: "$env | get --ignore-errors MY_ENV | default 'abc'",
-                result: None, // Some(Value::test_string("abc")),
+                result: Some(Value::test_string("abc")),
             },
             Example {
                 description: "Replace the `null` value in a list",
-                example: "[1, 2, null, 4] | default 3",
+                example: "[1, 2, null, 4] | each { default 3 }",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(1),
@@ -79,8 +79,6 @@ fn default(
     let metadata = input.metadata();
     let value: Value = call.req(engine_state, stack, 0)?;
     let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
-
-    let ctrlc = engine_state.ctrlc.clone();
 
     if let Some(column) = column {
         input
@@ -109,21 +107,13 @@ fn default(
                     }
                     _ => item,
                 },
-                ctrlc,
+                engine_state.signals(),
             )
             .map(|x| x.set_metadata(metadata))
     } else if input.is_nothing() {
         Ok(value.into_pipeline_data())
     } else {
-        input
-            .map(
-                move |item| match item {
-                    Value::Nothing { .. } => value.clone(),
-                    x => x,
-                },
-                ctrlc,
-            )
-            .map(|x| x.set_metadata(metadata))
+        Ok(input)
     }
 }
 

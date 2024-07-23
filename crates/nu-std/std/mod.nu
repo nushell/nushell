@@ -66,7 +66,7 @@ export def --env "path add" [
             "record" => { $p | get --ignore-errors $nu.os-info.name },
         }
 
-        $p | path expand
+        $p | path expand --no-symlink
     }
 
     if null in $paths or ($paths | is-empty) {
@@ -80,7 +80,6 @@ export def --env "path add" [
         $env
             | get $path_name
             | split row (char esep)
-            | path expand
             | if $append { append $paths } else { prepend $paths }
     )}
 

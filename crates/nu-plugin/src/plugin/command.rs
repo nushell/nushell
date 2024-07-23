@@ -22,7 +22,7 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{Signature, PipelineData, Type, Value, LabeledError};
+/// # use nu_protocol::{LabeledError, PipelineData, Signals, Signature, Type, Value};
 /// struct LowercasePlugin;
 /// struct Lowercase;
 ///
@@ -55,11 +55,14 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 ///                 .map(|string| Value::string(string.to_lowercase(), span))
 ///                 // Errors in a stream should be returned as values.
 ///                 .unwrap_or_else(|err| Value::error(err, span))
-///         }, None)?)
+///         }, &Signals::empty())?)
 ///     }
 /// }
 ///
 /// # impl Plugin for LowercasePlugin {
+/// #     fn version(&self) -> String {
+/// #         "0.0.0".into()
+/// #     }
 /// #     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {
 /// #         vec![Box::new(Lowercase)]
 /// #     }
@@ -195,6 +198,9 @@ pub trait PluginCommand: Sync {
 /// }
 ///
 /// # impl Plugin for HelloPlugin {
+/// #     fn version(&self) -> String {
+/// #         "0.0.0".into()
+/// #     }
 /// #     fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin=Self>>> {
 /// #         vec![Box::new(Hello)]
 /// #     }
@@ -334,7 +340,7 @@ where
 
 /// Build a [`PluginSignature`] from the signature-related methods on [`PluginCommand`].
 ///
-/// This is sent to the engine on `register`.
+/// This is sent to the engine on `plugin add`.
 ///
 /// This is not a public API.
 #[doc(hidden)]

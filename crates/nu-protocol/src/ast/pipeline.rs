@@ -1,8 +1,4 @@
-use crate::{
-    ast::Expression,
-    engine::{EngineState, StateWorkingSet},
-    OutDest, Span,
-};
+use crate::{ast::Expression, engine::StateWorkingSet, OutDest, Span, VarId};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -66,6 +62,19 @@ impl RedirectionTarget {
             RedirectionTarget::Pipe { .. } => {}
         }
     }
+
+    pub fn replace_in_variable(
+        &mut self,
+        working_set: &mut StateWorkingSet<'_>,
+        new_var_id: VarId,
+    ) {
+        match self {
+            RedirectionTarget::File { expr, .. } => {
+                expr.replace_in_variable(working_set, new_var_id)
+            }
+            RedirectionTarget::Pipe { .. } => {}
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -78,6 +87,23 @@ pub enum PipelineRedirection {
         out: RedirectionTarget,
         err: RedirectionTarget,
     },
+}
+impl PipelineRedirection {
+    pub fn replace_in_variable(
+        &mut self,
+        working_set: &mut StateWorkingSet<'_>,
+        new_var_id: VarId,
+    ) {
+        match self {
+            PipelineRedirection::Single { source: _, target } => {
+                target.replace_in_variable(working_set, new_var_id)
+            }
+            PipelineRedirection::Separate { out, err } => {
+                out.replace_in_variable(working_set, new_var_id);
+                err.replace_in_variable(working_set, new_var_id);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,9 +146,20 @@ impl PipelineElement {
 
     pub fn pipe_redirection(
         &self,
-        engine_state: &EngineState,
+        working_set: &StateWorkingSet,
     ) -> (Option<OutDest>, Option<OutDest>) {
-        self.expr.expr.pipe_redirection(engine_state)
+        self.expr.expr.pipe_redirection(working_set)
+    }
+
+    pub fn replace_in_variable(
+        &mut self,
+        working_set: &mut StateWorkingSet<'_>,
+        new_var_id: VarId,
+    ) {
+        self.expr.replace_in_variable(working_set, new_var_id);
+        if let Some(redirection) = &mut self.redirection {
+            redirection.replace_in_variable(working_set, new_var_id);
+        }
     }
 }
 
@@ -166,10 +203,10 @@ impl Pipeline {
 
     pub fn pipe_redirection(
         &self,
-        engine_state: &EngineState,
+        working_set: &StateWorkingSet,
     ) -> (Option<OutDest>, Option<OutDest>) {
         if let Some(first) = self.elements.first() {
-            first.pipe_redirection(engine_state)
+            first.pipe_redirection(working_set)
         } else {
             (None, None)
         }

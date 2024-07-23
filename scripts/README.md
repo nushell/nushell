@@ -23,5 +23,4 @@
 | `coverage-local.sh`     | x            | x    | x        |
 | `install-all.ps1`       | ?            | x    | ?        |
 | `install-all.sh`        | x            | x    | x        |
-| `register-plugins.nu`   | x            | x    | x        |
 | `uninstall-all.sh`      | x            | x    | x        |

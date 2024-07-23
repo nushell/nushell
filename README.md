@@ -222,6 +222,7 @@ Please submit an issue or PR to be added to this list.
 -   [clap](https://github.com/clap-rs/clap/tree/master/clap_complete_nushell)
 -   [Dorothy](http://github.com/bevry/dorothy)
 -   [Direnv](https://github.com/direnv/direnv/blob/master/docs/hook.md#nushell)
+-   [x-cmd](https://x-cmd.com/mod/nu)
 
 ## Contributing
 

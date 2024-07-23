@@ -36,7 +36,7 @@ impl Command for Reduce {
     }
 
     fn usage(&self) -> &str {
-        "Aggregate a list to a single value using an accumulator closure."
+        "Aggregate a list (starting from the left) to a single value using an accumulator closure."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -51,6 +51,11 @@ impl Command for Reduce {
                 result: Some(Value::test_int(10)),
             },
             Example {
+                example: "[ 1 2 3 4 ] | reduce {|it, acc| $acc - $it }",
+                description: r#"`reduce` accumulates value from left to right, equivalent to (((1 - 2) - 3) - 4)."#,
+                result: Some(Value::test_int(-8)),
+            },
+            Example {
                 example:
                     "[ 8 7 6 ] | enumerate | reduce --fold 0 {|it, acc| $acc + $it.item + $it.index }",
                 description: "Sum values of a list, plus their indexes",
@@ -60,6 +65,11 @@ impl Command for Reduce {
                 example: "[ 1 2 3 4 ] | reduce --fold 10 {|it, acc| $acc + $it }",
                 description: "Sum values with a starting value (fold)",
                 result: Some(Value::test_int(20)),
+            },
+            Example {
+                example: r#"[[foo baz] [baz quux]] | reduce --fold "foobar" {|it, acc| $acc | str replace $it.0 $it.1}"#,
+                description: "Iteratively perform string replace (from left to right): 'foobar' -> 'bazbar' -> 'quuxbar'",
+                result: Some(Value::test_string("quuxbar")),
             },
             Example {
                 example: r#"[ i o t ] | reduce --fold "Arthur, King of the Britons" {|it, acc| $acc | str replace --all $it "X" }"#,
@@ -107,10 +117,7 @@ impl Command for Reduce {
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         for value in iter {
-            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-                break;
-            }
-
+            engine_state.signals().check(head)?;
             acc = closure
                 .add_arg(value)
                 .add_arg(acc)

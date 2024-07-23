@@ -100,7 +100,7 @@ impl Command for SortBy {
         }
 
         let iter = vec.into_iter();
-        Ok(iter.into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+        Ok(iter.into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

@@ -5,16 +5,12 @@ use base64::{
     Engine,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::ByteStream;
+use nu_protocol::{ByteStream, Signals};
 use std::{
     collections::HashMap,
     path::PathBuf,
     str::FromStr,
-    sync::{
-        atomic::AtomicBool,
-        mpsc::{self, RecvTimeoutError},
-        Arc,
-    },
+    sync::mpsc::{self, RecvTimeoutError},
     time::Duration,
 };
 use ureq::{Error, ErrorKind, Request, Response};
@@ -129,7 +125,7 @@ pub fn response_to_buffer(
     let reader = response.into_reader();
 
     PipelineData::ByteStream(
-        ByteStream::read(reader, span, engine_state.ctrlc.clone(), response_type)
+        ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
             .with_known_size(buffer_size),
         None,
     )
@@ -180,88 +176,131 @@ impl From<ShellError> for ShellErrorOrRequestError {
     }
 }
 
+#[derive(Debug)]
+pub enum HttpBody {
+    Value(Value),
+    ByteStream(ByteStream),
+    None,
+}
+
+// remove once all commands have been migrated
 pub fn send_request(
     request: Request,
-    body: Option<Value>,
+    http_body: HttpBody,
     content_type: Option<String>,
-    ctrl_c: Option<Arc<AtomicBool>>,
+    span: Span,
+    signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let request_url = request.url().to_string();
-    if body.is_none() {
-        return send_cancellable_request(&request_url, Box::new(|| request.call()), ctrl_c);
-    }
-    let body = body.expect("Should never be none.");
 
-    let body_type = match content_type {
-        Some(it) if it == "application/json" => BodyType::Json,
-        Some(it) if it == "application/x-www-form-urlencoded" => BodyType::Form,
-        _ => BodyType::Unknown,
-    };
-    match body {
-        Value::Binary { val, .. } => send_cancellable_request(
-            &request_url,
-            Box::new(move || request.send_bytes(&val)),
-            ctrl_c,
-        ),
-        Value::String { .. } if body_type == BodyType::Json => {
-            let data = value_to_json_value(&body)?;
-            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
+    match http_body {
+        HttpBody::None => {
+            send_cancellable_request(&request_url, Box::new(|| request.call()), span, signals)
         }
-        Value::String { val, .. } => send_cancellable_request(
-            &request_url,
-            Box::new(move || request.send_string(&val)),
-            ctrl_c,
-        ),
-        Value::Record { .. } if body_type == BodyType::Json => {
-            let data = value_to_json_value(&body)?;
-            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
-        }
-        Value::Record { val, .. } if body_type == BodyType::Form => {
-            let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
-
-            for (col, val) in val.into_owned() {
-                data.push((col, val.coerce_into_string()?))
-            }
-
-            let request_fn = move || {
-                // coerce `data` into a shape that send_form() is happy with
-                let data = data
-                    .iter()
-                    .map(|(a, b)| (a.as_str(), b.as_str()))
-                    .collect::<Vec<(&str, &str)>>();
-                request.send_form(&data)
+        HttpBody::ByteStream(byte_stream) => {
+            let req = if let Some(content_type) = content_type {
+                request.set("Content-Type", &content_type)
+            } else {
+                request
             };
-            send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
+
+            send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
         }
-        Value::List { vals, .. } if body_type == BodyType::Form => {
-            if vals.len() % 2 != 0 {
-                return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+        HttpBody::Value(body) => {
+            let (body_type, req) = match content_type {
+                Some(it) if it == "application/json" => (BodyType::Json, request),
+                Some(it) if it == "application/x-www-form-urlencoded" => (BodyType::Form, request),
+                Some(it) => {
+                    let r = request.clone().set("Content-Type", &it);
+                    (BodyType::Unknown, r)
+                }
+                _ => (BodyType::Unknown, request),
+            };
+
+            match body {
+                Value::Binary { val, .. } => send_cancellable_request(
+                    &request_url,
+                    Box::new(move || req.send_bytes(&val)),
+                    span,
+                    signals,
+                ),
+                Value::String { .. } if body_type == BodyType::Json => {
+                    let data = value_to_json_value(&body)?;
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| req.send_json(data)),
+                        span,
+                        signals,
+                    )
+                }
+                Value::String { val, .. } => send_cancellable_request(
+                    &request_url,
+                    Box::new(move || req.send_string(&val)),
+                    span,
+                    signals,
+                ),
+                Value::Record { .. } if body_type == BodyType::Json => {
+                    let data = value_to_json_value(&body)?;
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| req.send_json(data)),
+                        span,
+                        signals,
+                    )
+                }
+                Value::Record { val, .. } if body_type == BodyType::Form => {
+                    let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
+
+                    for (col, val) in val.into_owned() {
+                        data.push((col, val.coerce_into_string()?))
+                    }
+
+                    let request_fn = move || {
+                        // coerce `data` into a shape that send_form() is happy with
+                        let data = data
+                            .iter()
+                            .map(|(a, b)| (a.as_str(), b.as_str()))
+                            .collect::<Vec<(&str, &str)>>();
+                        req.send_form(&data)
+                    };
+                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
+                }
+                Value::List { vals, .. } if body_type == BodyType::Form => {
+                    if vals.len() % 2 != 0 {
+                        return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                            msg: "unsupported body input".into(),
+                        }));
+                    }
+
+                    let data = vals
+                        .chunks(2)
+                        .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
+                        .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
+
+                    let request_fn = move || {
+                        // coerce `data` into a shape that send_form() is happy with
+                        let data = data
+                            .iter()
+                            .map(|(a, b)| (a.as_str(), b.as_str()))
+                            .collect::<Vec<(&str, &str)>>();
+                        req.send_form(&data)
+                    };
+                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
+                }
+                Value::List { .. } if body_type == BodyType::Json => {
+                    let data = value_to_json_value(&body)?;
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| req.send_json(data)),
+                        span,
+                        signals,
+                    )
+                }
+                _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
                     msg: "unsupported body input".into(),
-                }));
+                })),
             }
-
-            let data = vals
-                .chunks(2)
-                .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
-                .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
-
-            let request_fn = move || {
-                // coerce `data` into a shape that send_form() is happy with
-                let data = data
-                    .iter()
-                    .map(|(a, b)| (a.as_str(), b.as_str()))
-                    .collect::<Vec<(&str, &str)>>();
-                request.send_form(&data)
-            };
-            send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
         }
-        Value::List { .. } if body_type == BodyType::Json => {
-            let data = value_to_json_value(&body)?;
-            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
-        }
-        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-            msg: "unsupported body input".into(),
-        })),
     }
 }
 
@@ -270,7 +309,8 @@ pub fn send_request(
 fn send_cancellable_request(
     request_url: &str,
     request_fn: Box<dyn FnOnce() -> Result<Response, Error> + Sync + Send>,
-    ctrl_c: Option<Arc<AtomicBool>>,
+    span: Span,
+    signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let (tx, rx) = mpsc::channel::<Result<Response, Error>>();
 
@@ -285,12 +325,7 @@ fn send_cancellable_request(
 
     // ...and poll the channel for responses
     loop {
-        if nu_utils::ctrl_c::was_pressed(&ctrl_c) {
-            // Return early and give up on the background thread. The connection will either time out or be disconnected
-            return Err(ShellErrorOrRequestError::ShellError(
-                ShellError::InterruptedByUser { span: None },
-            ));
-        }
+        signals.check(span)?;
 
         // 100ms wait time chosen arbitrarily
         match rx.recv_timeout(Duration::from_millis(100)) {
@@ -299,6 +334,57 @@ fn send_cancellable_request(
                     ShellErrorOrRequestError::RequestError(request_url.to_string(), Box::new(e))
                 });
             }
+            Err(RecvTimeoutError::Timeout) => continue,
+            Err(RecvTimeoutError::Disconnected) => panic!("http response channel disconnected"),
+        }
+    }
+}
+
+// Helper method used to make blocking HTTP request calls cancellable with ctrl+c
+// ureq functions can block for a long time (default 30s?) while attempting to make an HTTP connection
+fn send_cancellable_request_bytes(
+    request_url: &str,
+    request: Request,
+    byte_stream: ByteStream,
+    span: Span,
+    signals: &Signals,
+) -> Result<Response, ShellErrorOrRequestError> {
+    let (tx, rx) = mpsc::channel::<Result<Response, ShellErrorOrRequestError>>();
+    let request_url_string = request_url.to_string();
+
+    // Make the blocking request on a background thread...
+    std::thread::Builder::new()
+        .name("HTTP requester".to_string())
+        .spawn(move || {
+            let ret = byte_stream
+                .reader()
+                .ok_or_else(|| {
+                    ShellErrorOrRequestError::ShellError(ShellError::GenericError {
+                        error: "Could not read byte stream".to_string(),
+                        msg: "".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    })
+                })
+                .and_then(|reader| {
+                    request.send(reader).map_err(|e| {
+                        ShellErrorOrRequestError::RequestError(request_url_string, Box::new(e))
+                    })
+                });
+
+            // may fail if the user has cancelled the operation
+            let _ = tx.send(ret);
+        })
+        .map_err(ShellError::from)?;
+
+    // ...and poll the channel for responses
+    loop {
+        signals.check(span)?;
+
+        // 100ms wait time chosen arbitrarily
+        match rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(result) => return result,
             Err(RecvTimeoutError::Timeout) => continue,
             Err(RecvTimeoutError::Disconnected) => panic!("http response channel disconnected"),
         }

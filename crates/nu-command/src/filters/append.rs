@@ -116,7 +116,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         Ok(input
             .into_iter()
             .chain(other.into_pipeline_data())
-            .into_pipeline_data_with_metadata(call.head, engine_state.ctrlc.clone(), metadata))
+            .into_pipeline_data_with_metadata(call.head, engine_state.signals().clone(), metadata))
     }
 }
 

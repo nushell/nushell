@@ -22,9 +22,10 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ast::Operator, engine::Closure, ByteStreamType, Config, LabeledError, PipelineData,
-    PluginSignature, ShellError, Span, Spanned, Value,
+    ast::Operator, engine::Closure, ByteStreamType, Config, DeclId, LabeledError, PipelineData,
+    PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
 };
+use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -119,6 +120,7 @@ pub struct ByteStreamInfo {
 /// Calls that a plugin can execute. The type parameter determines the input type.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginCall<D> {
+    Metadata,
     Signature,
     Run(CallInfo<D>),
     CustomValueOp(Spanned<PluginCustomValue>, CustomValueOp),
@@ -132,6 +134,7 @@ impl<D> PluginCall<D> {
         f: impl FnOnce(D) -> Result<T, ShellError>,
     ) -> Result<PluginCall<T>, ShellError> {
         Ok(match self {
+            PluginCall::Metadata => PluginCall::Metadata,
             PluginCall::Signature => PluginCall::Signature,
             PluginCall::Run(call) => PluginCall::Run(call.map_data(f)?),
             PluginCall::CustomValueOp(custom_value, op) => {
@@ -143,6 +146,7 @@ impl<D> PluginCall<D> {
     /// The span associated with the call.
     pub fn span(&self) -> Option<Span> {
         match self {
+            PluginCall::Metadata => None,
             PluginCall::Signature => None,
             PluginCall::Run(CallInfo { call, .. }) => Some(call.head),
             PluginCall::CustomValueOp(val, _) => Some(val.span),
@@ -309,6 +313,7 @@ pub enum StreamMessage {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginCallResponse<D> {
     Error(LabeledError),
+    Metadata(PluginMetadata),
     Signature(Vec<PluginSignature>),
     Ordering(Option<Ordering>),
     PipelineData(D),
@@ -323,6 +328,7 @@ impl<D> PluginCallResponse<D> {
     ) -> Result<PluginCallResponse<T>, ShellError> {
         Ok(match self {
             PluginCallResponse::Error(err) => PluginCallResponse::Error(err),
+            PluginCallResponse::Metadata(meta) => PluginCallResponse::Metadata(meta),
             PluginCallResponse::Signature(sigs) => PluginCallResponse::Signature(sigs),
             PluginCallResponse::Ordering(ordering) => PluginCallResponse::Ordering(ordering),
             PluginCallResponse::PipelineData(input) => PluginCallResponse::PipelineData(f(input)?),
@@ -488,6 +494,21 @@ pub enum EngineCall<D> {
         /// Whether to redirect stderr from external commands
         redirect_stderr: bool,
     },
+    /// Find a declaration by name
+    FindDecl(String),
+    /// Call a declaration with args
+    CallDecl {
+        /// The id of the declaration to be called (can be found with `FindDecl`)
+        decl_id: DeclId,
+        /// Information about the call (head span, arguments, etc.)
+        call: EvaluatedCall,
+        /// Pipeline input to the call
+        input: D,
+        /// Whether to redirect stdout from external commands
+        redirect_stdout: bool,
+        /// Whether to redirect stderr from external commands
+        redirect_stderr: bool,
+    },
 }
 
 impl<D> EngineCall<D> {
@@ -505,6 +526,8 @@ impl<D> EngineCall<D> {
             EngineCall::LeaveForeground => "LeaveForeground",
             EngineCall::GetSpanContents(_) => "GetSpanContents",
             EngineCall::EvalClosure { .. } => "EvalClosure",
+            EngineCall::FindDecl(_) => "FindDecl",
+            EngineCall::CallDecl { .. } => "CallDecl",
         }
     }
 
@@ -538,6 +561,20 @@ impl<D> EngineCall<D> {
                 redirect_stdout,
                 redirect_stderr,
             },
+            EngineCall::FindDecl(name) => EngineCall::FindDecl(name),
+            EngineCall::CallDecl {
+                decl_id,
+                call,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            } => EngineCall::CallDecl {
+                decl_id,
+                call,
+                input: f(input)?,
+                redirect_stdout,
+                redirect_stderr,
+            },
         })
     }
 }
@@ -548,8 +585,9 @@ impl<D> EngineCall<D> {
 pub enum EngineCallResponse<D> {
     Error(ShellError),
     PipelineData(D),
-    Config(Box<Config>),
+    Config(SharedCow<Config>),
     ValueMap(HashMap<String, Value>),
+    Identifier(usize),
 }
 
 impl<D> EngineCallResponse<D> {
@@ -564,6 +602,7 @@ impl<D> EngineCallResponse<D> {
             EngineCallResponse::PipelineData(data) => EngineCallResponse::PipelineData(f(data)?),
             EngineCallResponse::Config(config) => EngineCallResponse::Config(config),
             EngineCallResponse::ValueMap(map) => EngineCallResponse::ValueMap(map),
+            EngineCallResponse::Identifier(id) => EngineCallResponse::Identifier(id),
         })
     }
 }

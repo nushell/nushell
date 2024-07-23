@@ -6,14 +6,15 @@ use nu_plugin_core::{
     StreamManagerHandle,
 };
 use nu_plugin_protocol::{
-    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering, PluginCall,
-    PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
-    ProtocolInfo,
+    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall, Ordering,
+    PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+    PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, LabeledError, PipelineData, PluginSignature, ShellError, Span,
-    Spanned, Value,
+    engine::Closure, Config, DeclId, LabeledError, PipelineData, PluginMetadata, PluginSignature,
+    ShellError, Signals, Span, Spanned, Value,
 };
+use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
     sync::{mpsc, Arc},
@@ -29,6 +30,9 @@ use std::{
 #[derive(Debug)]
 #[doc(hidden)]
 pub enum ReceivedPluginCall {
+    Metadata {
+        engine: EngineInterface,
+    },
     Signature {
         engine: EngineInterface,
     },
@@ -271,7 +275,9 @@ impl InterfaceManager for EngineInterfaceManager {
             PluginInput::Call(id, call) => {
                 let interface = self.interface_for_context(id);
                 // Read streams in the input
-                let call = match call.map_data(|input| self.read_pipeline_data(input, None)) {
+                let call = match call
+                    .map_data(|input| self.read_pipeline_data(input, &Signals::empty()))
+                {
                     Ok(call) => call,
                     Err(err) => {
                         // If there's an error with initialization of the input stream, just send
@@ -280,8 +286,11 @@ impl InterfaceManager for EngineInterfaceManager {
                     }
                 };
                 match call {
-                    // We just let the receiver handle it rather than trying to store signature here
-                    // or something
+                    // Ask the plugin for metadata
+                    PluginCall::Metadata => {
+                        self.send_plugin_call(ReceivedPluginCall::Metadata { engine: interface })
+                    }
+                    // Ask the plugin for signatures
                     PluginCall::Signature => {
                         self.send_plugin_call(ReceivedPluginCall::Signature { engine: interface })
                     }
@@ -314,7 +323,7 @@ impl InterfaceManager for EngineInterfaceManager {
             }
             PluginInput::EngineCallResponse(id, response) => {
                 let response = response
-                    .map_data(|header| self.read_pipeline_data(header, None))
+                    .map_data(|header| self.read_pipeline_data(header, &Signals::empty()))
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to an engine
                         // call error response, but send it anyway
@@ -416,6 +425,13 @@ impl EngineInterface {
         }
     }
 
+    /// Write a call response of plugin metadata.
+    pub(crate) fn write_metadata(&self, metadata: PluginMetadata) -> Result<(), ShellError> {
+        let response = PluginCallResponse::Metadata(metadata);
+        self.write(PluginOutput::CallResponse(self.context()?, response))?;
+        self.flush()
+    }
+
     /// Write a call response of plugin signatures.
     ///
     /// Any custom values in the examples will be rendered using `to_base_value()`.
@@ -510,9 +526,9 @@ impl EngineInterface {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn get_config(&self) -> Result<Box<Config>, ShellError> {
+    pub fn get_config(&self) -> Result<Arc<Config>, ShellError> {
         match self.engine_call(EngineCall::GetConfig)? {
-            EngineCallResponse::Config(config) => Ok(config),
+            EngineCallResponse::Config(config) => Ok(SharedCow::into_arc(config)),
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response for EngineCall::GetConfig".into(),
@@ -853,6 +869,71 @@ impl EngineInterface {
         match output.into_value(closure.span)? {
             Value::Error { error, .. } => Err(*error),
             value => Ok(value),
+        }
+    }
+
+    /// Ask the engine for the identifier for a declaration. If found, the result can then be passed
+    /// to [`.call_decl()`] to call other internal commands.
+    ///
+    /// See [`.call_decl()`] for an example.
+    pub fn find_decl(&self, name: impl Into<String>) -> Result<Option<DeclId>, ShellError> {
+        let call = EngineCall::FindDecl(name.into());
+
+        match self.engine_call(call)? {
+            EngineCallResponse::Error(err) => Err(err),
+            EngineCallResponse::Identifier(id) => Ok(Some(id)),
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::FindDecl".into(),
+            }),
+        }
+    }
+
+    /// Ask the engine to call an internal command, using the declaration ID previously looked up
+    /// with [`.find_decl()`].
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError, PipelineData};
+    /// # use nu_plugin::{EngineInterface, EvaluatedCall};
+    /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<Value, ShellError> {
+    /// if let Some(decl_id) = engine.find_decl("scope commands")? {
+    ///     let commands = engine.call_decl(
+    ///         decl_id,
+    ///         EvaluatedCall::new(call.head),
+    ///         PipelineData::Empty,
+    ///         true,
+    ///         false,
+    ///     )?;
+    ///     commands.into_value(call.head)
+    /// } else {
+    ///     Ok(Value::list(vec![], call.head))
+    /// }
+    /// # }
+    /// ```
+    pub fn call_decl(
+        &self,
+        decl_id: DeclId,
+        call: EvaluatedCall,
+        input: PipelineData,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError> {
+        let call = EngineCall::CallDecl {
+            decl_id,
+            call,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        };
+
+        match self.engine_call(call)? {
+            EngineCallResponse::Error(err) => Err(err),
+            EngineCallResponse::PipelineData(data) => Ok(data),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::CallDecl".into(),
+            }),
         }
     }
 

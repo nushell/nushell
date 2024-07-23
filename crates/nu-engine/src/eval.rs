@@ -1,19 +1,20 @@
+use crate::eval_ir_block;
 #[allow(deprecated)]
-use crate::{current_dir, get_config, get_full_help};
-use nu_path::expand_path_with;
+use crate::{current_dir, get_full_help};
+use nu_path::{expand_path_with, AbsolutePathBuf};
 use nu_protocol::{
     ast::{
         Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember, PipelineElement,
         PipelineRedirection, RedirectionSource, RedirectionTarget,
     },
     debugger::DebugContext,
-    engine::{Closure, EngineState, Redirection, Stack},
+    engine::{Closure, EngineState, Redirection, Stack, StateWorkingSet},
     eval_base::Eval,
-    ByteStreamSource, Config, FromValue, IntoPipelineData, OutDest, PipelineData, ShellError, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    ByteStreamSource, Config, DataSource, FromValue, IntoPipelineData, OutDest, PipelineData,
+    PipelineMetadata, ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
-use std::{borrow::Cow, fs::OpenOptions, path::PathBuf};
+use std::{fs::OpenOptions, path::PathBuf, sync::Arc};
 
 pub fn eval_call<D: DebugContext>(
     engine_state: &EngineState,
@@ -21,9 +22,7 @@ pub fn eval_call<D: DebugContext>(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-        return Ok(Value::nothing(call.head).into_pipeline_data());
-    }
+    engine_state.signals().check(call.head)?;
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
@@ -176,7 +175,7 @@ pub fn eval_call<D: DebugContext>(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        decl.run(engine_state, caller_stack, call, input)
+        decl.run(engine_state, caller_stack, &call.into(), input)
     }
 }
 
@@ -197,6 +196,9 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     for (var, value) in callee_stack.get_stack_env_vars() {
         caller_stack.add_env_var(var, value);
     }
+
+    // set config to callee config, to capture any updates to that
+    caller_stack.config = callee_stack.config.clone();
 }
 
 fn eval_external(
@@ -225,7 +227,7 @@ fn eval_external(
         }
     }
 
-    command.run(engine_state, stack, &call, input)
+    command.run(engine_state, stack, &(&call).into(), input)
 }
 
 pub fn eval_expression<D: DebugContext>(
@@ -255,6 +257,10 @@ pub fn eval_expression_with_input<D: DebugContext>(
         }
         Expr::ExternalCall(head, args) => {
             input = eval_external(engine_state, stack, head, args, input)?;
+        }
+
+        Expr::Collect(var_id, expr) => {
+            input = eval_collect::<D>(engine_state, stack, *var_id, expr, input)?;
         }
 
         Expr::Subexpression(block_id) => {
@@ -509,6 +515,11 @@ pub fn eval_block<D: DebugContext>(
     block: &Block,
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    // Remove once IR is the default.
+    if stack.use_ir {
+        return eval_ir_block::<D>(engine_state, stack, block, input);
+    }
+
     D::enter_block(engine_state, block);
 
     let num_pipelines = block.len();
@@ -523,7 +534,7 @@ pub fn eval_block<D: DebugContext>(
 
         for (i, element) in elements.iter().enumerate() {
             let next = elements.get(i + 1).unwrap_or(last);
-            let (next_out, next_err) = next.pipe_redirection(engine_state);
+            let (next_out, next_err) = next.pipe_redirection(&StateWorkingSet::new(engine_state));
             let (stdout, stderr) = eval_element_redirection::<D>(
                 engine_state,
                 stack,
@@ -598,6 +609,44 @@ pub fn eval_block<D: DebugContext>(
     Ok(input)
 }
 
+pub fn eval_collect<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    var_id: VarId,
+    expr: &Expression,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    // Evaluate the expression with the variable set to the collected input
+    let span = input.span().unwrap_or(Span::unknown());
+
+    let metadata = match input.metadata() {
+        // Remove the `FilePath` metadata, because after `collect` it's no longer necessary to
+        // check where some input came from.
+        Some(PipelineMetadata {
+            data_source: DataSource::FilePath(_),
+            content_type: None,
+        }) => None,
+        other => other,
+    };
+
+    let input = input.into_value(span)?;
+
+    stack.add_var(var_id, input.clone());
+
+    let result = eval_expression_with_input::<D>(
+        engine_state,
+        stack,
+        expr,
+        // We still have to pass it as input
+        input.into_pipeline_data_with_metadata(metadata),
+    )
+    .map(|(result, _failed)| result);
+
+    stack.remove_var(var_id);
+
+    result
+}
+
 pub fn eval_subexpression<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -648,8 +697,8 @@ impl Eval for EvalRuntime {
 
     type MutState = Stack;
 
-    fn get_config<'a>(engine_state: Self::State<'a>, stack: &mut Stack) -> Cow<'a, Config> {
-        Cow::Owned(get_config(engine_state, stack))
+    fn get_config(engine_state: Self::State<'_>, stack: &mut Stack) -> Arc<Config> {
+        stack.get_config(engine_state)
     }
 
     fn eval_filepath(
@@ -681,7 +730,10 @@ impl Eval for EvalRuntime {
         } else if quoted {
             Ok(Value::string(path, span))
         } else {
-            let cwd = engine_state.cwd(Some(stack)).unwrap_or_default();
+            let cwd = engine_state
+                .cwd(Some(stack))
+                .map(AbsolutePathBuf::into_std_path_buf)
+                .unwrap_or_default();
             let path = expand_path_with(path, cwd, true);
 
             Ok(Value::string(path.to_string_lossy(), span))
@@ -717,6 +769,18 @@ impl Eval for EvalRuntime {
         let span = head.span(&engine_state);
         // FIXME: protect this collect with ctrl-c
         eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span)
+    }
+
+    fn eval_collect<D: DebugContext>(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        var_id: VarId,
+        expr: &Expression,
+    ) -> Result<Value, ShellError> {
+        // It's a little bizarre, but the expression can still have some kind of result even with
+        // nothing input
+        eval_collect::<D>(engine_state, stack, var_id, expr, PipelineData::empty())?
+            .into_value(expr.span)
     }
 
     fn eval_subexpression<D: DebugContext>(
@@ -836,7 +900,14 @@ impl Eval for EvalRuntime {
                                     });
                                 }
 
+                                let is_config = original_key == "config";
+
                                 stack.add_env_var(original_key, value);
+
+                                // Trigger the update to config, if we modified that.
+                                if is_config {
+                                    stack.update_config(engine_state)?;
+                                }
                             } else {
                                 lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                                 stack.add_var(*var_id, lhs);
@@ -902,7 +973,7 @@ impl Eval for EvalRuntime {
 ///
 /// An automatic environment variable cannot be assigned to by user code.
 /// Current there are three of them: $env.PWD, $env.FILE_PWD, $env.CURRENT_FILE
-fn is_automatic_env_var(var: &str) -> bool {
+pub(crate) fn is_automatic_env_var(var: &str) -> bool {
     let names = ["PWD", "FILE_PWD", "CURRENT_FILE"];
     names.iter().any(|&name| {
         if cfg!(windows) {

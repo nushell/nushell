@@ -6,5 +6,5 @@ mod play;
 mod tests;
 
 pub use director::Director;
-pub use nu_process::{Executable, NuProcess, NuResult, Outcome};
+pub use nu_process::{Executable, NuProcess, Outcome};
 pub use play::{Dirs, EnvironmentVariable, Playground};

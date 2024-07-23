@@ -5,12 +5,12 @@ use std::{
     error::Error,
     io::{self, Cursor, ErrorKind},
     string::FromUtf8Error,
-    sync::{atomic::AtomicBool, Arc},
 };
 
 use byteorder::{BigEndian, ReadBytesExt};
 use chrono::{TimeZone, Utc};
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 use rmp::decode::{self as mp, ValueReadError};
 
 /// Max recursion depth
@@ -111,7 +111,7 @@ MessagePack: https://msgpack.org/
         let opts = Opts {
             span: call.head,
             objects,
-            ctrlc: engine_state.ctrlc.clone(),
+            signals: engine_state.signals().clone(),
         };
         match input {
             // Deserialize from a byte buffer
@@ -227,7 +227,7 @@ impl From<ReadError> for ShellError {
 pub(crate) struct Opts {
     pub span: Span,
     pub objects: bool,
-    pub ctrlc: Option<Arc<AtomicBool>>,
+    pub signals: Signals,
 }
 
 /// Read single or multiple values into PipelineData
@@ -238,7 +238,7 @@ pub(crate) fn read_msgpack(
     let Opts {
         span,
         objects,
-        ctrlc,
+        signals,
     } = opts;
     if objects {
         // Make an iterator that reads multiple values from the reader
@@ -262,7 +262,7 @@ pub(crate) fn read_msgpack(
                 None
             }
         })
-        .into_pipeline_data(span, ctrlc))
+        .into_pipeline_data(span, signals))
     } else {
         // Read a single value and then make sure it's EOF
         let result = read_value(&mut input, span, 0)?;
