@@ -20,30 +20,24 @@ impl Base32Config {
 
 pub fn base32_encoding(config: Base32Config) -> Result<Encoding, ShellError> {
     match (config.nopad, config.dnscurve, config.dnssec) {
-        (Some(nopad), Some(dnscurve), _) => {
-            return Err(ShellError::IncompatibleParameters {
-                left_message: "Inapplicable to DNSCURVE".to_string(),
-                left_span: nopad,
-                right_message: "Must be used standalone".to_string(),
-                right_span: dnscurve,
-            });
-        }
-        (_, Some(dnscurve), Some(dnssec)) => {
-            return Err(ShellError::IncompatibleParameters {
-                left_message: "Incompatible with DNSCURVE".to_string(),
-                left_span: dnssec,
-                right_message: "Must be used standalone".to_string(),
-                right_span: dnscurve,
-            });
-        }
-        (Some(nopad), _, Some(dnssec)) => {
-            return Err(ShellError::IncompatibleParameters {
-                left_message: "Inapplicable to DNSCURVE".to_string(),
-                left_span: nopad,
-                right_message: "DNSCURVE must be used standalone".to_string(),
-                right_span: dnssec,
-            });
-        }
+        (Some(nopad), Some(dnscurve), _) => Err(ShellError::IncompatibleParameters {
+            left_message: "Inapplicable to DNSCURVE".to_string(),
+            left_span: nopad,
+            right_message: "Must be used standalone".to_string(),
+            right_span: dnscurve,
+        }),
+        (_, Some(dnscurve), Some(dnssec)) => Err(ShellError::IncompatibleParameters {
+            left_message: "Incompatible with DNSCURVE".to_string(),
+            left_span: dnssec,
+            right_message: "Must be used standalone".to_string(),
+            right_span: dnscurve,
+        }),
+        (Some(nopad), _, Some(dnssec)) => Err(ShellError::IncompatibleParameters {
+            left_message: "Inapplicable to DNSCURVE".to_string(),
+            left_span: nopad,
+            right_message: "DNSCURVE must be used standalone".to_string(),
+            right_span: dnssec,
+        }),
 
         (None, None, None) => Ok(data_encoding::BASE32),
         (Some(_), None, None) => Ok(data_encoding::BASE32_NOPAD),
