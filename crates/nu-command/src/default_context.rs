@@ -176,6 +176,13 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
 
         // Strings
         bind_command! {
+            DecodeBase32,
+            EncodeBase32,
+        DecodeBase32Hex,
+        EncodeBase32Hex,
+        DecodeHex,
+        EncodeHex,
+
             Char,
             Decode,
             Encode,
