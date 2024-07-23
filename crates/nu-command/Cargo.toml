@@ -102,6 +102,7 @@ v_htmlescape = { workspace = true }
 wax = { workspace = true }
 which = { workspace = true }
 unicode-width = { workspace = true }
+data-encoding = { version = "2.6.0", features = ["alloc"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
