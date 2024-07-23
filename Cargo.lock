@@ -3344,6 +3344,8 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "convert_case",
+ "dirs",
+ "dirs-sys",
  "fancy-regex",
  "indexmap",
  "log",
@@ -3367,6 +3369,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "typetag",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

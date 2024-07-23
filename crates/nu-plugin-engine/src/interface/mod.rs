@@ -1322,6 +1322,22 @@ pub(crate) fn handle_engine_call(
         } => context
             .eval_closure(closure, positional, input, redirect_stdout, redirect_stderr)
             .map(EngineCallResponse::PipelineData),
+        EngineCall::FindDecl(name) => context.find_decl(&name).map(|decl_id| {
+            if let Some(decl_id) = decl_id {
+                EngineCallResponse::Identifier(decl_id)
+            } else {
+                EngineCallResponse::empty()
+            }
+        }),
+        EngineCall::CallDecl {
+            decl_id,
+            call,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        } => context
+            .call_decl(decl_id, call, input, redirect_stdout, redirect_stderr)
+            .map(EngineCallResponse::PipelineData),
     }
 }
 

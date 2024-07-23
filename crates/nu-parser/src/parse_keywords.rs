@@ -783,6 +783,16 @@ pub fn parse_extern(
                         working_set.get_block_mut(block_id).signature = signature;
                     }
                 } else {
+                    if signature.rest_positional.is_none() {
+                        // Make sure that a known external takes rest args with ExternalArgument
+                        // shape
+                        *signature = signature.rest(
+                            "args",
+                            SyntaxShape::ExternalArgument,
+                            "all other arguments to the command",
+                        );
+                    }
+
                     let decl = KnownExternal {
                         name: external_name,
                         usage,

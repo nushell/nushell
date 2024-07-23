@@ -221,6 +221,22 @@ pub(crate) fn check_call(
     }
 }
 
+/// Parses an unknown argument for the given signature. This handles the parsing as appropriate to
+/// the rest type of the command.
+fn parse_unknown_arg(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    signature: &Signature,
+) -> Expression {
+    let shape = signature
+        .rest_positional
+        .as_ref()
+        .map(|arg| arg.shape.clone())
+        .unwrap_or(SyntaxShape::Any);
+
+    parse_value(working_set, span, &shape)
+}
+
 /// Parses a string in the arg or head position of an external call.
 ///
 /// If the string begins with `r#`, it is parsed as a raw string. If it doesn't contain any quotes
@@ -427,11 +443,7 @@ fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expre
 fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> ExternalArgument {
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$") || contents.starts_with(b"(") {
-        ExternalArgument::Regular(parse_dollar_expr(working_set, span))
-    } else if contents.starts_with(b"[") {
-        ExternalArgument::Regular(parse_list_expression(working_set, span, &SyntaxShape::Any))
-    } else if contents.len() > 3
+    if contents.len() > 3
         && contents.starts_with(b"...")
         && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
     {
@@ -441,7 +453,19 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
             &SyntaxShape::List(Box::new(SyntaxShape::Any)),
         ))
     } else {
-        ExternalArgument::Regular(parse_external_string(working_set, span))
+        ExternalArgument::Regular(parse_regular_external_arg(working_set, span))
+    }
+}
+
+fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    let contents = working_set.get_span_contents(span);
+
+    if contents.starts_with(b"$") || contents.starts_with(b"(") {
+        parse_dollar_expr(working_set, span)
+    } else if contents.starts_with(b"[") {
+        parse_list_expression(working_set, span, &SyntaxShape::Any)
+    } else {
+        parse_external_string(working_set, span)
     }
 }
 
@@ -998,7 +1022,7 @@ pub fn parse_internal_call(
                 && signature.allows_unknown_args
             {
                 working_set.parse_errors.truncate(starting_error_count);
-                let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
+                let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
                 call.add_unknown(arg);
             } else {
@@ -1040,7 +1064,7 @@ pub fn parse_internal_call(
                 && signature.allows_unknown_args
             {
                 working_set.parse_errors.truncate(starting_error_count);
-                let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
+                let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
                 call.add_unknown(arg);
             } else {
@@ -1135,6 +1159,10 @@ pub fn parse_internal_call(
                     call.add_positional(Expression::garbage(working_set, arg_span));
                 } else {
                     let rest_shape = match &signature.rest_positional {
+                        Some(arg) if matches!(arg.shape, SyntaxShape::ExternalArgument) => {
+                            // External args aren't parsed inside lists in spread position.
+                            SyntaxShape::Any
+                        }
                         Some(arg) => arg.shape.clone(),
                         None => SyntaxShape::Any,
                     };
@@ -1196,7 +1224,7 @@ pub fn parse_internal_call(
             call.add_positional(arg);
             positional_idx += 1;
         } else if signature.allows_unknown_args {
-            let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
+            let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
             call.add_unknown(arg);
         } else {
@@ -4670,7 +4698,8 @@ pub fn parse_value(
             | SyntaxShape::Signature
             | SyntaxShape::Filepath
             | SyntaxShape::String
-            | SyntaxShape::GlobPattern => {}
+            | SyntaxShape::GlobPattern
+            | SyntaxShape::ExternalArgument => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(working_set, span);
@@ -4746,6 +4775,8 @@ pub fn parse_value(
 
             Expression::garbage(working_set, span)
         }
+
+        SyntaxShape::ExternalArgument => parse_regular_external_arg(working_set, span),
 
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
@@ -5299,6 +5330,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
             let mut block = Block::default();
             let ty = output.ty.clone();
             block.pipelines = vec![Pipeline::from_vec(vec![output])];
+            block.span = Some(Span::concat(spans));
 
             compile_block(working_set, &mut block);
 
@@ -5393,9 +5425,19 @@ pub fn parse_builtin_commands(
     match name {
         b"def" => parse_def(working_set, lite_command, None).0,
         b"extern" => parse_extern(working_set, lite_command, None),
-        b"let" => parse_let(working_set, &lite_command.parts),
+        b"let" => parse_let(
+            working_set,
+            &lite_command
+                .parts_including_redirection()
+                .collect::<Vec<Span>>(),
+        ),
         b"const" => parse_const(working_set, &lite_command.parts),
-        b"mut" => parse_mut(working_set, &lite_command.parts),
+        b"mut" => parse_mut(
+            working_set,
+            &lite_command
+                .parts_including_redirection()
+                .collect::<Vec<Span>>(),
+        ),
         b"for" => {
             let expr = parse_for(working_set, lite_command);
             Pipeline::from_vec(vec![expr])
@@ -5647,169 +5689,73 @@ pub(crate) fn redirecting_builtin_error(
     }
 }
 
-pub fn parse_pipeline(
-    working_set: &mut StateWorkingSet,
-    pipeline: &LitePipeline,
-    is_subexpression: bool,
-    pipeline_index: usize,
-) -> Pipeline {
+pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline) -> Pipeline {
+    let first_command = pipeline.commands.first();
+    let first_command_name = first_command
+        .and_then(|command| command.parts.first())
+        .map(|span| working_set.get_span_contents(*span));
+
     if pipeline.commands.len() > 1 {
-        // Special case: allow `let` and `mut` to consume the whole pipeline, eg) `let abc = "foo" | str length`
-        if let Some(&first) = pipeline.commands[0].parts.first() {
-            let first = working_set.get_span_contents(first);
-            if first == b"let" || first == b"mut" {
-                let name = if first == b"let" { "let" } else { "mut" };
-                let mut new_command = LiteCommand {
-                    comments: vec![],
-                    parts: pipeline.commands[0].parts.clone(),
-                    pipe: None,
-                    redirection: None,
-                };
+        // Special case: allow "let" or "mut" to consume the whole pipeline, if this is a pipeline
+        // with multiple commands
+        if matches!(first_command_name, Some(b"let" | b"mut")) {
+            // Merge the pipeline into one command
+            let first_command = first_command.expect("must be Some");
 
-                if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
-                    working_set.error(redirecting_builtin_error(name, redirection));
-                }
+            let remainder_span = first_command
+                .parts_including_redirection()
+                .skip(3)
+                .chain(
+                    pipeline.commands[1..]
+                        .iter()
+                        .flat_map(|command| command.parts_including_redirection()),
+                )
+                .reduce(Span::append);
 
-                for element in &pipeline.commands[1..] {
-                    if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
-                        working_set.error(redirecting_builtin_error(name, redirection));
-                    } else {
-                        new_command.parts.push(element.pipe.expect("pipe span"));
-                        new_command.comments.extend_from_slice(&element.comments);
-                        new_command.parts.extend_from_slice(&element.parts);
-                    }
-                }
+            let parts = first_command
+                .parts
+                .iter()
+                .take(3) // the let/mut start itself
+                .copied()
+                .chain(remainder_span) // everything else
+                .collect();
 
-                // if the 'let' is complete enough, use it, if not, fall through for now
-                if new_command.parts.len() > 3 {
-                    let rhs_span = Span::concat(&new_command.parts[3..]);
+            let comments = pipeline
+                .commands
+                .iter()
+                .flat_map(|command| command.comments.iter())
+                .copied()
+                .collect();
 
-                    new_command.parts.truncate(3);
-                    new_command.parts.push(rhs_span);
-
-                    let mut pipeline = parse_builtin_commands(working_set, &new_command);
-
-                    if pipeline_index == 0 {
-                        let let_decl_id = working_set.find_decl(b"let");
-                        let mut_decl_id = working_set.find_decl(b"mut");
-                        for element in pipeline.elements.iter_mut() {
-                            if let Expr::Call(call) = &element.expr.expr {
-                                if Some(call.decl_id) == let_decl_id
-                                    || Some(call.decl_id) == mut_decl_id
-                                {
-                                    // Do an expansion
-                                    if let Some(Expression {
-                                        expr: Expr::Block(block_id),
-                                        ..
-                                    }) = call.positional_iter().nth(1)
-                                    {
-                                        let block = working_set.get_block(*block_id);
-
-                                        if let Some(element) = block
-                                            .pipelines
-                                            .first()
-                                            .and_then(|p| p.elements.first())
-                                            .cloned()
-                                        {
-                                            if element.has_in_variable(working_set) {
-                                                let element = wrap_element_with_collect(
-                                                    working_set,
-                                                    &element,
-                                                );
-                                                let block = working_set.get_block_mut(*block_id);
-                                                block.pipelines[0].elements[0] = element;
-                                            }
-                                        }
-                                    }
-                                    continue;
-                                } else if element.has_in_variable(working_set) && !is_subexpression
-                                {
-                                    *element = wrap_element_with_collect(working_set, element);
-                                }
-                            } else if element.has_in_variable(working_set) && !is_subexpression {
-                                *element = wrap_element_with_collect(working_set, element);
-                            }
-                        }
-                    }
-
-                    return pipeline;
-                }
-            }
-        }
-
-        let mut elements = pipeline
-            .commands
-            .iter()
-            .map(|element| parse_pipeline_element(working_set, element))
-            .collect::<Vec<_>>();
-
-        if is_subexpression {
-            for element in elements.iter_mut().skip(1) {
-                if element.has_in_variable(working_set) {
-                    *element = wrap_element_with_collect(working_set, element);
-                }
-            }
+            let new_command = LiteCommand {
+                pipe: None,
+                comments,
+                parts,
+                redirection: None,
+            };
+            parse_builtin_commands(working_set, &new_command)
         } else {
-            for element in elements.iter_mut() {
-                if element.has_in_variable(working_set) {
-                    *element = wrap_element_with_collect(working_set, element);
-                }
-            }
-        }
-
-        Pipeline { elements }
-    } else {
-        if let Some(&first) = pipeline.commands[0].parts.first() {
-            let first = working_set.get_span_contents(first);
-            if first == b"let" || first == b"mut" {
-                if let Some(redirection) = pipeline.commands[0].redirection.as_ref() {
-                    let name = if first == b"let" { "let" } else { "mut" };
-                    working_set.error(redirecting_builtin_error(name, redirection));
-                }
-            }
-        }
-
-        let mut pipeline = parse_builtin_commands(working_set, &pipeline.commands[0]);
-
-        let let_decl_id = working_set.find_decl(b"let");
-        let mut_decl_id = working_set.find_decl(b"mut");
-
-        if pipeline_index == 0 {
-            for element in pipeline.elements.iter_mut() {
-                if let Expr::Call(call) = &element.expr.expr {
-                    if Some(call.decl_id) == let_decl_id || Some(call.decl_id) == mut_decl_id {
-                        // Do an expansion
-                        if let Some(Expression {
-                            expr: Expr::Block(block_id),
-                            ..
-                        }) = call.positional_iter().nth(1)
-                        {
-                            let block = working_set.get_block(*block_id);
-
-                            if let Some(element) = block
-                                .pipelines
-                                .first()
-                                .and_then(|p| p.elements.first())
-                                .cloned()
-                            {
-                                if element.has_in_variable(working_set) {
-                                    let element = wrap_element_with_collect(working_set, &element);
-                                    let block = working_set.get_block_mut(*block_id);
-                                    block.pipelines[0].elements[0] = element;
-                                }
-                            }
-                        }
-                        continue;
-                    } else if element.has_in_variable(working_set) && !is_subexpression {
-                        *element = wrap_element_with_collect(working_set, element);
+            // Parse a normal multi command pipeline
+            let elements: Vec<_> = pipeline
+                .commands
+                .iter()
+                .enumerate()
+                .map(|(index, element)| {
+                    let element = parse_pipeline_element(working_set, element);
+                    // Handle $in for pipeline elements beyond the first one
+                    if index > 0 && element.has_in_variable(working_set) {
+                        wrap_element_with_collect(working_set, element.clone())
+                    } else {
+                        element
                     }
-                } else if element.has_in_variable(working_set) && !is_subexpression {
-                    *element = wrap_element_with_collect(working_set, element);
-                }
-            }
-        }
+                })
+                .collect();
 
-        pipeline
+            Pipeline { elements }
+        }
+    } else {
+        // If there's only one command in the pipeline, this could be a builtin command
+        parse_builtin_commands(working_set, &pipeline.commands[0])
     }
 }
 
@@ -5840,17 +5786,44 @@ pub fn parse_block(
     }
 
     let mut block = Block::new_with_capacity(lite_block.block.len());
+    block.span = Some(span);
 
-    for (idx, lite_pipeline) in lite_block.block.iter().enumerate() {
-        let pipeline = parse_pipeline(working_set, lite_pipeline, is_subexpression, idx);
+    for lite_pipeline in &lite_block.block {
+        let pipeline = parse_pipeline(working_set, lite_pipeline);
         block.pipelines.push(pipeline);
+    }
+
+    // If this is not a subexpression and there are any pipelines where the first element has $in,
+    // we can wrap the whole block in collect so that they all reference the same $in
+    if !is_subexpression
+        && block
+            .pipelines
+            .iter()
+            .flat_map(|pipeline| pipeline.elements.first())
+            .any(|element| element.has_in_variable(working_set))
+    {
+        // Move the block out to prepare it to become a subexpression
+        let inner_block = std::mem::take(&mut block);
+        block.span = inner_block.span;
+        let ty = inner_block.output_type();
+        let block_id = working_set.add_block(Arc::new(inner_block));
+
+        // Now wrap it in a Collect expression, and put it in the block as the only pipeline
+        let subexpression = Expression::new(working_set, Expr::Subexpression(block_id), span, ty);
+        let collect = wrap_expr_with_collect(working_set, subexpression);
+
+        block.pipelines.push(Pipeline {
+            elements: vec![PipelineElement {
+                pipe: None,
+                expr: collect,
+                redirection: None,
+            }],
+        });
     }
 
     if scoped {
         working_set.exit_scope();
     }
-
-    block.span = Some(span);
 
     let errors = type_check::check_block_input_output(working_set, &block);
     if !errors.is_empty() {
@@ -6220,6 +6193,10 @@ pub fn discover_captures_in_expr(
                 discover_captures_in_expr(working_set, &match_.1, seen, seen_blocks, output)?;
             }
         }
+        Expr::Collect(var_id, expr) => {
+            seen.push(*var_id);
+            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?
+        }
         Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
 
@@ -6270,28 +6247,28 @@ pub fn discover_captures_in_expr(
 
 fn wrap_redirection_with_collect(
     working_set: &mut StateWorkingSet,
-    target: &RedirectionTarget,
+    target: RedirectionTarget,
 ) -> RedirectionTarget {
     match target {
         RedirectionTarget::File { expr, append, span } => RedirectionTarget::File {
             expr: wrap_expr_with_collect(working_set, expr),
-            span: *span,
-            append: *append,
+            span,
+            append,
         },
-        RedirectionTarget::Pipe { span } => RedirectionTarget::Pipe { span: *span },
+        RedirectionTarget::Pipe { span } => RedirectionTarget::Pipe { span },
     }
 }
 
 fn wrap_element_with_collect(
     working_set: &mut StateWorkingSet,
-    element: &PipelineElement,
+    element: PipelineElement,
 ) -> PipelineElement {
     PipelineElement {
         pipe: element.pipe,
-        expr: wrap_expr_with_collect(working_set, &element.expr),
-        redirection: element.redirection.as_ref().map(|r| match r {
+        expr: wrap_expr_with_collect(working_set, element.expr),
+        redirection: element.redirection.map(|r| match r {
             PipelineRedirection::Single { source, target } => PipelineRedirection::Single {
-                source: *source,
+                source,
                 target: wrap_redirection_with_collect(working_set, target),
             },
             PipelineRedirection::Separate { out, err } => PipelineRedirection::Separate {
@@ -6302,65 +6279,24 @@ fn wrap_element_with_collect(
     }
 }
 
-fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) -> Expression {
+fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -> Expression {
     let span = expr.span;
 
-    if let Some(decl_id) = working_set.find_decl(b"collect") {
-        let mut output = vec![];
+    // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
+    // execute as a closure
+    let var_id = working_set.add_variable(b"$in".into(), expr.span, Type::Any, false);
+    let mut expr = expr.clone();
+    expr.replace_in_variable(working_set, var_id);
 
-        let var_id = IN_VARIABLE_ID;
-        let mut signature = Signature::new("");
-        signature.required_positional.push(PositionalArg {
-            var_id: Some(var_id),
-            name: "$in".into(),
-            desc: String::new(),
-            shape: SyntaxShape::Any,
-            default_value: None,
-        });
-
-        let mut block = Block {
-            pipelines: vec![Pipeline::from_vec(vec![expr.clone()])],
-            signature: Box::new(signature),
-            ..Default::default()
-        };
-
-        compile_block(working_set, &mut block);
-
-        let block_id = working_set.add_block(Arc::new(block));
-
-        output.push(Argument::Positional(Expression::new(
-            working_set,
-            Expr::Closure(block_id),
-            span,
-            Type::Any,
-        )));
-
-        output.push(Argument::Named((
-            Spanned {
-                item: "keep-env".to_string(),
-                span: Span::new(0, 0),
-            },
-            None,
-            None,
-        )));
-
-        // The containing, synthetic call to `collect`.
-        // We don't want to have a real span as it will confuse flattening
-        // The args are where we'll get the real info
-        Expression::new(
-            working_set,
-            Expr::Call(Box::new(Call {
-                head: Span::new(0, 0),
-                arguments: output,
-                decl_id,
-                parser_info: HashMap::new(),
-            })),
-            span,
-            Type::Any,
-        )
-    } else {
-        Expression::garbage(working_set, span)
-    }
+    // Bind the custom `$in` variable for that particular expression
+    let ty = expr.ty.clone();
+    Expression::new(
+        working_set,
+        Expr::Collect(var_id, Box::new(expr)),
+        span,
+        // We can expect it to have the same result type
+        ty,
+    )
 }
 
 // Parses a vector of u8 to create an AST Block. If a file name is given, then

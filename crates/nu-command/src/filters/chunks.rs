@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ListStream;
+use std::num::NonZeroUsize;
 
 #[derive(Clone)]
 pub struct Chunks;
@@ -89,26 +90,33 @@ impl Command for Chunks {
                 span: chunk_size.span(),
             })?;
 
-        if size == 0 {
-            return Err(ShellError::IncorrectValue {
-                msg: "`chunk_size` cannot be zero".into(),
-                val_span: chunk_size.span(),
-                call_span: head,
-            });
-        }
+        let size = NonZeroUsize::try_from(size).map_err(|_| ShellError::IncorrectValue {
+            msg: "`chunk_size` cannot be zero".into(),
+            val_span: chunk_size.span(),
+            call_span: head,
+        })?;
 
-        match input {
-            PipelineData::Value(Value::List { vals, .. }, metadata) => {
-                let chunks = ChunksIter::new(vals, size, head);
-                let stream = ListStream::new(chunks, head, engine_state.signals().clone());
-                Ok(PipelineData::ListStream(stream, metadata))
-            }
-            PipelineData::ListStream(stream, metadata) => {
-                let stream = stream.modify(|iter| ChunksIter::new(iter, size, head));
-                Ok(PipelineData::ListStream(stream, metadata))
-            }
-            input => Err(input.unsupported_input_error("list", head)),
+        chunks(engine_state, input, size, head)
+    }
+}
+
+pub fn chunks(
+    engine_state: &EngineState,
+    input: PipelineData,
+    chunk_size: NonZeroUsize,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    match input {
+        PipelineData::Value(Value::List { vals, .. }, metadata) => {
+            let chunks = ChunksIter::new(vals, chunk_size, span);
+            let stream = ListStream::new(chunks, span, engine_state.signals().clone());
+            Ok(PipelineData::ListStream(stream, metadata))
         }
+        PipelineData::ListStream(stream, metadata) => {
+            let stream = stream.modify(|iter| ChunksIter::new(iter, chunk_size, span));
+            Ok(PipelineData::ListStream(stream, metadata))
+        }
+        input => Err(input.unsupported_input_error("list", span)),
     }
 }
 
@@ -119,10 +127,10 @@ struct ChunksIter<I: Iterator<Item = Value>> {
 }
 
 impl<I: Iterator<Item = Value>> ChunksIter<I> {
-    fn new(iter: impl IntoIterator<IntoIter = I>, size: usize, span: Span) -> Self {
+    fn new(iter: impl IntoIterator<IntoIter = I>, size: NonZeroUsize, span: Span) -> Self {
         Self {
             iter: iter.into_iter(),
-            size,
+            size: size.into(),
             span,
         }
     }

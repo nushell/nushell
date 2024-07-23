@@ -22,7 +22,7 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ast::Operator, engine::Closure, ByteStreamType, Config, LabeledError, PipelineData,
+    ast::Operator, engine::Closure, ByteStreamType, Config, DeclId, LabeledError, PipelineData,
     PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
 };
 use nu_utils::SharedCow;
@@ -496,6 +496,21 @@ pub enum EngineCall<D> {
         /// Whether to redirect stderr from external commands
         redirect_stderr: bool,
     },
+    /// Find a declaration by name
+    FindDecl(String),
+    /// Call a declaration with args
+    CallDecl {
+        /// The id of the declaration to be called (can be found with `FindDecl`)
+        decl_id: DeclId,
+        /// Information about the call (head span, arguments, etc.)
+        call: EvaluatedCall,
+        /// Pipeline input to the call
+        input: D,
+        /// Whether to redirect stdout from external commands
+        redirect_stdout: bool,
+        /// Whether to redirect stderr from external commands
+        redirect_stderr: bool,
+    },
 }
 
 impl<D> EngineCall<D> {
@@ -513,6 +528,8 @@ impl<D> EngineCall<D> {
             EngineCall::LeaveForeground => "LeaveForeground",
             EngineCall::GetSpanContents(_) => "GetSpanContents",
             EngineCall::EvalClosure { .. } => "EvalClosure",
+            EngineCall::FindDecl(_) => "FindDecl",
+            EngineCall::CallDecl { .. } => "CallDecl",
         }
     }
 
@@ -546,6 +563,20 @@ impl<D> EngineCall<D> {
                 redirect_stdout,
                 redirect_stderr,
             },
+            EngineCall::FindDecl(name) => EngineCall::FindDecl(name),
+            EngineCall::CallDecl {
+                decl_id,
+                call,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            } => EngineCall::CallDecl {
+                decl_id,
+                call,
+                input: f(input)?,
+                redirect_stdout,
+                redirect_stderr,
+            },
         })
     }
 }
@@ -558,6 +589,7 @@ pub enum EngineCallResponse<D> {
     PipelineData(D),
     Config(SharedCow<Config>),
     ValueMap(HashMap<String, Value>),
+    Identifier(usize),
 }
 
 impl<D> EngineCallResponse<D> {
@@ -572,6 +604,7 @@ impl<D> EngineCallResponse<D> {
             EngineCallResponse::PipelineData(data) => EngineCallResponse::PipelineData(f(data)?),
             EngineCallResponse::Config(config) => EngineCallResponse::Config(config),
             EngineCallResponse::ValueMap(map) => EngineCallResponse::ValueMap(map),
+            EngineCallResponse::Identifier(id) => EngineCallResponse::Identifier(id),
         })
     }
 }

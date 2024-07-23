@@ -329,6 +329,12 @@ fn convert_to_value(
             msg: "glob interpolation not supported in nuon".into(),
             span: expr.span,
         }),
+        Expr::Collect(..) => Err(ShellError::OutsideSpannedLabeledError {
+            src: original_text.to_string(),
+            error: "Error when loading".into(),
+            msg: "`$in` not supported in nuon".into(),
+            span: expr.span,
+        }),
         Expr::Subexpression(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),
