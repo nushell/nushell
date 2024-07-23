@@ -99,7 +99,8 @@ impl Command for EncodeBase64 {
                 (Type::Binary, Type::String),
             ])
             .allow_variants_without_examples(true)
-            .required("encoding", SyntaxShape::String, "encoding to use")
+            .switch("url", "Use the URL-safe Base64 version.", None)
+            .switch("nopad", "Don't pad the output.", None)
             .category(Category::Formats)
     }
 
