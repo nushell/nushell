@@ -56,6 +56,12 @@ impl Signals {
         }
     }
 
+    pub fn trigger(&self) {
+        if let Some(signals) = &self.signals {
+            signals.store(true, Ordering::Relaxed);
+        }
+    }
+
     /// Returns whether an interrupt has been triggered.
     #[inline]
     pub fn interrupted(&self) -> bool {

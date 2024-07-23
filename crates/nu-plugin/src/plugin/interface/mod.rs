@@ -18,7 +18,7 @@ use nu_protocol::{
 use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
-    sync::{mpsc, Arc},
+    sync::{atomic::AtomicBool, mpsc, Arc},
 };
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
@@ -64,6 +64,8 @@ struct EngineInterfaceState {
         mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
+    // Mirror signals from `EngineState`
+    signals: Signals,
     /// Registered Ctrl-C handlers
     ctrlc_handlers: ctrlc::Handlers,
 }
@@ -119,6 +121,7 @@ impl EngineInterfaceManager {
                 stream_id_sequence: Sequence::default(),
                 engine_call_subscription_sender: subscription_tx,
                 writer: Box::new(writer),
+                signals: Signals::new(Arc::new(AtomicBool::new(false))),
                 ctrlc_handlers: ctrlc::Handlers::new(),
             }),
             protocol_info_mut,
@@ -239,7 +242,6 @@ impl InterfaceManager for EngineInterfaceManager {
 
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
         log::trace!("from engine: {:?}", input);
-
         match input {
             PluginInput::Hello(info) => {
                 let info = Arc::new(info);
@@ -336,6 +338,7 @@ impl InterfaceManager for EngineInterfaceManager {
                 self.send_engine_call_response(id, response)
             }
             PluginInput::Ctrlc => {
+                self.state.signals.trigger();
                 self.state.ctrlc_handlers.run();
                 Ok(())
             }
@@ -974,6 +977,10 @@ impl EngineInterface {
         let response = PluginCallResponse::Ordering(ordering.map(|o| o.into()));
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
+    }
+
+    pub fn signals(&self) -> &Signals {
+        &self.state.signals
     }
 }
 

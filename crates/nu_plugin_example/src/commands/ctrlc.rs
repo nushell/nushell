@@ -41,6 +41,7 @@ impl PluginCommand for Ctrlc {
 
         eprintln!("waiting for ctrl-c signal...");
         receiver.recv().expect("handler went away");
+        eprintln!("interrupt status: {:?}", engine.signals().interrupted());
         eprintln!("peace.");
 
         Ok(PipelineData::Empty)
