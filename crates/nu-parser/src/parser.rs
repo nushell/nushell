@@ -4855,11 +4855,11 @@ pub fn parse_assignment_expression(
     }
 
     // Parse the lhs and operator as usual for a math expression
-    let lhs = parse_expression(working_set, lhs_spans);
-    let operator = parse_assignment_operator(working_set, op_span);
+    let mut lhs = parse_expression(working_set, lhs_spans);
+    let mut operator = parse_assignment_operator(working_set, op_span);
 
     // Re-parse the right-hand side as a subexpression
-    let rhs_span = Span::concat(&rhs_spans);
+    let rhs_span = Span::concat(rhs_spans);
 
     let (rhs_tokens, rhs_error) = lex(
         working_set.get_span_contents(rhs_span),
@@ -4874,26 +4874,23 @@ pub fn parse_assignment_expression(
     let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true);
     let rhs_ty = rhs_block.output_type();
     let rhs_block_id = working_set.add_block(Arc::new(rhs_block));
-    let rhs = Expression::new(
+    let mut rhs = Expression::new(
         working_set,
         Expr::Subexpression(rhs_block_id),
         rhs_span,
         rhs_ty,
     );
 
-    if !type_compatible(&lhs.ty, &rhs.ty) {
-        working_set.parse_errors.push(ParseError::TypeMismatch(
-            lhs.ty.clone(),
-            rhs.ty.clone(),
-            rhs_span,
-        ));
+    let (result_ty, err) = math_result_type(working_set, &mut lhs, &mut operator, &mut rhs);
+    if let Some(err) = err {
+        working_set.parse_errors.push(err);
     }
 
     Expression::new(
         working_set,
         Expr::BinaryOp(Box::new(lhs), Box::new(operator), Box::new(rhs)),
         expr_span,
-        Type::Nothing,
+        result_ty,
     )
 }
 

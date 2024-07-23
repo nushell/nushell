@@ -20,7 +20,7 @@ fn mutate_nu_config_nested_ls() -> TestResult {
 fn mutate_nu_config_nested_table() -> TestResult {
     run_test_std(
         r#"
-            $env.config.table.trim.methodology = wrapping
+            $env.config.table.trim.methodology = 'wrapping'
             $env.config.table.trim.wrapping_try_keep_words = false
             $env.config.table.trim.wrapping_try_keep_words
         "#,

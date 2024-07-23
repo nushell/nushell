@@ -144,7 +144,7 @@ fn errors_if_attempting_to_delete_home() {
     Playground::setup("rm_test_8", |dirs, _| {
         let actual = nu!(
             cwd: dirs.root(),
-            "$env.HOME = myhome ; rm -rf ~"
+            "$env.HOME = 'myhome' ; rm -rf ~"
         );
 
         assert!(actual.err.contains("please use -I or -i"));

@@ -2567,7 +2567,7 @@ fn theme_cmd(theme: &str, footer: bool, then: &str) -> String {
         with_footer = "$env.config.footer_mode = \"always\"".to_string();
     }
 
-    format!("$env.config.table.mode = {theme}; $env.config.table.header_on_separator = true; {with_footer}; {then}")
+    format!("$env.config.table.mode = \"{theme}\"; $env.config.table.header_on_separator = true; {with_footer}; {then}")
 }
 
 #[test]

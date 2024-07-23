@@ -1142,18 +1142,17 @@ fn test_nothing_comparison_eq() {
 #[rstest]
 #[case(b"let a = 1 err> /dev/null")]
 #[case(b"let a = 1 out> /dev/null")]
-#[case(b"mut a = 1 err> /dev/null")]
-#[case(b"mut a = 1 out> /dev/null")]
 #[case(b"let a = 1 out+err> /dev/null")]
-#[case(b"mut a = 1 out+err> /dev/null")]
-fn test_redirection_with_letmut(#[case] phase: &[u8]) {
+fn test_redirection_with_let(#[case] phase: &[u8]) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
+    working_set.add_decl(Box::new(Let));
     let _block = parse(&mut working_set, None, phase, true);
-    assert!(matches!(
-        working_set.parse_errors.first(),
-        Some(ParseError::RedirectingBuiltinCommand(_, _, _))
-    ));
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "parse errors: {:?}",
+        working_set.parse_errors
+    );
 }
 
 #[rstest]
