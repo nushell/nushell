@@ -1,5 +1,5 @@
 use crate::{
-    lex::{is_assignment_operator, lex, lex_alternating_special_tokens, lex_signature},
+    lex::{is_assignment_operator, lex, lex_n_tokens, lex_signature, LexState},
     lite_parser::{lite_parse, LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget},
     parse_keywords::*,
     parse_patterns::parse_pattern,
@@ -5665,10 +5665,32 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     }
 
     let inner_span = Span::new(start, end);
-    let source = working_set.get_span_contents(inner_span);
 
-    let (tokens, err) =
-        lex_alternating_special_tokens(source, start, &[b'\n', b'\r', b','], &[b':'], true);
+    let mut lex_state = LexState {
+        input: working_set.get_span_contents(inner_span),
+        output: Vec::new(),
+        error: None,
+        span_offset: start,
+    };
+    let mut lex_n = |additional_whitespace, special_tokens, max_tokens| {
+        lex_n_tokens(
+            &mut lex_state,
+            additional_whitespace,
+            special_tokens,
+            true,
+            max_tokens,
+        )
+    };
+    loop {
+        if lex_n(&[b'\n', b'\r', b','], &[b':'], 2) < 2 {
+            break;
+        };
+        if lex_n(&[b'\n', b'\r', b','], &[], 1) < 1 {
+            break;
+        };
+    }
+    let (tokens, err) = (lex_state.output, lex_state.error);
+
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -5760,48 +5782,50 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
             idx += 1;
 
-            let bareword_error = |string_value: &Expression| {
-                working_set
-                    .get_span_contents(string_value.span)
-                    .iter()
-                    .find_position(|b| **b == b':')
-                    .map(|(i, _)| {
-                        let colon_position = i + string_value.span.start;
-                        ParseError::InvalidLiteral(
-                            "colon".to_string(),
-                            "bare word specifying record value".to_string(),
-                            Span::new(colon_position, colon_position + 1),
-                        )
-                    })
-            };
-            let value_span = working_set.get_span_contents(value.span);
-            let parse_error = match value.expr {
-                Expr::String(_) => {
-                    if ![b'"', b'\'', b'`'].contains(&value_span[0]) {
-                        bareword_error(&value)
-                    } else {
-                        None
-                    }
-                }
-                Expr::StringInterpolation(ref expressions) => {
-                    if value_span[0] != b'$' {
-                        expressions
-                            .iter()
-                            .filter(|expr| matches!(expr.expr, Expr::String(_)))
-                            .filter_map(bareword_error)
-                            .next()
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            };
-            let value = if let Some(parse_error) = parse_error {
-                working_set.error(parse_error);
-                garbage(working_set, value.span)
-            } else {
-                value
-            };
+            // Disallow colons in bare word values
+
+            // let bareword_error = |string_value: &Expression| {
+            //     working_set
+            //         .get_span_contents(string_value.span)
+            //         .iter()
+            //         .find_position(|b| **b == b':')
+            //         .map(|(i, _)| {
+            //             let colon_position = i + string_value.span.start;
+            //             ParseError::InvalidLiteral(
+            //                 "colon".to_string(),
+            //                 "bare word specifying record value".to_string(),
+            //                 Span::new(colon_position, colon_position + 1),
+            //             )
+            //         })
+            // };
+            // let value_span = working_set.get_span_contents(value.span);
+            // let parse_error = match value.expr {
+            //     Expr::String(_) => {
+            //         if ![b'"', b'\'', b'`'].contains(&value_span[0]) {
+            //             bareword_error(&value)
+            //         } else {
+            //             None
+            //         }
+            //     }
+            //     Expr::StringInterpolation(ref expressions) => {
+            //         if value_span[0] != b'$' {
+            //             expressions
+            //                 .iter()
+            //                 .filter(|expr| matches!(expr.expr, Expr::String(_)))
+            //                 .filter_map(bareword_error)
+            //                 .next()
+            //         } else {
+            //             None
+            //         }
+            //     }
+            //     _ => None,
+            // };
+            // let value = if let Some(parse_error) = parse_error {
+            //     working_set.error(parse_error);
+            //     garbage(working_set, value.span)
+            // } else {
+            //     value
+            // };
 
             if let Some(field) = field.as_string() {
                 if let Some(fields) = &mut field_types {
