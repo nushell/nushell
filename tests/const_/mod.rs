@@ -415,3 +415,9 @@ fn const_raw_string() {
     let actual = nu!(r#"const x = r#'abc'#; $x"#);
     assert_eq!(actual.out, "abc");
 }
+
+#[test]
+fn const_takes_pipeline() {
+    let actual = nu!(r#"const list = 'bar_baz_quux' | split row '_'; $list | length"#);
+    assert_eq!(actual.out, "3");
+}

@@ -46,6 +46,13 @@ fn mut_takes_pipeline() {
 }
 
 #[test]
+fn mut_takes_pipeline_with_declared_type() {
+    let actual = nu!(r#"mut x: list<string> = [] | append "hello world"; print $x.0"#);
+
+    assert_eq!(actual.out, "hello world");
+}
+
+#[test]
 fn mut_pipeline_allows_in() {
     let actual =
         nu!(r#"def foo [] { mut x = $in | str length; print ($x + 10) }; "hello world" | foo"#);
