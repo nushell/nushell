@@ -116,7 +116,7 @@ mockito = { version = "1.4", default-features = false }
 native-tls = "0.2"
 nix = { version = "0.28", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }
-nu-ansi-term = "0.50.0"
+nu-ansi-term = "0.50.1"
 num-format = "0.4"
 num-traits = "0.2"
 omnipath = "0.1"
@@ -138,7 +138,7 @@ quote = "1.0"
 rand = "0.8"
 ratatui = "0.26"
 rayon = "1.10"
-reedline = "0.32.0"
+reedline = "0.33.0"
 regex = "1.9.5"
 rmp = "0.8"
 rmp-serde = "1.3"
