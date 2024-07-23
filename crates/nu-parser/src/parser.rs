@@ -5789,69 +5789,24 @@ pub(crate) fn redirecting_builtin_error(
 }
 
 pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline) -> Pipeline {
-    let first_command = pipeline.commands.first();
-    let first_command_name = first_command
-        .and_then(|command| command.parts.first())
-        .map(|span| working_set.get_span_contents(*span));
-
     if pipeline.commands.len() > 1 {
-        // Special case: allow "let" or "mut" to consume the whole pipeline, if this is a pipeline
-        // with multiple commands
-        if matches!(first_command_name, Some(b"let" | b"mut")) {
-            // Merge the pipeline into one command
-            let first_command = first_command.expect("must be Some");
+        // Parse a normal multi command pipeline
+        let elements: Vec<_> = pipeline
+            .commands
+            .iter()
+            .enumerate()
+            .map(|(index, element)| {
+                let element = parse_pipeline_element(working_set, element);
+                // Handle $in for pipeline elements beyond the first one
+                if index > 0 && element.has_in_variable(working_set) {
+                    wrap_element_with_collect(working_set, element.clone())
+                } else {
+                    element
+                }
+            })
+            .collect();
 
-            let remainder_span = first_command
-                .parts_including_redirection()
-                .skip(3)
-                .chain(
-                    pipeline.commands[1..]
-                        .iter()
-                        .flat_map(|command| command.parts_including_redirection()),
-                )
-                .reduce(Span::append);
-
-            let parts = first_command
-                .parts
-                .iter()
-                .take(3) // the let/mut start itself
-                .copied()
-                .chain(remainder_span) // everything else
-                .collect();
-
-            let comments = pipeline
-                .commands
-                .iter()
-                .flat_map(|command| command.comments.iter())
-                .copied()
-                .collect();
-
-            let new_command = LiteCommand {
-                pipe: None,
-                comments,
-                parts,
-                redirection: None,
-            };
-            parse_builtin_commands(working_set, &new_command)
-        } else {
-            // Parse a normal multi command pipeline
-            let elements: Vec<_> = pipeline
-                .commands
-                .iter()
-                .enumerate()
-                .map(|(index, element)| {
-                    let element = parse_pipeline_element(working_set, element);
-                    // Handle $in for pipeline elements beyond the first one
-                    if index > 0 && element.has_in_variable(working_set) {
-                        wrap_element_with_collect(working_set, element.clone())
-                    } else {
-                        element
-                    }
-                })
-                .collect();
-
-            Pipeline { elements }
-        }
+        Pipeline { elements }
     } else {
         // If there's only one command in the pipeline, this could be a builtin command
         parse_builtin_commands(working_set, &pipeline.commands[0])
