@@ -3,11 +3,11 @@ use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Record, Span, Value};
 use tabled::{
     grid::{
-        color::{AnsiColor, StaticColor},
+        ansi::{ANSIBuf, ANSIStr},
         config::{AlignmentHorizontal, Borders, CompactMultilineConfig},
         dimension::{DimensionPriority, PoolTableDimension},
     },
-    settings::{style::RawStyle, Color, Padding, TableOption},
+    settings::{Color, Padding, TableOption, Theme},
     tables::{PoolTable, TableValue},
 };
 
@@ -53,7 +53,7 @@ fn build_table(
     let mut table = PoolTable::from(val);
 
     let mut theme = theme.get_theme_full();
-    theme.set_horizontals(std::collections::HashMap::default());
+    theme.remove_horizontal_lines();
 
     table.with(Padding::new(indent.0, indent.1, 0, 0));
     table.with(SetRawStyle(theme));
@@ -73,12 +73,13 @@ fn build_table(
         // We just need this unsafe section to cope with some limitations of [`PoolTable`].
         // Mitigation of this is definitely on a todo list.
 
-        let color: AnsiColor<'_> = color.into();
+        let color: ANSIBuf = color.into();
         let prefix = color.get_prefix();
         let suffix = color.get_suffix();
         let prefix: &'static str = unsafe { std::mem::transmute(prefix) };
         let suffix: &'static str = unsafe { std::mem::transmute(suffix) };
-        table.with(SetBorderColor(StaticColor::new(prefix, suffix)));
+
+        table.with(SetBorderColor(ANSIStr::new(prefix, suffix)));
         let table = table.to_string();
 
         return table;
@@ -217,29 +218,29 @@ fn get_columns_in_record(vals: &[Value]) -> Vec<String> {
     }
 }
 
-struct SetRawStyle(RawStyle);
+struct SetRawStyle(Theme);
 
-impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetRawStyle {
+impl<R, D> TableOption<R, CompactMultilineConfig, D> for SetRawStyle {
     fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
-        let borders = self.0.get_borders();
-        *cfg = cfg.set_borders(borders);
+        let borders = *self.0.get_borders();
+        cfg.set_borders(borders);
     }
 }
 
-struct SetBorderColor(StaticColor);
+struct SetBorderColor(ANSIStr<'static>);
 
-impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetBorderColor {
+impl<R, D> TableOption<R, CompactMultilineConfig, D> for SetBorderColor {
     fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
         let borders = Borders::filled(self.0);
-        *cfg = cfg.set_borders_color(borders);
+        cfg.set_borders_color(borders);
     }
 }
 
 struct SetAlignment(AlignmentHorizontal);
 
-impl<R, D> TableOption<R, D, CompactMultilineConfig> for SetAlignment {
+impl<R, D> TableOption<R, CompactMultilineConfig, D> for SetAlignment {
     fn change(self, _: &mut R, cfg: &mut CompactMultilineConfig, _: &mut D) {
-        *cfg = cfg.set_alignment_horizontal(self.0);
+        cfg.set_alignment_horizontal(self.0);
     }
 }
 

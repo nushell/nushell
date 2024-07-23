@@ -366,7 +366,7 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> StringResult {
         // we could use Padding for it but,
         // the easiest way to do so is just push a new_line char before
         let mut key = key.to_owned();
-        if !key.is_empty() && is_expanded && theme.has_top_line() {
+        if !key.is_empty() && is_expanded && theme.has_top() {
             key.insert(0, '\n');
         }
 

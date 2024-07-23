@@ -2,7 +2,7 @@ mod common;
 
 use common::create_row as row;
 use nu_table::{NuTable, NuTableConfig, TableTheme as theme};
-use tabled::grid::records::vec_records::CellInfo;
+use tabled::grid::records::vec_records::Text;
 
 #[test]
 fn test_rounded() {
@@ -451,7 +451,7 @@ fn test_with_love() {
     assert_eq!(create_table_with_size(vec![], true, theme::with_love()), "");
 }
 
-fn create_table(data: Vec<Vec<CellInfo<String>>>, with_header: bool, theme: theme) -> String {
+fn create_table(data: Vec<Vec<Text<String>>>, with_header: bool, theme: theme) -> String {
     let config = NuTableConfig {
         theme,
         with_header,
@@ -463,11 +463,7 @@ fn create_table(data: Vec<Vec<CellInfo<String>>>, with_header: bool, theme: them
     out.expect("not expected to get None")
 }
 
-fn create_table_with_size(
-    data: Vec<Vec<CellInfo<String>>>,
-    with_header: bool,
-    theme: theme,
-) -> String {
+fn create_table_with_size(data: Vec<Vec<Text<String>>>, with_header: bool, theme: theme) -> String {
     let config = NuTableConfig {
         theme,
         with_header,

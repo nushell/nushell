@@ -148,7 +148,7 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 strip-ansi-escapes = "0.2.0"
 sysinfo = "0.30"
-tabled = { version = "0.14.0", default-features = false }
+tabled = { git = "https://github.com/zhiburt/tabled/", rev = "595b6cd0b0dc8c98033f0be0e18796222ffc0c9a", default-features = false }
 tempfile = "3.10"
 terminal_size = "0.3"
 titlecase = "2.0"
