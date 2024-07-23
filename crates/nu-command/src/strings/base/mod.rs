@@ -1,19 +1,19 @@
+#![allow(unused)]
+
 use data_encoding::Encoding;
 
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
-
-mod decode_base32;
-mod decode_base32hex;
-mod decode_base64;
-mod decode_hex;
-mod encode_base32;
-mod encode_base32hex;
-mod encode_base64;
-mod encode_hex;
+use nu_engine::command_prelude::*;
 
 mod base32;
+mod base32hex;
+mod base64;
+mod hex;
 
-fn decode(
+pub use base32::{DecodeBase32, EncodeBase32};
+pub use base32hex::{DecodeBase32Hex, EncodeBase32Hex};
+pub use hex::{DecodeHex, EncodeHex};
+
+pub fn decode(
     encoding: Encoding,
     call_span: Span,
     input: PipelineData,
@@ -34,7 +34,7 @@ fn decode(
     Ok(Value::binary(output, call_span).into_pipeline_data_with_metadata(metadata))
 }
 
-fn encode(
+pub fn encode(
     encoding: Encoding,
     call_span: Span,
     input: PipelineData,

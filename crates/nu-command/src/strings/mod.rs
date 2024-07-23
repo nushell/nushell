@@ -8,7 +8,9 @@ mod parse;
 mod split;
 mod str_;
 
-pub use base::{DecodeBase, EncodeBase};
+pub use base::{
+    DecodeBase32, DecodeBase32Hex, DecodeHex, EncodeBase32, EncodeBase32Hex, EncodeHex,
+};
 pub use char_::Char;
 pub use detect_columns::*;
 pub use encode_decode::*;
