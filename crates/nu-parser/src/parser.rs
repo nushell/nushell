@@ -5645,6 +5645,49 @@ pub fn parse_builtin_commands(
     }
 }
 
+fn check_record_key_or_value(
+    working_set: &StateWorkingSet,
+    expr: &Expression,
+    position: &str,
+) -> Option<ParseError> {
+    let bareword_error = |string_value: &Expression| {
+        working_set
+            .get_span_contents(string_value.span)
+            .iter()
+            .find_position(|b| **b == b':')
+            .map(|(i, _)| {
+                let colon_position = i + string_value.span.start;
+                ParseError::InvalidLiteral(
+                    "colon".to_string(),
+                    format!("bare word specifying record {}", position),
+                    Span::new(colon_position, colon_position + 1),
+                )
+            })
+    };
+    let value_span = working_set.get_span_contents(expr.span);
+    match expr.expr {
+        Expr::String(_) => {
+            if ![b'"', b'\'', b'`'].contains(&value_span[0]) {
+                bareword_error(expr)
+            } else {
+                None
+            }
+        }
+        Expr::StringInterpolation(ref expressions) => {
+            if value_span[0] != b'$' {
+                expressions
+                    .iter()
+                    .filter(|expr| matches!(expr.expr, Expr::String(_)))
+                    .filter_map(bareword_error)
+                    .next()
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
 pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
 
@@ -5734,7 +5777,22 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             ));
         } else {
             // Normal key-value pair
-            let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+            let field_token = &tokens[idx];
+            let field = if field_token.contents != TokenContents::Item {
+                working_set.error(ParseError::Expected(
+                    "item in record key position",
+                    Span::new(field_token.span.start, field_token.span.end),
+                ));
+                garbage(working_set, curr_span)
+            } else {
+                let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+                if let Some(error) = check_record_key_or_value(working_set, &field, "key") {
+                    working_set.error(error);
+                    garbage(working_set, field.span)
+                } else {
+                    field
+                }
+            };
 
             idx += 1;
             if idx == tokens.len() {
@@ -5779,53 +5837,28 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                 ));
                 break;
             }
-            let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+
+            let value_token = &tokens[idx];
+            let value = if value_token.contents != TokenContents::Item {
+                working_set.error(ParseError::Expected(
+                    "item in record value position",
+                    Span::new(value_token.span.start, value_token.span.end),
+                ));
+                garbage(
+                    working_set,
+                    Span::new(value_token.span.start, value_token.span.end),
+                )
+            } else {
+                let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+                if let Some(parse_error) = check_record_key_or_value(&working_set, &value, "value")
+                {
+                    working_set.error(parse_error);
+                    garbage(working_set, value.span)
+                } else {
+                    value
+                }
+            };
             idx += 1;
-
-            // Disallow colons in bare word values
-
-            // let bareword_error = |string_value: &Expression| {
-            //     working_set
-            //         .get_span_contents(string_value.span)
-            //         .iter()
-            //         .find_position(|b| **b == b':')
-            //         .map(|(i, _)| {
-            //             let colon_position = i + string_value.span.start;
-            //             ParseError::InvalidLiteral(
-            //                 "colon".to_string(),
-            //                 "bare word specifying record value".to_string(),
-            //                 Span::new(colon_position, colon_position + 1),
-            //             )
-            //         })
-            // };
-            // let value_span = working_set.get_span_contents(value.span);
-            // let parse_error = match value.expr {
-            //     Expr::String(_) => {
-            //         if ![b'"', b'\'', b'`'].contains(&value_span[0]) {
-            //             bareword_error(&value)
-            //         } else {
-            //             None
-            //         }
-            //     }
-            //     Expr::StringInterpolation(ref expressions) => {
-            //         if value_span[0] != b'$' {
-            //             expressions
-            //                 .iter()
-            //                 .filter(|expr| matches!(expr.expr, Expr::String(_)))
-            //                 .filter_map(bareword_error)
-            //                 .next()
-            //         } else {
-            //             None
-            //         }
-            //     }
-            //     _ => None,
-            // };
-            // let value = if let Some(parse_error) = parse_error {
-            //     working_set.error(parse_error);
-            //     garbage(working_set, value.span)
-            // } else {
-            //     value
-            // };
 
             if let Some(field) = field.as_string() {
                 if let Some(fields) = &mut field_types {
