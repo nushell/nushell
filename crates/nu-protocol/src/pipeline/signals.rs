@@ -56,6 +56,7 @@ impl Signals {
         }
     }
 
+    /// Triggers an interrupt.
     pub fn trigger(&self) {
         if let Some(signals) = &self.signals {
             signals.store(true, Ordering::Relaxed);
