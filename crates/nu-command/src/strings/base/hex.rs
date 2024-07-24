@@ -5,11 +5,11 @@ pub struct DecodeHex;
 
 impl Command for DecodeHex {
     fn name(&self) -> &str {
-        "decode base"
+        "decode hex"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("decode base")
+        Signature::build("decode hex")
             .input_output_types(vec![(Type::String, Type::Binary)])
             .allow_variants_without_examples(true)
             .category(Category::Formats)
@@ -20,7 +20,18 @@ impl Command for DecodeHex {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Decode arbitrary binary data",
+                example: r#""09FD" | decode hex"#,
+                result: Some(Value::test_binary(vec![0x09, 0xFD])),
+            },
+            Example {
+                description: "Lowercase Hex is also accepted",
+                example: r#""09fd" | decode hex"#,
+                result: Some(Value::test_binary(vec![0x09, 0xFD])),
+            },
+        ]
     }
 
     fn is_const(&self) -> bool {
@@ -71,7 +82,23 @@ impl Command for EncodeHex {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Encode a binary value",
+                example: r#"0x[C3 06] | encode hex"#,
+                result: Some(Value::test_string("C306")),
+            },
+            Example {
+                description: "Encode a string",
+                example: r#""hello" | encode hex"#,
+                result: Some(Value::test_string("68656C6C6F")),
+            },
+            Example {
+                description: "Output a Lowercase version of the encoding",
+                example: r#"0x[AD EF] | encode hex --lower"#,
+                result: Some(Value::test_string("adef")),
+            },
+        ]
     }
 
     fn is_const(&self) -> bool {
