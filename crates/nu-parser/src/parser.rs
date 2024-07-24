@@ -5850,8 +5850,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                 )
             } else {
                 let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
-                if let Some(parse_error) = check_record_key_or_value(&working_set, &value, "value")
-                {
+                if let Some(parse_error) = check_record_key_or_value(working_set, &value, "value") {
                     working_set.error(parse_error);
                     garbage(working_set, value.span)
                 } else {
