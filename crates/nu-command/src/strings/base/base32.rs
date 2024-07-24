@@ -2,6 +2,10 @@ use data_encoding::Encoding;
 
 use nu_engine::command_prelude::*;
 
+const EXTRA_USAGE: &'static str = r"The default alphabet is taken from RFC 4648, section 6.
+
+Note this command will collect stream input.";
+
 #[derive(Clone)]
 pub struct DecodeBase32;
 
@@ -19,11 +23,11 @@ impl Command for DecodeBase32 {
     }
 
     fn usage(&self) -> &str {
-        "Decode a value."
+        "Decode a Base32 value."
     }
 
     fn extra_usage(&self) -> &str {
-        "TODO"
+        EXTRA_USAGE
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -80,17 +84,15 @@ impl Command for EncodeBase32 {
             ])
             .allow_variants_without_examples(true)
             .switch("nopad", "Don't accept padding.", None)
-            .switch("dnscurve", "Parse as the DNSCURVE Base32 variant.", None)
-            .switch("dnssec", "Parse as the DNSSEC Base32 variant.", None)
             .category(Category::Formats)
     }
 
     fn usage(&self) -> &str {
-        "Encode a value."
+        "Encode a string or binary value using Base32."
     }
 
     fn extra_usage(&self) -> &str {
-        "TODO"
+        EXTRA_USAGE
     }
 
     fn examples(&self) -> Vec<Example> {

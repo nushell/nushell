@@ -2,6 +2,10 @@ use data_encoding::Encoding;
 
 use nu_engine::command_prelude::*;
 
+const EXTRA_USAGE: &'static str = r"The default alphabet is taken from RFC 4648, section 4.  A URL-safe version is available.
+
+Note this command will collect stream input.";
+
 fn get_encoding_from_flags(url: bool, nopad: bool) -> Encoding {
     match (url, nopad) {
         (false, false) => data_encoding::BASE64,
@@ -47,11 +51,11 @@ impl Command for DecodeBase64 {
     }
 
     fn usage(&self) -> &str {
-        "TODO"
+        "Decode a Base64 value."
     }
 
     fn extra_usage(&self) -> &str {
-        "TODO"
+        EXTRA_USAGE
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -105,11 +109,11 @@ impl Command for EncodeBase64 {
     }
 
     fn usage(&self) -> &str {
-        "TODO"
+        "Encode a string or binary value using Base64."
     }
 
     fn extra_usage(&self) -> &str {
-        "TODO"
+        EXTRA_USAGE
     }
 
     fn examples(&self) -> Vec<Example> {

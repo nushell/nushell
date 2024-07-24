@@ -16,11 +16,7 @@ impl Command for DecodeHex {
     }
 
     fn usage(&self) -> &str {
-        "TODO"
-    }
-
-    fn extra_usage(&self) -> &str {
-        "TODO"
+        "Hex decode a value."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -71,11 +67,7 @@ impl Command for EncodeHex {
     }
 
     fn usage(&self) -> &str {
-        "TODO"
-    }
-
-    fn extra_usage(&self) -> &str {
-        "TODO"
+        "Hex encode a binary value or a string."
     }
 
     fn examples(&self) -> Vec<Example> {

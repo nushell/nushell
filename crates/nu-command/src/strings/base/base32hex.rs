@@ -1,5 +1,9 @@
 use nu_engine::command_prelude::*;
 
+const EXTRA_USAGE: &'static str = r"This command uses an alternative Base32 alphabet, defined in RFC 4648, section 7.
+
+Note this command will collect stream input.";
+
 #[derive(Clone)]
 pub struct DecodeBase32Hex;
 
@@ -20,11 +24,11 @@ impl Command for DecodeBase32Hex {
     }
 
     fn usage(&self) -> &str {
-        "Encode a value."
+        "Encode a base32hex value."
     }
 
     fn extra_usage(&self) -> &str {
-        "TODO"
+        EXTRA_USAGE
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -87,11 +91,11 @@ impl Command for EncodeBase32Hex {
     }
 
     fn usage(&self) -> &str {
-        "Encode a value."
+        "Encode a binary value or a string using base32hex."
     }
 
     fn extra_usage(&self) -> &str {
-        "TODO"
+        EXTRA_USAGE
     }
 
     fn examples(&self) -> Vec<Example> {
