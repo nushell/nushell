@@ -2,7 +2,7 @@ use data_encoding::Encoding;
 
 use nu_engine::command_prelude::*;
 
-const EXTRA_USAGE: &'static str = r"The default alphabet is taken from RFC 4648, section 4.  A URL-safe version is available.
+const EXTRA_USAGE: &str = r"The default alphabet is taken from RFC 4648, section 4.  A URL-safe version is available.
 
 Note this command will collect stream input.";
 

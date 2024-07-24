@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 
-const EXTRA_USAGE: &'static str = r"This command uses an alternative Base32 alphabet, defined in RFC 4648, section 7.
+const EXTRA_USAGE: &str = r"This command uses an alternative Base32 alphabet, defined in RFC 4648, section 7.
 
 Note this command will collect stream input.";
 

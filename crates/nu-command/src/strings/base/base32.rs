@@ -2,7 +2,7 @@ use data_encoding::Encoding;
 
 use nu_engine::command_prelude::*;
 
-const EXTRA_USAGE: &'static str = r"The default alphabet is taken from RFC 4648, section 6.
+const EXTRA_USAGE: &str = r"The default alphabet is taken from RFC 4648, section 6.
 
 Note this command will collect stream input.";
 
