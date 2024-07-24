@@ -2,9 +2,9 @@ use super::base64::{operate, ActionType, Base64CommandArguments, CHARACTER_SET_D
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
-pub struct EncodeBase64;
+pub struct EncodeBase64Old;
 
-impl Command for EncodeBase64 {
+impl Command for EncodeBase64Old {
     fn name(&self) -> &str {
         "encode base64"
     }
@@ -118,6 +118,6 @@ mod tests {
 
     #[test]
     fn test_examples() {
-        crate::test_examples(EncodeBase64)
+        crate::test_examples(EncodeBase64Old)
     }
 }
