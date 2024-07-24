@@ -91,7 +91,7 @@ jobs:
 
     # REF: https://github.com/marketplace/actions/gh-release
     - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.6
+      uses: softprops/action-gh-release@v2.0.8
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
         draft: true
