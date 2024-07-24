@@ -31,7 +31,23 @@ impl Command for DecodeBase32 {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Decode arbitrary binary data",
+                example: r#""AEBAGBAF" | decode base32"#,
+                result: Some(Value::test_binary(vec![1, 2, 3, 4, 5])),
+            },
+            Example {
+                description: "Decode an encoded string",
+                example: r#""NBUQ====" | decode base32 | decode"#,
+                result: Some(Value::test_string("hi")),
+            },
+            Example {
+                description: "Parse a string without padding",
+                example: r#""NBUQ" | decode base32 --nopad"#,
+                result: Some(Value::test_binary(vec![68, 69])),
+            },
+        ]
     }
 
     fn is_const(&self) -> bool {
@@ -96,7 +112,23 @@ impl Command for EncodeBase32 {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Encode a binary value",
+                example: r#"0x[01 02 10] | encode base32"#,
+                result: Some(Value::test_string("AEBBA===")),
+            },
+            Example {
+                description: "Encode a string",
+                example: r#""hello there" | encode base32"#,
+                result: Some(Value::test_string("NBSWY3DPEB2GQZLSMU======")),
+            },
+            Example {
+                description: "Don't apply padding to the output",
+                example: r#""hi" | encode base32 --nopad"#,
+                result: Some(Value::test_string("NBUQ")),
+            },
+        ]
     }
 
     fn is_const(&self) -> bool {

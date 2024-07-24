@@ -32,7 +32,23 @@ impl Command for DecodeBase32Hex {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Decode arbitrary binary data",
+                example: r#""ATNAQ===" | decode base32hex"#,
+                result: Some(Value::test_binary(vec![0x57, 0x6E, 0xAD])),
+            },
+            Example {
+                description: "Decode an encoded string",
+                example: r#""D1KG====" | decode base32hex | decode"#,
+                result: Some(Value::test_string("hi")),
+            },
+            Example {
+                description: "Parse a string without padding",
+                example: r#""ATNAQ" | decode base32hex --nopad"#,
+                result: Some(Value::test_binary(vec![0x57, 0x6E, 0xAD])),
+            },
+        ]
     }
 
     fn is_const(&self) -> bool {
@@ -99,7 +115,23 @@ impl Command for EncodeBase32Hex {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Encode a binary value",
+                example: r#"0x[57 6E AD] | encode base32hex"#,
+                result: Some(Value::test_string("ATNAQ===")),
+            },
+            Example {
+                description: "Encode a string",
+                example: r#""hello there" | encode base32hex"#,
+                result: Some(Value::test_string("D1IMOR3F41Q6GPBICK======")),
+            },
+            Example {
+                description: "Don't apply padding to the output",
+                example: r#""hello there" | encode base32hex"#,
+                result: Some(Value::test_string("D1IMOR3F41Q6GPBICK")),
+            },
+        ]
     }
 
     fn is_const(&self) -> bool {

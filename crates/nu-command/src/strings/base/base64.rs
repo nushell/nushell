@@ -59,7 +59,23 @@ impl Command for DecodeBase64 {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Decode a Base64 string",
+                example: r#""U29tZSBEYXRh" | decode base64 | decode"#,
+                result: Some(Value::test_string("Some Data")),
+            },
+            Example {
+                description: "Decode arbitrary data",
+                example: r#""/w==" | decode base64"#,
+                result: Some(Value::test_binary(vec![0xFF])),
+            },
+            Example {
+                description: "Decode a URL-safe Base64 string",
+                example: r#""_w==" | decode base64 --url"#,
+                result: Some(Value::test_binary(vec![0xFF])),
+            },
+        ]
     }
 
     fn is_const(&self) -> bool {
@@ -117,7 +133,23 @@ impl Command for EncodeBase64 {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![
+            Example {
+                description: "Encode a string with Base64",
+                example: r#""Alphabet from A to Z" | encode base64"#,
+                result: Some(Value::test_string("Some Data")),
+            },
+            Example {
+                description: "Encode arbitrary data",
+                example: r#"0x[BE EE FF] | encode base64"#,
+                result: Some(Value::test_string("vu7/")),
+            },
+            Example {
+                description: "Use a URL-safe alphabet",
+                example: r#"0x[BE EE FF] | encode base64 --url"#,
+                result: Some(Value::test_string("vu7_")),
+            },
+        ]
     }
 
     fn is_const(&self) -> bool {
