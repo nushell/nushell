@@ -128,7 +128,7 @@ impl Command for EncodeBase32Hex {
             },
             Example {
                 description: "Don't apply padding to the output",
-                example: r#""hello there" | encode base32hex"#,
+                example: r#""hello there" | encode base32hex --nopad"#,
                 result: Some(Value::test_string("D1IMOR3F41Q6GPBICK")),
             },
         ]

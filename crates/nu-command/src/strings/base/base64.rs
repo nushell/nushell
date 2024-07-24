@@ -137,7 +137,7 @@ impl Command for EncodeBase64 {
             Example {
                 description: "Encode a string with Base64",
                 example: r#""Alphabet from A to Z" | encode base64"#,
-                result: Some(Value::test_string("Some Data")),
+                result: Some(Value::test_string("QWxwaGFiZXQgZnJvbSBBIHRvIFo=")),
             },
             Example {
                 description: "Encode arbitrary data",
