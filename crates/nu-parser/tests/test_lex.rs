@@ -1,4 +1,4 @@
-use nu_parser::{lex, lex_signature, Token, TokenContents};
+use nu_parser::{lex, lex_n_tokens, lex_signature, LexState, Token, TokenContents};
 use nu_protocol::{ParseError, Span};
 
 #[test]
@@ -280,4 +280,27 @@ fn lex_comments() {
             span: Span::new(40, 41)
         }
     );
+}
+
+#[test]
+fn lex_manually() {
+    let file = b"'a'\n#comment\n#comment again\n| continue";
+    let mut lex_state = LexState {
+        input: file,
+        output: Vec::new(),
+        error: None,
+        span_offset: 10,
+    };
+    assert_eq!(lex_n_tokens(&mut lex_state, &[], &[], false, 1), 1);
+    assert_eq!(lex_state.output.len(), 1);
+    assert_eq!(lex_n_tokens(&mut lex_state, &[], &[], false, 5), 5);
+    assert_eq!(lex_state.output.len(), 6);
+    // Next token is the pipe.
+    // This shortens the output because it exhausts the input before it can
+    // compensate for the EOL tokens lost to the line continuation
+    assert_eq!(lex_n_tokens(&mut lex_state, &[], &[], false, 1), -1);
+    assert_eq!(lex_state.output.len(), 5);
+    assert_eq!(file.len(), lex_state.span_offset - 10);
+    let last_span = lex_state.output.last().unwrap().span;
+    assert_eq!(&file[last_span.start - 10..last_span.end - 10], b"continue");
 }

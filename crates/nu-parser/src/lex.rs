@@ -464,6 +464,7 @@ pub fn lex_signature(
     (state.output, state.error)
 }
 
+#[derive(Debug)]
 pub struct LexState<'a> {
     pub input: &'a [u8],
     pub output: Vec<Token>,
