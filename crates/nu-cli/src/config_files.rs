@@ -16,8 +16,8 @@ const PLUGIN_FILE: &str = "plugin.msgpackz";
 #[cfg(feature = "plugin")]
 const OLD_PLUGIN_FILE: &str = "plugin.nu";
 
-const HISTORY_FILE_TXT: &str = "history.txt";
-const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
+pub const HISTORY_FILE_TXT: &str = "history.txt";
+pub const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
 
 #[cfg(feature = "plugin")]
 pub fn read_plugin_file(
