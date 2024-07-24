@@ -282,7 +282,8 @@ export def custom [
         $level_prefix
     }
 
-    let ansi = if not $env.config.use_ansi_coloring {
+    let use_color = ($env | get config? | get use_ansi_coloring? | $in != false)
+    let ansi = if not $use_color {
         ""
     } else if ($ansi | is-empty) {
         if ($log_level not-in $valid_levels_for_defaulting) {
