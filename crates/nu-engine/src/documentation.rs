@@ -21,7 +21,9 @@ pub fn get_full_help(
     };
 
     let stack = &mut stack.start_capture();
-    let signature = command.signature().update_from_command(command);
+    let signature = engine_state
+        .get_signature(command)
+        .update_from_command(command);
 
     get_documentation(
         &signature,
