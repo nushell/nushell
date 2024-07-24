@@ -2,50 +2,6 @@ use data_encoding::Encoding;
 
 use nu_engine::command_prelude::*;
 
-pub struct Base32Config {
-    nopad: Option<Span>,
-    dnscurve: Option<Span>,
-    dnssec: Option<Span>,
-}
-
-impl Base32Config {
-    pub fn from(stack: &mut Stack, call: &Call) -> Self {
-        Base32Config {
-            nopad: call.get_flag_span(stack, "nopad"),
-            dnscurve: call.get_flag_span(stack, "dnscurve"),
-            dnssec: call.get_flag_span(stack, "dnssec"),
-        }
-    }
-}
-
-pub fn base32_encoding(config: Base32Config) -> Result<Encoding, ShellError> {
-    match (config.nopad, config.dnscurve, config.dnssec) {
-        (Some(nopad), Some(dnscurve), _) => Err(ShellError::IncompatibleParameters {
-            left_message: "Inapplicable to DNSCURVE".to_string(),
-            left_span: nopad,
-            right_message: "Must be used standalone".to_string(),
-            right_span: dnscurve,
-        }),
-        (_, Some(dnscurve), Some(dnssec)) => Err(ShellError::IncompatibleParameters {
-            left_message: "Incompatible with DNSCURVE".to_string(),
-            left_span: dnssec,
-            right_message: "Must be used standalone".to_string(),
-            right_span: dnscurve,
-        }),
-        (Some(nopad), _, Some(dnssec)) => Err(ShellError::IncompatibleParameters {
-            left_message: "Inapplicable to DNSCURVE".to_string(),
-            left_span: nopad,
-            right_message: "DNSCURVE must be used standalone".to_string(),
-            right_span: dnssec,
-        }),
-
-        (None, None, None) => Ok(data_encoding::BASE32),
-        (Some(_), None, None) => Ok(data_encoding::BASE32_NOPAD),
-        (None, Some(_), None) => Ok(data_encoding::BASE32_DNSCURVE),
-        (None, None, Some(_)) => Ok(data_encoding::BASE32_DNSSEC),
-    }
-}
-
 #[derive(Clone)]
 pub struct DecodeBase32;
 
@@ -59,8 +15,6 @@ impl Command for DecodeBase32 {
             .input_output_types(vec![(Type::String, Type::Binary)])
             .allow_variants_without_examples(true)
             .switch("nopad", "Do not pad the output.", None)
-            .switch("dnscurve", "Use DNSCURVE Base32 variant.", None)
-            .switch("dnssec", "Use DNSSEC Base32 variant.", None)
             .category(Category::Formats)
     }
 
@@ -87,8 +41,11 @@ impl Command for DecodeBase32 {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let config = Base32Config::from(stack, call);
-        let encoding = base32_encoding(config)?;
+        let encoding = if call.has_flag(engine_state, stack, "nopad")? {
+            data_encoding::BASE32_NOPAD
+        } else {
+            data_encoding::BASE32
+        };
         super::decode(encoding, call.span(), input)
     }
 
@@ -98,7 +55,12 @@ impl Command for DecodeBase32 {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        todo!()
+        let encoding = if call.has_flag_const(working_set, "nopad")? {
+            data_encoding::BASE32_NOPAD
+        } else {
+            data_encoding::BASE32
+        };
+        super::decode(encoding, call.span(), input)
     }
 }
 
@@ -146,8 +108,11 @@ impl Command for EncodeBase32 {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let config = Base32Config::from(stack, call);
-        let encoding = base32_encoding(config)?;
+        let encoding = if call.has_flag(engine_state, stack, "nopad")? {
+            data_encoding::BASE32_NOPAD
+        } else {
+            data_encoding::BASE32
+        };
         super::encode(encoding, call.span(), input)
     }
 
@@ -157,7 +122,12 @@ impl Command for EncodeBase32 {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        todo!()
+        let encoding = if call.has_flag_const(working_set, "nopad")? {
+            data_encoding::BASE32_NOPAD
+        } else {
+            data_encoding::BASE32
+        };
+        super::encode(encoding, call.span(), input)
     }
 }
 
