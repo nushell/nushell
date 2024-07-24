@@ -11,6 +11,7 @@ mod hex;
 
 pub use base32::{DecodeBase32, EncodeBase32};
 pub use base32hex::{DecodeBase32Hex, EncodeBase32Hex};
+pub use base64::{DecodeBase64, EncodeBase64};
 pub use hex::{DecodeHex, EncodeHex};
 
 pub fn decode(
