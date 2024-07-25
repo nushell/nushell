@@ -8,8 +8,7 @@ use super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span,
-    SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::{
     prelude::{AnyValue, DataType, Field, NamedFrom},
