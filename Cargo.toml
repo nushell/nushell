@@ -179,7 +179,7 @@ v_htmlescape = "0.15.0"
 wax = "0.6"
 which = "6.0.0"
 windows = "0.54"
-windows-sys = "0.48"
+windows-sys = "0.52"
 winreg = "0.52"
 
 [dependencies]
