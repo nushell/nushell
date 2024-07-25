@@ -11,7 +11,7 @@ use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DidYouMean, Flag,
+    ast::*, engine::StateWorkingSet, eval_const::eval_constant, BlockId, DeclId, DidYouMean, Flag,
     ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape, Type, VarId, ENV_VARIABLE_ID,
     IN_VARIABLE_ID,
 };
@@ -690,8 +690,8 @@ fn parse_short_flags(
                     })
                 )
                 && String::from_utf8_lossy(working_set.get_span_contents(arg_span))
-                    .parse::<f64>()
-                    .is_ok()
+                .parse::<f64>()
+                .is_ok()
             {
                 return None;
             } else if let Some(first) = unmatched_short_flags.first() {
@@ -1250,6 +1250,46 @@ pub fn parse_internal_call(
     }
 }
 
+/// finds the longest command matching a command name and a list of arguments
+/// if a command is found, it returns its decl id and the number of arguments that were consumed as
+/// part of the command name
+pub fn find_longest_command(
+    working_set: &StateWorkingSet,
+    name: &[u8],
+    args: &[Span],
+) -> Option<(DeclId, usize)> {
+    let mut pos = 0;
+    let mut name_spans = vec![];
+    let mut name = name.to_owned();
+
+    // combine all the args together, separated by spaces
+    for arg in args {
+        name_spans.push(*arg);
+        let name_part = working_set.get_span_contents(*arg);
+        name.push(b' ');
+        name.extend(name_part);
+        pos += 1;
+    }
+
+    let mut maybe_decl_id = working_set.find_decl(&name);
+
+    while maybe_decl_id.is_none() && !name_spans.is_empty() {
+        // Find the longest command match
+
+        // name_spans length is checked in the loop condition so we can unwrap
+        let popped_span = name_spans
+            .pop()
+            .expect("internal error: already checked for non-empty");
+        pos -= 1;
+
+        let popped_len = popped_span.end - popped_span.start;
+        name.truncate(name.len() - popped_len - 1); // remove the length of the removed span and the whitespace
+        maybe_decl_id = working_set.find_decl(&name);
+    }
+
+    maybe_decl_id.map(|id| (id, pos))
+}
+
 pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span) -> Expression {
     trace!("parsing: call");
 
@@ -1261,57 +1301,15 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         return garbage(working_set, head);
     }
 
-    let mut pos = 0;
-    let cmd_start = pos;
-    let mut name_spans = vec![];
-    let mut name = vec![];
+    let cmd_name = working_set.get_span_contents(spans[0]);
 
-    for word_span in spans[cmd_start..].iter() {
-        // Find the longest group of words that could form a command
-
-        name_spans.push(*word_span);
-
-        let name_part = working_set.get_span_contents(*word_span);
-        if name.is_empty() {
-            name.extend(name_part);
-        } else {
-            name.push(b' ');
-            name.extend(name_part);
-        }
-
-        pos += 1;
-    }
-
-    let mut maybe_decl_id = working_set.find_decl(&name);
-
-    while maybe_decl_id.is_none() {
-        // Find the longest command match
-        if name_spans.len() <= 1 {
-            // Keep the first word even if it does not match -- could be external command
-            break;
-        }
-
-        name_spans.pop();
-        pos -= 1;
-
-        let mut name = vec![];
-        for name_span in &name_spans {
-            let name_part = working_set.get_span_contents(*name_span);
-            if name.is_empty() {
-                name.extend(name_part);
-            } else {
-                name.push(b' ');
-                name.extend(name_part);
-            }
-        }
-        maybe_decl_id = working_set.find_decl(&name);
-    }
-
-    if let Some(decl_id) = maybe_decl_id {
+    if let Some((decl_id, len)) = find_longest_command(working_set, cmd_name, &spans[1..]) {
+        let cmd_spans = &spans[..len + 1];
+        let arg_spans = &spans[len + 1..];
         // Before the internal parsing we check if there is no let or alias declarations
         // that are missing their name, e.g.: let = 1 or alias = 2
-        if spans.len() > 1 {
-            let test_equal = working_set.get_span_contents(spans[1]);
+        if !arg_spans.is_empty() {
+            let test_equal = working_set.get_span_contents(arg_spans[0]);
 
             if test_equal == [b'='] {
                 trace!("incomplete statement");
@@ -1358,21 +1356,11 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 return expression;
             } else {
                 trace!("parsing: alias of internal call");
-                parse_internal_call(
-                    working_set,
-                    Span::concat(&spans[cmd_start..pos]),
-                    &spans[pos..],
-                    decl_id,
-                )
+                parse_internal_call(working_set, Span::concat(cmd_spans), arg_spans, decl_id)
             }
         } else {
             trace!("parsing: internal call");
-            parse_internal_call(
-                working_set,
-                Span::concat(&spans[cmd_start..pos]),
-                &spans[pos..],
-                decl_id,
-            )
+            parse_internal_call(working_set, Span::concat(cmd_spans), arg_spans, decl_id)
         };
 
         Expression::new(
@@ -2794,9 +2782,9 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     }
                     // fall through -- escape not accepted above, must be error.
                     error = error.or(Some(ParseError::InvalidLiteral(
-                            "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
-                            "string".into(),
-                            Span::new(span.start + idx, span.end),
+                        "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
+                        "string".into(),
+                        Span::new(span.start + idx, span.end),
                     )));
                     break 'us_loop;
                 }
@@ -3807,8 +3795,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                         ParseError::AssignmentMismatch(
                                                             "Default value wrong type".into(),
                                                             format!(
-                                                            "expected default value to be `{var_type}`"
-                                                        ),
+                                                                "expected default value to be `{var_type}`"
+                                                            ),
                                                             expression.span,
                                                         ),
                                                     )
@@ -3883,8 +3871,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                             "Default value is the wrong type"
                                                                 .into(),
                                                             format!(
-                                                            "expected default value to be `{t}`"
-                                                                ),
+                                                                "expected default value to be `{t}`"
+                                                            ),
                                                             expression_span,
                                                         ),
                                                     )
@@ -4432,7 +4420,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                 guard: None,
                 span: Span::new(start, end),
             }
-        // A match guard
+            // A match guard
         } else if connector == b"if" {
             let if_end = {
                 let end = output[position].span.end;

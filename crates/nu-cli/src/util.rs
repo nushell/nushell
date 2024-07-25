@@ -1,6 +1,7 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
+use nu_protocol::ast::Block;
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -10,6 +11,7 @@ use nu_protocol::{
 use nu_utils::enable_vt_processing;
 use nu_utils::perf;
 use std::path::Path;
+use std::sync::Arc;
 
 // This will collect environment variables from std::env and adds them to a stack.
 //
@@ -199,17 +201,51 @@ fn gather_env_vars(
     }
 }
 
-pub fn eval_source(
+pub fn evaluate_block(
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    source: &[u8],
+    block: Arc<Block>,
+    input: PipelineData,
+    allow_return: bool,
+) -> Result<Option<i32>, ShellError> {
+    let pipeline = if allow_return {
+        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
+    } else {
+        eval_block::<WithoutDebug>(engine_state, stack, &block, input)
+    }?;
+
+    let status = if let PipelineData::ByteStream(..) = pipeline {
+        pipeline.print(engine_state, stack, false, false)?
+    } else {
+        if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
+            let pipeline = eval_hook(
+                engine_state,
+                stack,
+                Some(pipeline),
+                vec![],
+                &hook,
+                "display_output",
+            )?;
+            pipeline.print(engine_state, stack, false, false)
+        } else {
+            pipeline.print(engine_state, stack, true, false)
+        }?
+    };
+
+    Ok(status.map(|status| status.code()))
+}
+
+pub fn evaluate_block_with_exit_code(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    block: Arc<Block>,
     fname: &str,
     input: PipelineData,
     allow_return: bool,
 ) -> i32 {
     let start_time = std::time::Instant::now();
 
-    let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
+    let exit_code = match evaluate_block(engine_state, stack, block, input, allow_return) {
         Ok(code) => code.unwrap_or(0),
         Err(err) => {
             report_error_new(engine_state, &err);
@@ -237,14 +273,16 @@ pub fn eval_source(
     exit_code
 }
 
-fn evaluate_source(
+pub fn eval_source(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     source: &[u8],
     fname: &str,
     input: PipelineData,
     allow_return: bool,
-) -> Result<Option<i32>, ShellError> {
+) -> i32 {
+    let start_time = std::time::Instant::now();
+
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
@@ -259,7 +297,7 @@ fn evaluate_source(
 
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
-            return Ok(Some(1));
+            return 1;
         }
 
         if let Some(err) = working_set.compile_errors.first() {
@@ -270,33 +308,19 @@ fn evaluate_source(
         (output, working_set.render())
     };
 
-    engine_state.merge_delta(delta)?;
+    if let Err(err) = engine_state.merge_delta(delta) {
+        report_error_new(engine_state, &err);
+        return 1;
+    }
 
-    let pipeline = if allow_return {
-        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
-    } else {
-        eval_block::<WithoutDebug>(engine_state, stack, &block, input)
-    }?;
-
-    let status = if let PipelineData::ByteStream(..) = pipeline {
-        pipeline.print(engine_state, stack, false, false)?
-    } else {
-        if let Some(hook) = engine_state.get_config().hooks.display_output.clone() {
-            let pipeline = eval_hook(
-                engine_state,
-                stack,
-                Some(pipeline),
-                vec![],
-                &hook,
-                "display_output",
-            )?;
-            pipeline.print(engine_state, stack, false, false)
-        } else {
-            pipeline.print(engine_state, stack, true, false)
-        }?
-    };
-
-    Ok(status.map(|status| status.code()))
+    let exit_code =
+        evaluate_block_with_exit_code(engine_state, stack, block, fname, input, allow_return);
+    perf!(
+        &format!("eval_source {}", &fname),
+        start_time,
+        engine_state.get_config().use_ansi_coloring
+    );
+    exit_code
 }
 
 #[cfg(test)]
