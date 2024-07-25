@@ -8,9 +8,9 @@ use super::super::values::NuDataFrame;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value
+    Category, Example, LabeledError, PipelineData, Signature, Span,
+    SyntaxShape, Type, Value,
 };
-use nu_utils::SharedCow;
 use polars::{
     prelude::{AnyValue, DataType, Field, NamedFrom},
     series::Series,
@@ -38,7 +38,11 @@ impl PluginCommand for ToDataFrame {
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s'),
             )
-            .switch("as-columns", r#"When input shape is record of lists, treat each list as column values."#, Some('c'))
+            .switch(
+                "as-columns",
+                r#"When input shape is record of lists, treat each list as column values."#,
+                Some('c'),
+            )
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
     }
@@ -206,27 +210,35 @@ impl PluginCommand for ToDataFrame {
             .transpose()?;
 
         let maybe_as_columns = call.has_flag("as-columns")?;
-        
+
         let df = if !maybe_as_columns {
             NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
         } else {
             match &input {
-                PipelineData::Value(Value::Record {val, ..}, _) => {
-                    let items: Result<Vec<(String, Vec<Value>)>,&str> = val.iter().map(
-                        |(k, v)| match v.to_owned().into_list() {
+                PipelineData::Value(Value::Record { val, .. }, _) => {
+                    let items: Result<Vec<(String, Vec<Value>)>, &str> = val
+                        .iter()
+                        .map(|(k, v)| match v.to_owned().into_list() {
                             Ok(v) => Ok((k.to_owned(), v)),
-                            _ => Err("error")
-                        }
-                    ).collect();
+                            _ => Err("error"),
+                        })
+                        .collect();
                     match items {
                         Ok(items) => {
-                            let columns = items.iter().map(|(k, v)| Column::new(k.to_owned(), v.to_owned())).collect::<Vec<Column>>();
+                            let columns = items
+                                .iter()
+                                .map(|(k, v)| Column::new(k.to_owned(), v.to_owned()))
+                                .collect::<Vec<Column>>();
                             NuDataFrame::try_from_columns(columns, maybe_schema)?
-                        },
-                        Err(_) => NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
+                        }
+                        Err(_) => NuDataFrame::try_from_iter(
+                            plugin,
+                            input.into_iter(),
+                            maybe_schema.clone(),
+                        )?,
                     }
-                },
-                _ => NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
+                }
+                _ => NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?,
             }
         };
 
