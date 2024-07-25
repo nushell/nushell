@@ -75,6 +75,12 @@ fn in_used_twice_and_also_in_pipeline() -> TestResult {
     )
 }
 
+// #13441
+#[test]
+fn in_used_in_range() -> TestResult {
+    run_test(r#"6 | 3..$in | math sum"#, "18")
+}
+
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
     run_test(r#"each --help | lines | length"#, "72")
