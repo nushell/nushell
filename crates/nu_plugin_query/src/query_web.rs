@@ -81,7 +81,7 @@ pub fn web_examples() -> Vec<Example<'static>> {
             result: None
         },
         Example {
-            example: "http get https://www.nushell.sh | query web --query 'h2, h2 + p' | each {str join} | group 2 | each {rotate --ccw tagline description} | flatten",
+            example: "http get https://www.nushell.sh | query web --query 'h2, h2 + p' | each {str join} | chunks 2 | each {rotate --ccw tagline description} | flatten",
             description: "Pass multiple css selectors to extract several elements within single query, group the query results together and rotate them to create a table",
             result: None,
         },
