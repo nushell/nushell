@@ -1,4 +1,4 @@
-use crate::util::eval_source;
+use crate::util::{eval_source, evaluate_block_with_exit_code, make_main_call};
 use log::{info, trace};
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
@@ -126,11 +126,17 @@ pub fn evaluate_file(
 
         // Invoke the main command with arguments.
         // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.
-        let args = format!("main {}", args.join(" "));
-        eval_source(
+        let main_call_block = make_main_call(
+            engine_state,
+            source_filename.to_string_lossy().to_string(),
+            args,
+            true,
+        )?;
+
+        evaluate_block_with_exit_code(
             engine_state,
             stack,
-            args.as_bytes(),
+            main_call_block,
             "<commandline>",
             input,
             true,
