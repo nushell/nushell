@@ -198,7 +198,7 @@ pub fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee
     }
 
     // set config to callee config, to capture any updates to that
-    caller_stack.config = callee_stack.config.clone();
+    caller_stack.config.clone_from(&callee_stack.config)
 }
 
 fn eval_external(

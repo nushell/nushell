@@ -10,7 +10,7 @@ pub struct ErrorHandler {
 }
 
 /// Keeps track of error handlers pushed during evaluation of an IR block.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ErrorHandlerStack {
     handlers: Vec<ErrorHandler>,
 }
