@@ -554,7 +554,7 @@ pub fn parse_def(
         for arg_name in &signature.optional_positional {
             verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
         }
-        for arg_name in &signature.rest_positional {
+        if let Some(arg_name) = &signature.rest_positional {
             verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
         }
         for flag_name in &signature.get_names() {
