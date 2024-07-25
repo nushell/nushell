@@ -241,25 +241,6 @@ impl PluginCommand for ToDataFrame {
             }
         };
 
-        // let df = match &input {
-        //     PipelineData::Value(Value::Record {val, ..}, _) => {
-        //         let items: Result<Vec<(String, Vec<Value>)>,&str> = val.iter().map(
-        //             |(k, v)| match v.to_owned().into_list() {
-        //                 Ok(v) => Ok((k.to_owned(), v)),
-        //                 _ => Err("error")
-        //             }
-        //         ).collect();
-        //         match items {
-        //             Ok(items) => {
-        //                 let columns = items.iter().map(|(k, v)| Column::new(k.to_owned(), v.to_owned())).collect::<Vec<Column>>();
-        //                 NuDataFrame::try_from_columns(columns, maybe_schema)?
-        //             },
-        //             Err(_) => NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
-        //         }
-        //     },
-        //     _ => NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
-        // };
-        // let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?;
         df.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
     }
