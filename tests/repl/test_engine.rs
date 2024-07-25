@@ -77,7 +77,11 @@ fn in_used_twice_and_also_in_pipeline() -> TestResult {
 
 // #13441
 #[test]
-fn in_used_in_range() -> TestResult {
+fn in_used_in_range_from() -> TestResult {
+    run_test(r#"6 | $in..10 | math sum"#, "40")
+}
+#[test]
+fn in_used_in_range_to() -> TestResult {
     run_test(r#"6 | 3..$in | math sum"#, "18")
 }
 
