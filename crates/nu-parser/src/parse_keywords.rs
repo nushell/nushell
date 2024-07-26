@@ -169,11 +169,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
 
     // Now, pos should point at the next span after the def-like call.
     // Skip all potential flags, like --env, --wrapped or --help:
-    while pos < spans.len()
-        && working_set
-            .get_span_contents(spans[pos])
-            .starts_with(&[b'-'])
-    {
+    while pos < spans.len() && working_set.get_span_contents(spans[pos]).starts_with(b"-") {
         pos += 1;
     }
 
@@ -202,12 +198,8 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let mut signature_pos = None;
 
     while pos < spans.len() {
-        if working_set
-            .get_span_contents(spans[pos])
-            .starts_with(&[b'['])
-            || working_set
-                .get_span_contents(spans[pos])
-                .starts_with(&[b'('])
+        if working_set.get_span_contents(spans[pos]).starts_with(b"[")
+            || working_set.get_span_contents(spans[pos]).starts_with(b"(")
         {
             signature_pos = Some(pos);
             break;
@@ -424,7 +416,7 @@ pub fn parse_def(
             let mut decl_name_span = None;
 
             for span in rest_spans {
-                if !working_set.get_span_contents(*span).starts_with(&[b'-']) {
+                if !working_set.get_span_contents(*span).starts_with(b"-") {
                     decl_name_span = Some(*span);
                     break;
                 }
