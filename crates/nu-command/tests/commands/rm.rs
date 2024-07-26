@@ -1,8 +1,10 @@
+#[cfg(not(windows))]
 use nu_path::AbsolutePath;
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use rstest::rstest;
+#[cfg(not(windows))]
 use std::fs;
 use std::path::Path;
 
@@ -405,16 +407,19 @@ fn removes_file_after_cd() {
     })
 }
 
+#[cfg(not(windows))]
 struct Cleanup<'a> {
     dir_to_clean: &'a AbsolutePath,
 }
 
+#[cfg(not(windows))]
 fn set_dir_read_only(directory: &AbsolutePath, read_only: bool) {
     let mut permissions = fs::metadata(directory).unwrap().permissions();
     permissions.set_readonly(read_only);
     fs::set_permissions(directory, permissions).expect("failed to set directory permissions");
 }
 
+#[cfg(not(windows))]
 impl<'a> Drop for Cleanup<'a> {
     /// Restores write permissions to the given directory so that the Playground can be successfully
     /// cleaned up.
