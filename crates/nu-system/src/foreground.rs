@@ -61,9 +61,8 @@ impl ForegroundChild {
                         pipeline_state: Some(pipeline_state.clone()),
                     }
                 })
-                .map_err(|e| {
+                .inspect_err(|_e| {
                     foreground_pgroup::reset();
-                    e
                 })
         } else {
             command.spawn().map(|child| Self {
