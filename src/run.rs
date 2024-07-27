@@ -1,5 +1,4 @@
 #[cfg(feature = "plugin")]
-use crate::config_files::NUSHELL_FOLDER;
 use crate::{
     command,
     config_files::{self, setup_config},
@@ -8,6 +7,8 @@ use log::trace;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, EvaluateCommandsOpts};
+#[allow(deprecated)]
+use nu_path::NUSHELL_FOLDER;
 use nu_protocol::{
     engine::{EngineState, Stack},
     report_error_new, PipelineData, Spanned,
@@ -37,6 +38,7 @@ pub(crate) fn run_commands(
     // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
     if parsed_nu_cli_args.no_config_file.is_none() {
         #[cfg(feature = "plugin")]
+        #[allow(deprecated)]
         read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file, NUSHELL_FOLDER);
 
         perf!("read plugins", start_time, use_color);
@@ -125,6 +127,7 @@ pub(crate) fn run_file(
     if parsed_nu_cli_args.no_config_file.is_none() {
         let start_time = std::time::Instant::now();
         #[cfg(feature = "plugin")]
+        #[allow(deprecated)]
         read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file, NUSHELL_FOLDER);
         perf!("read plugins", start_time, use_color);
 
@@ -216,7 +219,6 @@ pub(crate) fn run_repl(
     let ret_val = evaluate_repl(
         engine_state,
         stack,
-        config_files::NUSHELL_FOLDER,
         parsed_nu_cli_args.execute,
         parsed_nu_cli_args.no_std_lib,
         entire_start_time,
