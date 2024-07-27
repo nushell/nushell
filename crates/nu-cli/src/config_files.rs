@@ -240,9 +240,8 @@ pub fn eval_config_contents(
     }
 }
 
-pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> Option<PathBuf> {
-    nu_path::config_dir().map(|mut history_path| {
-        history_path.push(storage_path);
+pub(crate) fn get_history_path(mode: HistoryFileFormat) -> Option<PathBuf> {
+    nu_path::nu_config_dir().map(|mut history_path| {
         history_path.push(match mode {
             HistoryFileFormat::PlainText => HISTORY_FILE_TXT,
             HistoryFileFormat::Sqlite => HISTORY_FILE_SQLITE,
