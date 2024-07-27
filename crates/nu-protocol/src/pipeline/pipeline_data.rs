@@ -117,7 +117,8 @@ impl PipelineData {
     /// Get a type that is representative of the `PipelineData`.
     ///
     /// The type returned here makes no effort to collect a stream, so it may be a different type
-    /// than would be returned by [`Value::get_type()`] on the result of [`.into_value()`].
+    /// than would be returned by [`Value::get_type()`] on the result of
+    /// [`.into_value()`](Self::into_value).
     ///
     /// Specifically, a `ListStream` results in [`list stream`](Type::ListStream) rather than
     /// the fully complete [`list`](Type::List) type (which would require knowing the contents),

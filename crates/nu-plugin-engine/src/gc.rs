@@ -80,8 +80,8 @@ impl PluginGc {
     ///
     /// The reason the plugin tells the GC rather than just stopping itself via `source` is that
     /// it can't guarantee that the plugin currently pointed to by `source` is itself, but if the
-    /// GC is still running, it hasn't received [`.stop_tracking()`] yet, which means it should be
-    /// the right plugin.
+    /// GC is still running, it hasn't received [`.stop_tracking()`](Self::stop_tracking) yet, which
+    /// means it should be the right plugin.
     pub fn exited(&self) {
         let _ = self.sender.send(PluginGcMsg::Exited);
     }

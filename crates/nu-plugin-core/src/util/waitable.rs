@@ -45,7 +45,7 @@ fn fail_if_poisoned<'a, T>(
 }
 
 impl<T: Clone + Send> WaitableMut<T> {
-    /// Create a new empty `WaitableMut`. Call [`.reader()`] to get [`Waitable`].
+    /// Create a new empty `WaitableMut`. Call [`.reader()`](Self::reader) to get [`Waitable`].
     pub fn new() -> WaitableMut<T> {
         WaitableMut {
             shared: Arc::new(WaitableShared {

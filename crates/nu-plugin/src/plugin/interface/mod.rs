@@ -618,8 +618,9 @@ impl EngineInterface {
 
     /// Get all environment variables from the engine.
     ///
-    /// Since this is quite a large map that has to be sent, prefer to use [`.get_env_var()`] if
-    /// the variables needed are known ahead of time and there are only a small number needed.
+    /// Since this is quite a large map that has to be sent, prefer to use
+    /// [`.get_env_var()`] (Self::get_env_var) if the variables needed are known ahead of time
+    /// and there are only a small number needed.
     ///
     /// # Example
     /// ```rust,no_run
@@ -873,9 +874,9 @@ impl EngineInterface {
     }
 
     /// Ask the engine for the identifier for a declaration. If found, the result can then be passed
-    /// to [`.call_decl()`] to call other internal commands.
+    /// to [`.call_decl()`](Self::call_decl) to call other internal commands.
     ///
-    /// See [`.call_decl()`] for an example.
+    /// See [`.call_decl()`](Self::call_decl) for an example.
     pub fn find_decl(&self, name: impl Into<String>) -> Result<Option<DeclId>, ShellError> {
         let call = EngineCall::FindDecl(name.into());
 
@@ -890,7 +891,7 @@ impl EngineInterface {
     }
 
     /// Ask the engine to call an internal command, using the declaration ID previously looked up
-    /// with [`.find_decl()`].
+    /// with [`.find_decl()`](Self::find_decl).
     ///
     /// # Example
     ///
@@ -1008,7 +1009,7 @@ impl Interface for EngineInterface {
 
 /// Keeps the plugin in the foreground as long as it is alive.
 ///
-/// Use [`.leave()`] to leave the foreground without ignoring the error.
+/// Use [`.leave()`](Self::leave) to leave the foreground without ignoring the error.
 pub struct ForegroundGuard(Option<EngineInterface>);
 
 impl ForegroundGuard {

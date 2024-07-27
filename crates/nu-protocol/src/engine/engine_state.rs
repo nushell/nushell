@@ -832,9 +832,9 @@ impl EngineState {
 
     /// Optionally get a block by id, if it exists
     ///
-    /// Prefer to use [`.get_block()`] in most cases - `BlockId`s that don't exist are normally a
-    /// compiler error. This only exists to stop plugins from crashing the engine if they send us
-    /// something invalid.
+    /// Prefer to use [`.get_block()`](Self::get_block) in most cases - `BlockId`s that don't exist
+    /// are normally a compiler error. This only exists to stop plugins from crashing the engine if
+    /// they send us something invalid.
     pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
         self.blocks.get(block_id)
     }

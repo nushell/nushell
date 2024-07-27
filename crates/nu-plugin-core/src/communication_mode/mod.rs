@@ -122,11 +122,11 @@ impl CommunicationMode {
 
 /// The result of [`CommunicationMode::serve()`], which acts as an intermediate stage for
 /// communication modes that require some kind of socket binding to occur before the client process
-/// can be started. Call [`.connect()`] once the client process has been started.
+/// can be started. Call [`.connect()`](Self::connect) once the client process has been started.
 ///
 /// The socket may be cleaned up on `Drop` if applicable.
 pub enum PreparedServerCommunication {
-    /// Will take stdin and stdout from the process on [`.connect()`].
+    /// Will take stdin and stdout from the process on [`.connect()`](Self::connect).
     Stdio,
     /// Contains the listener to accept connections on. On Unix, the socket is unlinked on `Drop`.
     #[cfg(feature = "local-socket")]
