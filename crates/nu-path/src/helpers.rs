@@ -1,10 +1,5 @@
 use crate::AbsolutePathBuf;
 
-#[deprecated(
-    note = "prefer using nu_config_dir() instead of config_dir() joined with NUSHELL_FOLDER"
-)]
-pub const NUSHELL_FOLDER: &str = "nushell";
-
 pub fn home_dir() -> Option<AbsolutePathBuf> {
     dirs::home_dir().and_then(|home| AbsolutePathBuf::try_from(home).ok())
 }
@@ -39,8 +34,7 @@ pub fn config_dir() -> Option<AbsolutePathBuf> {
 /// Return the nushell config directory.
 pub fn nu_config_dir() -> Option<AbsolutePathBuf> {
     config_dir().map(|mut p| {
-        #[allow(deprecated)]
-        p.push(NUSHELL_FOLDER);
+        p.push("nushell");
         p
     })
 }
