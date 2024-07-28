@@ -148,7 +148,7 @@ pub trait InterfaceManager {
 
     /// Consume an input message.
     ///
-    /// When implementing, call [`.consume_stream_message()`] for any encapsulated
+    /// When implementing, call [`.consume_stream_message()`](Self::consume_stream_message) for any encapsulated
     /// [`StreamMessage`]s received.
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError>;
 
