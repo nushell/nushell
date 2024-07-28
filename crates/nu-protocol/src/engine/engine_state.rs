@@ -86,7 +86,6 @@ pub struct EngineState {
     pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
-    pub ctrlc: Option<Arc<AtomicBool>>,
     pub ctrlc_handlers: Option<ctrlc::Handlers>,
     signals: Signals,
     pub env_vars: Arc<EnvVars>,
@@ -148,7 +147,6 @@ impl EngineState {
                 0,
                 false,
             ),
-            ctrlc: None,
             ctrlc_handlers: None,
             signals: Signals::empty(),
             env_vars: Arc::new(
