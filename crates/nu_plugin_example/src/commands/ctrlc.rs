@@ -39,6 +39,7 @@ impl PluginCommand for Ctrlc {
             let _ = sender.send(());
         }));
 
+        eprintln!("interrupt status: {:?}", engine.signals().interrupted());
         eprintln!("waiting for ctrl-c signal...");
         receiver.recv().expect("handler went away");
         eprintln!("interrupt status: {:?}", engine.signals().interrupted());
