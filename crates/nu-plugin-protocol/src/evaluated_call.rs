@@ -85,19 +85,19 @@ impl EvaluatedCall {
         self
     }
 
-    /// Builder variant of [`.add_positional()`].
+    /// Builder variant of [`.add_positional()`](Self::add_positional).
     pub fn with_positional(mut self, value: Value) -> Self {
         self.add_positional(value);
         self
     }
 
-    /// Builder variant of [`.add_named()`].
+    /// Builder variant of [`.add_named()`](Self::add_named).
     pub fn with_named(mut self, name: Spanned<impl Into<String>>, value: Value) -> Self {
         self.add_named(name, value);
         self
     }
 
-    /// Builder variant of [`.add_flag()`].
+    /// Builder variant of [`.add_flag()`](Self::add_flag).
     pub fn with_flag(mut self, name: Spanned<impl Into<String>>) -> Self {
         self.add_flag(name);
         self
