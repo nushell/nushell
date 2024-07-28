@@ -257,12 +257,9 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
             }
         }
 
-        decl.run(
-            &self.engine_state,
-            stack,
-            &(&call_builder.finish()).into(),
-            input,
-        )
+        call_builder.with(stack, |stack, call| {
+            decl.run(&self.engine_state, stack, call, input)
+        })
     }
 
     fn boxed(&self) -> Box<dyn PluginExecutionContext + 'static> {
