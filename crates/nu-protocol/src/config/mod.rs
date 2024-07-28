@@ -8,8 +8,12 @@ use self::table::*;
 
 use crate::engine::Closure;
 use crate::{record, ShellError, Span, Value};
+use serde::Deserializer;
+use serde::Serializer;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::MAIN_SEPARATOR;
+use std::sync::Arc;
 
 pub use self::completer::CompletionAlgorithm;
 pub use self::helper::extract_value;
@@ -29,12 +33,63 @@ mod plugin_gc;
 mod reedline;
 mod table;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+fn deserialize_config_path<'de, D>(deserializer: D) -> Result<Option<Arc<str>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Deserialize::deserialize(deserializer)?;
+    Ok(s.map(|s| s.into()))
+}
+
+fn serialize_config_path<S>(v: &Option<Arc<str>>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match v {
+        None => serializer.serialize_none(),
+        Some(s) => serializer.serialize_str(s),
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoryConfig {
     pub max_size: i64,
     pub sync_on_enter: bool,
     pub file_format: HistoryFileFormat,
     pub isolation: bool,
+
+    // History path. Can be either a directory (ending with a path separator), in which case a
+    // default file name will be appended - or a full file path.
+    //
+    // PathBuf would be more correct, but it causes conversion issues down the line. String is more
+    // strict in terms of characters, but less strict in terms of semantics. We use Arc<str> for
+    // cheap clone.
+    #[serde(
+        serialize_with = "serialize_config_path",
+        deserialize_with = "deserialize_config_path"
+    )]
+    path: Option<Arc<str>>,
+}
+
+impl HistoryConfig {
+    #[allow(clippy::question_mark)]
+    pub fn file_path(&self) -> Option<String> {
+        let Some(path) = &self.path else {
+            return None;
+        };
+        if path.ends_with(MAIN_SEPARATOR) {
+            let mut path = path.to_string();
+            path.push_str(match self.file_format {
+                HistoryFileFormat::PlainText => "history.txt",
+                HistoryFileFormat::Sqlite => "history.sqlite3",
+            });
+            Some(path)
+        } else if !path.is_empty() {
+            Some(path.to_string())
+        } else {
+            None
+        }
+    }
 }
 
 impl Default for HistoryConfig {
@@ -44,6 +99,17 @@ impl Default for HistoryConfig {
             sync_on_enter: true,
             file_format: HistoryFileFormat::PlainText,
             isolation: false,
+            // TODO: This reading an env var is not great. Ideally we'd plumb config location
+            // explicitly, but there's already lots of uses of Config::default and converting them
+            // all is not trivial.
+            path: nu_path::nu_config_dir().and_then(|dir| {
+                let s = dir.into_os_string().into_string();
+                s.map(|mut s| {
+                    s.push(MAIN_SEPARATOR);
+                    Arc::from(s)
+                })
+                .ok()
+            }),
         }
     }
 }
@@ -298,6 +364,9 @@ impl Value {
                                             &[key, key2],
                                             value,
                                             &mut errors);
+                                    }
+                                    "path" => {
+                                        process_opt_str_config(value, &mut errors, &mut history.path);
                                     }
                                     _ => {
                                         report_invalid_key(&[key, key2], span, &mut errors);

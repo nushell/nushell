@@ -1,5 +1,5 @@
 use crate::{Record, ShellError, Span, Value};
-use std::{collections::HashMap, fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display, str::FromStr, sync::Arc};
 
 pub(super) trait ReconstructVal {
     fn reconstruct_value(&self, span: Span) -> Value;
@@ -85,6 +85,34 @@ pub(super) fn process_int_config(
         });
         // Reconstruct
         *value = Value::int(*config_point, value.span());
+    }
+}
+
+pub(super) fn process_opt_str_config(
+    value: &mut Value,
+    errors: &mut Vec<ShellError>,
+    config_point: &mut Option<Arc<str>>,
+) {
+    if value.is_nothing() {
+        *config_point = None;
+        return;
+    }
+    match value.coerce_str() {
+        Ok(s) => *config_point = Some(s.into()),
+        Err(e) => {
+            errors.push(ShellError::GenericError {
+                error: "Error while applying config changes".into(),
+                msg: e.to_string(),
+                span: Some(value.span()),
+                help: Some("This value will be ignored.".into()),
+                inner: vec![],
+            });
+            // Reconstruct
+            *value = match config_point {
+                Some(s) => Value::string(s.as_ref(), value.span()),
+                None => Value::nothing(value.span()),
+            }
+        }
     }
 }
 

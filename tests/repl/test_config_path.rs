@@ -151,6 +151,7 @@ fn test_default_config_path() {
 fn test_default_symlinked_config_path_empty() {
     Playground::setup("symlinked_empty_config_dir", |_, playground| {
         let config_dir_nushell = setup_fake_config(playground);
+        println!("config_dir_nushell = {}", config_dir_nushell.display());
         test_config_path_helper(playground, config_dir_nushell);
     });
 }

@@ -1,4 +1,3 @@
-#[cfg(feature = "plugin")]
 use crate::{
     command,
     config_files::{self, setup_config},
