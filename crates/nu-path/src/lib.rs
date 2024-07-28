@@ -15,6 +15,3 @@ pub use helpers::{cache_dir, config_dir, data_dir, home_dir, nu_config_dir};
 pub use path::*;
 pub use tilde::expand_tilde;
 pub use trailing_slash::{has_trailing_slash, strip_trailing_slash};
-
-#[allow(deprecated)]
-pub use helpers::NUSHELL_FOLDER;

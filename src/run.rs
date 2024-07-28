@@ -6,8 +6,6 @@ use log::trace;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, EvaluateCommandsOpts};
-#[allow(deprecated)]
-use nu_path::NUSHELL_FOLDER;
 use nu_protocol::{
     engine::{EngineState, Stack},
     report_shell_error, PipelineData, Spanned,
@@ -44,8 +42,7 @@ pub(crate) fn run_commands(
     // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
     if parsed_nu_cli_args.no_config_file.is_none() {
         #[cfg(feature = "plugin")]
-        #[allow(deprecated)]
-        read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file, NUSHELL_FOLDER);
+        read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file);
 
         perf!("read plugins", start_time, use_color);
 
@@ -150,8 +147,7 @@ pub(crate) fn run_file(
             false
         };
         #[cfg(feature = "plugin")]
-        #[allow(deprecated)]
-        read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file, NUSHELL_FOLDER);
+        read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file);
         perf!("read plugins", start_time, use_color);
 
         let start_time = std::time::Instant::now();

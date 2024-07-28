@@ -67,7 +67,6 @@ impl Command for History {
                         })
                         .ok()
                 }
-
                 HistoryFileFormat::Plaintext => {
                     FileBackedHistory::with_file(history.max_size as usize, history_path.clone())
                         .map(|inner| {
