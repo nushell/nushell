@@ -12,7 +12,7 @@ Only if you provide a strong reasoning and the necessary resources, will we cons
 ## Reporting a Vulnerability
 
 If you suspect that a bug or behavior of Nushell can affect security or may be potentially exploitable, please report the issue to us in private. 
-Either reach out to the core team on our Discord server to arrange a private channel or use the GitHub vulnerability reporting form.
+Either reach out to the core team on [our Discord server](https://discord.gg/NtAbbGn) to arrange a private channel or use the [GitHub vulnerability reporting form](https://github.com/nushell/nushell/security/advisories/new).
 Please try to answer the following questions:
 - How can we reach you for further questions?
 - What is the bug? Which system of Nushell may be affected?
