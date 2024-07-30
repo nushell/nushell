@@ -186,7 +186,7 @@ pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
 }
 
 // match a list of suggestions with the expected values
-pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
+pub fn match_suggestions(expected: &Vec<String>, suggestions: &Vec<Suggestion>) {
     let expected_len = expected.len();
     let suggestions_len = suggestions.len();
     if expected_len != suggestions_len {
@@ -196,13 +196,13 @@ pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
             Expected: {expected:#?}\n"
         )
     }
-    assert_eq!(
-        expected,
-        suggestions
-            .into_iter()
-            .map(|it| it.value)
-            .collect::<Vec<_>>()
-    );
+
+    let suggestoins_str = suggestions
+        .iter()
+        .map(|it| it.value.clone())
+        .collect::<Vec<_>>();
+
+    assert_eq!(expected, &suggestoins_str);
 }
 
 // append the separator to the converted path

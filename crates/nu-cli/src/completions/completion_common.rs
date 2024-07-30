@@ -10,9 +10,7 @@ use nu_protocol::{
     levenshtein_distance, Span,
 };
 use nu_utils::get_ls_colors;
-use std::path::{
-    is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
-};
+use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
 
 use super::SortBy;
 
@@ -93,16 +91,16 @@ enum OriginalCwd {
 }
 
 impl OriginalCwd {
-    fn apply(&self, mut p: PathBuiltFromString) -> String {
+    fn apply(&self, mut p: PathBuiltFromString, path_separator: char) -> String {
         match self {
             Self::None => {}
             Self::Home => p.parts.insert(0, "~".to_string()),
             Self::Prefix(s) => p.parts.insert(0, s.clone()),
         };
 
-        let mut ret = p.parts.join(MAIN_SEPARATOR_STR);
+        let mut ret = p.parts.join(&path_separator.to_string());
         if p.isdir {
-            ret.push(SEP);
+            ret.push(path_separator);
         }
         ret
     }
@@ -133,6 +131,14 @@ pub fn complete_item(
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
     let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
+
+    #[cfg(unix)]
+    let path_separator = SEP;
+    #[cfg(windows)]
+    let path_separator = partial
+        .chars()
+        .rfind(|c: &char| is_separator(*c))
+        .unwrap_or(SEP);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
     let ls_colors = (engine_state.config.use_ls_colors_completions
         && engine_state.config.use_ansi_coloring)
@@ -195,7 +201,7 @@ pub fn complete_item(
     )
     .into_iter()
     .map(|p| {
-        let path = original_cwd.apply(p);
+        let path = original_cwd.apply(p, path_separator);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(
                 &path,
