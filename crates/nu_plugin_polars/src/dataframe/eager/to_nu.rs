@@ -23,7 +23,7 @@ impl PluginCommand for ToNu {
     }
 
     fn usage(&self) -> &str {
-        "Converts a dataframe or an expression into into nushell value for access and exploration."
+        "Converts a dataframe or an expression into nushell value for access and exploration."
     }
 
     fn signature(&self) -> Signature {
