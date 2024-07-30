@@ -162,7 +162,8 @@ impl Command for Sort {
             }
             Value::List { vals, .. } => {
                 let mut vec = vals.to_owned();
-                crate::sort(&mut vec, call.head, insensitive, natural)?;
+
+                crate::sort(&mut vec, insensitive, natural)?;
 
                 if reverse {
                     vec.reverse()

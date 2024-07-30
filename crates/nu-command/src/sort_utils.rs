@@ -1,5 +1,4 @@
 use alphanumeric_sort::compare_str;
-use itertools::Itertools;
 use nu_engine::ClosureEval;
 use nu_protocol::{
     ast::CellPath,
@@ -7,7 +6,7 @@ use nu_protocol::{
     PipelineData, Record, ShellError, Span, Value,
 };
 use nu_utils::IgnoreCaseExt;
-use std::{borrow::Borrow, cmp::Ordering, mem::Discriminant};
+use std::cmp::Ordering;
 
 // This module includes sorting functionality that is useful in sort-by and elsewhere.
 // Eventually it would be nice to find a better home for it; sorting logic is only coupled
@@ -18,83 +17,23 @@ pub enum Comparator {
     CellPath(CellPath),
 }
 
-// TODO(rose) remove span, or explicitly ask for call.head span (depending on error impl)
-fn typecheck(
-    vals: &[Value],
-    span: Span,
-    insensitive: bool,
-    natural: bool,
-) -> Result<(), ShellError> {
-    let variants: Vec<_> = vals
+pub fn sort(vec: &mut [Value], insensitive: bool, natural: bool) -> Result<(), ShellError> {
+    // to apply insensitive or natural sorting, all values must be strings
+    let string_sort: bool = vec
         .iter()
-        .filter(|val| !val.is_nothing())
-        .map(|val| (val, std::mem::discriminant(val)))
-        .collect();
-
-    match variants.iter().map(|(_, disc)| disc).all_equal_value() {
-        Ok(_) | Err(None) => (),
-        Err(Some((first, second))) => {
-            let first_val = variants
-                .iter()
-                .filter(|(_, disc)| std::ptr::eq(disc, first))
-                .at_most_one()
-                .unwrap() // TODO(rose)
-                .unwrap();
-
-            let second_val = variants
-                .iter()
-                .filter(|(_, disc)| std::ptr::eq(disc, second))
-                .at_most_one()
-                .unwrap()
-                .unwrap();
-
-            // TODO(rose) replace with bespoke error
-            return Err(ShellError::OperatorMismatch {
-                op_span: span,
-                lhs_ty: first_val.0.get_type().to_string(),
-                lhs_span: first_val.0.span(),
-                rhs_ty: second_val.0.get_type().to_string(),
-                rhs_span: second_val.0.span(),
-            });
-        }
-    }
-
-    if insensitive || natural {
-        // does not seem like it is possible to get the discriminant without constructing a value :(
-        let string_disc: Discriminant<Value> = std::mem::discriminant(&Value::String {
-            val: String::new(),
-            internal_span: Span::unknown(),
-        });
-        if let Some((val, _)) = variants.iter().find(|(_, disc)| disc != &string_disc) {
-            return Err(ShellError::IncompatibleParametersSingle {
-                msg: "unable to use case insensitive or natural sorting with non-string values"
-                    .to_string(),
-                span: val.span(),
-            });
-        }
-    }
-
-    Ok(())
-}
-
-pub fn sort(
-    vals: &mut [Value],
-    span: Span,
-    insensitive: bool,
-    natural: bool,
-) -> Result<(), ShellError> {
-    typecheck(vals, span, insensitive, natural)?;
+        .all(|value| matches!(value, &Value::String { .. }));
 
     // allow the comparator function to indicate error
     // by mutating this option captured by the closure,
     // since sort_by closure must be infallible
     let mut compare_err: Option<ShellError> = None;
 
-    vals.sort_by(|a, b| {
-        crate::compare_values(a, b, insensitive, natural).unwrap_or_else(|err| {
-            compare_err.get_or_insert(err);
-            Ordering::Equal
-        })
+    vec.sort_by(|a, b| {
+        crate::compare_values(a, b, insensitive && string_sort, natural && string_sort)
+            .unwrap_or_else(|err| {
+                compare_err.get_or_insert(err);
+                Ordering::Equal
+            })
     });
 
     if let Some(err) = compare_err {
@@ -122,23 +61,17 @@ pub fn sort_by(
         });
     }
 
-    for cmp in comparators.iter() {
-        // closures shouldn't affect whether cell paths are sorted naturally/insensitively
+    // to apply insensitive or natural sorting, all values must be strings
+    let string_sort: bool = comparators.iter().all(|cmp| {
         let Comparator::CellPath(cell_path) = cmp else {
-            continue;
+            // closures shouldn't affect whether cell paths are sorted naturally/insensitively
+            return true;
         };
-
-        let follow: Vec<_> = vec
-            .iter()
-            .filter_map(|value| {
-                value
-                    .clone()
-                    .follow_cell_path(&cell_path.members, false)
-                    .ok() // we can ignore for now, we'll notice later if there's an error
-            })
-            .collect();
-        typecheck(&follow, span, insensitive, natural)?;
-    }
+        vec.iter().all(|value| {
+            let inner = value.clone().follow_cell_path(&cell_path.members, false);
+            matches!(inner, Ok(Value::String { .. }))
+        })
+    });
 
     // allow the comparator function to indicate error
     // by mutating this option captured by the closure,
@@ -151,8 +84,8 @@ pub fn sort_by(
             b,
             &comparators,
             span,
-            insensitive,
-            natural,
+            insensitive && string_sort,
+            natural && string_sort,
             &mut compare_err,
         )
     });
@@ -172,17 +105,6 @@ pub fn sort_record(
     natural: bool,
 ) -> Result<Record, ShellError> {
     let mut input_pairs: Vec<(String, Value)> = record.into_iter().collect();
-
-    if sort_by_value {
-        // TODO(rose): don't clone here?
-        let vals: Vec<_> = input_pairs.iter().map(|(_, val)| val.clone()).collect();
-        typecheck(
-            &vals,
-            Span::unknown(), // TODO(rose)
-            insensitive,
-            natural,
-        )?;
-    }
 
     // allow the comparator function to indicate error
     // by mutating this option captured by the closure,
