@@ -8,7 +8,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-json"
 edition = "2021"
 license = "MIT"
 name = "nu-json"
-version = "0.96.1"
+version = "0.96.2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -26,7 +26,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support", version = "0.96.1" }
-nu-path = { path = "../nu-path", version = "0.96.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.96.2" }
+nu-path = { path = "../nu-path", version = "0.96.2" }
 serde_json = "1.0"
 fancy-regex = "0.13.0"
