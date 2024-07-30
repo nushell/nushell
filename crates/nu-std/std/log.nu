@@ -282,7 +282,10 @@ export def custom [
         $level_prefix
     }
 
-    let ansi = if ($ansi | is-empty) {
+    let use_color = ($env | get config? | get use_ansi_coloring? | $in != false)
+    let ansi = if not $use_color {
+        ""
+    } else if ($ansi | is-empty) {
         if ($log_level not-in $valid_levels_for_defaulting) {
             log-level-deduction-error "ansi" (metadata $log_level).span $log_level
         }
