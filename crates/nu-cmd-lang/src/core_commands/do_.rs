@@ -81,6 +81,10 @@ impl Command for Do {
 
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+
+        // Applies to all block evaluation once set true
+        callee_stack.use_ir = caller_stack.has_env_var(engine_state, "NU_USE_IR");
+
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
         if has_env {

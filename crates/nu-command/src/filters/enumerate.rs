@@ -52,7 +52,6 @@ impl Command for Enumerate {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
 
         Ok(input
             .into_iter()
@@ -66,7 +65,7 @@ impl Command for Enumerate {
                     head,
                 )
             })
-            .into_pipeline_data_with_metadata(head, ctrlc, metadata))
+            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

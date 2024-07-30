@@ -3,8 +3,8 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId, Spanned,
-    SyntaxShape, Type, Value,
+    record, Category, Config, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
+    Spanned, SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
 
@@ -13,7 +13,7 @@ pub fn get_full_help(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> String {
-    let config = engine_state.get_config();
+    let config = stack.get_config(engine_state);
     let doc_config = DocumentationConfig {
         no_subcommands: false,
         no_color: !config.use_ansi_coloring,
@@ -45,10 +45,12 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
         let decl = engine_state.get_decl(highlighter);
 
+        let call = Call::new(Span::unknown());
+
         if let Ok(output) = decl.run(
             engine_state,
             stack,
-            &Call::new(Span::unknown()),
+            &(&call).into(),
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
@@ -68,16 +70,30 @@ fn get_documentation(
     config: &DocumentationConfig,
     is_parser_keyword: bool,
 ) -> String {
+    let nu_config = stack.get_config(engine_state);
+
     // Create ansi colors
     //todo make these configurable -- pull from enginestate.config
-    let help_section_name: String =
-        get_ansi_color_for_component_or_default(engine_state, "shape_string", "\x1b[32m"); // default: green
+    let help_section_name: String = get_ansi_color_for_component_or_default(
+        engine_state,
+        &nu_config,
+        "shape_string",
+        "\x1b[32m",
+    ); // default: green
 
-    let help_subcolor_one: String =
-        get_ansi_color_for_component_or_default(engine_state, "shape_external", "\x1b[36m"); // default: cyan
-                                                                                             // was const bb: &str = "\x1b[1;34m"; // bold blue
-    let help_subcolor_two: String =
-        get_ansi_color_for_component_or_default(engine_state, "shape_block", "\x1b[94m"); // default: light blue (nobold, should be bolding the *names*)
+    let help_subcolor_one: String = get_ansi_color_for_component_or_default(
+        engine_state,
+        &nu_config,
+        "shape_external",
+        "\x1b[36m",
+    ); // default: cyan
+       // was const bb: &str = "\x1b[1;34m"; // bold blue
+    let help_subcolor_two: String = get_ansi_color_for_component_or_default(
+        engine_state,
+        &nu_config,
+        "shape_block",
+        "\x1b[94m",
+    ); // default: light blue (nobold, should be bolding the *names*)
 
     const RESET: &str = "\x1b[0m"; // reset
 
@@ -137,13 +153,12 @@ fn get_documentation(
     }
 
     if !sig.named.is_empty() {
-        long_desc.push_str(&get_flags_section(Some(engine_state), sig, |v| {
-            nu_highlight_string(
-                &v.to_parsable_string(", ", &engine_state.config),
-                engine_state,
-                stack,
-            )
-        }))
+        long_desc.push_str(&get_flags_section(
+            Some(engine_state),
+            Some(&nu_config),
+            sig,
+            |v| nu_highlight_string(&v.to_parsable_string(", ", &nu_config), engine_state, stack),
+        ))
     }
 
     if !sig.required_positional.is_empty()
@@ -187,7 +202,7 @@ fn get_documentation(
                         format!(
                             " (optional, default: {})",
                             nu_highlight_string(
-                                &value.to_parsable_string(", ", &engine_state.config),
+                                &value.to_parsable_string(", ", &nu_config),
                                 engine_state,
                                 stack
                             )
@@ -269,11 +284,12 @@ fn get_documentation(
             let _ = write!(long_desc, "\n  > {}\n", example.example);
         } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
             let decl = engine_state.get_decl(highlighter);
+            let call = Call::new(Span::unknown());
 
             match decl.run(
                 engine_state,
                 stack,
-                &Call::new(Span::unknown()),
+                &(&call).into(),
                 Value::string(example.example, Span::unknown()).into_pipeline_data(),
             ) {
                 Ok(output) => {
@@ -326,7 +342,7 @@ fn get_documentation(
                         .run(
                             engine_state,
                             stack,
-                            &table_call,
+                            &(&table_call).into(),
                             PipelineData::Value(result.clone(), None),
                         )
                         .ok()
@@ -336,7 +352,7 @@ fn get_documentation(
                 let _ = writeln!(
                     long_desc,
                     "  {}",
-                    item.to_expanded_string("", engine_state.get_config())
+                    item.to_expanded_string("", &nu_config)
                         .replace('\n', "\n  ")
                         .trim()
                 );
@@ -355,15 +371,16 @@ fn get_documentation(
 
 fn get_ansi_color_for_component_or_default(
     engine_state: &EngineState,
+    nu_config: &Config,
     theme_component: &str,
     default: &str,
 ) -> String {
-    if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
+    if let Some(color) = &nu_config.color_config.get(theme_component) {
         let caller_stack = &mut Stack::new().capture();
         let span = Span::unknown();
         let span_id = UNKNOWN_SPAN_ID;
 
-        let argument_opt = get_argument_for_color_value(engine_state, color, span, span_id);
+        let argument_opt = get_argument_for_color_value(nu_config, color, span, span_id);
 
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
@@ -391,8 +408,8 @@ fn get_ansi_color_for_component_or_default(
 }
 
 fn get_argument_for_color_value(
-    engine_state: &EngineState,
-    color: &&Value,
+    nu_config: &Config,
+    color: &Value,
     span: Span,
     span_id: SpanId,
 ) -> Option<Argument> {
@@ -409,9 +426,7 @@ fn get_argument_for_color_value(
                             Type::String,
                         ),
                         Expression::new_existing(
-                            Expr::String(
-                                v.clone().to_expanded_string("", engine_state.get_config()),
-                            ),
+                            Expr::String(v.clone().to_expanded_string("", nu_config)),
                             span,
                             span_id,
                             Type::String,
@@ -453,6 +468,7 @@ pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
 
 pub fn get_flags_section<F>(
     engine_state_opt: Option<&EngineState>,
+    nu_config_opt: Option<&Config>,
     signature: &Signature,
     mut value_formatter: F, // format default Value (because some calls cant access config or nu-highlight)
 ) -> String
@@ -467,13 +483,26 @@ where
     // Sometimes we want to get the flags without engine_state
     // For example, in nu-plugin. In that case, we fall back on default values
     if let Some(engine_state) = engine_state_opt {
-        help_section_name =
-            get_ansi_color_for_component_or_default(engine_state, "shape_string", "\x1b[32m"); // default: green
-        help_subcolor_one =
-            get_ansi_color_for_component_or_default(engine_state, "shape_external", "\x1b[36m"); // default: cyan
-                                                                                                 // was const bb: &str = "\x1b[1;34m"; // bold blue
-        help_subcolor_two =
-            get_ansi_color_for_component_or_default(engine_state, "shape_block", "\x1b[94m");
+        let nu_config = nu_config_opt.unwrap_or_else(|| engine_state.get_config());
+        help_section_name = get_ansi_color_for_component_or_default(
+            engine_state,
+            nu_config,
+            "shape_string",
+            "\x1b[32m",
+        ); // default: green
+        help_subcolor_one = get_ansi_color_for_component_or_default(
+            engine_state,
+            nu_config,
+            "shape_external",
+            "\x1b[36m",
+        ); // default: cyan
+           // was const bb: &str = "\x1b[1;34m"; // bold blue
+        help_subcolor_two = get_ansi_color_for_component_or_default(
+            engine_state,
+            nu_config,
+            "shape_block",
+            "\x1b[94m",
+        );
     // default: light blue (nobold, should be bolding the *names*)
     } else {
         help_section_name = "\x1b[32m".to_string();

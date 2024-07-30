@@ -1,3 +1,7 @@
+//! Implementation of const-evaluation
+//!
+//! This enables you to assign `const`-constants and execute parse-time code dependent on this.
+//! e.g. `source $my_const`
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
@@ -7,8 +11,8 @@ use crate::{
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
-    borrow::Cow,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 /// Create a Value for `$nu`.
@@ -181,24 +185,15 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         },
     );
 
-    // Create a system level directory for nushell scripts, modules, completions, etc
-    // that can be changed by setting the NU_VENDOR_AUTOLOAD_DIR env var on any platform
-    // before nushell is compiled OR if NU_VENDOR_AUTOLOAD_DIR is not set for non-windows
-    // systems, the PREFIX env var can be set before compile and used as PREFIX/nushell/vendor/autoload
     record.push(
-        "vendor-autoload-dir",
-        // pseudo code
-        // if env var NU_VENDOR_AUTOLOAD_DIR is set, in any platform, use it
-        // if not, if windows, use ALLUSERPROFILE\nushell\vendor\autoload
-        // if not, if non-windows, if env var PREFIX is set, use PREFIX/share/nushell/vendor/autoload
-        // if not, use the default /usr/share/nushell/vendor/autoload
-
-        // check to see if NU_VENDOR_AUTOLOAD_DIR env var is set, if not, use the default
-        if let Some(path) = get_vendor_autoload_dir(engine_state) {
-            Value::string(path.to_string_lossy(), span)
-        } else {
-            Value::error(ShellError::ConfigDirNotFound { span: Some(span) }, span)
-        },
+        "vendor-autoload-dirs",
+        Value::list(
+            get_vendor_autoload_dirs(engine_state)
+                .iter()
+                .map(|path| Value::string(path.to_string_lossy(), span))
+                .collect(),
+            span,
+        ),
     );
 
     record.push("temp-path", {
@@ -255,39 +250,95 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     Value::record(record, span)
 }
 
-pub fn get_vendor_autoload_dir(engine_state: &EngineState) -> Option<PathBuf> {
-    // pseudo code
-    // if env var NU_VENDOR_AUTOLOAD_DIR is set, in any platform, use it
-    // if not, if windows, use ALLUSERPROFILE\nushell\vendor\autoload
-    // if not, if non-windows, if env var PREFIX is set, use PREFIX/share/nushell/vendor/autoload
-    // if not, use the default /usr/share/nushell/vendor/autoload
+pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
+    // load order for autoload dirs
+    // /Library/Application Support/nushell/vendor/autoload on macOS
+    // <dir>/nushell/vendor/autoload for every dir in XDG_DATA_DIRS in reverse order on platforms other than windows. If XDG_DATA_DIRS is not set, it falls back to <PREFIX>/share if PREFIX ends in local, or <PREFIX>/local/share:<PREFIX>/share otherwise. If PREFIX is not set, fall back to /usr/local/share:/usr/share.
+    // %ProgramData%\nushell\vendor\autoload on windows
+    // NU_VENDOR_AUTOLOAD_DIR from compile time, if env var is set at compile time
+    // if on macOS, additionally check XDG_DATA_HOME, which `dirs` is only doing on Linux
+    // <data_dir>/nushell/vendor/autoload of the current user according to the `dirs` crate
+    // NU_VENDOR_AUTOLOAD_DIR at runtime, if env var is set
 
-    // check to see if NU_VENDOR_AUTOLOAD_DIR env var is set, if not, use the default
-    Some(
-        option_env!("NU_VENDOR_AUTOLOAD_DIR")
-            .map(String::from)
-            .unwrap_or_else(|| {
-                if cfg!(windows) {
-                    let all_user_profile = match engine_state.get_env_var("ALLUSERPROFILE") {
-                        Some(v) => format!(
-                            "{}\\nushell\\vendor\\autoload",
-                            v.coerce_string().unwrap_or("C:\\ProgramData".into())
-                        ),
-                        None => "C:\\ProgramData\\nushell\\vendor\\autoload".into(),
-                    };
-                    all_user_profile
-                } else {
-                    // In non-Windows environments, if NU_VENDOR_AUTOLOAD_DIR is not set
-                    // check to see if PREFIX env var is set, and use it as PREFIX/nushell/vendor/autoload
-                    // otherwise default to /usr/share/nushell/vendor/autoload
-                    option_env!("PREFIX").map(String::from).map_or_else(
-                        || "/usr/local/share/nushell/vendor/autoload".into(),
-                        |prefix| format!("{}/share/nushell/vendor/autoload", prefix),
-                    )
-                }
+    let into_autoload_path_fn = |mut path: PathBuf| {
+        path.push("nushell");
+        path.push("vendor");
+        path.push("autoload");
+        path
+    };
+
+    let mut dirs = Vec::new();
+
+    let mut append_fn = |path: PathBuf| {
+        if !dirs.contains(&path) {
+            dirs.push(path)
+        }
+    };
+
+    #[cfg(target_os = "macos")]
+    std::iter::once("/Library/Application Support")
+        .map(PathBuf::from)
+        .map(into_autoload_path_fn)
+        .for_each(&mut append_fn);
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+
+        std::env::var_os("XDG_DATA_DIRS")
+            .or_else(|| {
+                option_env!("PREFIX").map(|prefix| {
+                    if prefix.ends_with("local") {
+                        std::ffi::OsString::from(format!("{prefix}/share"))
+                    } else {
+                        std::ffi::OsString::from(format!("{prefix}/local/share:{prefix}/share"))
+                    }
+                })
             })
-            .into(),
-    )
+            .unwrap_or_else(|| std::ffi::OsString::from("/usr/local/share/:/usr/share/"))
+            .as_encoded_bytes()
+            .split(|b| *b == b':')
+            .map(|split| into_autoload_path_fn(PathBuf::from(std::ffi::OsStr::from_bytes(split))))
+            .rev()
+            .for_each(&mut append_fn);
+    }
+
+    #[cfg(target_os = "windows")]
+    dirs_sys::known_folder(windows_sys::Win32::UI::Shell::FOLDERID_ProgramData)
+        .into_iter()
+        .map(into_autoload_path_fn)
+        .for_each(&mut append_fn);
+
+    option_env!("NU_VENDOR_AUTOLOAD_DIR")
+        .into_iter()
+        .map(PathBuf::from)
+        .for_each(&mut append_fn);
+
+    #[cfg(target_os = "macos")]
+    std::env::var("XDG_DATA_HOME")
+        .ok()
+        .map(PathBuf::from)
+        .or_else(|| {
+            dirs::home_dir().map(|mut home| {
+                home.push(".local");
+                home.push("share");
+                home
+            })
+        })
+        .map(into_autoload_path_fn)
+        .into_iter()
+        .for_each(&mut append_fn);
+
+    dirs::data_dir()
+        .into_iter()
+        .map(into_autoload_path_fn)
+        .for_each(&mut append_fn);
+
+    std::env::var_os("NU_VENDOR_AUTOLOAD_DIR")
+        .into_iter()
+        .map(PathBuf::from)
+        .for_each(&mut append_fn);
+
+    dirs
 }
 
 fn eval_const_call(
@@ -307,7 +358,7 @@ fn eval_const_call(
         return Err(ShellError::NotAConstHelp { span: call.head });
     }
 
-    decl.run_const(working_set, call, input)
+    decl.run_const(working_set, &call.into(), input)
 }
 
 pub fn eval_const_subexpression(
@@ -360,8 +411,8 @@ impl Eval for EvalConst {
 
     type MutState = ();
 
-    fn get_config<'a>(state: Self::State<'a>, _: &mut ()) -> Cow<'a, Config> {
-        Cow::Borrowed(state.get_config())
+    fn get_config(state: Self::State<'_>, _: &mut ()) -> Arc<Config> {
+        state.get_config().clone()
     }
 
     fn eval_filepath(
@@ -416,6 +467,15 @@ impl Eval for EvalConst {
     ) -> Result<Value, ShellError> {
         // TODO: It may be more helpful to give not_a_const_command error
         Err(ShellError::NotAConstant { span })
+    }
+
+    fn eval_collect<D: DebugContext>(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _var_id: VarId,
+        expr: &Expression,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span: expr.span })
     }
 
     fn eval_subexpression<D: DebugContext>(

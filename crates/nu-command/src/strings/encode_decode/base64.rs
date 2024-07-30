@@ -8,8 +8,8 @@ use base64::{
 };
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::EngineState,
+    ast::CellPath,
+    engine::{Call, EngineState},
     PipelineData, ShellError, Span, Spanned, Value,
 };
 
@@ -75,7 +75,7 @@ pub fn operate(
         cell_paths,
     };
 
-    general_operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    general_operate(action, args, input, call.head, engine_state.signals())
 }
 
 fn action(

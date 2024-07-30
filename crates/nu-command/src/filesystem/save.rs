@@ -4,16 +4,13 @@ use nu_engine::get_eval_block;
 use nu_engine::{command_prelude::*, current_dir};
 use nu_path::expand_path_with;
 use nu_protocol::{
-    ast::{Expr, Expression},
-    byte_stream::copy_with_interrupt,
-    process::ChildPipe,
-    ByteStreamSource, DataSource, OutDest, PipelineMetadata,
+    ast, byte_stream::copy_with_signals, process::ChildPipe, ByteStreamSource, DataSource, OutDest,
+    PipelineMetadata, Signals,
 };
 use std::{
     fs::File,
     io::{self, BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
-    sync::{atomic::AtomicBool, Arc},
     thread,
 };
 
@@ -70,24 +67,6 @@ impl Command for Save {
         let append = call.has_flag(engine_state, stack, "append")?;
         let force = call.has_flag(engine_state, stack, "force")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
-        let out_append = if let Some(Expression {
-            expr: Expr::Bool(out_append),
-            ..
-        }) = call.get_parser_info("out-append")
-        {
-            *out_append
-        } else {
-            false
-        };
-        let err_append = if let Some(Expression {
-            expr: Expr::Bool(err_append),
-            ..
-        }) = call.get_parser_info("err-append")
-        {
-            *err_append
-        } else {
-            false
-        };
 
         let span = call.head;
         #[allow(deprecated)]
@@ -110,40 +89,33 @@ impl Command for Save {
             PipelineData::ByteStream(stream, metadata) => {
                 check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
 
-                let (file, stderr_file) = get_files(
-                    &path,
-                    stderr_path.as_ref(),
-                    append,
-                    out_append,
-                    err_append,
-                    force,
-                )?;
+                let (file, stderr_file) = get_files(&path, stderr_path.as_ref(), append, force)?;
 
                 let size = stream.known_size();
-                let ctrlc = engine_state.ctrlc.clone();
+                let signals = engine_state.signals();
 
                 match stream.into_source() {
                     ByteStreamSource::Read(read) => {
-                        stream_to_file(read, size, ctrlc, file, span, progress)?;
+                        stream_to_file(read, size, signals, file, span, progress)?;
                     }
                     ByteStreamSource::File(source) => {
-                        stream_to_file(source, size, ctrlc, file, span, progress)?;
+                        stream_to_file(source, size, signals, file, span, progress)?;
                     }
                     ByteStreamSource::Child(mut child) => {
                         fn write_or_consume_stderr(
                             stderr: ChildPipe,
                             file: Option<File>,
                             span: Span,
-                            ctrlc: Option<Arc<AtomicBool>>,
+                            signals: &Signals,
                             progress: bool,
                         ) -> Result<(), ShellError> {
                             if let Some(file) = file {
                                 match stderr {
                                     ChildPipe::Pipe(pipe) => {
-                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                        stream_to_file(pipe, None, signals, file, span, progress)
                                     }
                                     ChildPipe::Tee(tee) => {
-                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                        stream_to_file(tee, None, signals, file, span, progress)
                                     }
                                 }?
                             } else {
@@ -163,14 +135,14 @@ impl Command for Save {
                                 // delegate a thread to redirect stderr to result.
                                 let handler = stderr
                                     .map(|stderr| {
-                                        let ctrlc = ctrlc.clone();
+                                        let signals = signals.clone();
                                         thread::Builder::new().name("stderr saver".into()).spawn(
                                             move || {
                                                 write_or_consume_stderr(
                                                     stderr,
                                                     stderr_file,
                                                     span,
-                                                    ctrlc,
+                                                    &signals,
                                                     progress,
                                                 )
                                             },
@@ -181,10 +153,10 @@ impl Command for Save {
 
                                 let res = match stdout {
                                     ChildPipe::Pipe(pipe) => {
-                                        stream_to_file(pipe, None, ctrlc, file, span, progress)
+                                        stream_to_file(pipe, None, signals, file, span, progress)
                                     }
                                     ChildPipe::Tee(tee) => {
-                                        stream_to_file(tee, None, ctrlc, file, span, progress)
+                                        stream_to_file(tee, None, signals, file, span, progress)
                                     }
                                 };
                                 if let Some(h) = handler {
@@ -202,7 +174,7 @@ impl Command for Save {
                                     stderr,
                                     stderr_file,
                                     span,
-                                    ctrlc,
+                                    signals,
                                     progress,
                                 )?;
                             }
@@ -222,14 +194,7 @@ impl Command for Save {
                     stderr_path.as_ref(),
                 )?;
 
-                let (mut file, _) = get_files(
-                    &path,
-                    stderr_path.as_ref(),
-                    append,
-                    out_append,
-                    err_append,
-                    force,
-                )?;
+                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
                         .map_err(|err| ShellError::IOError {
@@ -259,14 +224,7 @@ impl Command for Save {
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
                 // Only open file after successful conversion
-                let (mut file, _) = get_files(
-                    &path,
-                    stderr_path.as_ref(),
-                    append,
-                    out_append,
-                    err_append,
-                    force,
-                )?;
+                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
 
                 file.write_all(&bytes).map_err(|err| ShellError::IOError {
                     msg: err.to_string(),
@@ -398,7 +356,8 @@ fn convert_to_extension(
             let eval_block = get_eval_block(engine_state);
             eval_block(engine_state, stack, block, input)
         } else {
-            decl.run(engine_state, stack, &Call::new(span), input)
+            let call = ast::Call::new(span);
+            decl.run(engine_state, stack, &(&call).into(), input)
         }
     } else {
         Ok(input)
@@ -461,7 +420,7 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
     };
 
     file.map_err(|e| ShellError::GenericError {
-        error: "Permission denied".into(),
+        error: format!("Problem with [{}], Permission denied", path.display()),
         msg: e.to_string(),
         span: Some(span),
         help: None,
@@ -474,19 +433,17 @@ fn get_files(
     path: &Spanned<PathBuf>,
     stderr_path: Option<&Spanned<PathBuf>>,
     append: bool,
-    out_append: bool,
-    err_append: bool,
     force: bool,
 ) -> Result<(File, Option<File>), ShellError> {
     // First check both paths
-    let (path, path_span) = prepare_path(path, append || out_append, force)?;
+    let (path, path_span) = prepare_path(path, append, force)?;
     let stderr_path_and_span = stderr_path
         .as_ref()
-        .map(|stderr_path| prepare_path(stderr_path, append || err_append, force))
+        .map(|stderr_path| prepare_path(stderr_path, append, force))
         .transpose()?;
 
     // Only if both files can be used open and possibly truncate them
-    let file = open_file(path, path_span, append || out_append)?;
+    let file = open_file(path, path_span, append)?;
 
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
@@ -499,7 +456,7 @@ fn get_files(
                     inner: vec![],
                 })
             } else {
-                open_file(stderr_path, stderr_path_span, append || err_append)
+                open_file(stderr_path, stderr_path_span, append)
             }
         })
         .transpose()?;
@@ -510,7 +467,7 @@ fn get_files(
 fn stream_to_file(
     source: impl Read,
     known_size: Option<u64>,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: &Signals,
     mut file: File,
     span: Span,
     progress: bool,
@@ -526,9 +483,9 @@ fn stream_to_file(
         let mut reader = BufReader::new(source);
 
         let res = loop {
-            if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            if let Err(err) = signals.check(span) {
                 bar.abandoned_msg("# Cancelled #".to_owned());
-                return Ok(());
+                return Err(err);
             }
 
             match reader.fill_buf() {
@@ -555,7 +512,7 @@ fn stream_to_file(
             Ok(())
         }
     } else {
-        copy_with_interrupt(source, file, span, ctrlc.as_deref())?;
+        copy_with_signals(source, file, span, signals)?;
         Ok(())
     }
 }

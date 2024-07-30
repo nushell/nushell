@@ -47,7 +47,7 @@ impl Command for History {
         if let Some(config_path) = nu_path::config_dir() {
             let clear = call.has_flag(engine_state, stack, "clear")?;
             let long = call.has_flag(engine_state, stack, "long")?;
-            let ctrlc = engine_state.ctrlc.clone();
+            let signals = engine_state.signals().clone();
 
             let mut history_path = config_path;
             history_path.push("nushell");
@@ -107,7 +107,7 @@ impl Command for History {
                             file: history_path.display().to_string(),
                             span: head,
                         })?
-                        .into_pipeline_data(head, ctrlc)),
+                        .into_pipeline_data(head, signals)),
                     HistoryFileFormat::Sqlite => Ok(history_reader
                         .and_then(|h| {
                             h.search(SearchQuery::everything(SearchDirection::Forward, None))
@@ -122,7 +122,7 @@ impl Command for History {
                             file: history_path.display().to_string(),
                             span: head,
                         })?
-                        .into_pipeline_data(head, ctrlc)),
+                        .into_pipeline_data(head, signals)),
                 }
             }
         } else {

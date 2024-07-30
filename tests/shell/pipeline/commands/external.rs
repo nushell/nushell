@@ -149,17 +149,26 @@ fn command_substitution_wont_output_extra_newline() {
     assert_eq!(actual.out, "bar");
 }
 
-#[test]
-fn basic_err_pipe_works() {
-    let actual =
-        nu!(r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr FOO e>| str length }"#);
+#[rstest::rstest]
+#[case("err>|")]
+#[case("e>|")]
+fn basic_err_pipe_works(#[case] redirection: &str) {
+    let actual = nu!(
+        r#"with-env { FOO: "bar" } { nu --testbin echo_env_stderr FOO {redirection} str length }"#
+            .replace("{redirection}", redirection)
+    );
     assert_eq!(actual.out, "3");
 }
 
-#[test]
-fn basic_outerr_pipe_works() {
+#[rstest::rstest]
+#[case("out+err>|")]
+#[case("err+out>|")]
+#[case("o+e>|")]
+#[case("e+o>|")]
+fn basic_outerr_pipe_works(#[case] redirection: &str) {
     let actual = nu!(
-        r#"with-env { FOO: "bar" } { nu --testbin echo_env_mixed out-err FOO FOO o+e>| str length }"#
+        r#"with-env { FOO: "bar" } { nu --testbin echo_env_mixed out-err FOO FOO {redirection} str length }"#
+            .replace("{redirection}", redirection)
     );
     assert_eq!(actual.out, "7");
 }
@@ -198,6 +207,12 @@ fn run_glob_if_pass_variable_to_external() {
         assert!(actual.out.contains("jt_likes_cake.txt"));
         assert!(actual.out.contains("andres_likes_arepas.txt"));
     })
+}
+
+#[test]
+fn subexpression_does_not_implicitly_capture() {
+    let actual = nu!("(nu --testbin cococo); null");
+    assert_eq!(actual.out, "cococo");
 }
 
 mod it_evaluation {

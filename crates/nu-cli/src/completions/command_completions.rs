@@ -9,7 +9,7 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 
-use super::SemanticSuggestion;
+use super::{completion_common::sort_suggestions, SemanticSuggestion};
 
 pub struct CommandCompletion {
     flattened: Vec<(Span, FlatShape)>,
@@ -99,10 +99,9 @@ impl CommandCompletion {
                 suggestion: Suggestion {
                     value: String::from_utf8_lossy(&x.0).to_string(),
                     description: x.1,
-                    style: None,
-                    extra: None,
                     span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
+                    ..Suggestion::default()
                 },
                 kind: Some(SuggestionKind::Command(x.2)),
             })
@@ -118,11 +117,9 @@ impl CommandCompletion {
                 .map(move |x| SemanticSuggestion {
                     suggestion: Suggestion {
                         value: x,
-                        description: None,
-                        style: None,
-                        extra: None,
                         span: reedline::Span::new(span.start - offset, span.end - offset),
                         append_whitespace: true,
+                        ..Suggestion::default()
                     },
                     // TODO: is there a way to create a test?
                     kind: None,
@@ -136,11 +133,9 @@ impl CommandCompletion {
                     results.push(SemanticSuggestion {
                         suggestion: Suggestion {
                             value: format!("^{}", external.suggestion.value),
-                            description: None,
-                            style: None,
-                            extra: None,
                             span: external.suggestion.span,
                             append_whitespace: true,
+                            ..Suggestion::default()
                         },
                         kind: external.kind,
                     })
@@ -161,7 +156,7 @@ impl Completer for CommandCompletion {
         &mut self,
         working_set: &StateWorkingSet,
         _stack: &Stack,
-        _prefix: Vec<u8>,
+        prefix: Vec<u8>,
         span: Span,
         offset: usize,
         pos: usize,
@@ -198,7 +193,11 @@ impl Completer for CommandCompletion {
         };
 
         if !subcommands.is_empty() {
-            return subcommands;
+            return sort_suggestions(
+                &String::from_utf8_lossy(&prefix),
+                subcommands,
+                SortBy::LevenshteinDistance,
+            );
         }
 
         let config = working_set.get_config();
@@ -223,11 +222,11 @@ impl Completer for CommandCompletion {
             vec![]
         };
 
-        subcommands.into_iter().chain(commands).collect::<Vec<_>>()
-    }
-
-    fn get_sort_by(&self) -> SortBy {
-        SortBy::LevenshteinDistance
+        sort_suggestions(
+            &String::from_utf8_lossy(&prefix),
+            commands,
+            SortBy::LevenshteinDistance,
+        )
     }
 }
 

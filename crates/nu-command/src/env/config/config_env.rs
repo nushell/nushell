@@ -60,12 +60,13 @@ impl Command for ConfigEnv {
         let (editor_name, editor_args) = get_editor(engine_state, stack, call.head)?;
         let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
         let cwd = engine_state.cwd(Some(stack))?;
-        let editor_executable =
-            crate::which(&editor_name, &paths, &cwd).ok_or(ShellError::ExternalCommand {
+        let editor_executable = crate::which(&editor_name, &paths, cwd.as_ref()).ok_or(
+            ShellError::ExternalCommand {
                 label: format!("`{editor_name}` not found"),
                 help: "Failed to find the editor executable".into(),
                 span: call.head,
-            })?;
+            },
+        )?;
 
         let Some(env_path) = engine_state.get_config_path("env-path") else {
             return Err(ShellError::GenericError {

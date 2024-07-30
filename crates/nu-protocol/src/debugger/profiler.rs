@@ -7,10 +7,11 @@ use crate::{
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
+    ir::IrBlock,
     record, PipelineData, ShellError, Span, Value,
 };
-use std::io::BufRead;
 use std::time::Instant;
+use std::{borrow::Borrow, io::BufRead};
 
 #[derive(Debug, Clone, Copy)]
 struct ElementId(usize);
@@ -24,6 +25,7 @@ struct ElementInfo {
     element_span: Span,
     element_output: Option<Value>,
     expr: Option<String>,
+    instruction: Option<(usize, String)>,
     children: Vec<ElementId>,
 }
 
@@ -36,57 +38,53 @@ impl ElementInfo {
             element_span,
             element_output: None,
             expr: None,
+            instruction: None,
             children: vec![],
         }
     }
+}
+
+/// Options for [`Profiler`]
+#[derive(Debug, Clone)]
+pub struct ProfilerOptions {
+    pub max_depth: i64,
+    pub collect_spans: bool,
+    pub collect_source: bool,
+    pub collect_expanded_source: bool,
+    pub collect_values: bool,
+    pub collect_exprs: bool,
+    pub collect_instructions: bool,
+    pub collect_lines: bool,
 }
 
 /// Basic profiler, used in `debug profile`
 #[derive(Debug, Clone)]
 pub struct Profiler {
     depth: i64,
-    max_depth: i64,
-    collect_spans: bool,
-    collect_source: bool,
-    collect_expanded_source: bool,
-    collect_values: bool,
-    collect_exprs: bool,
-    collect_lines: bool,
+    opts: ProfilerOptions,
     elements: Vec<ElementInfo>,
     element_stack: Vec<ElementId>,
 }
 
 impl Profiler {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        max_depth: i64,
-        collect_spans: bool,
-        collect_source: bool,
-        collect_expanded_source: bool,
-        collect_values: bool,
-        collect_exprs: bool,
-        collect_lines: bool,
-        span: Span,
-    ) -> Self {
+    pub fn new(opts: ProfilerOptions, span: Span) -> Self {
         let first = ElementInfo {
             start: Instant::now(),
             duration_sec: 0.0,
             depth: 0,
             element_span: span,
-            element_output: collect_values.then(|| Value::nothing(span)),
-            expr: collect_exprs.then(|| "call".to_string()),
+            element_output: opts.collect_values.then(|| Value::nothing(span)),
+            expr: opts.collect_exprs.then(|| "call".to_string()),
+            instruction: opts
+                .collect_instructions
+                .then(|| (0, "<start>".to_string())),
             children: vec![],
         };
 
         Profiler {
             depth: 0,
-            max_depth,
-            collect_spans,
-            collect_source,
-            collect_expanded_source,
-            collect_values,
-            collect_exprs,
-            collect_lines,
+            opts,
             elements: vec![first],
             element_stack: vec![ElementId(0)],
         }
@@ -130,7 +128,7 @@ impl Debugger for Profiler {
     }
 
     fn enter_element(&mut self, engine_state: &EngineState, element: &PipelineElement) {
-        if self.depth > self.max_depth {
+        if self.depth > self.opts.max_depth {
             return;
         }
 
@@ -140,6 +138,7 @@ impl Debugger for Profiler {
         };
 
         let expr_opt = self
+            .opts
             .collect_exprs
             .then(|| expr_to_string(engine_state, &element.expr.expr));
 
@@ -165,13 +164,13 @@ impl Debugger for Profiler {
         element: &PipelineElement,
         result: &Result<PipelineData, ShellError>,
     ) {
-        if self.depth > self.max_depth {
+        if self.depth > self.opts.max_depth {
             return;
         }
 
         let element_span = element.expr.span;
 
-        let out_opt = self.collect_values.then(|| match result {
+        let out_opt = self.opts.collect_values.then(|| match result {
             Ok(pipeline_data) => match pipeline_data {
                 PipelineData::Value(val, ..) => val.clone(),
                 PipelineData::ListStream(..) => Value::string("list stream", element_span),
@@ -180,6 +179,91 @@ impl Debugger for Profiler {
             },
             Err(e) => Value::error(e.clone(), element_span),
         });
+
+        let Some(last_element) = self.last_element_mut() else {
+            eprintln!("Profiler Error: Missing last element.");
+            return;
+        };
+
+        last_element.duration_sec = last_element.start.elapsed().as_secs_f64();
+        last_element.element_output = out_opt;
+
+        self.element_stack.pop();
+    }
+
+    fn enter_instruction(
+        &mut self,
+        engine_state: &EngineState,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        _registers: &[PipelineData],
+    ) {
+        if self.depth > self.opts.max_depth {
+            return;
+        }
+
+        let Some(parent_id) = self.last_element_id() else {
+            eprintln!("Profiler Error: Missing parent element ID.");
+            return;
+        };
+
+        let instruction = &ir_block.instructions[instruction_index];
+        let span = ir_block.spans[instruction_index];
+
+        let instruction_opt = self.opts.collect_instructions.then(|| {
+            (
+                instruction_index,
+                instruction
+                    .display(engine_state, &ir_block.data)
+                    .to_string(),
+            )
+        });
+
+        let new_id = ElementId(self.elements.len());
+
+        let mut new_element = ElementInfo::new(self.depth, span);
+        new_element.instruction = instruction_opt;
+
+        self.elements.push(new_element);
+
+        let Some(parent) = self.elements.get_mut(parent_id.0) else {
+            eprintln!("Profiler Error: Missing parent element.");
+            return;
+        };
+
+        parent.children.push(new_id);
+        self.element_stack.push(new_id);
+    }
+
+    fn leave_instruction(
+        &mut self,
+        _engine_state: &EngineState,
+        ir_block: &IrBlock,
+        instruction_index: usize,
+        registers: &[PipelineData],
+        error: Option<&ShellError>,
+    ) {
+        if self.depth > self.opts.max_depth {
+            return;
+        }
+
+        let instruction = &ir_block.instructions[instruction_index];
+        let span = ir_block.spans[instruction_index];
+
+        let out_opt = self
+            .opts
+            .collect_values
+            .then(|| {
+                error
+                    .map(Err)
+                    .or_else(|| {
+                        instruction
+                            .output_register()
+                            .map(|register| Ok(&registers[register.0 as usize]))
+                    })
+                    .map(|result| format_result(&result, span))
+            })
+            .flatten();
 
         let Some(last_element) = self.last_element_mut() else {
             eprintln!("Profiler Error: Missing last element.");
@@ -259,12 +343,28 @@ fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {
         Expr::String(_) | Expr::RawString(_) => "string".to_string(),
         Expr::StringInterpolation(_) => "string interpolation".to_string(),
         Expr::GlobInterpolation(_, _) => "glob interpolation".to_string(),
+        Expr::Collect(_, _) => "collect".to_string(),
         Expr::Subexpression(_) => "subexpression".to_string(),
         Expr::Table(_) => "table".to_string(),
         Expr::UnaryNot(_) => "unary not".to_string(),
         Expr::ValueWithUnit(_) => "value with unit".to_string(),
         Expr::Var(_) => "var".to_string(),
         Expr::VarDecl(_) => "var decl".to_string(),
+    }
+}
+
+fn format_result(
+    result: &Result<impl Borrow<PipelineData>, impl Borrow<ShellError>>,
+    element_span: Span,
+) -> Value {
+    match result {
+        Ok(pipeline_data) => match pipeline_data.borrow() {
+            PipelineData::Value(val, ..) => val.clone(),
+            PipelineData::ListStream(..) => Value::string("list stream", element_span),
+            PipelineData::ByteStream(..) => Value::string("byte stream", element_span),
+            _ => Value::nothing(element_span),
+        },
+        Err(e) => Value::error(e.borrow().clone(), element_span),
     }
 }
 
@@ -308,7 +408,7 @@ fn collect_data(
         "parent_id" => Value::int(parent_id.0 as i64, profiler_span),
     };
 
-    if profiler.collect_lines {
+    if profiler.opts.collect_lines {
         if let Some((fname, line_num)) = find_file_of_span(engine_state, element.element_span) {
             row.push("file", Value::string(fname, profiler_span));
             row.push("line", Value::int(line_num as i64, profiler_span));
@@ -318,7 +418,7 @@ fn collect_data(
         }
     }
 
-    if profiler.collect_spans {
+    if profiler.opts.collect_spans {
         let span_start = i64::try_from(element.element_span.start)
             .map_err(|_| profiler_error("error converting span start to i64", profiler_span))?;
         let span_end = i64::try_from(element.element_span.end)
@@ -336,12 +436,12 @@ fn collect_data(
         );
     }
 
-    if profiler.collect_source {
+    if profiler.opts.collect_source {
         let val = String::from_utf8_lossy(engine_state.get_span_contents(element.element_span));
         let val = val.trim();
         let nlines = val.lines().count();
 
-        let fragment = if profiler.collect_expanded_source {
+        let fragment = if profiler.opts.collect_expanded_source {
             val.to_string()
         } else {
             let mut first_line = val.lines().next().unwrap_or("").to_string();
@@ -358,6 +458,17 @@ fn collect_data(
 
     if let Some(expr_string) = &element.expr {
         row.push("expr", Value::string(expr_string.clone(), profiler_span));
+    }
+
+    if let Some((instruction_index, instruction)) = &element.instruction {
+        row.push(
+            "pc",
+            (*instruction_index)
+                .try_into()
+                .map(|index| Value::int(index, profiler_span))
+                .unwrap_or(Value::nothing(profiler_span)),
+        );
+        row.push("instruction", Value::string(instruction, profiler_span));
     }
 
     if let Some(val) = &element.element_output {

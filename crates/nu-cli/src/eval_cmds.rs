@@ -53,9 +53,8 @@ pub fn evaluate_commands(
     // Parse the source code
     let (block, delta) = {
         if let Some(ref t_mode) = table_mode {
-            let mut config = engine_state.get_config().clone();
-            config.table_mode = t_mode.coerce_str()?.parse().unwrap_or_default();
-            engine_state.set_config(config);
+            Arc::make_mut(&mut engine_state.config).table_mode =
+                t_mode.coerce_str()?.parse().unwrap_or_default();
         }
 
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -68,6 +67,11 @@ pub fn evaluate_commands(
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
             std::process::exit(1);
+        }
+
+        if let Some(err) = working_set.compile_errors.first() {
+            report_error(&working_set, err);
+            // Not a fatal error, for now
         }
 
         (output, working_set.render())

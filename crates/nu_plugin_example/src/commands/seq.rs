@@ -1,6 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, ListStream, PipelineData, Signature, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, ListStream, PipelineData, Signals, Signature, SyntaxShape,
+    Type, Value,
 };
 
 use crate::ExamplePlugin;
@@ -54,7 +55,7 @@ impl PluginCommand for Seq {
         let first: i64 = call.req(0)?;
         let last: i64 = call.req(1)?;
         let iter = (first..=last).map(move |number| Value::int(number, head));
-        Ok(ListStream::new(iter, head, None).into())
+        Ok(ListStream::new(iter, head, Signals::empty()).into())
     }
 }
 

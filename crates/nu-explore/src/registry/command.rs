@@ -1,6 +1,6 @@
 use crate::{
     commands::{SimpleCommand, ViewCommand},
-    views::View,
+    views::{View, ViewConfig},
 };
 use anyhow::Result;
 
@@ -78,8 +78,9 @@ where
         engine_state: &nu_protocol::engine::EngineState,
         stack: &mut nu_protocol::engine::Stack,
         value: Option<nu_protocol::Value>,
+        cfg: &ViewConfig,
     ) -> Result<Self::View> {
-        let view = self.0.spawn(engine_state, stack, value)?;
+        let view = self.0.spawn(engine_state, stack, value, cfg)?;
         Ok(Box::new(view) as Box<dyn View>)
     }
 }

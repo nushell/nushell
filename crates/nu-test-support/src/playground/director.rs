@@ -83,7 +83,7 @@ impl Director {
 }
 
 impl Executable for Director {
-    fn execute(&mut self) -> NuResult {
+    fn execute(&mut self) -> Result<Outcome, NuError> {
         use std::process::Stdio;
 
         match self.executable() {

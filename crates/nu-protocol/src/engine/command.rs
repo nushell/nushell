@@ -1,5 +1,5 @@
 use super::{EngineState, Stack, StateWorkingSet};
-use crate::{ast::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
+use crate::{engine::Call, Alias, BlockId, Example, OutDest, PipelineData, ShellError, Signature};
 use std::fmt::Display;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,6 +123,12 @@ pub trait Command: Send + Sync + CommandClone {
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
         (None, None)
+    }
+
+    /// Return true if the AST nodes for the arguments are required for IR evaluation. This is
+    /// currently inefficient so is not generally done.
+    fn requires_ast_for_arguments(&self) -> bool {
+        false
     }
 }
 

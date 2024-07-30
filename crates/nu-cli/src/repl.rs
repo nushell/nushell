@@ -43,7 +43,7 @@ use std::{
     io::{self, IsTerminal, Write},
     panic::{catch_unwind, AssertUnwindSafe},
     path::{Path, PathBuf},
-    sync::{atomic::Ordering, Arc},
+    sync::Arc,
     time::{Duration, Instant},
 };
 use sysinfo::System;
@@ -268,14 +268,14 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     if let Err(err) = engine_state.merge_env(&mut stack, cwd) {
         report_error_new(engine_state, &err);
     }
+    // Check whether $env.NU_USE_IR is set, so that the user can change it in the REPL
+    // Temporary while IR eval is optional
+    stack.use_ir = stack.has_env_var(engine_state, "NU_USE_IR");
     perf!("merge env", start_time, use_color);
 
     start_time = std::time::Instant::now();
-    // Reset the ctrl-c handler
-    if let Some(ctrlc) = &mut engine_state.ctrlc {
-        ctrlc.store(false, Ordering::SeqCst);
-    }
-    perf!("reset ctrlc", start_time, use_color);
+    engine_state.reset_signals();
+    perf!("reset signals", start_time, use_color);
 
     start_time = std::time::Instant::now();
     // Right before we start our prompt and take input from the user,
@@ -297,7 +297,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("env-change hook", start_time, use_color);
 
     let engine_reference = Arc::new(engine_state.clone());
-    let config = engine_state.get_config();
+    let config = stack.get_config(engine_state);
 
     start_time = std::time::Instant::now();
     // Find the configured cursor shapes for each mode
@@ -323,7 +323,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             engine_state: engine_reference.clone(),
             // STACK-REFERENCE 1
             stack: stack_arc.clone(),
-            config: config.clone(),
         }))
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
@@ -336,6 +335,14 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_quick_completions(config.quick_completions)
         .with_partial_completions(config.partial_completions)
         .with_ansi_colors(config.use_ansi_coloring)
+        .with_cwd(Some(
+            engine_state
+                .cwd(None)
+                .map(|cwd| cwd.into_std_path_buf())
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+        ))
         .with_cursor_config(cursor_config);
 
     perf!("reedline builder", start_time, use_color);
@@ -666,13 +673,14 @@ fn prepare_history_metadata(
     line_editor: &mut Reedline,
 ) {
     if !s.is_empty() && line_editor.has_last_command_context() {
-        #[allow(deprecated)]
         let result = line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
                 c.hostname = hostname.map(str::to_string);
-
-                c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
+                c.cwd = engine_state
+                    .cwd(None)
+                    .ok()
+                    .map(|path| path.to_string_lossy().to_string());
                 c
             })
             .into_diagnostic();

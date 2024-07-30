@@ -21,6 +21,25 @@ fn http_patch_is_success() {
 }
 
 #[test]
+fn http_patch_is_success_pipeline() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("PATCH", "/").match_body("foo").create();
+
+    let actual = nu!(pipeline(
+        format!(
+            r#"
+        "foo" | http patch {url}
+        "#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(actual.out.is_empty())
+}
+
+#[test]
 fn http_patch_failed_due_to_server_error() {
     let mut server = Server::new();
 
@@ -55,7 +74,9 @@ fn http_patch_failed_due_to_missing_body() {
         .as_str()
     ));
 
-    assert!(actual.err.contains("Usage: http patch"))
+    assert!(actual
+        .err
+        .contains("Data must be provided either through pipeline or positional argument"))
 }
 
 #[test]

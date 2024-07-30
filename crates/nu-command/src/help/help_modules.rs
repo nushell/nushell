@@ -230,7 +230,7 @@ pub fn help_modules(
             ));
         }
 
-        let config = engine_state.get_config();
+        let config = stack.get_config(engine_state);
         if !config.use_ansi_coloring {
             long_desc = nu_utils::strip_ansi_string_likely(long_desc);
         }

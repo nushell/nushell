@@ -137,3 +137,39 @@ fn known_external_aliased_subcommand_from_module() -> TestResult {
         String::from_utf8(output.stdout)?.trim(),
     )
 }
+
+#[test]
+fn known_external_arg_expansion() -> TestResult {
+    run_test(
+        r#"
+            extern echo [];
+            echo ~/foo
+        "#,
+        &dirs::home_dir()
+            .expect("can't find home dir")
+            .join("foo")
+            .to_string_lossy(),
+    )
+}
+
+#[test]
+fn known_external_arg_quoted_no_expand() -> TestResult {
+    run_test(
+        r#"
+            extern echo [];
+            echo "~/foo"
+        "#,
+        "~/foo",
+    )
+}
+
+#[test]
+fn known_external_arg_internally_quoted_options() -> TestResult {
+    run_test(
+        r#"
+            extern echo [];
+            echo --option="test"
+        "#,
+        "--option=test",
+    )
+}

@@ -1,16 +1,19 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
-use nu_protocol::{ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError};
+use nu_protocol::{
+    engine::Sequence, ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError,
+    Signals,
+};
 use std::{
     io::{Read, Write},
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::Mutex,
     thread,
 };
 
 pub mod stream;
 
-use crate::{util::Sequence, Encoder};
+use crate::Encoder;
 
 use self::stream::{StreamManager, StreamManagerHandle, StreamWriter, WriteStreamMessage};
 
@@ -145,7 +148,7 @@ pub trait InterfaceManager {
 
     /// Consume an input message.
     ///
-    /// When implementing, call [`.consume_stream_message()`] for any encapsulated
+    /// When implementing, call [`.consume_stream_message()`](Self::consume_stream_message) for any encapsulated
     /// [`StreamMessage`]s received.
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError>;
 
@@ -170,7 +173,7 @@ pub trait InterfaceManager {
     fn read_pipeline_data(
         &self,
         header: PipelineDataHeader,
-        ctrlc: Option<&Arc<AtomicBool>>,
+        signals: &Signals,
     ) -> Result<PipelineData, ShellError> {
         self.prepare_pipeline_data(match header {
             PipelineDataHeader::Empty => PipelineData::Empty,
@@ -178,12 +181,12 @@ pub trait InterfaceManager {
             PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ListStream::new(reader, info.span, ctrlc.cloned()).into()
+                ListStream::new(reader, info.span, signals.clone()).into()
             }
             PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
-                ByteStream::from_result_iter(reader, info.span, ctrlc.cloned(), info.type_).into()
+                ByteStream::from_result_iter(reader, info.span, signals.clone(), info.type_).into()
             }
         })
     }

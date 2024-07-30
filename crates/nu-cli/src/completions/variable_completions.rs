@@ -9,6 +9,8 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::str;
 
+use super::{completion_common::sort_suggestions, SortBy};
+
 #[derive(Clone)]
 pub struct VariableCompletion {
     var_context: (Vec<u8>, Vec<Vec<u8>>), // tuple with $var and the sublevels (.b.c.d)
@@ -40,6 +42,7 @@ impl Completer for VariableCompletion {
             end: span.end - offset,
         };
         let sublevels_count = self.var_context.1.len();
+        let prefix_str = String::from_utf8_lossy(&prefix);
 
         // Completions for the given variable
         if !var_str.is_empty() {
@@ -69,7 +72,7 @@ impl Completer for VariableCompletion {
                             }
                         }
 
-                        return output;
+                        return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                     }
                 } else {
                     // No nesting provided, return all env vars
@@ -82,18 +85,15 @@ impl Completer for VariableCompletion {
                             output.push(SemanticSuggestion {
                                 suggestion: Suggestion {
                                     value: env_var.0,
-                                    description: None,
-                                    style: None,
-                                    extra: None,
                                     span: current_span,
-                                    append_whitespace: false,
+                                    ..Suggestion::default()
                                 },
                                 kind: Some(SuggestionKind::Type(env_var.1.get_type())),
                             });
                         }
                     }
 
-                    return output;
+                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                 }
             }
 
@@ -117,7 +117,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return output;
+                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                 }
             }
 
@@ -139,7 +139,7 @@ impl Completer for VariableCompletion {
                         }
                     }
 
-                    return output;
+                    return sort_suggestions(&prefix_str, output, SortBy::Ascending);
                 }
             }
         }
@@ -154,11 +154,8 @@ impl Completer for VariableCompletion {
                 output.push(SemanticSuggestion {
                     suggestion: Suggestion {
                         value: builtin.to_string(),
-                        description: None,
-                        style: None,
-                        extra: None,
                         span: current_span,
-                        append_whitespace: false,
+                        ..Suggestion::default()
                     },
                     // TODO is there a way to get the VarId to get the type???
                     kind: None,
@@ -181,11 +178,8 @@ impl Completer for VariableCompletion {
                         output.push(SemanticSuggestion {
                             suggestion: Suggestion {
                                 value: String::from_utf8_lossy(v.0).to_string(),
-                                description: None,
-                                style: None,
-                                extra: None,
                                 span: current_span,
-                                append_whitespace: false,
+                                ..Suggestion::default()
                             },
                             kind: Some(SuggestionKind::Type(
                                 working_set.get_variable(*v.1).ty.clone(),
@@ -212,11 +206,8 @@ impl Completer for VariableCompletion {
                     output.push(SemanticSuggestion {
                         suggestion: Suggestion {
                             value: String::from_utf8_lossy(v.0).to_string(),
-                            description: None,
-                            style: None,
-                            extra: None,
                             span: current_span,
-                            append_whitespace: false,
+                            ..Suggestion::default()
                         },
                         kind: Some(SuggestionKind::Type(
                             working_set.get_variable(*v.1).ty.clone(),
@@ -225,6 +216,8 @@ impl Completer for VariableCompletion {
                 }
             }
         }
+
+        output = sort_suggestions(&prefix_str, output, SortBy::Ascending);
 
         output.dedup(); // TODO: Removes only consecutive duplicates, is it intended?
 
@@ -250,11 +243,8 @@ fn nested_suggestions(
                 output.push(SemanticSuggestion {
                     suggestion: Suggestion {
                         value: col.clone(),
-                        description: None,
-                        style: None,
-                        extra: None,
                         span: current_span,
-                        append_whitespace: false,
+                        ..Suggestion::default()
                     },
                     kind: Some(kind.clone()),
                 });
@@ -267,11 +257,8 @@ fn nested_suggestions(
                 output.push(SemanticSuggestion {
                     suggestion: Suggestion {
                         value: column_name,
-                        description: None,
-                        style: None,
-                        extra: None,
                         span: current_span,
-                        append_whitespace: false,
+                        ..Suggestion::default()
                     },
                     kind: Some(kind.clone()),
                 });

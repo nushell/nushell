@@ -161,8 +161,12 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
     let releaseStem = $'($bin)-($version)-($target)'
 
     print $'(char nl)Download less related stuffs...'; hr-line
+    # todo: less-v661 is out but is released as a zip file. maybe we should switch to that and extract it?
     aria2c https://github.com/jftuga/less-Windows/releases/download/less-v608/less.exe -o less.exe
-    aria2c https://raw.githubusercontent.com/jftuga/less-Windows/master/LICENSE -o LICENSE-for-less.txt
+    # the below was renamed because it was failing to download for darren. it should work but it wasn't
+    # todo: maybe we should get rid of this aria2c dependency and just use http get?
+    #aria2c https://raw.githubusercontent.com/jftuga/less-Windows/master/LICENSE -o LICENSE-for-less.txt
+    aria2c https://github.com/jftuga/less-Windows/blob/master/LICENSE -o LICENSE-for-less.txt
 
     # Create Windows msi release package
     if (get-env _EXTRA_) == 'msi' {

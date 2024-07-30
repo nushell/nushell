@@ -6,13 +6,11 @@ mod value;
 
 use nu_color_config::TextStyle;
 use nu_protocol::Value;
-use std::sync::{atomic::AtomicBool, Arc};
 
 pub use nu_ansi_term::{Color as NuColor, Style as NuStyle};
 pub use nu_protocol::{Config as NuConfig, Span as NuSpan};
 
 pub type NuText = (String, TextStyle);
-pub type CtrlC = Option<Arc<AtomicBool>>;
 
 pub use command::run_command_with_value;
 pub use lscolor::{create_lscolors, lscolorize};

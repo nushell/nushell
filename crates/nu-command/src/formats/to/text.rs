@@ -1,6 +1,8 @@
 use chrono_humanize::HumanTime;
 use nu_engine::command_prelude::*;
-use nu_protocol::{format_duration, format_filesize_from_conf, ByteStream, Config};
+use nu_protocol::{
+    format_duration, format_filesize_from_conf, ByteStream, Config, PipelineMetadata,
+};
 
 const LINE_ENDING: &str = if cfg!(target_os = "windows") {
     "\r\n"
@@ -29,22 +31,26 @@ impl Command for ToText {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let input = input.try_expand_range()?;
+        let config = stack.get_config(engine_state);
 
         match input {
-            PipelineData::Empty => Ok(Value::string(String::new(), span).into_pipeline_data()),
+            PipelineData::Empty => Ok(Value::string(String::new(), span)
+                .into_pipeline_data_with_metadata(update_metadata(None))),
             PipelineData::Value(value, ..) => {
-                let str = local_into_string(value, LINE_ENDING, engine_state.get_config());
-                Ok(Value::string(str, span).into_pipeline_data())
+                let str = local_into_string(value, LINE_ENDING, &config);
+                Ok(
+                    Value::string(str, span)
+                        .into_pipeline_data_with_metadata(update_metadata(None)),
+                )
             }
             PipelineData::ListStream(stream, meta) => {
                 let span = stream.span();
-                let config = engine_state.get_config().clone();
                 let iter = stream.into_inner().map(move |value| {
                     let mut str = local_into_string(value, LINE_ENDING, &config);
                     str.push_str(LINE_ENDING);
@@ -54,13 +60,15 @@ impl Command for ToText {
                     ByteStream::from_iter(
                         iter,
                         span,
-                        engine_state.ctrlc.clone(),
+                        engine_state.signals().clone(),
                         ByteStreamType::String,
                     ),
-                    meta,
+                    update_metadata(meta),
                 ))
             }
-            PipelineData::ByteStream(stream, meta) => Ok(PipelineData::ByteStream(stream, meta)),
+            PipelineData::ByteStream(stream, meta) => {
+                Ok(PipelineData::ByteStream(stream, update_metadata(meta)))
+            }
         }
     }
 
@@ -122,6 +130,14 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
             .map(|val| local_into_string(val, separator, config))
             .unwrap_or_else(|_| format!("<{}>", val.type_name())),
     }
+}
+
+fn update_metadata(metadata: Option<PipelineMetadata>) -> Option<PipelineMetadata> {
+    metadata
+        .map(|md| md.with_content_type(Some("text/plain".to_string())))
+        .or_else(|| {
+            Some(PipelineMetadata::default().with_content_type(Some("text/plain".to_string())))
+        })
 }
 
 #[cfg(test)]

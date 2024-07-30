@@ -49,22 +49,26 @@ impl Command for KeybindingsList {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let records = if call.named_len() == 0 {
-            let all_options = ["modifiers", "keycodes", "edits", "modes", "events"];
-            all_options
-                .iter()
-                .flat_map(|argument| get_records(argument, call.head))
-                .collect()
-        } else {
-            call.named_iter()
-                .flat_map(|(argument, _, _)| get_records(argument.item.as_str(), call.head))
-                .collect()
-        };
+        let all_options = ["modifiers", "keycodes", "edits", "modes", "events"];
+
+        let presence = all_options
+            .iter()
+            .map(|option| call.has_flag(engine_state, stack, option))
+            .collect::<Result<Vec<_>, ShellError>>()?;
+
+        let no_option_specified = presence.iter().all(|present| !*present);
+
+        let records = all_options
+            .iter()
+            .zip(presence)
+            .filter(|(_, present)| no_option_specified || *present)
+            .flat_map(|(option, _)| get_records(option, call.head))
+            .collect();
 
         Ok(Value::list(records, call.head).into_pipeline_data())
     }

@@ -215,7 +215,11 @@ fn select(
             rows: unique_rows.into_iter().peekable(),
             current: 0,
         }
-        .into_pipeline_data_with_metadata(call_span, engine_state.ctrlc.clone(), metadata)
+        .into_pipeline_data_with_metadata(
+            call_span,
+            engine_state.signals().clone(),
+            metadata,
+        )
     } else {
         input
     };
@@ -236,7 +240,7 @@ fn select(
                                 //FIXME: improve implementation to not clone
                                 match input_val.clone().follow_cell_path(&path.members, false) {
                                     Ok(fetcher) => {
-                                        record.push(path.to_string().replace('.', "_"), fetcher);
+                                        record.push(path.to_string(), fetcher);
                                         if !columns_with_value.contains(&path) {
                                             columns_with_value.push(path);
                                         }
@@ -255,7 +259,7 @@ fn select(
 
                     Ok(output.into_iter().into_pipeline_data_with_metadata(
                         call_span,
-                        engine_state.ctrlc.clone(),
+                        engine_state.signals().clone(),
                         metadata,
                     ))
                 }
@@ -267,7 +271,7 @@ fn select(
                             // FIXME: remove clone
                             match v.clone().follow_cell_path(&cell_path.members, false) {
                                 Ok(result) => {
-                                    record.push(cell_path.to_string().replace('.', "_"), result);
+                                    record.push(cell_path.to_string(), result);
                                 }
                                 Err(e) => return Err(e),
                             }
@@ -291,7 +295,7 @@ fn select(
                         //FIXME: improve implementation to not clone
                         match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
-                                record.push(path.to_string().replace('.', "_"), value);
+                                record.push(path.to_string(), value);
                             }
                             Err(e) => return Err(e),
                         }
@@ -304,7 +308,7 @@ fn select(
 
             Ok(values.into_pipeline_data_with_metadata(
                 call_span,
-                engine_state.ctrlc.clone(),
+                engine_state.signals().clone(),
                 metadata,
             ))
         }

@@ -151,7 +151,7 @@ fn filesystem_change_to_home_directory() {
             "
         );
 
-        assert_eq!(Some(PathBuf::from(actual.out)), dirs_next::home_dir());
+        assert_eq!(Some(PathBuf::from(actual.out)), dirs::home_dir());
     })
 }
 

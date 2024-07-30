@@ -26,6 +26,10 @@ pub(crate) fn run_commands(
     let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
 
+    if stack.has_env_var(engine_state, "NU_USE_IR") {
+        stack.use_ir = true;
+    }
+
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
     // and maybe a custom config file (depending on parsed_nu_cli_args.config_file)
@@ -109,6 +113,10 @@ pub(crate) fn run_file(
     trace!("run_file");
     let mut stack = Stack::new();
 
+    if stack.has_env_var(engine_state, "NU_USE_IR") {
+        stack.use_ir = true;
+    }
+
     // if the --no-config-file(-n) option is NOT passed, load the plugin file,
     // load the default env file or custom (depending on parsed_nu_cli_args.env_file),
     // and maybe a custom config file (depending on parsed_nu_cli_args.config_file)
@@ -183,6 +191,10 @@ pub(crate) fn run_repl(
     trace!("run_repl");
     let mut stack = Stack::new();
     let start_time = std::time::Instant::now();
+
+    if stack.has_env_var(engine_state, "NU_USE_IR") {
+        stack.use_ir = true;
+    }
 
     if parsed_nu_cli_args.no_config_file.is_none() {
         setup_config(

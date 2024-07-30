@@ -10,7 +10,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     engine::Closure, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData,
-    LabeledError, PipelineData, PluginSignature, ShellError, Span, Spanned, Value,
+    LabeledError, PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value,
 };
 use std::{
     collections::HashMap,
@@ -59,7 +59,7 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
             id: 0,
             span: Span::test_data(),
         }),
-        None,
+        &Signals::empty(),
     )?;
 
     // and an interface...
@@ -115,7 +115,7 @@ fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError
             id: 0,
             span: Span::test_data(),
         }),
-        None,
+        &Signals::empty(),
     )?;
 
     manager
@@ -162,7 +162,7 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
             span: Span::test_data(),
             type_: ByteStreamType::Unknown,
         }),
-        None,
+        &Signals::empty(),
     )?;
 
     manager
@@ -615,7 +615,7 @@ fn manager_prepare_pipeline_data_deserializes_custom_values_in_streams() -> Resu
         [Value::test_custom_value(Box::new(
             test_plugin_custom_value(),
         ))]
-        .into_pipeline_data(Span::test_data(), None),
+        .into_pipeline_data(Span::test_data(), Signals::empty()),
     )?;
 
     let value = data
@@ -647,7 +647,7 @@ fn manager_prepare_pipeline_data_embeds_deserialization_errors_in_streams() -> R
     let span = Span::new(20, 30);
     let data = manager.prepare_pipeline_data(
         [Value::custom(Box::new(invalid_custom_value), span)]
-            .into_pipeline_data(Span::test_data(), None),
+            .into_pipeline_data(Span::test_data(), Signals::empty()),
     )?;
 
     let value = data
@@ -730,7 +730,7 @@ fn interface_write_response_with_stream() -> Result<(), ShellError> {
     interface
         .write_response(Ok::<_, ShellError>(
             [Value::test_int(3), Value::test_int(4), Value::test_int(5)]
-                .into_pipeline_data(Span::test_data(), None),
+                .into_pipeline_data(Span::test_data(), Signals::empty()),
         ))?
         .write()?;
 
@@ -1132,7 +1132,7 @@ fn interface_prepare_pipeline_data_serializes_custom_values_in_streams() -> Resu
         [Value::test_custom_value(Box::new(
             expected_test_custom_value(),
         ))]
-        .into_pipeline_data(Span::test_data(), None),
+        .into_pipeline_data(Span::test_data(), Signals::empty()),
         &(),
     )?;
 
@@ -1191,7 +1191,7 @@ fn interface_prepare_pipeline_data_embeds_serialization_errors_in_streams() -> R
     let span = Span::new(40, 60);
     let data = interface.prepare_pipeline_data(
         [Value::custom(Box::new(CantSerialize::BadVariant), span)]
-            .into_pipeline_data(Span::test_data(), None),
+            .into_pipeline_data(Span::test_data(), Signals::empty()),
         &(),
     )?;
 

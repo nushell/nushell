@@ -1,7 +1,7 @@
 use nu_protocol::{
-    ast::{Call, Expression},
-    engine::{EngineState, Stack},
-    FromValue, ShellError, Span, Spanned, Value,
+    ast::{self, Expression},
+    engine::{Call, CallImpl, EngineState, Stack},
+    ir, FromValue, ShellError, Span, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
 
@@ -27,9 +27,103 @@ pub struct EvaluatedCall {
 }
 
 impl EvaluatedCall {
+    /// Create a new [`EvaluatedCall`] with the given head span.
+    pub fn new(head: Span) -> EvaluatedCall {
+        EvaluatedCall {
+            head,
+            positional: vec![],
+            named: vec![],
+        }
+    }
+
+    /// Add a positional argument to an [`EvaluatedCall`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use nu_protocol::{Value, Span, IntoSpanned};
+    /// # use nu_plugin_protocol::EvaluatedCall;
+    /// # let head = Span::test_data();
+    /// let mut call = EvaluatedCall::new(head);
+    /// call.add_positional(Value::test_int(1337));
+    /// ```
+    pub fn add_positional(&mut self, value: Value) -> &mut Self {
+        self.positional.push(value);
+        self
+    }
+
+    /// Add a named argument to an [`EvaluatedCall`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use nu_protocol::{Value, Span, IntoSpanned};
+    /// # use nu_plugin_protocol::EvaluatedCall;
+    /// # let head = Span::test_data();
+    /// let mut call = EvaluatedCall::new(head);
+    /// call.add_named("foo".into_spanned(head), Value::test_string("bar"));
+    /// ```
+    pub fn add_named(&mut self, name: Spanned<impl Into<String>>, value: Value) -> &mut Self {
+        self.named.push((name.map(Into::into), Some(value)));
+        self
+    }
+
+    /// Add a flag argument to an [`EvaluatedCall`]. A flag argument is a named argument with no
+    /// value.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use nu_protocol::{Value, Span, IntoSpanned};
+    /// # use nu_plugin_protocol::EvaluatedCall;
+    /// # let head = Span::test_data();
+    /// let mut call = EvaluatedCall::new(head);
+    /// call.add_flag("pretty".into_spanned(head));
+    /// ```
+    pub fn add_flag(&mut self, name: Spanned<impl Into<String>>) -> &mut Self {
+        self.named.push((name.map(Into::into), None));
+        self
+    }
+
+    /// Builder variant of [`.add_positional()`](Self::add_positional).
+    pub fn with_positional(mut self, value: Value) -> Self {
+        self.add_positional(value);
+        self
+    }
+
+    /// Builder variant of [`.add_named()`](Self::add_named).
+    pub fn with_named(mut self, name: Spanned<impl Into<String>>, value: Value) -> Self {
+        self.add_named(name, value);
+        self
+    }
+
+    /// Builder variant of [`.add_flag()`](Self::add_flag).
+    pub fn with_flag(mut self, name: Spanned<impl Into<String>>) -> Self {
+        self.add_flag(name);
+        self
+    }
+
     /// Try to create an [`EvaluatedCall`] from a command `Call`.
     pub fn try_from_call(
         call: &Call,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
+    ) -> Result<Self, ShellError> {
+        match &call.inner {
+            CallImpl::AstRef(call) => {
+                Self::try_from_ast_call(call, engine_state, stack, eval_expression_fn)
+            }
+            CallImpl::AstBox(call) => {
+                Self::try_from_ast_call(call, engine_state, stack, eval_expression_fn)
+            }
+            CallImpl::IrRef(call) => Self::try_from_ir_call(call, stack),
+            CallImpl::IrBox(call) => Self::try_from_ir_call(call, stack),
+        }
+    }
+
+    fn try_from_ast_call(
+        call: &ast::Call,
         engine_state: &EngineState,
         stack: &mut Stack,
         eval_expression_fn: fn(&EngineState, &mut Stack, &Expression) -> Result<Value, ShellError>,
@@ -46,6 +140,22 @@ impl EvaluatedCall {
 
             named.push((string.clone(), value))
         }
+
+        Ok(Self {
+            head: call.head,
+            positional,
+            named,
+        })
+    }
+
+    fn try_from_ir_call(call: &ir::Call, stack: &Stack) -> Result<Self, ShellError> {
+        let positional = call.rest_iter_flattened(stack, 0)?;
+
+        let mut named = Vec::with_capacity(call.named_len(stack));
+        named.extend(
+            call.named_iter(stack)
+                .map(|(name, value)| (name.map(|s| s.to_owned()), value.cloned())),
+        );
 
         Ok(Self {
             head: call.head,
@@ -156,6 +266,16 @@ impl EvaluatedCall {
         }
 
         Ok(false)
+    }
+
+    /// Returns the [`Span`] of the name of an optional named argument.
+    ///
+    /// This can be used in errors for named arguments that don't take values.
+    pub fn get_flag_span(&self, flag_name: &str) -> Option<Span> {
+        self.named
+            .iter()
+            .find(|(name, _)| name.item == flag_name)
+            .map(|(name, _)| name.span)
     }
 
     /// Returns the [`Value`] of an optional named argument

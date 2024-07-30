@@ -38,7 +38,7 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 /// The API for a Nushell plugin
 ///
 /// A plugin defines multiple commands, which are added to the engine when the user calls
-/// `register`.
+/// `plugin add`.
 ///
 /// The plugin must be able to be safely shared between threads, so that multiple invocations can
 /// be run in parallel. If interior mutability is desired, consider synchronization primitives such
@@ -670,7 +670,7 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(None, &signature, |v| format!("{:#?}", v));
+                let flags = get_flags_section(None, None, &signature, |v| format!("{:#?}", v));
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))

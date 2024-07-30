@@ -60,6 +60,9 @@ impl Command for If {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block = call
             .positional_nth(1)
@@ -99,6 +102,9 @@ impl Command for If {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let cond = call.positional_nth(0).expect("checked through parser");
         let then_block = call
             .positional_nth(1)

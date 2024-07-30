@@ -22,7 +22,7 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 /// Basic usage:
 /// ```
 /// # use nu_plugin::*;
-/// # use nu_protocol::{Signature, PipelineData, Type, Value, LabeledError};
+/// # use nu_protocol::{LabeledError, PipelineData, Signals, Signature, Type, Value};
 /// struct LowercasePlugin;
 /// struct Lowercase;
 ///
@@ -55,7 +55,7 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 ///                 .map(|string| Value::string(string.to_lowercase(), span))
 ///                 // Errors in a stream should be returned as values.
 ///                 .unwrap_or_else(|err| Value::error(err, span))
-///         }, None)?)
+///         }, &Signals::empty())?)
 ///     }
 /// }
 ///
@@ -75,8 +75,8 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 pub trait PluginCommand: Sync {
     /// The type of plugin this command runs on.
     ///
-    /// Since [`.run()`] takes a reference to the plugin, it is necessary to define the type of
-    /// plugin that the command expects here.
+    /// Since [`.run()`](Self::run) takes a reference to the plugin, it is necessary to define the
+    /// type of plugin that the command expects here.
     type Plugin: Plugin;
 
     /// The name of the command from within Nu.
@@ -96,9 +96,9 @@ pub trait PluginCommand: Sync {
 
     /// Additional documentation for usage of the command.
     ///
-    /// This is optional - any arguments documented by [`.signature()`] will be shown in the help
-    /// page automatically. However, this can be useful for explaining things that would be too
-    /// brief to include in [`.usage()`] and may span multiple lines.
+    /// This is optional - any arguments documented by [`.signature()`](Self::signature) will be
+    /// shown in the help page automatically. However, this can be useful for explaining things that
+    /// would be too brief to include in [`.usage()`](Self::usage) and may span multiple lines.
     fn extra_usage(&self) -> &str {
         ""
     }
@@ -340,7 +340,7 @@ where
 
 /// Build a [`PluginSignature`] from the signature-related methods on [`PluginCommand`].
 ///
-/// This is sent to the engine on `register`.
+/// This is sent to the engine on `plugin add`.
 ///
 /// This is not a public API.
 #[doc(hidden)]

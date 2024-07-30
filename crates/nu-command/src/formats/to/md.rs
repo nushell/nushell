@@ -70,8 +70,8 @@ impl Command for ToMd {
         let head = call.head;
         let pretty = call.has_flag(engine_state, stack, "pretty")?;
         let per_element = call.has_flag(engine_state, stack, "per-element")?;
-        let config = engine_state.get_config();
-        to_md(input, pretty, per_element, config, head)
+        let config = stack.get_config(engine_state);
+        to_md(input, pretty, per_element, &config, head)
     }
 }
 

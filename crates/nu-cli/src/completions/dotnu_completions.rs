@@ -1,4 +1,4 @@
-use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
+use crate::completions::{file_path_completion, Completer, CompletionOptions};
 use nu_protocol::{
     engine::{Stack, StateWorkingSet},
     Span,
@@ -6,7 +6,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::{is_separator, Path, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
 
-use super::SemanticSuggestion;
+use super::{completion_common::sort_suggestions, SemanticSuggestion, SortBy};
 
 #[derive(Clone, Default)]
 pub struct DotNuCompletion {}
@@ -116,14 +116,13 @@ impl Completer for DotNuCompletion {
                     .map(move |x| SemanticSuggestion {
                         suggestion: Suggestion {
                             value: x.1,
-                            description: None,
                             style: x.2,
-                            extra: None,
                             span: reedline::Span {
                                 start: x.0.start - offset,
                                 end: x.0.end - offset,
                             },
                             append_whitespace: true,
+                            ..Suggestion::default()
                         },
                         // TODO????
                         kind: None,
@@ -131,10 +130,6 @@ impl Completer for DotNuCompletion {
             })
             .collect();
 
-        output
-    }
-
-    fn get_sort_by(&self) -> SortBy {
-        SortBy::LevenshteinDistance
+        sort_suggestions(&prefix_str, output, SortBy::Ascending)
     }
 }

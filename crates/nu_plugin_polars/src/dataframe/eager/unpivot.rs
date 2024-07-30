@@ -30,16 +30,16 @@ impl PluginCommand for UnpivotDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required_named(
-                "columns",
+                "index",
                 SyntaxShape::Table(vec![]),
                 "column names for unpivoting",
-                Some('c'),
+                Some('i'),
             )
             .required_named(
-                "values",
+                "on",
                 SyntaxShape::Table(vec![]),
                 "column names used as value columns",
-                Some('v'),
+                Some('o'),
             )
             .named(
                 "variable-name",
@@ -60,7 +60,7 @@ impl PluginCommand for UnpivotDF {
             .switch(
                 "streamable",
                 "Whether or not to use the polars streaming engine. Only valid for lazy dataframes",
-                Some('s'),
+                Some('t'),
             )
             .category(Category::Custom("dataframe".into()))
     }
@@ -70,7 +70,7 @@ impl PluginCommand for UnpivotDF {
             Example {
                 description: "unpivot on an eager dataframe",
                 example:
-                    "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars unpivot -c [b c] -v [a d]",
+                    "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-df | polars unpivot -i [b c] -o [a d]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -125,7 +125,7 @@ impl PluginCommand for UnpivotDF {
             Example {
                 description: "unpivot on a lazy dataframe",
                 example:
-                    "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-lazy | polars unpivot -c [b c] -v [a d] | polars collect",
+                    "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | polars into-lazy | polars unpivot -i [b c] -o [a d] | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -208,21 +208,31 @@ fn command_eager(
     call: &EvaluatedCall,
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let id_col: Vec<Value> = call.get_flag("columns")?.expect("required value");
-    let val_col: Vec<Value> = call.get_flag("values")?.expect("required value");
+    let index_col: Vec<Value> = call.get_flag("index")?.expect("required value");
+    let on_col: Vec<Value> = call.get_flag("on")?.expect("required value");
 
     let value_name: Option<Spanned<String>> = call.get_flag("value-name")?;
     let variable_name: Option<Spanned<String>> = call.get_flag("variable-name")?;
 
-    let (id_col_string, id_col_span) = convert_columns_string(id_col, call.head)?;
-    let (val_col_string, val_col_span) = convert_columns_string(val_col, call.head)?;
+    let (index_col_string, index_col_span) = convert_columns_string(index_col, call.head)?;
+    let (on_col_string, on_col_span) = convert_columns_string(on_col, call.head)?;
 
-    check_column_datatypes(df.as_ref(), &id_col_string, id_col_span)?;
-    check_column_datatypes(df.as_ref(), &val_col_string, val_col_span)?;
+    check_column_datatypes(df.as_ref(), &index_col_string, index_col_span)?;
+    check_column_datatypes(df.as_ref(), &on_col_string, on_col_span)?;
 
-    let mut res = df
+    let streamable = call.has_flag("streamable")?;
+
+    let args = UnpivotArgs {
+        on: on_col_string.iter().map(Into::into).collect(),
+        index: index_col_string.iter().map(Into::into).collect(),
+        variable_name: variable_name.map(|s| s.item.into()),
+        value_name: value_name.map(|s| s.item.into()),
+        streamable,
+    };
+
+    let res = df
         .as_ref()
-        .unpivot(&val_col_string, &id_col_string)
+        .unpivot2(args)
         .map_err(|e| ShellError::GenericError {
             error: "Error calculating unpivot".into(),
             msg: e.to_string(),
@@ -230,28 +240,6 @@ fn command_eager(
             help: None,
             inner: vec![],
         })?;
-
-    if let Some(name) = &variable_name {
-        res.rename("variable", &name.item)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error renaming column".into(),
-                msg: e.to_string(),
-                span: Some(name.span),
-                help: None,
-                inner: vec![],
-            })?;
-    }
-
-    if let Some(name) = &value_name {
-        res.rename("value", &name.item)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error renaming column".into(),
-                msg: e.to_string(),
-                span: Some(name.span),
-                help: None,
-                inner: vec![],
-            })?;
-    }
 
     let res = NuDataFrame::new(false, res);
     res.to_pipeline_data(plugin, engine, call.head)
@@ -263,11 +251,11 @@ fn command_lazy(
     call: &EvaluatedCall,
     df: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let id_col: Vec<Value> = call.get_flag("columns")?.expect("required value");
-    let val_col: Vec<Value> = call.get_flag("values")?.expect("required value");
+    let index_col: Vec<Value> = call.get_flag("index")?.expect("required value");
+    let on_col: Vec<Value> = call.get_flag("on")?.expect("required value");
 
-    let (id_col_string, _id_col_span) = convert_columns_string(id_col, call.head)?;
-    let (val_col_string, _val_col_span) = convert_columns_string(val_col, call.head)?;
+    let (index_col_string, _index_col_span) = convert_columns_string(index_col, call.head)?;
+    let (on_col_string, _on_col_span) = convert_columns_string(on_col, call.head)?;
 
     let value_name: Option<String> = call.get_flag("value-name")?;
     let variable_name: Option<String> = call.get_flag("variable-name")?;
@@ -275,8 +263,8 @@ fn command_lazy(
     let streamable = call.has_flag("streamable")?;
 
     let unpivot_args = UnpivotArgs {
-        on: val_col_string.iter().map(Into::into).collect(),
-        index: id_col_string.iter().map(Into::into).collect(),
+        on: on_col_string.iter().map(Into::into).collect(),
+        index: index_col_string.iter().map(Into::into).collect(),
         value_name: value_name.map(Into::into),
         variable_name: variable_name.map(Into::into),
         streamable,

@@ -51,8 +51,7 @@ impl NuCompleter {
             ..Default::default()
         };
 
-        // Fetch
-        let mut suggestions = completer.fetch(
+        completer.fetch(
             working_set,
             &self.stack,
             prefix.clone(),
@@ -60,12 +59,7 @@ impl NuCompleter {
             offset,
             pos,
             &options,
-        );
-
-        // Sort
-        suggestions = completer.sort(suggestions, prefix);
-
-        suggestions
+        )
     }
 
     fn external_completion(
@@ -449,14 +443,11 @@ pub fn map_value_completions<'a>(
             return Some(SemanticSuggestion {
                 suggestion: Suggestion {
                     value: s,
-                    description: None,
-                    style: None,
-                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
-                    append_whitespace: false,
+                    ..Suggestion::default()
                 },
                 kind: Some(SuggestionKind::Type(x.get_type())),
             });
@@ -466,14 +457,11 @@ pub fn map_value_completions<'a>(
         if let Ok(record) = x.as_record() {
             let mut suggestion = Suggestion {
                 value: String::from(""), // Initialize with empty string
-                description: None,
-                style: None,
-                extra: None,
                 span: reedline::Span {
                     start: span.start - offset,
                     end: span.end - offset,
                 },
-                append_whitespace: false,
+                ..Suggestion::default()
             };
 
             // Iterate the cols looking for `value` and `description`

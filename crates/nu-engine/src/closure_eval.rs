@@ -62,8 +62,8 @@ pub struct ClosureEval {
     stack: Stack,
     block: Arc<Block>,
     arg_index: usize,
-    env_vars: Vec<EnvVars>,
-    env_hidden: HashMap<String, HashSet<String>>,
+    env_vars: Vec<Arc<EnvVars>>,
+    env_hidden: Arc<HashMap<String, HashSet<String>>>,
     eval: EvalBlockWithEarlyReturnFn,
 }
 
