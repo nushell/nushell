@@ -1,7 +1,7 @@
 //! Interface used by the plugin to communicate with the engine.
 
 use nu_plugin_core::{
-    util::{Sequence, Waitable, WaitableMut},
+    util::{Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
 };
@@ -11,13 +11,14 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, DeclId, LabeledError, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, Signals, Span, Spanned, Value,
+    engine::{ctrlc, Closure, Sequence},
+    Config, DeclId, LabeledError, PipelineData, PluginMetadata, PluginSignature, ShellError,
+    Signals, Span, Spanned, Value,
 };
 use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
-    sync::{mpsc, Arc},
+    sync::{atomic::AtomicBool, mpsc, Arc},
 };
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
@@ -63,6 +64,10 @@ struct EngineInterfaceState {
         mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
+    // Mirror signals from `EngineState`
+    signals: Signals,
+    /// Registered Ctrl-C handlers
+    ctrlc_handlers: ctrlc::Handlers,
 }
 
 impl std::fmt::Debug for EngineInterfaceState {
@@ -116,6 +121,8 @@ impl EngineInterfaceManager {
                 stream_id_sequence: Sequence::default(),
                 engine_call_subscription_sender: subscription_tx,
                 writer: Box::new(writer),
+                signals: Signals::new(Arc::new(AtomicBool::new(false))),
+                ctrlc_handlers: ctrlc::Handlers::new(),
             }),
             protocol_info_mut,
             plugin_call_sender: Some(plug_tx),
@@ -235,7 +242,6 @@ impl InterfaceManager for EngineInterfaceManager {
 
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
         log::trace!("from engine: {:?}", input);
-
         match input {
             PluginInput::Hello(info) => {
                 let info = Arc::new(info);
@@ -330,6 +336,11 @@ impl InterfaceManager for EngineInterfaceManager {
                         EngineCallResponse::Error(err)
                     });
                 self.send_engine_call_response(id, response)
+            }
+            PluginInput::Ctrlc => {
+                self.state.signals.trigger();
+                self.state.ctrlc_handlers.run();
+                Ok(())
             }
         }
     }
@@ -508,6 +519,15 @@ impl EngineInterface {
     /// user instead.
     pub fn is_using_stdio(&self) -> bool {
         self.state.writer.is_stdout()
+    }
+
+    /// Register a closure which will be called when the engine receives a Ctrl-C signal. Returns a
+    /// RAII guard that will keep the closure alive until it is dropped.
+    pub fn register_ctrlc_handler(
+        &self,
+        handler: ctrlc::Handler,
+    ) -> Result<ctrlc::Guard, ShellError> {
+        self.state.ctrlc_handlers.register(handler)
     }
 
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
@@ -958,6 +978,10 @@ impl EngineInterface {
         let response = PluginCallResponse::Ordering(ordering.map(|o| o.into()));
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
+    }
+
+    pub fn signals(&self) -> &Signals {
+        &self.state.signals
     }
 }
 

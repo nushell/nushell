@@ -1,4 +1,4 @@
-use nu_protocol::ShellError;
+use crate::ShellError;
 use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
 
 /// Implements an atomically incrementing sequential series of numbers

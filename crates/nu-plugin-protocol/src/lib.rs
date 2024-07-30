@@ -208,6 +208,8 @@ pub enum PluginInput {
     Drop(StreamId),
     /// See [`StreamMessage::Ack`].
     Ack(StreamId),
+    /// Signal a ctrlc event
+    Ctrlc,
 }
 
 impl TryFrom<PluginInput> for StreamMessage {

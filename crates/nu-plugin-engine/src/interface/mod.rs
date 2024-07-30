@@ -1,7 +1,7 @@
 //! Interface used by the engine to communicate with the plugin.
 
 use nu_plugin_core::{
-    util::{with_custom_values_in, Sequence, Waitable, WaitableMut},
+    util::{with_custom_values_in, Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
 };
@@ -11,8 +11,8 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo, StreamId, StreamMessage,
 };
 use nu_protocol::{
-    ast::Operator, CustomValue, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, Signals, Span, Spanned, Value,
+    ast::Operator, engine::Sequence, CustomValue, IntoSpanned, PipelineData, PluginMetadata,
+    PluginSignature, ShellError, Signals, Span, Spanned, Value,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -661,6 +661,12 @@ impl PluginInterface {
     /// You probably do not need to call this manually.
     pub fn goodbye(&self) -> Result<(), ShellError> {
         self.write(PluginInput::Goodbye)?;
+        self.flush()
+    }
+
+    /// Send the plugin a ctrl-c signal.
+    pub fn ctrlc(&self) -> Result<(), ShellError> {
+        self.write(PluginInput::Ctrlc)?;
         self.flush()
     }
 

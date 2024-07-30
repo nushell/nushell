@@ -2,6 +2,7 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
+        ctrlc,
         usage::{build_usage, Usage},
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
@@ -85,6 +86,7 @@ pub struct EngineState {
     pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
+    pub ctrlc_handlers: Option<ctrlc::Handlers>,
     signals: Signals,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
@@ -145,6 +147,7 @@ impl EngineState {
                 0,
                 false,
             ),
+            ctrlc_handlers: None,
             signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
@@ -268,8 +271,13 @@ impl EngineState {
 
         #[cfg(feature = "plugin")]
         if !delta.plugins.is_empty() {
-            // Replace plugins that overlap in identity.
             for plugin in std::mem::take(&mut delta.plugins) {
+                // Connect plugins to the ctrlc handlers
+                if let Some(handlers) = &self.ctrlc_handlers {
+                    plugin.clone().configure_ctrlc_handler(handlers)?;
+                }
+
+                // Replace plugins that overlap in identity.
                 if let Some(existing) = self
                     .plugins
                     .iter_mut()
