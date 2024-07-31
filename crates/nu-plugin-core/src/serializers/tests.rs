@@ -1,12 +1,13 @@
 macro_rules! generate_tests {
     ($encoder:expr) => {
         use nu_plugin_protocol::{
-            CallInfo, CustomValueOp, EvaluatedCall, PipelineDataHeader,
-            PluginCall, PluginCallResponse, PluginCustomValue, PluginInput,
-            PluginOption, PluginOutput, StreamData,
+            CallInfo, CustomValueOp, EvaluatedCall, PipelineDataHeader, PluginCall,
+            PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
+            StreamData,
         };
         use nu_protocol::{
-            DataSource, PipelineMetadata, LabeledError, PluginSignature, Signature, Span, Spanned, SyntaxShape, Value,
+            DataSource, LabeledError, PipelineMetadata, PluginSignature, Signature, Span, Spanned,
+            SyntaxShape, Value,
         };
 
         #[test]
@@ -133,7 +134,7 @@ macro_rules! generate_tests {
                 call: call.clone(),
                 input: PipelineDataHeader::Value {
                     value: input.clone(),
-                    metadata,
+                    metadata: metadata.clone(),
                 },
             });
 
@@ -319,7 +320,10 @@ macro_rules! generate_tests {
             match returned {
                 PluginOutput::CallResponse(
                     4,
-                    PluginCallResponse::PipelineData(PipelineDataHeader::Value(returned_value)),
+                    PluginCallResponse::PipelineData(PipelineDataHeader::Value {
+                        value: returned_value,
+                        metadata: None,
+                    }),
                 ) => {
                     assert_eq!(value, returned_value)
                 }
@@ -339,7 +343,10 @@ macro_rules! generate_tests {
                 span,
             );
 
-            let response = PluginCallResponse::PipelineData(PipelineDataHeader::Value(value));
+            let response = PluginCallResponse::PipelineData(PipelineDataHeader::Value {
+                value,
+                metadata: None,
+            });
             let output = PluginOutput::CallResponse(5, response);
 
             let encoder = $encoder;
@@ -355,7 +362,10 @@ macro_rules! generate_tests {
             match returned {
                 PluginOutput::CallResponse(
                     5,
-                    PluginCallResponse::PipelineData(PipelineDataHeader::Value(returned_value)),
+                    PluginCallResponse::PipelineData(PipelineDataHeader::Value {
+                        value: returned_value,
+                        metadata: None,
+                    }),
                 ) => {
                     assert_eq!(span, returned_value.span());
 

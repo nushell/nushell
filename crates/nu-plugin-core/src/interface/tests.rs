@@ -145,7 +145,7 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
     });
     let header = PipelineDataHeader::Value {
         value: value.clone(),
-        metadata,
+        metadata: metadata.clone(),
     };
 
     match manager.read_pipeline_data(header, &Signals::empty())? {
