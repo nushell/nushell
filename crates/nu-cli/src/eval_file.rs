@@ -126,12 +126,14 @@ pub fn evaluate_file(
 
         // Invoke the main command with arguments.
         // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.
+        let mut working_set = StateWorkingSet::new(engine_state);
         let main_call_block = make_main_call(
-            engine_state,
+            &mut working_set,
             source_filename.to_string_lossy().to_string(),
             args,
             true,
         )?;
+        engine_state.merge_delta(working_set.delta)?;
 
         evaluate_block_with_exit_code(
             engine_state,

@@ -205,12 +205,11 @@ fn gather_env_vars(
 }
 
 pub fn make_main_call(
-    engine_state: &mut EngineState,
+    working_set: &mut StateWorkingSet,
     fname: String,
     args: &[String],
     redirect_env: bool,
 ) -> Result<Arc<Block>, ShellError> {
-    let mut working_set = StateWorkingSet::new(engine_state);
     let source = format!("{} {}", fname, args.join(" "));
     let source = source.as_bytes();
     let file_id = working_set.add_file("<commandline>".to_string(), source);
@@ -226,35 +225,35 @@ pub fn make_main_call(
     let lite_command = &lite_block.block[0].commands[0];
 
     let (decl_id, command_len) =
-        find_longest_command(&working_set, b"main", &lite_command.parts[1..])
-            .expect("already checked that a main def exists");
+        find_longest_command(working_set, b"main", &lite_command.parts[1..])
+            .expect("make_main_call() called, but 'main' definition not found in state");
 
     let parsed_call = parse_internal_call(
-        &mut working_set,
+        working_set,
         Span::concat(&lite_command.parts[..command_len + 1]),
         &lite_command.parts[(command_len + 1)..],
         decl_id,
     );
 
     let expression = Expression::new(
-        &mut working_set,
+        working_set,
         Expr::Call(parsed_call.call),
         Span::concat(lite_command.parts.as_slice()),
         parsed_call.output,
     );
 
     if let Some(warning) = working_set.parse_warnings.first() {
-        report_error(&working_set, warning);
+        report_error(working_set, warning);
     }
 
     // If any parse errors were found, report the first error and exit.
     if let Some(err) = working_set.parse_errors.first() {
-        report_error(&working_set, err);
+        report_error(working_set, err);
         std::process::exit(1);
     }
 
     if let Some(err) = working_set.compile_errors.first() {
-        report_error(&working_set, err);
+        report_error(working_set, err);
         // Not a fatal error, for now
     }
 
@@ -267,14 +266,12 @@ pub fn make_main_call(
         span: Some(file_span),
     };
 
-    match nu_engine::compile(&working_set, &block) {
+    match nu_engine::compile(working_set, &block) {
         Ok(ir_block) => {
             block.ir_block = Some(ir_block);
         }
         Err(err) => working_set.compile_errors.push(err),
     }
-
-    engine_state.merge_delta(working_set.delta)?;
 
     Ok(Arc::new(block))
 }
