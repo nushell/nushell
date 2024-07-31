@@ -59,8 +59,8 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "Generate a random integer between 1 (inclusive) and 10 (inclusive)",
-                example: "random int 1..10",
+                description: "Generate a random integer between -10 (inclusive) and 10 (inclusive)",
+                example: "random int (-10)..10",
                 result: None,
             },
         ]
