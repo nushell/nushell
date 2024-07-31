@@ -5926,7 +5926,7 @@ pub fn discover_captures_in_closure(
             seen.push(var_id);
         }
     }
-    for positional in &block.signature.rest_positional {
+    if let Some(positional) = &block.signature.rest_positional {
         if let Some(var_id) = positional.var_id {
             seen.push(var_id);
         }
