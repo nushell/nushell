@@ -428,13 +428,13 @@ impl EngineState {
             .1
     }
 
-    pub fn render_env_vars(&self) -> HashMap<&String, &Value> {
-        let mut result = HashMap::new();
+    pub fn render_env_vars(&self) -> HashMap<&str, &Value> {
+        let mut result: HashMap<&str, &Value> = HashMap::new();
 
         for overlay_name in self.active_overlay_names(&[]) {
             let name = String::from_utf8_lossy(overlay_name);
             if let Some(env_vars) = self.env_vars.get(name.as_ref()) {
-                result.extend(env_vars);
+                result.extend(env_vars.iter().map(|(k, v)| (k.as_str(), v)));
             }
         }
 
