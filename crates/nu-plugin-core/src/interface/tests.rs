@@ -140,8 +140,8 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
     let manager = TestInterfaceManager::new(&TestCase::new());
     let value = Value::test_int(4);
     let metadata = Some(PipelineMetadata {
-        data_source: DataSource::None,
-        content_type: Some("foo".into()),
+        data_source: DataSource::FilePath("/test/path".into()),
+        content_type: None
     });
     let header = PipelineDataHeader::Value {
         value: value.clone(),
