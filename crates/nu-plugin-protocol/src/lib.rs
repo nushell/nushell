@@ -108,6 +108,27 @@ impl PipelineDataHeader {
             PipelineDataHeader::ByteStream { info, .. } => Some(info.id),
         }
     }
+
+    pub fn value(value: Value) -> Self {
+        PipelineDataHeader::Value {
+            value,
+            metadata: None,
+        }
+    }
+
+    pub fn list_stream(info: ListStreamInfo) -> Self {
+        PipelineDataHeader::ListStream {
+            info,
+            metadata: None,
+        }
+    }
+
+    pub fn byte_stream(info: ByteStreamInfo) -> Self {
+        PipelineDataHeader::ByteStream {
+            info,
+            metadata: None,
+        }
+    }
 }
 
 /// Additional information about list (value) streams
@@ -351,10 +372,7 @@ impl PluginCallResponse<PipelineDataHeader> {
         if value.is_nothing() {
             PluginCallResponse::PipelineData(PipelineDataHeader::Empty)
         } else {
-            PluginCallResponse::PipelineData(PipelineDataHeader::Value {
-                value,
-                metadata: None,
-            })
+            PluginCallResponse::PipelineData(PipelineDataHeader::value(value))
         }
     }
 }

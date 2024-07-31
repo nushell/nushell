@@ -322,7 +322,7 @@ macro_rules! generate_tests {
                     4,
                     PluginCallResponse::PipelineData(PipelineDataHeader::Value {
                         value: returned_value,
-                        metadata: None,
+                        ..
                     }),
                 ) => {
                     assert_eq!(value, returned_value)
@@ -343,10 +343,7 @@ macro_rules! generate_tests {
                 span,
             );
 
-            let response = PluginCallResponse::PipelineData(PipelineDataHeader::Value {
-                value,
-                metadata: None,
-            });
+            let response = PluginCallResponse::PipelineData(PipelineDataHeader::value(value));
             let output = PluginOutput::CallResponse(5, response);
 
             let encoder = $encoder;
@@ -364,7 +361,7 @@ macro_rules! generate_tests {
                     5,
                     PluginCallResponse::PipelineData(PipelineDataHeader::Value {
                         value: returned_value,
-                        metadata: None,
+                        ..
                     }),
                 ) => {
                     assert_eq!(span, returned_value.span());

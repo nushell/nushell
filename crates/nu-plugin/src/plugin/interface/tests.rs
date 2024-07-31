@@ -55,13 +55,10 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
     // Create a stream...
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream {
-            info: ListStreamInfo {
-                id: 0,
-                span: Span::test_data(),
-            },
-            metadata: None,
-        },
+        PipelineDataHeader::list_stream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         &Signals::empty(),
     )?;
 
@@ -114,13 +111,10 @@ fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError
     test.set_read_error(test_io_error());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream {
-            info: ListStreamInfo {
-                id: 0,
-                span: Span::test_data(),
-            },
-            metadata: None,
-        },
+        PipelineDataHeader::list_stream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         &Signals::empty(),
     )?;
 
@@ -163,14 +157,11 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
     test.add(invalid_input());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ByteStream {
-            info: ByteStreamInfo {
-                id: 0,
-                span: Span::test_data(),
-                type_: ByteStreamType::Unknown,
-            },
-            metadata: None,
-        },
+        PipelineDataHeader::byte_stream(ByteStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+            type_: ByteStreamType::Unknown,
+        }),
         &Signals::empty(),
     )?;
 
@@ -423,13 +414,10 @@ fn manager_consume_call_run_forwards_to_receiver_with_pipeline_data() -> Result<
                 positional: vec![],
                 named: vec![],
             },
-            input: PipelineDataHeader::ListStream {
-                info: ListStreamInfo {
-                    id: 6,
-                    span: Span::test_data(),
-                },
-                metadata: None,
-            },
+            input: PipelineDataHeader::list_stream(ListStreamInfo {
+                id: 6,
+                span: Span::test_data(),
+            }),
         }),
     ))?;
 
@@ -568,13 +556,10 @@ fn manager_consume_engine_call_response_forwards_to_subscriber_with_pipeline_dat
 
     manager.consume(PluginInput::EngineCallResponse(
         0,
-        EngineCallResponse::PipelineData(PipelineDataHeader::ListStream {
-            info: ListStreamInfo {
-                id: 0,
-                span: Span::test_data(),
-            },
-            metadata: None,
-        }),
+        EngineCallResponse::PipelineData(PipelineDataHeader::list_stream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        })),
     ))?;
 
     for i in 0..2 {
@@ -722,10 +707,7 @@ fn interface_write_response_with_value() -> Result<(), ShellError> {
             assert_eq!(33, id, "id");
             match response {
                 PluginCallResponse::PipelineData(header) => match header {
-                    PipelineDataHeader::Value {
-                        value,
-                        metadata: None,
-                    } => assert_eq!(6, value.as_int()?),
+                    PipelineDataHeader::Value { value, .. } => assert_eq!(6, value.as_int()?),
                     _ => panic!("unexpected pipeline data header: {header:?}"),
                 },
                 _ => panic!("unexpected response: {response:?}"),
@@ -757,10 +739,7 @@ fn interface_write_response_with_stream() -> Result<(), ShellError> {
     let info = match written {
         PluginOutput::CallResponse(_, response) => match response {
             PluginCallResponse::PipelineData(header) => match header {
-                PipelineDataHeader::ListStream {
-                    info,
-                    metadata: None,
-                } => info,
+                PipelineDataHeader::ListStream { info, .. } => info,
                 _ => panic!("expected ListStream header: {header:?}"),
             },
             _ => panic!("wrong response: {response:?}"),

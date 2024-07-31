@@ -339,8 +339,7 @@ fn write_pipeline_data_value() -> Result<(), ShellError> {
 
     match header {
         PipelineDataHeader::Value {
-            value: read_value,
-            metadata: None,
+            value: read_value, ..
         } => assert_eq!(value, read_value),
         _ => panic!("unexpected header: {header:?}"),
     }
@@ -457,10 +456,7 @@ fn write_pipeline_data_byte_stream() -> Result<(), ShellError> {
     let (header, writer) = interface.init_write_pipeline_data(data, &())?;
 
     let info = match header {
-        PipelineDataHeader::ByteStream {
-            info,
-            metadata: None,
-        } => info,
+        PipelineDataHeader::ByteStream { info, .. } => info,
         _ => panic!("unexpected header: {header:?}"),
     };
 

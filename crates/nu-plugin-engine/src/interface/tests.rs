@@ -53,13 +53,10 @@ fn manager_consume_all_exits_after_streams_and_interfaces_are_dropped() -> Resul
 
     // Create a stream...
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream {
-            info: ListStreamInfo {
-                id: 0,
-                span: Span::test_data(),
-            },
-            metadata: None,
-        },
+        PipelineDataHeader::list_stream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         &Signals::empty(),
     )?;
 
@@ -112,13 +109,10 @@ fn manager_consume_all_propagates_io_error_to_readers() -> Result<(), ShellError
     test.set_read_error(test_io_error());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ListStream {
-            info: ListStreamInfo {
-                id: 0,
-                span: Span::test_data(),
-            },
-            metadata: None,
-        },
+        PipelineDataHeader::list_stream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        }),
         &Signals::empty(),
     )?;
 
@@ -161,14 +155,11 @@ fn manager_consume_all_propagates_message_error_to_readers() -> Result<(), Shell
     test.add(invalid_output());
 
     let stream = manager.read_pipeline_data(
-        PipelineDataHeader::ByteStream {
-            info: ByteStreamInfo {
-                id: 0,
-                span: Span::test_data(),
-                type_: ByteStreamType::Unknown,
-            },
-            metadata: None,
-        },
+        PipelineDataHeader::byte_stream(ByteStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+            type_: ByteStreamType::Unknown,
+        }),
         &Signals::empty(),
     )?;
 
@@ -341,13 +332,10 @@ fn manager_consume_call_response_forwards_to_subscriber_with_pipeline_data(
 
     manager.consume(PluginOutput::CallResponse(
         0,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream {
-            info: ListStreamInfo {
-                id: 0,
-                span: Span::test_data(),
-            },
-            metadata: None,
-        }),
+        PluginCallResponse::PipelineData(PipelineDataHeader::list_stream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        })),
     ))?;
 
     for i in 0..2 {
@@ -388,24 +376,18 @@ fn manager_consume_call_response_registers_streams() -> Result<(), ShellError> {
     // Check list streams, byte streams
     manager.consume(PluginOutput::CallResponse(
         0,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ListStream {
-            info: ListStreamInfo {
-                id: 0,
-                span: Span::test_data(),
-            },
-            metadata: None,
-        }),
+        PluginCallResponse::PipelineData(PipelineDataHeader::list_stream(ListStreamInfo {
+            id: 0,
+            span: Span::test_data(),
+        })),
     ))?;
     manager.consume(PluginOutput::CallResponse(
         1,
-        PluginCallResponse::PipelineData(PipelineDataHeader::ByteStream {
-            info: ByteStreamInfo {
-                id: 1,
-                span: Span::test_data(),
-                type_: ByteStreamType::Unknown,
-            },
-            metadata: None,
-        }),
+        PluginCallResponse::PipelineData(PipelineDataHeader::byte_stream(ByteStreamInfo {
+            id: 1,
+            span: Span::test_data(),
+            type_: ByteStreamType::Unknown,
+        })),
     ))?;
 
     // ListStream should have one
@@ -461,13 +443,10 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
                 span: Span::test_data(),
             },
             positional: vec![],
-            input: PipelineDataHeader::ListStream {
-                info: ListStreamInfo {
-                    id: 2,
-                    span: Span::test_data(),
-                },
-                metadata: None,
-            },
+            input: PipelineDataHeader::list_stream(ListStreamInfo {
+                id: 2,
+                span: Span::test_data(),
+            }),
             redirect_stdout: false,
             redirect_stderr: false,
         },
@@ -896,10 +875,7 @@ fn interface_write_plugin_call_writes_run_with_stream_input() -> Result<(), Shel
             PluginCall::Run(CallInfo { name, input, .. }) => {
                 assert_eq!("foo", name);
                 match input {
-                    PipelineDataHeader::ListStream {
-                        info,
-                        metadata: None,
-                    } => info,
+                    PipelineDataHeader::ListStream { info, .. } => info,
                     _ => panic!("unexpected input header: {input:?}"),
                 }
             }
