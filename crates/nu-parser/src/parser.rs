@@ -954,12 +954,7 @@ pub fn parse_internal_call(
     let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
-    let signature = if let Some(block_id) = decl.block_id() {
-        let block = working_set.get_block(block_id);
-        *block.signature.clone()
-    } else {
-        decl.signature()
-    };
+    let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
     // storing the var ID for later due to borrowing issues
