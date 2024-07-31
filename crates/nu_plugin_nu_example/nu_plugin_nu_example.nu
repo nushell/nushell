@@ -133,7 +133,7 @@ def process_call [
 
   # Create a Value of type List that will be encoded and sent to Nushell
   let value = {
-    Value: {
+    Value: { value: {
       List: {
         vals: (0..9 | each { |x|
           {
@@ -156,6 +156,7 @@ def process_call [
           }
         }),
         span: $span
+      }
       }
     }
   }

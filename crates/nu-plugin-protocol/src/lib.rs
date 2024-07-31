@@ -23,7 +23,7 @@ pub mod test_util;
 
 use nu_protocol::{
     ast::Operator, engine::Closure, ByteStreamType, Config, DeclId, LabeledError, PipelineData,
-    PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
+    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
 };
 use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
@@ -78,15 +78,24 @@ pub enum PipelineDataHeader {
     /// No input
     Empty,
     /// A single value
-    Value(Value),
+    Value {
+        value: Value,
+        metadata: Option<PipelineMetadata>,
+    },
     /// Initiate [`nu_protocol::PipelineData::ListStream`].
     ///
     /// Items are sent via [`StreamData`]
-    ListStream(ListStreamInfo),
+    ListStream {
+        info: ListStreamInfo,
+        metadata: Option<PipelineMetadata>,
+    },
     /// Initiate [`nu_protocol::PipelineData::ByteStream`].
     ///
     /// Items are sent via [`StreamData`]
-    ByteStream(ByteStreamInfo),
+    ByteStream {
+        info: ByteStreamInfo,
+        metadata: Option<PipelineMetadata>,
+    },
 }
 
 impl PipelineDataHeader {
@@ -94,9 +103,9 @@ impl PipelineDataHeader {
     pub fn stream_id(&self) -> Option<StreamId> {
         match self {
             PipelineDataHeader::Empty => None,
-            PipelineDataHeader::Value(_) => None,
-            PipelineDataHeader::ListStream(info) => Some(info.id),
-            PipelineDataHeader::ByteStream(info) => Some(info.id),
+            PipelineDataHeader::Value { .. } => None,
+            PipelineDataHeader::ListStream { info, .. } => Some(info.id),
+            PipelineDataHeader::ByteStream { info, .. } => Some(info.id),
         }
     }
 }
@@ -342,7 +351,10 @@ impl PluginCallResponse<PipelineDataHeader> {
         if value.is_nothing() {
             PluginCallResponse::PipelineData(PipelineDataHeader::Empty)
         } else {
-            PluginCallResponse::PipelineData(PipelineDataHeader::Value(value))
+            PluginCallResponse::PipelineData(PipelineDataHeader::Value {
+                value,
+                metadata: None,
+            })
         }
     }
 }
