@@ -1,12 +1,12 @@
 macro_rules! generate_tests {
     ($encoder:expr) => {
         use nu_plugin_protocol::{
-            CallInfo, CustomValueOp, DataSource, EvaluatedCall, PipelineDataHeader,
-            PipelineMetadata, PluginCall, PluginCallResponse, PluginCustomValue, PluginInput,
+            CallInfo, CustomValueOp, EvaluatedCall, PipelineDataHeader,
+            PluginCall, PluginCallResponse, PluginCustomValue, PluginInput,
             PluginOption, PluginOutput, StreamData,
         };
         use nu_protocol::{
-            LabeledError, PluginSignature, Signature, Span, Spanned, SyntaxShape, Value,
+            DataSource, PipelineMetadata, LabeledError, PluginSignature, Signature, Span, Spanned, SyntaxShape, Value,
         };
 
         #[test]
