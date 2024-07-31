@@ -2,6 +2,11 @@
 use omnipath::WinPathExt;
 use std::path::PathBuf;
 
+#[deprecated(
+    note = "prefer using nu_config_dir() instead of config_dir() joined with NUSHELL_FOLDER"
+)]
+pub const NUSHELL_FOLDER: &str = "nushell";
+
 pub fn home_dir() -> Option<PathBuf> {
     dirs::home_dir()
 }
@@ -32,6 +37,15 @@ pub fn config_dir() -> Option<PathBuf> {
         }
         _ => get_canonicalized_path(dirs::config_dir()),
     }
+}
+
+/// Return the nushell config directory.
+pub fn nu_config_dir() -> Option<PathBuf> {
+    config_dir().map(|mut p| {
+        #[allow(deprecated)]
+        p.push(NUSHELL_FOLDER);
+        p
+    })
 }
 
 pub fn get_canonicalized_path(path: Option<PathBuf>) -> Option<PathBuf> {

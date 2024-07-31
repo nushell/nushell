@@ -16,8 +16,8 @@ const PLUGIN_FILE: &str = "plugin.msgpackz";
 #[cfg(feature = "plugin")]
 const OLD_PLUGIN_FILE: &str = "plugin.nu";
 
-const HISTORY_FILE_TXT: &str = "history.txt";
-const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
+pub const HISTORY_FILE_TXT: &str = "history.txt";
+pub const HISTORY_FILE_SQLITE: &str = "history.sqlite3";
 
 #[cfg(feature = "plugin")]
 pub fn read_plugin_file(
@@ -240,9 +240,8 @@ pub fn eval_config_contents(
     }
 }
 
-pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> Option<PathBuf> {
-    nu_path::config_dir().map(|mut history_path| {
-        history_path.push(storage_path);
+pub(crate) fn get_history_path(mode: HistoryFileFormat) -> Option<PathBuf> {
+    nu_path::nu_config_dir().map(|mut history_path| {
         history_path.push(match mode {
             HistoryFileFormat::PlainText => HISTORY_FILE_TXT,
             HistoryFileFormat::Sqlite => HISTORY_FILE_SQLITE,
