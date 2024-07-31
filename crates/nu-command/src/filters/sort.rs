@@ -1,11 +1,4 @@
-use alphanumeric_sort::compare_str;
 use nu_engine::command_prelude::*;
-
-use nu_protocol::{ast::PathMember, IntoValue};
-use nu_utils::IgnoreCaseExt;
-use std::cmp::Ordering;
-
-use crate::{compare_by, compare_values, Comparator};
 
 #[derive(Clone)]
 pub struct Sort;
