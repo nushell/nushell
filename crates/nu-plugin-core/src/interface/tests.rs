@@ -141,7 +141,7 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
     let value = Value::test_int(4);
     let metadata = Some(PipelineMetadata {
         data_source: DataSource::FilePath("/test/path".into()),
-        content_type: None
+        content_type: None,
     });
     let header = PipelineDataHeader::Value {
         value: value.clone(),
