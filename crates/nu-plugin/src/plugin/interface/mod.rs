@@ -64,7 +64,8 @@ struct EngineInterfaceState {
         mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
-    // Mirror signals from `EngineState`
+    /// Mirror signals from `EngineState`. You can make use of this with
+    /// `engine_interface.signals()` when constructing a Stream that requires signals
     signals: Signals,
     /// Registered signal handlers
     signal_handlers: Handlers,
