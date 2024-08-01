@@ -42,7 +42,7 @@ impl Command for DecodeBase64 {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("decode base64")
+        Signature::build("decode new-base64")
             .input_output_types(vec![(Type::String, Type::Binary)])
             .allow_variants_without_examples(true)
             .switch("url", "Decode the URL-safe Base64 version.", None)
@@ -113,7 +113,7 @@ impl Command for EncodeBase64 {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("encode base64")
+        Signature::build("encode new-base64")
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (Type::Binary, Type::String),
