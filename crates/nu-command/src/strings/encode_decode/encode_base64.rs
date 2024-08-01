@@ -1,5 +1,6 @@
 use super::base64::{operate, ActionType, Base64CommandArguments, CHARACTER_SET_DESC};
 use nu_engine::command_prelude::*;
+use nu_protocol::{report_warning_new, ParseWarning};
 
 #[derive(Clone)]
 pub struct EncodeBase64Old;
@@ -81,6 +82,16 @@ impl Command for EncodeBase64Old {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        report_warning_new(
+            engine_state,
+            &ParseWarning::DeprecatedWarning {
+                old_command: "encode base64".into(),
+                new_suggestion: "the new `encode new-base64` version".into(),
+                span: call.head,
+                url: "`help encode new-base64`".into(),
+            },
+        );
+
         let character_set: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "character-set")?;
         let binary = call.has_flag(engine_state, stack, "binary")?;
