@@ -156,7 +156,7 @@ impl Command for UMv {
         for (files, need_expand_tilde) in files.iter_mut() {
             for src in files.iter_mut() {
                 if !src.is_absolute() {
-                    *src = nu_path::expand_path_with(&src, &cwd, *need_expand_tilde);
+                    *src = nu_path::expand_path_with(&*src, &cwd, *need_expand_tilde);
                 }
             }
         }

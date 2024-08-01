@@ -300,21 +300,21 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
             }
 
             // Let's get our block and make sure it has the right signature
-            if let Some(arg) = call.positional_nth(2) {
-                match arg {
-                    Expression {
-                        expr: Expr::Block(block_id),
-                        ..
-                    }
-                    | Expression {
-                        expr: Expr::RowCondition(block_id),
-                        ..
-                    } => {
-                        let block = working_set.get_block_mut(*block_id);
+            if let Some(
+                Expression {
+                    expr: Expr::Block(block_id),
+                    ..
+                }
+                | Expression {
+                    expr: Expr::RowCondition(block_id),
+                    ..
+                },
+            ) = call.positional_nth(2)
+            {
+                {
+                    let block = working_set.get_block_mut(*block_id);
 
-                        block.signature = Box::new(sig);
-                    }
-                    _ => {}
+                    block.signature = Box::new(sig);
                 }
             }
 
