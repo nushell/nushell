@@ -67,7 +67,7 @@ impl Command for History {
             } else {
                 let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
                     HistoryFileFormat::Sqlite => {
-                        SqliteBackedHistory::with_file(history_path.clone(), None, None)
+                        SqliteBackedHistory::with_file(history_path.clone().into(), None, None)
                             .map(|inner| {
                                 let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
                                 boxed
@@ -77,7 +77,7 @@ impl Command for History {
 
                     HistoryFileFormat::PlainText => FileBackedHistory::with_file(
                         history.max_size as usize,
-                        history_path.clone(),
+                        history_path.clone().into(),
                     )
                     .map(|inner| {
                         let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
