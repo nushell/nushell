@@ -99,14 +99,14 @@ mod tests {
         let called1_clone = Arc::clone(&called1);
         let called2_clone = Arc::clone(&called2);
 
-        let _guard1 = handlers.register(Box::new(move || {
+        let _guard1 = handlers.register(Box::new(move |_| {
             called1_clone.store(true, Ordering::SeqCst);
         }));
-        let _guard2 = handlers.register(Box::new(move || {
+        let _guard2 = handlers.register(Box::new(move |_| {
             called2_clone.store(true, Ordering::SeqCst);
         }));
 
-        handlers.run();
+        handlers.run(SignalAction::Interrupt);
 
         assert!(called1.load(Ordering::SeqCst));
         assert!(called2.load(Ordering::SeqCst));
@@ -119,7 +119,7 @@ mod tests {
         let called = Arc::new(AtomicBool::new(false));
         let called_clone = Arc::clone(&called);
 
-        let guard = handlers.register(Box::new(move || {
+        let guard = handlers.register(Box::new(move |_| {
             called_clone.store(true, Ordering::Relaxed);
         }));
 
@@ -131,7 +131,7 @@ mod tests {
         // Ensure the handler is removed after dropping the guard
         assert_eq!(handlers.handlers.lock().unwrap().len(), 0);
 
-        handlers.run();
+        handlers.run(SignalAction::Interrupt);
 
         // Ensure the handler is not called after being dropped
         assert!(!called.load(Ordering::Relaxed));

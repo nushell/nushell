@@ -77,15 +77,15 @@ impl Signals {
         self.signals.is_none()
     }
 
-    pub(crate) fn reset(&self) {
+    pub fn reset(&self) {
         if let Some(signals) = &self.signals {
             signals.store(false, Ordering::Relaxed);
         }
     }
 }
 
-/// The types of things that can be signaled. Its anticipated this will change as we learn how we'd
-/// like signals to be handled.
+/// The types of things that can be signaled. It's anticipated this will change as we learn more
+/// about how we'd like signals to be handled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SignalAction {
     Interrupt,
