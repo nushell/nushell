@@ -86,17 +86,17 @@ impl Command for UCp {
             },
             Example {
                 description: "Copy only if source file is newer than target file",
-                example: "cp -u a b",
+                example: "cp -u myfile newfile",
                 result: None,
             },
             Example {
                 description: "Copy file preserving mode and timestamps attributes",
-                example: "cp --preserve [ mode timestamps ] a b",
+                example: "cp --preserve [ mode timestamps ] myfile newfile",
                 result: None,
             },
             Example {
                 description: "Copy file erasing all attributes",
-                example: "cp --preserve [] a b",
+                example: "cp --preserve [] myfile newfile",
                 result: None,
             },
             Example {
