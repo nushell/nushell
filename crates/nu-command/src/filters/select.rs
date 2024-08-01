@@ -240,7 +240,7 @@ fn select(
                                 //FIXME: improve implementation to not clone
                                 match input_val.clone().follow_cell_path(&path.members, false) {
                                     Ok(fetcher) => {
-                                        record.push(path.to_string().replace('.', "_"), fetcher);
+                                        record.push(path.to_string(), fetcher);
                                         if !columns_with_value.contains(&path) {
                                             columns_with_value.push(path);
                                         }
@@ -271,7 +271,7 @@ fn select(
                             // FIXME: remove clone
                             match v.clone().follow_cell_path(&cell_path.members, false) {
                                 Ok(result) => {
-                                    record.push(cell_path.to_string().replace('.', "_"), result);
+                                    record.push(cell_path.to_string(), result);
                                 }
                                 Err(e) => return Err(e),
                             }
@@ -295,7 +295,7 @@ fn select(
                         //FIXME: improve implementation to not clone
                         match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
-                                record.push(path.to_string().replace('.', "_"), value);
+                                record.push(path.to_string(), value);
                             }
                             Err(e) => return Err(e),
                         }

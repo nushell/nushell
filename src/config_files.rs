@@ -200,8 +200,7 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
         column!()
     );
 
-    // read and source vendor_autoload_files file if exists
-    if let Some(autoload_dir) = nu_protocol::eval_const::get_vendor_autoload_dir(engine_state) {
+    for autoload_dir in nu_protocol::eval_const::get_vendor_autoload_dirs(engine_state) {
         warn!("read_vendor_autoload_files: {}", autoload_dir.display());
 
         if autoload_dir.exists() {

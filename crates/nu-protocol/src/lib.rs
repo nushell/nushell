@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod alias;
 pub mod ast;
 pub mod config;

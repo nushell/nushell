@@ -159,14 +159,14 @@ impl From<ByteStreamType> for Type {
 ///   Try not to use this method if possible. Rather, please use [`reader`](ByteStream::reader)
 ///   (or [`lines`](ByteStream::lines) if it matches the situation).
 ///
-/// Additionally, there are few methods to collect a [`Bytestream`] into memory:
+/// Additionally, there are few methods to collect a [`ByteStream`] into memory:
 /// - [`into_bytes`](ByteStream::into_bytes): collects all bytes into a [`Vec<u8>`].
 /// - [`into_string`](ByteStream::into_string): collects all bytes into a [`String`], erroring if utf-8 decoding failed.
 /// - [`into_value`](ByteStream::into_value): collects all bytes into a value typed appropriately
 ///   for the [type](.type_()) of this stream. If the type is [`Unknown`](ByteStreamType::Unknown),
 ///   it will produce a string value if the data is valid UTF-8, or a binary value otherwise.
 ///
-/// There are also a few other methods to consume all the data of a [`Bytestream`]:
+/// There are also a few other methods to consume all the data of a [`ByteStream`]:
 /// - [`drain`](ByteStream::drain): consumes all bytes and outputs nothing.
 /// - [`write_to`](ByteStream::write_to): writes all bytes to the given [`Write`] destination.
 /// - [`print`](ByteStream::print): a convenience wrapper around [`write_to`](ByteStream::write_to).

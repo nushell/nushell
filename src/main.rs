@@ -99,7 +99,7 @@ fn main() -> Result<()> {
                         default: nushell_config_path.display().to_string(),
                     },
                 );
-            } else if let Some(old_config) = dirs_next::config_dir()
+            } else if let Some(old_config) = dirs::config_dir()
                 .and_then(|p| p.canonicalize().ok())
                 .map(|p| p.join("nushell"))
             {

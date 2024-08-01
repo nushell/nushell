@@ -102,13 +102,12 @@ pub fn fixtures() -> AbsolutePathBuf {
     path
 }
 
-// FIXME: re-enable nu_json tests
-// pub fn assets() -> AbsolutePathBuf {
-//     let mut path = root();
-//     path.push("tests");
-//     path.push("assets");
-//     path
-// }
+pub fn assets() -> AbsolutePathBuf {
+    let mut path = root();
+    path.push("tests");
+    path.push("assets");
+    path
+}
 
 pub fn in_directory(path: impl AsRef<nu_path::Path>) -> AbsolutePathBuf {
     root().join(path)

@@ -1,5 +1,3 @@
-use crate::util::Sequence;
-
 use super::{
     stream::{StreamManager, StreamManagerHandle},
     test_util::TestCase,
@@ -10,8 +8,8 @@ use nu_plugin_protocol::{
     StreamMessage,
 };
 use nu_protocol::{
-    ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream, PipelineData,
-    PipelineMetadata, ShellError, Signals, Span, Value,
+    engine::Sequence, ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream,
+    PipelineData, PipelineMetadata, ShellError, Signals, Span, Value,
 };
 use std::{path::Path, sync::Arc};
 

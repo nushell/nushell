@@ -99,10 +99,9 @@ impl CommandCompletion {
                 suggestion: Suggestion {
                     value: String::from_utf8_lossy(&x.0).to_string(),
                     description: x.1,
-                    style: None,
-                    extra: None,
                     span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
+                    ..Suggestion::default()
                 },
                 kind: Some(SuggestionKind::Command(x.2)),
             })
@@ -118,11 +117,9 @@ impl CommandCompletion {
                 .map(move |x| SemanticSuggestion {
                     suggestion: Suggestion {
                         value: x,
-                        description: None,
-                        style: None,
-                        extra: None,
                         span: reedline::Span::new(span.start - offset, span.end - offset),
                         append_whitespace: true,
+                        ..Suggestion::default()
                     },
                     // TODO: is there a way to create a test?
                     kind: None,
@@ -136,11 +133,9 @@ impl CommandCompletion {
                     results.push(SemanticSuggestion {
                         suggestion: Suggestion {
                             value: format!("^{}", external.suggestion.value),
-                            description: None,
-                            style: None,
-                            extra: None,
                             span: external.suggestion.span,
                             append_whitespace: true,
+                            ..Suggestion::default()
                         },
                         kind: external.kind,
                     })

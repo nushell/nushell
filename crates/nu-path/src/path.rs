@@ -660,10 +660,10 @@ impl Path {
     /// the current directory.
     ///
     /// * On Unix, a path is absolute if it starts with the root,
-    /// so [`is_absolute`](Path::is_absolute) and [`has_root`](Path::has_root) are equivalent.
+    ///   so [`is_absolute`](Path::is_absolute) and [`has_root`](Path::has_root) are equivalent.
     ///
     /// * On Windows, a path is absolute if it has a prefix and starts with the root:
-    /// `c:\windows` is absolute, while `c:temp` and `\temp` are not.
+    ///   `c:\windows` is absolute, while `c:temp` and `\temp` are not.
     ///
     /// # Examples
     ///

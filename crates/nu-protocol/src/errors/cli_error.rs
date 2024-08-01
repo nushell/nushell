@@ -47,6 +47,26 @@ pub fn report_error_new(
     report_error(&working_set, error);
 }
 
+pub fn report_warning(
+    working_set: &StateWorkingSet,
+    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
+) {
+    eprintln!("Warning: {:?}", CliError(error, working_set));
+    // reset vt processing, aka ansi because illbehaved externals can break it
+    #[cfg(windows)]
+    {
+        let _ = nu_utils::enable_vt_processing();
+    }
+}
+
+pub fn report_warning_new(
+    engine_state: &EngineState,
+    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
+) {
+    let working_set = StateWorkingSet::new(engine_state);
+    report_error(&working_set, error);
+}
+
 impl std::fmt::Debug for CliError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let config = self.1.get_config();

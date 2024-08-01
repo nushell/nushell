@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ValueIterator;
+use nu_protocol::{report_warning_new, ParseWarning, ValueIterator};
 
 #[derive(Clone)]
 pub struct Group;
@@ -54,6 +54,17 @@ impl Command for Group {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+
+        report_warning_new(
+            engine_state,
+            &ParseWarning::DeprecatedWarning {
+                old_command: "group".into(),
+                new_suggestion: "the new `chunks` command".into(),
+                span: head,
+                url: "`help chunks`".into(),
+            },
+        );
+
         let group_size: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let metadata = input.metadata();
 

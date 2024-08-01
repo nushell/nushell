@@ -15,12 +15,3 @@ fn break_while_loop() {
 
     assert_eq!(actual.out, "hello");
 }
-
-#[test]
-fn break_each() {
-    let actual = nu!("
-        [1, 2, 3, 4, 5] | each {|x| if $x > 3 { break }; $x} | math sum
-        ");
-
-    assert_eq!(actual.out, "6");
-}

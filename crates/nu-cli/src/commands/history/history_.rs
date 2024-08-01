@@ -156,58 +156,34 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
     //2. Create a record of either short or long columns and values
 
     let item_id_value = Value::int(
-        match entry.id {
-            Some(id) => {
-                let ids = id.to_string();
-                match ids.parse::<i64>() {
-                    Ok(i) => i,
-                    _ => 0i64,
-                }
-            }
-            None => 0i64,
-        },
+        entry
+            .id
+            .and_then(|id| id.to_string().parse::<i64>().ok())
+            .unwrap_or_default(),
         head,
     );
     let start_timestamp_value = Value::string(
-        match entry.start_timestamp {
-            Some(time) => time.to_string(),
-            None => "".into(),
-        },
+        entry
+            .start_timestamp
+            .map(|time| time.to_string())
+            .unwrap_or_default(),
         head,
     );
     let command_value = Value::string(entry.command_line, head);
     let session_id_value = Value::int(
-        match entry.session_id {
-            Some(sid) => {
-                let sids = sid.to_string();
-                match sids.parse::<i64>() {
-                    Ok(i) => i,
-                    _ => 0i64,
-                }
-            }
-            None => 0i64,
-        },
+        entry
+            .session_id
+            .and_then(|id| id.to_string().parse::<i64>().ok())
+            .unwrap_or_default(),
         head,
     );
-    let hostname_value = Value::string(
-        match entry.hostname {
-            Some(host) => host,
-            None => "".into(),
-        },
-        head,
-    );
-    let cwd_value = Value::string(
-        match entry.cwd {
-            Some(cwd) => cwd,
-            None => "".into(),
-        },
-        head,
-    );
+    let hostname_value = Value::string(entry.hostname.unwrap_or_default(), head);
+    let cwd_value = Value::string(entry.cwd.unwrap_or_default(), head);
     let duration_value = Value::duration(
-        match entry.duration {
-            Some(d) => d.as_nanos().try_into().unwrap_or(0),
-            None => 0,
-        },
+        entry
+            .duration
+            .and_then(|d| d.as_nanos().try_into().ok())
+            .unwrap_or(0),
         head,
     );
     let exit_status_value = Value::int(entry.exit_status.unwrap_or(0), head);

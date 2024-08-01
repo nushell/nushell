@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod call_ext;
 mod closure_eval;
 pub mod column;

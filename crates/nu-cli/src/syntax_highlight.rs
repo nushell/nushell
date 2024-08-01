@@ -429,6 +429,14 @@ fn find_matching_block_end_in_expr(
                 )
             }),
 
+            Expr::Collect(_, expr) => find_matching_block_end_in_expr(
+                line,
+                working_set,
+                expr,
+                global_span_offset,
+                global_cursor_offset,
+            ),
+
             Expr::Block(block_id)
             | Expr::Closure(block_id)
             | Expr::RowCondition(block_id)

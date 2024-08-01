@@ -204,6 +204,7 @@ impl BlockBuilder {
             Instruction::Drain { src } => allocate(&[*src], &[]),
             Instruction::LoadVariable { dst, var_id: _ } => allocate(&[], &[*dst]),
             Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[]),
+            Instruction::DropVariable { var_id: _ } => Ok(()),
             Instruction::LoadEnv { dst, key: _ } => allocate(&[], &[*dst]),
             Instruction::LoadEnvOpt { dst, key: _ } => allocate(&[], &[*dst]),
             Instruction::StoreEnv { key: _, src } => allocate(&[*src], &[]),
@@ -422,7 +423,7 @@ impl BlockBuilder {
         self.push(Instruction::Jump { index: label_id.0 }.into_spanned(span))
     }
 
-    /// The index that the next instruction [`.push()`]ed will have.
+    /// The index that the next instruction [`.push()`](Self::push)ed will have.
     pub(crate) fn here(&self) -> usize {
         self.instructions.len()
     }

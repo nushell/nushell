@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod core_commands;
 mod default_context;
 pub mod example_support;
