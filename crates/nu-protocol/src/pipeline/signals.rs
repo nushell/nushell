@@ -4,6 +4,8 @@ use std::sync::{
     Arc,
 };
 
+use serde::{Deserialize, Serialize};
+
 /// Used to check for signals to suspend or terminate the execution of Nushell code.
 ///
 /// For now, this struct only supports interruption (ctrl+c or SIGINT).
@@ -80,4 +82,12 @@ impl Signals {
             signals.store(false, Ordering::Relaxed);
         }
     }
+}
+
+/// The types of things that can be signaled. Its anticipated this will change as we learn how we'd
+/// like signals to be handled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SignalAction {
+    Interrupt,
+    Reset,
 }

@@ -2,14 +2,14 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
-        ctrlc,
         usage::{build_usage, Usage},
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signals, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
+    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
+    VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -86,8 +86,8 @@ pub struct EngineState {
     pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
-    pub ctrlc_handlers: Option<ctrlc::Handlers>,
     signals: Signals,
+    pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
@@ -147,7 +147,7 @@ impl EngineState {
                 0,
                 false,
             ),
-            ctrlc_handlers: None,
+            signal_handlers: None,
             signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
@@ -186,7 +186,10 @@ impl EngineState {
     }
 
     pub fn reset_signals(&mut self) {
-        self.signals.reset()
+        self.signals.reset();
+        if let Some(ref handlers) = self.signal_handlers {
+            handlers.run(SignalAction::Reset);
+        }
     }
 
     pub fn set_signals(&mut self, signals: Signals) {
@@ -272,9 +275,9 @@ impl EngineState {
         #[cfg(feature = "plugin")]
         if !delta.plugins.is_empty() {
             for plugin in std::mem::take(&mut delta.plugins) {
-                // Connect plugins to the ctrlc handlers
-                if let Some(handlers) = &self.ctrlc_handlers {
-                    plugin.clone().configure_ctrlc_handler(handlers)?;
+                // Connect plugins to the signal handlers
+                if let Some(handlers) = &self.signal_handlers {
+                    plugin.clone().configure_signal_handler(handlers)?;
                 }
 
                 // Replace plugins that overlap in identity.

@@ -6,8 +6,9 @@ use crate::{
 use super::{PluginInterface, PluginSource};
 use nu_plugin_core::CommunicationMode;
 use nu_protocol::{
-    engine::{ctrlc, EngineState, Stack},
-    PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin, ShellError,
+    engine::{EngineState, Stack},
+    HandlerGuard, Handlers, PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin,
+    ShellError,
 };
 use std::{
     collections::HashMap,
@@ -37,8 +38,8 @@ struct MutableState {
     preferred_mode: Option<PreferredCommunicationMode>,
     /// Garbage collector config
     gc_config: PluginGcConfig,
-    /// RAII guard for this plugin's ctrl-c handler
-    ctrlc_guard: Option<ctrlc::Guard>,
+    /// RAII guard for this plugin's signal handler
+    signal_guard: Option<HandlerGuard>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -66,7 +67,7 @@ impl PersistentPlugin {
                 metadata: None,
                 preferred_mode: None,
                 gc_config,
-                ctrlc_guard: None,
+                signal_guard: None,
             }),
         }
     }
@@ -303,21 +304,18 @@ impl RegisteredPlugin for PersistentPlugin {
         self
     }
 
-    fn configure_ctrlc_handler(
-        self: Arc<Self>,
-        handlers: &ctrlc::Handlers,
-    ) -> Result<(), ShellError> {
+    fn configure_signal_handler(self: Arc<Self>, handlers: &Handlers) -> Result<(), ShellError> {
         let guard = {
             // We take a weakref to the plugin so that we don't create a cycle to the
             // RAII guard that will be stored on the plugin.
             let plugin = Arc::downgrade(&self);
-            handlers.register(Box::new(move || {
+            handlers.register(Box::new(move |action| {
                 // write a Ctrl-C packet through the PluginInterface if the plugin is alive and
                 // running
                 if let Some(plugin) = plugin.upgrade() {
                     if let Ok(mutable) = plugin.mutable.lock() {
                         if let Some(ref running) = mutable.running {
-                            let _ = running.interface.ctrlc();
+                            let _ = running.interface.signal(action);
                         }
                     }
                 }
@@ -325,7 +323,7 @@ impl RegisteredPlugin for PersistentPlugin {
         };
 
         if let Ok(mut mutable) = self.mutable.lock() {
-            mutable.ctrlc_guard = Some(guard);
+            mutable.signal_guard = Some(guard);
         }
 
         Ok(())

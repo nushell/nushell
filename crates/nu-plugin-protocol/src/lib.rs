@@ -23,7 +23,7 @@ pub mod test_util;
 
 use nu_protocol::{
     ast::Operator, engine::Closure, ByteStreamType, Config, DeclId, LabeledError, PipelineData,
-    PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
+    PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned, Value,
 };
 use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
@@ -208,8 +208,8 @@ pub enum PluginInput {
     Drop(StreamId),
     /// See [`StreamMessage::Ack`].
     Ack(StreamId),
-    /// Signal a ctrlc event
-    Ctrlc,
+    /// Relay signals to the plugin
+    Signal(SignalAction),
 }
 
 impl TryFrom<PluginInput> for StreamMessage {
