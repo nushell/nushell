@@ -40,6 +40,11 @@ impl Command for UMv {
                 example: "mv *.txt my/subdirectory",
                 result: None,
             },
+            Example {
+                description: r#"Move a file into the "my" directory two levels up in the directory tree"#,
+                example: "mv test.txt .../my/",
+                result: None,
+            },
         ]
     }
 

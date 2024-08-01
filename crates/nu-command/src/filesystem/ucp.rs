@@ -99,6 +99,11 @@ impl Command for UCp {
                 example: "cp --preserve [] a b",
                 result: None,
             },
+            Example {
+                description: "Copy file to a directory three levels above its current location",
+                example: "cp myfile ....",
+                result: None,
+            },
         ]
     }
 
