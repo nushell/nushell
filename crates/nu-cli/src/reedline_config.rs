@@ -193,7 +193,7 @@ fn get_style(record: &Record, name: &str, span: Span) -> Option<Style> {
         })
 }
 
-fn with_menu_style<M: MenuBuilder>(mut menu: M, style: &Value) -> M {
+fn set_menu_style<M: MenuBuilder>(mut menu: M, style: &Value) -> M {
     let span = style.span();
     let Value::Record { val, .. } = &style else {
         return menu;
@@ -254,7 +254,7 @@ pub(crate) fn add_columnar_menu(
         };
     }
 
-    columnar_menu = with_menu_style(columnar_menu, &menu.style);
+    columnar_menu = set_menu_style(columnar_menu, &menu.style);
 
     let marker = menu.marker.to_expanded_string("", config);
     columnar_menu = columnar_menu.with_marker(&marker);
@@ -310,7 +310,7 @@ pub(crate) fn add_list_menu(
         };
     }
 
-    list_menu = with_menu_style(list_menu, &menu.style);
+    list_menu = set_menu_style(list_menu, &menu.style);
 
     let marker = menu.marker.to_expanded_string("", &config);
     list_menu = list_menu.with_marker(&marker);
@@ -491,7 +491,7 @@ pub(crate) fn add_ide_menu(
         };
     }
 
-    ide_menu = with_menu_style(ide_menu, &menu.style);
+    ide_menu = set_menu_style(ide_menu, &menu.style);
 
     let marker = menu.marker.to_expanded_string("", &config);
     ide_menu = ide_menu.with_marker(&marker);
@@ -579,7 +579,7 @@ pub(crate) fn add_description_menu(
         };
     }
 
-    description_menu = with_menu_style(description_menu, &menu.style);
+    description_menu = set_menu_style(description_menu, &menu.style);
 
     let marker = menu.marker.to_expanded_string("", &config);
     description_menu = description_menu.with_marker(&marker);
