@@ -14,9 +14,7 @@ impl Command for DecodeBase32Hex {
 
     fn signature(&self) -> Signature {
         Signature::build("decode base32hex")
-            .input_output_types(vec![
-                (Type::String, Type::Binary),
-            ])
+            .input_output_types(vec![(Type::String, Type::Binary)])
             .allow_variants_without_examples(true)
             .switch("nopad", "Reject input with padding.", None)
             .category(Category::Formats)
