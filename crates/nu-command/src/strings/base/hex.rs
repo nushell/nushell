@@ -11,7 +11,6 @@ impl Command for DecodeHex {
     fn signature(&self) -> Signature {
         Signature::build("decode hex")
             .input_output_types(vec![(Type::String, Type::Binary)])
-            .allow_variants_without_examples(true)
             .category(Category::Formats)
     }
 
@@ -72,7 +71,6 @@ impl Command for EncodeHex {
                 (Type::String, Type::String),
                 (Type::Binary, Type::String),
             ])
-            .allow_variants_without_examples(true)
             .switch("lower", "Encode to lowercase hex.", None)
             .category(Category::Formats)
     }

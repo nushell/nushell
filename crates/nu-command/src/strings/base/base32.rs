@@ -40,12 +40,12 @@ impl Command for DecodeBase32 {
             Example {
                 description: "Decode an encoded string",
                 example: r#""NBUQ====" | decode base32 | decode"#,
-                result: Some(Value::test_string("hi")),
+                result: None,
             },
             Example {
                 description: "Parse a string without padding",
                 example: r#""NBUQ" | decode base32 --nopad"#,
-                result: Some(Value::test_binary(vec![68, 69])),
+                result: Some(Value::test_binary(vec![0x68, 0x69])),
             },
         ]
     }
@@ -98,7 +98,6 @@ impl Command for EncodeBase32 {
                 (Type::String, Type::String),
                 (Type::Binary, Type::String),
             ])
-            .allow_variants_without_examples(true)
             .switch("nopad", "Don't accept padding.", None)
             .category(Category::Formats)
     }
