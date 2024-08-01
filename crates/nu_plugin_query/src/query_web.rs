@@ -328,7 +328,7 @@ fn execute_selector_query_with_attribute(
     let doc = Html::parse_fragment(input_string);
 
     let vals: Vec<Value> = doc
-        .select(&failable_css(query_string, inspect)?)
+        .select(&fallible_css(query_string, inspect)?)
         .map(|selection| {
             Value::string(
                 selection.value().attr(attribute).unwrap_or("").to_string(),
@@ -358,7 +358,7 @@ fn execute_selector_query_with_attributes(
     }
 
     let vals: Vec<Value> = doc
-        .select(&failable_css(query_string, inspect)?)
+        .select(&fallible_css(query_string, inspect)?)
         .map(|selection| {
             let mut record = Record::new();
             for attr in &attrs {
@@ -384,11 +384,11 @@ fn execute_selector_query(
 
     let vals: Vec<Value> = match as_html {
         true => doc
-            .select(&failable_css(query_string, inspect)?)
+            .select(&fallible_css(query_string, inspect)?)
             .map(|selection| Value::string(selection.html(), span))
             .collect(),
         false => doc
-            .select(&failable_css(query_string, inspect)?)
+            .select(&fallible_css(query_string, inspect)?)
             .map(|selection| {
                 Value::list(
                     selection
@@ -404,7 +404,7 @@ fn execute_selector_query(
     Ok(Value::list(vals, span))
 }
 
-fn failable_css(
+fn fallible_css(
     selector: Spanned<String>,
     inspect: Spanned<bool>,
 ) -> Result<ScraperSelector, LabeledError> {
