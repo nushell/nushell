@@ -420,9 +420,7 @@ fn fallible_css(
         ScraperSelector::parse(&selector.item).map_err(|e| {
             LabeledError::new("CSS query parse error")
                 .with_label(e.to_string(), selector.span)
-                .with_help(
-                    "cannot parse query as a valid CSS selector",
-                )
+                .with_help("cannot parse query as a valid CSS selector")
         })
     }
 }
