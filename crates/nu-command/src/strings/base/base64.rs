@@ -38,7 +38,7 @@ pub struct DecodeBase64;
 
 impl Command for DecodeBase64 {
     fn name(&self) -> &str {
-        "decode base64"
+        "decode new-base64"
     }
 
     fn signature(&self) -> Signature {
@@ -109,7 +109,7 @@ pub struct EncodeBase64;
 
 impl Command for EncodeBase64 {
     fn name(&self) -> &str {
-        "encode base64"
+        "encode new-base64"
     }
 
     fn signature(&self) -> Signature {
