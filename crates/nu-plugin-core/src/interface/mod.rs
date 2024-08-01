@@ -174,19 +174,19 @@ pub trait InterfaceManager {
     ) -> Result<PipelineData, ShellError> {
         self.prepare_pipeline_data(match header {
             PipelineDataHeader::Empty => PipelineData::Empty,
-            PipelineDataHeader::Value { value, metadata } => PipelineData::Value(value, metadata),
-            PipelineDataHeader::ListStream { info, metadata } => {
+            PipelineDataHeader::Value(value, metadata) => PipelineData::Value(value, metadata),
+            PipelineDataHeader::ListStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
                 let ls = ListStream::new(reader, info.span, signals.clone());
-                PipelineData::ListStream(ls, metadata)
+                PipelineData::ListStream(ls, info.metadata)
             }
-            PipelineDataHeader::ByteStream { info, metadata } => {
+            PipelineDataHeader::ByteStream(info) => {
                 let handle = self.stream_manager().get_handle();
                 let reader = handle.read_stream(info.id, self.get_interface())?;
                 let bs =
                     ByteStream::from_result_iter(reader, info.span, signals.clone(), info.type_);
-                PipelineData::ByteStream(bs, metadata)
+                PipelineData::ByteStream(bs, info.metadata)
             }
         })
     }
@@ -249,20 +249,18 @@ pub trait Interface: Clone + Send {
         };
         match self.prepare_pipeline_data(data, context)? {
             PipelineData::Value(value, metadata) => Ok((
-                PipelineDataHeader::Value { value, metadata },
+                PipelineDataHeader::Value(value, metadata),
                 PipelineDataWriter::None,
             )),
             PipelineData::Empty => Ok((PipelineDataHeader::Empty, PipelineDataWriter::None)),
             PipelineData::ListStream(stream, metadata) => {
                 let (id, writer) = new_stream(LIST_STREAM_HIGH_PRESSURE)?;
                 Ok((
-                    PipelineDataHeader::ListStream {
-                        info: ListStreamInfo {
-                            id,
-                            span: stream.span(),
-                        },
+                    PipelineDataHeader::ListStream(ListStreamInfo {
+                        id,
+                        span: stream.span(),
                         metadata,
-                    },
+                    }),
                     PipelineDataWriter::ListStream(writer, stream),
                 ))
             }
@@ -271,10 +269,12 @@ pub trait Interface: Clone + Send {
                 let type_ = stream.type_();
                 if let Some(reader) = stream.reader() {
                     let (id, writer) = new_stream(RAW_STREAM_HIGH_PRESSURE)?;
-                    let header = PipelineDataHeader::ByteStream {
-                        info: ByteStreamInfo { id, span, type_ },
+                    let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
+                        id,
+                        span,
+                        type_,
                         metadata,
-                    };
+                    });
                     Ok((header, PipelineDataWriter::ByteStream(writer, reader)))
                 } else {
                     Ok((PipelineDataHeader::Empty, PipelineDataWriter::None))

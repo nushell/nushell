@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 /// Metadata that is valid for the whole [`PipelineData`](crate::PipelineData)
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub struct PipelineMetadata {
     pub data_source: DataSource,
     pub content_type: Option<String>,
@@ -29,7 +29,7 @@ impl PipelineMetadata {
 ///
 /// This can either be a particular family of commands (useful so downstream commands can adjust
 /// the presentation e.g. `Ls`) or the opened file to protect against overwrite-attempts properly.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum DataSource {
     Ls,
     HtmlThemes,

@@ -143,11 +143,7 @@ fn read_pipeline_data_value() -> Result<(), ShellError> {
         data_source: DataSource::FilePath("/test/path".into()),
         content_type: None,
     });
-    let header = PipelineDataHeader::Value {
-        value: value.clone(),
-        metadata: metadata.clone(),
-    };
-
+    let header = PipelineDataHeader::Value(value.clone(), metadata.clone());
     match manager.read_pipeline_data(header, &Signals::empty())? {
         PipelineData::Value(read_value, read_metadata) => {
             assert_eq!(value, read_value);
@@ -178,13 +174,11 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
         content_type: Some("foobar".into()),
     });
 
-    let header = PipelineDataHeader::ListStream {
-        info: ListStreamInfo {
-            id: 7,
-            span: Span::test_data(),
-        },
+    let header = PipelineDataHeader::ListStream(ListStreamInfo {
+        id: 7,
+        span: Span::test_data(),
         metadata,
-    };
+    });
 
     let pipe = manager.read_pipeline_data(header, &Signals::empty())?;
     assert!(
@@ -230,14 +224,12 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
         content_type: Some("foobar".into()),
     });
 
-    let header = PipelineDataHeader::ByteStream {
-        info: ByteStreamInfo {
-            id: 12,
-            span: test_span,
-            type_: ByteStreamType::Unknown,
-        },
+    let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
+        id: 12,
+        span: test_span,
+        type_: ByteStreamType::Unknown,
         metadata,
-    };
+    });
 
     let pipe = manager.read_pipeline_data(header, &Signals::empty())?;
 
@@ -285,13 +277,11 @@ fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
         content_type: Some("foobar".into()),
     });
 
-    let header = PipelineDataHeader::ListStream {
-        info: ListStreamInfo {
-            id: 0,
-            span: Span::test_data(),
-        },
+    let header = PipelineDataHeader::ListStream(ListStreamInfo {
+        id: 0,
+        span: Span::test_data(),
         metadata,
-    };
+    });
     match manager.read_pipeline_data(header, &Signals::empty())? {
         PipelineData::ListStream(_, meta) => match meta {
             Some(PipelineMetadata { data_source, .. }) => match data_source {
@@ -338,9 +328,7 @@ fn write_pipeline_data_value() -> Result<(), ShellError> {
         interface.init_write_pipeline_data(PipelineData::Value(value.clone(), None), &())?;
 
     match header {
-        PipelineDataHeader::Value {
-            value: read_value, ..
-        } => assert_eq!(value, read_value),
+        PipelineDataHeader::Value(read_value, _) => assert_eq!(value, read_value),
         _ => panic!("unexpected header: {header:?}"),
     }
 
@@ -401,7 +389,7 @@ fn write_pipeline_data_list_stream() -> Result<(), ShellError> {
     let (header, writer) = interface.init_write_pipeline_data(pipe, &())?;
 
     let info = match header {
-        PipelineDataHeader::ListStream { info, .. } => info,
+        PipelineDataHeader::ListStream(info) => info,
         _ => panic!("unexpected header: {header:?}"),
     };
 
@@ -456,7 +444,7 @@ fn write_pipeline_data_byte_stream() -> Result<(), ShellError> {
     let (header, writer) = interface.init_write_pipeline_data(data, &())?;
 
     let info = match header {
-        PipelineDataHeader::ByteStream { info, .. } => info,
+        PipelineDataHeader::ByteStream(info) => info,
         _ => panic!("unexpected header: {header:?}"),
     };
 
