@@ -37,7 +37,8 @@ pub struct LabeledError {
 impl LabeledError {
     /// Create a new plain [`LabeledError`] with the given message.
     ///
-    /// This is usually used builder-style with methods like [`.with_label()`] to build an error.
+    /// This is usually used builder-style with methods like [`.with_label()`](Self::with_label) to
+    /// build an error.
     ///
     /// # Example
     ///

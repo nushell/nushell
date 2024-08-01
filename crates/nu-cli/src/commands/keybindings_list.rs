@@ -61,10 +61,12 @@ impl Command for KeybindingsList {
             .map(|option| call.has_flag(engine_state, stack, option))
             .collect::<Result<Vec<_>, ShellError>>()?;
 
+        let no_option_specified = presence.iter().all(|present| !*present);
+
         let records = all_options
             .iter()
             .zip(presence)
-            .filter(|(_, present)| *present)
+            .filter(|(_, present)| no_option_specified || *present)
             .flat_map(|(option, _)| get_records(option, call.head))
             .collect();
 

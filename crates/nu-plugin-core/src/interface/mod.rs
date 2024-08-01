@@ -1,7 +1,10 @@
 //! Implements the stream multiplexing interface for both the plugin side and the engine side.
 
 use nu_plugin_protocol::{ByteStreamInfo, ListStreamInfo, PipelineDataHeader, StreamMessage};
-use nu_protocol::{ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError, Signals};
+use nu_protocol::{
+    engine::Sequence, ByteStream, IntoSpanned, ListStream, PipelineData, Reader, ShellError,
+    Signals,
+};
 use std::{
     io::{Read, Write},
     sync::Mutex,
@@ -10,7 +13,7 @@ use std::{
 
 pub mod stream;
 
-use crate::{util::Sequence, Encoder};
+use crate::Encoder;
 
 use self::stream::{StreamManager, StreamManagerHandle, StreamWriter, WriteStreamMessage};
 
@@ -145,7 +148,7 @@ pub trait InterfaceManager {
 
     /// Consume an input message.
     ///
-    /// When implementing, call [`.consume_stream_message()`] for any encapsulated
+    /// When implementing, call [`.consume_stream_message()`](Self::consume_stream_message) for any encapsulated
     /// [`StreamMessage`]s received.
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError>;
 

@@ -235,7 +235,7 @@ impl Command for UCp {
         for (sources, need_expand_tilde) in sources.iter_mut() {
             for src in sources.iter_mut() {
                 if !src.is_absolute() {
-                    *src = nu_path::expand_path_with(&src, &cwd, *need_expand_tilde);
+                    *src = nu_path::expand_path_with(&*src, &cwd, *need_expand_tilde);
                 }
             }
         }

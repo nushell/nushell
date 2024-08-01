@@ -121,7 +121,7 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
     return match path.to_str() {
         Some(file_path) => {
             let mut file = file_path.to_string();
-            match file_path.find(|c| c == '/' || c == '\\') {
+            match file_path.find(['/', '\\']) {
                 None => {
                     file.remove(0);
                     user_home_dir(&file)

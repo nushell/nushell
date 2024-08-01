@@ -2,6 +2,7 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
+        ctrlc,
         usage::{build_usage, Usage},
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
@@ -85,6 +86,7 @@ pub struct EngineState {
     pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
+    pub ctrlc_handlers: Option<ctrlc::Handlers>,
     signals: Signals,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
@@ -145,6 +147,7 @@ impl EngineState {
                 0,
                 false,
             ),
+            ctrlc_handlers: None,
             signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
@@ -268,8 +271,13 @@ impl EngineState {
 
         #[cfg(feature = "plugin")]
         if !delta.plugins.is_empty() {
-            // Replace plugins that overlap in identity.
             for plugin in std::mem::take(&mut delta.plugins) {
+                // Connect plugins to the ctrlc handlers
+                if let Some(handlers) = &self.ctrlc_handlers {
+                    plugin.clone().configure_ctrlc_handler(handlers)?;
+                }
+
+                // Replace plugins that overlap in identity.
                 if let Some(existing) = self
                     .plugins
                     .iter_mut()
@@ -420,13 +428,13 @@ impl EngineState {
             .1
     }
 
-    pub fn render_env_vars(&self) -> HashMap<&String, &Value> {
-        let mut result = HashMap::new();
+    pub fn render_env_vars(&self) -> HashMap<&str, &Value> {
+        let mut result: HashMap<&str, &Value> = HashMap::new();
 
         for overlay_name in self.active_overlay_names(&[]) {
             let name = String::from_utf8_lossy(overlay_name);
             if let Some(env_vars) = self.env_vars.get(name.as_ref()) {
-                result.extend(env_vars);
+                result.extend(env_vars.iter().map(|(k, v)| (k.as_str(), v)));
             }
         }
 
@@ -832,9 +840,9 @@ impl EngineState {
 
     /// Optionally get a block by id, if it exists
     ///
-    /// Prefer to use [`.get_block()`] in most cases - `BlockId`s that don't exist are normally a
-    /// compiler error. This only exists to stop plugins from crashing the engine if they send us
-    /// something invalid.
+    /// Prefer to use [`.get_block()`](Self::get_block) in most cases - `BlockId`s that don't exist
+    /// are normally a compiler error. This only exists to stop plugins from crashing the engine if
+    /// they send us something invalid.
     pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
         self.blocks.get(block_id)
     }

@@ -12,7 +12,7 @@ use std::sync::Arc;
 /// > **Note**  
 /// > [`Span`] can be passed to [`from_nuon`] if there is context available to the caller, e.g. when
 /// > using this function in a command implementation such as
-/// [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
+/// > [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
 ///
 /// also see [`super::to_nuon`] for the inverse operation
 pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
