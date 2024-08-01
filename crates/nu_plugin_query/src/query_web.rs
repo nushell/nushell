@@ -454,7 +454,7 @@ mod tests {
     fn null_spanned<T: ToOwned + ?Sized>(input: &T) -> Spanned<T::Owned> {
         Spanned {
             item: input.to_owned(),
-            span: Span { start: 0, end: 0 },
+            span: Span::unknown(),
         }
     }
 
