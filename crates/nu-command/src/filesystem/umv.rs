@@ -31,6 +31,11 @@ impl Command for UMv {
                 result: None,
             },
             Example {
+                description: "Move only if source file is newer than target file",
+                example: "mv -u new/test.txt old/",
+                result: None,
+            },
+            Example {
                 description: "Move many files into a directory",
                 example: "mv *.txt my/subdirectory",
                 result: None,
@@ -49,6 +54,11 @@ impl Command for UMv {
             .switch("verbose", "explain what is being done.", Some('v'))
             .switch("progress", "display a progress bar", Some('p'))
             .switch("interactive", "prompt before overwriting", Some('i'))
+            .switch(
+                "update",
+                "move and overwrite only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
+            )
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .rest(
                 "paths",
@@ -76,6 +86,11 @@ impl Command for UMv {
             uu_mv::OverwriteMode::Interactive
         } else {
             uu_mv::OverwriteMode::Force
+        };
+        let update = if call.has_flag(engine_state, stack, "update")? {
+            UpdateMode::ReplaceIfOlder
+        } else {
+            UpdateMode::ReplaceAll
         };
 
         #[allow(deprecated)]
@@ -164,7 +179,7 @@ impl Command for UMv {
             verbose,
             suffix: String::from("~"),
             backup: BackupMode::NoBackup,
-            update: UpdateMode::ReplaceAll,
+            update,
             target_dir: None,
             no_target_dir: false,
             strip_slashes: false,
