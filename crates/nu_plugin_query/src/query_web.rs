@@ -120,14 +120,6 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
     let inspect = call.has_flag("inspect")?;
     let inspect_span = call.get_flag_span("inspect").unwrap_or(call.head);
 
-    if let Some(query) = &query {
-        if let Err(err) = ScraperSelector::parse(&query.item) {
-            return Err(LabeledError::new("CSS query parse error")
-                .with_label(err.to_string(), query.span)
-                .with_help("cannot parse this query as a valid CSS selector"));
-        }
-    }
-
     let selector = Selector {
         query: query.unwrap_or(Spanned {
             span: call.head,
