@@ -147,7 +147,7 @@ impl Command for Do {
                             None
                         };
 
-                        child.wait()?.check_ok(span)?;
+                        child.wait()?;
 
                         let mut child = ChildProcess::from_raw(None, None, None, span);
                         if let Some(stdout) = stdout {

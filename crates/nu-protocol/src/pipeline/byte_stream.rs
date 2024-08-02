@@ -558,7 +558,7 @@ impl ByteStream {
                 Ok(())
             }
             ByteStreamSource::File(_) => Ok(()),
-            ByteStreamSource::Child(child) => child.wait()?.check_ok(self.span),
+            ByteStreamSource::Child(child) => child.wait(),
         }
     }
 
@@ -604,7 +604,7 @@ impl ByteStream {
                         }
                     }
                 }
-                child.wait()?.check_ok(span)?;
+                child.wait()?;
             }
         }
         Ok(())
@@ -677,7 +677,7 @@ impl ByteStream {
                     }
                     (None, None) => {}
                 }
-                child.wait()?.check_ok(span)?;
+                child.wait()?;
             }
         }
 
