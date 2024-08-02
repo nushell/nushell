@@ -211,17 +211,14 @@ pub fn eval_source(
 
     let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
         Ok(failed) => {
-            let code = i32::from(failed);
-            stack.add_env_var(
-                "LAST_EXIT_CODE".into(),
-                Value::int(code.into(), Span::unknown()),
-            );
+            let code = failed.into();
+            stack.set_last_exit_code(code, Span::unknown());
             code
         }
         Err(err) => {
             report_error_new(engine_state, &err);
             let code = err.exit_code();
-            stack.set_last_exit_code(&err);
+            stack.set_last_error(&err);
             code
         }
     };

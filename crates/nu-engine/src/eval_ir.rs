@@ -1356,11 +1356,10 @@ fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionRes
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
             if let Err(err) = stream.drain() {
-                ctx.stack.set_last_exit_code(&err);
+                ctx.stack.set_last_error(&err);
                 return Err(err);
             } else {
-                ctx.stack
-                    .add_env_var("LAST_EXIT_CODE".into(), Value::int(0, span));
+                ctx.stack.set_last_exit_code(0, span);
             }
         }
         PipelineData::ListStream(stream, ..) => stream.drain()?,

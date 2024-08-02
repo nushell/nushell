@@ -1437,18 +1437,18 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
 }
 
 impl ShellError {
-    pub fn exit_code_spanned(&self) -> Spanned<i32> {
+    pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
         let (item, span) = match *self {
             Self::NonZeroExitCode { exit_code, span } => (exit_code, span),
             Self::ProcessSignaled { signal, span, .. }
             | Self::ProcessCoreDumped { signal, span, .. } => (-signal, span),
-            _ => (1, Span::unknown()), // TODO: better span here
+            _ => return None,
         };
-        Spanned { item, span }
+        Some(Spanned { item, span })
     }
 
     pub fn exit_code(&self) -> i32 {
-        self.exit_code_spanned().item
+        self.external_exit_code().map(|e| e.item).unwrap_or(1)
     }
 
     // TODO: Implement as From trait

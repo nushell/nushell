@@ -490,7 +490,7 @@ pub fn eval_block_with_early_return<D: DebugContext>(
     }
 }
 
-pub fn eval_block<D: DebugContext>(
+fn eval_block_inner<D: DebugContext>(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
@@ -500,8 +500,6 @@ pub fn eval_block<D: DebugContext>(
     if stack.use_ir {
         return eval_ir_block::<D>(engine_state, stack, block, input);
     }
-
-    D::enter_block(engine_state, block);
 
     let num_pipelines = block.len();
 
@@ -547,10 +545,10 @@ pub fn eval_block<D: DebugContext>(
                 PipelineData::ByteStream(stream, ..) => {
                     let span = stream.span();
                     if let Err(err) = stream.drain() {
-                        stack.set_last_exit_code(&err);
+                        stack.set_last_error(&err);
                         return Err(err);
                     } else {
-                        stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, span));
+                        stack.set_last_exit_code(0, span);
                     }
                 }
                 PipelineData::ListStream(stream, ..) => stream.drain()?,
@@ -560,9 +558,22 @@ pub fn eval_block<D: DebugContext>(
         }
     }
 
-    D::leave_block(engine_state, block);
-
     Ok(input)
+}
+
+pub fn eval_block<D: DebugContext>(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    D::enter_block(engine_state, block);
+    let result = eval_block_inner::<D>(engine_state, stack, block, input);
+    D::leave_block(engine_state, block);
+    if let Err(err) = &result {
+        stack.set_last_error(err);
+    }
+    result
 }
 
 pub fn eval_collect<D: DebugContext>(
