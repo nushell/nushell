@@ -178,7 +178,7 @@ fn handle_message(
                             id,
                             {
                                 "PipelineData": {
-                                    "Value": [return_value, None::<Value>]
+                                    "Value": [return_value, null]
                                 }
                             }
                         ]
