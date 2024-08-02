@@ -102,12 +102,13 @@ fn default(
                         val: ref mut record,
                         ..
                     } => {
-                        if let Some(val) = record.to_mut().get_mut(&column.item) {
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(&column.item) {
                             if matches!(val, Value::Nothing { .. }) {
                                 *val = value.clone();
                             }
                         } else {
-                            record.to_mut().push(column.item.clone(), value.clone());
+                            record.push(column.item.clone(), value.clone());
                         }
 
                         item
