@@ -22,8 +22,13 @@ impl ExitStatus {
 
     pub fn check_ok(self, span: Span) -> Result<(), ShellError> {
         match self {
-            ExitStatus::Exited(0) => Ok(()),
-            ExitStatus::Exited(exit_code) => Err(ShellError::NonZeroExitCode { exit_code, span }),
+            ExitStatus::Exited(exit_code) => {
+                if let Ok(exit_code) = exit_code.try_into() {
+                    Err(ShellError::NonZeroExitCode { exit_code, span })
+                } else {
+                    Ok(())
+                }
+            }
             #[cfg(unix)]
             ExitStatus::Signaled {
                 signal,
@@ -39,13 +44,13 @@ impl ExitStatus {
                 } else {
                     let signal_name = sig.map(Signal::as_str).unwrap_or("unknown signal").into();
                     Err(if core_dumped {
-                        ShellError::ProcessCoreDumped {
+                        ShellError::CoreDumped {
                             signal_name,
                             signal,
                             span,
                         }
                     } else {
-                        ShellError::ProcessSignaled {
+                        ShellError::TerminatedBySignal {
                             signal_name,
                             signal,
                             span,

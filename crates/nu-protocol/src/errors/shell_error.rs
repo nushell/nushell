@@ -1,6 +1,6 @@
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
-use std::io;
+use std::{io, num::NonZeroI32};
 use thiserror::Error;
 
 use crate::{
@@ -639,7 +639,7 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// An external command exited with a non-zero exit status.
+    /// An external command exited with a non-zero exit code.
     ///
     /// ## Resolution
     ///
@@ -647,36 +647,38 @@ pub enum ShellError {
     #[error("External command had a non-zero exit code")]
     #[diagnostic(code(nu::shell::non_zero_exit_code))]
     NonZeroExitCode {
-        exit_code: i32,
+        exit_code: NonZeroI32,
         #[label("exited with code {exit_code}")]
         span: Span,
     },
 
-    /// A child process exited due to a signal.
+    #[cfg(unix)]
+    /// An external command exited due to a signal.
     ///
     /// ## Resolution
     ///
     /// Check why the signal was sent or triggered.
-    #[error("Child process was terminated by a signal")]
-    #[diagnostic(code(nu::shell::process_terminated_by_signal))]
-    ProcessSignaled {
+    #[error("External command was terminated by a signal")]
+    #[diagnostic(code(nu::shell::terminated_by_signal))]
+    TerminatedBySignal {
         signal_name: String,
         signal: i32,
-        #[label("terminated due to {signal_name} {signal}")]
+        #[label("terminated by {signal_name} ({signal})")]
         span: Span,
     },
 
-    /// A child process core dumped.
+    #[cfg(unix)]
+    /// An external command core dumped.
     ///
     /// ## Resolution
     ///
     /// Check why the core dumped was triggered.
-    #[error("Child process core dumped")]
-    #[diagnostic(code(nu::shell::process_core_dumped))]
-    ProcessCoreDumped {
+    #[error("External command core dumped")]
+    #[diagnostic(code(nu::shell::core_dumped))]
+    CoreDumped {
         signal_name: String,
         signal: i32,
-        #[label("core dumped with {signal_name} {signal}")]
+        #[label("core dumped with {signal_name} ({signal})")]
         span: Span,
     },
 
@@ -1424,9 +1426,9 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
 impl ShellError {
     pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
         let (item, span) = match *self {
-            Self::NonZeroExitCode { exit_code, span } => (exit_code, span),
-            Self::ProcessSignaled { signal, span, .. }
-            | Self::ProcessCoreDumped { signal, span, .. } => (-signal, span),
+            Self::NonZeroExitCode { exit_code, span } => (exit_code.into(), span),
+            Self::TerminatedBySignal { signal, span, .. }
+            | Self::CoreDumped { signal, span, .. } => (-signal, span),
             _ => return None,
         };
         Some(Spanned { item, span })
