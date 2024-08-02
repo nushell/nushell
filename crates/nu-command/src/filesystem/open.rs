@@ -146,11 +146,19 @@ impl Command for Open {
                         }
                     };
 
+                    let content_type = if raw {
+                        mime_guess::from_path(path)
+                            .first()
+                            .map(|mime| mime.to_string())
+                    } else {
+                        None
+                    };
+
                     let stream = PipelineData::ByteStream(
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
-                            content_type: None,
+                            content_type,
                         }),
                     );
 
