@@ -27,7 +27,7 @@ impl Command for Default {
     }
 
     fn usage(&self) -> &str {
-        "Sets a default row's column if missing."
+        "Sets a default row's column if missing or null."
     }
 
     fn run(
@@ -65,6 +65,20 @@ impl Command for Default {
                     ],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: r#"Replace the missing value in the "a" column of a list"#,
+                example: "[{a:1 b:2} {b:1}] | default 'N/A' a",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_string("N/A"),
+                        "b" => Value::test_int(1),
+                    }),
+                ])),
             },
         ]
     }
