@@ -27,7 +27,7 @@ impl Command for Default {
     }
 
     fn usage(&self) -> &str {
-        "Sets a default value to use if a row's column is missing or null."
+        "Sets a default value if a row's column is missing or null."
     }
 
     fn run(
