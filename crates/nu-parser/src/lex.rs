@@ -472,9 +472,11 @@ pub struct LexState<'a> {
     pub span_offset: usize,
 }
 
-// Lex until the output is max_tokens longer than before the call, or until the input is exhausted.
-// The behaviour here is non-obvious (maybe non-useful) iff your additional_whitespace doesn't include newline:
-// If you pass `output` in a state where the last token is an Eol, this might *remove* tokens.
+/// Lex until the output is `max_tokens` longer than before the call, or until the input is exhausted.
+/// The return value indicates how many tokens the call added to / removed from the output.
+///
+/// The behaviour here is non-obvious when `additional_whitespace` doesn't include newline:
+/// If you pass a `state` where the last token in the output is an Eol, this might *remove* tokens.
 pub fn lex_n_tokens(
     state: &mut LexState,
     additional_whitespace: &[u8],
