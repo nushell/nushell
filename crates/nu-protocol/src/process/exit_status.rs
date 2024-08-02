@@ -31,24 +31,27 @@ impl ExitStatus {
             } => {
                 use nix::sys::signal::Signal;
 
-                let signal_name = Signal::try_from(signal)
-                    .map(Signal::as_str)
-                    .unwrap_or("unknown signal")
-                    .into();
+                let sig = Signal::try_from(signal);
 
-                Err(if core_dumped {
-                    ShellError::ProcessCoreDumped {
-                        signal_name,
-                        signal,
-                        span,
-                    }
+                if sig == Ok(Signal::SIGPIPE) {
+                    // Processes often exit with SIGPIPE, but this is not an error condition.
+                    Ok(())
                 } else {
-                    ShellError::ProcessSignaled {
-                        signal_name,
-                        signal,
-                        span,
-                    }
-                })
+                    let signal_name = sig.map(Signal::as_str).unwrap_or("unknown signal").into();
+                    Err(if core_dumped {
+                        ShellError::ProcessCoreDumped {
+                            signal_name,
+                            signal,
+                            span,
+                        }
+                    } else {
+                        ShellError::ProcessSignaled {
+                            signal_name,
+                            signal,
+                            span,
+                        }
+                    })
+                }
             }
         }
     }
