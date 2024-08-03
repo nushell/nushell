@@ -7,6 +7,7 @@ use nu_protocol::{
     Spanned, SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
+use terminal_size::{Height, Width};
 
 pub fn get_full_help(
     command: &dyn Command,
@@ -234,6 +235,14 @@ fn get_documentation(
         }
     }
 
+    fn get_term_width() -> usize {
+        if let Some((Width(w), Height(_))) = terminal_size::terminal_size() {
+            w as usize
+        } else {
+            80
+        }
+    }
+
     if !is_parser_keyword && !sig.input_output_types.is_empty() {
         if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
             // FIXME: we may want to make this the span of the help command in the future
@@ -256,7 +265,18 @@ fn get_documentation(
                 &Call {
                     decl_id,
                     head: span,
-                    arguments: vec![],
+                    arguments: vec![Argument::Named((
+                        Spanned {
+                            item: "width".to_string(),
+                            span: Span::unknown(),
+                        },
+                        None,
+                        Some(Expression::new_unknown(
+                            Expr::Int(get_term_width() as i64 - 2), // padding, see below
+                            Span::unknown(),
+                            Type::Int,
+                        )),
+                    ))],
                     parser_info: HashMap::new(),
                 },
                 PipelineData::Value(Value::list(vals, span), None),
@@ -334,6 +354,19 @@ fn get_documentation(
                     None,
                 ))
             }
+            table_call.add_named((
+                Spanned {
+                    item: "expand".to_string(),
+                    span: Span::unknown(),
+                },
+                None,
+                Some(Expression::new_unknown(
+                    Expr::Int(get_term_width() as i64 - 2),
+                    Span::unknown(),
+                    Type::Int,
+                )),
+            ));
+
             let table = engine_state
                 .find_decl("table".as_bytes(), &[])
                 .and_then(|decl_id| {
