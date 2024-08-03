@@ -356,7 +356,7 @@ fn get_documentation(
             }
             table_call.add_named((
                 Spanned {
-                    item: "expand".to_string(),
+                    item: "width".to_string(),
                     span: Span::unknown(),
                 },
                 None,
