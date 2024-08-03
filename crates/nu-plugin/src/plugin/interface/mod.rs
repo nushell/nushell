@@ -525,8 +525,8 @@ impl EngineInterface {
         self.state.writer.is_stdout()
     }
 
-    /// Register a closure which will be called when the engine receives a Ctrl-C signal. Returns a
-    /// RAII guard that will keep the closure alive until it is dropped.
+    /// Register a closure which will be called when the engine receives an interrupt signal.
+    /// Returns a RAII guard that will keep the closure alive until it is dropped.
     pub fn register_signal_handler(&self, handler: Handler) -> Result<HandlerGuard, ShellError> {
         self.state.signal_handlers.register(handler)
     }

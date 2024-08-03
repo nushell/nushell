@@ -310,7 +310,7 @@ impl RegisteredPlugin for PersistentPlugin {
             // RAII guard that will be stored on the plugin.
             let plugin = Arc::downgrade(&self);
             handlers.register(Box::new(move |action| {
-                // write a Ctrl-C packet through the PluginInterface if the plugin is alive and
+                // write a signal packet through the PluginInterface if the plugin is alive and
                 // running
                 if let Some(plugin) = plugin.upgrade() {
                     if let Ok(mutable) = plugin.mutable.lock() {

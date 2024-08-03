@@ -664,7 +664,7 @@ impl PluginInterface {
         self.flush()
     }
 
-    /// Send the plugin a ctrl-c signal.
+    /// Send the plugin a signal.
     pub fn signal(&self, action: SignalAction) -> Result<(), ShellError> {
         self.write(PluginInput::Signal(action))?;
         self.flush()
