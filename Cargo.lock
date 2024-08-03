@@ -3157,6 +3157,7 @@ dependencies = [
  "nu-path",
  "nu-protocol",
  "nu-utils",
+ "terminal_size",
 ]
 
 [[package]]
