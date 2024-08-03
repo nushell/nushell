@@ -14,13 +14,6 @@ pub fn get_full_help(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> String {
-    let config = stack.get_config(engine_state);
-    let doc_config = DocumentationConfig {
-        no_subcommands: false,
-        no_color: !config.use_ansi_coloring,
-        brief: false,
-    };
-
     let stack = &mut stack.start_capture();
     let signature = command.signature().update_from_command(command);
 
@@ -29,16 +22,8 @@ pub fn get_full_help(
         &command.examples(),
         engine_state,
         stack,
-        &doc_config,
         command.is_keyword(),
     )
-}
-
-#[derive(Default)]
-struct DocumentationConfig {
-    no_subcommands: bool,
-    no_color: bool,
-    brief: bool,
 }
 
 // Utility returns nu-highlighted string
@@ -68,7 +53,6 @@ fn get_documentation(
     examples: &[Example],
     engine_state: &EngineState,
     stack: &mut Stack,
-    config: &DocumentationConfig,
     is_parser_keyword: bool,
 ) -> String {
     let nu_config = stack.get_config(engine_state);
@@ -107,25 +91,23 @@ fn get_documentation(
         long_desc.push_str("\n\n");
     }
 
-    let extra_usage = if config.brief { "" } else { &sig.extra_usage };
+    let extra_usage = &sig.extra_usage;
     if !extra_usage.is_empty() {
         long_desc.push_str(extra_usage);
         long_desc.push_str("\n\n");
     }
 
     let mut subcommands = vec![];
-    if !config.no_subcommands {
-        let signatures = engine_state.get_signatures(true);
-        for sig in signatures {
-            if sig.name.starts_with(&format!("{cmd_name} "))
-                // Don't display removed/deprecated commands in the Subcommands list
-                    && !matches!(sig.category, Category::Removed)
-            {
-                subcommands.push(format!(
-                    "  {help_subcolor_one}{}{RESET} - {}",
-                    sig.name, sig.usage
-                ));
-            }
+    let signatures = engine_state.get_signatures(true);
+    for sig in signatures {
+        // Don't display removed/deprecated commands in the Subcommands list
+        if sig.name.starts_with(&format!("{cmd_name} "))
+            && !matches!(sig.category, Category::Removed)
+        {
+            subcommands.push(format!(
+                "  {help_subcolor_one}{}{RESET} - {}",
+                sig.name, sig.usage
+            ));
         }
     }
 
@@ -300,7 +282,7 @@ fn get_documentation(
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
 
-        if config.no_color {
+        if !nu_config.use_ansi_coloring {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
         } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
             let decl = engine_state.get_decl(highlighter);
@@ -395,7 +377,7 @@ fn get_documentation(
 
     long_desc.push('\n');
 
-    if config.no_color {
+    if !nu_config.use_ansi_coloring {
         nu_utils::strip_ansi_string_likely(long_desc)
     } else {
         long_desc
