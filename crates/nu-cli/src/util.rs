@@ -268,11 +268,6 @@ fn evaluate_source(
             // Not a fatal error, for now
         }
 
-        if let Some(err) = working_set.compile_errors.first() {
-            report_error(&working_set, err);
-            // Not a fatal error, for now
-        }
-
         (output, working_set.render())
     };
 
