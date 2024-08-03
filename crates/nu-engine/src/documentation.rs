@@ -26,7 +26,7 @@ pub fn get_full_help(
     )
 }
 
-// Utility returns nu-highlighted string
+/// Syntax highlight code using the `nu-highlight` command if available
 fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mut Stack) -> String {
     if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
         let decl = engine_state.get_decl(highlighter);
