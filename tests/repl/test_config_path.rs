@@ -141,7 +141,7 @@ fn test_config_path_helper(
 fn test_default_config_path() {
     Playground::setup("default_config_path", |_, playground| {
         let config_dir = nu_path::config_dir().expect("Could not get config directory");
-        test_config_path_helper(playground, config_dir.join("nushell").into());
+        test_config_path_helper(playground, config_dir.join("nushell"));
     });
 }
 
