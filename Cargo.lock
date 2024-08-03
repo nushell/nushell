@@ -2908,6 +2908,7 @@ dependencies = [
  "tango-bench",
  "tempfile",
  "time",
+ "ureq_multipart",
  "winresource",
 ]
 
@@ -3121,6 +3122,7 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width",
  "ureq",
+ "ureq_multipart",
  "url",
  "uu_cp",
  "uu_mkdir",
@@ -5105,6 +5107,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ring"
+version = "0.17.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c17fa4cb658e3583423e915b9f3acc01cceaee1860e33d59ebae66adc3a2dc0d"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "getrandom",
+ "libc",
+ "spin",
+ "untrusted",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "rkyv"
 version = "0.7.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5312,6 +5329,38 @@ dependencies = [
  "libc",
  "linux-raw-sys",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rustls"
+version = "0.23.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c58f8c84392efc0a126acce10fa59ff7b3d2ac06ab451a33f2741989b806b044"
+dependencies = [
+ "log",
+ "once_cell",
+ "ring",
+ "rustls-pki-types",
+ "rustls-webpki",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "rustls-pki-types"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "976295e77ce332211c0d24d92c0e83e50f5c5f046d11082cea19f3df13a3562d"
+
+[[package]]
+name = "rustls-webpki"
+version = "0.102.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e6b52d4fda176fd835fdc55a835d4a89b8499cad995885a21149d5ad62f852e"
+dependencies = [
+ "ring",
+ "rustls-pki-types",
+ "untrusted",
 ]
 
 [[package]]
@@ -5738,6 +5787,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "spin"
+version = "0.9.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+
+[[package]]
 name = "sqlparser"
 version = "0.47.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5870,6 +5925,12 @@ dependencies = [
  "rustversion",
  "syn 2.0.60",
 ]
+
+[[package]]
+name = "subtle"
+version = "2.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supports-color"
@@ -6483,6 +6544,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
+name = "untrusted"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+
+[[package]]
 name = "ureq"
 version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6494,9 +6561,24 @@ dependencies = [
  "log",
  "native-tls",
  "once_cell",
+ "rustls",
+ "rustls-pki-types",
  "serde",
  "serde_json",
  "url",
+ "webpki-roots",
+]
+
+[[package]]
+name = "ureq_multipart"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22baf2d124865fc4d505f5942222a57f6a3eae8a133819d7fd6194423e3f6e91"
+dependencies = [
+ "mime",
+ "mime_guess",
+ "rand",
+ "ureq",
 ]
 
 [[package]]
@@ -6900,6 +6982,15 @@ dependencies = [
  "serde",
  "serde_json",
  "url",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd7c23921eeb1713a4e851530e9b9756e4fb0e89978582942612524cf09f01cd"
+dependencies = [
+ "rustls-pki-types",
 ]
 
 [[package]]
@@ -7356,6 +7447,12 @@ dependencies = [
  "quote",
  "syn 2.0.60",
 ]
+
+[[package]]
+name = "zeroize"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ced3678a2879b30306d323f4542626697a464a97c0a07c9aebf7ebca65cd4dde"
 
 [[package]]
 name = "zip"

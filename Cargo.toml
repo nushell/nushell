@@ -166,6 +166,7 @@ umask = "2.1"
 unicode-segmentation = "1.11"
 unicode-width = "0.1"
 ureq = { version = "2.10", default-features = false }
+ureq_multipart = "1.1.1"
 url = "2.2"
 uu_cp = "0.0.27"
 uu_mkdir = "0.0.27"
@@ -210,6 +211,7 @@ mimalloc = { version = "0.1.42", default-features = false, optional = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"
+ureq_multipart = { workspace = true }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows

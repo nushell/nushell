@@ -127,6 +127,11 @@ impl Command for SubCommand {
                 example: "open foo.json | http post https://www.example.com",
                 result: None,
             },
+            Example {
+                description: "Upload a file to example.com",
+                example: "http post --content-type multipart/form-data https://www.example.com { audio: (open -r file.mp3) }",
+                result: None,
+            },
         ]
     }
 }

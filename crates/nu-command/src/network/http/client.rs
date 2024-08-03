@@ -8,18 +8,21 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, Signals};
 use std::{
     collections::HashMap,
+    io::Cursor,
     path::PathBuf,
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
     time::Duration,
 };
 use ureq::{Error, ErrorKind, Request, Response};
+use ureq_multipart::MultipartBuilder;
 use url::Url;
 
 #[derive(PartialEq, Eq)]
 pub enum BodyType {
     Json,
     Form,
+    Multipart,
     Unknown,
 }
 
@@ -210,6 +213,7 @@ pub fn send_request(
             let (body_type, req) = match content_type {
                 Some(it) if it == "application/json" => (BodyType::Json, request),
                 Some(it) if it == "application/x-www-form-urlencoded" => (BodyType::Form, request),
+                Some(it) if it == "multipart/form-data" => (BodyType::Multipart, request),
                 Some(it) => {
                     let r = request.clone().set("Content-Type", &it);
                     (BodyType::Unknown, r)
@@ -263,6 +267,35 @@ pub fn send_request(
                             .collect::<Vec<(&str, &str)>>();
                         req.send_form(&data)
                     };
+                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
+                }
+                // multipart form upload
+                Value::Record { val, .. } if body_type == BodyType::Multipart => {
+                    let mut builder = MultipartBuilder::new();
+
+                    let err = |e| {
+                        ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                            msg: format!("failed to build multipart data: {}", e),
+                        })
+                    };
+
+                    for (col, val) in val.into_owned() {
+                        if let Value::Binary { val, .. } = val {
+                            builder = builder
+                                .add_stream(&mut Cursor::new(val), &col, Some(&col), None)
+                                .map_err(err)?;
+                        } else {
+                            builder = builder
+                                .add_text(&col, &val.coerce_into_string()?)
+                                .map_err(err)?;
+                        }
+                    }
+
+                    let (content_type, data) = builder.finish().map_err(err)?;
+
+                    let request_fn =
+                        move || req.set("Content-Type", &content_type).send_bytes(&data);
+
                     send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
                 }
                 Value::List { vals, .. } if body_type == BodyType::Form => {

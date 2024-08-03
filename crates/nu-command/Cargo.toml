@@ -90,6 +90,7 @@ titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"]}
 unicode-segmentation = { workspace = true }
 ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
+ureq_multipart = { workspace = true }
 url = { workspace = true }
 uu_cp = { workspace = true }
 uu_mkdir = { workspace = true }
