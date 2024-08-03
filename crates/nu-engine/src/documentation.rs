@@ -366,7 +366,7 @@ fn get_documentation(
                     Type::Int,
                 )),
             ));
-            
+
             let table = engine_state
                 .find_decl("table".as_bytes(), &[])
                 .and_then(|decl_id| {
