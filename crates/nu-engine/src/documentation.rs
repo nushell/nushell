@@ -281,34 +281,10 @@ fn get_documentation(
 
         if !nu_config.use_ansi_coloring {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
-        } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
-            let decl = engine_state.get_decl(highlighter);
-            let call = Call::new(Span::unknown());
-
-            match decl.run(
-                engine_state,
-                stack,
-                &(&call).into(),
-                Value::string(example.example, Span::unknown()).into_pipeline_data(),
-            ) {
-                Ok(output) => {
-                    let result = output.into_value(Span::unknown());
-                    match result.and_then(Value::coerce_into_string) {
-                        Ok(s) => {
-                            let _ = write!(long_desc, "\n  > {s}\n");
-                        }
-                        _ => {
-                            let _ = write!(long_desc, "\n  > {}\n", example.example);
-                        }
-                    }
-                }
-                Err(_) => {
-                    let _ = write!(long_desc, "\n  > {}\n", example.example);
-                }
-            }
         } else {
-            let _ = write!(long_desc, "\n  > {}\n", example.example);
-        }
+            let code_string = nu_highlight_string(example.example, engine_state, stack);
+            let _ = write!(long_desc, "\n  > {code_string}\n");
+        };
 
         if let Some(result) = &example.result {
             let mut table_call = Call::new(Span::unknown());
