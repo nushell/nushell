@@ -321,16 +321,10 @@ mod test {
 
         let env = engine_state.render_env_vars();
 
-        assert!(
-            matches!(env.get(&"FOO".to_string()), Some(&Value::String { val, .. }) if val == "foo")
-        );
-        assert!(
-            matches!(env.get(&"SYMBOLS".to_string()), Some(&Value::String { val, .. }) if val == symbols)
-        );
-        assert!(
-            matches!(env.get(&symbols.to_string()), Some(&Value::String { val, .. }) if val == "symbols")
-        );
-        assert!(env.get(&"PWD".to_string()).is_some());
+        assert!(matches!(env.get("FOO"), Some(&Value::String { val, .. }) if val == "foo"));
+        assert!(matches!(env.get("SYMBOLS"), Some(&Value::String { val, .. }) if val == symbols));
+        assert!(matches!(env.get(symbols), Some(&Value::String { val, .. }) if val == "symbols"));
+        assert!(env.contains_key("PWD"));
         assert_eq!(env.len(), 4);
     }
 }

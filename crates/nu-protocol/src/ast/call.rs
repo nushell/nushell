@@ -110,17 +110,11 @@ impl Call {
     /// If there are one or more arguments the span encompasses the start of the first argument to
     /// end of the last argument
     pub fn arguments_span(&self) -> Span {
-        let past = self.head.past();
-
-        let start = self
-            .arguments
-            .first()
-            .map(|a| a.span())
-            .unwrap_or(past)
-            .start;
-        let end = self.arguments.last().map(|a| a.span()).unwrap_or(past).end;
-
-        Span::new(start, end)
+        if self.arguments.is_empty() {
+            self.head.past()
+        } else {
+            Span::merge_many(self.arguments.iter().map(|a| a.span()))
+        }
     }
 
     pub fn named_iter(
@@ -341,27 +335,7 @@ impl Call {
     }
 
     pub fn span(&self) -> Span {
-        let mut span = self.head;
-
-        for positional in self.positional_iter() {
-            if positional.span.end > span.end {
-                span.end = positional.span.end;
-            }
-        }
-
-        for (named, _, val) in self.named_iter() {
-            if named.span.end > span.end {
-                span.end = named.span.end;
-            }
-
-            if let Some(val) = &val {
-                if val.span.end > span.end {
-                    span.end = val.span.end;
-                }
-            }
-        }
-
-        span
+        self.head.merge(self.arguments_span())
     }
 }
 

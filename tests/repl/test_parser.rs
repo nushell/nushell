@@ -296,6 +296,22 @@ fn assign_expressions() -> TestResult {
 }
 
 #[test]
+fn assign_takes_pipeline() -> TestResult {
+    run_test(
+        r#"mut foo = 'bar'; $foo = $foo | str upcase | str reverse; $foo"#,
+        "RAB",
+    )
+}
+
+#[test]
+fn append_assign_takes_pipeline() -> TestResult {
+    run_test(
+        r#"mut foo = 'bar'; $foo ++= $foo | str upcase; $foo"#,
+        "barBAR",
+    )
+}
+
+#[test]
 fn string_interpolation_paren_test() -> TestResult {
     run_test(r#"$"('(')(')')""#, "()")
 }

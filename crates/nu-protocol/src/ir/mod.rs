@@ -127,6 +127,8 @@ pub enum Instruction {
     LoadVariable { dst: RegId, var_id: VarId },
     /// Store the value of a variable from the `src` register
     StoreVariable { var_id: VarId, src: RegId },
+    /// Remove a variable from the stack, freeing up whatever resources were associated with it
+    DropVariable { var_id: VarId },
     /// Load the value of an environment variable into the `dst` register
     LoadEnv { dst: RegId, key: DataSlice },
     /// Load the value of an environment variable into the `dst` register, or `Nothing` if it
@@ -290,6 +292,7 @@ impl Instruction {
             Instruction::Drain { .. } => None,
             Instruction::LoadVariable { dst, .. } => Some(dst),
             Instruction::StoreVariable { .. } => None,
+            Instruction::DropVariable { .. } => None,
             Instruction::LoadEnv { dst, .. } => Some(dst),
             Instruction::LoadEnvOpt { dst, .. } => Some(dst),
             Instruction::StoreEnv { .. } => None,

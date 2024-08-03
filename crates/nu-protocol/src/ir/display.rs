@@ -102,6 +102,10 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
                 let var = FmtVar::new(self.engine_state, *var_id);
                 write!(f, "{:WIDTH$} {var}, {src}", "store-variable")
             }
+            Instruction::DropVariable { var_id } => {
+                let var = FmtVar::new(self.engine_state, *var_id);
+                write!(f, "{:WIDTH$} {var}", "drop-variable")
+            }
             Instruction::LoadEnv { dst, key } => {
                 let key = FmtData(self.data, *key);
                 write!(f, "{:WIDTH$} {dst}, {key}", "load-env")

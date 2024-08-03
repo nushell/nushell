@@ -186,8 +186,12 @@ fn help_present_in_def() -> TestResult {
 #[test]
 fn help_not_present_in_extern() -> TestResult {
     run_test(
-        "module test {export extern \"git fetch\" []}; use test `git fetch`; help git fetch | ansi strip",
-        "Usage:\n  > git fetch",
+        r#"
+            module test {export extern "git fetch" []};
+            use test `git fetch`;
+            help git fetch | find help | to text | ansi strip
+        "#,
+        "",
     )
 }
 

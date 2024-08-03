@@ -1,23 +1,24 @@
 //! Interface used by the plugin to communicate with the engine.
 
 use nu_plugin_core::{
-    util::{Sequence, Waitable, WaitableMut},
+    util::{Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
 };
 use nu_plugin_protocol::{
-    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering, PluginCall,
-    PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
-    ProtocolInfo,
+    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall, Ordering,
+    PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+    PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, LabeledError, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, Signals, Span, Spanned, Value,
+    engine::{ctrlc, Closure, Sequence},
+    Config, DeclId, LabeledError, PipelineData, PluginMetadata, PluginSignature, ShellError,
+    Signals, Span, Spanned, Value,
 };
 use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
-    sync::{mpsc, Arc},
+    sync::{atomic::AtomicBool, mpsc, Arc},
 };
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
@@ -63,6 +64,10 @@ struct EngineInterfaceState {
         mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
+    // Mirror signals from `EngineState`
+    signals: Signals,
+    /// Registered Ctrl-C handlers
+    ctrlc_handlers: ctrlc::Handlers,
 }
 
 impl std::fmt::Debug for EngineInterfaceState {
@@ -116,6 +121,8 @@ impl EngineInterfaceManager {
                 stream_id_sequence: Sequence::default(),
                 engine_call_subscription_sender: subscription_tx,
                 writer: Box::new(writer),
+                signals: Signals::new(Arc::new(AtomicBool::new(false))),
+                ctrlc_handlers: ctrlc::Handlers::new(),
             }),
             protocol_info_mut,
             plugin_call_sender: Some(plug_tx),
@@ -235,7 +242,6 @@ impl InterfaceManager for EngineInterfaceManager {
 
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
         log::trace!("from engine: {:?}", input);
-
         match input {
             PluginInput::Hello(info) => {
                 let info = Arc::new(info);
@@ -330,6 +336,11 @@ impl InterfaceManager for EngineInterfaceManager {
                         EngineCallResponse::Error(err)
                     });
                 self.send_engine_call_response(id, response)
+            }
+            PluginInput::Ctrlc => {
+                self.state.signals.trigger();
+                self.state.ctrlc_handlers.run();
+                Ok(())
             }
         }
     }
@@ -510,6 +521,15 @@ impl EngineInterface {
         self.state.writer.is_stdout()
     }
 
+    /// Register a closure which will be called when the engine receives a Ctrl-C signal. Returns a
+    /// RAII guard that will keep the closure alive until it is dropped.
+    pub fn register_ctrlc_handler(
+        &self,
+        handler: ctrlc::Handler,
+    ) -> Result<ctrlc::Guard, ShellError> {
+        self.state.ctrlc_handlers.register(handler)
+    }
+
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
     /// provided on request only.
     ///
@@ -618,8 +638,9 @@ impl EngineInterface {
 
     /// Get all environment variables from the engine.
     ///
-    /// Since this is quite a large map that has to be sent, prefer to use [`.get_env_var()`] if
-    /// the variables needed are known ahead of time and there are only a small number needed.
+    /// Since this is quite a large map that has to be sent, prefer to use
+    /// [`.get_env_var()`] (Self::get_env_var) if the variables needed are known ahead of time
+    /// and there are only a small number needed.
     ///
     /// # Example
     /// ```rust,no_run
@@ -872,6 +893,71 @@ impl EngineInterface {
         }
     }
 
+    /// Ask the engine for the identifier for a declaration. If found, the result can then be passed
+    /// to [`.call_decl()`](Self::call_decl) to call other internal commands.
+    ///
+    /// See [`.call_decl()`](Self::call_decl) for an example.
+    pub fn find_decl(&self, name: impl Into<String>) -> Result<Option<DeclId>, ShellError> {
+        let call = EngineCall::FindDecl(name.into());
+
+        match self.engine_call(call)? {
+            EngineCallResponse::Error(err) => Err(err),
+            EngineCallResponse::Identifier(id) => Ok(Some(id)),
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::FindDecl".into(),
+            }),
+        }
+    }
+
+    /// Ask the engine to call an internal command, using the declaration ID previously looked up
+    /// with [`.find_decl()`](Self::find_decl).
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError, PipelineData};
+    /// # use nu_plugin::{EngineInterface, EvaluatedCall};
+    /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<Value, ShellError> {
+    /// if let Some(decl_id) = engine.find_decl("scope commands")? {
+    ///     let commands = engine.call_decl(
+    ///         decl_id,
+    ///         EvaluatedCall::new(call.head),
+    ///         PipelineData::Empty,
+    ///         true,
+    ///         false,
+    ///     )?;
+    ///     commands.into_value(call.head)
+    /// } else {
+    ///     Ok(Value::list(vec![], call.head))
+    /// }
+    /// # }
+    /// ```
+    pub fn call_decl(
+        &self,
+        decl_id: DeclId,
+        call: EvaluatedCall,
+        input: PipelineData,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError> {
+        let call = EngineCall::CallDecl {
+            decl_id,
+            call,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        };
+
+        match self.engine_call(call)? {
+            EngineCallResponse::Error(err) => Err(err),
+            EngineCallResponse::PipelineData(data) => Ok(data),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::CallDecl".into(),
+            }),
+        }
+    }
+
     /// Tell the engine whether to disable garbage collection for this plugin.
     ///
     /// The garbage collector is enabled by default, but plugins can turn it off (ideally
@@ -892,6 +978,10 @@ impl EngineInterface {
         let response = PluginCallResponse::Ordering(ordering.map(|o| o.into()));
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
+    }
+
+    pub fn signals(&self) -> &Signals {
+        &self.state.signals
     }
 }
 
@@ -943,7 +1033,7 @@ impl Interface for EngineInterface {
 
 /// Keeps the plugin in the foreground as long as it is alive.
 ///
-/// Use [`.leave()`] to leave the foreground without ignoring the error.
+/// Use [`.leave()`](Self::leave) to leave the foreground without ignoring the error.
 pub struct ForegroundGuard(Option<EngineInterface>);
 
 impl ForegroundGuard {
