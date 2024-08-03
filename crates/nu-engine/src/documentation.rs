@@ -112,21 +112,18 @@ fn get_documentation(
     }
 
     if !sig.search_terms.is_empty() {
-        let text = format!(
-            "{help_section_name}Search terms{RESET}: {help_subcolor_one}{}{}\n\n",
+        let _ = write!(
+            long_desc,
+            "{help_section_name}Search terms{RESET}: {help_subcolor_one}{}{RESET}\n\n",
             sig.search_terms.join(", "),
-            RESET
         );
-        let _ = write!(long_desc, "{text}");
     }
 
-    let text = format!(
-        "{}Usage{}:\n  > {}\n",
-        help_section_name,
-        RESET,
+    let _ = write!(
+        long_desc,
+        "{help_section_name}Usage{RESET}:\n  > {}\n",
         sig.call_signature()
     );
-    let _ = write!(long_desc, "{text}");
 
     if !subcommands.is_empty() {
         let _ = write!(long_desc, "\n{help_section_name}Subcommands{RESET}:\n");
@@ -207,13 +204,13 @@ fn get_documentation(
         }
 
         if let Some(rest_positional) = &sig.rest_positional {
-            let text = format!(
+            let _ = writeln!(
+                long_desc,
                 "  ...{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}",
                 rest_positional.name,
                 document_shape(rest_positional.shape.clone()),
                 rest_positional.desc
             );
-            let _ = writeln!(long_desc, "{text}");
         }
     }
 
