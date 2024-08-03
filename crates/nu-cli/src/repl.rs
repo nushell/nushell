@@ -1356,7 +1356,7 @@ mod test_auto_cd {
         }
         #[cfg(windows)]
         {
-            if original.as_ref().is_dir() {
+            if original.is_dir() {
                 std::os::windows::fs::symlink_dir(original, link)
             } else {
                 std::os::windows::fs::symlink_file(original, link)
