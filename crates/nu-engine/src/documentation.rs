@@ -68,25 +68,11 @@ fn get_documentation(
     let nu_config = stack.get_config(engine_state);
 
     // Create ansi colors
-    let help_section_name: String = get_ansi_color_for_component_or_default(
-        engine_state,
-        &nu_config,
-        "shape_string",
-        "\x1b[32m",
-    ); // default: green
-
-    let help_subcolor_one: String = get_ansi_color_for_component_or_default(
-        engine_state,
-        &nu_config,
-        "shape_external",
-        "\x1b[36m",
-    ); // default: cyan
-    let help_subcolor_two: String = get_ansi_color_for_component_or_default(
-        engine_state,
-        &nu_config,
-        "shape_block",
-        "\x1b[94m",
-    ); // default: light blue
+    let mut help_style = HelpStyle::default();
+    help_style.update_from_config(engine_state, &nu_config);
+    let help_section_name = &help_style.section_name;
+    let help_subcolor_one = &help_style.subcolor_one;
+    let help_subcolor_two = &help_style.subcolor_two;
 
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
@@ -146,12 +132,9 @@ fn get_documentation(
     }
 
     if !sig.named.is_empty() {
-        long_desc.push_str(&get_flags_section(
-            Some(engine_state),
-            Some(&nu_config),
-            sig,
-            |v| nu_highlight_string(&v.to_parsable_string(", ", &nu_config), engine_state, stack),
-        ))
+        long_desc.push_str(&get_flags_section(sig, &help_style, |v| {
+            nu_highlight_string(&v.to_parsable_string(", ", &nu_config), engine_state, stack)
+        }))
     }
 
     if !sig.required_positional.is_empty()
@@ -370,12 +353,12 @@ fn get_documentation(
     }
 }
 
-fn get_ansi_color_for_component_or_default(
+fn update_ansi_from_config(
+    ansi_code: &mut String,
     engine_state: &EngineState,
     nu_config: &Config,
     theme_component: &str,
-    default: &str,
-) -> String {
+) {
     if let Some(color) = &nu_config.color_config.get(theme_component) {
         let caller_stack = &mut Stack::new().capture();
         let span = Span::unknown();
@@ -398,14 +381,12 @@ fn get_ansi_color_for_component_or_default(
                     PipelineData::Empty,
                 ) {
                     if let Ok((str, ..)) = result.collect_string_strict(span) {
-                        return str;
+                        *ansi_code = str;
                     }
                 }
             }
         }
     }
-
-    default.to_string()
 }
 
 fn get_argument_for_color_value(
@@ -459,6 +440,48 @@ fn get_argument_for_color_value(
     }
 }
 
+pub struct HelpStyle {
+    section_name: String,
+    subcolor_one: String,
+    subcolor_two: String,
+}
+
+impl Default for HelpStyle {
+    fn default() -> Self {
+        HelpStyle {
+            // default: green
+            section_name: "\x1b[32m".to_string(),
+            // default: cyan
+            subcolor_one: "\x1b[36m".to_string(),
+            // default: light blue
+            subcolor_two: "\x1b[94m".to_string(),
+        }
+    }
+}
+
+impl HelpStyle {
+    pub fn update_from_config(&mut self, engine_state: &EngineState, nu_config: &Config) {
+        update_ansi_from_config(
+            &mut self.section_name,
+            engine_state,
+            nu_config,
+            "shape_string",
+        );
+        update_ansi_from_config(
+            &mut self.subcolor_one,
+            engine_state,
+            nu_config,
+            "shape_external",
+        );
+        update_ansi_from_config(
+            &mut self.subcolor_two,
+            engine_state,
+            nu_config,
+            "shape_block",
+        );
+    }
+}
+
 /// Make syntax shape presentable by stripping custom completer info
 pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
     match shape {
@@ -468,45 +491,16 @@ pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
 }
 
 pub fn get_flags_section<F>(
-    engine_state_opt: Option<&EngineState>,
-    nu_config_opt: Option<&Config>,
     signature: &Signature,
+    help_style: &HelpStyle,
     mut value_formatter: F, // format default Value (because some calls cant access config or nu-highlight)
 ) -> String
 where
     F: FnMut(&nu_protocol::Value) -> String,
 {
-    let help_section_name: String;
-    let help_subcolor_one: String;
-    let help_subcolor_two: String;
-
-    // Sometimes we want to get the flags without engine_state
-    // For example, in nu-plugin. In that case, we fall back on default values
-    if let Some(engine_state) = engine_state_opt {
-        let nu_config = nu_config_opt.unwrap_or_else(|| engine_state.get_config());
-        help_section_name = get_ansi_color_for_component_or_default(
-            engine_state,
-            nu_config,
-            "shape_string",
-            "\x1b[32m",
-        ); // default: green
-        help_subcolor_one = get_ansi_color_for_component_or_default(
-            engine_state,
-            nu_config,
-            "shape_external",
-            "\x1b[36m",
-        ); // default: cyan
-        help_subcolor_two = get_ansi_color_for_component_or_default(
-            engine_state,
-            nu_config,
-            "shape_block",
-            "\x1b[94m",
-        ); // default: light blue
-    } else {
-        help_section_name = "\x1b[32m".to_string();
-        help_subcolor_one = "\x1b[36m".to_string();
-        help_subcolor_two = "\x1b[94m".to_string();
-    }
+    let help_section_name = &help_style.section_name;
+    let help_subcolor_one = &help_style.subcolor_one;
+    let help_subcolor_two = &help_style.subcolor_two;
 
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
