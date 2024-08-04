@@ -68,7 +68,6 @@ fn get_documentation(
     let nu_config = stack.get_config(engine_state);
 
     // Create ansi colors
-    //todo make these configurable -- pull from enginestate.config
     let help_section_name: String = get_ansi_color_for_component_or_default(
         engine_state,
         &nu_config,
@@ -82,13 +81,12 @@ fn get_documentation(
         "shape_external",
         "\x1b[36m",
     ); // default: cyan
-       // was const bb: &str = "\x1b[1;34m"; // bold blue
     let help_subcolor_two: String = get_ansi_color_for_component_or_default(
         engine_state,
         &nu_config,
         "shape_block",
         "\x1b[94m",
-    ); // default: light blue (nobold, should be bolding the *names*)
+    ); // default: light blue
 
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
@@ -478,7 +476,6 @@ pub fn get_flags_section<F>(
 where
     F: FnMut(&nu_protocol::Value) -> String,
 {
-    //todo make these configurable -- pull from enginestate.config
     let help_section_name: String;
     let help_subcolor_one: String;
     let help_subcolor_two: String;
@@ -499,14 +496,12 @@ where
             "shape_external",
             "\x1b[36m",
         ); // default: cyan
-           // was const bb: &str = "\x1b[1;34m"; // bold blue
         help_subcolor_two = get_ansi_color_for_component_or_default(
             engine_state,
             nu_config,
             "shape_block",
             "\x1b[94m",
-        );
-    // default: light blue (nobold, should be bolding the *names*)
+        ); // default: light blue
     } else {
         help_section_name = "\x1b[32m".to_string();
         help_subcolor_one = "\x1b[36m".to_string();
