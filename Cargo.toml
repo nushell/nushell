@@ -113,6 +113,7 @@ miette = "7.2"
 mime = "0.3"
 mime_guess = "2.0"
 mockito = { version = "1.4", default-features = false }
+multipart-rs = "0.1.11"
 native-tls = "0.2"
 nix = { version = "0.28", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }
@@ -166,7 +167,6 @@ umask = "2.1"
 unicode-segmentation = "1.11"
 unicode-width = "0.1"
 ureq = { version = "2.10", default-features = false }
-ureq_multipart = "1.1.1"
 url = "2.2"
 uu_cp = "0.0.27"
 uu_mkdir = "0.0.27"
@@ -208,10 +208,10 @@ dirs = { workspace = true }
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 mimalloc = { version = "0.1.42", default-features = false, optional = true }
+multipart-rs = { workspace = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"
-ureq_multipart = { workspace = true }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows

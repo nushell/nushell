@@ -4,6 +4,7 @@ use base64::{
     engine::{general_purpose::PAD, GeneralPurpose},
     Engine,
 };
+use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, Signals};
 use std::{
@@ -15,7 +16,6 @@ use std::{
     time::Duration,
 };
 use ureq::{Error, ErrorKind, Request, Response};
-use ureq_multipart::MultipartBuilder;
 use url::Url;
 
 #[derive(PartialEq, Eq)]
@@ -271,7 +271,7 @@ pub fn send_request(
                 }
                 // multipart form upload
                 Value::Record { val, .. } if body_type == BodyType::Multipart => {
-                    let mut builder = MultipartBuilder::new();
+                    let mut builder = MultipartWriter::new();
 
                     let err = |e| {
                         ShellErrorOrRequestError::ShellError(ShellError::IOError {
@@ -281,17 +281,26 @@ pub fn send_request(
 
                     for (col, val) in val.into_owned() {
                         if let Value::Binary { val, .. } = val {
-                            builder = builder
-                                .add_stream(&mut Cursor::new(val), &col, Some(&col), None)
-                                .map_err(err)?;
+                            let headers = format!(
+                                r#"Content-Type: application/octet-stream
+                                Content-Disposition: form-data; name="{}"; filename="{}"
+                                Content-Transfer-Encoding: binary
+                                "#,
+                                col, col,
+                            );
+                            builder.add(&mut Cursor::new(val), &headers).map_err(err)?;
                         } else {
-                            builder = builder
-                                .add_text(&col, &val.coerce_into_string()?)
+                            let headers =
+                                format!(r#"Content-Disposition: form-data; name="{}""#, col,);
+                            builder
+                                .add(val.coerce_into_string()?.as_bytes(), &headers)
                                 .map_err(err)?;
                         }
                     }
+                    builder.finish();
 
-                    let (content_type, data) = builder.finish().map_err(err)?;
+                    let (boundary, data) = (builder.boundary, builder.data);
+                    let content_type = format!("multipart/form-data; boundary={}", boundary);
 
                     let request_fn =
                         move || req.set("Content-Type", &content_type).send_bytes(&data);
