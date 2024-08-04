@@ -210,9 +210,10 @@ fn http_post_multipart_is_success() {
             Matcher::Regex("multipart/form-data; boundary=.*".to_string()),
         )
         .match_body(Matcher::AllOf(vec![
-            Matcher::Regex(r#"Content-Disposition: form-data; name="foo""#.to_string()),
-            Matcher::Regex(r#"Content-Type: application/octet-stream"#.to_string()),
-            Matcher::Regex(r#"bar"#.to_string()),
+            Matcher::Regex(r#"(?m)^Content-Disposition: form-data; name="foo""#.to_string()),
+            Matcher::Regex(r#"(?m)^Content-Type: application/octet-stream"#.to_string()),
+            Matcher::Regex(r#"(?m)^Content-Length: 3"#.to_string()),
+            Matcher::Regex(r#"(?m)^bar"#.to_string()),
         ]))
         .with_status(200)
         .create();

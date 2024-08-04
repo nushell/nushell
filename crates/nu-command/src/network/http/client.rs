@@ -281,17 +281,21 @@ pub fn send_request(
 
                     for (col, val) in val.into_owned() {
                         if let Value::Binary { val, .. } = val {
-                            let headers = format!(
-                                r#"Content-Type: application/octet-stream
-                                Content-Disposition: form-data; name="{}"; filename="{}"
-                                Content-Transfer-Encoding: binary
-                                "#,
-                                col, col,
-                            );
-                            builder.add(&mut Cursor::new(val), &headers).map_err(err)?;
+                            let headers = [
+                                "Content-Type: application/octet-stream".to_string(),
+                                "Content-Transfer-Encoding: binary".to_string(),
+                                format!(
+                                    "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"",
+                                    col, col
+                                ),
+                                format!("Content-Length: {}", val.len()),
+                            ];
+                            builder
+                                .add(&mut Cursor::new(val), &headers.join("\n"))
+                                .map_err(err)?;
                         } else {
                             let headers =
-                                format!(r#"Content-Disposition: form-data; name="{}""#, col,);
+                                format!(r#"Content-Disposition: form-data; name="{}""#, col);
                             builder
                                 .add(val.coerce_into_string()?.as_bytes(), &headers)
                                 .map_err(err)?;
