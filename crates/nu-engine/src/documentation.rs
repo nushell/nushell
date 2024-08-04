@@ -440,6 +440,11 @@ fn get_argument_for_color_value(
     }
 }
 
+/// Contains the settings for ANSI colors in help output
+///
+/// By default contains a fixed set of (4-bit) colors
+///
+/// Can reflect configuration using [`HelpStyle::update_from_config`]
 pub struct HelpStyle {
     section_name: String,
     subcolor_one: String,
@@ -460,6 +465,13 @@ impl Default for HelpStyle {
 }
 
 impl HelpStyle {
+    /// Pull colors from the [`Config`]
+    ///
+    /// Uses some arbitrary `shape_*` settings, assuming they are well visible in the terminal theme.
+    ///
+    /// Implementation detail: currently executes `ansi` command internally thus requiring the
+    /// [`EngineState`] for execution.
+    /// See <https://github.com/nushell/nushell/pull/10623> for details
     pub fn update_from_config(&mut self, engine_state: &EngineState, nu_config: &Config) {
         update_ansi_from_config(
             &mut self.section_name,
