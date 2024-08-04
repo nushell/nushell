@@ -105,6 +105,13 @@ fn get_documentation(
         long_desc.push_str("\n\n");
     }
 
+    // TODO: improve the subcommand name resolution
+    // issues:
+    // - Aliases are included
+    //   - https://github.com/nushell/nushell/issues/11657
+    // - Subcommands are included violating module scoping
+    //   - https://github.com/nushell/nushell/issues/11447
+    //   - https://github.com/nushell/nushell/issues/11625
     let mut subcommands = vec![];
     let signatures = engine_state.get_signatures(true);
     for sig in signatures {
