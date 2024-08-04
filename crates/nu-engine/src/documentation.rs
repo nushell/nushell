@@ -105,6 +105,20 @@ fn get_documentation(
         long_desc.push_str("\n\n");
     }
 
+    if !sig.search_terms.is_empty() {
+        let _ = write!(
+            long_desc,
+            "{help_section_name}Search terms{RESET}: {help_subcolor_one}{}{RESET}\n\n",
+            sig.search_terms.join(", "),
+        );
+    }
+
+    let _ = write!(
+        long_desc,
+        "{help_section_name}Usage{RESET}:\n  > {}\n",
+        sig.call_signature()
+    );
+
     // TODO: improve the subcommand name resolution
     // issues:
     // - Aliases are included
@@ -125,20 +139,6 @@ fn get_documentation(
             ));
         }
     }
-
-    if !sig.search_terms.is_empty() {
-        let _ = write!(
-            long_desc,
-            "{help_section_name}Search terms{RESET}: {help_subcolor_one}{}{RESET}\n\n",
-            sig.search_terms.join(", "),
-        );
-    }
-
-    let _ = write!(
-        long_desc,
-        "{help_section_name}Usage{RESET}:\n  > {}\n",
-        sig.call_signature()
-    );
 
     if !subcommands.is_empty() {
         let _ = write!(long_desc, "\n{help_section_name}Subcommands{RESET}:\n");
