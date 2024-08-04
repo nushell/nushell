@@ -15,7 +15,7 @@ impl Command for UMv {
     }
 
     fn usage(&self) -> &str {
-        "Move files or directories using uutils/coreutils mv."
+        "Move or rename files."
     }
 
     fn examples(&self) -> Vec<Example> {

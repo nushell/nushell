@@ -16,7 +16,7 @@ impl Command for UName {
     }
 
     fn usage(&self) -> &str {
-        "Print certain system information using uutils/coreutils uname."
+        "Print certain system information."
     }
 
     fn search_terms(&self) -> Vec<&str> {

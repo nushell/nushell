@@ -11,7 +11,7 @@ impl Command for Mktemp {
     }
 
     fn usage(&self) -> &str {
-        "Create temporary files or directories using uutils/coreutils mktemp."
+        "Create temporary files or directories."
     }
 
     fn search_terms(&self) -> Vec<&str> {

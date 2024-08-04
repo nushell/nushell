@@ -9,7 +9,7 @@ impl Command for Whoami {
     }
 
     fn usage(&self) -> &str {
-        "Get the current username using uutils/coreutils whoami."
+        "Get the current username."
     }
 
     fn signature(&self) -> Signature {

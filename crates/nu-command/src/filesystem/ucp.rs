@@ -21,7 +21,7 @@ impl Command for UCp {
     }
 
     fn usage(&self) -> &str {
-        "Copy files using uutils/coreutils cp."
+        "Copy files."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -52,8 +52,8 @@ impl Command for UCp {
                 "preserve",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "preserve only the specified attributes (empty list means no attributes preserved)
-                    if not specified only mode is preserved
-                    possible values: mode, ownership (unix only), timestamps, context, link, links, xattr",
+                    if not specified only mode is preserved possible values: mode, ownership (unix only),
+                    timestamps, context, link, links, xattr",
                 None
             )
             .switch("debug", "explain how a file is copied. Implies -v", None)
