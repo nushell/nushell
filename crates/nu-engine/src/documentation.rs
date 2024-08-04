@@ -459,7 +459,7 @@ fn get_argument_for_color_value(
     }
 }
 
-// document shape helps showing more useful information
+/// Make syntax shape presentable by stripping custom completer info
 pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
     match shape {
         SyntaxShape::CompleterWrapper(inner_shape, _) => *inner_shape,
