@@ -22,12 +22,21 @@ pub struct PathBuiltFromString {
     isdir: bool,
 }
 
-fn complete_rec(
+/// Recursively goes through paths that match a given `partial`.
+/// built: State struct for a valid matching path built so far.
+///
+/// `isdir`: whether the current partial path has a trailing slash.
+/// Parsing a path string into a pathbuf loses that bit of information.
+///
+/// want_directory: Whether we want only directories as completion matches.
+/// Some commands like `cd` can only be run on directories whereas others
+/// like `ls` can be run on regular files as well.
+pub fn complete_rec(
     partial: &[&str],
     built: &PathBuiltFromString,
     cwd: &Path,
     options: &CompletionOptions,
-    dir: bool,
+    want_directory: bool,
     isdir: bool,
 ) -> Vec<PathBuiltFromString> {
     let mut completions = vec![];
@@ -37,7 +46,7 @@ fn complete_rec(
             let mut built = built.clone();
             built.parts.push(base.to_string());
             built.isdir = true;
-            return complete_rec(rest, &built, cwd, options, dir, isdir);
+            return complete_rec(rest, &built, cwd, options, want_directory, isdir);
         }
     }
 
@@ -58,7 +67,7 @@ fn complete_rec(
         built.parts.push(entry_name.clone());
         built.isdir = entry_isdir;
 
-        if !dir || entry_isdir {
+        if !want_directory || entry_isdir {
             entries.push((entry_name, built));
         }
     }
@@ -70,19 +79,23 @@ fn complete_rec(
         match partial.split_first() {
             Some((base, rest)) => {
                 if matches(base, &entry_name, options) {
+                    // We use `isdir` to confirm that the current component has
+                    // at least one next component or a slash.
+                    // Serves as confirmation to ignore longer completions for
+                    // components in between.
                     if !rest.is_empty() || isdir {
-                        completions.extend(complete_rec(rest, &built, cwd, options, dir, isdir));
+                        completions.extend(complete_rec(
+                            rest,
+                            &built,
+                            cwd,
+                            options,
+                            want_directory,
+                            isdir,
+                        ));
                     } else {
                         completions.push(built);
                     }
                 }
-                // isdir tells us whether the current path has a trailing slash.
-                // Parsing a path string into a pathbuf loses that bit of information.
-                // We use isdir to confirm that the current component has at least one
-                // next component or a slash.
-
-                // This acts as a confirmation to ignore longer completions for components
-                // in between.
                 if entry_name.eq(base)
                     && matches!(options.match_algorithm, MatchAlgorithm::Prefix)
                     && isdir
