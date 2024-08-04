@@ -14,7 +14,12 @@ pub fn get_full_help(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> String {
+    // Precautionary step to capture any command output generated during this operation. We
+    // internally call several commands (`table`, `ansi`, `nu-highlight`) and get their
+    // `PipelineData` using this `Stack`, any other output should not be redirected like the main
+    // execution.
     let stack = &mut stack.start_capture();
+
     let signature = command.signature().update_from_command(command);
 
     get_documentation(
