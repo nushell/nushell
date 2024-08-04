@@ -9,6 +9,11 @@ use nu_protocol::{
 use std::{collections::HashMap, fmt::Write};
 use terminal_size::{Height, Width};
 
+/// ANSI style reset
+const RESET: &str = "\x1b[0m";
+/// ANSI set default color (as set in the terminal)
+const DEFAULT_COLOR: &str = "\x1b[39m";
+
 pub fn get_full_help(
     command: &dyn Command,
     engine_state: &EngineState,
@@ -84,8 +89,6 @@ fn get_documentation(
         "shape_block",
         "\x1b[94m",
     ); // default: light blue (nobold, should be bolding the *names*)
-
-    const RESET: &str = "\x1b[0m"; // reset
 
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
@@ -503,9 +506,6 @@ where
         help_subcolor_two = "\x1b[94m".to_string();
     }
 
-    const RESET: &str = "\x1b[0m"; // reset
-    const D: &str = "\x1b[39m"; // default
-
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
     for flag in &signature.named {
@@ -525,7 +525,7 @@ where
                         "  {help_subcolor_one}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
-                            format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
+                            format!("{DEFAULT_COLOR},{RESET} {help_subcolor_one}--{}", flag.long)
                         } else {
                             "".into()
                         },
@@ -538,7 +538,7 @@ where
                         "  {help_subcolor_one}-{}{}{RESET} <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
-                            format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
+                            format!("{DEFAULT_COLOR},{RESET} {help_subcolor_one}--{}", flag.long)
                         } else {
                             "".into()
                         },
@@ -564,7 +564,7 @@ where
                     "  {help_subcolor_one}-{}{}{RESET} (required parameter) - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
-                        format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
+                        format!("{DEFAULT_COLOR},{RESET} {help_subcolor_one}--{}", flag.long)
                     } else {
                         "".into()
                     },
@@ -576,7 +576,7 @@ where
                     "  {help_subcolor_one}-{}{}{RESET} - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
-                        format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
+                        format!("{DEFAULT_COLOR},{RESET} {help_subcolor_one}--{}", flag.long)
                     } else {
                         "".into()
                     },
