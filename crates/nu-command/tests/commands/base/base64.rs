@@ -62,9 +62,9 @@ fn decode_pad_nopad() {
 
 #[test]
 fn decode_url() {
-    let text = "ޘ::߇3/Ծ]D";
-    let encoded = "3pg6Ot+HMy/Uvl1E";
-    let encoded_url = "3pg6Ot-HMy_Uvl1E";
+    let text = "p:gטݾ߫t+?";
+    let encoded = "cDpn15jdvt+rdCs/";
+    let encoded_url = "cDpn15jdvt-rdCs_";
 
     let outcome = nu!("'{}' | decode new-base64 | decode", encoded);
     assert_eq!(outcome.out, text);
