@@ -148,7 +148,7 @@ fn get_documentation(
                     format!(
                         "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {}",
                         String::from_utf8_lossy(kw),
-                        document_shape(&shape),
+                        document_shape(shape),
                         positional.desc
                     )
                 }
@@ -169,7 +169,7 @@ fn get_documentation(
                     format!(
                         "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {} (optional)",
                         String::from_utf8_lossy(kw),
-                        document_shape(&shape),
+                        document_shape(shape),
                         positional.desc
                     )
                 }
