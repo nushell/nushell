@@ -19,7 +19,7 @@ impl SimplePluginCommand for FromPlist {
     }
 
     fn usage(&self) -> &str {
-        "Convert Nu values into plist"
+        "Convert plist to Nushell values"
     }
 
     fn examples(&self) -> Vec<Example> {
