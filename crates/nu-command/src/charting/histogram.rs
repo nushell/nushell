@@ -177,11 +177,9 @@ fn run_histogram(
                 match v {
                     // parse record, and fill valid value to actual input.
                     Value::Record { val, .. } => {
-                        for (c, v) in val.iter() {
-                            if c == col_name {
-                                if let Ok(v) = HashableValue::from_value(v.clone(), head_span) {
-                                    inputs.push(v);
-                                }
+                        if let Some(v) = val.get(col_name) {
+                            if let Ok(v) = HashableValue::from_value(v.clone(), head_span) {
+                                inputs.push(v);
                             }
                         }
                     }

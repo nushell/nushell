@@ -423,7 +423,7 @@ impl BlockBuilder {
         self.push(Instruction::Jump { index: label_id.0 }.into_spanned(span))
     }
 
-    /// The index that the next instruction [`.push()`]ed will have.
+    /// The index that the next instruction [`.push()`](Self::push)ed will have.
     pub(crate) fn here(&self) -> usize {
         self.instructions.len()
     }

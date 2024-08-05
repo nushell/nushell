@@ -110,13 +110,12 @@ impl NuHelpCompleter {
                 Suggestion {
                     value: decl.name().into(),
                     description: Some(long_desc),
-                    style: None,
                     extra: Some(extra),
                     span: reedline::Span {
                         start: pos - line.len(),
                         end: pos,
                     },
-                    append_whitespace: false,
+                    ..Suggestion::default()
                 }
             })
             .collect()

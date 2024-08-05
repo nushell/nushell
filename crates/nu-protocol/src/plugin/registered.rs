@@ -1,6 +1,6 @@
 use std::{any::Any, sync::Arc};
 
-use crate::{PluginGcConfig, PluginIdentity, PluginMetadata, ShellError};
+use crate::{engine::ctrlc, PluginGcConfig, PluginIdentity, PluginMetadata, ShellError};
 
 /// Trait for plugins registered in the [`EngineState`](crate::engine::EngineState).
 pub trait RegisteredPlugin: Send + Sync {
@@ -34,4 +34,12 @@ pub trait RegisteredPlugin: Send + Sync {
     /// This is necessary in order to allow `nu_plugin` to handle the implementation details of
     /// plugins.
     fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync>;
+
+    /// Give this plugin a chance to register for Ctrl-C signals.
+    fn configure_ctrlc_handler(
+        self: Arc<Self>,
+        _handler: &ctrlc::Handlers,
+    ) -> Result<(), ShellError> {
+        Ok(())
+    }
 }

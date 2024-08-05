@@ -1223,7 +1223,8 @@ impl Value {
                         for val in vals.iter_mut() {
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.to_mut().get_mut(col_name) {
+                                    let record = record.to_mut();
+                                    if let Some(val) = record.get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
                                     } else {
                                         let new_col = if path.is_empty() {
@@ -1235,7 +1236,7 @@ impl Value {
                                                 .upsert_data_at_cell_path(path, new_val.clone())?;
                                             new_col
                                         };
-                                        record.to_mut().push(col_name, new_col);
+                                        record.push(col_name, new_col);
                                     }
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
@@ -1250,7 +1251,8 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(col_name) {
                             val.upsert_data_at_cell_path(path, new_val)?;
                         } else {
                             let new_col = if path.is_empty() {
@@ -1260,7 +1262,7 @@ impl Value {
                                 new_col.upsert_data_at_cell_path(path, new_val)?;
                                 new_col
                             };
-                            record.to_mut().push(col_name, new_col);
+                            record.push(col_name, new_col);
                         }
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
@@ -1591,7 +1593,8 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    if let Some(val) = record.to_mut().get_mut(col_name) {
+                                    let record = record.to_mut();
+                                    if let Some(val) = record.get_mut(col_name) {
                                         if path.is_empty() {
                                             return Err(ShellError::ColumnAlreadyExists {
                                                 col_name: col_name.clone(),
@@ -1618,7 +1621,7 @@ impl Value {
                                             )?;
                                             new_col
                                         };
-                                        record.to_mut().push(col_name, new_col);
+                                        record.push(col_name, new_col);
                                     }
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
@@ -1634,7 +1637,8 @@ impl Value {
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        if let Some(val) = record.to_mut().get_mut(col_name) {
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(col_name) {
                             if path.is_empty() {
                                 return Err(ShellError::ColumnAlreadyExists {
                                     col_name: col_name.clone(),
@@ -1652,7 +1656,7 @@ impl Value {
                                 new_col.insert_data_at_cell_path(path, new_val, head_span)?;
                                 new_col
                             };
-                            record.to_mut().push(col_name, new_col);
+                            record.push(col_name, new_col);
                         }
                     }
                     other => {

@@ -1,8 +1,9 @@
+#[cfg(windows)]
+use omnipath::WinPathExt;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use super::dots::{expand_dots, expand_ndots};
-use super::helpers;
 use super::tilde::expand_tilde;
 
 // Join a path relative to another path. Paths starting with tilde are considered as absolute.
@@ -30,8 +31,17 @@ where
 fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
     let path = expand_tilde(path);
     let path = expand_ndots(path);
+    canonicalize_path(&path)
+}
 
-    helpers::canonicalize(&path)
+#[cfg(windows)]
+fn canonicalize_path(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
+    path.canonicalize()?.to_winuser_path()
+}
+
+#[cfg(not(windows))]
+fn canonicalize_path(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
+    path.canonicalize()
 }
 
 /// Resolve all symbolic links and all components (tilde, ., .., ...+) and return the path in its

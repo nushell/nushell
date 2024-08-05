@@ -281,6 +281,10 @@ fn select_cells(
         let scraped = element.select(selector).map(cell_content);
         let mut dehtmlized: Vec<String> = Vec::new();
         for item in scraped {
+            if item.is_empty() {
+                dehtmlized.push(item);
+                continue;
+            }
             let frag = Html::parse_fragment(&item);
             for node in frag.tree {
                 if let scraper::node::Node::Text(text) = node {
@@ -411,6 +415,7 @@ mod tests {
     <tr><td>John</td><td>20</td></tr>
     <tr><td>May</td><td>30</td><td>foo</td></tr>
     <tr></tr>
+    <tr><td></td><td></td><td></td></tr>
     <tr><td>a</td><td>b</td><td>c</td><td>d</td></tr>
 </table>
 "#;
@@ -425,6 +430,7 @@ mod tests {
             <tr><td>John</td><td>20</td></tr>
             <tr><td>May</td><td>30</td><td>foo</td></tr>
             <tr></tr>
+            <tr><td></td><td></td><td></td></tr>
             <tr><td>a</td><td>b</td><td>c</td><td>d</td></tr>
         </table>
         <table>
@@ -432,6 +438,7 @@ mod tests {
             <tr><td>Carpenter</td><td>Single</td></tr>
             <tr><td>Mechanic</td><td>Married</td><td>bar</td></tr>
             <tr></tr>
+            <tr><td></td><td></td><td></td></tr>
             <tr><td>e</td><td>f</td><td>g</td><td>h</td></tr>
         </table>
     </body>
@@ -808,7 +815,7 @@ mod tests {
         assert_eq!(2, WebTable::find_first(TABLE_TD_TD).unwrap().iter().count());
         assert_eq!(1, WebTable::find_first(TABLE_TH_TH).unwrap().iter().count());
         assert_eq!(
-            4,
+            5,
             WebTable::find_first(TABLE_COMPLEX).unwrap().iter().count()
         );
     }
@@ -823,7 +830,7 @@ mod tests {
 
         let table = WebTable::find_first(TABLE_COMPLEX).unwrap();
         assert_eq!(
-            vec![false, false, true, false],
+            vec![false, false, true, false, false],
             table.iter().map(|r| r.is_empty()).collect::<Vec<_>>()
         );
     }
@@ -835,7 +842,7 @@ mod tests {
 
         let table = WebTable::find_first(TABLE_COMPLEX).unwrap();
         assert_eq!(
-            vec![2, 3, 0, 4],
+            vec![2, 3, 0, 3, 4],
             table.iter().map(|r| r.len()).collect::<Vec<_>>()
         );
     }
@@ -854,11 +861,11 @@ mod tests {
         let table_1 = tables_iter.next().unwrap();
         let table_2 = tables_iter.next().unwrap();
         assert_eq!(
-            vec![2, 3, 0, 4],
+            vec![2, 3, 0, 3, 4],
             table_1.iter().map(|r| r.len()).collect::<Vec<_>>()
         );
         assert_eq!(
-            vec![2, 3, 0, 4],
+            vec![2, 3, 0, 3, 4],
             table_2.iter().map(|r| r.len()).collect::<Vec<_>>()
         );
     }
@@ -912,6 +919,11 @@ mod tests {
         assert_eq!(None, row.get("Extra"));
 
         let row = iter.next().unwrap();
+        assert_eq!(Some(""), row.get("Name"));
+        assert_eq!(Some(""), row.get("Age"));
+        assert_eq!(Some(""), row.get("Extra"));
+
+        let row = iter.next().unwrap();
         assert_eq!(Some("a"), row.get("Name"));
         assert_eq!(Some("b"), row.get("Age"));
         assert_eq!(Some("c"), row.get("Extra"));
@@ -954,6 +966,15 @@ mod tests {
         assert_eq!(None, row_table_2.get("Name"));
         assert_eq!(None, row_table_2.get("Age"));
         assert_eq!(None, row_table_2.get("Extra"));
+
+        let row_table_1 = iter_1.next().unwrap();
+        let row_table_2 = iter_2.next().unwrap();
+        assert_eq!(Some(""), row_table_1.get("Name"));
+        assert_eq!(Some(""), row_table_1.get("Age"));
+        assert_eq!(Some(""), row_table_1.get("Extra"));
+        assert_eq!(Some(""), row_table_2.get("Profession"));
+        assert_eq!(Some(""), row_table_2.get("Civil State"));
+        assert_eq!(Some(""), row_table_2.get("Extra"));
 
         let row_table_1 = iter_1.next().unwrap();
         let row_table_2 = iter_2.next().unwrap();
@@ -1028,6 +1049,7 @@ mod tests {
         assert_eq!(&["John", "20"], iter.next().unwrap().as_slice());
         assert_eq!(&["May", "30", "foo"], iter.next().unwrap().as_slice());
         assert_eq!(&empty, iter.next().unwrap().as_slice());
+        assert_eq!(&["", "", ""], iter.next().unwrap().as_slice());
         assert_eq!(&["a", "b", "c", "d"], iter.next().unwrap().as_slice());
         assert_eq!(None, iter.next());
     }
@@ -1045,6 +1067,7 @@ mod tests {
         assert_eq!(&["John", "20"], iter_1.next().unwrap().as_slice());
         assert_eq!(&["May", "30", "foo"], iter_1.next().unwrap().as_slice());
         assert_eq!(&empty, iter_1.next().unwrap().as_slice());
+        assert_eq!(&["", "", ""], iter_1.next().unwrap().as_slice());
         assert_eq!(&["a", "b", "c", "d"], iter_1.next().unwrap().as_slice());
         assert_eq!(None, iter_1.next());
         assert_eq!(&["Carpenter", "Single"], iter_2.next().unwrap().as_slice());
@@ -1053,6 +1076,7 @@ mod tests {
             iter_2.next().unwrap().as_slice()
         );
         assert_eq!(&empty, iter_2.next().unwrap().as_slice());
+        assert_eq!(&["", "", ""], iter_2.next().unwrap().as_slice());
         assert_eq!(&["e", "f", "g", "h"], iter_2.next().unwrap().as_slice());
         assert_eq!(None, iter_2.next());
     }
@@ -1111,6 +1135,13 @@ mod tests {
 
         let row = table_iter.next().unwrap();
         let mut iter = row.iter();
+        assert_eq!(Some(""), iter.next().map(String::as_str));
+        assert_eq!(Some(""), iter.next().map(String::as_str));
+        assert_eq!(Some(""), iter.next().map(String::as_str));
+        assert_eq!(None, iter.next());
+
+        let row = table_iter.next().unwrap();
+        let mut iter = row.iter();
         assert_eq!(Some("a"), iter.next().map(String::as_str));
         assert_eq!(Some("b"), iter.next().map(String::as_str));
         assert_eq!(Some("c"), iter.next().map(String::as_str));
@@ -1154,6 +1185,19 @@ mod tests {
         let mut iter_1 = row_1.iter();
         let mut iter_2 = row_2.iter();
         assert_eq!(None, iter_1.next());
+        assert_eq!(None, iter_2.next());
+
+        let row_1 = table_1.next().unwrap();
+        let row_2 = table_2.next().unwrap();
+        let mut iter_1 = row_1.iter();
+        let mut iter_2 = row_2.iter();
+        assert_eq!(Some(""), iter_1.next().map(String::as_str));
+        assert_eq!(Some(""), iter_1.next().map(String::as_str));
+        assert_eq!(Some(""), iter_1.next().map(String::as_str));
+        assert_eq!(None, iter_1.next());
+        assert_eq!(Some(""), iter_2.next().map(String::as_str));
+        assert_eq!(Some(""), iter_2.next().map(String::as_str));
+        assert_eq!(Some(""), iter_2.next().map(String::as_str));
         assert_eq!(None, iter_2.next());
 
         let row_1 = table_1.next().unwrap();

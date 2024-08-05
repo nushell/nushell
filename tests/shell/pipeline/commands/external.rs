@@ -209,6 +209,12 @@ fn run_glob_if_pass_variable_to_external() {
     })
 }
 
+#[test]
+fn subexpression_does_not_implicitly_capture() {
+    let actual = nu!("(nu --testbin cococo); null");
+    assert_eq!(actual.out, "cococo");
+}
+
 mod it_evaluation {
     use super::nu;
     use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};

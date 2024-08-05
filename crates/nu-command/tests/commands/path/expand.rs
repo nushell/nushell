@@ -1,8 +1,7 @@
+use nu_path::Path;
 use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
-
-use std::path::PathBuf;
 
 #[test]
 fn expands_path_with_dot() {
@@ -18,7 +17,7 @@ fn expands_path_with_dot() {
         ));
 
         let expected = dirs.test.join("menu").join("spam.txt");
-        assert_eq!(PathBuf::from(actual.out), expected);
+        assert_eq!(Path::new(&actual.out), expected);
     })
 }
 
@@ -38,7 +37,7 @@ fn expands_path_without_follow_symlink() {
         ));
 
         let expected = dirs.test.join("menu").join("spam_link.ln");
-        assert_eq!(PathBuf::from(actual.out), expected);
+        assert_eq!(Path::new(&actual.out), expected);
     })
 }
 
@@ -56,7 +55,7 @@ fn expands_path_with_double_dot() {
         ));
 
         let expected = dirs.test.join("menu").join("spam.txt");
-        assert_eq!(PathBuf::from(actual.out), expected);
+        assert_eq!(Path::new(&actual.out), expected);
     })
 }
 
@@ -74,7 +73,7 @@ fn const_path_expand() {
         ));
 
         let expected = dirs.test.join("menu").join("spam.txt");
-        assert_eq!(PathBuf::from(actual.out), expected);
+        assert_eq!(Path::new(&actual.out), expected);
     })
 }
 
@@ -92,7 +91,7 @@ mod windows {
                 "#
             ));
 
-            assert!(!PathBuf::from(actual.out).starts_with("~"));
+            assert!(!Path::new(&actual.out).starts_with("~"));
         })
     }
 
@@ -106,7 +105,7 @@ mod windows {
                 "#
             ));
 
-            assert!(!PathBuf::from(actual.out).starts_with("~"));
+            assert!(!Path::new(&actual.out).starts_with("~"));
         })
     }
 
@@ -131,7 +130,7 @@ mod windows {
             ));
 
             let expected = dirs.test.join("menu").join("spam_link.ln");
-            assert_eq!(PathBuf::from(actual.out), expected);
+            assert_eq!(Path::new(&actual.out), expected);
         })
     }
 }

@@ -71,7 +71,7 @@ impl Argument {
 }
 
 /// Stores the argument context for calls in IR evaluation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ArgumentStack {
     arguments: Vec<Argument>,
 }

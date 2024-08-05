@@ -26,7 +26,7 @@ impl PluginSource {
 
     /// Create a new fake source with a fake identity, for testing
     ///
-    /// Warning: [`.persistent()`] will always return an error.
+    /// Warning: [`.persistent()`](Self::persistent) will always return an error.
     pub fn new_fake(name: &str) -> PluginSource {
         PluginSource {
             identity: PluginIdentity::new_fake(name).into(),

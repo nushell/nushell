@@ -61,9 +61,8 @@ impl ForegroundChild {
                         pipeline_state: Some(pipeline_state.clone()),
                     }
                 })
-                .map_err(|e| {
+                .inspect_err(|_e| {
                     foreground_pgroup::reset();
-                    e
                 })
         } else {
             command.spawn().map(|child| Self {
@@ -105,10 +104,10 @@ impl Drop for ForegroundChild {
 ///
 /// If there is already a foreground external process running, spawned with [`ForegroundChild`],
 /// this expects the process ID to remain in the process group created by the [`ForegroundChild`]
-/// for the lifetime of the guard, and keeps the terminal controlling process group set to that. If
-/// there is no foreground external process running, this sets the foreground process group to the
-/// plugin's process ID. The process group that is expected can be retrieved with [`.pgrp()`] if
-/// different from the plugin process ID.
+/// for the lifetime of the guard, and keeps the terminal controlling process group set to that.
+/// If there is no foreground external process running, this sets the foreground process group to
+/// the plugin's process ID. The process group that is expected can be retrieved with
+/// [`.pgrp()`](Self::pgrp) if different from the plugin process ID.
 ///
 /// ## Other systems
 ///

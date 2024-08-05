@@ -132,6 +132,10 @@ impl Job {
     }
 
     fn run(mut self, input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+        let metadata = input
+            .metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("application/xml".into()));
         let value = input.into_value(head)?;
 
         self.write_xml_entry(value, true).and_then(|_| {
@@ -141,7 +145,7 @@ impl Job {
             } else {
                 return Err(ShellError::NonUtf8 { span: head });
             };
-            Ok(Value::string(s, head).into_pipeline_data())
+            Ok(Value::string(s, head).into_pipeline_data_with_metadata(Some(metadata)))
         })
     }
 
@@ -508,6 +512,10 @@ impl Job {
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::Metadata;
+
     use super::*;
 
     #[test]
@@ -515,5 +523,35 @@ mod test {
         use crate::test_examples;
 
         test_examples(ToXml {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToXml {}));
+            working_set.add_decl(Box::new(Metadata {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attributes: null content : Event}]}]} | to xml | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("content_type" => Value::test_string("application/xml"))),
+            result.expect("There should be a result")
+        );
     }
 }

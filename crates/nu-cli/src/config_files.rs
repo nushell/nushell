@@ -192,7 +192,8 @@ pub fn add_plugin_file(
         } else if let Some(mut plugin_path) = nu_path::config_dir() {
             // Path to store plugins signatures
             plugin_path.push(storage_path);
-            let mut plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
+            let mut plugin_path =
+                canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path.into());
             plugin_path.push(PLUGIN_FILE);
             let plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
             engine_state.plugin_path = Some(plugin_path);
@@ -247,7 +248,7 @@ pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> O
             HistoryFileFormat::PlainText => HISTORY_FILE_TXT,
             HistoryFileFormat::Sqlite => HISTORY_FILE_SQLITE,
         });
-        history_path
+        history_path.into()
     })
 }
 

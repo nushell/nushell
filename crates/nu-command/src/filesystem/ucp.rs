@@ -86,17 +86,22 @@ impl Command for UCp {
             },
             Example {
                 description: "Copy only if source file is newer than target file",
-                example: "cp -u a b",
+                example: "cp -u myfile newfile",
                 result: None,
             },
             Example {
                 description: "Copy file preserving mode and timestamps attributes",
-                example: "cp --preserve [ mode timestamps ] a b",
+                example: "cp --preserve [ mode timestamps ] myfile newfile",
                 result: None,
             },
             Example {
                 description: "Copy file erasing all attributes",
-                example: "cp --preserve [] a b",
+                example: "cp --preserve [] myfile newfile",
+                result: None,
+            },
+            Example {
+                description: "Copy file to a directory three levels above its current location",
+                example: "cp myfile ....",
                 result: None,
             },
         ]
@@ -235,7 +240,7 @@ impl Command for UCp {
         for (sources, need_expand_tilde) in sources.iter_mut() {
             for src in sources.iter_mut() {
                 if !src.is_absolute() {
-                    *src = nu_path::expand_path_with(&src, &cwd, *need_expand_tilde);
+                    *src = nu_path::expand_path_with(&*src, &cwd, *need_expand_tilde);
                 }
             }
         }

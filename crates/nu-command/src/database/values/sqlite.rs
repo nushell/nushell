@@ -424,11 +424,7 @@ pub fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError
         Value::Filesize { val, .. } => Box::new(val),
         Value::Duration { val, .. } => Box::new(val),
         Value::Date { val, .. } => Box::new(val),
-        Value::String { val, .. } => {
-            // don't store ansi escape sequences in the database
-            // escape single quotes
-            Box::new(nu_utils::strip_ansi_unlikely(&val).into_owned())
-        }
+        Value::String { val, .. } => Box::new(val),
         Value::Binary { val, .. } => Box::new(val),
         Value::Nothing { .. } => Box::new(rusqlite::types::Null),
         val => {

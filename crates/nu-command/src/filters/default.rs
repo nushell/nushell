@@ -27,7 +27,7 @@ impl Command for Default {
     }
 
     fn usage(&self) -> &str {
-        "Sets a default row's column if missing."
+        "Sets a default value if a row's column is missing or null."
     }
 
     fn run(
@@ -66,6 +66,20 @@ impl Command for Default {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: r#"Replace the missing value in the "a" column of a list"#,
+                example: "[{a:1 b:2} {b:1}] | default 'N/A' a",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_string("N/A"),
+                        "b" => Value::test_int(1),
+                    }),
+                ])),
+            },
         ]
     }
 }
@@ -88,19 +102,13 @@ fn default(
                         val: ref mut record,
                         ..
                     } => {
-                        let mut found = false;
-
-                        for (col, val) in record.to_mut().iter_mut() {
-                            if *col == column.item {
-                                found = true;
-                                if matches!(val, Value::Nothing { .. }) {
-                                    *val = value.clone();
-                                }
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(&column.item) {
+                            if matches!(val, Value::Nothing { .. }) {
+                                *val = value.clone();
                             }
-                        }
-
-                        if !found {
-                            record.to_mut().push(column.item.clone(), value.clone());
+                        } else {
+                            record.push(column.item.clone(), value.clone());
                         }
 
                         item

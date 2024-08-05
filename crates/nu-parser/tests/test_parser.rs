@@ -1177,9 +1177,9 @@ fn test_nothing_comparison_eq() {
 #[rstest]
 #[case(b"let a = 1 err> /dev/null")]
 #[case(b"let a = 1 out> /dev/null")]
+#[case(b"let a = 1 out+err> /dev/null")]
 #[case(b"mut a = 1 err> /dev/null")]
 #[case(b"mut a = 1 out> /dev/null")]
-#[case(b"let a = 1 out+err> /dev/null")]
 #[case(b"mut a = 1 out+err> /dev/null")]
 fn test_redirection_with_letmut(#[case] phase: &[u8]) {
     let engine_state = EngineState::new();

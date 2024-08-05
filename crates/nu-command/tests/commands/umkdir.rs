@@ -1,7 +1,6 @@
 use nu_test_support::fs::files_exist_at;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
-use std::path::Path;
 
 #[test]
 fn creates_directory() {
@@ -25,10 +24,7 @@ fn accepts_and_creates_directories() {
             "mkdir dir_1 dir_2 dir_3"
         );
 
-        assert!(files_exist_at(
-            vec![Path::new("dir_1"), Path::new("dir_2"), Path::new("dir_3")],
-            dirs.test()
-        ));
+        assert!(files_exist_at(&["dir_1", "dir_2", "dir_3"], dirs.test()));
     })
 }
 
@@ -70,10 +66,7 @@ fn print_created_paths() {
             pipeline("mkdir -v dir_1 dir_2 dir_3")
         );
 
-        assert!(files_exist_at(
-            vec![Path::new("dir_1"), Path::new("dir_2"), Path::new("dir_3")],
-            dirs.test()
-        ));
+        assert!(files_exist_at(&["dir_1", "dir_2", "dir_3"], dirs.test()));
 
         assert!(actual.out.contains("dir_1"));
         assert!(actual.out.contains("dir_2"));
@@ -165,11 +158,11 @@ fn mkdir_with_tilde() {
     Playground::setup("mkdir with tilde", |dirs, _| {
         let actual = nu!(cwd: dirs.test(), "mkdir '~tilde'");
         assert!(actual.err.is_empty());
-        assert!(files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+        assert!(files_exist_at(&["~tilde"], dirs.test()));
 
         // pass variable
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde2'; mkdir $f");
         assert!(actual.err.is_empty());
-        assert!(files_exist_at(vec![Path::new("~tilde2")], dirs.test()));
+        assert!(files_exist_at(&["~tilde2"], dirs.test()));
     })
 }

@@ -1,5 +1,3 @@
-use crate::util::Sequence;
-
 use super::{
     stream::{StreamManager, StreamManagerHandle},
     test_util::TestCase,
@@ -10,8 +8,8 @@ use nu_plugin_protocol::{
     StreamMessage,
 };
 use nu_protocol::{
-    ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream, PipelineData,
-    PipelineMetadata, ShellError, Signals, Span, Value,
+    engine::Sequence, ByteStream, ByteStreamSource, ByteStreamType, DataSource, ListStream,
+    PipelineData, PipelineMetadata, ShellError, Signals, Span, Value,
 };
 use std::{path::Path, sync::Arc};
 
@@ -139,10 +137,16 @@ fn read_pipeline_data_empty() -> Result<(), ShellError> {
 fn read_pipeline_data_value() -> Result<(), ShellError> {
     let manager = TestInterfaceManager::new(&TestCase::new());
     let value = Value::test_int(4);
-    let header = PipelineDataHeader::Value(value.clone());
-
+    let metadata = Some(PipelineMetadata {
+        data_source: DataSource::FilePath("/test/path".into()),
+        content_type: None,
+    });
+    let header = PipelineDataHeader::Value(value.clone(), metadata.clone());
     match manager.read_pipeline_data(header, &Signals::empty())? {
-        PipelineData::Value(read_value, ..) => assert_eq!(value, read_value),
+        PipelineData::Value(read_value, read_metadata) => {
+            assert_eq!(value, read_value);
+            assert_eq!(metadata, read_metadata);
+        }
         PipelineData::ListStream(..) => panic!("unexpected ListStream"),
         PipelineData::ByteStream(..) => panic!("unexpected ByteStream"),
         PipelineData::Empty => panic!("unexpected Empty"),
@@ -163,9 +167,15 @@ fn read_pipeline_data_list_stream() -> Result<(), ShellError> {
     }
     test.add(StreamMessage::End(7));
 
+    let metadata = Some(PipelineMetadata {
+        data_source: DataSource::None,
+        content_type: Some("foobar".into()),
+    });
+
     let header = PipelineDataHeader::ListStream(ListStreamInfo {
         id: 7,
         span: Span::test_data(),
+        metadata,
     });
 
     let pipe = manager.read_pipeline_data(header, &Signals::empty())?;
@@ -206,10 +216,17 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
     test.add(StreamMessage::End(12));
 
     let test_span = Span::new(10, 13);
+
+    let metadata = Some(PipelineMetadata {
+        data_source: DataSource::None,
+        content_type: Some("foobar".into()),
+    });
+
     let header = PipelineDataHeader::ByteStream(ByteStreamInfo {
         id: 12,
         span: test_span,
         type_: ByteStreamType::Unknown,
+        metadata,
     });
 
     let pipe = manager.read_pipeline_data(header, &Signals::empty())?;
@@ -253,9 +270,15 @@ fn read_pipeline_data_byte_stream() -> Result<(), ShellError> {
 #[test]
 fn read_pipeline_data_prepared_properly() -> Result<(), ShellError> {
     let manager = TestInterfaceManager::new(&TestCase::new());
+    let metadata = Some(PipelineMetadata {
+        data_source: DataSource::None,
+        content_type: Some("foobar".into()),
+    });
+
     let header = PipelineDataHeader::ListStream(ListStreamInfo {
         id: 0,
         span: Span::test_data(),
+        metadata,
     });
     match manager.read_pipeline_data(header, &Signals::empty())? {
         PipelineData::ListStream(_, meta) => match meta {
@@ -303,7 +326,7 @@ fn write_pipeline_data_value() -> Result<(), ShellError> {
         interface.init_write_pipeline_data(PipelineData::Value(value.clone(), None), &())?;
 
     match header {
-        PipelineDataHeader::Value(read_value) => assert_eq!(value, read_value),
+        PipelineDataHeader::Value(read_value, _) => assert_eq!(value, read_value),
         _ => panic!("unexpected header: {header:?}"),
     }
 

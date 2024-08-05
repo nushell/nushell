@@ -69,18 +69,36 @@ fn make_cant_convert_error(value: &Value, format_name: &'static str) -> ShellErr
     }
 }
 
+pub struct ToDelimitedDataArgs {
+    pub noheaders: bool,
+    pub separator: Spanned<char>,
+    pub columns: Option<Vec<String>>,
+    pub format_name: &'static str,
+    pub input: PipelineData,
+    pub head: Span,
+    pub content_type: Option<String>,
+}
+
 pub fn to_delimited_data(
-    noheaders: bool,
-    separator: Spanned<char>,
-    columns: Option<Vec<String>>,
-    format_name: &'static str,
-    input: PipelineData,
-    head: Span,
+    ToDelimitedDataArgs {
+        noheaders,
+        separator,
+        columns,
+        format_name,
+        input,
+        head,
+        content_type,
+    }: ToDelimitedDataArgs,
     config: Arc<Config>,
 ) -> Result<PipelineData, ShellError> {
     let mut input = input;
     let span = input.span().unwrap_or(head);
-    let metadata = input.metadata();
+    let metadata = Some(
+        input
+            .metadata()
+            .unwrap_or_default()
+            .with_content_type(content_type),
+    );
 
     let separator = u8::try_from(separator.item).map_err(|_| ShellError::IncorrectValue {
         msg: "separator must be an ASCII character".into(),

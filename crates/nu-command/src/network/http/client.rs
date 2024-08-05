@@ -141,17 +141,17 @@ pub fn request_add_authorization_header(
     let login = match (user, password) {
         (Some(user), Some(password)) => {
             let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{user}:{password}"), &mut enc_str);
+            base64_engine.encode_string(format!("{user}:{password}"), &mut enc_str);
             Some(enc_str)
         }
         (Some(user), _) => {
             let mut enc_str = String::new();
-            base64_engine.encode_string(&format!("{user}:"), &mut enc_str);
+            base64_engine.encode_string(format!("{user}:"), &mut enc_str);
             Some(enc_str)
         }
         (_, Some(password)) => {
             let mut enc_str = String::new();
-            base64_engine.encode_string(&format!(":{password}"), &mut enc_str);
+            base64_engine.encode_string(format!(":{password}"), &mut enc_str);
             Some(enc_str)
         }
         _ => None,
