@@ -379,42 +379,47 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
     // If input is not a timestamp, try parsing it as a string
     let span = input.span();
-    match input {
-        Value::String { val, .. } => {
-            match dateformat {
-                Some(dt) => match DateTime::parse_from_str(val, &dt.0) {
-                    Ok(d) => Value::date ( d, head ),
-                    Err(reason) => {
-                        match NaiveDateTime::parse_from_str(val, &dt.0) {
-                            Ok(d) => Value::date (
-                                DateTime::from_naive_utc_and_offset(
-                                    d,
-                                    *Local::now().offset(),
-                                ),
-                                head,
+
+    let parse_as_string = |val: &str| {
+        match dateformat {
+            Some(dt) => match DateTime::parse_from_str(val, &dt.0) {
+                Ok(d) => Value::date ( d, head ),
+                Err(reason) => {
+                    match NaiveDateTime::parse_from_str(val, &dt.0) {
+                        Ok(d) => Value::date (
+                            DateTime::from_naive_utc_and_offset(
+                                d,
+                                *Local::now().offset(),
                             ),
-                            Err(_) => {
-                                Value::error (
-                                    ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
-                                    head,
-                                )
-                            }
+                            head,
+                        ),
+                        Err(_) => {
+                            Value::error (
+                                ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
+                                head,
+                            )
                         }
                     }
-                },
+                }
+            },
 
-                // Tries to automatically parse the date
-                // (i.e. without a format string)
-                // and assumes the system's local timezone if none is specified
-                None => match parse_date_from_string(val, span) {
-                    Ok(date) => Value::date (
-                        date,
-                        span,
-                    ),
-                    Err(err) => err,
-                },
-            }
+            // Tries to automatically parse the date
+            // (i.e. without a format string)
+            // and assumes the system's local timezone if none is specified
+            None => match parse_date_from_string(val, span) {
+                Ok(date) => Value::date (
+                    date,
+                    span,
+                ),
+                Err(err) => err,
+            },
         }
+    };
+
+    match input {
+        Value::String { val, .. } => parse_as_string(val),
+        Value::Int { val, .. } => parse_as_string(&val.to_string()),
+
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
