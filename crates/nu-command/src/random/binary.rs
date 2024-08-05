@@ -43,13 +43,11 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Generate 16 random bytes",
-                example: "random bytes 16",
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Generate 16 random bytes",
+            example: "random bytes 16",
+            result: None,
+        }]
     }
 }
 
