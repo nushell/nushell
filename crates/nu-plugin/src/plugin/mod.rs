@@ -9,7 +9,7 @@ use std::{
     thread,
 };
 
-use nu_engine::documentation::get_flags_section;
+use nu_engine::documentation::{get_flags_section, HelpStyle};
 use nu_plugin_core::{
     ClientCommunicationIo, CommunicationMode, InterfaceManager, PluginEncoder, PluginRead,
     PluginWrite,
@@ -657,6 +657,7 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
     println!("Encoder: {}", encoder.name());
 
     let mut help = String::new();
+    let help_style = HelpStyle::default();
 
     plugin.commands().into_iter().for_each(|command| {
         let signature = command.signature();
@@ -670,7 +671,7 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(None, None, &signature, |v| format!("{:#?}", v));
+                let flags = get_flags_section(&signature, &help_style, |v| format!("{:#?}", v));
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))

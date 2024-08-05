@@ -1,3 +1,4 @@
+mod binary;
 mod bool;
 mod chars;
 mod dice;
@@ -6,6 +7,7 @@ mod int;
 mod random_;
 mod uuid;
 
+pub use self::binary::SubCommand as RandomBinary;
 pub use self::bool::SubCommand as RandomBool;
 pub use self::chars::SubCommand as RandomChars;
 pub use self::dice::SubCommand as RandomDice;

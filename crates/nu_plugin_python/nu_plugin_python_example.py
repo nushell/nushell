@@ -27,8 +27,8 @@ import sys
 import json
 
 
-NUSHELL_VERSION = "0.95.1"
-PLUGIN_VERSION = "0.1.0" # bump if you change commands!
+NUSHELL_VERSION = "0.96.2"
+PLUGIN_VERSION = "0.1.1"  # bump if you change commands!
 
 
 def signatures():
@@ -125,31 +125,31 @@ def process_call(id, plugin_call):
     span = plugin_call["call"]["head"]
 
     # Creates a Value of type List that will be encoded and sent to Nushell
-    def f(x, y): return {
-        "Int": {
-            "val": x * y,
-            "span": span
-        }
-    }
+    def f(x, y):
+        return {"Int": {"val": x * y, "span": span}}
 
     value = {
-        "Value": {
-            "List": {
-                "vals": [
-                    {
-                        "Record": {
-                            "val": {
-                                "one": f(x, 0),
-                                "two": f(x, 1),
-                                "three": f(x, 2),
-                            },
-                            "span": span
+        "Value": [
+            {
+                "List": {
+                    "vals": [
+                        {
+                            "Record": {
+                                "val": {
+                                    "one": f(x, 0),
+                                    "two": f(x, 1),
+                                    "three": f(x, 2),
+                                },
+                                "span": span,
+                            }
                         }
-                    } for x in range(0, 10)
-                ],
-                "span": span
-            }
-        }
+                        for x in range(0, 10)
+                    ],
+                    "span": span,
+                }
+            },
+            None,
+        ]
     }
 
     write_response(id, {"PipelineData": value})
@@ -172,7 +172,7 @@ def tell_nushell_hello():
         "Hello": {
             "protocol": "nu-plugin",  # always this value
             "version": NUSHELL_VERSION,
-            "features": []
+            "features": [],
         }
     }
     sys.stdout.write(json.dumps(hello))
@@ -200,22 +200,26 @@ def write_error(id, text, span=None):
     Use this error format to send errors to nushell in response to a plugin call. The ID of the
     plugin call is required.
     """
-    error = {
-        "Error": {
-            "msg": "ERROR from plugin",
-            "labels": [
-                {
-                    "text": text,
-                    "span": span,
-                }
-            ],
+    error = (
+        {
+            "Error": {
+                "msg": "ERROR from plugin",
+                "labels": [
+                    {
+                        "text": text,
+                        "span": span,
+                    }
+                ],
+            }
         }
-    } if span is not None else {
-        "Error": {
-            "msg": "ERROR from plugin",
-            "help": text,
+        if span is not None
+        else {
+            "Error": {
+                "msg": "ERROR from plugin",
+                "help": text,
+            }
         }
-    }
+    )
     write_response(id, error)
 
 
@@ -230,11 +234,14 @@ def handle_input(input):
     elif "Call" in input:
         [id, plugin_call] = input["Call"]
         if plugin_call == "Metadata":
-            write_response(id, {
-                "Metadata": {
-                    "version": PLUGIN_VERSION,
-                }
-            })
+            write_response(
+                id,
+                {
+                    "Metadata": {
+                        "version": PLUGIN_VERSION,
+                    }
+                },
+            )
         elif plugin_call == "Signature":
             write_response(id, signatures())
         elif "Run" in plugin_call:

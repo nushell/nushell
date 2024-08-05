@@ -432,7 +432,17 @@ impl Expression {
             Expr::Int(_) => {}
             Expr::Float(_) => {}
             Expr::Binary(_) => {}
-            Expr::Range(_) => {}
+            Expr::Range(range) => {
+                if let Some(from) = &mut range.from {
+                    from.replace_in_variable(working_set, new_var_id);
+                }
+                if let Some(next) = &mut range.next {
+                    next.replace_in_variable(working_set, new_var_id);
+                }
+                if let Some(to) = &mut range.to {
+                    to.replace_in_variable(working_set, new_var_id);
+                }
+            }
             Expr::Var(var_id) | Expr::VarDecl(var_id) => {
                 if *var_id == IN_VARIABLE_ID {
                     *var_id = new_var_id;

@@ -135,12 +135,9 @@ fn rm(
     let home: Option<String> = nu_path::home_dir().map(|path| {
         {
             if path.exists() {
-                match nu_path::canonicalize_with(&path, &currentdir_path) {
-                    Ok(canon_path) => canon_path,
-                    Err(_) => path,
-                }
+                nu_path::canonicalize_with(&path, &currentdir_path).unwrap_or(path.into())
             } else {
-                path
+                path.into()
             }
         }
         .to_string_lossy()

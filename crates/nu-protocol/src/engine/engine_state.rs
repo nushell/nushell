@@ -2,6 +2,7 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
+        ctrlc,
         usage::{build_usage, Usage},
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
@@ -85,6 +86,7 @@ pub struct EngineState {
     pub spans: Vec<Span>,
     usage: Usage,
     pub scope: ScopeFrame,
+    pub ctrlc_handlers: Option<ctrlc::Handlers>,
     signals: Signals,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
@@ -145,6 +147,7 @@ impl EngineState {
                 0,
                 false,
             ),
+            ctrlc_handlers: None,
             signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
@@ -268,8 +271,13 @@ impl EngineState {
 
         #[cfg(feature = "plugin")]
         if !delta.plugins.is_empty() {
-            // Replace plugins that overlap in identity.
             for plugin in std::mem::take(&mut delta.plugins) {
+                // Connect plugins to the ctrlc handlers
+                if let Some(handlers) = &self.ctrlc_handlers {
+                    plugin.clone().configure_ctrlc_handler(handlers)?;
+                }
+
+                // Replace plugins that overlap in identity.
                 if let Some(existing) = self
                     .plugins
                     .iter_mut()
@@ -420,13 +428,13 @@ impl EngineState {
             .1
     }
 
-    pub fn render_env_vars(&self) -> HashMap<&String, &Value> {
-        let mut result = HashMap::new();
+    pub fn render_env_vars(&self) -> HashMap<&str, &Value> {
+        let mut result: HashMap<&str, &Value> = HashMap::new();
 
         for overlay_name in self.active_overlay_names(&[]) {
             let name = String::from_utf8_lossy(overlay_name);
             if let Some(env_vars) = self.env_vars.get(name.as_ref()) {
-                result.extend(env_vars);
+                result.extend(env_vars.iter().map(|(k, v)| (k.as_str(), v)));
             }
         }
 
@@ -832,9 +840,9 @@ impl EngineState {
 
     /// Optionally get a block by id, if it exists
     ///
-    /// Prefer to use [`.get_block()`] in most cases - `BlockId`s that don't exist are normally a
-    /// compiler error. This only exists to stop plugins from crashing the engine if they send us
-    /// something invalid.
+    /// Prefer to use [`.get_block()`](Self::get_block) in most cases - `BlockId`s that don't exist
+    /// are normally a compiler error. This only exists to stop plugins from crashing the engine if
+    /// they send us something invalid.
     pub fn try_get_block(&self, block_id: BlockId) -> Option<&Arc<Block>> {
         self.blocks.get(block_id)
     }
@@ -1161,20 +1169,25 @@ mod test_cwd {
         engine::{EngineState, Stack},
         Span, Value,
     };
-    use nu_path::assert_path_eq;
-    use std::path::Path;
+    use nu_path::{assert_path_eq, AbsolutePath, Path};
     use tempfile::{NamedTempFile, TempDir};
 
     /// Creates a symlink. Works on both Unix and Windows.
     #[cfg(any(unix, windows))]
-    fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
+    fn symlink(
+        original: impl AsRef<AbsolutePath>,
+        link: impl AsRef<AbsolutePath>,
+    ) -> std::io::Result<()> {
+        let original = original.as_ref();
+        let link = link.as_ref();
+
         #[cfg(unix)]
         {
             std::os::unix::fs::symlink(original, link)
         }
         #[cfg(windows)]
         {
-            if original.as_ref().is_dir() {
+            if original.is_dir() {
                 std::os::windows::fs::symlink_dir(original, link)
             } else {
                 std::os::windows::fs::symlink_file(original, link)
@@ -1187,10 +1200,7 @@ mod test_cwd {
         let mut engine_state = EngineState::new();
         engine_state.add_env_var(
             "PWD".into(),
-            Value::String {
-                val: path.as_ref().to_string_lossy().to_string(),
-                internal_span: Span::unknown(),
-            },
+            Value::test_string(path.as_ref().to_str().unwrap()),
         );
         engine_state
     }
@@ -1200,10 +1210,7 @@ mod test_cwd {
         let mut stack = Stack::new();
         stack.add_env_var(
             "PWD".into(),
-            Value::String {
-                val: path.as_ref().to_string_lossy().to_string(),
-                internal_span: Span::unknown(),
-            },
+            Value::test_string(path.as_ref().to_str().unwrap()),
         );
         stack
     }
@@ -1281,9 +1288,12 @@ mod test_cwd {
     #[test]
     fn pwd_points_to_symlink_to_file() {
         let file = NamedTempFile::new().unwrap();
+        let temp_file = AbsolutePath::try_new(file.path()).unwrap();
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(file.path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+
+        let link = temp.join("link");
+        symlink(temp_file, &link).unwrap();
         let engine_state = engine_state_with_pwd(&link);
 
         engine_state.cwd(None).unwrap_err();
@@ -1292,8 +1302,10 @@ mod test_cwd {
     #[test]
     fn pwd_points_to_symlink_to_directory() {
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(dir.path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+
+        let link = temp.join("link");
+        symlink(temp, &link).unwrap();
         let engine_state = engine_state_with_pwd(&link);
 
         let cwd = engine_state.cwd(None).unwrap();
@@ -1303,10 +1315,15 @@ mod test_cwd {
     #[test]
     fn pwd_points_to_broken_symlink() {
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(TempDir::new().unwrap().path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+        let other_dir = TempDir::new().unwrap();
+        let other_temp = AbsolutePath::try_new(other_dir.path()).unwrap();
+
+        let link = temp.join("link");
+        symlink(other_temp, &link).unwrap();
         let engine_state = engine_state_with_pwd(&link);
 
+        drop(other_dir);
         engine_state.cwd(None).unwrap_err();
     }
 
@@ -1349,12 +1366,14 @@ mod test_cwd {
 
     #[test]
     fn stack_pwd_points_to_normal_directory_with_symlink_components() {
-        // `/tmp/dir/link` points to `/tmp/dir`, then we set PWD to `/tmp/dir/link/foo`
         let dir = TempDir::new().unwrap();
-        let link = dir.path().join("link");
-        symlink(dir.path(), &link).unwrap();
+        let temp = AbsolutePath::try_new(dir.path()).unwrap();
+
+        // `/tmp/dir/link` points to `/tmp/dir`, then we set PWD to `/tmp/dir/link/foo`
+        let link = temp.join("link");
+        symlink(temp, &link).unwrap();
         let foo = link.join("foo");
-        std::fs::create_dir(dir.path().join("foo")).unwrap();
+        std::fs::create_dir(temp.join("foo")).unwrap();
         let engine_state = EngineState::new();
         let stack = stack_with_pwd(&foo);
 

@@ -72,7 +72,7 @@ pub fn check_example_input_and_output_types_match_command_signature(
     witnessed_type_transformations
 }
 
-fn eval_pipeline_without_terminal_expression(
+pub fn eval_pipeline_without_terminal_expression(
     src: &str,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,

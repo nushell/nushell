@@ -10,11 +10,9 @@ use nu_protocol::{
     levenshtein_distance, Span,
 };
 use nu_utils::get_ls_colors;
-use std::path::{
-    is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR,
-};
+use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
 
-use super::SortBy;
+use super::{MatchAlgorithm, SortBy};
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -22,12 +20,21 @@ pub struct PathBuiltFromString {
     isdir: bool,
 }
 
-fn complete_rec(
+/// Recursively goes through paths that match a given `partial`.
+/// built: State struct for a valid matching path built so far.
+///
+/// `isdir`: whether the current partial path has a trailing slash.
+/// Parsing a path string into a pathbuf loses that bit of information.
+///
+/// want_directory: Whether we want only directories as completion matches.
+/// Some commands like `cd` can only be run on directories whereas others
+/// like `ls` can be run on regular files as well.
+pub fn complete_rec(
     partial: &[&str],
     built: &PathBuiltFromString,
     cwd: &Path,
     options: &CompletionOptions,
-    dir: bool,
+    want_directory: bool,
     isdir: bool,
 ) -> Vec<PathBuiltFromString> {
     let mut completions = vec![];
@@ -37,7 +44,7 @@ fn complete_rec(
             let mut built = built.clone();
             built.parts.push(base.to_string());
             built.isdir = true;
-            return complete_rec(rest, &built, cwd, options, dir, isdir);
+            return complete_rec(rest, &built, cwd, options, want_directory, isdir);
         }
     }
 
@@ -58,7 +65,7 @@ fn complete_rec(
         built.parts.push(entry_name.clone());
         built.isdir = entry_isdir;
 
-        if !dir || entry_isdir {
+        if !want_directory || entry_isdir {
             entries.push((entry_name, built));
         }
     }
@@ -70,11 +77,28 @@ fn complete_rec(
         match partial.split_first() {
             Some((base, rest)) => {
                 if matches(base, &entry_name, options) {
+                    // We use `isdir` to confirm that the current component has
+                    // at least one next component or a slash.
+                    // Serves as confirmation to ignore longer completions for
+                    // components in between.
                     if !rest.is_empty() || isdir {
-                        completions.extend(complete_rec(rest, &built, cwd, options, dir, isdir));
+                        completions.extend(complete_rec(
+                            rest,
+                            &built,
+                            cwd,
+                            options,
+                            want_directory,
+                            isdir,
+                        ));
                     } else {
                         completions.push(built);
                     }
+                }
+                if entry_name.eq(base)
+                    && matches!(options.match_algorithm, MatchAlgorithm::Prefix)
+                    && isdir
+                {
+                    break;
                 }
             }
             None => {
@@ -93,16 +117,16 @@ enum OriginalCwd {
 }
 
 impl OriginalCwd {
-    fn apply(&self, mut p: PathBuiltFromString) -> String {
+    fn apply(&self, mut p: PathBuiltFromString, path_separator: char) -> String {
         match self {
             Self::None => {}
             Self::Home => p.parts.insert(0, "~".to_string()),
             Self::Prefix(s) => p.parts.insert(0, s.clone()),
         };
 
-        let mut ret = p.parts.join(MAIN_SEPARATOR_STR);
+        let mut ret = p.parts.join(&path_separator.to_string());
         if p.isdir {
-            ret.push(SEP);
+            ret.push(path_separator);
         }
         ret
     }
@@ -133,6 +157,14 @@ pub fn complete_item(
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
     let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
+
+    #[cfg(unix)]
+    let path_separator = SEP;
+    #[cfg(windows)]
+    let path_separator = partial
+        .chars()
+        .rfind(|c: &char| is_separator(*c))
+        .unwrap_or(SEP);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
     let ls_colors = (engine_state.config.use_ls_colors_completions
         && engine_state.config.use_ansi_coloring)
@@ -170,7 +202,7 @@ pub fn complete_item(
         }
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
             components.next();
-            cwd = home_dir().unwrap_or(cwd_pathbuf);
+            cwd = home_dir().map(Into::into).unwrap_or(cwd_pathbuf);
             prefix_len = 1;
             original_cwd = OriginalCwd::Home;
         }
@@ -195,7 +227,7 @@ pub fn complete_item(
     )
     .into_iter()
     .map(|p| {
-        let path = original_cwd.apply(p);
+        let path = original_cwd.apply(p, path_separator);
         let style = ls_colors.as_ref().map(|lsc| {
             lsc.style_for_path_with_metadata(
                 &path,

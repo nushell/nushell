@@ -1,5 +1,5 @@
 use nu_test_support::nu;
-use uuid_crate::Uuid;
+use uuid::Uuid;
 
 #[test]
 fn generates_valid_uuid4() {

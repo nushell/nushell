@@ -1,4 +1,4 @@
-use nu_engine::documentation::get_flags_section;
+use nu_engine::documentation::{get_flags_section, HelpStyle};
 use nu_protocol::{engine::EngineState, levenshtein_distance, Config};
 use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
@@ -19,6 +19,9 @@ impl NuHelpCompleter {
 
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<Suggestion> {
         let folded_line = line.to_folded_case();
+
+        let mut help_style = HelpStyle::default();
+        help_style.update_from_config(&self.engine_state, &self.config);
 
         let mut commands = self
             .engine_state
@@ -60,12 +63,9 @@ impl NuHelpCompleter {
                 let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
 
                 if !sig.named.is_empty() {
-                    long_desc.push_str(&get_flags_section(
-                        Some(&self.engine_state),
-                        Some(&self.config),
-                        &sig,
-                        |v| v.to_parsable_string(", ", &self.config),
-                    ))
+                    long_desc.push_str(&get_flags_section(&sig, &help_style, |v| {
+                        v.to_parsable_string(", ", &self.config)
+                    }))
                 }
 
                 if !sig.required_positional.is_empty()
@@ -110,13 +110,12 @@ impl NuHelpCompleter {
                 Suggestion {
                     value: decl.name().into(),
                     description: Some(long_desc),
-                    style: None,
                     extra: Some(extra),
                     span: reedline::Span {
                         start: pos - line.len(),
                         end: pos,
                     },
-                    append_whitespace: false,
+                    ..Suggestion::default()
                 }
             })
             .collect()

@@ -467,13 +467,12 @@ impl Signature {
     /// Checks if short or long are already present
     /// Panics if one of them is found
     fn check_names(&self, name: impl Into<String>, short: Option<char>) -> (String, Option<char>) {
-        let s = short.map(|c| {
+        let s = short.inspect(|c| {
             assert!(
-                !self.get_shorts().contains(&c),
+                !self.get_shorts().contains(c),
                 "There may be duplicate short flags for '-{}'",
                 c
             );
-            c
         });
 
         let name = {

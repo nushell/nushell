@@ -196,10 +196,43 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
     let mut last_token = TokenContents::Eol;
     let mut file_redirection = None;
     let mut curr_comment: Option<Vec<Span>> = None;
+    let mut is_assignment = false;
     let mut error = None;
 
     for (idx, token) in tokens.iter().enumerate() {
-        if let Some((source, append, span)) = file_redirection.take() {
+        if is_assignment {
+            match &token.contents {
+                // Consume until semicolon or terminating EOL. Assignments absorb pipelines and
+                // redirections.
+                TokenContents::Eol => {
+                    // Handle `[Command] [Pipe] ([Comment] | [Eol])+ [Command]`
+                    //
+                    // `[Eol]` branch checks if previous token is `[Pipe]` to construct pipeline
+                    // and so `[Comment] | [Eol]` should be ignore to make it work
+                    let actual_token = last_non_comment_token(tokens, idx);
+                    if actual_token != Some(TokenContents::Pipe) {
+                        is_assignment = false;
+                        pipeline.push(&mut command);
+                        block.push(&mut pipeline);
+                    }
+
+                    if last_token == TokenContents::Eol {
+                        // Clear out the comment as we're entering a new comment
+                        curr_comment = None;
+                    }
+                }
+                TokenContents::Semicolon => {
+                    is_assignment = false;
+                    pipeline.push(&mut command);
+                    block.push(&mut pipeline);
+                }
+                TokenContents::Comment => {
+                    command.comments.push(token.span);
+                    curr_comment = None;
+                }
+                _ => command.push(token.span),
+            }
+        } else if let Some((source, append, span)) = file_redirection.take() {
             match &token.contents {
                 TokenContents::PipePipe => {
                     error = error.or(Some(ParseError::ShellOrOr(token.span)));
@@ -217,6 +250,11 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                         command.push(span);
                         command.push(token.span)
                     }
+                }
+                TokenContents::AssignmentOperator => {
+                    error = error.or(Some(ParseError::Expected("redirection target", token.span)));
+                    command.push(span);
+                    command.push(token.span);
                 }
                 TokenContents::OutGreaterThan
                 | TokenContents::OutGreaterGreaterThan
@@ -275,6 +313,15 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                     // For example, this is currently allowed: ^echo thing o> out.txt extra_arg
 
                     // If we have a comment, go ahead and attach it
+                    if let Some(curr_comment) = curr_comment.take() {
+                        command.comments = curr_comment;
+                    }
+                    command.push(token.span);
+                }
+                TokenContents::AssignmentOperator => {
+                    // When in assignment mode, we'll just consume pipes or redirections as part of
+                    // the command.
+                    is_assignment = true;
                     if let Some(curr_comment) = curr_comment.take() {
                         command.comments = curr_comment;
                     }
