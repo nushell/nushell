@@ -581,6 +581,24 @@ mod tests {
     }
 
     #[test]
+    fn takes_int_with_formatstring() {
+        let date_int = Value::test_int(1_614_434_140);
+        let fmt_options = Some(DatetimeFormat("%s".to_string()));
+        let args = Arguments {
+            zone_options: None,
+            format_options: fmt_options,
+            cell_paths: None,
+        };
+        let actual = action(&date_int, &args, Span::test_data());
+        let expected = Value::date(
+            DateTime::parse_from_str("2021-02-27 21:55:40 +08:00", "%Y-%m-%d %H:%M:%S %z").unwrap(),
+            Span::test_data(),
+        );
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
     fn takes_timestamp() {
         let date_str = Value::test_string("1614434140000000000");
         let timezone_option = Some(Spanned {
