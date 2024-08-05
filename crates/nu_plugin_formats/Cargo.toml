@@ -16,6 +16,8 @@ indexmap = { workspace = true }
 eml-parser = "0.1"
 ical = "0.11"
 rust-ini = "0.21.0"
+plist = "1.7"
+chrono = "0.4"
 
 [dev-dependencies]
 nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.96.2" }
