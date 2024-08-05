@@ -3,8 +3,8 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
-    record, Category, Config, Example, IntoPipelineData, PipelineData, Signature, Span, SpanId,
-    Spanned, SyntaxShape, Type, Value,
+    record, Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature,
+    Span, SpanId, Spanned, SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
 use terminal_size::{Height, Width};
@@ -72,7 +72,6 @@ fn get_documentation(
     help_style.update_from_config(engine_state, &nu_config);
     let help_section_name = &help_style.section_name;
     let help_subcolor_one = &help_style.subcolor_one;
-    let help_subcolor_two = &help_style.subcolor_two;
 
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
@@ -143,69 +142,37 @@ fn get_documentation(
     {
         let _ = write!(long_desc, "\n{help_section_name}Parameters{RESET}:\n");
         for positional in &sig.required_positional {
-            let text = match &positional.shape {
-                SyntaxShape::Keyword(kw, shape) => {
-                    format!(
-                        "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {}",
-                        String::from_utf8_lossy(kw),
-                        document_shape(shape),
-                        positional.desc
-                    )
-                }
-                _ => {
-                    format!(
-                        "  {help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}",
-                        positional.name,
-                        document_shape(&positional.shape),
-                        positional.desc
-                    )
-                }
-            };
-            let _ = writeln!(long_desc, "{text}");
+            write_positional(
+                &mut long_desc,
+                positional,
+                PositionalKind::Required,
+                &help_style,
+                &nu_config,
+                engine_state,
+                stack,
+            );
         }
         for positional in &sig.optional_positional {
-            let text = match &positional.shape {
-                SyntaxShape::Keyword(kw, shape) => {
-                    format!(
-                        "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {} (optional)",
-                        String::from_utf8_lossy(kw),
-                        document_shape(shape),
-                        positional.desc
-                    )
-                }
-                _ => {
-                    let opt_suffix = if let Some(value) = &positional.default_value {
-                        format!(
-                            " (optional, default: {})",
-                            nu_highlight_string(
-                                &value.to_parsable_string(", ", &nu_config),
-                                engine_state,
-                                stack
-                            )
-                        )
-                    } else {
-                        (" (optional)").to_string()
-                    };
-
-                    format!(
-                        "  {help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}{}",
-                        positional.name,
-                        document_shape(&positional.shape),
-                        positional.desc,
-                        opt_suffix,
-                    )
-                }
-            };
-            let _ = writeln!(long_desc, "{text}");
+            write_positional(
+                &mut long_desc,
+                positional,
+                PositionalKind::Optional,
+                &help_style,
+                &nu_config,
+                engine_state,
+                stack,
+            );
         }
 
         if let Some(rest_positional) = &sig.rest_positional {
-            let _ = writeln!(
-                long_desc,
-                "  ...{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}",
-                rest_positional.name,
-                document_shape(&rest_positional.shape),
-                rest_positional.desc
+            write_positional(
+                &mut long_desc,
+                rest_positional,
+                PositionalKind::Rest,
+                &help_style,
+                &nu_config,
+                engine_state,
+                stack,
             );
         }
     }
@@ -500,6 +467,69 @@ fn document_shape(shape: &SyntaxShape) -> &SyntaxShape {
         SyntaxShape::CompleterWrapper(inner_shape, _) => inner_shape,
         _ => shape,
     }
+}
+
+#[derive(PartialEq)]
+enum PositionalKind {
+    Required,
+    Optional,
+    Rest,
+}
+
+fn write_positional(
+    long_desc: &mut String,
+    positional: &PositionalArg,
+    arg_kind: PositionalKind,
+    help_style: &HelpStyle,
+    nu_config: &Config,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) {
+    let help_subcolor_one = &help_style.subcolor_one;
+    let help_subcolor_two = &help_style.subcolor_two;
+
+    // Indentation
+    long_desc.push_str("  ");
+    if arg_kind == PositionalKind::Rest {
+        long_desc.push_str("...");
+    }
+    match &positional.shape {
+        SyntaxShape::Keyword(kw, shape) => {
+            let _ = write!(
+                long_desc,
+                "{help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>",
+                String::from_utf8_lossy(kw),
+                document_shape(shape),
+            );
+        }
+        _ => {
+            let _ = write!(
+                long_desc,
+                "{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>",
+                positional.name,
+                document_shape(&positional.shape),
+            );
+        }
+    };
+    if !positional.desc.is_empty() || arg_kind == PositionalKind::Optional {
+        let _ = write!(long_desc, ": {}", positional.desc);
+    }
+    if arg_kind == PositionalKind::Optional {
+        if let Some(value) = &positional.default_value {
+            let _ = write!(
+                long_desc,
+                " (optional, default: {})",
+                nu_highlight_string(
+                    &value.to_parsable_string(", ", nu_config),
+                    engine_state,
+                    stack
+                )
+            );
+        } else {
+            long_desc.push_str(" (optional)");
+        };
+    }
+    long_desc.push('\n');
 }
 
 pub fn get_flags_section<F>(
