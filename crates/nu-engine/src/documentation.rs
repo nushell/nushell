@@ -517,93 +517,38 @@ where
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
     for flag in &signature.named {
-        let default_str = if let Some(value) = &flag.default_value {
-            format!(
+        // Indentation
+        long_desc.push_str("  ");
+        // Short flag shown before long flag
+        if let Some(short) = flag.short {
+            let _ = write!(long_desc, "{help_subcolor_one}-{}{RESET}", short);
+            if !flag.long.is_empty() {
+                let _ = write!(long_desc, "{DEFAULT_COLOR},{RESET} ");
+            }
+        }
+        if !flag.long.is_empty() {
+            let _ = write!(long_desc, "{help_subcolor_one}--{}{RESET}", flag.long);
+        }
+        if flag.required {
+            long_desc.push_str(" (required parameter)")
+        }
+        // Type/Syntax shape info
+        if let Some(arg) = &flag.arg {
+            let _ = write!(
+                long_desc,
+                " <{help_subcolor_two}{}{RESET}>",
+                document_shape(arg)
+            );
+        }
+        let _ = write!(long_desc, " - {}", flag.desc);
+        if let Some(value) = &flag.default_value {
+            let _ = write!(
+                long_desc,
                 " (default: {help_subcolor_two}{}{RESET})",
                 &value_formatter(value)
-            )
-        } else {
-            "".to_string()
-        };
-
-        let msg = if let Some(arg) = &flag.arg {
-            if let Some(short) = flag.short {
-                if flag.required {
-                    format!(
-                        "  {help_subcolor_one}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
-                        short,
-                        if !flag.long.is_empty() {
-                            format!("{DEFAULT_COLOR},{RESET} {help_subcolor_one}--{}", flag.long)
-                        } else {
-                            "".into()
-                        },
-                        arg,
-                        flag.desc,
-                        default_str,
-                    )
-                } else {
-                    format!(
-                        "  {help_subcolor_one}-{}{}{RESET} <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
-                        short,
-                        if !flag.long.is_empty() {
-                            format!("{DEFAULT_COLOR},{RESET} {help_subcolor_one}--{}", flag.long)
-                        } else {
-                            "".into()
-                        },
-                        arg,
-                        flag.desc,
-                        default_str,
-                    )
-                }
-            } else if flag.required {
-                format!(
-                    "  {help_subcolor_one}--{}{RESET} (required parameter) <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
-                    flag.long, arg, flag.desc, default_str,
-                )
-            } else {
-                format!(
-                    "  {help_subcolor_one}--{}{RESET} <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
-                    flag.long, arg, flag.desc, default_str,
-                )
-            }
-        } else if let Some(short) = flag.short {
-            if flag.required {
-                format!(
-                    "  {help_subcolor_one}-{}{}{RESET} (required parameter) - {}{}\n",
-                    short,
-                    if !flag.long.is_empty() {
-                        format!("{DEFAULT_COLOR},{RESET} {help_subcolor_one}--{}", flag.long)
-                    } else {
-                        "".into()
-                    },
-                    flag.desc,
-                    default_str,
-                )
-            } else {
-                format!(
-                    "  {help_subcolor_one}-{}{}{RESET} - {}{}\n",
-                    short,
-                    if !flag.long.is_empty() {
-                        format!("{DEFAULT_COLOR},{RESET} {help_subcolor_one}--{}", flag.long)
-                    } else {
-                        "".into()
-                    },
-                    flag.desc,
-                    default_str
-                )
-            }
-        } else if flag.required {
-            format!(
-                "  {help_subcolor_one}--{}{RESET} (required parameter) - {}{}\n",
-                flag.long, flag.desc, default_str,
-            )
-        } else {
-            format!(
-                "  {help_subcolor_one}--{}{RESET} - {}\n",
-                flag.long, flag.desc
-            )
-        };
-        long_desc.push_str(&msg);
+            );
+        }
+        long_desc.push('\n');
     }
     long_desc
 }
