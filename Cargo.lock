@@ -605,7 +605,7 @@ dependencies = [
  "encoding_rs",
  "log",
  "once_cell",
- "quick-xml",
+ "quick-xml 0.31.0",
  "serde",
  "zip",
 ]
@@ -3094,7 +3094,7 @@ dependencies = [
  "pretty_assertions",
  "print-positions",
  "procfs",
- "quick-xml",
+ "quick-xml 0.31.0",
  "quickcheck",
  "quickcheck_macros",
  "rand",
@@ -3475,12 +3475,14 @@ dependencies = [
 name = "nu_plugin_formats"
 version = "0.96.2"
 dependencies = [
+ "chrono",
  "eml-parser",
  "ical",
  "indexmap",
  "nu-plugin",
  "nu-plugin-test-support",
  "nu-protocol",
+ "plist",
  "rust-ini",
 ]
 
@@ -4148,6 +4150,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "plist"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42cf17e9a1800f5f396bc67d193dc9411b59012a5876445ef450d449881e1016"
+dependencies = [
+ "base64 0.22.1",
+ "indexmap",
+ "quick-xml 0.32.0",
+ "serde",
+ "time",
+]
+
+[[package]]
 name = "polars"
 version = "0.41.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4812,6 +4827,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1004a344b30a54e2ee58d66a71b32d2db2feb0a31f9a2d302bf0536f15de2a33"
 dependencies = [
  "encoding_rs",
+ "memchr",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d3a6e5838b60e0e8fa7a43f22ade549a37d61f8bdbe636d0d7816191de969c2"
+dependencies = [
  "memchr",
 ]
 
@@ -6872,7 +6896,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63b3a62929287001986fb58c789dce9b67604a397c15c611ad9f747300b6c283"
 dependencies = [
  "proc-macro2",
- "quick-xml",
+ "quick-xml 0.31.0",
  "quote",
 ]
 
