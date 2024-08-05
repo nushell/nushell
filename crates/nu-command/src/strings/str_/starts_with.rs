@@ -70,7 +70,7 @@ impl Command for SubCommand {
             cell_paths,
             case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
         };
-        operate(action, args, input, call.head, engine_state.ctrlc.clone())
+        operate(action, args, input, call.head, engine_state.signals())
     }
 
     fn run_const(
@@ -92,7 +92,7 @@ impl Command for SubCommand {
             args,
             input,
             call.head,
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 

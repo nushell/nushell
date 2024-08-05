@@ -96,7 +96,7 @@ where
             }
         } else {
             let args = Arguments { binary, cell_paths };
-            operate(action::<D>, args, input, head, engine_state.ctrlc.clone())
+            operate(action::<D>, args, input, head, engine_state.signals())
         }
     }
 }

@@ -17,8 +17,7 @@ pub use str_::*;
 
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{Call, EngineState, Stack, StateWorkingSet},
     ShellError,
 };
 

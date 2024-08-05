@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 use log::trace;
 use nu_engine::eval_block;
 use nu_parser::parse;

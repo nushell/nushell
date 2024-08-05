@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, env::get_config, find_in_dirs_env, get_dirs_var_from_call};
+use nu_engine::{command_prelude::*, find_in_dirs_env, get_dirs_var_from_call};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
 use nu_protocol::engine::{FileStack, StateWorkingSet};
 use std::path::Path;
@@ -59,7 +59,7 @@ impl Command for NuCheck {
                 }
             }
             PipelineData::ListStream(stream, ..) => {
-                let config = get_config(engine_state, stack);
+                let config = stack.get_config(engine_state);
                 let list_stream = stream.into_string("\n", &config);
                 let contents = Vec::from(list_stream);
 
@@ -87,7 +87,7 @@ impl Command for NuCheck {
                         &path_str.item,
                         engine_state,
                         stack,
-                        get_dirs_var_from_call(call),
+                        get_dirs_var_from_call(stack, call),
                     ) {
                         Ok(path) => {
                             if let Some(path) = path {

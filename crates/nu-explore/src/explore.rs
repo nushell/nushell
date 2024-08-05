@@ -63,11 +63,10 @@ impl Command for Explore {
         let tail: bool = call.has_flag(engine_state, stack, "tail")?;
         let peek_value: bool = call.has_flag(engine_state, stack, "peek")?;
 
-        let ctrlc = engine_state.ctrlc.clone();
-        let nu_config = engine_state.get_config();
+        let nu_config = stack.get_config(engine_state);
         let style_computer = StyleComputer::from_config(engine_state, stack);
 
-        let mut explore_config = ExploreConfig::from_nu_config(nu_config);
+        let mut explore_config = ExploreConfig::from_nu_config(&nu_config);
         explore_config.table.show_header = show_head;
         explore_config.table.show_index = show_index;
         explore_config.table.separator_style = lookup_color(&style_computer, "separator");
@@ -75,7 +74,7 @@ impl Command for Explore {
         let lscolors = create_lscolors(engine_state, stack);
 
         let config = PagerConfig::new(
-            nu_config,
+            &nu_config,
             &explore_config,
             &style_computer,
             &lscolors,
@@ -83,7 +82,7 @@ impl Command for Explore {
             tail,
         );
 
-        let result = run_pager(engine_state, &mut stack.clone(), ctrlc, input, config);
+        let result = run_pager(engine_state, &mut stack.clone(), input, config);
 
         match result {
             Ok(Some(value)) => Ok(PipelineData::Value(value, None)),

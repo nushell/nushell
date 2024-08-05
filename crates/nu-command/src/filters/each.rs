@@ -132,15 +132,13 @@ with 'transpose' first."#
                             Ok(data) => Some(data.into_value(head).unwrap_or_else(|err| {
                                 Value::error(chain_error_with_input(err, is_error, span), span)
                             })),
-                            Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
-                            Err(ShellError::Break { .. }) => None,
                             Err(error) => {
                                 let error = chain_error_with_input(error, is_error, span);
                                 Some(Value::error(error, span))
                             }
                         }
                     })
-                    .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                    .into_pipeline_data(head, engine_state.signals().clone()))
             }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
@@ -149,10 +147,6 @@ with 'transpose' first."#
                         .map_while(move |value| {
                             let value = match value {
                                 Ok(value) => value,
-                                Err(ShellError::Continue { span }) => {
-                                    return Some(Value::nothing(span))
-                                }
-                                Err(ShellError::Break { .. }) => return None,
                                 Err(err) => return Some(Value::error(err, head)),
                             };
 
@@ -163,15 +157,13 @@ with 'transpose' first."#
                                 .and_then(|data| data.into_value(head))
                             {
                                 Ok(value) => Some(value),
-                                Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
-                                Err(ShellError::Break { .. }) => None,
                                 Err(error) => {
                                     let error = chain_error_with_input(error, is_error, span);
                                     Some(Value::error(error, span))
                                 }
                             }
                         })
-                        .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                        .into_pipeline_data(head, engine_state.signals().clone()))
                 } else {
                     Ok(PipelineData::Empty)
                 }
@@ -185,7 +177,7 @@ with 'transpose' first."#
         .and_then(|x| {
             x.filter(
                 move |x| if !keep_empty { !x.is_nothing() } else { true },
-                engine_state.ctrlc.clone(),
+                engine_state.signals(),
             )
         })
         .map(|data| data.set_metadata(metadata))

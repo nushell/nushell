@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 
 use std::io::Write;
 
@@ -88,30 +89,35 @@ fn run(
     let mut iter = input.into_iter();
     let mut first = true;
 
-    let output = ByteStream::from_fn(span, None, ByteStreamType::String, move |buffer| {
-        // Write each input to the buffer
-        if let Some(value) = iter.next() {
-            // Write the separator if this is not the first
-            if first {
-                first = false;
-            } else if let Some(separator) = &separator {
-                write!(buffer, "{}", separator)?;
-            }
-
-            match value {
-                Value::Error { error, .. } => {
-                    return Err(*error);
+    let output = ByteStream::from_fn(
+        span,
+        Signals::empty(),
+        ByteStreamType::String,
+        move |buffer| {
+            // Write each input to the buffer
+            if let Some(value) = iter.next() {
+                // Write the separator if this is not the first
+                if first {
+                    first = false;
+                } else if let Some(separator) = &separator {
+                    write!(buffer, "{}", separator)?;
                 }
-                // Hmm, not sure what we actually want.
-                // `to_expanded_string` formats dates as human readable which feels funny.
-                Value::Date { val, .. } => write!(buffer, "{val:?}")?,
-                value => write!(buffer, "{}", value.to_expanded_string("\n", &config))?,
+
+                match value {
+                    Value::Error { error, .. } => {
+                        return Err(*error);
+                    }
+                    // Hmm, not sure what we actually want.
+                    // `to_expanded_string` formats dates as human readable which feels funny.
+                    Value::Date { val, .. } => write!(buffer, "{val:?}")?,
+                    value => write!(buffer, "{}", value.to_expanded_string("\n", &config))?,
+                }
+                Ok(true)
+            } else {
+                Ok(false)
             }
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    });
+        },
+    );
 
     Ok(PipelineData::ByteStream(output, metadata))
 }

@@ -29,6 +29,10 @@ impl Command for SubCommand {
         vec!["square", "root"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -41,9 +45,23 @@ impl Command for SubCommand {
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
+        input.map(move |value| operate(value, head), engine_state.signals())
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
         input.map(
             move |value| operate(value, head),
-            engine_state.ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 

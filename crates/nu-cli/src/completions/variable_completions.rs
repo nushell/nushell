@@ -85,11 +85,8 @@ impl Completer for VariableCompletion {
                             output.push(SemanticSuggestion {
                                 suggestion: Suggestion {
                                     value: env_var.0,
-                                    description: None,
-                                    style: None,
-                                    extra: None,
                                     span: current_span,
-                                    append_whitespace: false,
+                                    ..Suggestion::default()
                                 },
                                 kind: Some(SuggestionKind::Type(env_var.1.get_type())),
                             });
@@ -157,11 +154,8 @@ impl Completer for VariableCompletion {
                 output.push(SemanticSuggestion {
                     suggestion: Suggestion {
                         value: builtin.to_string(),
-                        description: None,
-                        style: None,
-                        extra: None,
                         span: current_span,
-                        append_whitespace: false,
+                        ..Suggestion::default()
                     },
                     // TODO is there a way to get the VarId to get the type???
                     kind: None,
@@ -184,11 +178,8 @@ impl Completer for VariableCompletion {
                         output.push(SemanticSuggestion {
                             suggestion: Suggestion {
                                 value: String::from_utf8_lossy(v.0).to_string(),
-                                description: None,
-                                style: None,
-                                extra: None,
                                 span: current_span,
-                                append_whitespace: false,
+                                ..Suggestion::default()
                             },
                             kind: Some(SuggestionKind::Type(
                                 working_set.get_variable(*v.1).ty.clone(),
@@ -215,11 +206,8 @@ impl Completer for VariableCompletion {
                     output.push(SemanticSuggestion {
                         suggestion: Suggestion {
                             value: String::from_utf8_lossy(v.0).to_string(),
-                            description: None,
-                            style: None,
-                            extra: None,
                             span: current_span,
-                            append_whitespace: false,
+                            ..Suggestion::default()
                         },
                         kind: Some(SuggestionKind::Type(
                             working_set.get_variable(*v.1).ty.clone(),
@@ -255,11 +243,8 @@ fn nested_suggestions(
                 output.push(SemanticSuggestion {
                     suggestion: Suggestion {
                         value: col.clone(),
-                        description: None,
-                        style: None,
-                        extra: None,
                         span: current_span,
-                        append_whitespace: false,
+                        ..Suggestion::default()
                     },
                     kind: Some(kind.clone()),
                 });
@@ -272,11 +257,8 @@ fn nested_suggestions(
                 output.push(SemanticSuggestion {
                     suggestion: Suggestion {
                         value: column_name,
-                        description: None,
-                        style: None,
-                        extra: None,
                         span: current_span,
-                        append_whitespace: false,
+                        ..Suggestion::default()
                     },
                     kind: Some(kind.clone()),
                 });

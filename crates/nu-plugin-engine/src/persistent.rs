@@ -6,7 +6,7 @@ use crate::{
 use super::{PluginInterface, PluginSource};
 use nu_plugin_core::CommunicationMode;
 use nu_protocol::{
-    engine::{EngineState, Stack},
+    engine::{ctrlc, EngineState, Stack},
     PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin, ShellError,
 };
 use std::{
@@ -37,6 +37,8 @@ struct MutableState {
     preferred_mode: Option<PreferredCommunicationMode>,
     /// Garbage collector config
     gc_config: PluginGcConfig,
+    /// RAII guard for this plugin's ctrl-c handler
+    ctrlc_guard: Option<ctrlc::Guard>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -64,6 +66,7 @@ impl PersistentPlugin {
                 metadata: None,
                 preferred_mode: None,
                 gc_config,
+                ctrlc_guard: None,
             }),
         }
     }
@@ -298,6 +301,34 @@ impl RegisteredPlugin for PersistentPlugin {
 
     fn as_any(self: Arc<Self>) -> Arc<dyn std::any::Any + Send + Sync> {
         self
+    }
+
+    fn configure_ctrlc_handler(
+        self: Arc<Self>,
+        handlers: &ctrlc::Handlers,
+    ) -> Result<(), ShellError> {
+        let guard = {
+            // We take a weakref to the plugin so that we don't create a cycle to the
+            // RAII guard that will be stored on the plugin.
+            let plugin = Arc::downgrade(&self);
+            handlers.register(Box::new(move || {
+                // write a Ctrl-C packet through the PluginInterface if the plugin is alive and
+                // running
+                if let Some(plugin) = plugin.upgrade() {
+                    if let Ok(mutable) = plugin.mutable.lock() {
+                        if let Some(ref running) = mutable.running {
+                            let _ = running.interface.ctrlc();
+                        }
+                    }
+                }
+            }))?
+        };
+
+        if let Ok(mut mutable) = self.mutable.lock() {
+            mutable.ctrlc_guard = Some(guard);
+        }
+
+        Ok(())
     }
 }
 

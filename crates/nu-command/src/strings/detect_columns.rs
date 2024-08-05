@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
-use nu_protocol::Range;
-use std::{io::Cursor, iter::Peekable, str::CharIndices};
+use nu_protocol::{Config, Range};
+use std::{io::Cursor, iter::Peekable, str::CharIndices, sync::Arc};
 
 type Input<'t> = Peekable<CharIndices<'t>>;
 
@@ -110,11 +110,13 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
         let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
         let noheader = call.has_flag(engine_state, stack, "no-headers")?;
         let range: Option<Range> = call.get_flag(engine_state, stack, "combine-columns")?;
+        let config = stack.get_config(engine_state);
 
         let args = Arguments {
             noheader,
             num_rows_to_skip,
             range,
+            config,
         };
 
         if call.has_flag(engine_state, stack, "guess")? {
@@ -133,11 +135,13 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
         let num_rows_to_skip: Option<usize> = call.get_flag_const(working_set, "skip")?;
         let noheader = call.has_flag_const(working_set, "no-headers")?;
         let range: Option<Range> = call.get_flag_const(working_set, "combine-columns")?;
+        let config = working_set.get_config().clone();
 
         let args = Arguments {
             noheader,
             num_rows_to_skip,
             range,
+            config,
         };
 
         if call.has_flag_const(working_set, "guess")? {
@@ -152,6 +156,7 @@ struct Arguments {
     num_rows_to_skip: Option<usize>,
     noheader: bool,
     range: Option<Range>,
+    config: Arc<Config>,
 }
 
 fn guess_width(
@@ -163,7 +168,7 @@ fn guess_width(
     use super::guess_width::GuessWidth;
     let input_span = input.span().unwrap_or(call.head);
 
-    let mut input = input.collect_string("", engine_state.get_config())?;
+    let mut input = input.collect_string("", &args.config)?;
     if let Some(rows) = args.num_rows_to_skip {
         input = input.lines().skip(rows).map(|x| x.to_string()).join("\n");
     }
@@ -199,7 +204,7 @@ fn guess_width(
                     Err(e) => Value::error(e, input_span),
                 }
             })
-            .into_pipeline_data(input_span, engine_state.ctrlc.clone()))
+            .into_pipeline_data(input_span, engine_state.signals().clone()))
     } else {
         let length = result[0].len();
         let columns: Vec<String> = (0..length).map(|n| format!("column{n}")).collect();
@@ -224,7 +229,7 @@ fn guess_width(
                     Err(e) => Value::error(e, input_span),
                 }
             })
-            .into_pipeline_data(input_span, engine_state.ctrlc.clone()))
+            .into_pipeline_data(input_span, engine_state.signals().clone()))
     }
 }
 
@@ -235,9 +240,7 @@ fn detect_columns(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
-    let ctrlc = engine_state.ctrlc.clone();
-    let config = engine_state.get_config();
-    let input = input.collect_string("", config)?;
+    let input = input.collect_string("", &args.config)?;
 
     let input: Vec<_> = input
         .lines()
@@ -316,7 +319,7 @@ fn detect_columns(
                     None => Value::record(record, name_span),
                 }
             })
-            .into_pipeline_data(call.head, ctrlc))
+            .into_pipeline_data(call.head, engine_state.signals().clone()))
     } else {
         Ok(PipelineData::empty())
     }

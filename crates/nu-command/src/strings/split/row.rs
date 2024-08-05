@@ -170,7 +170,7 @@ fn split_row(
     })?;
     input.flat_map(
         move |x| split_row_helper(&x, &regex, args.max_split, name_span),
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 

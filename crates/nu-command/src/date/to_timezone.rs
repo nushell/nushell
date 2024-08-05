@@ -55,7 +55,7 @@ impl Command for SubCommand {
         }
         input.map(
             move |value| helper(value, head, &timezone),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 

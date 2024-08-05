@@ -77,7 +77,7 @@ fn user_home_dir(username: &str) -> PathBuf {
 fn user_home_dir(username: &str) -> PathBuf {
     use std::path::Component;
 
-    match dirs_next::home_dir() {
+    match dirs::home_dir() {
         None => {
             // Termux always has the same home directory
             #[cfg(target_os = "android")]
@@ -121,7 +121,7 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
     return match path.to_str() {
         Some(file_path) => {
             let mut file = file_path.to_string();
-            match file_path.find(|c| c == '/' || c == '\\') {
+            match file_path.find(['/', '\\']) {
                 None => {
                     file.remove(0);
                     user_home_dir(&file)
@@ -145,7 +145,7 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
 /// Expand tilde ("~") into a home directory if it is the first path component
 pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
     // TODO: Extend this to work with "~user" style of home paths
-    expand_tilde_with_home(path, dirs_next::home_dir())
+    expand_tilde_with_home(path, dirs::home_dir())
 }
 
 #[cfg(test)]

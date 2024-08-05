@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 use nu_protocol::{into_code, Config};
@@ -7,7 +9,7 @@ use num_format::ToFormattedString;
 struct Arguments {
     decimals_value: Option<i64>,
     cell_paths: Option<Vec<CellPath>>,
-    config: Config,
+    config: Arc<Config>,
 }
 
 impl CmdArgument for Arguments {
@@ -174,13 +176,13 @@ fn string_helper(
             })
         }
     } else {
-        let config = engine_state.get_config().clone();
+        let config = stack.get_config(engine_state);
         let args = Arguments {
             decimals_value,
             cell_paths,
             config,
         };
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, engine_state.signals())
     }
 }
 

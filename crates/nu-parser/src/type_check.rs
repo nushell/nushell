@@ -1055,7 +1055,11 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
                     .span
             };
 
-            output_errors.push(ParseError::OutputMismatch(output_type.clone(), span))
+            output_errors.push(ParseError::OutputMismatch(
+                output_type.clone(),
+                current_output_type.clone(),
+                span,
+            ))
         }
     }
 

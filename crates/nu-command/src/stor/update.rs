@@ -1,5 +1,6 @@
 use crate::database::{SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 
 #[derive(Clone)]
 pub struct StorUpdate;
@@ -79,7 +80,10 @@ impl Command for StorUpdate {
             call.get_flag(engine_state, stack, "where-clause")?;
 
         // Open the in-mem database
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
 
         // Check if the record is being passed as input or using the update record parameter
         let columns = handle(span, update_record, input)?;

@@ -135,12 +135,9 @@ fn rm(
     let home: Option<String> = nu_path::home_dir().map(|path| {
         {
             if path.exists() {
-                match nu_path::canonicalize_with(&path, &currentdir_path) {
-                    Ok(canon_path) => canon_path,
-                    Err(_) => path,
-                }
+                nu_path::canonicalize_with(&path, &currentdir_path).unwrap_or(path.into())
             } else {
-                path
+                path.into()
             }
         }
         .to_string_lossy()
@@ -170,7 +167,7 @@ fn rm(
     }
 
     let span = call.head;
-    let rm_always_trash = engine_state.get_config().rm_always_trash;
+    let rm_always_trash = stack.get_config(engine_state).rm_always_trash;
 
     if !TRASH_SUPPORTED {
         if rm_always_trash {
@@ -451,12 +448,7 @@ fn rm(
     });
 
     for result in iter {
-        if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-            return Err(ShellError::InterruptedByUser {
-                span: Some(call.head),
-            });
-        }
-
+        engine_state.signals().check(call.head)?;
         match result {
             Ok(None) => {}
             Ok(Some(msg)) => eprintln!("{msg}"),

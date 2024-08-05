@@ -1,13 +1,19 @@
 use crate::{
-    ast::{Call, Expression},
-    engine::{Command, CommandType, EngineState, Stack},
+    ast::Expression,
+    engine::{Call, Command, CommandType, EngineState, Stack},
     PipelineData, ShellError, Signature,
 };
 
+/// Command wrapper of an alias.
+///
+/// Our current aliases are implemented as wrapping commands
+/// This has some limitations compared to text-substitution macro aliases but can reliably use more
+/// of our machinery
 #[derive(Clone)]
 pub struct Alias {
     pub name: String,
-    pub command: Option<Box<dyn Command>>, // None if external call
+    /// Wrapped inner [`Command`]. `None` if alias of external call
+    pub command: Option<Box<dyn Command>>,
     pub wrapped_call: Expression,
     pub usage: String,
     pub extra_usage: String,

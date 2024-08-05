@@ -40,11 +40,15 @@ struct Settings {
 }
 
 impl BinaryView {
-    pub fn new(data: Vec<u8>) -> Self {
+    pub fn new(data: Vec<u8>, cfg: &ExploreConfig) -> Self {
+        let settings = settings_from_config(cfg);
+        // There's gotta be a nicer way of doing this than creating a widget just to count lines
+        let count_rows = BinaryWidget::new(&data, settings.opts, Default::default()).count_lines();
+
         Self {
             data,
-            cursor: WindowCursor2D::default(),
-            settings: Settings::default(),
+            cursor: WindowCursor2D::new(count_rows, 1).expect("Failed to create XYCursor"),
+            settings,
         }
     }
 }
@@ -86,15 +90,6 @@ impl View for BinaryView {
     fn exit(&mut self) -> Option<Value> {
         // todo: impl Cursor + peek of a value
         None
-    }
-
-    fn setup(&mut self, cfg: ViewConfig<'_>) {
-        self.settings = settings_from_config(cfg.explore_config);
-
-        let count_rows =
-            BinaryWidget::new(&self.data, self.settings.opts, Default::default()).count_lines();
-        // TODO: refactor View so setup() is fallible and we don't have to panic here
-        self.cursor = WindowCursor2D::new(count_rows, 1).expect("Failed to create XYCursor");
     }
 }
 

@@ -1,10 +1,7 @@
 use fancy_regex::{Captures, Regex};
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, ListStream};
-use std::{
-    collections::VecDeque,
-    sync::{atomic::AtomicBool, Arc},
-};
+use nu_protocol::{engine::StateWorkingSet, ListStream, Signals};
+use std::collections::VecDeque;
 
 #[derive(Clone)]
 pub struct Parse;
@@ -15,11 +12,15 @@ impl Command for Parse {
     }
 
     fn usage(&self) -> &str {
-        "Parse columns from string data using a simple pattern."
+        "Parse columns from string data using a simple pattern or a supplied regular expression."
     }
 
     fn search_terms(&self) -> Vec<&str> {
         vec!["pattern", "match", "regex", "str extract"]
+    }
+
+    fn extra_usage(&self) -> &str {
+        "The parse command always uses regular expressions even when you use a simple pattern. If a simple pattern is supplied, parse will transform that pattern into a regular expression."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -35,21 +36,24 @@ impl Command for Parse {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let result = Value::test_list(vec![Value::test_record(record! {
-            "foo" => Value::test_string("hi"),
-            "bar" => Value::test_string("there"),
-        })]);
-
         vec![
             Example {
                 description: "Parse a string into two named columns",
                 example: "\"hi there\" | parse \"{foo} {bar}\"",
-                result: Some(result.clone()),
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "foo" => Value::test_string("hi"),
+                        "bar" => Value::test_string("there"),
+                    })])),
             },
             Example {
-                description: "Parse a string using regex pattern",
-                example: "\"hi there\" | parse --regex '(?P<foo>\\w+) (?P<bar>\\w+)'",
-                result: Some(result),
+                description: "This is how the first example is interpreted in the source code",
+                example: "\"hi there\" | parse --regex '(?s)\\A(?P<foo>.*?) (?P<bar>.*?)\\z'",
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "foo" => Value::test_string("hi"),
+                        "bar" => Value::test_string("there"),
+                    })])),
             },
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
@@ -163,8 +167,6 @@ fn operate(
         })
         .collect::<Vec<_>>();
 
-    let ctrlc = engine_state.ctrlc.clone();
-
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
         PipelineData::Value(value, ..) => match value {
@@ -192,10 +194,10 @@ fn operate(
                     columns,
                     iter,
                     span: head,
-                    ctrlc,
+                    signals: engine_state.signals().clone(),
                 };
 
-                Ok(ListStream::new(iter, head, None).into())
+                Ok(ListStream::new(iter, head, Signals::empty()).into())
             }
             value => Err(ShellError::PipelineMismatch {
                 exp_input_type: "string".into(),
@@ -220,7 +222,7 @@ fn operate(
                     columns,
                     iter,
                     span: head,
-                    ctrlc,
+                    signals: engine_state.signals().clone(),
                 }
             })
             .into()),
@@ -232,10 +234,10 @@ fn operate(
                     columns,
                     iter: lines,
                     span: head,
-                    ctrlc,
+                    signals: engine_state.signals().clone(),
                 };
 
-                Ok(ListStream::new(iter, head, None).into())
+                Ok(ListStream::new(iter, head, Signals::empty()).into())
             } else {
                 Ok(PipelineData::Empty)
             }
@@ -302,7 +304,7 @@ struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
     columns: Vec<String>,
     iter: I,
     span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: Signals,
 }
 
 impl<I: Iterator<Item = Result<String, ShellError>>> ParseIter<I> {
@@ -320,7 +322,7 @@ impl<I: Iterator<Item = Result<String, ShellError>>> Iterator for ParseIter<I> {
 
     fn next(&mut self) -> Option<Value> {
         loop {
-            if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
+            if self.signals.interrupted() {
                 return None;
             }
 

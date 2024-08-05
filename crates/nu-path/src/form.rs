@@ -75,9 +75,6 @@ impl private::Sealed for Canonical {
 
 /// A marker trait for [`PathForm`]s that may be relative paths.
 /// This includes only the [`Any`] and [`Relative`] path forms.
-///
-/// [`push`](crate::PathBuf::push) and [`join`](crate::Path::join)
-/// operations only support [`MaybeRelative`] path forms as input.
 pub trait MaybeRelative: PathForm {}
 impl MaybeRelative for Any {}
 impl MaybeRelative for Relative {}
@@ -149,13 +146,13 @@ impl PathSet for Any {}
 impl PathSet for Relative {}
 impl PathSet for Absolute {}
 
-/// A marker trait for [`PathForm`]s that support pushing [`MaybeRelative`] paths.
+/// A marker trait for [`PathForm`]s that support pushing paths.
 ///
 /// This includes only [`Any`] and [`Absolute`] path forms.
 /// Pushing onto a [`Relative`] path could cause it to become [`Absolute`],
 /// which is why they do not support pushing.
 /// In the future, a `push_rel` and/or a `try_push` method could be added as an alternative.
-/// Similarly, [`Canonical`] paths may become uncanonical if a non-canonical path is pushed onto it.
+/// Similarly, [`Canonical`] paths may become uncanonical if a path is pushed onto it.
 pub trait PathPush: PathSet {}
 impl PathPush for Any {}
 impl PathPush for Absolute {}

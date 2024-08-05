@@ -144,7 +144,6 @@ impl Command for Move {
         };
 
         let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
 
         match input {
             PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. } => {
@@ -158,7 +157,11 @@ impl Command for Move {
                     Err(error) => Value::error(error, head),
                 });
 
-                Ok(res.into_pipeline_data_with_metadata(head, ctrlc, metadata))
+                Ok(res.into_pipeline_data_with_metadata(
+                    head,
+                    engine_state.signals().clone(),
+                    metadata,
+                ))
             }
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 Ok(move_record_columns(&val, &columns, &before_or_after, head)?

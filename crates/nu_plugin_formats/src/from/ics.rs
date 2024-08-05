@@ -1,4 +1,4 @@
-use crate::FromCmds;
+use crate::FormatCmdsPlugin;
 
 use ical::{parser::ical::component::*, property::Property};
 use indexmap::IndexMap;
@@ -11,7 +11,7 @@ use std::io::BufReader;
 pub struct FromIcs;
 
 impl SimplePluginCommand for FromIcs {
-    type Plugin = FromCmds;
+    type Plugin = FormatCmdsPlugin;
 
     fn name(&self) -> &str {
         "from ics"
@@ -33,7 +33,7 @@ impl SimplePluginCommand for FromIcs {
 
     fn run(
         &self,
-        _plugin: &FromCmds,
+        _plugin: &FormatCmdsPlugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
         input: &Value,
@@ -274,5 +274,5 @@ fn params_to_value(params: Vec<(String, Vec<String>)>, span: Span) -> Value {
 fn test_examples() -> Result<(), nu_protocol::ShellError> {
     use nu_plugin_test_support::PluginTest;
 
-    PluginTest::new("formats", crate::FromCmds.into())?.test_command_examples(&FromIcs)
+    PluginTest::new("formats", crate::FormatCmdsPlugin.into())?.test_command_examples(&FromIcs)
 }

@@ -31,18 +31,19 @@ impl Command for ToText {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let input = input.try_expand_range()?;
+        let config = stack.get_config(engine_state);
 
         match input {
             PipelineData::Empty => Ok(Value::string(String::new(), span)
                 .into_pipeline_data_with_metadata(update_metadata(None))),
             PipelineData::Value(value, ..) => {
-                let str = local_into_string(value, LINE_ENDING, engine_state.get_config());
+                let str = local_into_string(value, LINE_ENDING, &config);
                 Ok(
                     Value::string(str, span)
                         .into_pipeline_data_with_metadata(update_metadata(None)),
@@ -50,7 +51,6 @@ impl Command for ToText {
             }
             PipelineData::ListStream(stream, meta) => {
                 let span = stream.span();
-                let config = engine_state.get_config().clone();
                 let iter = stream.into_inner().map(move |value| {
                     let mut str = local_into_string(value, LINE_ENDING, &config);
                     str.push_str(LINE_ENDING);
@@ -60,7 +60,7 @@ impl Command for ToText {
                     ByteStream::from_iter(
                         iter,
                         span,
-                        engine_state.ctrlc.clone(),
+                        engine_state.signals().clone(),
                         ByteStreamType::String,
                     ),
                     update_metadata(meta),
@@ -134,14 +134,18 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
 
 fn update_metadata(metadata: Option<PipelineMetadata>) -> Option<PipelineMetadata> {
     metadata
-        .map(|md| md.with_content_type(Some("text/plain".to_string())))
+        .map(|md| md.with_content_type(Some(mime::TEXT_PLAIN.to_string())))
         .or_else(|| {
-            Some(PipelineMetadata::default().with_content_type(Some("text/plain".to_string())))
+            Some(PipelineMetadata::default().with_content_type(Some(mime::TEXT_PLAIN.to_string())))
         })
 }
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::Metadata;
+
     use super::*;
 
     #[test]
@@ -149,5 +153,35 @@ mod test {
         use crate::test_examples;
 
         test_examples(ToText {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToText {}));
+            working_set.add_decl(Box::new(Metadata {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{a: 1 b: 2} | to text  | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("content_type" => Value::test_string("text/plain"))),
+            result.expect("There should be a result")
+        );
     }
 }

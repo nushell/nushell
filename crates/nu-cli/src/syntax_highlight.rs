@@ -6,7 +6,7 @@ use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::{
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, Span,
+    Span,
 };
 use reedline::{Highlighter, StyledText};
 use std::sync::Arc;
@@ -14,15 +14,14 @@ use std::sync::Arc;
 pub struct NuHighlighter {
     pub engine_state: Arc<EngineState>,
     pub stack: Arc<Stack>,
-    pub config: Config,
 }
 
 impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         trace!("highlighting: {}", line);
 
-        let highlight_resolved_externals =
-            self.engine_state.get_config().highlight_resolved_externals;
+        let config = self.stack.get_config(&self.engine_state);
+        let highlight_resolved_externals = config.highlight_resolved_externals;
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let block = parse(&mut working_set, None, line.as_bytes(), false);
         let (shapes, global_span_offset) = {
@@ -88,7 +87,7 @@ impl Highlighter for NuHighlighter {
                 .to_string();
 
             let mut add_colored_token = |shape: &FlatShape, text: String| {
-                output.push((get_shape_color(shape.as_str(), &self.config), text));
+                output.push((get_shape_color(shape.as_str(), &config), text));
             };
 
             match shape.1 {
@@ -128,9 +127,9 @@ impl Highlighter for NuHighlighter {
                         let start = part.start - span.start;
                         let end = part.end - span.start;
                         let text = next_token[start..end].to_string();
-                        let mut style = get_shape_color(shape.as_str(), &self.config);
+                        let mut style = get_shape_color(shape.as_str(), &config);
                         if highlight {
-                            style = get_matching_brackets_style(style, &self.config);
+                            style = get_matching_brackets_style(style, &config);
                         }
                         output.push((style, text));
                     }
@@ -429,6 +428,14 @@ fn find_matching_block_end_in_expr(
                     global_cursor_offset,
                 )
             }),
+
+            Expr::Collect(_, expr) => find_matching_block_end_in_expr(
+                line,
+                working_set,
+                expr,
+                global_span_offset,
+                global_cursor_offset,
+            ),
 
             Expr::Block(block_id)
             | Expr::Closure(block_id)

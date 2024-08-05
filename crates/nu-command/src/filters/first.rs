@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 use std::io::Read;
 
 #[derive(Clone)]
@@ -133,8 +134,7 @@ fn first_helper(
                     }
                 }
                 Value::Range { val, .. } => {
-                    let ctrlc = engine_state.ctrlc.clone();
-                    let mut iter = val.into_range_iter(span, ctrlc.clone());
+                    let mut iter = val.into_range_iter(span, Signals::empty());
                     if return_single_element {
                         if let Some(v) = iter.next() {
                             Ok(v.into_pipeline_data())
@@ -142,9 +142,11 @@ fn first_helper(
                             Err(ShellError::AccessEmptyContent { span: head })
                         }
                     } else {
-                        Ok(iter
-                            .take(rows)
-                            .into_pipeline_data_with_metadata(span, ctrlc, metadata))
+                        Ok(iter.take(rows).into_pipeline_data_with_metadata(
+                            span,
+                            engine_state.signals().clone(),
+                            metadata,
+                        ))
                     }
                 }
                 // Propagate errors by explicitly matching them before the final case.
@@ -189,7 +191,7 @@ fn first_helper(
                             ByteStream::read(
                                 reader.take(rows as u64),
                                 head,
-                                None,
+                                Signals::empty(),
                                 ByteStreamType::Binary,
                             ),
                             metadata,

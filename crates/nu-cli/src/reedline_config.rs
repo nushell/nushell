@@ -77,13 +77,19 @@ pub(crate) fn add_menus(
     mut line_editor: Reedline,
     engine_state_ref: Arc<EngineState>,
     stack: &Stack,
-    config: &Config,
+    config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
     //log::trace!("add_menus: config: {:#?}", &config);
     line_editor = line_editor.clear_menus();
 
     for menu in &config.menus {
-        line_editor = add_menu(line_editor, menu, engine_state_ref.clone(), stack, config)?
+        line_editor = add_menu(
+            line_editor,
+            menu,
+            engine_state_ref.clone(),
+            stack,
+            config.clone(),
+        )?
     }
 
     // Checking if the default menus have been added from the config file
@@ -100,7 +106,7 @@ pub(crate) fn add_menus(
         if !config
             .menus
             .iter()
-            .any(|menu| menu.name.to_expanded_string("", config) == name)
+            .any(|menu| menu.name.to_expanded_string("", &config) == name)
         {
             let (block, delta) = {
                 let mut working_set = StateWorkingSet::new(&engine_state);
@@ -137,7 +143,7 @@ pub(crate) fn add_menus(
                     &menu,
                     new_engine_state_ref.clone(),
                     stack,
-                    config,
+                    config.clone(),
                 )?;
             }
         }
@@ -151,27 +157,27 @@ fn add_menu(
     menu: &ParsedMenu,
     engine_state: Arc<EngineState>,
     stack: &Stack,
-    config: &Config,
+    config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
     let span = menu.menu_type.span();
     if let Value::Record { val, .. } = &menu.menu_type {
-        let layout = extract_value("layout", val, span)?.to_expanded_string("", config);
+        let layout = extract_value("layout", val, span)?.to_expanded_string("", &config);
 
         match layout.as_str() {
-            "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
+            "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, &config),
             "list" => add_list_menu(line_editor, menu, engine_state, stack, config),
             "ide" => add_ide_menu(line_editor, menu, engine_state, stack, config),
             "description" => add_description_menu(line_editor, menu, engine_state, stack, config),
             _ => Err(ShellError::UnsupportedConfigValue {
                 expected: "columnar, list, ide or description".to_string(),
-                value: menu.menu_type.to_abbreviated_string(config),
+                value: menu.menu_type.to_abbreviated_string(&config),
                 span: menu.menu_type.span(),
             }),
         }
     } else {
         Err(ShellError::UnsupportedConfigValue {
             expected: "only record type".to_string(),
-            value: menu.menu_type.to_abbreviated_string(config),
+            value: menu.menu_type.to_abbreviated_string(&config),
             span: menu.menu_type.span(),
         })
     }
@@ -185,6 +191,29 @@ fn get_style(record: &Record, name: &str, span: Span) -> Option<Style> {
             Value::Record { .. } => color_record_to_nustyle(text),
             _ => lookup_ansi_color_style("green"),
         })
+}
+
+fn set_menu_style<M: MenuBuilder>(mut menu: M, style: &Value) -> M {
+    let span = style.span();
+    let Value::Record { val, .. } = &style else {
+        return menu;
+    };
+    if let Some(style) = get_style(val, "text", span) {
+        menu = menu.with_text_style(style);
+    }
+    if let Some(style) = get_style(val, "selected_text", span) {
+        menu = menu.with_selected_text_style(style);
+    }
+    if let Some(style) = get_style(val, "description_text", span) {
+        menu = menu.with_description_text_style(style);
+    }
+    if let Some(style) = get_style(val, "match_text", span) {
+        menu = menu.with_match_text_style(style);
+    }
+    if let Some(style) = get_style(val, "selected_match_text", span) {
+        menu = menu.with_selected_match_text_style(style);
+    }
+    menu
 }
 
 // Adds a columnar menu to the editor engine
@@ -225,24 +254,7 @@ pub(crate) fn add_columnar_menu(
         };
     }
 
-    let span = menu.style.span();
-    if let Value::Record { val, .. } = &menu.style {
-        if let Some(style) = get_style(val, "text", span) {
-            columnar_menu = columnar_menu.with_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_text", span) {
-            columnar_menu = columnar_menu.with_selected_text_style(style);
-        }
-        if let Some(style) = get_style(val, "description_text", span) {
-            columnar_menu = columnar_menu.with_description_text_style(style);
-        }
-        if let Some(style) = get_style(val, "match_text", span) {
-            columnar_menu = columnar_menu.with_match_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_match_text", span) {
-            columnar_menu = columnar_menu.with_selected_match_text_style(style);
-        }
-    }
+    columnar_menu = set_menu_style(columnar_menu, &menu.style);
 
     let marker = menu.marker.to_expanded_string("", config);
     columnar_menu = columnar_menu.with_marker(&marker);
@@ -282,9 +294,9 @@ pub(crate) fn add_list_menu(
     menu: &ParsedMenu,
     engine_state: Arc<EngineState>,
     stack: &Stack,
-    config: &Config,
+    config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
-    let name = menu.name.to_expanded_string("", config);
+    let name = menu.name.to_expanded_string("", &config);
     let mut list_menu = ListMenu::default().with_name(&name);
 
     let span = menu.menu_type.span();
@@ -298,20 +310,9 @@ pub(crate) fn add_list_menu(
         };
     }
 
-    let span = menu.style.span();
-    if let Value::Record { val, .. } = &menu.style {
-        if let Some(style) = get_style(val, "text", span) {
-            list_menu = list_menu.with_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_text", span) {
-            list_menu = list_menu.with_selected_text_style(style);
-        }
-        if let Some(style) = get_style(val, "description_text", span) {
-            list_menu = list_menu.with_description_text_style(style);
-        }
-    }
+    list_menu = set_menu_style(list_menu, &menu.style);
 
-    let marker = menu.marker.to_expanded_string("", config);
+    let marker = menu.marker.to_expanded_string("", &config);
     list_menu = list_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
@@ -337,7 +338,7 @@ pub(crate) fn add_list_menu(
         }
         _ => Err(ShellError::UnsupportedConfigValue {
             expected: "block or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(config),
+            value: menu.source.to_abbreviated_string(&config),
             span: menu.source.span(),
         }),
     }
@@ -349,10 +350,10 @@ pub(crate) fn add_ide_menu(
     menu: &ParsedMenu,
     engine_state: Arc<EngineState>,
     stack: &Stack,
-    config: &Config,
+    config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
     let span = menu.menu_type.span();
-    let name = menu.name.to_expanded_string("", config);
+    let name = menu.name.to_expanded_string("", &config);
     let mut ide_menu = IdeMenu::default().with_name(&name);
 
     if let Value::Record { val, .. } = &menu.menu_type {
@@ -417,7 +418,7 @@ pub(crate) fn add_ide_menu(
                 } else {
                     return Err(ShellError::UnsupportedConfigValue {
                         expected: "bool or record".to_string(),
-                        value: border.to_abbreviated_string(config),
+                        value: border.to_abbreviated_string(&config),
                         span: border.span(),
                     });
                 }
@@ -441,7 +442,7 @@ pub(crate) fn add_ide_menu(
                 _ => {
                     return Err(ShellError::UnsupportedConfigValue {
                         expected: "\"left\", \"right\" or \"prefer_right\"".to_string(),
-                        value: description_mode.to_abbreviated_string(config),
+                        value: description_mode.to_abbreviated_string(&config),
                         span: description_mode.span(),
                     });
                 }
@@ -490,26 +491,9 @@ pub(crate) fn add_ide_menu(
         };
     }
 
-    let span = menu.style.span();
-    if let Value::Record { val, .. } = &menu.style {
-        if let Some(style) = get_style(val, "text", span) {
-            ide_menu = ide_menu.with_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_text", span) {
-            ide_menu = ide_menu.with_selected_text_style(style);
-        }
-        if let Some(style) = get_style(val, "description_text", span) {
-            ide_menu = ide_menu.with_description_text_style(style);
-        }
-        if let Some(style) = get_style(val, "match_text", span) {
-            ide_menu = ide_menu.with_match_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_match_text", span) {
-            ide_menu = ide_menu.with_selected_match_text_style(style);
-        }
-    }
+    ide_menu = set_menu_style(ide_menu, &menu.style);
 
-    let marker = menu.marker.to_expanded_string("", config);
+    let marker = menu.marker.to_expanded_string("", &config);
     ide_menu = ide_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
@@ -535,7 +519,7 @@ pub(crate) fn add_ide_menu(
         }
         _ => Err(ShellError::UnsupportedConfigValue {
             expected: "block or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(config),
+            value: menu.source.to_abbreviated_string(&config),
             span,
         }),
     }
@@ -547,9 +531,9 @@ pub(crate) fn add_description_menu(
     menu: &ParsedMenu,
     engine_state: Arc<EngineState>,
     stack: &Stack,
-    config: &Config,
+    config: Arc<Config>,
 ) -> Result<Reedline, ShellError> {
-    let name = menu.name.to_expanded_string("", config);
+    let name = menu.name.to_expanded_string("", &config);
     let mut description_menu = DescriptionMenu::default().with_name(&name);
 
     let span = menu.menu_type.span();
@@ -595,20 +579,9 @@ pub(crate) fn add_description_menu(
         };
     }
 
-    let span = menu.style.span();
-    if let Value::Record { val, .. } = &menu.style {
-        if let Some(style) = get_style(val, "text", span) {
-            description_menu = description_menu.with_text_style(style);
-        }
-        if let Some(style) = get_style(val, "selected_text", span) {
-            description_menu = description_menu.with_selected_text_style(style);
-        }
-        if let Some(style) = get_style(val, "description_text", span) {
-            description_menu = description_menu.with_description_text_style(style);
-        }
-    }
+    description_menu = set_menu_style(description_menu, &menu.style);
 
-    let marker = menu.marker.to_expanded_string("", config);
+    let marker = menu.marker.to_expanded_string("", &config);
     description_menu = description_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
@@ -617,7 +590,7 @@ pub(crate) fn add_description_menu(
     let span = menu.source.span();
     match &menu.source {
         Value::Nothing { .. } => {
-            let completer = Box::new(NuHelpCompleter::new(engine_state));
+            let completer = Box::new(NuHelpCompleter::new(engine_state, config));
             Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
                 menu: Box::new(description_menu),
                 completer,
@@ -638,7 +611,7 @@ pub(crate) fn add_description_menu(
         }
         _ => Err(ShellError::UnsupportedConfigValue {
             expected: "closure or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(config),
+            value: menu.source.to_abbreviated_string(&config),
             span: menu.source.span(),
         }),
     }

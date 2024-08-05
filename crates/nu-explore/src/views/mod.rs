@@ -99,8 +99,6 @@ pub trait View {
     fn exit(&mut self) -> Option<Value> {
         None
     }
-
-    fn setup(&mut self, _: ViewConfig<'_>) {}
 }
 
 impl View for Box<dyn View> {
@@ -130,9 +128,5 @@ impl View for Box<dyn View> {
 
     fn show_data(&mut self, i: usize) -> bool {
         self.as_mut().show_data(i)
-    }
-
-    fn setup(&mut self, cfg: ViewConfig<'_>) {
-        self.as_mut().setup(cfg)
     }
 }

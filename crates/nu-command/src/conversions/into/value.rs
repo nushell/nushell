@@ -57,14 +57,12 @@ impl Command for IntoValue {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let engine_state = engine_state.clone();
         let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
-        let display_as_filesizes = call.has_flag(&engine_state, stack, "prefer-filesizes")?;
+        let display_as_filesizes = call.has_flag(engine_state, stack, "prefer-filesizes")?;
 
         // the columns to update
-        let columns: Option<Value> = call.get_flag(&engine_state, stack, "columns")?;
+        let columns: Option<Value> = call.get_flag(engine_state, stack, "columns")?;
         let columns: Option<HashSet<String>> = match columns {
             Some(val) => Some(
                 val.into_list()?
@@ -81,7 +79,7 @@ impl Command for IntoValue {
             display_as_filesizes,
             span,
         }
-        .into_pipeline_data(span, ctrlc)
+        .into_pipeline_data(span, engine_state.signals().clone())
         .set_metadata(metadata))
     }
 }

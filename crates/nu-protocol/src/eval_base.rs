@@ -1,3 +1,4 @@
+//! Foundational [`Eval`] trait allowing dispatch between const-eval and regular evaluation
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
@@ -6,7 +7,7 @@ use crate::{
     debugger::DebugContext,
     Config, GetSpan, Range, Record, ShellError, Span, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::{borrow::Cow, collections::HashMap};
+use std::{collections::HashMap, sync::Arc};
 
 /// To share implementations for regular eval and const eval
 pub trait Eval {
@@ -157,6 +158,9 @@ pub trait Eval {
             Expr::Call(call) => Self::eval_call::<D>(state, mut_state, call, expr_span),
             Expr::ExternalCall(head, args) => {
                 Self::eval_external_call(state, mut_state, head, args, expr_span)
+            }
+            Expr::Collect(var_id, expr) => {
+                Self::eval_collect::<D>(state, mut_state, *var_id, expr)
             }
             Expr::Subexpression(block_id) => {
                 Self::eval_subexpression::<D>(state, mut_state, *block_id, expr_span)
@@ -315,7 +319,7 @@ pub trait Eval {
         }
     }
 
-    fn get_config<'a>(state: Self::State<'a>, mut_state: &mut Self::MutState) -> Cow<'a, Config>;
+    fn get_config(state: Self::State<'_>, mut_state: &mut Self::MutState) -> Arc<Config>;
 
     fn eval_filepath(
         state: Self::State<'_>,
@@ -353,6 +357,13 @@ pub trait Eval {
         head: &Expression,
         args: &[ExternalArgument],
         span: Span,
+    ) -> Result<Value, ShellError>;
+
+    fn eval_collect<D: DebugContext>(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        var_id: VarId,
+        expr: &Expression,
     ) -> Result<Value, ShellError>;
 
     fn eval_subexpression<D: DebugContext>(

@@ -79,6 +79,7 @@ impl Command for InputList {
         let fuzzy = call.has_flag(engine_state, stack, "fuzzy")?;
         let index = call.has_flag(engine_state, stack, "index")?;
         let display_path: Option<CellPath> = call.get_flag(engine_state, stack, "display")?;
+        let config = stack.get_config(engine_state);
 
         let options: Vec<Options> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
@@ -89,9 +90,9 @@ impl Command for InputList {
                     let display_value = if let Some(ref cellpath) = display_path {
                         val.clone()
                             .follow_cell_path(&cellpath.members, false)?
-                            .to_expanded_string(", ", engine_state.get_config())
+                            .to_expanded_string(", ", &config)
                     } else {
-                        val.to_expanded_string(", ", engine_state.get_config())
+                        val.to_expanded_string(", ", &config)
                     };
                     Ok(Options {
                         name: display_value,

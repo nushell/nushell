@@ -6,8 +6,8 @@
 # it also allows us to test the plugin interface with something manually implemented in a scripting
 # language without adding any extra dependencies to our tests.
 
-const NUSHELL_VERSION = "0.95.1"
-const PLUGIN_VERSION = "0.1.0" # bump if you change commands!
+const NUSHELL_VERSION = "0.96.2"
+const PLUGIN_VERSION = "0.1.1" # bump if you change commands!
 
 def main [--stdio] {
   if ($stdio) {
@@ -133,7 +133,7 @@ def process_call [
 
   # Create a Value of type List that will be encoded and sent to Nushell
   let value = {
-    Value: {
+    Value: [{
       List: {
         vals: (0..9 | each { |x|
           {
@@ -157,7 +157,7 @@ def process_call [
         }),
         span: $span
       }
-    }
+    }, null]
   }
 
   write_response $id { PipelineData: $value }

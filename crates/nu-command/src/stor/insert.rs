@@ -1,5 +1,6 @@
 use crate::database::{values_to_sql, SQLiteDatabase, MEMORY_DB};
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 use rusqlite::params_from_iter;
 
 #[derive(Clone)]
@@ -64,8 +65,11 @@ impl Command for StorInsert {
         let span = call.head;
         let table_name: Option<String> = call.get_flag(engine_state, stack, "table-name")?;
         let data_record: Option<Record> = call.get_flag(engine_state, stack, "data-record")?;
-        // let config = engine_state.get_config();
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        // let config = stack.get_config(engine_state);
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
 
         // Check if the record is being passed as input or using the data record parameter
         let columns = handle(span, data_record, input)?;
@@ -198,7 +202,10 @@ mod test {
 
     #[test]
     fn test_process_with_simple_parameters() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_process_with_simple_parameters (
             int_column INTEGER,
             real_column REAL,
@@ -237,7 +244,10 @@ mod test {
 
     #[test]
     fn test_process_string_with_space() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_process_string_with_space (
             str_column VARCHAR(255)
         )";
@@ -262,7 +272,10 @@ mod test {
 
     #[test]
     fn test_no_errors_when_string_too_long() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_errors_when_string_too_long (
             str_column VARCHAR(8)
         )";
@@ -287,7 +300,10 @@ mod test {
 
     #[test]
     fn test_no_errors_when_param_is_wrong_type() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_errors_when_param_is_wrong_type (
             int_column INT
         )";
@@ -312,7 +328,10 @@ mod test {
 
     #[test]
     fn test_errors_when_column_doesnt_exist() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
         let create_stmt = "CREATE TABLE test_errors_when_column_doesnt_exist (
             int_column INT
         )";
@@ -337,7 +356,10 @@ mod test {
 
     #[test]
     fn test_errors_when_table_doesnt_exist() {
-        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let db = Box::new(SQLiteDatabase::new(
+            std::path::Path::new(MEMORY_DB),
+            Signals::empty(),
+        ));
 
         let table_name = Some("test_errors_when_table_doesnt_exist".to_string());
         let span = Span::unknown();

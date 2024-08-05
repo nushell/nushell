@@ -1,5 +1,5 @@
 use super::ViewCommand;
-use crate::views::TryView;
+use crate::views::{TryView, ViewConfig};
 use anyhow::Result;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -43,9 +43,10 @@ impl ViewCommand for TryCmd {
         engine_state: &EngineState,
         stack: &mut Stack,
         value: Option<Value>,
+        config: &ViewConfig,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
-        let mut view = TryView::new(value);
+        let mut view = TryView::new(value, config.explore_config.clone());
         view.init(self.command.clone());
         view.try_run(engine_state, stack)?;
 

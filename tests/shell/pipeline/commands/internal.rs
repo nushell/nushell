@@ -1161,3 +1161,11 @@ fn command_not_found_error_shows_not_found_2() {
             && actual.err.contains("Did you mean `for`?")
     );
 }
+
+#[test]
+fn error_on_out_greater_pipe() {
+    let actual = nu!(r#""foo" o>| print"#);
+    assert!(actual
+        .err
+        .contains("Redirecting stdout to a pipe is the same as normal piping"))
+}

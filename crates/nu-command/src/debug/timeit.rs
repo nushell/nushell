@@ -32,6 +32,10 @@ impl Command for TimeIt {
         vec!["timing", "timer", "benchmark", "measure"]
     }
 
+    fn requires_ast_for_arguments(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -39,13 +43,14 @@ impl Command for TimeIt {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let command_to_run = call.positional_nth(0);
+        // reset outdest, so the command can write to stdout and stderr.
+        let stack = &mut stack.push_redirection(None, None);
+
+        let command_to_run = call.positional_nth(stack, 0);
 
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
 
-        // reset outdest, so the command can write to stdout and stderr.
-        let stack = &mut stack.push_redirection(None, None);
         if let Some(command_to_run) = command_to_run {
             if let Some(block_id) = command_to_run.as_block() {
                 let eval_block = get_eval_block(engine_state);
@@ -53,7 +58,8 @@ impl Command for TimeIt {
                 eval_block(engine_state, stack, block, input)?
             } else {
                 let eval_expression_with_input = get_eval_expression_with_input(engine_state);
-                eval_expression_with_input(engine_state, stack, command_to_run, input)?.0
+                let expression = &command_to_run.clone();
+                eval_expression_with_input(engine_state, stack, expression, input)?.0
             }
         } else {
             PipelineData::empty()

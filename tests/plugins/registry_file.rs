@@ -162,7 +162,7 @@ fn plugin_rm_then_restart_nu() {
         contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo"),
+            filename: dirs.test().join("nu_plugin_foo").into(),
             shell: None,
             data: valid_plugin_item_data(),
         });
@@ -238,7 +238,7 @@ fn plugin_rm_from_custom_path() {
         contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo"),
+            filename: dirs.test().join("nu_plugin_foo").into(),
             shell: None,
             data: valid_plugin_item_data(),
         });
@@ -286,7 +286,7 @@ fn plugin_rm_using_filename() {
         contents.upsert_plugin(PluginRegistryItem {
             name: "foo".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_foo"),
+            filename: dirs.test().join("nu_plugin_foo").into(),
             shell: None,
             data: valid_plugin_item_data(),
         });
@@ -344,7 +344,7 @@ fn warning_on_invalid_plugin_item() {
         contents.upsert_plugin(PluginRegistryItem {
             name: "badtest".into(),
             // this doesn't exist, but it should be ok
-            filename: dirs.test().join("nu_plugin_badtest"),
+            filename: dirs.test().join("nu_plugin_badtest").into(),
             shell: None,
             data: PluginRegistryItemData::Invalid,
         });

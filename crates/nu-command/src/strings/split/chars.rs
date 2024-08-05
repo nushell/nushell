@@ -124,7 +124,7 @@ fn split_chars(
     let span = call.head;
     input.map(
         move |x| split_chars_helper(&x, span, graphemes),
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 

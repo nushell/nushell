@@ -46,6 +46,10 @@ impl Command for While {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
+        let head = call.head;
         let cond = call.positional_nth(0).expect("checked through parser");
         let block_id = call
             .positional_nth(1)
@@ -59,9 +63,7 @@ impl Command for While {
         let stack = &mut stack.push_redirection(None, None);
 
         loop {
-            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-                break;
-            }
+            engine_state.signals().check(head)?;
 
             let result = eval_expression(engine_state, stack, cond)?;
 

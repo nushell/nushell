@@ -1,7 +1,7 @@
 use chrono::{Datelike, Local, NaiveDate};
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
-use nu_protocol::ast::{Expr, Expression};
+use nu_protocol::ast::{self, Expr, Expression};
 
 use std::collections::VecDeque;
 
@@ -143,7 +143,7 @@ pub fn cal(
         style_computer,
     )?;
 
-    let mut table_no_index = Call::new(Span::unknown());
+    let mut table_no_index = ast::Call::new(Span::unknown());
     table_no_index.add_named((
         Spanned {
             item: "index".to_string(),
@@ -160,7 +160,12 @@ pub fn cal(
     let cal_table_output =
         Value::list(calendar_vec_deque.into_iter().collect(), tag).into_pipeline_data();
     if !arguments.as_table {
-        crate::Table.run(engine_state, stack, &table_no_index, cal_table_output)
+        crate::Table.run(
+            engine_state,
+            stack,
+            &(&table_no_index).into(),
+            cal_table_output,
+        )
     } else {
         Ok(cal_table_output)
     }

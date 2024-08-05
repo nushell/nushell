@@ -4,8 +4,8 @@ use crate::{
         usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility,
     },
-    BlockId, Category, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError, ParseWarning,
-    Span, SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError,
+    ParseWarning, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -25,12 +25,12 @@ use crate::{PluginIdentity, PluginRegistryItem, RegisteredPlugin};
 pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
-    pub external_commands: Vec<Vec<u8>>,
     pub files: FileStack,
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
     pub parse_warnings: Vec<ParseWarning>,
+    pub compile_errors: Vec<CompileError>,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -45,11 +45,11 @@ impl<'a> StateWorkingSet<'a> {
         Self {
             delta: StateDelta::new(permanent_state),
             permanent_state,
-            external_commands: vec![],
             files,
             search_predecls: true,
             parse_errors: vec![],
             parse_warnings: vec![],
+            compile_errors: vec![],
         }
     }
 
@@ -260,6 +260,12 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn add_block(&mut self, block: Arc<Block>) -> BlockId {
+        log::trace!(
+            "block id={} added, has IR = {:?}",
+            self.num_blocks(),
+            block.ir_block.is_some()
+        );
+
         self.delta.blocks.push(block);
 
         self.num_blocks() - 1
@@ -619,9 +625,9 @@ impl<'a> StateWorkingSet<'a> {
 
     /// Returns a reference to the config stored at permanent state
     ///
-    /// At runtime, you most likely want to call nu_engine::env::get_config because this method
-    /// does not capture environment updates during runtime.
-    pub fn get_config(&self) -> &Config {
+    /// At runtime, you most likely want to call [`Stack::get_config()`][super::Stack::get_config()]
+    /// because this method does not capture environment updates during runtime.
+    pub fn get_config(&self) -> &Arc<Config> {
         &self.permanent_state.config
     }
 

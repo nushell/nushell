@@ -24,7 +24,7 @@ nu-json = "0.76"
 ## From the Commandline
 
 Add with:
-```
+```sh
  cargo add serde
  cargo add nu-json
 ```
@@ -43,7 +43,7 @@ fn main() {
 
     let sample_text=r#"
     {
-        # specify rate in requests/second
+        ## specify rate in requests/second
         rate: 1000
         array:
         [

@@ -1,5 +1,6 @@
 use nu_engine::eval_block;
 use nu_parser::parse;
+use nu_path::{AbsolutePathBuf, PathBuf};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -7,14 +8,14 @@ use nu_protocol::{
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
-use std::path::{PathBuf, MAIN_SEPARATOR};
+use std::path::MAIN_SEPARATOR;
 
 fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
 }
 
 // creates a new engine with the current path into the completions fixtures folder
-pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
+pub fn new_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("completions");
     let dir_str = dir
@@ -69,7 +70,7 @@ pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
 }
 
 // creates a new engine with the current path into the completions fixtures folder
-pub fn new_dotnu_engine() -> (PathBuf, String, EngineState, Stack) {
+pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("dotnu_completions");
     let dir_str = dir
@@ -114,7 +115,7 @@ pub fn new_dotnu_engine() -> (PathBuf, String, EngineState, Stack) {
     (dir, dir_str, engine_state, stack)
 }
 
-pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
+pub fn new_quote_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("quoted_completions");
     let dir_str = dir
@@ -149,7 +150,7 @@ pub fn new_quote_engine() -> (PathBuf, String, EngineState, Stack) {
     (dir, dir_str, engine_state, stack)
 }
 
-pub fn new_partial_engine() -> (PathBuf, String, EngineState, Stack) {
+pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("partial_completions");
     let dir_str = dir
@@ -185,7 +186,7 @@ pub fn new_partial_engine() -> (PathBuf, String, EngineState, Stack) {
 }
 
 // match a list of suggestions with the expected values
-pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
+pub fn match_suggestions(expected: &Vec<String>, suggestions: &Vec<Suggestion>) {
     let expected_len = expected.len();
     let suggestions_len = suggestions.len();
     if expected_len != suggestions_len {
@@ -195,26 +196,25 @@ pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
             Expected: {expected:#?}\n"
         )
     }
-    assert_eq!(
-        expected,
-        suggestions
-            .into_iter()
-            .map(|it| it.value)
-            .collect::<Vec<_>>()
-    );
+
+    let suggestoins_str = suggestions
+        .iter()
+        .map(|it| it.value.clone())
+        .collect::<Vec<_>>();
+
+    assert_eq!(expected, &suggestoins_str);
 }
 
 // append the separator to the converted path
-pub fn folder(path: PathBuf) -> String {
+pub fn folder(path: impl Into<PathBuf>) -> String {
     let mut converted_path = file(path);
     converted_path.push(MAIN_SEPARATOR);
-
     converted_path
 }
 
 // convert a given path to string
-pub fn file(path: PathBuf) -> String {
-    path.into_os_string().into_string().unwrap_or_default()
+pub fn file(path: impl Into<PathBuf>) -> String {
+    path.into().into_os_string().into_string().unwrap()
 }
 
 // merge_input executes the given input into the engine
@@ -223,7 +223,7 @@ pub fn merge_input(
     input: &[u8],
     engine_state: &mut EngineState,
     stack: &mut Stack,
-    dir: PathBuf,
+    dir: AbsolutePathBuf,
 ) -> Result<(), ShellError> {
     let (block, delta) = {
         let mut working_set = StateWorkingSet::new(engine_state);

@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 mod alias;
 pub mod ast;
 pub mod config;
@@ -9,6 +10,7 @@ pub mod eval_base;
 pub mod eval_const;
 mod example;
 mod id;
+pub mod ir;
 mod lev_distance;
 mod module;
 pub mod parser_path;

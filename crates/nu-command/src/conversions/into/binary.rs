@@ -138,7 +138,7 @@ fn into_binary(
             cell_paths,
             compact: call.has_flag(engine_state, stack, "compact")?,
         };
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, engine_state.signals())
     }
 }
 

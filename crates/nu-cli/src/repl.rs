@@ -43,7 +43,7 @@ use std::{
     io::{self, IsTerminal, Write},
     panic::{catch_unwind, AssertUnwindSafe},
     path::{Path, PathBuf},
-    sync::{atomic::Ordering, Arc},
+    sync::Arc,
     time::{Duration, Instant},
 };
 use sysinfo::System;
@@ -268,14 +268,14 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     if let Err(err) = engine_state.merge_env(&mut stack, cwd) {
         report_error_new(engine_state, &err);
     }
+    // Check whether $env.NU_USE_IR is set, so that the user can change it in the REPL
+    // Temporary while IR eval is optional
+    stack.use_ir = stack.has_env_var(engine_state, "NU_USE_IR");
     perf!("merge env", start_time, use_color);
 
     start_time = std::time::Instant::now();
-    // Reset the ctrl-c handler
-    if let Some(ctrlc) = &mut engine_state.ctrlc {
-        ctrlc.store(false, Ordering::SeqCst);
-    }
-    perf!("reset ctrlc", start_time, use_color);
+    engine_state.reset_signals();
+    perf!("reset signals", start_time, use_color);
 
     start_time = std::time::Instant::now();
     // Right before we start our prompt and take input from the user,
@@ -297,7 +297,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("env-change hook", start_time, use_color);
 
     let engine_reference = Arc::new(engine_state.clone());
-    let config = engine_state.get_config();
+    let config = stack.get_config(engine_state);
 
     start_time = std::time::Instant::now();
     // Find the configured cursor shapes for each mode
@@ -323,7 +323,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             engine_state: engine_reference.clone(),
             // STACK-REFERENCE 1
             stack: stack_arc.clone(),
-            config: config.clone(),
         }))
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
@@ -336,6 +335,14 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_quick_completions(config.quick_completions)
         .with_partial_completions(config.partial_completions)
         .with_ansi_colors(config.use_ansi_coloring)
+        .with_cwd(Some(
+            engine_state
+                .cwd(None)
+                .map(|cwd| cwd.into_std_path_buf())
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+        ))
         .with_cursor_config(cursor_config);
 
     perf!("reedline builder", start_time, use_color);
@@ -666,13 +673,14 @@ fn prepare_history_metadata(
     line_editor: &mut Reedline,
 ) {
     if !s.is_empty() && line_editor.has_last_command_context() {
-        #[allow(deprecated)]
         let result = line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
                 c.hostname = hostname.map(str::to_string);
-
-                c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
+                c.cwd = engine_state
+                    .cwd(None)
+                    .ok()
+                    .map(|path| path.to_string_lossy().to_string());
                 c
             })
             .into_diagnostic();
@@ -1329,20 +1337,26 @@ fn are_session_ids_in_sync() {
 #[cfg(test)]
 mod test_auto_cd {
     use super::{do_auto_cd, parse_operation, ReplOperation};
+    use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
-    use std::path::Path;
     use tempfile::tempdir;
 
     /// Create a symlink. Works on both Unix and Windows.
     #[cfg(any(unix, windows))]
-    fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
+    fn symlink(
+        original: impl AsRef<AbsolutePath>,
+        link: impl AsRef<AbsolutePath>,
+    ) -> std::io::Result<()> {
+        let original = original.as_ref();
+        let link = link.as_ref();
+
         #[cfg(unix)]
         {
             std::os::unix::fs::symlink(original, link)
         }
         #[cfg(windows)]
         {
-            if original.as_ref().is_dir() {
+            if original.is_dir() {
                 std::os::windows::fs::symlink_dir(original, link)
             } else {
                 std::os::windows::fs::symlink_file(original, link)
@@ -1354,11 +1368,11 @@ mod test_auto_cd {
     /// `before`, and after `input` is parsed and evaluated, PWD should be
     /// changed to `after`.
     #[track_caller]
-    fn check(before: impl AsRef<Path>, input: &str, after: impl AsRef<Path>) {
+    fn check(before: impl AsRef<AbsolutePath>, input: &str, after: impl AsRef<AbsolutePath>) {
         // Setup EngineState and Stack.
         let mut engine_state = EngineState::new();
         let mut stack = Stack::new();
-        stack.set_cwd(before).unwrap();
+        stack.set_cwd(before.as_ref()).unwrap();
 
         // Parse the input. It must be an auto-cd operation.
         let op = parse_operation(input.to_string(), &engine_state, &stack).unwrap();
@@ -1374,54 +1388,66 @@ mod test_auto_cd {
         // don't have to be byte-wise equal (on Windows, the 8.3 filename
         // conversion messes things up),
         let updated_cwd = std::fs::canonicalize(updated_cwd).unwrap();
-        let after = std::fs::canonicalize(after).unwrap();
+        let after = std::fs::canonicalize(after.as_ref()).unwrap();
         assert_eq!(updated_cwd, after);
     }
 
     #[test]
     fn auto_cd_root() {
         let tempdir = tempdir().unwrap();
-        let root = if cfg!(windows) { r"C:\" } else { "/" };
-        check(&tempdir, root, root);
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        let input = if cfg!(windows) { r"C:\" } else { "/" };
+        let root = AbsolutePath::try_new(input).unwrap();
+        check(tempdir, input, root);
     }
 
     #[test]
     fn auto_cd_tilde() {
         let tempdir = tempdir().unwrap();
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
         let home = nu_path::home_dir().unwrap();
-        check(&tempdir, "~", home);
+        check(tempdir, "~", home);
     }
 
     #[test]
     fn auto_cd_dot() {
         let tempdir = tempdir().unwrap();
-        check(&tempdir, ".", &tempdir);
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        check(tempdir, ".", tempdir);
     }
 
     #[test]
     fn auto_cd_double_dot() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo");
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        let dir = tempdir.join("foo");
         std::fs::create_dir_all(&dir).unwrap();
-        check(dir, "..", &tempdir);
+        check(dir, "..", tempdir);
     }
 
     #[test]
     fn auto_cd_triple_dot() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo").join("bar");
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        let dir = tempdir.join("foo").join("bar");
         std::fs::create_dir_all(&dir).unwrap();
-        check(dir, "...", &tempdir);
+        check(dir, "...", tempdir);
     }
 
     #[test]
     fn auto_cd_relative() {
         let tempdir = tempdir().unwrap();
-        let foo = tempdir.path().join("foo");
-        let bar = tempdir.path().join("bar");
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        let foo = tempdir.join("foo");
+        let bar = tempdir.join("bar");
         std::fs::create_dir_all(&foo).unwrap();
         std::fs::create_dir_all(&bar).unwrap();
-
         let input = if cfg!(windows) { r"..\bar" } else { "../bar" };
         check(foo, input, bar);
     }
@@ -1429,32 +1455,35 @@ mod test_auto_cd {
     #[test]
     fn auto_cd_trailing_slash() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
 
+        let dir = tempdir.join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
         let input = if cfg!(windows) { r"foo\" } else { "foo/" };
-        check(&tempdir, input, dir);
+        check(tempdir, input, dir);
     }
 
     #[test]
     fn auto_cd_symlink() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo");
-        std::fs::create_dir_all(&dir).unwrap();
-        let link = tempdir.path().join("link");
-        symlink(&dir, &link).unwrap();
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
 
+        let dir = tempdir.join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+        let link = tempdir.join("link");
+        symlink(&dir, &link).unwrap();
         let input = if cfg!(windows) { r".\link" } else { "./link" };
-        check(&tempdir, input, link);
+        check(tempdir, input, link);
     }
 
     #[test]
     #[should_panic(expected = "was not parsed into an auto-cd operation")]
     fn auto_cd_nonexistent_directory() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo");
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
 
+        let dir = tempdir.join("foo");
         let input = if cfg!(windows) { r"foo\" } else { "foo/" };
-        check(&tempdir, input, dir);
+        check(tempdir, input, dir);
     }
 }

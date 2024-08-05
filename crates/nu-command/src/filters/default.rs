@@ -27,7 +27,7 @@ impl Command for Default {
     }
 
     fn usage(&self) -> &str {
-        "Sets a default row's column if missing."
+        "Sets a default value if a row's column is missing or null."
     }
 
     fn run(
@@ -51,11 +51,11 @@ impl Command for Default {
                 description:
                     "Get the env value of `MY_ENV` with a default value 'abc' if not present",
                 example: "$env | get --ignore-errors MY_ENV | default 'abc'",
-                result: None, // Some(Value::test_string("abc")),
+                result: Some(Value::test_string("abc")),
             },
             Example {
                 description: "Replace the `null` value in a list",
-                example: "[1, 2, null, 4] | default 3",
+                example: "[1, 2, null, 4] | each { default 3 }",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(1),
@@ -65,6 +65,20 @@ impl Command for Default {
                     ],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: r#"Replace the missing value in the "a" column of a list"#,
+                example: "[{a:1 b:2} {b:1}] | default 'N/A' a",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_string("N/A"),
+                        "b" => Value::test_int(1),
+                    }),
+                ])),
             },
         ]
     }
@@ -80,8 +94,6 @@ fn default(
     let value: Value = call.req(engine_state, stack, 0)?;
     let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
-    let ctrlc = engine_state.ctrlc.clone();
-
     if let Some(column) = column {
         input
             .map(
@@ -90,40 +102,26 @@ fn default(
                         val: ref mut record,
                         ..
                     } => {
-                        let mut found = false;
-
-                        for (col, val) in record.to_mut().iter_mut() {
-                            if *col == column.item {
-                                found = true;
-                                if matches!(val, Value::Nothing { .. }) {
-                                    *val = value.clone();
-                                }
+                        let record = record.to_mut();
+                        if let Some(val) = record.get_mut(&column.item) {
+                            if matches!(val, Value::Nothing { .. }) {
+                                *val = value.clone();
                             }
-                        }
-
-                        if !found {
-                            record.to_mut().push(column.item.clone(), value.clone());
+                        } else {
+                            record.push(column.item.clone(), value.clone());
                         }
 
                         item
                     }
                     _ => item,
                 },
-                ctrlc,
+                engine_state.signals(),
             )
             .map(|x| x.set_metadata(metadata))
     } else if input.is_nothing() {
         Ok(value.into_pipeline_data())
     } else {
-        input
-            .map(
-                move |item| match item {
-                    Value::Nothing { .. } => value.clone(),
-                    x => x,
-                },
-                ctrlc,
-            )
-            .map(|x| x.set_metadata(metadata))
+        Ok(input)
     }
 }
 

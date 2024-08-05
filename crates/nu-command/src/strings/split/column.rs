@@ -170,7 +170,7 @@ fn split_column(
 
     input.flat_map(
         move |x| split_column_helper(&x, &regex, &args.rest, args.collapse_empty, name_span),
-        engine_state.ctrlc.clone(),
+        engine_state.signals(),
     )
 }
 

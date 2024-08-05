@@ -99,13 +99,13 @@ jobs:
           extra: msi
           os: windows-latest
         - target: x86_64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-22.04
         - target: x86_64-unknown-linux-musl
-          os: ubuntu-20.04
+          os: ubuntu-22.04
         - target: aarch64-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-22.04
         - target: armv7-unknown-linux-gnueabihf
-          os: ubuntu-20.04
+          os: ubuntu-22.04
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
 
@@ -161,7 +161,7 @@ jobs:
     # REF: https://github.com/marketplace/actions/gh-release
     # Create a release only in nushell/nightly repo
     - name: Publish Archive
-      uses: softprops/action-gh-release@v2.0.6
+      uses: softprops/action-gh-release@v2.0.8
       if: ${{ startsWith(github.repository, 'nushell/nightly') }}
       with:
         prerelease: true

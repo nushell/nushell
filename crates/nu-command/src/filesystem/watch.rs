@@ -61,6 +61,7 @@ impl Command for Watch {
                 "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true)",
                 Some('r'),
             )
+            .switch("quiet", "Hide the initial status message (default: false)", Some('q'))
             .switch("verbose", "Operate in verbose mode (default: false)", Some('v'))
             .category(Category::FileSystem)
     }
@@ -93,6 +94,8 @@ impl Command for Watch {
         let closure: Closure = call.req(engine_state, stack, 1)?;
 
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
+
+        let quiet = call.has_flag(engine_state, stack, "quiet")?;
 
         let debounce_duration_flag: Option<Spanned<i64>> =
             call.get_flag(engine_state, stack, "debounce-ms")?;
@@ -143,7 +146,6 @@ impl Command for Watch {
             None => RecursiveMode::Recursive,
         };
 
-        let ctrlc_ref = &engine_state.ctrlc.clone();
         let (tx, rx) = channel();
 
         let mut debouncer = match new_debouncer(debounce_duration, None, tx) {
@@ -162,7 +164,9 @@ impl Command for Watch {
         // need to cache to make sure that rename event works.
         debouncer.cache().add_root(&path, recursive_mode);
 
-        eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
+        if !quiet {
+            eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
+        }
 
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
@@ -256,7 +260,7 @@ impl Command for Watch {
                 }
                 Err(RecvTimeoutError::Timeout) => {}
             }
-            if nu_utils::ctrl_c::was_pressed(ctrlc_ref) {
+            if engine_state.signals().interrupted() {
                 break;
             }
         }
