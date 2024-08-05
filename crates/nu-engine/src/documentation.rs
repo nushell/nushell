@@ -542,11 +542,7 @@ where
         }
         let _ = write!(long_desc, " - {}", flag.desc);
         if let Some(value) = &flag.default_value {
-            let _ = write!(
-                long_desc,
-                " (default: {help_subcolor_two}{}{RESET})",
-                &value_formatter(value)
-            );
+            let _ = write!(long_desc, " (default: {})", &value_formatter(value));
         }
         long_desc.push('\n');
     }
