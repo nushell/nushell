@@ -114,7 +114,7 @@ fn convert_array(plist_array: &[PlistValue], span: Span) -> Result<Vec<NuValue>,
 
 pub fn convert_date(plist_date: &PlistDate) -> DateTime<FixedOffset> {
     // In the docs the plist date object is listed as a utc timestamp, so this
-    // conversion shoould be fine
+    // conversion should be fine
     let plist_sys_time: SystemTime = plist_date.to_owned().into();
     let utc_date: DateTime<Utc> = plist_sys_time.into();
     let utc_offset = utc_date.offset().fix();
