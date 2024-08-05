@@ -148,7 +148,7 @@ fn get_documentation(
                     format!(
                         "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {}",
                         String::from_utf8_lossy(kw),
-                        document_shape(*shape.clone()),
+                        document_shape(&shape),
                         positional.desc
                     )
                 }
@@ -156,7 +156,7 @@ fn get_documentation(
                     format!(
                         "  {help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}",
                         positional.name,
-                        document_shape(positional.shape.clone()),
+                        document_shape(&positional.shape),
                         positional.desc
                     )
                 }
@@ -169,7 +169,7 @@ fn get_documentation(
                     format!(
                         "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {} (optional)",
                         String::from_utf8_lossy(kw),
-                        document_shape(*shape.clone()),
+                        document_shape(&shape),
                         positional.desc
                     )
                 }
@@ -190,7 +190,7 @@ fn get_documentation(
                     format!(
                         "  {help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}{}",
                         positional.name,
-                        document_shape(positional.shape.clone()),
+                        document_shape(&positional.shape),
                         positional.desc,
                         opt_suffix,
                     )
@@ -204,7 +204,7 @@ fn get_documentation(
                 long_desc,
                 "  ...{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}",
                 rest_positional.name,
-                document_shape(rest_positional.shape.clone()),
+                document_shape(&rest_positional.shape),
                 rest_positional.desc
             );
         }
@@ -495,9 +495,9 @@ impl HelpStyle {
 }
 
 /// Make syntax shape presentable by stripping custom completer info
-pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
+fn document_shape(shape: &SyntaxShape) -> &SyntaxShape {
     match shape {
-        SyntaxShape::CompleterWrapper(inner_shape, _) => *inner_shape,
+        SyntaxShape::CompleterWrapper(inner_shape, _) => inner_shape,
         _ => shape,
     }
 }
