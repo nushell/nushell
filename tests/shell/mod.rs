@@ -334,3 +334,69 @@ fn source_empty_file() {
         assert!(actual.out.is_empty());
     })
 }
+
+#[test]
+fn main_script_help_uses_script_name1() {
+    // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [] {}
+            "#,
+        )]);
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu --help"));
+        assert!(actual.out.contains("> script.nu"));
+        assert!(!actual.out.contains("> main"));
+    })
+}
+
+#[test]
+fn main_script_help_uses_script_name2() {
+    // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [foo: string] {}
+            "#,
+        )]);
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu"));
+        assert!(actual.err.contains("Usage: script.nu"));
+        assert!(!actual.err.contains("Usage: main"));
+    })
+}
+
+#[test]
+fn main_script_subcommand_help_uses_script_name1() {
+    // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [] {}
+            def 'main foo' [] {}
+            "#,
+        )]);
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu foo --help"));
+        assert!(actual.out.contains("> script.nu foo"));
+        assert!(!actual.out.contains("> main foo"));
+    })
+}
+
+#[test]
+fn main_script_subcommand_help_uses_script_name2() {
+    // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [] {}
+            def 'main foo' [bar: string] {}
+            "#,
+        )]);
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu foo"));
+        assert!(actual.err.contains("Usage: script.nu foo"));
+        assert!(!actual.err.contains("Usage: main foo"));
+    })
+}
