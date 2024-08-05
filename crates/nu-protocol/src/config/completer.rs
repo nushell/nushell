@@ -38,7 +38,7 @@ impl ReconstructVal for CompletionAlgorithm {
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq)]
 pub enum CompletionSort {
     #[default]
-    Default,
+    Smart,
     Alphabetical,
 }
 
@@ -47,9 +47,9 @@ impl FromStr for CompletionSort {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
-            "default" => Ok(Self::Default),
+            "smart" => Ok(Self::Smart),
             "alphabetical" => Ok(Self::Alphabetical),
-            _ => Err("expected either 'default' or 'alpha'"),
+            _ => Err("expected either 'smart' or 'alphabetical'"),
         }
     }
 }
@@ -57,7 +57,7 @@ impl FromStr for CompletionSort {
 impl ReconstructVal for CompletionSort {
     fn reconstruct_value(&self, span: Span) -> Value {
         let str = match self {
-            Self::Default => "default",
+            Self::Smart => "smart",
             Self::Alphabetical => "alphabetical",
         };
         Value::string(str, span)

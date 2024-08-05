@@ -788,8 +788,8 @@ fn subcommand_completions(mut subcommand_completer: NuCompleter) {
     let prefix = "foo br";
     let suggestions = subcommand_completer.complete(prefix, prefix.len());
     match_suggestions(
-        vec!["foo bar".to_string(), "foo aabcrr".to_string()],
-        suggestions,
+        &vec!["foo bar".to_string(), "foo aabcrr".to_string()],
+        &suggestions,
     );
 
     let prefix = "foo b";
@@ -1290,8 +1290,8 @@ fn sort_fuzzy_completions_in_alphabetical_order(mut fuzzy_alpha_sort_completer: 
     // Even though "nushell" is a better match, it should come second because
     // the completions should be sorted in alphabetical order
     match_suggestions(
-        vec!["custom_completion.nu".into(), "nushell".into()],
-        suggestions,
+        &vec!["custom_completion.nu".into(), "nushell".into()],
+        &suggestions,
     );
 }
 

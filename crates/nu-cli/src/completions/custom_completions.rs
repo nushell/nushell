@@ -111,7 +111,7 @@ impl Completer for CustomCompletion {
                             sort: if should_sort {
                                 CompletionSort::Alphabetical
                             } else {
-                                CompletionSort::Default
+                                CompletionSort::Smart
                             },
                         });
                     }

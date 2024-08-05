@@ -320,7 +320,7 @@ pub fn sort_completions<T>(
     get_value: fn(&T) -> &str,
 ) -> Vec<T> {
     // Sort items
-    if options.sort == CompletionSort::Default && options.match_algorithm == MatchAlgorithm::Fuzzy {
+    if options.sort == CompletionSort::Smart && options.match_algorithm == MatchAlgorithm::Fuzzy {
         let mut matcher = SkimMatcherV2::default();
         if options.case_sensitive {
             matcher = matcher.respect_case();
