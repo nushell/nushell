@@ -3900,8 +3900,9 @@ checksum = "caff54706df99d2a78a5a4e3455ff45448d81ef1bb63c22cd14052ca0e993a3f"
 
 [[package]]
 name = "papergrid"
-version = "0.11.0"
-source = "git+https://github.com/zhiburt/tabled/?rev=595b6cd0b0dc8c98033f0be0e18796222ffc0c9a#595b6cd0b0dc8c98033f0be0e18796222ffc0c9a"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7419ad52a7de9b60d33e11085a0fe3df1fbd5926aa3f93d3dd53afbc9e86725"
 dependencies = [
  "ansi-str",
  "ansitok",
@@ -6000,13 +6001,13 @@ dependencies = [
 
 [[package]]
 name = "tabled"
-version = "0.15.0"
-source = "git+https://github.com/zhiburt/tabled/?rev=595b6cd0b0dc8c98033f0be0e18796222ffc0c9a#595b6cd0b0dc8c98033f0be0e18796222ffc0c9a"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77c9303ee60b9bedf722012ea29ae3711ba13a67c9b9ae28993838b63057cb1b"
 dependencies = [
  "ansi-str",
  "ansitok",
  "papergrid",
- "unicode-width",
 ]
 
 [[package]]
