@@ -12,9 +12,9 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("random binary")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(Type::Nothing, Type::Binary)])
             .allow_variants_without_examples(true)
-            .required("length", SyntaxShape::Int, "Number of bytes")
+            .required("length", SyntaxShape::Int, "Length of the output binary.")
             .category(Category::Random)
     }
 
