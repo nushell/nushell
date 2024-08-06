@@ -4701,6 +4701,15 @@ pub fn parse_value(
             | SyntaxShape::String
             | SyntaxShape::GlobPattern
             | SyntaxShape::ExternalArgument => {}
+            SyntaxShape::OneOf(possible_shapes) => {
+                if !possible_shapes
+                    .into_iter()
+                    .any(|s| matches!(s, SyntaxShape::List(_)))
+                {
+                    working_set.error(ParseError::Expected("non-[] value", span));
+                    return Expression::garbage(working_set, span);
+                }
+            }
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(working_set, span);
