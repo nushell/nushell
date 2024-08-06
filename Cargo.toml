@@ -113,6 +113,7 @@ miette = "7.2"
 mime = "0.3"
 mime_guess = "2.0"
 mockito = { version = "1.4", default-features = false }
+multipart-rs = "0.1.11"
 native-tls = "0.2"
 nix = { version = "0.28", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }
@@ -207,6 +208,7 @@ dirs = { workspace = true }
 log = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 mimalloc = { version = "0.1.42", default-features = false, optional = true }
+multipart-rs = { workspace = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
 time = "0.3"

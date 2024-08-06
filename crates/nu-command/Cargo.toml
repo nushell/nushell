@@ -60,6 +60,7 @@ lscolors = { workspace = true, default-features = false, features = ["nu-ansi-te
 md5 = { workspace = true }
 mime = { workspace = true }
 mime_guess = { workspace = true }
+multipart-rs = { workspace = true }
 native-tls = { workspace = true }
 notify-debouncer-full = { workspace = true, default-features = false }
 num-format = { workspace = true }

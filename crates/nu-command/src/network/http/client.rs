@@ -4,10 +4,12 @@ use base64::{
     engine::{general_purpose::PAD, GeneralPurpose},
     Engine,
 };
+use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, Signals};
 use std::{
     collections::HashMap,
+    io::Cursor,
     path::PathBuf,
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
@@ -20,6 +22,7 @@ use url::Url;
 pub enum BodyType {
     Json,
     Form,
+    Multipart,
     Unknown,
 }
 
@@ -210,6 +213,7 @@ pub fn send_request(
             let (body_type, req) = match content_type {
                 Some(it) if it == "application/json" => (BodyType::Json, request),
                 Some(it) if it == "application/x-www-form-urlencoded" => (BodyType::Form, request),
+                Some(it) if it == "multipart/form-data" => (BodyType::Multipart, request),
                 Some(it) => {
                     let r = request.clone().set("Content-Type", &it);
                     (BodyType::Unknown, r)
@@ -263,6 +267,48 @@ pub fn send_request(
                             .collect::<Vec<(&str, &str)>>();
                         req.send_form(&data)
                     };
+                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
+                }
+                // multipart form upload
+                Value::Record { val, .. } if body_type == BodyType::Multipart => {
+                    let mut builder = MultipartWriter::new();
+
+                    let err = |e| {
+                        ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                            msg: format!("failed to build multipart data: {}", e),
+                        })
+                    };
+
+                    for (col, val) in val.into_owned() {
+                        if let Value::Binary { val, .. } = val {
+                            let headers = [
+                                "Content-Type: application/octet-stream".to_string(),
+                                "Content-Transfer-Encoding: binary".to_string(),
+                                format!(
+                                    "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"",
+                                    col, col
+                                ),
+                                format!("Content-Length: {}", val.len()),
+                            ];
+                            builder
+                                .add(&mut Cursor::new(val), &headers.join("\n"))
+                                .map_err(err)?;
+                        } else {
+                            let headers =
+                                format!(r#"Content-Disposition: form-data; name="{}""#, col);
+                            builder
+                                .add(val.coerce_into_string()?.as_bytes(), &headers)
+                                .map_err(err)?;
+                        }
+                    }
+                    builder.finish();
+
+                    let (boundary, data) = (builder.boundary, builder.data);
+                    let content_type = format!("multipart/form-data; boundary={}", boundary);
+
+                    let request_fn =
+                        move || req.set("Content-Type", &content_type).send_bytes(&data);
+
                     send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
                 }
                 Value::List { vals, .. } if body_type == BodyType::Form => {

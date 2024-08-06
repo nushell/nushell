@@ -2749,6 +2749,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "multipart-rs"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22ea34e5c0fa65ba84707cfaf5bf43d500f1c5a4c6c36327bf5541c5bcd17e98"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-util",
+ "memchr",
+ "mime",
+ "uuid",
+]
+
+[[package]]
 name = "multiversion"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2877,6 +2891,7 @@ dependencies = [
  "log",
  "miette",
  "mimalloc",
+ "multipart-rs",
  "nix",
  "nu-cli",
  "nu-cmd-base",
@@ -3064,6 +3079,7 @@ dependencies = [
  "mime",
  "mime_guess",
  "mockito",
+ "multipart-rs",
  "native-tls",
  "nix",
  "notify-debouncer-full",
