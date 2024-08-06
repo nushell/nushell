@@ -48,6 +48,7 @@ impl NuCompleter {
         let options = CompletionOptions {
             case_sensitive: config.case_sensitive_completions,
             match_algorithm: config.completion_algorithm.into(),
+            sort: config.completion_sort,
             ..Default::default()
         };
 
