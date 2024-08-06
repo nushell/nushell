@@ -2,7 +2,9 @@ use nu_color_config::StyleComputer;
 use tabled::{
     builder::Builder,
     grid::{
-        color::AnsiColor, records::vec_records::CellInfo, util::string::string_width_multiline,
+        ansi::{ANSIBuf, ANSIStr},
+        records::vec_records::Text,
+        util::string::get_string_width,
     },
     settings::{width::Truncate, Color, Modify, Padding, Style, Width},
 };
@@ -10,7 +12,7 @@ use tabled::{
 use crate::common::get_leading_trailing_space_style;
 
 pub fn string_width(text: &str) -> usize {
-    string_width_multiline(text)
+    get_string_width(text)
 }
 
 pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
@@ -24,7 +26,7 @@ pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
     }
 
     let wrap = if keep_words {
-        Width::wrap(width).keep_words()
+        Width::wrap(width).keep_words(true)
     } else {
         Width::wrap(width)
     };
@@ -45,7 +47,7 @@ pub fn string_truncate(text: &str, width: usize) -> String {
         None => return String::new(),
     };
 
-    Truncate::truncate_text(line, width).into_owned()
+    Truncate::truncate(line, width).into_owned()
 }
 
 pub fn clean_charset(text: &str) -> String {
@@ -53,24 +55,26 @@ pub fn clean_charset(text: &str) -> String {
     text.replace('\t', "    ").replace('\r', "")
 }
 
-pub fn colorize_space(data: &mut [Vec<CellInfo<String>>], style_computer: &StyleComputer<'_>) {
+pub fn colorize_space(data: &mut [Vec<Text<String>>], style_computer: &StyleComputer<'_>) {
     if let Some(style) = get_leading_trailing_space_style(style_computer).color_style {
-        let style = convert_style(style).into();
-        colorize_lead_trail_space(data, Some(&style), Some(&style));
+        let style = ANSIBuf::from(convert_style(style));
+        let style = style.as_ref();
+        colorize_lead_trail_space(data, Some(style), Some(style));
     }
 }
 
 pub fn colorize_space_str(text: &mut String, style_computer: &StyleComputer<'_>) {
     if let Some(style) = get_leading_trailing_space_style(style_computer).color_style {
-        let style = convert_style(style).into();
-        *text = colorize_space_one(text, Some(&style), Some(&style));
+        let style = ANSIBuf::from(convert_style(style));
+        let style = style.as_ref();
+        *text = colorize_space_one(text, Some(style), Some(style));
     }
 }
 
 fn colorize_lead_trail_space(
-    data: &mut [Vec<CellInfo<String>>],
-    lead: Option<&AnsiColor<'_>>,
-    trail: Option<&AnsiColor<'_>>,
+    data: &mut [Vec<Text<String>>],
+    lead: Option<ANSIStr<'_>>,
+    trail: Option<ANSIStr<'_>>,
 ) {
     if lead.is_none() && trail.is_none() {
         return;
@@ -79,16 +83,12 @@ fn colorize_lead_trail_space(
     for row in data.iter_mut() {
         for cell in row {
             let buf = colorize_space_one(cell.as_ref(), lead, trail);
-            *cell = CellInfo::new(buf);
+            *cell = Text::new(buf);
         }
     }
 }
 
-fn colorize_space_one(
-    text: &str,
-    lead: Option<&AnsiColor<'_>>,
-    trail: Option<&AnsiColor<'_>>,
-) -> String {
+fn colorize_space_one(text: &str, lead: Option<ANSIStr<'_>>, trail: Option<ANSIStr<'_>>) -> String {
     use fancy_regex::Captures;
     use fancy_regex::Regex;
     use once_cell::sync::Lazy;
