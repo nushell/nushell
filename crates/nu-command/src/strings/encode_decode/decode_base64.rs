@@ -1,10 +1,11 @@
 use super::base64::{operate, ActionType, Base64CommandArguments, CHARACTER_SET_DESC};
 use nu_engine::command_prelude::*;
+use nu_protocol::{report_warning_new, ParseWarning};
 
 #[derive(Clone)]
-pub struct DecodeBase64;
+pub struct DecodeBase64Old;
 
-impl Command for DecodeBase64 {
+impl Command for DecodeBase64Old {
     fn name(&self) -> &str {
         "decode base64"
     }
@@ -77,6 +78,16 @@ impl Command for DecodeBase64 {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        report_warning_new(
+            engine_state,
+            &ParseWarning::DeprecatedWarning {
+                old_command: "decode base64".into(),
+                new_suggestion: "the new `decode new-base64` version".into(),
+                span: call.head,
+                url: "`help decode new-base64`".into(),
+            },
+        );
+
         let character_set: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "character-set")?;
         let binary = call.has_flag(engine_state, stack, "binary")?;
@@ -114,6 +125,6 @@ mod tests {
 
     #[test]
     fn test_examples() {
-        crate::test_examples(DecodeBase64)
+        crate::test_examples(DecodeBase64Old)
     }
 }

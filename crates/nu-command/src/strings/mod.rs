@@ -1,3 +1,4 @@
+mod base;
 mod char_;
 mod detect_columns;
 mod encode_decode;
@@ -7,6 +8,10 @@ mod parse;
 mod split;
 mod str_;
 
+pub use base::{
+    DecodeBase32, DecodeBase32Hex, DecodeBase64, DecodeHex, EncodeBase32, EncodeBase32Hex,
+    EncodeBase64, EncodeHex,
+};
 pub use char_::Char;
 pub use detect_columns::*;
 pub use encode_decode::*;
