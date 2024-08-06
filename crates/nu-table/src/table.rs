@@ -591,6 +591,10 @@ fn load_theme(
         let color = ANSIBuf::from(color);
         table.get_config_mut().set_border_color_default(color);
     }
+
+    if !with_header {
+        table.with(RemoveHorizontalLine);
+    }
 }
 
 fn maybe_truncate_columns(
@@ -1219,5 +1223,13 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimensionVecRecords<'_>> for 
         for cell in &mut recs[self.0] {
             *cell = Text::new(strip_ansi_unlikely(cell.as_ref()).into_owned());
         }
+    }
+}
+
+struct RemoveHorizontalLine;
+
+impl<D> TableOption<NuRecords, ColoredConfig, D> for RemoveHorizontalLine {
+    fn change(self, recs: &mut NuRecords, cfg: &mut ColoredConfig, _: &mut D) {
+        cfg.remove_horizontal_line(1, recs.count_rows());
     }
 }
