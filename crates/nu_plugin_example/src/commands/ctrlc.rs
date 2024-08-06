@@ -16,7 +16,7 @@ impl PluginCommand for Ctrlc {
     }
 
     fn usage(&self) -> &str {
-        "Example command that demonstrates registering a ctrl-c handler"
+        "Example command that demonstrates registering an interrupt signal handler"
     }
 
     fn signature(&self) -> Signature {
@@ -35,12 +35,12 @@ impl PluginCommand for Ctrlc {
         _input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let (sender, receiver) = mpsc::channel::<()>();
-        let _guard = engine.register_ctrlc_handler(Box::new(move || {
+        let _guard = engine.register_signal_handler(Box::new(move |_| {
             let _ = sender.send(());
         }));
 
         eprintln!("interrupt status: {:?}", engine.signals().interrupted());
-        eprintln!("waiting for ctrl-c signal...");
+        eprintln!("waiting for interrupt signal...");
         receiver.recv().expect("handler went away");
         eprintln!("interrupt status: {:?}", engine.signals().interrupted());
         eprintln!("peace.");

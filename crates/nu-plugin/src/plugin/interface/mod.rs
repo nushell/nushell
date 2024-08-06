@@ -11,9 +11,9 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    engine::{ctrlc, Closure, Sequence},
-    Config, DeclId, LabeledError, PipelineData, PluginMetadata, PluginSignature, ShellError,
-    Signals, Span, Spanned, Value,
+    engine::{Closure, Sequence},
+    Config, DeclId, Handler, HandlerGuard, Handlers, LabeledError, PipelineData, PluginMetadata,
+    PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -64,10 +64,11 @@ struct EngineInterfaceState {
         mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
-    // Mirror signals from `EngineState`
+    /// Mirror signals from `EngineState`. You can make use of this with
+    /// `engine_interface.signals()` when constructing a Stream that requires signals
     signals: Signals,
-    /// Registered Ctrl-C handlers
-    ctrlc_handlers: ctrlc::Handlers,
+    /// Registered signal handlers
+    signal_handlers: Handlers,
 }
 
 impl std::fmt::Debug for EngineInterfaceState {
@@ -122,7 +123,7 @@ impl EngineInterfaceManager {
                 engine_call_subscription_sender: subscription_tx,
                 writer: Box::new(writer),
                 signals: Signals::new(Arc::new(AtomicBool::new(false))),
-                ctrlc_handlers: ctrlc::Handlers::new(),
+                signal_handlers: Handlers::new(),
             }),
             protocol_info_mut,
             plugin_call_sender: Some(plug_tx),
@@ -337,9 +338,12 @@ impl InterfaceManager for EngineInterfaceManager {
                     });
                 self.send_engine_call_response(id, response)
             }
-            PluginInput::Ctrlc => {
-                self.state.signals.trigger();
-                self.state.ctrlc_handlers.run();
+            PluginInput::Signal(action) => {
+                match action {
+                    SignalAction::Interrupt => self.state.signals.trigger(),
+                    SignalAction::Reset => self.state.signals.reset(),
+                }
+                self.state.signal_handlers.run(action);
                 Ok(())
             }
         }
@@ -521,13 +525,10 @@ impl EngineInterface {
         self.state.writer.is_stdout()
     }
 
-    /// Register a closure which will be called when the engine receives a Ctrl-C signal. Returns a
-    /// RAII guard that will keep the closure alive until it is dropped.
-    pub fn register_ctrlc_handler(
-        &self,
-        handler: ctrlc::Handler,
-    ) -> Result<ctrlc::Guard, ShellError> {
-        self.state.ctrlc_handlers.register(handler)
+    /// Register a closure which will be called when the engine receives an interrupt signal.
+    /// Returns a RAII guard that will keep the closure alive until it is dropped.
+    pub fn register_signal_handler(&self, handler: Handler) -> Result<HandlerGuard, ShellError> {
+        self.state.signal_handlers.register(handler)
     }
 
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
