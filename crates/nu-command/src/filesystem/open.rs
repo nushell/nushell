@@ -146,11 +146,19 @@ impl Command for Open {
                         }
                     };
 
+                    let content_type = if raw {
+                        path.extension()
+                            .map(|ext| ext.to_string_lossy().to_string())
+                            .and_then(|ref s| detect_content_type(s))
+                    } else {
+                        None
+                    };
+
                     let stream = PipelineData::ByteStream(
                         ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
-                            content_type: None,
+                            content_type,
                         }),
                     );
 
@@ -267,4 +275,23 @@ fn extract_extensions(filename: &str) -> Vec<String> {
     extensions.reverse();
 
     extensions
+}
+
+fn detect_content_type(extension: &str) -> Option<String> {
+    // This will allow the overriding of metadata to be consistent with
+    // the content type
+    match extension {
+        // Per RFC-9512, application/yaml should be used
+        "yaml" | "yml" => Some("application/yaml".to_string()),
+        _ => mime_guess::from_ext(extension)
+            .first()
+            .map(|mime| mime.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn test_content_type() {}
 }

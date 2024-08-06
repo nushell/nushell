@@ -98,6 +98,7 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
     let metadata = input
         .metadata()
         .unwrap_or_default()
+        // Per RFC-9512, application/yaml should be used
         .with_content_type(Some("application/yaml".into()));
     let value = input.into_value(head)?;
 
