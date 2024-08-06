@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 
-use rand::prelude::{thread_rng, Rng};
+use rand::prelude::Rng;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -19,6 +19,12 @@ impl Command for SubCommand {
                 SyntaxShape::Number,
                 "Adjusts the probability of a \"true\" outcome",
                 Some('b'),
+            )
+            .named(
+                "seed",
+                SyntaxShape::Int,
+                "Seeds the RNG to get reproducible results.",
+                None,
             )
             .category(Category::Random)
     }
@@ -77,7 +83,7 @@ fn bool(
         }
     }
 
-    let mut rng = thread_rng();
+    let mut rng = super::rng(engine_state, stack, call)?;
     let bool_result: bool = rng.gen_bool(probability);
 
     Ok(PipelineData::Value(Value::bool(bool_result, span), None))

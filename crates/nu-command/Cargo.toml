@@ -72,6 +72,7 @@ percent-encoding = { workspace = true }
 print-positions = { workspace = true }
 quick-xml = { workspace = true }
 rand = { workspace = true }
+rand_chacha = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 roxmltree = { workspace = true }
