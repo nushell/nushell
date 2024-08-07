@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{
-    values::{cant_convert_err, PolarsPluginObject, PolarsPluginType},
+    values::{cant_convert_err, PolarsFileType, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
 
@@ -84,38 +84,41 @@ fn command(
     let spanned_file: Spanned<PathBuf> = call.req(0)?;
     let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
     let file_span = spanned_file.span;
-    let type_option: Option<Spanned<String>> = call.get_flag("type")?;
-    let type_id = match &type_option {
-        Some(ref t) => Some((t.item.to_owned(), "Invalid type", t.span)),
-        None => file_path.extension().map(|e| {
-            (
-                e.to_string_lossy().into_owned(),
-                "Invalid extension",
-                spanned_file.span,
-            )
-        }),
-    };
+    let type_option: Option<(String, Span)> = call
+        .get_flag("type")?
+        .map(|t: Spanned<String>| (t.item, t.span))
+        .or_else(|| {
+            file_path
+                .extension()
+                .map(|e| (e.to_string_lossy().into_owned(), spanned_file.span))
+        });
 
     let polars_df = lazy.to_polars();
 
-    match type_id {
-        Some((e, msg, blamed)) => match e.as_str() {
-            "parquet" | "parq" => polars_df
+    match type_option {
+        Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
+            PolarsFileType::Parquet => polars_df
                 .sink_parquet(&file_path, ParquetWriteOptions::default())
                 .map_err(|e| file_save_error(e, file_span))?,
-            "csv" => polars_df
+            PolarsFileType::Csv => polars_df
                 .sink_csv(&file_path, CsvWriterOptions::default())
                 .map_err(|e| file_save_error(e, file_span))?,
-            "ipc" | "arrow" => polars_df
+            PolarsFileType::Arrow => polars_df
                 .sink_ipc(&file_path, IpcWriterOptions::default())
                 .map_err(|e| file_save_error(e, file_span))?,
-            "json" | "jsonl" | "ndjson" => polars_df
+            PolarsFileType::NdJson => polars_df
                 .sink_json(&file_path, JsonWriterOptions::default())
                 .map_err(|e| file_save_error(e, file_span))?,
-            _ => Err(ShellError::FileNotFoundCustom {
-                msg: format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json, jsonl"),
-                span: blamed,
-            })?,
+            _ => Err(PolarsFileType::build_unsupported_error(
+                &ext,
+                &[
+                    PolarsFileType::Parquet,
+                    PolarsFileType::Csv,
+                    PolarsFileType::Arrow,
+                    PolarsFileType::NdJson,
+                ],
+                blamed,
+            ))?,
         },
         None => Err(ShellError::FileNotFoundCustom {
             msg: "File without extension".into(),
