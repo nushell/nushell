@@ -1,11 +1,19 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, Months, Utc};
+use filetime::FileTime;
 use nu_test_support::fs::{files_exist_at, Stub};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use std::path::Path;
 
 // Use 1 instead of 0 because 0 has a special meaning in Windows
-const TIME_ONE: filetime::FileTime = filetime::FileTime::from_unix_time(1, 0);
+const TIME_ONE: FileTime = FileTime::from_unix_time(1, 0);
+
+fn file_times(file: &Path) -> (FileTime, FileTime) {
+    (
+        file.metadata().unwrap().accessed().unwrap().into(),
+        file.metadata().unwrap().modified().unwrap().into(),
+    )
+}
 
 #[test]
 fn creates_a_file_when_it_doesnt_exist() {
@@ -61,7 +69,7 @@ fn change_modified_time_of_file_to_today() {
         // Check that atime remains unchanged
         assert_eq!(
             TIME_ONE,
-            filetime::FileTime::from_system_time(metadata.accessed().unwrap())
+            FileTime::from_system_time(metadata.accessed().unwrap())
         );
     })
 }
@@ -91,7 +99,7 @@ fn change_access_time_of_file_to_today() {
         // Check that mtime remains unchanged
         assert_eq!(
             TIME_ONE,
-            filetime::FileTime::from_system_time(metadata.modified().unwrap())
+            FileTime::from_system_time(metadata.modified().unwrap())
         );
     })
 }
@@ -217,12 +225,7 @@ fn change_file_times_to_reference_file() {
         let target = dirs.test().join("target_file");
 
         // Change the times for reference
-        filetime::set_file_times(
-            &reference,
-            filetime::FileTime::from_unix_time(1337, 0),
-            TIME_ONE,
-        )
-        .unwrap();
+        filetime::set_file_times(&reference, FileTime::from_unix_time(1337, 0), TIME_ONE).unwrap();
 
         // target should have today's date since it was just created, but reference should be different
         assert_ne!(
@@ -262,22 +265,10 @@ fn change_file_mtime_to_reference() {
         let target = dirs.test().join("target_file");
 
         // Change the times for reference
-        filetime::set_file_times(
-            &reference,
-            TIME_ONE,
-            filetime::FileTime::from_unix_time(1337, 0),
-        )
-        .unwrap();
+        filetime::set_file_times(&reference, TIME_ONE, FileTime::from_unix_time(1337, 0)).unwrap();
 
         // target should have today's date since it was just created, but reference should be different
-        assert_ne!(
-            reference.metadata().unwrap().accessed().unwrap(),
-            target.metadata().unwrap().accessed().unwrap()
-        );
-        assert_ne!(
-            reference.metadata().unwrap().modified().unwrap(),
-            target.metadata().unwrap().modified().unwrap()
-        );
+        assert_ne!(file_times(&reference), file_times(&target));
 
         // Save target's current atime to make sure it is preserved
         let target_original_atime = target.metadata().unwrap().accessed().unwrap();
@@ -299,6 +290,69 @@ fn change_file_mtime_to_reference() {
             target_original_atime,
             target.metadata().unwrap().accessed().unwrap()
         );
+    })
+}
+
+#[test]
+fn change_file_times_to_reference_file_with_date() {
+    Playground::setup(
+        "change_file_times_to_reference_file_with_date",
+        |dirs, sandbox| {
+            sandbox.with_files(&[
+                Stub::EmptyFile("reference_file"),
+                Stub::EmptyFile("target_file"),
+            ]);
+
+            let reference = dirs.test().join("reference_file");
+            let target = dirs.test().join("target_file");
+
+            let now = Utc::now();
+
+            let ref_atime = now;
+            let ref_mtime = now.checked_add_months(Months::new(5)).unwrap();
+
+            // Change the times for reference
+            filetime::set_file_times(
+                reference,
+                FileTime::from_unix_time(ref_atime.timestamp(), ref_atime.timestamp_subsec_nanos()),
+                FileTime::from_unix_time(ref_mtime.timestamp(), ref_mtime.timestamp_subsec_nanos()),
+            )
+            .unwrap();
+
+            nu!(
+                cwd: dirs.test(),
+                r#"utouch -r reference_file -d "+1 month" target_file"#
+            );
+
+            let (got_atime, got_mtime) = file_times(&target);
+            let got = (
+                DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap(),
+                DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds()).unwrap(),
+            );
+            assert_eq!(
+                (
+                    now.checked_add_months(Months::new(1)).unwrap(),
+                    now.checked_add_months(Months::new(6)).unwrap()
+                ),
+                got
+            );
+        },
+    )
+}
+
+#[test]
+fn change_file_times_to_timestamp() {
+    Playground::setup("change_file_times_to_timestamp", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::EmptyFile("target_file")]);
+
+        let target = dirs.test().join("target_file");
+        let timestamp = DateTime::from_timestamp(TIME_ONE.seconds(), TIME_ONE.nanoseconds())
+            .unwrap()
+            .to_rfc3339();
+
+        nu!(cwd: dirs.test(), format!("utouch --timestamp {} target_file", timestamp));
+
+        assert_eq!((TIME_ONE, TIME_ONE), file_times(&target));
     })
 }
 
@@ -406,12 +460,7 @@ fn change_dir_times_to_reference_dir() {
         let target = dirs.test().join("target_dir");
 
         // Change the times for reference
-        filetime::set_file_times(
-            &reference,
-            filetime::FileTime::from_unix_time(1337, 0),
-            TIME_ONE,
-        )
-        .unwrap();
+        filetime::set_file_times(&reference, FileTime::from_unix_time(1337, 0), TIME_ONE).unwrap();
 
         // target should have today's date since it was just created, but reference should be different
         assert_ne!(
@@ -449,12 +498,7 @@ fn change_dir_atime_to_reference() {
         let target = dirs.test().join("target_dir");
 
         // Change the times for reference
-        filetime::set_file_times(
-            &reference,
-            filetime::FileTime::from_unix_time(1337, 0),
-            TIME_ONE,
-        )
-        .unwrap();
+        filetime::set_file_times(&reference, FileTime::from_unix_time(1337, 0), TIME_ONE).unwrap();
 
         // target should have today's date since it was just created, but reference should be different
         assert_ne!(

@@ -39,39 +39,39 @@ impl Command for UTouch {
             .named(
                 "reference",
                 SyntaxShape::Filepath,
-                "use the access and modification times of the reference file/directory instead of the current time",
+                "Use the access and modification times of the reference file/directory instead of the current time",
                 Some('r'),
             )
             .named(
                 "timestamp",
                 SyntaxShape::DateTime,
-                "use the given timestamp instead of the current time",
+                "Use the given timestamp instead of the current time",
                 Some('t')
             )
             .named(
                 "date",
                 SyntaxShape::String,
-                "use the given date instead of the current date",
+                "Use the given time instead of the current time. This can be a full timestamp or it can be relative to either the current time or reference file time (if given). For more information, see https://www.gnu.org/software/coreutils/manual/html_node/touch-invocation.html",
                 Some('d')
             )
             .switch(
                 "modified",
-                "change only the modification time (if used with -a, access time is changed too)",
+                "Change only the modification time (if used with -a, access time is changed too)",
                 Some('m'),
             )
             .switch(
                 "access",
-                "change only the access time (if used with -m, modification time is changed too)",
+                "Change only the access time (if used with -m, modification time is changed too)",
                 Some('a'),
             )
             .switch(
                 "no-create",
-                "do not create the file if it does not exist",
+                "Don't create the file if it doesn't exist",
                 Some('c'),
             )
             .switch(
                 "no-dereference",
-                "affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink). Ignored if touching stdout",
+                "Affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink). Ignored if touching stdout",
                 None
             )
             .category(Category::FileSystem)
@@ -116,6 +116,7 @@ impl Command for UTouch {
             } else {
                 (None, None)
             };
+        println!("date_str: {:?}", date_str);
         let timestamp: Option<Spanned<DateTime<FixedOffset>>> =
             call.get_flag(engine_state, stack, "timestamp")?;
 
@@ -257,6 +258,11 @@ impl Command for UTouch {
             Example {
                 description: r#"Change the last accessed and last modified times of stdout"#,
                 example: r#"utouch -"#,
+                result: None,
+            },
+            Example {
+                description: r#"Changes the last modified time of files d and e to 5 seconds before "fixture.json"'s last modified time"#,
+                example: r#"utouch -m -r fixture.json -d "5 seconds ago" d e"#,
                 result: None,
             },
         ]
