@@ -70,6 +70,7 @@ features = [
 	"serde",
 	"serde-lazy",
 	"strings",
+    "streaming",
 	"to_dummies",
 ]
 optional = false
