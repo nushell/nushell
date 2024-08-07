@@ -35,3 +35,9 @@ fn median_mixed_numbers() {
 
     assert_eq!(actual.out, "-11.5")
 }
+
+#[test]
+fn const_median() {
+    let actual = nu!("const MEDIAN = [1 3 5] | math median; $MEDIAN");
+    assert_eq!(actual.out, "3");
+}

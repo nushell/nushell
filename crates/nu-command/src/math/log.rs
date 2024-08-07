@@ -34,6 +34,10 @@ impl Command for SubCommand {
         vec!["base", "exponent", "inverse", "euler"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -60,6 +64,34 @@ impl Command for SubCommand {
         input.map(
             move |value| operate(value, head, base),
             engine_state.signals(),
+        )
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let base: Spanned<f64> = call.req_const(working_set, 0)?;
+
+        if base.item <= 0.0f64 {
+            return Err(ShellError::UnsupportedInput {
+                msg: "Base has to be greater 0".into(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: base.span,
+            });
+        }
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        let base = base.item;
+        input.map(
+            move |value| operate(value, head, base),
+            working_set.permanent().signals(),
         )
     }
 
