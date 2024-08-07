@@ -46,7 +46,7 @@ impl PluginCommand for OpenDataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Opens CSV, JSON, JSON lines, arrow, avro, or parquet file to create dataframe."
+        "Opens CSV, JSON, JSON lines, arrow, avro, or parquet file to create dataframe. A lazy dataframe will be created by default, if supported."
     }
 
     fn signature(&self) -> Signature {
@@ -56,7 +56,7 @@ impl PluginCommand for OpenDataFrame {
                 SyntaxShape::Filepath,
                 "file path to load values from",
             )
-            .switch("lazy", "creates a lazy dataframe", Some('l'))
+            .switch("eager", "Open dataframe as an eager dataframe", None)
             .named(
                 "type",
                 SyntaxShape::String,
@@ -173,7 +173,7 @@ fn from_parquet(
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
-    if call.has_flag("lazy")? {
+    if !call.has_flag("eager")? {
         let file: String = call.req(0)?;
         let args = ScanArgsParquet {
             n_rows: None,
@@ -275,7 +275,7 @@ fn from_ipc(
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
-    if call.has_flag("lazy")? {
+    if !call.has_flag("eager")? {
         let file: String = call.req(0)?;
         let args = ScanArgsIpc {
             n_rows: None,
@@ -389,7 +389,7 @@ fn from_jsonl(
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
 
-    if call.has_flag("lazy")? {
+    if !call.has_flag("eager")? {
         let start_time = std::time::Instant::now();
 
         let df = LazyJsonLineReader::new(file_path)
@@ -473,7 +473,7 @@ fn from_csv(
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
 
-    if call.has_flag("lazy")? {
+    if !call.has_flag("eager")? {
         let csv_reader = LazyCsvReader::new(file_path);
 
         let csv_reader = match delimiter {
