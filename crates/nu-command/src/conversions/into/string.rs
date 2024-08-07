@@ -4,10 +4,16 @@ use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 use nu_protocol::{into_code, Config};
 use nu_utils::get_system_locale;
-use num_format::ToFormattedString;
+
+enum IntegerFormat {
+    Binary,
+    Decimal,
+    Hexadecimal,
+}
 
 struct Arguments {
     decimals_value: Option<i64>,
+    integer_format: IntegerFormat,
     cell_paths: Option<Vec<CellPath>>,
     config: Arc<Config>,
 }
@@ -57,6 +63,8 @@ impl Command for SubCommand {
                 "decimal digits to which to round",
                 Some('d'),
             )
+            .switch("hexadecimal", "format numbers as hexadecimal", Some('x'))
+            .switch("binary", "format numbers as binary", Some('b'))
             .category(Category::Conversions)
     }
 
@@ -84,6 +92,16 @@ impl Command for SubCommand {
                 description: "convert int to string and append three decimal places",
                 example: "5 | into string --decimals 3",
                 result: Some(Value::test_string("5.000")),
+            },
+            Example {
+                description: "convert int to string as a hexadecimal number",
+                example: "53509 | into string --hexadecimal",
+                result: Some(Value::test_string("0xd105")),
+            },
+            Example {
+                description: "convert int to string as a binary number",
+                example: "42 | into string --binary",
+                result: Some(Value::test_string("0b101010")),
             },
             Example {
                 description: "convert float to string and round to nearest integer",
@@ -155,6 +173,23 @@ fn string_helper(
             });
         }
     }
+
+    let hexadecimal = call.has_flag(engine_state, stack, "hexadecimal")?;
+    let binary = call.has_flag(engine_state, stack, "binary")?;
+    let integer_format = match (hexadecimal, binary) {
+        (false, false) => IntegerFormat::Decimal,
+        (false, true) => IntegerFormat::Binary,
+        (true, false) => IntegerFormat::Hexadecimal,
+        (true, true) => {
+            return Err(ShellError::IncompatibleParameters {
+                left_message: "This formats the number as binary".to_string(),
+                left_span: call.get_flag_span(stack, "binary").unwrap_or(head),
+                right_message: "This formats the number as hexadecimal".to_string(),
+                right_span: call.get_flag_span(stack, "hexadecimal").unwrap_or(head),
+            });
+        }
+    };
+
     let cell_paths = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
@@ -179,6 +214,7 @@ fn string_helper(
         let config = stack.get_config(engine_state);
         let args = Arguments {
             decimals_value,
+            integer_format,
             cell_paths,
             config,
         };
@@ -192,8 +228,26 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     match input {
         Value::Int { val, .. } => {
             let decimal_value = digits.unwrap_or(0) as usize;
-            let res = format_int(*val, false, decimal_value);
-            Value::string(res, span)
+
+            let string = match args.integer_format {
+                IntegerFormat::Binary => {
+                    if val.is_negative() {
+                        format!("-0b{:b}", val.abs())
+                    } else {
+                        format!("0b{val:b}")
+                    }
+                }
+                IntegerFormat::Decimal => format_decimal(*val, decimal_value),
+                IntegerFormat::Hexadecimal => {
+                    if val.is_negative() {
+                        format!("-0x{:x}", val.abs())
+                    } else {
+                        format!("0x{val:x}")
+                    }
+                }
+            };
+
+            Value::string(string, span)
         }
         Value::Float { val, .. } => {
             if let Some(decimal_value) = digits {
@@ -261,14 +315,10 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
-fn format_int(int: i64, group_digits: bool, decimals: usize) -> String {
+fn format_decimal(int: i64, decimals: usize) -> String {
     let locale = get_system_locale();
 
-    let str = if group_digits {
-        int.to_formatted_string(&locale)
-    } else {
-        int.to_string()
-    };
+    let str = int.to_string();
 
     if decimals > 0 {
         let decimal_point = locale.decimal();
