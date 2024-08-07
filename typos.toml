@@ -23,6 +23,7 @@ extend-ignore-re = [
 [type.rust.extend-words]
 nd = "nd"
 numer = "numer"
+styl = "styl"
 
 [default.extend-identifiers]
 ratatui = "ratatui"
