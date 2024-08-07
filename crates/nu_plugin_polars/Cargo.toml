@@ -40,6 +40,7 @@ typetag = "0.2"
 env_logger = "0.11.3"
 log.workspace = true
 uuid = { version = "1.10", features = ["v4", "serde"] }
+object_store = { version = "0.10.2", features = ["aws"] }
 
 [dependencies.polars]
 features = [
@@ -72,6 +73,7 @@ features = [
 	"strings",
     "streaming",
 	"to_dummies",
+	"aws",
 ]
 optional = false
 version = "0.41"

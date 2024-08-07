@@ -5,6 +5,7 @@ use crate::{
 };
 use nu_path::expand_path_with;
 use nu_utils::perf;
+use object_store::aws::AmazonS3Builder;
 
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
@@ -30,7 +31,7 @@ use polars::{
 };
 
 use polars_io::{
-    avro::AvroReader, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions,
+    avro::AvroReader, cloud::{AmazonS3ConfigKey, CloudOptions}, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions
 };
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
@@ -174,6 +175,14 @@ fn from_parquet(
     file_span: Span,
 ) -> Result<Value, ShellError> {
     if !call.has_flag("eager")? {
+
+        let builder = AmazonS3Builder::new()
+            .with_bucket("bucket");
+
+        // let cloud_options = CloudOptions {
+        //     max_retries: todo!(),
+        // };
+        
         let file: String = call.req(0)?;
         let args = ScanArgsParquet {
             n_rows: None,
