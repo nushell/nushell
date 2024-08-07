@@ -33,6 +33,10 @@ impl Command for SubCommand {
         vec!["deviation", "dispersion", "variation", "statistics"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -41,6 +45,16 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let sample = call.has_flag(engine_state, stack, "sample")?;
+        run_with_function(call, input, compute_variance(sample))
+    }
+
+    fn run_const(
+            &self,
+            working_set: &StateWorkingSet,
+            call: &Call,
+            input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+        let sample = call.has_flag_const(working_set, "sample")?;
         run_with_function(call, input, compute_variance(sample))
     }
 

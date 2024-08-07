@@ -35,6 +35,10 @@ impl Command for SubCommand {
         vec!["minimum", "smallest"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -42,6 +46,15 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        run_with_function(call, input, minimum)
+    }
+
+    fn run_const(
+            &self,
+            working_set: &StateWorkingSet,
+            call: &Call,
+            input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
         run_with_function(call, input, minimum)
     }
 

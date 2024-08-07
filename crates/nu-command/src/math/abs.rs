@@ -34,6 +34,10 @@ impl Command for SubCommand {
         vec!["absolute", "modulus", "positive", "distance"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -43,6 +47,16 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         input.map(move |value| abs_helper(value, head), engine_state.signals())
+    }
+
+    fn run_const(
+            &self,
+            working_set: &StateWorkingSet,
+            call: &Call,
+            input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            let head = call.head;
+            input.map(move |value| abs_helper(value, head), working_set.permanent().signals())
     }
 
     fn examples(&self) -> Vec<Example> {

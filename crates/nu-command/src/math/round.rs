@@ -35,6 +35,10 @@ impl Command for SubCommand {
         vec!["approx", "closest", "nearest"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -51,6 +55,24 @@ impl Command for SubCommand {
         input.map(
             move |value| operate(value, head, precision_param),
             engine_state.signals(),
+        )
+    }
+
+    fn run_const(
+            &self,
+            working_set: &StateWorkingSet,
+            call: &Call,
+            input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+        let precision_param: Option<i64> = call.get_flag_const(working_set, "precision")?;
+        let head = call.head;
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        input.map(
+            move |value| operate(value, head, precision_param),
+            working_set.permanent().signals(),
         )
     }
 
