@@ -26,7 +26,7 @@ nu-utils = { path = "../nu-utils", version = "0.96.2" }
 chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
 chrono-tz = "0.9"
 fancy-regex = { workspace = true }
-indexmap = { version = "2.2" }
+indexmap = { version = "2.3" }
 mimalloc = { version = "0.1.42" }
 num = {version = "0.4"}
 serde = { version = "1.0", features = ["derive"] }
