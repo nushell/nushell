@@ -20,13 +20,13 @@ use polars_io::{
 };
 
 #[derive(Clone)]
-pub struct Sink;
+pub struct SaveDF;
 
-impl PluginCommand for Sink {
+impl PluginCommand for SaveDF {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars sink"
+        "polars save"
     }
 
     fn usage(&self) -> &str {
@@ -49,7 +49,7 @@ impl PluginCommand for Sink {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Collect and save the output to the specified file",
-            example: "[[a b];[1 2] [3 4]] | polars into-lazy | polars sink /tmp/foo.parquet",
+            example: "[[a b];[1 2] [3 4]] | polars into-lazy | polars save /tmp/foo.parquet",
             result: None,
         }]
     }
@@ -158,7 +158,7 @@ pub mod test {
         let tmp_file_str = tmp_file.to_str().expect("should be able to get file path");
 
         let cmd = format!(
-            "[[a b]; [1 2] [3 4]] | polars into-lazy | polars sink {}",
+            "[[a b]; [1 2] [3 4]] | polars into-lazy | polars save {}",
             tmp_file_str
         );
         let mut plugin_test = PluginTest::new("polars", PolarsPlugin::default().into())?;

@@ -14,6 +14,7 @@ mod pivot;
 mod query_df;
 mod rename;
 mod sample;
+mod save;
 mod schema;
 mod shape;
 mod slice;
@@ -97,5 +98,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(ToParquet),
         Box::new(QueryDf),
         Box::new(WithColumn),
+        Box::new(save::SaveDF),
     ]
 }
