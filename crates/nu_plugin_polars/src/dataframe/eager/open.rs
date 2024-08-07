@@ -176,8 +176,7 @@ fn from_parquet(
 ) -> Result<Value, ShellError> {
     if !call.has_flag("eager")? {
 
-        let builder = AmazonS3Builder::new()
-            .with_bucket("bucket");
+        let builder = AmazonS3Builder::new();
 
         // let cloud_options = CloudOptions {
         //     max_retries: todo!(),
