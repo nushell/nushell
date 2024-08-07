@@ -48,7 +48,7 @@ impl Command for SubCommand {
 
     fn run_const(
             &self,
-            working_set: &StateWorkingSet,
+            _working_set: &StateWorkingSet,
             call: &Call,
             input: PipelineData,
         ) -> Result<PipelineData, ShellError> {
