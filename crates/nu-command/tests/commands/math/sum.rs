@@ -79,7 +79,7 @@ fn sum_of_a_row_containing_a_table_is_an_error() {
 }
 
 #[test]
-fn const_sum(){
+fn const_sum() {
     let actual = nu!("const SUM = [1 3] | math sum; $SUM");
     assert_eq!(actual.out, "4");
 }

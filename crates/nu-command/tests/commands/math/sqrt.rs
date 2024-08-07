@@ -22,7 +22,7 @@ fn can_sqrt_perfect_square() {
 }
 
 #[test]
-fn const_sqrt(){
+fn const_sqrt() {
     let actual = nu!("const SQRT = 4 | math sqrt; $SQRT");
     assert_eq!(actual.out, "2");
 }

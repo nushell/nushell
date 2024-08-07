@@ -36,7 +36,7 @@ fn fails_with_wrong_input_type() {
 }
 
 #[test]
-fn const_round(){
+fn const_round() {
     let actual = nu!("const ROUND = 18.345 | math round; $ROUND");
     assert_eq!(actual.out, "18");
 }
