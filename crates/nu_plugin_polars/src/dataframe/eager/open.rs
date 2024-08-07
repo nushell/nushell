@@ -404,11 +404,7 @@ fn from_jsonl(
                 inner: vec![],
             })?;
 
-        perf!(
-            "Lazy NDJSON dataframe open",
-            start_time,
-            engine.use_color()
-        );
+        perf!("Lazy NDJSON dataframe open", start_time, engine.use_color());
 
         let df = NuLazyFrame::new(false, df);
         df.cache_and_to_value(plugin, engine, call.head)
