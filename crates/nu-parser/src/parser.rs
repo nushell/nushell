@@ -4703,7 +4703,7 @@ pub fn parse_value(
             | SyntaxShape::ExternalArgument => {}
             SyntaxShape::OneOf(possible_shapes) => {
                 if !possible_shapes
-                    .into_iter()
+                    .iter()
                     .any(|s| matches!(s, SyntaxShape::List(_)))
                 {
                     working_set.error(ParseError::Expected("non-[] value", span));
