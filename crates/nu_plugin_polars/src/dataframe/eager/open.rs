@@ -46,7 +46,7 @@ impl PluginCommand for OpenDataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Opens CSV, JSON, JSON lines, arrow, avro, or parquet file to create dataframe. A lazy dataframe will be created by default, if supported."
+        "Opens CSV, JSON, NDJSON/JSON lines, arrow, avro, or parquet file to create dataframe. A lazy dataframe will be created by default, if supported."
     }
 
     fn signature(&self) -> Signature {
@@ -397,7 +397,7 @@ fn from_jsonl(
             .with_schema(maybe_schema.map(|s| s.into()))
             .finish()
             .map_err(|e| ShellError::GenericError {
-                error: format!("Json lines reader error: {e}"),
+                error: format!("NDJSON reader error: {e}"),
                 msg: "".into(),
                 span: Some(call.head),
                 help: None,
@@ -405,7 +405,7 @@ fn from_jsonl(
             })?;
 
         perf!(
-            "Lazy json lines dataframe open",
+            "Lazy NDJSON dataframe open",
             start_time,
             engine.use_color()
         );
@@ -444,7 +444,7 @@ fn from_jsonl(
             .into();
 
         perf!(
-            "Eager json lines dataframe open",
+            "Eager NDJSON dataframe open",
             start_time,
             engine.use_color()
         );

@@ -23,7 +23,7 @@ impl PluginCommand for ToJsonLines {
     }
 
     fn usage(&self) -> &str {
-        "Saves dataframe to a JSON lines file."
+        "Saves dataframe to a NDJSON file."
     }
 
     fn signature(&self) -> Signature {
@@ -35,7 +35,7 @@ impl PluginCommand for ToJsonLines {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Saves dataframe to JSON lines file",
+            description: "Saves dataframe to NDJSON file",
             example: "[[a b]; [1 2] [3 4]] | polars into-df | polars to-jsonl test.jsonl",
             result: None,
         }]
