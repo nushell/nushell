@@ -12,6 +12,7 @@ mod macro_commands;
 mod median;
 mod quantile;
 mod select;
+mod sink;
 mod sort_by_expr;
 mod to_lazy;
 
@@ -53,5 +54,6 @@ pub(crate) fn lazy_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyQuantile),
         Box::new(ToLazyFrame),
         Box::new(ToLazyGroupBy),
+        Box::new(sink::Sink),
     ]
 }
