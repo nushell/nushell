@@ -20,3 +20,9 @@ fn can_average_bytes() {
 
     assert_eq!(actual.out, "34985870");
 }
+
+#[test]
+fn const_avg(){
+    let actual = nu!("const AVG = [1 3 5] | math avg; $AVG");
+    assert_eq!(actual.out, "3");
+}
