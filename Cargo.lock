@@ -3082,7 +3082,7 @@ dependencies = [
  "pretty_assertions",
  "print-positions",
  "procfs",
- "quick-xml 0.31.0",
+ "quick-xml 0.32.0",
  "quickcheck",
  "quickcheck_macros",
  "rand",
