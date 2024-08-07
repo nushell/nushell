@@ -1,6 +1,6 @@
 use crate::{
     dataframe::values::NuSchema,
-    values::{CustomValueSupport, NuLazyFrame},
+    values::{CustomValueSupport, NuLazyFrame, PolarsFileType},
     EngineWrapper, PolarsPlugin,
 };
 use nu_path::expand_path_with;
@@ -130,33 +130,37 @@ fn command(
     let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
     let file_span = spanned_file.span;
 
-    let type_option: Option<Spanned<String>> = call.get_flag("type")?;
+    let type_option: Option<(String, Span)> = call
+        .get_flag("type")?
+        .map(|t: Spanned<String>| (t.item, t.span))
+        .or_else(|| {
+            file_path
+                .extension()
+                .map(|e| (e.to_string_lossy().into_owned(), spanned_file.span))
+        });
 
-    let type_id = match &type_option {
-        Some(ref t) => Some((t.item.to_owned(), "Invalid type", t.span)),
-        None => file_path.extension().map(|e| {
-            (
-                e.to_string_lossy().into_owned(),
-                "Invalid extension",
-                spanned_file.span,
-            )
-        }),
-    };
-
-    match type_id {
-        Some((e, msg, blamed)) => match e.as_str() {
-            "csv" | "tsv" => from_csv(plugin, engine, call, &file_path, file_span),
-            "parquet" | "parq" => from_parquet(plugin, engine, call, &file_path, file_span),
-            "ipc" | "arrow" => from_ipc(plugin, engine, call, &file_path, file_span),
-            "json" => from_json(plugin, engine, call, &file_path, file_span),
-            "jsonl" => from_jsonl(plugin, engine, call, &file_path, file_span),
-            "avro" => from_avro(plugin, engine, call, &file_path, file_span),
-            _ => Err(ShellError::FileNotFoundCustom {
-                msg: format!(
-                    "{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json, jsonl, avro"
-                ),
-                span: blamed,
-            }),
+    match type_option {
+        Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
+            PolarsFileType::Csv | PolarsFileType::Tsv => {
+                from_csv(plugin, engine, call, &file_path, file_span)
+            }
+            PolarsFileType::Parquet => from_parquet(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::Arrow => from_arrow(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::Json => from_json(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::NdJson => from_ndjson(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::Avro => from_avro(plugin, engine, call, &file_path, file_span),
+            _ => Err(PolarsFileType::build_unsupported_error(
+                &ext,
+                &[
+                    PolarsFileType::Csv,
+                    PolarsFileType::Tsv,
+                    PolarsFileType::Parquet,
+                    PolarsFileType::Arrow,
+                    PolarsFileType::NdJson,
+                    PolarsFileType::Avro,
+                ],
+                blamed,
+            )),
         },
         None => Err(ShellError::FileNotFoundCustom {
             msg: "File without extension".into(),
@@ -268,7 +272,7 @@ fn from_avro(
     df.cache_and_to_value(plugin, engine, call.head)
 }
 
-fn from_ipc(
+fn from_arrow(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
@@ -370,7 +374,7 @@ fn from_json(
     df.cache_and_to_value(plugin, engine, call.head)
 }
 
-fn from_jsonl(
+fn from_ndjson(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,

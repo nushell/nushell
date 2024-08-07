@@ -23,12 +23,9 @@ impl PolarsFileType {
             .collect::<Vec<&'static str>>()
             .join(", ");
 
-        ShellError::GenericError {
-            error: format!("Unsupported type {extension} expected {type_string}"),
-            msg: "".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
+        ShellError::FileNotFoundCustom {
+            msg: format!("Unsupported type {extension} expected {type_string}"),
+            span,
         }
     }
 
