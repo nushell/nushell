@@ -50,13 +50,16 @@ impl Command for SubCommand {
     }
 
     fn run_const(
-            &self,
-            working_set: &StateWorkingSet,
-            call: &Call,
-            input: PipelineData,
-        ) -> Result<PipelineData, ShellError> {
-            let head = call.head;
-            input.map(move |value| abs_helper(value, head), working_set.permanent().signals())
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        input.map(
+            move |value| abs_helper(value, head),
+            working_set.permanent().signals(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {

@@ -59,11 +59,11 @@ impl Command for SubCommand {
     }
 
     fn run_const(
-            &self,
-            working_set: &StateWorkingSet,
-            call: &Call,
-            input: PipelineData,
-        ) -> Result<PipelineData, ShellError> {
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let precision_param: Option<i64> = call.get_flag_const(working_set, "precision")?;
         let head = call.head;
         // This doesn't match explicit nulls

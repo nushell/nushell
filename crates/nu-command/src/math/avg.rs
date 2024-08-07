@@ -53,11 +53,11 @@ impl Command for SubCommand {
     }
 
     fn run_const(
-            &self,
-            working_set: &StateWorkingSet,
-            call: &Call,
-            input: PipelineData,
-        ) -> Result<PipelineData, ShellError> {
+        &self,
+        _working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         run_with_function(call, input, average)
     }
 

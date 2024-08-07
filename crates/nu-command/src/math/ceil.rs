@@ -49,17 +49,20 @@ impl Command for SubCommand {
     }
 
     fn run_const(
-            &self,
-            working_set: &StateWorkingSet,
-            call: &Call,
-            input: PipelineData,
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
-            return Err(ShellError::PipelineEmpty { dst_span: head });            
+            return Err(ShellError::PipelineEmpty { dst_span: head });
         }
-        input.map(move |value| operate(value, head), working_set.permanent().signals())
+        input.map(
+            move |value| operate(value, head),
+            working_set.permanent().signals(),
+        )
     }
 
     fn examples(&self) -> Vec<Example> {

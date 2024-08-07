@@ -68,11 +68,11 @@ impl Command for SubCommand {
     }
 
     fn run_const(
-            &self,
-            working_set: &StateWorkingSet,
-            call: &Call,
-            input: PipelineData,
-        ) -> Result<PipelineData, ShellError> {
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let base: Spanned<f64> = call.req_const(working_set, 0)?;
 
@@ -84,7 +84,7 @@ impl Command for SubCommand {
                 input_span: base.span,
             });
         }
-            // This doesn't match explicit nulls
+        // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
         }
