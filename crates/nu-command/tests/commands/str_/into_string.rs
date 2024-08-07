@@ -1,6 +1,7 @@
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn from_range() {
@@ -218,4 +219,34 @@ fn int_into_string_decimals_respects_system_locale_en() {
     );
 
     assert_eq!(actual.out, "10.0");
+}
+
+#[test]
+fn into_string_hex_zero() {
+    let actual = nu!("0 | into string -x");
+    assert_eq!(actual.out, "0x0")
+}
+
+#[test]
+fn into_string_hex_negative() {
+    let actual = nu!("-2748 | into string -x");
+    assert_eq!(actual.out, "-0xabc")
+}
+
+#[test]
+fn into_string_bin_zero() {
+    let actual = nu!("0 | into string -b");
+    assert_eq!(actual.out, "0b0")
+}
+
+#[test]
+fn into_string_bin_negative() {
+    let actual = nu!("-10 | into string -b");
+    assert_eq!(actual.out, "-0b1010")
+}
+
+#[test]
+fn into_string_invalid_param_combination() {
+    let actual = nu!("0 | into string -b -x");
+    assert!(actual.err.contains("Incompatible parameters."))
 }
