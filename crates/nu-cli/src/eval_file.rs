@@ -1,12 +1,13 @@
-use crate::util::eval_source;
+use crate::util::{eval_source, evaluate_block_with_exit_code};
 use log::{info, trace};
 use nu_engine::{convert_env_values, eval_block};
-use nu_parser::parse;
+use nu_parser::{find_longest_command, lex, lite_parse, parse, parse_internal_call};
 use nu_path::canonicalize_with;
+use nu_protocol::ast::{Block, Expr, Expression, Pipeline};
 use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, PipelineData, ShellError, Span, Value,
+    report_error, PipelineData, ShellError, Signature, Span, Value,
 };
 use std::sync::Arc;
 
@@ -104,9 +105,24 @@ pub fn evaluate_file(
     // Merge the changes into the engine state.
     engine_state.merge_delta(working_set.delta)?;
 
-    // Check if the file contains a main command.
-    let exit_code = if engine_state.find_decl(b"main", &[]).is_some() {
-        // Evaluate the file, but don't run main yet.
+    let mut working_set = StateWorkingSet::new(engine_state);
+    let source = format!("{} {}", source_filename.to_string_lossy(), args.join(" "));
+    let source = source.as_bytes();
+    let file_id = working_set.add_file("<commandline>".to_string(), source);
+    let file_span = working_set.get_span_for_file(file_id);
+    let (tokens, err) = lex(source, file_span.start, &[], &[], false);
+    if let Some(err) = err {
+        working_set.error(err)
+    }
+    let (lite_block, err) = lite_parse(tokens.as_slice());
+    if let Some(err) = err {
+        working_set.error(err);
+    }
+    let lite_command = &lite_block.block[0].commands[0];
+
+    let exit_code = if let Some((decl_id, command_len)) =
+        find_longest_command(&working_set, b"main", &lite_command.parts[1..])
+    {
         let pipeline =
             match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty()) {
                 Ok(data) => data,
@@ -124,13 +140,57 @@ pub fn evaluate_file(
             }
         }
 
-        // Invoke the main command with arguments.
-        // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.
-        let args = format!("main {}", args.join(" "));
-        eval_source(
+        let parsed_call = parse_internal_call(
+            &mut working_set,
+            Span::concat(&lite_command.parts[..command_len + 1]),
+            &lite_command.parts[(command_len + 1)..],
+            decl_id,
+        );
+
+        let expression = Expression::new(
+            &mut working_set,
+            Expr::Call(parsed_call.call),
+            Span::concat(lite_command.parts.as_slice()),
+            parsed_call.output,
+        );
+
+        if let Some(warning) = working_set.parse_warnings.first() {
+            report_error(&working_set, warning);
+        }
+
+        // If any parse errors were found, report the first error and exit.
+        if let Some(err) = working_set.parse_errors.first() {
+            report_error(&working_set, err);
+            std::process::exit(1);
+        }
+
+        if let Some(err) = working_set.compile_errors.first() {
+            report_error(&working_set, err);
+            // Not a fatal error, for now
+        }
+
+        let mut main_call = Block {
+            signature: Box::new(Signature::new("")),
+            pipelines: vec![Pipeline::from_vec(vec![expression])],
+            captures: vec![],
+            redirect_env: true,
+            ir_block: None,
+            span: Some(file_span),
+        };
+
+        match nu_engine::compile(&working_set, &main_call) {
+            Ok(ir_block) => {
+                main_call.ir_block = Some(ir_block);
+            }
+            Err(err) => working_set.compile_errors.push(err),
+        }
+
+        engine_state.merge_delta(working_set.delta)?;
+
+        evaluate_block_with_exit_code(
             engine_state,
             stack,
-            args.as_bytes(),
+            Arc::new(main_call),
             "<commandline>",
             input,
             true,
