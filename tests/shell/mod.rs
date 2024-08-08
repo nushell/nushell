@@ -325,6 +325,43 @@ fn main_script_can_have_subcommands2() {
 }
 
 #[test]
+fn main_script_use_filename_in_error() {
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [--foo: string] {
+                print foo
+            }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu --foo"));
+
+        assert!(actual.err.contains("script.nu --foo"));
+        assert!(!actual.err.contains("main --foo"));
+    })
+}
+
+#[test]
+fn main_script_subcommand_use_filename_in_error() {
+    Playground::setup("main_filename", |dirs, sandbox| {
+        sandbox.mkdir("main_filename");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def main [] {}
+            def 'main asdf' [--foo: string] {
+                print foo
+            }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu asdf --foo"));
+
+        assert!(actual.err.contains("script.nu asdf --foo"));
+        assert!(!actual.err.contains("main asdf --foo"));
+    })
+}
+
+#[test]
 fn source_empty_file() {
     Playground::setup("source_empty_file", |dirs, sandbox| {
         sandbox.mkdir("source_empty_file");
