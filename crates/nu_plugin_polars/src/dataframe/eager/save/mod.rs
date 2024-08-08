@@ -1,3 +1,4 @@
+mod arrow;
 mod parquet;
 use std::path::PathBuf;
 
@@ -52,6 +53,11 @@ impl PluginCommand for SaveDF {
             Example {
                 description: "Saves dataframe to parquet file",
                 example: "[[a b]; [1 2] [3 4]] | polars into-df | polars to-parquet test.parquet",
+                result: None,
+            },
+            Example {
+                description: "Saves dataframe to arrow file",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars to-arrow test.arrow",
                 result: None,
             },
         ]
@@ -109,11 +115,18 @@ fn command(
                 }
                 _ => Err(unknown_file_save_error(file_span)),
             },
+            PolarsFileType::Arrow => match polars_object {
+                PolarsPluginObject::NuLazyFrame(ref lazy) => {
+                    arrow::command_lazy(call, lazy, &file_path)
+                        .map_err(|e| polars_file_save_error(e, file_span))
+                }
+                PolarsPluginObject::NuDataFrame(ref df) => {
+                    arrow::command_eager(df, &file_path, file_span)
+                }
+                _ => Err(unknown_file_save_error(file_span)),
+            },
             // PolarsFileType::Csv => polars_df
             //     .sink_csv(&file_path, CsvWriterOptions::default())
-            //     .map_err(|e| polars_file_save_error(e, file_span))?,
-            // PolarsFileType::Arrow => polars_df
-            //     .sink_ipc(&file_path, IpcWriterOptions::default())
             //     .map_err(|e| polars_file_save_error(e, file_span))?,
             // PolarsFileType::NdJson => polars_df
             //     .sink_json(&file_path, JsonWriterOptions::default())
