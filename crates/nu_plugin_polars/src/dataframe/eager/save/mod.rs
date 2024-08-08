@@ -53,7 +53,7 @@ impl PluginCommand for SaveDF {
             },
             Example {
                 description: "Saves dataframe to parquet file",
-                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars to-parquet test.parquet",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars save test.parquet",
                 result: None,
             },
             Example {
