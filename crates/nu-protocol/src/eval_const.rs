@@ -7,37 +7,50 @@ use crate::{
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
+    record, Config, PipelineData, Record, ShellError, Span, Value, VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
+    io,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 /// Create a Value for `$nu`.
 pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Value {
-    fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
+    fn canonicalize_path_fallible(engine_state: &EngineState, path: &Path) -> io::Result<PathBuf> {
         #[allow(deprecated)]
         let cwd = engine_state.current_work_dir();
 
-        if path.exists() {
-            match nu_path::canonicalize_with(path, cwd) {
-                Ok(canon_path) => canon_path,
-                Err(_) => path.to_owned(),
+        match nu_path::canonicalize_with(path, &cwd) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                // If the path does not exist, try to canonicalize the parent (directory) alone.
+                // Some tests (and perhaps, users) rely on path to non-existent files being
+                // canonicalized to some extent. This works for the most part due to how those
+                // paths happen to be constructed, but in some cases there is no intermediate
+                // canonicalization and we have to do it here.
+                match (path.parent(), path.file_name()) {
+                    (Some(dir), Some(file)) => {
+                        let mut path = nu_path::canonicalize_with(dir, cwd)?;
+                        path.push(file);
+                        Ok(path)
+                    }
+                    _ => Err(e),
+                }
             }
-        } else {
-            path.to_owned()
+            Err(e) => Err(e),
+            Ok(p) => Ok(p),
         }
+    }
+
+    fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
+        canonicalize_path_fallible(engine_state, path).unwrap_or_else(|_| path.to_owned())
     }
 
     let mut record = Record::new();
 
-    let config_path = match nu_path::config_dir() {
-        Some(mut path) => {
-            path.push("nushell");
-            Ok(canonicalize_path(engine_state, path.as_ref()))
-        }
+    let config_path = match nu_path::nu_config_dir() {
+        Some(path) => Ok(canonicalize_path(engine_state, path.as_ref())),
         None => Err(Value::error(
             ShellError::ConfigDirNotFound { span: Some(span) },
             span,
@@ -88,18 +101,10 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     record.push(
         "history-path",
-        config_path.clone().map_or_else(
-            |e| e,
-            |mut path| {
-                match engine_state.config.history.file_format {
-                    HistoryFileFormat::Sqlite => {
-                        path.push("history.sqlite3");
-                    }
-                    HistoryFileFormat::PlainText => {
-                        path.push("history.txt");
-                    }
-                }
-                let canon_hist_path = canonicalize_path(engine_state, &path);
+        engine_state.history_file_path().map_or_else(
+            || Value::error(ShellError::ConfigDirNotFound { span: Some(span) }, span),
+            |path| {
+                let canon_hist_path = canonicalize_path(engine_state, Path::new(&path));
                 Value::string(canon_hist_path.to_string_lossy(), span)
             },
         ),

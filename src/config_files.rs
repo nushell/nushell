@@ -17,7 +17,6 @@ use std::{
     sync::Arc,
 };
 
-pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";
 const ENV_FILE: &str = "env.nu";
 const LOGINSHELL_FILE: &str = "login.nu";
@@ -49,9 +48,7 @@ pub(crate) fn read_config_file(
                 report_error(&working_set, &e);
             }
         }
-    } else if let Some(mut config_path) = nu_path::config_dir() {
-        config_path.push(NUSHELL_FOLDER);
-
+    } else if let Some(mut config_path) = nu_path::nu_config_dir() {
         // Create config directory if it does not exist
         if !config_path.exists() {
             if let Err(err) = std::fs::create_dir_all(&config_path) {
@@ -134,8 +131,7 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
     );
 
     // read and execute loginshell file if exists
-    if let Some(mut config_path) = nu_path::config_dir() {
-        config_path.push(NUSHELL_FOLDER);
+    if let Some(mut config_path) = nu_path::nu_config_dir() {
         config_path.push(LOGINSHELL_FILE);
 
         warn!("loginshell_file: {}", config_path.display());
@@ -268,7 +264,7 @@ pub(crate) fn setup_config(
     );
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]
-        read_plugin_file(engine_state, plugin_file, NUSHELL_FOLDER);
+        read_plugin_file(engine_state, plugin_file);
 
         read_config_file(engine_state, stack, env_file, true);
         read_config_file(engine_state, stack, config_file, false);
@@ -300,8 +296,7 @@ pub(crate) fn set_config_path(
     );
     let config_path = match config_file {
         Some(s) => canonicalize_with(&s.item, cwd).ok(),
-        None => nu_path::config_dir().map(|mut p| {
-            p.push(NUSHELL_FOLDER);
+        None => nu_path::nu_config_dir().map(|p| {
             let mut p = canonicalize_with(&p, cwd).unwrap_or(p.into());
             p.push(default_config_name);
             canonicalize_with(&p, cwd).unwrap_or(p)

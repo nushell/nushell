@@ -30,3 +30,11 @@ pub fn config_dir() -> Option<AbsolutePathBuf> {
         .or_else(|| dirs::config_dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
         .map(|path| path.canonicalize().map(Into::into).unwrap_or(path))
 }
+
+/// Return the nushell config directory.
+pub fn nu_config_dir() -> Option<AbsolutePathBuf> {
+    config_dir().map(|mut p| {
+        p.push("nushell");
+        p
+    })
+}

@@ -79,6 +79,16 @@ pub enum HistoryFileFormat {
     PlainText,
 }
 
+impl HistoryFileFormat {
+    pub fn default_file_name(self) -> std::path::PathBuf {
+        match self {
+            HistoryFileFormat::PlainText => "history.txt",
+            HistoryFileFormat::Sqlite => "history.sqlite3",
+        }
+        .into()
+    }
+}
+
 impl FromStr for HistoryFileFormat {
     type Err = &'static str;
 

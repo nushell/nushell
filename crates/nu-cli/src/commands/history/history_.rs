@@ -5,6 +5,8 @@ use reedline::{
     SqliteBackedHistory,
 };
 
+use crate::config_files::get_history_path;
+
 #[derive(Clone)]
 pub struct History;
 
@@ -44,89 +46,76 @@ impl Command for History {
         };
 
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
-        if let Some(config_path) = nu_path::config_dir() {
-            let clear = call.has_flag(engine_state, stack, "clear")?;
-            let long = call.has_flag(engine_state, stack, "long")?;
-            let signals = engine_state.signals().clone();
+        let Some(history_path) = get_history_path(history.file_format) else {
+            return Err(ShellError::ConfigDirNotFound { span: Some(head) });
+        };
+        let clear = call.has_flag(engine_state, stack, "clear")?;
+        let long = call.has_flag(engine_state, stack, "long")?;
+        let signals = engine_state.signals().clone();
 
-            let mut history_path = config_path;
-            history_path.push("nushell");
-            match history.file_format {
-                HistoryFileFormat::Sqlite => {
-                    history_path.push("history.sqlite3");
-                }
-                HistoryFileFormat::PlainText => {
-                    history_path.push("history.txt");
-                }
-            }
-
-            if clear {
-                let _ = std::fs::remove_file(history_path);
-                // TODO: FIXME also clear the auxiliary files when using sqlite
-                Ok(PipelineData::empty())
-            } else {
-                let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
-                    HistoryFileFormat::Sqlite => {
-                        SqliteBackedHistory::with_file(history_path.clone().into(), None, None)
-                            .map(|inner| {
-                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                boxed
-                            })
-                            .ok()
-                    }
-
-                    HistoryFileFormat::PlainText => FileBackedHistory::with_file(
-                        history.max_size as usize,
-                        history_path.clone().into(),
-                    )
-                    .map(|inner| {
-                        let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                        boxed
-                    })
-                    .ok(),
-                };
-
-                match history.file_format {
-                    HistoryFileFormat::PlainText => Ok(history_reader
-                        .and_then(|h| {
-                            h.search(SearchQuery::everything(SearchDirection::Forward, None))
-                                .ok()
-                        })
-                        .map(move |entries| {
-                            entries.into_iter().enumerate().map(move |(idx, entry)| {
-                                Value::record(
-                                    record! {
-                                        "command" => Value::string(entry.command_line, head),
-                                        "index" => Value::int(idx as i64, head),
-                                    },
-                                    head,
-                                )
-                            })
-                        })
-                        .ok_or(ShellError::FileNotFound {
-                            file: history_path.display().to_string(),
-                            span: head,
-                        })?
-                        .into_pipeline_data(head, signals)),
-                    HistoryFileFormat::Sqlite => Ok(history_reader
-                        .and_then(|h| {
-                            h.search(SearchQuery::everything(SearchDirection::Forward, None))
-                                .ok()
-                        })
-                        .map(move |entries| {
-                            entries.into_iter().enumerate().map(move |(idx, entry)| {
-                                create_history_record(idx, entry, long, head)
-                            })
-                        })
-                        .ok_or(ShellError::FileNotFound {
-                            file: history_path.display().to_string(),
-                            span: head,
-                        })?
-                        .into_pipeline_data(head, signals)),
-                }
-            }
+        if clear {
+            let _ = std::fs::remove_file(history_path);
+            // TODO: FIXME also clear the auxiliary files when using sqlite
+            Ok(PipelineData::empty())
         } else {
-            Err(ShellError::ConfigDirNotFound { span: Some(head) })
+            let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
+                HistoryFileFormat::Sqlite => {
+                    SqliteBackedHistory::with_file(history_path.clone(), None, None)
+                        .map(|inner| {
+                            let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                            boxed
+                        })
+                        .ok()
+                }
+
+                HistoryFileFormat::PlainText => {
+                    FileBackedHistory::with_file(history.max_size as usize, history_path.clone())
+                        .map(|inner| {
+                            let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                            boxed
+                        })
+                        .ok()
+                }
+            };
+            match history.file_format {
+                HistoryFileFormat::PlainText => Ok(history_reader
+                    .and_then(|h| {
+                        h.search(SearchQuery::everything(SearchDirection::Forward, None))
+                            .ok()
+                    })
+                    .map(move |entries| {
+                        entries.into_iter().enumerate().map(move |(idx, entry)| {
+                            Value::record(
+                                record! {
+                                    "command" => Value::string(entry.command_line, head),
+                                    "index" => Value::int(idx as i64, head),
+                                },
+                                head,
+                            )
+                        })
+                    })
+                    .ok_or(ShellError::FileNotFound {
+                        file: history_path.display().to_string(),
+                        span: head,
+                    })?
+                    .into_pipeline_data(head, signals)),
+                HistoryFileFormat::Sqlite => Ok(history_reader
+                    .and_then(|h| {
+                        h.search(SearchQuery::everything(SearchDirection::Forward, None))
+                            .ok()
+                    })
+                    .map(move |entries| {
+                        entries
+                            .into_iter()
+                            .enumerate()
+                            .map(move |(idx, entry)| create_history_record(idx, entry, long, head))
+                    })
+                    .ok_or(ShellError::FileNotFound {
+                        file: history_path.display().to_string(),
+                        span: head,
+                    })?
+                    .into_pipeline_data(head, signals)),
+            }
         }
     }
 
