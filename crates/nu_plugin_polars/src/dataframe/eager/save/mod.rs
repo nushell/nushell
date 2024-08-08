@@ -153,6 +153,16 @@ fn command(
                 }
                 _ => Err(unknown_file_save_error(file_span)),
             },
+            PolarsFileType::Avro => match polars_object {
+                PolarsPluginObject::NuLazyFrame(lazy) => {
+                    let df = lazy.collect(call.head)?;
+                    avro::command_eager(call, &df, &file_path, file_span)
+                }
+                PolarsPluginObject::NuDataFrame(ref df) => {
+                    avro::command_eager(call, df, &file_path, file_span)
+                }
+                _ => Err(unknown_file_save_error(file_span)),
+            },
             // PolarsFileType::Csv => polars_df
             //     .sink_csv(&file_path, CsvWriterOptions::default())
             //     .map_err(|e| polars_file_save_error(e, file_span))?,
@@ -163,6 +173,7 @@ fn command(
                     PolarsFileType::Csv,
                     PolarsFileType::Arrow,
                     PolarsFileType::NdJson,
+                    PolarsFileType::Avro,
                 ],
                 blamed,
             )),
