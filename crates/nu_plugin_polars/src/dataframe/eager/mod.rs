@@ -22,7 +22,6 @@ mod sql_context;
 mod sql_expr;
 mod summary;
 mod take;
-mod to_csv;
 mod to_df;
 mod to_nu;
 mod unpivot;
@@ -52,7 +51,6 @@ pub use slice::SliceDF;
 pub use sql_context::SQLContext;
 pub use summary::Summary;
 pub use take::TakeDF;
-pub use to_csv::ToCSV;
 pub use to_df::ToDataFrame;
 pub use to_nu::ToNu;
 pub use unpivot::UnpivotDF;
@@ -83,7 +81,6 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(TakeDF),
         Box::new(ToNu),
         Box::new(ToDataFrame),
-        Box::new(ToCSV),
         Box::new(QueryDf),
         Box::new(WithColumn),
         Box::new(save::SaveDF),

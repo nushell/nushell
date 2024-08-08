@@ -1,7 +1,9 @@
 mod arrow;
 mod avro;
+mod csv;
 mod ndjson;
 mod parquet;
+
 use std::path::PathBuf;
 
 use crate::{
@@ -44,6 +46,17 @@ impl PluginCommand for SaveDF {
                 "avro-compression",
                 SyntaxShape::String,
                 "Compression for avro supports deflate or snappy",
+                None,
+            )
+            .named(
+                "csv-delimiter",
+                SyntaxShape::String,
+                "file delimiter character",
+                None,
+            )
+            .switch(
+                "csv-no-header",
+                "Indicates to exclude a header row for CSV files.",
                 None,
             )
             .input_output_type(Type::Any, Type::String)
