@@ -3121,6 +3121,7 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "rand",
+ "rand_chacha",
  "rayon",
  "regex",
  "rmp",

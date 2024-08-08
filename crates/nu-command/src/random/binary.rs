@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 
-use rand::{thread_rng, RngCore};
+use rand::RngCore;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -15,6 +15,12 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::Nothing, Type::Binary)])
             .allow_variants_without_examples(true)
             .required("length", SyntaxShape::Int, "Length of the output binary.")
+            .named(
+                "seed",
+                SyntaxShape::Int,
+                "Seeds the RNG to get reproducible results.",
+                None,
+            )
             .category(Category::Random)
     }
 
@@ -34,8 +40,7 @@ impl Command for SubCommand {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let length = call.req(engine_state, stack, 0)?;
-        let mut rng = thread_rng();
-
+        let mut rng = super::rng(engine_state, stack, call)?;
         let mut out = vec![0u8; length];
         rng.fill_bytes(&mut out);
 
