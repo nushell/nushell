@@ -148,8 +148,7 @@ fn command(
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
             PolarsFileType::Parquet => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
-                    parquet::command_lazy(call, lazy, &file_path)
-                        .map_err(|e| polars_file_save_error(e, file_span))
+                    parquet::command_lazy(call, lazy, &file_path, file_span)
                 }
                 PolarsPluginObject::NuDataFrame(ref df) => {
                     parquet::command_eager(df, &file_path, file_span)
@@ -158,8 +157,7 @@ fn command(
             },
             PolarsFileType::Arrow => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
-                    arrow::command_lazy(call, lazy, &file_path)
-                        .map_err(|e| polars_file_save_error(e, file_span))
+                    arrow::command_lazy(call, lazy, &file_path, file_span)
                 }
                 PolarsPluginObject::NuDataFrame(ref df) => {
                     arrow::command_eager(df, &file_path, file_span)
@@ -168,8 +166,7 @@ fn command(
             },
             PolarsFileType::NdJson => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
-                    ndjson::command_lazy(call, lazy, &file_path)
-                        .map_err(|e| polars_file_save_error(e, file_span))
+                    ndjson::command_lazy(call, lazy, &file_path, file_span)
                 }
                 PolarsPluginObject::NuDataFrame(ref df) => {
                     ndjson::command_eager(df, &file_path, file_span)
@@ -186,9 +183,15 @@ fn command(
                 }
                 _ => Err(unknown_file_save_error(file_span)),
             },
-            // PolarsFileType::Csv => polars_df
-            //     .sink_csv(&file_path, CsvWriterOptions::default())
-            //     .map_err(|e| polars_file_save_error(e, file_span))?,
+            PolarsFileType::Csv => match polars_object {
+                PolarsPluginObject::NuLazyFrame(ref lazy) => {
+                    csv::command_lazy(call, lazy, &file_path, file_span)
+                }
+                PolarsPluginObject::NuDataFrame(ref df) => {
+                    csv::command_eager(call, df, &file_path, file_span)
+                }
+                _ => Err(unknown_file_save_error(file_span)),
+            },
             _ => Err(PolarsFileType::build_unsupported_error(
                 &ext,
                 &[

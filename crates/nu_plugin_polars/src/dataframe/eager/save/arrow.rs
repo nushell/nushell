@@ -2,21 +2,22 @@ use std::{fs::File, path::Path};
 
 use nu_plugin::EvaluatedCall;
 use nu_protocol::{ShellError, Span};
-use polars::{
-    error::PolarsError,
-    prelude::{IpcWriter, SerWriter},
-};
+use polars::prelude::{IpcWriter, SerWriter};
 use polars_io::ipc::IpcWriterOptions;
 
 use crate::values::{NuDataFrame, NuLazyFrame};
+
+use super::polars_file_save_error;
 
 pub(crate) fn command_lazy(
     _call: &EvaluatedCall,
     lazy: &NuLazyFrame,
     file_path: &Path,
-) -> Result<(), PolarsError> {
+    file_span: Span,
+) -> Result<(), ShellError> {
     lazy.to_polars()
         .sink_ipc(file_path, IpcWriterOptions::default())
+        .map_err(|e| polars_file_save_error(e, file_span))
 }
 
 pub(crate) fn command_eager(
