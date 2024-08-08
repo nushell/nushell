@@ -17,7 +17,7 @@ pub(crate) fn command_lazy(
 ) -> Result<(), ShellError> {
     let delimiter: Option<Spanned<String>> = call.get_flag("csv-delimiter")?;
     let separator = delimiter
-        .map(|d| d.item.chars().next().unwrap() as u8)
+        .and_then(|d| d.item.chars().next().map(|c| c as u8))
         .unwrap_or(b',');
 
     let no_header: bool = call.has_flag("csv-no-header")?;
