@@ -53,11 +53,11 @@ pub mod test {
 
     #[test]
     pub fn test_arrow_eager_save() -> Result<(), Box<dyn std::error::Error>> {
-        test_eager_save("arrow")
+        test_eager_save("ndjson")
     }
 
     #[test]
     pub fn test_arrow_lazy_save() -> Result<(), Box<dyn std::error::Error>> {
-        test_lazy_save("arrow")
+        test_lazy_save("ndjson")
     }
 }

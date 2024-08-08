@@ -1,4 +1,5 @@
 mod arrow;
+mod avro;
 mod ndjson;
 mod parquet;
 use std::path::PathBuf;
@@ -39,6 +40,12 @@ impl PluginCommand for SaveDF {
                 "File type: csv, json, parquet, arrow/ipc. If omitted, derive from file extension",
                 Some('t'),
             )
+            .named(
+                "avro-compression",
+                SyntaxShape::String,
+                "Compression for avro supports deflate or snappy",
+                None,
+            )
             .input_output_type(Type::Any, Type::String)
             .category(Category::Custom("lazyframe".into()))
     }
@@ -64,6 +71,11 @@ impl PluginCommand for SaveDF {
             Example {
                 description: "Saves dataframe to NDJSON file",
                 example: "[[a b]; [1 2] [3 4]] | polars into-df | polars save test.ndjson",
+                result: None,
+            },
+            Example {
+                description: "Saves dataframe to avro file",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars save test.avro",
                 result: None,
             },
         ]
