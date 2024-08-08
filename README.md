@@ -96,22 +96,18 @@ Commands are separated by the pipe symbol (`|`) to denote a pipeline flowing lef
 
 ```shell
 > ls | where type == "dir" | table
-╭────┬──────────┬──────┬─────────┬───────────────╮
-│ #  │   name   │ type │  size   │   modified    │
-├────┼──────────┼──────┼─────────┼───────────────┤
-│  0 │ .cargo   │ dir  │     0 B │ 9 minutes ago │
-│  1 │ assets   │ dir  │     0 B │ 2 weeks ago   │
-│  2 │ crates   │ dir  │ 4.0 KiB │ 2 weeks ago   │
-│  3 │ docker   │ dir  │     0 B │ 2 weeks ago   │
-│  4 │ docs     │ dir  │     0 B │ 2 weeks ago   │
-│  5 │ images   │ dir  │     0 B │ 2 weeks ago   │
-│  6 │ pkg_mgrs │ dir  │     0 B │ 2 weeks ago   │
-│  7 │ samples  │ dir  │     0 B │ 2 weeks ago   │
-│  8 │ src      │ dir  │ 4.0 KiB │ 2 weeks ago   │
-│  9 │ target   │ dir  │     0 B │ a day ago     │
-│ 10 │ tests    │ dir  │ 4.0 KiB │ 2 weeks ago   │
-│ 11 │ wix      │ dir  │     0 B │ 2 weeks ago   │
-╰────┴──────────┴──────┴─────────┴───────────────╯
+╭─#─┬──name───┬type─┬──size───┬───modified───╮
+│ 0 │ assets  │ dir │ 4.0 KiB │ 3 months ago │
+│ 1 │ benches │ dir │ 4.0 KiB │ 3 weeks ago  │
+│ 2 │ crates  │ dir │ 4.0 KiB │ 3 weeks ago  │
+│ 3 │ devdocs │ dir │ 4.0 KiB │ 3 weeks ago  │
+│ 4 │ docker  │ dir │ 4.0 KiB │ 3 months ago │
+│ 5 │ scripts │ dir │ 4.0 KiB │ 3 weeks ago  │
+│ 6 │ src     │ dir │ 4.0 KiB │ 2 days ago   │
+│ 7 │ target  │ dir │ 4.0 KiB │ 2 weeks ago  │
+│ 8 │ tests   │ dir │ 4.0 KiB │ 3 weeks ago  │
+│ 9 │ wix     │ dir │ 4.0 KiB │ a month ago  │
+╰───┴─────────┴─────┴─────────┴──────────────╯
 ```
 
 Because most of the time you'll want to see the output of a pipeline, `table` is assumed.
@@ -126,9 +122,7 @@ For example, we could use the built-in `ps` command to get a list of the running
 
 ```shell
 > ps | where cpu > 0
-╭───┬───────┬───────────┬───────┬───────────┬───────────╮
-│ # │  pid  │   name    │  cpu  │    mem    │  virtual  │
-├───┼───────┼───────────┼───────┼───────────┼───────────┤
+╭─#─┬──pid──┬───name────┬──cpu──┬────mem────┬──virtual──╮
 │ 0 │  2240 │ Slack.exe │ 16.40 │ 178.3 MiB │ 232.6 MiB │
 │ 1 │ 16948 │ Slack.exe │ 16.32 │ 205.0 MiB │ 197.9 MiB │
 │ 2 │ 17700 │ nu.exe    │  3.77 │  26.1 MiB │   8.8 MiB │
