@@ -67,7 +67,7 @@ impl PluginCommand for SaveDF {
         vec![
             Example {
                 description:
-                    "Performaing a streaming collect and save the output to the specified file",
+                    "Performs a streaming collect and save the output to the specified file",
                 example: "[[a b];[1 2] [3 4]] | polars into-lazy | polars save test.parquet",
                 result: None,
             },
