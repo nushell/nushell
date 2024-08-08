@@ -127,6 +127,20 @@ impl PolarsPluginObject {
             }
         }
     }
+
+    pub fn dataframe(&self) -> Option<&NuDataFrame> {
+        match self {
+            PolarsPluginObject::NuDataFrame(df) => Some(df),
+            _ => None,
+        }
+    }
+
+    pub fn lazyframe(&self) -> Option<&NuLazyFrame> {
+        match self {
+            PolarsPluginObject::NuLazyFrame(lf) => Some(lf),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
