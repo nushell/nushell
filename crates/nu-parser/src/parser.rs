@@ -4701,6 +4701,15 @@ pub fn parse_value(
             | SyntaxShape::String
             | SyntaxShape::GlobPattern
             | SyntaxShape::ExternalArgument => {}
+            SyntaxShape::OneOf(possible_shapes) => {
+                if !possible_shapes
+                    .iter()
+                    .any(|s| matches!(s, SyntaxShape::List(_)))
+                {
+                    working_set.error(ParseError::Expected("non-[] value", span));
+                    return Expression::garbage(working_set, span);
+                }
+            }
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(working_set, span);
@@ -4778,6 +4787,31 @@ pub fn parse_value(
         }
 
         SyntaxShape::ExternalArgument => parse_regular_external_arg(working_set, span),
+        SyntaxShape::OneOf(possible_shapes) => {
+            for s in possible_shapes {
+                let starting_error_count = working_set.parse_errors.len();
+                let value = parse_value(working_set, span, s);
+
+                if starting_error_count == working_set.parse_errors.len() {
+                    return value;
+                } else if let Some(
+                    ParseError::Expected(..) | ParseError::ExpectedWithStringMsg(..),
+                ) = working_set.parse_errors.last()
+                {
+                    working_set.parse_errors.truncate(starting_error_count);
+                    continue;
+                }
+            }
+
+            if working_set.parse_errors.is_empty() {
+                working_set.error(ParseError::ExpectedWithStringMsg(
+                    format!("one of a list of accepted shapes: {possible_shapes:?}"),
+                    span,
+                ));
+            }
+
+            Expression::garbage(working_set, span)
+        }
 
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
