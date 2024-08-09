@@ -118,11 +118,7 @@ pub fn evaluate_file(
             };
 
         // Print the pipeline output of the last command of the file.
-        if let Some(status) = pipeline.print(engine_state, stack, true, false)? {
-            if status.code() != 0 {
-                std::process::exit(status.code())
-            }
-        }
+        pipeline.print(engine_state, stack, true, false)?;
 
         // Invoke the main command with arguments.
         // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.
@@ -140,7 +136,7 @@ pub fn evaluate_file(
     };
 
     if exit_code != 0 {
-        std::process::exit(exit_code)
+        std::process::exit(exit_code);
     }
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());

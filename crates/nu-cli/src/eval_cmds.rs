@@ -92,11 +92,7 @@ pub fn evaluate_commands(
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 
-    if let Some(status) = pipeline.print(engine_state, stack, no_newline, false)? {
-        if status.code() != 0 {
-            std::process::exit(status.code())
-        }
-    }
+    pipeline.print(engine_state, stack, no_newline, false)?;
 
     info!("evaluate {}:{}:{}", file!(), line!(), column!());
 

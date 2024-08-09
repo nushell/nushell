@@ -1,6 +1,6 @@
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
-use std::io;
+use std::{io, num::NonZeroI32};
 use thiserror::Error;
 
 use crate::{
@@ -639,6 +639,49 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// An external command exited with a non-zero exit code.
+    ///
+    /// ## Resolution
+    ///
+    /// Check the external command's error message.
+    #[error("External command had a non-zero exit code")]
+    #[diagnostic(code(nu::shell::non_zero_exit_code))]
+    NonZeroExitCode {
+        exit_code: NonZeroI32,
+        #[label("exited with code {exit_code}")]
+        span: Span,
+    },
+
+    #[cfg(unix)]
+    /// An external command exited due to a signal.
+    ///
+    /// ## Resolution
+    ///
+    /// Check why the signal was sent or triggered.
+    #[error("External command was terminated by a signal")]
+    #[diagnostic(code(nu::shell::terminated_by_signal))]
+    TerminatedBySignal {
+        signal_name: String,
+        signal: i32,
+        #[label("terminated by {signal_name} ({signal})")]
+        span: Span,
+    },
+
+    #[cfg(unix)]
+    /// An external command core dumped.
+    ///
+    /// ## Resolution
+    ///
+    /// Check why the core dumped was triggered.
+    #[error("External command core dumped")]
+    #[diagnostic(code(nu::shell::core_dumped))]
+    CoreDumped {
+        signal_name: String,
+        signal: i32,
+        #[label("core dumped with {signal_name} ({signal})")]
+        span: Span,
+    },
+
     /// An operation was attempted with an input unsupported for some reason.
     ///
     /// ## Resolution
@@ -872,21 +915,6 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::io_error))]
     IOErrorSpanned {
         msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
-    #[cfg(unix)]
-    /// An I/O operation failed.
-    ///
-    /// ## Resolution
-    ///
-    /// This is a generic error. Refer to the specific error message for further details.
-    #[error("program coredump error")]
-    #[diagnostic(code(nu::shell::coredump_error))]
-    CoredumpErrorSpanned {
-        msg: String,
-        signal: i32,
         #[label("{msg}")]
         span: Span,
     },
@@ -1395,8 +1423,22 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
     },
 }
 
-// TODO: Implement as From trait
 impl ShellError {
+    pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
+        let (item, span) = match *self {
+            Self::NonZeroExitCode { exit_code, span } => (exit_code.into(), span),
+            Self::TerminatedBySignal { signal, span, .. }
+            | Self::CoreDumped { signal, span, .. } => (-signal, span),
+            _ => return None,
+        };
+        Some(Spanned { item, span })
+    }
+
+    pub fn exit_code(&self) -> i32 {
+        self.external_exit_code().map(|e| e.item).unwrap_or(1)
+    }
+
+    // TODO: Implement as From trait
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
         let msg = format_error(working_set, &self);
         ParseError::LabeledError(

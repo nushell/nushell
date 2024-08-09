@@ -93,25 +93,10 @@ impl Command for For {
                     stack.add_var(var_id, x);
 
                     match eval_block(&engine_state, stack, block, PipelineData::empty()) {
-                        Err(ShellError::Break { .. }) => {
-                            break;
-                        }
-                        Err(ShellError::Continue { .. }) => {
-                            continue;
-                        }
-                        Err(err) => {
-                            return Err(err);
-                        }
-                        Ok(data) => {
-                            if let Some(status) = data.drain()? {
-                                let code = status.code();
-                                if code != 0 {
-                                    return Ok(
-                                        PipelineData::new_external_stream_with_only_exit_code(code),
-                                    );
-                                }
-                            }
-                        }
+                        Err(ShellError::Break { .. }) => break,
+                        Err(ShellError::Continue { .. }) => continue,
+                        Err(err) => return Err(err),
+                        Ok(data) => data.drain()?,
                     }
                 }
             }
@@ -121,25 +106,10 @@ impl Command for For {
                     stack.add_var(var_id, x);
 
                     match eval_block(&engine_state, stack, block, PipelineData::empty()) {
-                        Err(ShellError::Break { .. }) => {
-                            break;
-                        }
-                        Err(ShellError::Continue { .. }) => {
-                            continue;
-                        }
-                        Err(err) => {
-                            return Err(err);
-                        }
-                        Ok(data) => {
-                            if let Some(status) = data.drain()? {
-                                let code = status.code();
-                                if code != 0 {
-                                    return Ok(
-                                        PipelineData::new_external_stream_with_only_exit_code(code),
-                                    );
-                                }
-                            }
-                        }
+                        Err(ShellError::Break { .. }) => break,
+                        Err(ShellError::Continue { .. }) => continue,
+                        Err(err) => return Err(err),
+                        Ok(data) => data.drain()?,
                     }
                 }
             }
