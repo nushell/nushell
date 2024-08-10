@@ -4904,6 +4904,30 @@ pub fn parse_assignment_expression(
     trace!("parsing: assignment right-hand side subexpression");
     let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true);
     let rhs_ty = rhs_block.output_type();
+
+    // TEMP: double-check that if the RHS block starts with an external call, it must start with a
+    // caret. This is to mitigate the change in assignment parsing introduced in 0.97.0 which could
+    // result in unintentional execution of commands.
+    if let Some(Expr::ExternalCall(head, ..)) = rhs_block
+        .pipelines
+        .first()
+        .and_then(|pipeline| pipeline.elements.first())
+        .map(|element| &element.expr.expr)
+    {
+        let contents = working_set.get_span_contents(Span {
+            start: head.span.start - 1,
+            end: head.span.end,
+        });
+        if !contents.starts_with(b"^") {
+            working_set.parse_errors.push(ParseError::LabeledErrorWithHelp {
+                error: "External command calls must be explicit in assignments".into(),
+                label: "add a caret (^) before the command name if you intended to run and capture its output".into(),
+                help: "the parsing of assignments was changed in 0.97.0, and this would have previously been treated as a string. Alternatively, quote the string with single or double quotes to avoid it being interpreted as a command name. This restriction may be removed in a future release.".into(),
+                span: head.span,
+            });
+        }
+    }
+
     let rhs_block_id = working_set.add_block(Arc::new(rhs_block));
     let mut rhs = Expression::new(
         working_set,

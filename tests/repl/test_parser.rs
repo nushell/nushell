@@ -312,6 +312,26 @@ fn append_assign_takes_pipeline() -> TestResult {
 }
 
 #[test]
+fn assign_bare_external_fails() -> TestResult {
+    fail_test("$env.FOO = nu --testbin cococo", "must be explicit")
+}
+
+#[test]
+fn assign_bare_external_with_caret() -> TestResult {
+    run_test("$env.FOO = ^nu --testbin cococo", "")
+}
+
+#[test]
+fn assign_backtick_quoted_external_fails() -> TestResult {
+    fail_test("$env.FOO = `nu` --testbin cococo", "must be explicit")
+}
+
+#[test]
+fn assign_backtick_quoted_external_with_caret() -> TestResult {
+    run_test("$env.FOO = ^`nu` --testbin cococo", "")
+}
+
+#[test]
 fn string_interpolation_paren_test() -> TestResult {
     run_test(r#"$"('(')(')')""#, "()")
 }
