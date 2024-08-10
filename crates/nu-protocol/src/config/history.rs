@@ -39,6 +39,15 @@ pub struct HistoryConfig {
     pub isolation: bool,
 }
 
+impl HistoryConfig {
+    pub fn file_path(&self) -> Option<std::path::PathBuf> {
+        nu_path::nu_config_dir().map(|mut history_path| {
+            history_path.push(self.file_format.default_file_name());
+            history_path.into()
+        })
+    }
+}
+
 impl Default for HistoryConfig {
     fn default() -> Self {
         Self {

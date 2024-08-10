@@ -21,16 +21,11 @@ pub(crate) fn run_commands(
     entire_start_time: std::time::Instant,
 ) {
     trace!("run_commands");
-    let mut stack = Stack::new();
+
     let start_time = std::time::Instant::now();
+    let ask_to_create_config = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
 
-    let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
-        config_path.push(NUSHELL_FOLDER);
-        !config_path.exists()
-    } else {
-        false
-    };
-
+    let mut stack = Stack::new();
     if stack.has_env_var(engine_state, "NU_DISABLE_IR") {
         stack.use_ir = false;
     }
@@ -63,12 +58,7 @@ pub(crate) fn run_commands(
         perf!("read env.nu", start_time, use_color);
 
         let start_time = std::time::Instant::now();
-        let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
-            config_path.push(NUSHELL_FOLDER);
-            !config_path.exists()
-        } else {
-            false
-        };
+        let ask_to_create_config = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
 
         // If we have a config file parameter *OR* we have a login shell parameter, read the config file
         if parsed_nu_cli_args.config_file.is_some() || parsed_nu_cli_args.login_shell.is_some() {
@@ -140,12 +130,7 @@ pub(crate) fn run_file(
     // if the --no-config-file(-n) flag is passed, do not load plugin, env, or config files
     if parsed_nu_cli_args.no_config_file.is_none() {
         let start_time = std::time::Instant::now();
-        let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
-            config_path.push(NUSHELL_FOLDER);
-            !config_path.exists()
-        } else {
-            false
-        };
+        let ask_to_create_config = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
         #[cfg(feature = "plugin")]
         read_plugin_file(engine_state, parsed_nu_cli_args.plugin_file);
         perf!("read plugins", start_time, use_color);

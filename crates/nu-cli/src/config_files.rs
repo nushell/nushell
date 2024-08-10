@@ -5,7 +5,7 @@ use nu_path::canonicalize_with;
 use nu_protocol::{engine::StateWorkingSet, ParseError, PluginRegistryFile, Spanned};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_shell_error, HistoryFileFormat, PipelineData,
+    report_shell_error, PipelineData,
 };
 #[cfg(feature = "plugin")]
 use nu_utils::perf;
@@ -220,13 +220,6 @@ pub fn eval_config_contents(
             }
         }
     }
-}
-
-pub(crate) fn get_history_path(mode: HistoryFileFormat) -> Option<PathBuf> {
-    nu_path::nu_config_dir().map(|mut history_path| {
-        history_path.push(mode.default_file_name());
-        history_path.into()
-    })
 }
 
 #[cfg(feature = "plugin")]

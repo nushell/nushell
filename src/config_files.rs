@@ -264,12 +264,7 @@ pub(crate) fn setup_config(
         &config_file, &env_file, is_login_shell
     );
 
-    let ask_to_create_config = if let Some(mut config_path) = nu_path::config_dir() {
-        config_path.push(NUSHELL_FOLDER);
-        !config_path.exists()
-    } else {
-        false
-    };
+    let ask_to_create_config = nu_path::nu_config_dir().map_or(false, |p| !p.exists());
 
     let result = catch_unwind(AssertUnwindSafe(|| {
         #[cfg(feature = "plugin")]

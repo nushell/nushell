@@ -1098,7 +1098,7 @@ fn setup_history(
         None
     };
 
-    if let Some(path) = crate::config_files::get_history_path(history.file_format) {
+    if let Some(path) = history.file_path() {
         return update_line_editor_history(
             engine_state,
             path,
@@ -1366,7 +1366,7 @@ fn trailing_slash_looks_like_path() {
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
     let history = engine_state.history_config().unwrap();
-    let history_path = crate::config_files::get_history_path(history.file_format).unwrap();
+    let history_path = history.file_path().unwrap();
     let line_editor = reedline::Reedline::create();
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(
