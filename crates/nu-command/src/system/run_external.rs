@@ -473,6 +473,15 @@ pub fn command_not_found(
         };
     }
 
+    // If we find a file, it's likely that the user forgot to set permissions
+    if Path::new(name).is_file() {
+        return ShellError::ExternalCommand {
+                        label: format!("Command `{name}` not found"),
+                        help: format!("`{name}` refers to a file that is not executable. Did you forget to to set execute permissions?"),
+                        span,
+                    };
+    }
+
     // We found nothing useful. Give up and return a generic error message.
     ShellError::ExternalCommand {
         label: format!("Command `{name}` not found"),
