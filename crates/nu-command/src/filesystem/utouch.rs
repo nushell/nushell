@@ -116,7 +116,6 @@ impl Command for UTouch {
             } else {
                 (None, None)
             };
-        println!("date_str: {:?}", date_str);
         let timestamp: Option<Spanned<DateTime<FixedOffset>>> =
             call.get_flag(engine_state, stack, "timestamp")?;
 
@@ -241,8 +240,8 @@ impl Command for UTouch {
                 result: None,
             },
             Example {
-                description: "Changes the last modified time of files a, b and c to the current time but yesterday",
-                example: r#"utouch -m -d "yesterday" a b c"#,
+                description: "Changes the last accessed and modified times of files a, b and c to the current time but yesterday",
+                example: r#"utouch -d "yesterday" a b c"#,
                 result: None,
             },
             Example {
@@ -256,13 +255,13 @@ impl Command for UTouch {
                 result: None,
             },
             Example {
-                description: r#"Change the last accessed and last modified times of stdout"#,
+                description: r#"Change the last accessed and modified times of stdout"#,
                 example: r#"utouch -"#,
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified time of files d and e to 5 seconds before "fixture.json"'s last modified time"#,
-                example: r#"utouch -m -r fixture.json -d "5 seconds ago" d e"#,
+                description: r#"Changes the last accessed and modified times of file a to 1 month before "fixture.json"'s last modified time"#,
+                example: r#"utouch -r fixture.json -d "-1 month" a"#,
                 result: None,
             },
         ]

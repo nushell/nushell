@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, Months, Utc};
+use chrono::{DateTime, Days, Local, NaiveDate, Utc};
 use filetime::FileTime;
 use nu_test_support::fs::{files_exist_at, Stub};
 use nu_test_support::nu;
@@ -309,7 +309,7 @@ fn change_file_times_to_reference_file_with_date() {
             let now = Utc::now();
 
             let ref_atime = now;
-            let ref_mtime = now.checked_add_months(Months::new(5)).unwrap();
+            let ref_mtime = now.checked_sub_days(Days::new(5)).unwrap();
 
             // Change the times for reference
             filetime::set_file_times(
@@ -321,7 +321,7 @@ fn change_file_times_to_reference_file_with_date() {
 
             nu!(
                 cwd: dirs.test(),
-                r#"utouch -r reference_file -d "+1 month" target_file"#
+                r#"utouch -r reference_file -d "yesterday" target_file"#
             );
 
             let (got_atime, got_mtime) = file_times(&target);
@@ -331,8 +331,8 @@ fn change_file_times_to_reference_file_with_date() {
             );
             assert_eq!(
                 (
-                    now.checked_add_months(Months::new(1)).unwrap(),
-                    now.checked_add_months(Months::new(6)).unwrap()
+                    now.checked_sub_days(Days::new(1)).unwrap(),
+                    now.checked_sub_days(Days::new(6)).unwrap()
                 ),
                 got
             );
@@ -422,6 +422,27 @@ fn change_modified_and_access_time_of_dir_to_today() {
 
         assert_eq!(today, mtime_day);
         assert_eq!(today, atime_day);
+    })
+}
+
+#[test]
+fn change_file_times_to_date() {
+    Playground::setup("change_file_times_to_date", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::EmptyFile("target_file")]);
+
+        nu!(cwd: dirs.test(), "utouch -d '2024-01-01' target_file");
+
+        let expected = NaiveDate::from_yo_opt(2024, 1).unwrap();
+        let (got_atime, got_mtime) = file_times(&dirs.test().join("target_file"));
+        let got = (
+            DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds())
+                .unwrap()
+                .date_naive(),
+            DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds())
+                .unwrap()
+                .date_naive(),
+        );
+        assert_eq!((expected, expected), got);
     })
 }
 
