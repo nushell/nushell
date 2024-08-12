@@ -7,6 +7,7 @@ mod parquet;
 use std::path::PathBuf;
 
 use crate::{
+    cloud::cloud_options_from_path,
     values::{cant_convert_err, PolarsFileType, PolarsPluginObject, PolarsPluginType},
     PolarsPlugin,
 };
@@ -35,7 +36,7 @@ impl PluginCommand for SaveDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxShape::Filepath, "Path to write to.")
+            .required("path", SyntaxShape::String, "Path to write to.")
             .named(
                 "type",
                 SyntaxShape::String,
@@ -133,7 +134,12 @@ fn command(
     polars_object: PolarsPluginObject,
 ) -> Result<PipelineData, ShellError> {
     let spanned_file: Spanned<PathBuf> = call.req(0)?;
-    let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
+    let cloud_options = cloud_options_from_path(spanned_file.item.as_ref())?;
+    let file_path = if cloud_options.is_some() {
+        spanned_file.item
+    } else {
+        expand_path_with(&spanned_file.item, engine.get_current_dir()?, true)
+    };
     let file_span = spanned_file.span;
     let type_option: Option<(String, Span)> = call
         .get_flag("type")?
@@ -148,7 +154,10 @@ fn command(
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
             PolarsFileType::Parquet => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
-                    parquet::command_lazy(call, lazy, &file_path, file_span)
+                    parquet::command_lazy(call, lazy, cloud_options, &file_path, file_span)
+                }
+                PolarsPluginObject::NuDataFrame(ref df) if cloud_options.is_some() => {
+                    parquet::command_lazy(call, &df.lazy(), cloud_options, &file_path, file_span)
                 }
                 PolarsPluginObject::NuDataFrame(ref df) => {
                     parquet::command_eager(df, &file_path, file_span)
