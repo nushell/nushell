@@ -1140,18 +1140,17 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range, s
         (Some(expr), _, _) | (None, Some(expr), Some(_)) | (None, None, Some(expr))
             if !type_compatible(&Type::Number, &expr.ty) =>
         {
-            *expr = Expression::garbage(working_set, expr.span);
             working_set.error(ParseError::UnsupportedOperationLHS(
                 String::from("range"),
                 span,
                 expr.span,
                 expr.ty.clone(),
             ));
+            *expr = Expression::garbage(working_set, expr.span);
         }
         (Some(lhs), Some(rhs), _) | (Some(lhs), None, Some(rhs)) | (None, Some(lhs), Some(rhs))
             if !type_compatible(&Type::Number, &rhs.ty) =>
         {
-            *rhs = Expression::garbage(working_set, rhs.span);
             working_set.error(ParseError::UnsupportedOperationRHS(
                 String::from("range"),
                 span,
@@ -1160,9 +1159,9 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range, s
                 rhs.span,
                 rhs.ty.clone(),
             ));
+            *rhs = Expression::garbage(working_set, rhs.span);
         }
         (Some(from), Some(next), Some(to)) if !type_compatible(&Type::Number, &to.ty) => {
-            *to = Expression::garbage(working_set, to.span);
             working_set.error(ParseError::UnsupportedOperationTernary(
                 String::from("range"),
                 span,
@@ -1173,6 +1172,7 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range, s
                 to.span,
                 to.ty.clone(),
             ));
+            *to = Expression::garbage(working_set, to.span);
         }
         _ => (),
     }
