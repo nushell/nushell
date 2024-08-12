@@ -15,7 +15,7 @@ impl PluginCommand for ExprCol {
         "polars col"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a named column expression."
     }
 

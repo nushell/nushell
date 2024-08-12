@@ -15,11 +15,11 @@ impl Command for Complete {
             .input_output_types(vec![(Type::Any, Type::record())])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Capture the outputs and exit code from an external piped in command in a nushell table."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"In order to capture stdout, stderr, and exit_code, externally piped in commands need to be wrapped with `do`"#
     }
 

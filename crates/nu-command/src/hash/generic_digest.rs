@@ -65,7 +65,7 @@ where
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         &self.usage
     }
 

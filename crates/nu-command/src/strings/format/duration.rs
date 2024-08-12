@@ -45,7 +45,7 @@ impl Command for FormatDuration {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Outputs duration with a specified unit of time."
     }
 

@@ -19,7 +19,7 @@ macro_rules! lazy_command {
                 $name
             }
 
-            fn usage(&self) -> &str {
+            fn description(&self) -> &str {
                 $desc
             }
 
@@ -122,7 +122,7 @@ macro_rules! lazy_command {
                 $name
             }
 
-            fn usage(&self) -> &str {
+            fn description(&self) -> &str {
                 $desc
             }
             fn signature(&self) -> Signature {

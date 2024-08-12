@@ -14,7 +14,7 @@ impl Command for FromUrl {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse url-encoded string as a record."
     }
 

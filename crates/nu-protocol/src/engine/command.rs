@@ -31,9 +31,15 @@ pub trait Command: Send + Sync + CommandClone {
 
     fn signature(&self) -> Signature;
 
-    fn usage(&self) -> &str;
+    /// Short preferrably single sentence description for the command.
+    ///
+    /// Will be shown with the completions etc.
+    fn description(&self) -> &str;
 
-    fn extra_usage(&self) -> &str {
+    /// Longer documentation description, if necessary.
+    ///
+    /// Will be shown below `description`
+    fn extra_description(&self) -> &str {
         ""
     }
 

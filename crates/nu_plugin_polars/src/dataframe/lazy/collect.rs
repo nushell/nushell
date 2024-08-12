@@ -17,7 +17,7 @@ impl PluginCommand for LazyCollect {
         "polars collect"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Collect lazy dataframe into eager dataframe."
     }
 

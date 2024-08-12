@@ -29,7 +29,7 @@ impl Command for PluginList {
             .category(Category::Plugin)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "List installed plugins."
     }
 

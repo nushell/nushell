@@ -16,7 +16,7 @@ impl Command for SubCommand {
             .allow_variants_without_examples(true)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generate a random uuid4 string."
     }
 

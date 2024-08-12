@@ -23,7 +23,7 @@ impl PluginCommand for Unique {
         "polars unique"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns unique values from a dataframe."
     }
 

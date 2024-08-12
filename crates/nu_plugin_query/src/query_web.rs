@@ -14,7 +14,7 @@ impl SimplePluginCommand for QueryWeb {
         "query web"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "execute selector query on html/web"
     }
 

@@ -15,7 +15,7 @@ impl SimplePluginCommand for IntoPlist {
         "to plist"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert Nu values into plist"
     }
 

@@ -205,7 +205,7 @@ fn usage_end_period() {
     for (name_bytes, decl_id) in decls {
         let cmd = ctx.get_decl(decl_id);
         let cmd_name = String::from_utf8_lossy(&name_bytes);
-        let usage = cmd.usage();
+        let usage = cmd.description();
 
         if !usage.ends_with('.') {
             failures.push(format!("{cmd_name}: \"{usage}\""));
@@ -228,7 +228,7 @@ fn usage_start_uppercase() {
     for (name_bytes, decl_id) in decls {
         let cmd = ctx.get_decl(decl_id);
         let cmd_name = String::from_utf8_lossy(&name_bytes);
-        let usage = cmd.usage();
+        let usage = cmd.description();
 
         // Check lowercase to allow usage to contain syntax like:
         //

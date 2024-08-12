@@ -42,7 +42,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Checks if string input contains a substring."
     }
 

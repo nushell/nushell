@@ -21,7 +21,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the floor of a number (largest integer less than or equal to that number)."
     }
 

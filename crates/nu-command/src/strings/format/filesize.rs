@@ -42,7 +42,7 @@ impl Command for FormatFilesize {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts a column of filesizes to some specified format."
     }
 

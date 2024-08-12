@@ -23,7 +23,7 @@ impl Command for External {
         "run-external"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Runs external command."
     }
 

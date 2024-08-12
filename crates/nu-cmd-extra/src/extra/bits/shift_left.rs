@@ -55,7 +55,7 @@ impl Command for BitsShl {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Bitwise shift left for ints or binary values."
     }
 

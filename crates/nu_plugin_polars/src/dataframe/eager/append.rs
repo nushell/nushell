@@ -40,7 +40,7 @@ impl PluginCommand for AppendDF {
         "polars append"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Appends a new dataframe."
     }
 

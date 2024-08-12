@@ -46,7 +46,7 @@ impl Command for IntoSqliteDb {
         operate(engine_state, stack, call, input)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into a SQLite database."
     }
 

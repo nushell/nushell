@@ -18,7 +18,7 @@ impl PluginCommand for IsUnique {
         "polars is-unique"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates mask indicating unique values."
     }
 

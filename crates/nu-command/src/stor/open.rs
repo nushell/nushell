@@ -20,7 +20,7 @@ impl Command for StorOpen {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Opens the in-memory sqlite database."
     }
 

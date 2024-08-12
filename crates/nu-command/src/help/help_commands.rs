@@ -10,7 +10,7 @@ impl Command for HelpCommands {
         "help commands"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell commands."
     }
 

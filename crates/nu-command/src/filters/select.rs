@@ -32,11 +32,11 @@ impl Command for Select {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Select only these columns or rows from the input. Opposite of `reject`."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This differs from `get` in that, rather than accessing the given value in the data structure,
 it removes all non-selected values from the structure. Hence, using `select` on a table will
 produce a table, a list will produce a list, and a record will produce a record."#

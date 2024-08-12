@@ -55,7 +55,7 @@ impl Command for BitsShr {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Bitwise shift right for ints or binary values."
     }
 

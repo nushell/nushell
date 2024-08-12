@@ -11,11 +11,11 @@ impl Command for HelpModules {
         "help modules"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell modules."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"When requesting help for a single module, its commands and aliases will be highlighted if they
 are also available in the current scope. Commands/aliases that were imported under a different name
 (such as with a prefix after `use some-module`) will be highlighted in parentheses."#

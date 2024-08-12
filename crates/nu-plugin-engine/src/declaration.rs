@@ -32,11 +32,11 @@ impl Command for PluginDeclaration {
         self.signature.sig.clone()
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         self.signature.sig.description.as_str()
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         self.signature.sig.extra_description.as_str()
     }
 

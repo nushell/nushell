@@ -18,7 +18,7 @@ impl SimplePluginCommand for FromPlist {
         "from plist"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert plist to Nushell values"
     }
 

@@ -41,7 +41,7 @@ impl Command for BytesEndsWith {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check if bytes ends with a pattern."
     }
 

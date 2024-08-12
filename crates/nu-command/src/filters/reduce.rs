@@ -35,7 +35,7 @@ impl Command for Reduce {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Aggregate a list (starting from the left) to a single value using an accumulator closure."
     }
 

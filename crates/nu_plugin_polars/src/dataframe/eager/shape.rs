@@ -17,7 +17,7 @@ impl PluginCommand for ShapeDF {
         "polars shape"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Shows column and row size for a dataframe."
     }
 

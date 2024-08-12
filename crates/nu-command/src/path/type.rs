@@ -31,11 +31,11 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the type of the object a path refers to (e.g., file, dir, symlink)."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This checks the file system to confirm the path's object type.
 If the path does not exist, null will be returned."#
     }

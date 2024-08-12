@@ -69,7 +69,7 @@ impl SimplePluginCommand for IntoU32 {
         "into u32"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert a number to a 32-bit unsigned integer"
     }
 
@@ -108,7 +108,7 @@ impl SimplePluginCommand for IntoIntFromU32 {
         "into int from u32"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Turn a u32 back into a number"
     }
 

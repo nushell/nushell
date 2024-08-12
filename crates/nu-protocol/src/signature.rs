@@ -249,8 +249,8 @@ impl Signature {
             .into_iter()
             .map(|term| term.to_string())
             .collect();
-        self.extra_description = command.extra_usage().to_string();
-        self.description = command.usage().to_string();
+        self.extra_description = command.extra_description().to_string();
+        self.description = command.description().to_string();
         self
     }
 
@@ -632,11 +632,11 @@ impl Command for Predeclaration {
         self.signature.clone()
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         &self.signature.description
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         &self.signature.extra_description
     }
 
@@ -685,11 +685,11 @@ impl Command for BlockCommand {
         self.signature.clone()
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         &self.signature.description
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         &self.signature.extra_description
     }
 

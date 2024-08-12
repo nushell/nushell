@@ -69,7 +69,7 @@ pub(crate) const OUTPUT_BUFFER_SIZE: usize = 16384;
 ///         "hello"
 ///     }
 ///
-///     fn usage(&self) -> &str {
+///     fn description(&self) -> &str {
 ///         "Every programmer's favorite greeting"
 ///     }
 ///
@@ -662,10 +662,10 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
     plugin.commands().into_iter().for_each(|command| {
         let signature = command.signature();
         let res = write!(help, "\nCommand: {}", command.name())
-            .and_then(|_| writeln!(help, "\nUsage:\n > {}", command.usage()))
+            .and_then(|_| writeln!(help, "\nUsage:\n > {}", command.description()))
             .and_then(|_| {
-                if !command.extra_usage().is_empty() {
-                    writeln!(help, "\nExtra usage:\n > {}", command.extra_usage())
+                if !command.extra_description().is_empty() {
+                    writeln!(help, "\nExtra usage:\n > {}", command.extra_description())
                 } else {
                     Ok(())
                 }

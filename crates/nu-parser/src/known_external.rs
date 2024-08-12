@@ -22,7 +22,7 @@ impl Command for KnownExternal {
         *self.signature.clone()
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         &self.usage
     }
 

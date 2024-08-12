@@ -26,7 +26,7 @@ impl Command for Ps {
             .category(Category::System)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View information about system processes."
     }
 

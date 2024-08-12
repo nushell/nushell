@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Split a path into a list based on the system's path separator."
     }
 

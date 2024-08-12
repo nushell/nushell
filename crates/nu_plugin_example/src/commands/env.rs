@@ -12,11 +12,11 @@ impl SimplePluginCommand for Env {
         "example env"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get environment variable(s)"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Returns all environment variables if no name provided"
     }
 

@@ -17,7 +17,7 @@ impl Command for FromYaml {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .yaml/.yml and create table."
     }
 
@@ -51,7 +51,7 @@ impl Command for FromYml {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .yaml/.yml and create table."
     }
 

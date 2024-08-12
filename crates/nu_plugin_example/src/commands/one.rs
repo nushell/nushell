@@ -12,11 +12,11 @@ impl SimplePluginCommand for One {
         "example one"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Plugin test example 1. Returns Value::Nothing"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Extra usage for example one"
     }
 

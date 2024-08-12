@@ -8,7 +8,7 @@ impl Command for Decode {
         "decode"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Decode bytes into a string."
     }
 
@@ -23,7 +23,7 @@ impl Command for Decode {
             .category(Category::Strings)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Multiple encodings are supported; here are a few:
 big5, euc-jp, euc-kr, gbk, iso-8859-1, utf-16, cp1252, latin5
 

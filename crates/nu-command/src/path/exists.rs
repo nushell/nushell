@@ -33,11 +33,11 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check whether a path exists."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This only checks if it is possible to either `open` or `cd` to the given path.
 If you need to distinguish dirs and files, please use `path type`."#
     }

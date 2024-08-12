@@ -44,7 +44,7 @@ impl SimplePluginCommand for QueryCommand {
         "query"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show all the query commands"
     }
 

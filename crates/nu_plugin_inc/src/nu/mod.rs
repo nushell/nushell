@@ -21,7 +21,7 @@ impl SimplePluginCommand for Inc {
         "inc"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Increment a value or version. Optionally use the column of a table."
     }
 

@@ -29,11 +29,11 @@ impl Command for Help {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Display help information about different parts of Nushell."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"`help word` searches for "word" in commands, aliases and modules, in that order."#
     }
 

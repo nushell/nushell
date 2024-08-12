@@ -42,7 +42,7 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the parent directory of a path."
     }
 

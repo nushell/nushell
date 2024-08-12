@@ -109,12 +109,12 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "name" => Value::string(String::from_utf8_lossy(command_name), span),
                     "category" => Value::string(signature.category.to_string(), span),
                     "signatures" => self.collect_signatures(&signature, span),
-                    "usage" => Value::string(decl.usage(), span),
+                    "usage" => Value::string(decl.description(), span),
                     "examples" => Value::list(examples, span),
                     "type" => Value::string(decl.command_type().to_string(), span),
                     "is_sub" => Value::bool(decl.is_sub(), span),
                     "creates_scope" => Value::bool(signature.creates_scope, span),
-                    "extra_usage" => Value::string(decl.extra_usage(), span),
+                    "extra_usage" => Value::string(decl.extra_description(), span),
                     "search_terms" => Value::string(decl.search_terms().join(", "), span),
                     "decl_id" => Value::int(**decl_id as i64, span),
                 };
@@ -332,7 +332,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             if decl.is_known_external() {
                 let record = record! {
                     "name" => Value::string(String::from_utf8_lossy(command_name), span),
-                    "usage" => Value::string(decl.usage(), span),
+                    "usage" => Value::string(decl.description(), span),
                     "decl_id" => Value::int(**decl_id as i64, span),
                 };
 
@@ -366,7 +366,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                         record! {
                             "name" => Value::string(String::from_utf8_lossy(&decl_name), span),
                             "expansion" => Value::string(expansion, span),
-                            "usage" => Value::string(alias.usage(), span),
+                            "usage" => Value::string(alias.description(), span),
                             "decl_id" => Value::int(decl_id as i64, span),
                             "aliased_decl_id" => aliased_decl_id,
                         },

@@ -21,7 +21,7 @@ impl PluginCommand for GetWeek {
         "polars get-week"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets week from date."
     }
 

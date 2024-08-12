@@ -715,7 +715,7 @@ impl EngineState {
                     }
                     output.push((
                         decl.0.clone(),
-                        Some(command.usage().to_string()),
+                        Some(command.description().to_string()),
                         command.command_type(),
                     ));
                 }

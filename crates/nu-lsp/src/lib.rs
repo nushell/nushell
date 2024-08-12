@@ -353,11 +353,11 @@ impl LanguageServer {
                 let mut description = String::new();
 
                 // First description
-                description.push_str(&format!("{}\n", decl.usage().replace('\r', "")));
+                description.push_str(&format!("{}\n", decl.description().replace('\r', "")));
 
                 // Additional description
-                if !decl.extra_usage().is_empty() {
-                    description.push_str(&format!("\n{}\n", decl.extra_usage()));
+                if !decl.extra_description().is_empty() {
+                    description.push_str(&format!("\n{}\n", decl.extra_description()));
                 }
 
                 // Usage

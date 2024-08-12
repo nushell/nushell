@@ -42,7 +42,7 @@ impl Command for RegistryQuery {
             .category(Category::System)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Query the Windows registry."
     }
 

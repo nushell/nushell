@@ -19,7 +19,7 @@ impl PluginCommand for ExprArgWhere {
         "polars arg-where"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates an expression that returns the arguments where expression is true."
     }
 

@@ -10,7 +10,7 @@ impl Command for HelpAliases {
         "help aliases"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell aliases."
     }
 
@@ -121,8 +121,8 @@ pub fn help_aliases(
 
         let alias_expansion =
             String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
-        let usage = alias.usage();
-        let extra_usage = alias.extra_usage();
+        let usage = alias.description();
+        let extra_usage = alias.extra_description();
 
         // TODO: merge this into documentation.rs at some point
         const G: &str = "\x1b[32m"; // green

@@ -18,7 +18,7 @@ impl PluginCommand for LazySelect {
         "polars select"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Selects columns from lazyframe."
     }
 

@@ -13,7 +13,7 @@ impl Command for History {
         "history"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the command history."
     }
 

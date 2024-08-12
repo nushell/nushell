@@ -20,7 +20,7 @@ impl PluginCommand for DropNulls {
         "polars drop-nulls"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Drops null values in dataframe."
     }
 

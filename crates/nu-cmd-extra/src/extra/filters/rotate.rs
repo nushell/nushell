@@ -23,7 +23,7 @@ impl Command for Rotate {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Rotates a table or record clockwise (default) or counter-clockwise (use --ccw flag)."
     }
 

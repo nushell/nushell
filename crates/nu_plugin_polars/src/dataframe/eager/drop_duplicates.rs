@@ -21,7 +21,7 @@ impl PluginCommand for DropDuplicates {
         "polars drop-duplicates"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Drops duplicate values in dataframe."
     }
 

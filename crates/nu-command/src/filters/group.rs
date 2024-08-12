@@ -23,7 +23,7 @@ impl Command for Group {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Groups input into groups of `group_size`."
     }
 

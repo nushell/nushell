@@ -56,7 +56,7 @@ impl Command for FromCsv {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .csv and create table."
     }
 

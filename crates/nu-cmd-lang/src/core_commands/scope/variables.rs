@@ -15,7 +15,7 @@ impl Command for ScopeVariables {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output info on the variables in the current scope."
     }
 

@@ -467,7 +467,7 @@ impl Command for Nu {
         signature
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "The nushell language and shell."
     }
 

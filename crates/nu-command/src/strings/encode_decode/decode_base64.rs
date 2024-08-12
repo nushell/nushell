@@ -40,11 +40,11 @@ impl Command for DecodeBase64 {
             .category(Category::Hash)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Base64 decode a value."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Will attempt to decode binary payload as an UTF-8 string by default. Use the `--binary(-b)` argument to force binary output."#
     }
 

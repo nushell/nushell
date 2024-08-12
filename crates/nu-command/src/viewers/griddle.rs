@@ -16,7 +16,7 @@ impl Command for Griddle {
         "grid"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Renders the output to a textual terminal grid."
     }
 
@@ -42,7 +42,7 @@ impl Command for Griddle {
             .category(Category::Viewers)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"grid was built to give a concise gridded layout for ls. however,
 it determines what to put in the grid by looking for a column named
 'name'. this works great for tables and records but for lists we

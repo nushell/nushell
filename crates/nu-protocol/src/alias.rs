@@ -32,11 +32,11 @@ impl Command for Alias {
         }
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         &self.usage
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         &self.extra_usage
     }
 

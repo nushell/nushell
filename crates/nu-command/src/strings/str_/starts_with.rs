@@ -43,7 +43,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check if an input starts with a string."
     }
 

@@ -20,7 +20,7 @@ impl PluginCommand for SampleDF {
         "polars sample"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create sample dataframe."
     }
 

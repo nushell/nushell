@@ -22,7 +22,7 @@ impl PluginCommand for SetWithIndex {
         "polars set-with-idx"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Sets value in the given index."
     }
 

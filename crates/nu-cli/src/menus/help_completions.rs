@@ -30,12 +30,15 @@ impl NuHelpCompleter {
             .filter_map(|(_, decl_id)| {
                 let decl = self.engine_state.get_decl(decl_id);
                 (decl.name().to_folded_case().contains(&folded_line)
-                    || decl.usage().to_folded_case().contains(&folded_line)
+                    || decl.description().to_folded_case().contains(&folded_line)
                     || decl
                         .search_terms()
                         .into_iter()
                         .any(|term| term.to_folded_case().contains(&folded_line))
-                    || decl.extra_usage().to_folded_case().contains(&folded_line))
+                    || decl
+                        .extra_description()
+                        .to_folded_case()
+                        .contains(&folded_line))
                 .then_some(decl)
             })
             .collect::<Vec<_>>();
@@ -47,13 +50,13 @@ impl NuHelpCompleter {
             .map(|decl| {
                 let mut long_desc = String::new();
 
-                let usage = decl.usage();
+                let usage = decl.description();
                 if !usage.is_empty() {
                     long_desc.push_str(usage);
                     long_desc.push_str("\r\n\r\n");
                 }
 
-                let extra_usage = decl.extra_usage();
+                let extra_usage = decl.extra_description();
                 if !extra_usage.is_empty() {
                     long_desc.push_str(extra_usage);
                     long_desc.push_str("\r\n\r\n");
