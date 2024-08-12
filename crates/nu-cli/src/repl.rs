@@ -911,7 +911,12 @@ fn run_shell_integration_osc2(
 
         // Try to abbreviate string for windows title
         let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-            path.replace(&p.as_path().display().to_string(), "~")
+            let home_dir_str = p.as_path().display().to_string();
+            if path.starts_with(&home_dir_str) {
+                path.replacen(&home_dir_str, "~", 1)
+            }else {
+                path
+            }
         } else {
             path
         };
