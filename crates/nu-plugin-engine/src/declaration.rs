@@ -33,11 +33,11 @@ impl Command for PluginDeclaration {
     }
 
     fn usage(&self) -> &str {
-        self.signature.sig.usage.as_str()
+        self.signature.sig.description.as_str()
     }
 
     fn extra_usage(&self) -> &str {
-        self.signature.sig.extra_usage.as_str()
+        self.signature.sig.extra_description.as_str()
     }
 
     fn search_terms(&self) -> Vec<&str> {

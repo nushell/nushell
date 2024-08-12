@@ -304,7 +304,7 @@ impl Command for Nu {
 
     fn signature(&self) -> Signature {
         let mut signature = Signature::build("nu")
-            .usage("The nushell language and shell.")
+            .description("The nushell language and shell.")
             .named(
                 "commands",
                 SyntaxShape::String,

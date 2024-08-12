@@ -599,8 +599,8 @@ pub fn parse_def(
             if !has_wrapped {
                 *signature = signature.add_help();
             }
-            signature.usage = usage;
-            signature.extra_usage = extra_usage;
+            signature.description = usage;
+            signature.extra_description = extra_usage;
             signature.allows_unknown_args = has_wrapped;
 
             *declaration = signature.clone().into_block_command(block_id);
@@ -759,8 +759,8 @@ pub fn parse_extern(
                 };
 
                 signature.name.clone_from(&external_name);
-                signature.usage.clone_from(&usage);
-                signature.extra_usage.clone_from(&extra_usage);
+                signature.description.clone_from(&usage);
+                signature.extra_description.clone_from(&extra_usage);
                 signature.allows_unknown_args = true;
 
                 if let Some(block_id) = body.and_then(|x| x.as_block()) {

@@ -76,13 +76,13 @@ fn get_documentation(
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
 
-    let usage = &sig.usage;
+    let usage = &sig.description;
     if !usage.is_empty() {
         long_desc.push_str(usage);
         long_desc.push_str("\n\n");
     }
 
-    let extra_usage = &sig.extra_usage;
+    let extra_usage = &sig.extra_description;
     if !extra_usage.is_empty() {
         long_desc.push_str(extra_usage);
         long_desc.push_str("\n\n");
@@ -118,7 +118,7 @@ fn get_documentation(
         {
             subcommands.push(format!(
                 "  {help_subcolor_one}{}{RESET} - {}",
-                sig.name, sig.usage
+                sig.name, sig.description
             ));
         }
     }

@@ -25,7 +25,7 @@ macro_rules! lazy_command {
 
             fn signature(&self) -> Signature {
                 Signature::build(self.name())
-                    .usage($desc)
+                    .description($desc)
                     .input_output_type(
                         Type::Custom("dataframe".into()),
                         Type::Custom("dataframe".into()),

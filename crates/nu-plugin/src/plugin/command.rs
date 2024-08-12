@@ -349,8 +349,8 @@ pub fn create_plugin_signature(command: &(impl PluginCommand + ?Sized)) -> Plugi
         // Add results of trait methods to signature
         command
             .signature()
-            .usage(command.usage())
-            .extra_usage(command.extra_usage())
+            .description(command.usage())
+            .extra_description(command.extra_usage())
             .search_terms(
                 command
                     .search_terms()
