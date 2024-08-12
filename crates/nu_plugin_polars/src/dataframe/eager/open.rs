@@ -22,16 +22,14 @@ use std::{
     sync::Arc,
 };
 
-use polars::{
-    lazy::frame::LazyJsonLineReader,
-    prelude::{
-        CsvEncoding, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
-        LazyFrame, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
-    },
+use polars::prelude::{
+    CsvEncoding, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader, LazyFrame,
+    LazyJsonLineReader, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
 
 use polars_io::{
-    avro::AvroReader, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions,
+    avro::AvroReader, cloud::CloudOptions, csv::read::CsvReadOptions, prelude::ParallelStrategy,
+    HiveOptions,
 };
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
@@ -54,7 +52,7 @@ impl PluginCommand for OpenDataFrame {
         Signature::build(self.name())
             .required(
                 "file",
-                SyntaxShape::Filepath,
+                SyntaxShape::String,
                 "file path to load values from",
             )
             .switch("eager", "Open dataframe as an eager dataframe", None)
@@ -128,7 +126,7 @@ fn command(
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<PipelineData, ShellError> {
     let spanned_file: Spanned<PathBuf> = call.req(0)?;
-    let cloud_options = cloud_options_from_path(&spanned_file.item);
+    let cloud_options = cloud_options_from_path(spanned_file.item.as_ref())?;
     let file_path = if cloud_options.is_some() {
         spanned_file.item
     } else {
@@ -149,12 +147,18 @@ fn command(
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
             PolarsFileType::Csv | PolarsFileType::Tsv => {
-                from_csv(plugin, engine, call, &file_path, file_span)
+                from_csv(plugin, engine, call, cloud_options, &file_path, file_span)
             }
-            PolarsFileType::Parquet => from_parquet(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::Arrow => from_arrow(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::Parquet => {
+                from_parquet(plugin, engine, call, cloud_options, &file_path, file_span)
+            }
+            PolarsFileType::Arrow => {
+                from_arrow(plugin, engine, call, cloud_options, &file_path, file_span)
+            }
             PolarsFileType::Json => from_json(plugin, engine, call, &file_path, file_span),
-            PolarsFileType::NdJson => from_ndjson(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::NdJson => {
+                from_ndjson(plugin, engine, call, cloud_options, &file_path, file_span)
+            }
             PolarsFileType::Avro => from_avro(plugin, engine, call, &file_path, file_span),
             _ => Err(PolarsFileType::build_unsupported_error(
                 &ext,
@@ -181,11 +185,11 @@ fn from_parquet(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    cloud_options: Option<CloudOptions>,
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
     if !call.has_flag("eager")? {
-        let file: String = call.req(0)?;
         let args = ScanArgsParquet {
             n_rows: None,
             cache: true,
@@ -193,13 +197,13 @@ fn from_parquet(
             rechunk: false,
             row_index: None,
             low_memory: false,
-            cloud_options: None,
+            cloud_options,
             use_statistics: false,
             hive_options: HiveOptions::default(),
             glob: true,
         };
 
-        let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
+        let df: NuLazyFrame = LazyFrame::scan_parquet(file_path, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
                 msg: format!("{e:?}"),
@@ -207,6 +211,7 @@ fn from_parquet(
                 help: None,
                 inner: vec![],
             })?
+            .with_streaming(true)
             .into();
 
         df.cache_and_to_value(plugin, engine, call.head)
@@ -283,6 +288,7 @@ fn from_arrow(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    cloud_options: Option<CloudOptions>,
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
@@ -294,7 +300,7 @@ fn from_arrow(
             rechunk: false,
             row_index: None,
             memory_map: true,
-            cloud_options: None,
+            cloud_options,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_ipc(file, args)
@@ -305,6 +311,7 @@ fn from_arrow(
                 help: None,
                 inner: vec![],
             })?
+            .with_streaming(true)
             .into();
 
         df.cache_and_to_value(plugin, engine, call.head)
@@ -385,6 +392,8 @@ fn from_ndjson(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+
+    _cloud_options: Option<CloudOptions>,
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
@@ -406,6 +415,8 @@ fn from_ndjson(
         let df = LazyJsonLineReader::new(file_path)
             .with_infer_schema_length(Some(infer_schema))
             .with_schema(maybe_schema.map(|s| s.into()))
+            //todo - this seems to be in head but not released yet
+            // .with_cloud_options(cloud_options)
             .finish()
             .map_err(|e| ShellError::GenericError {
                 error: format!("NDJSON reader error: {e}"),
@@ -413,7 +424,8 @@ fn from_ndjson(
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
-            })?;
+            })?
+            .with_streaming(true);
 
         perf!("Lazy NDJSON dataframe open", start_time, engine.use_color());
 
@@ -464,6 +476,7 @@ fn from_csv(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
+    cloud_options: Option<CloudOptions>,
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
@@ -504,14 +517,11 @@ fn from_csv(
             }
         };
 
-        let csv_reader = csv_reader.with_has_header(!no_header);
-
-        let csv_reader = match maybe_schema {
-            Some(schema) => csv_reader.with_schema(Some(schema.into())),
-            None => csv_reader,
-        };
-
-        let csv_reader = csv_reader.with_infer_schema_length(Some(infer_schema));
+        let csv_reader = csv_reader
+            .with_has_header(!no_header)
+            .with_infer_schema_length(Some(infer_schema))
+            .with_schema(maybe_schema.map(Into::into))
+            .with_cloud_options(cloud_options);
 
         let csv_reader = match skip_rows {
             None => csv_reader,
@@ -528,6 +538,7 @@ fn from_csv(
                 help: None,
                 inner: vec![],
             })?
+            .with_streaming(true)
             .into();
 
         perf!("Lazy CSV dataframe open", start_time, engine.use_color());
