@@ -914,7 +914,7 @@ fn run_shell_integration_osc2(
             let home_dir_str = p.as_path().display().to_string();
             if path.starts_with(&home_dir_str) {
                 path.replacen(&home_dir_str, "~", 1)
-            }else {
+            } else {
                 path
             }
         } else {
