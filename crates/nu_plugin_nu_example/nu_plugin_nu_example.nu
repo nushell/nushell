@@ -22,8 +22,8 @@ const SIGNATURES = [
   {
     sig: {
       name: nu_plugin_nu_example,
-      usage: "Signature test for Nushell plugin in Nushell",
-      extra_usage: "",
+      description: "Signature test for Nushell plugin in Nushell",
+      extra_description: "",
       required_positional: [
         [
           name,
