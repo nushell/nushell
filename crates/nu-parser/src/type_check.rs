@@ -1162,7 +1162,7 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range, s
             ));
         }
         (Some(from), Some(next), Some(to)) if !type_compatible(&Type::Number, &to.ty) => {
-            *to = Expression::garbage(working_set, next.span);
+            *to = Expression::garbage(working_set, to.span);
             working_set.error(ParseError::UnsupportedOperationTernary(
                 String::from("range"),
                 span,
