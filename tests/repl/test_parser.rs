@@ -312,23 +312,29 @@ fn append_assign_takes_pipeline() -> TestResult {
 }
 
 #[test]
-fn assign_bare_external_fails() -> TestResult {
-    fail_test("$env.FOO = nu --testbin cococo", "must be explicit")
+fn assign_bare_external_fails() {
+    let result = nu!("$env.FOO = nu --testbin cococo");
+    assert!(!result.status.success());
+    assert!(result.err.contains("must be explicit"));
 }
 
 #[test]
-fn assign_bare_external_with_caret() -> TestResult {
-    run_test("$env.FOO = ^nu --testbin cococo", "")
+fn assign_bare_external_with_caret() {
+    let result = nu!("$env.FOO = ^nu --testbin cococo");
+    assert!(result.status.success());
 }
 
 #[test]
-fn assign_backtick_quoted_external_fails() -> TestResult {
-    fail_test("$env.FOO = `nu` --testbin cococo", "must be explicit")
+fn assign_backtick_quoted_external_fails() {
+    let result = nu!("$env.FOO = `nu` --testbin cococo");
+    assert!(!result.status.success());
+    assert!(result.err.contains("must be explicit"));
 }
 
 #[test]
-fn assign_backtick_quoted_external_with_caret() -> TestResult {
-    run_test("$env.FOO = ^`nu` --testbin cococo", "")
+fn assign_backtick_quoted_external_with_caret() {
+    let result = nu!("$env.FOO = ^`nu` --testbin cococo");
+    assert!(result.status.success());
 }
 
 #[test]
