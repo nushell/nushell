@@ -1,5 +1,6 @@
 use nu_protocol::{ShellError, Span};
 
+pub mod cloud;
 pub mod eager;
 pub mod expressions;
 pub mod lazy;

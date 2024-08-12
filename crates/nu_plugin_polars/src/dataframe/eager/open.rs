@@ -1,11 +1,11 @@
 use crate::{
+    cloud::cloud_options_from_path,
     dataframe::values::NuSchema,
     values::{CustomValueSupport, NuLazyFrame, PolarsFileType},
     EngineWrapper, PolarsPlugin,
 };
 use nu_path::expand_path_with;
 use nu_utils::perf;
-use object_store::aws::AmazonS3Builder;
 
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
@@ -31,7 +31,7 @@ use polars::{
 };
 
 use polars_io::{
-    avro::AvroReader, cloud::{AmazonS3ConfigKey, CloudOptions}, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions
+    avro::AvroReader, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions,
 };
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
@@ -128,7 +128,13 @@ fn command(
     call: &nu_plugin::EvaluatedCall,
 ) -> Result<PipelineData, ShellError> {
     let spanned_file: Spanned<PathBuf> = call.req(0)?;
-    let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
+    let cloud_options = cloud_options_from_path(&spanned_file.item);
+    let file_path = if cloud_options.is_some() {
+        spanned_file.item
+    } else {
+        expand_path_with(&spanned_file.item, engine.get_current_dir()?, true)
+    };
+
     let file_span = spanned_file.span;
 
     let type_option: Option<(String, Span)> = call
@@ -179,13 +185,6 @@ fn from_parquet(
     file_span: Span,
 ) -> Result<Value, ShellError> {
     if !call.has_flag("eager")? {
-
-        let builder = AmazonS3Builder::new();
-
-        // let cloud_options = CloudOptions {
-        //     max_retries: todo!(),
-        // };
-        
         let file: String = call.req(0)?;
         let args = ScanArgsParquet {
             n_rows: None,
