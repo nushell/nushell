@@ -4,7 +4,7 @@ use nu_protocol::{
         Range,
     },
     engine::StateWorkingSet,
-    ParseError, Span, Type,
+    ParseError, Type,
 };
 
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
@@ -1135,25 +1135,41 @@ fn check_append(
 }
 
 /// If one of the parts of the range isn't a number, a parse error is added to the working set
-pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range, span: Span) {
+pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range) {
+    let next_op_span = if range.next.is_some() {
+        range.operator.next_op_span
+    } else {
+        range.operator.span
+    };
     match (&mut range.from, &mut range.next, &mut range.to) {
         (Some(expr), _, _) | (None, Some(expr), Some(_)) | (None, None, Some(expr))
             if !type_compatible(&Type::Number, &expr.ty) =>
         {
             working_set.error(ParseError::UnsupportedOperationLHS(
                 String::from("range"),
-                span,
+                next_op_span,
                 expr.span,
                 expr.ty.clone(),
             ));
             *expr = Expression::garbage(working_set, expr.span);
+        }
+        (Some(lhs), Some(rhs), _) if !type_compatible(&Type::Number, &rhs.ty) => {
+            working_set.error(ParseError::UnsupportedOperationRHS(
+                String::from("range"),
+                next_op_span,
+                lhs.span,
+                lhs.ty.clone(),
+                rhs.span,
+                rhs.ty.clone(),
+            ));
+            *rhs = Expression::garbage(working_set, rhs.span);
         }
         (Some(lhs), Some(rhs), _) | (Some(lhs), None, Some(rhs)) | (None, Some(lhs), Some(rhs))
             if !type_compatible(&Type::Number, &rhs.ty) =>
         {
             working_set.error(ParseError::UnsupportedOperationRHS(
                 String::from("range"),
-                span,
+                range.operator.span,
                 lhs.span,
                 lhs.ty.clone(),
                 rhs.span,
@@ -1164,7 +1180,7 @@ pub fn check_range_types(working_set: &mut StateWorkingSet, range: &mut Range, s
         (Some(from), Some(next), Some(to)) if !type_compatible(&Type::Number, &to.ty) => {
             working_set.error(ParseError::UnsupportedOperationTernary(
                 String::from("range"),
-                span,
+                range.operator.span,
                 from.span,
                 from.ty.clone(),
                 next.span,

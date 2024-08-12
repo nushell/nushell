@@ -1728,7 +1728,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         operator,
     };
 
-    check_range_types(working_set, &mut range, span);
+    check_range_types(working_set, &mut range);
 
     Some(Expression::new(
         working_set,
