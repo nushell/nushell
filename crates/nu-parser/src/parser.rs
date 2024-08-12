@@ -1593,7 +1593,7 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
 }
 
 pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expression> {
-    trace!("parsing: range, {:?}", span);
+    trace!("parsing: range");
 
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
     //   where <next_operator> is ".."
@@ -1613,7 +1613,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
 
     if token.starts_with("...") {
         working_set.error(ParseError::Expected(
-            "range operator ('..'), got spread ('...'",
+            "range operator ('..'), got spread ('...')",
             span,
         ));
         return None;
