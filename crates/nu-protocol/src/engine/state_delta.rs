@@ -1,7 +1,7 @@
 use crate::{
     ast::Block,
     engine::{
-        usage::Usage, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable,
+        description::Usage, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable,
         VirtualPath,
     },
     Module, Span,

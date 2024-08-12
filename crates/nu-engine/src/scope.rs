@@ -472,7 +472,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
         let (module_usage, module_extra_usage) = self
             .engine_state
-            .build_module_usage(*module_id)
+            .build_module_desc(*module_id)
             .unwrap_or_default();
 
         Value::record(

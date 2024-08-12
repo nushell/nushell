@@ -35,8 +35,8 @@ impl Default for Usage {
     }
 }
 
-pub(super) fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
-    let mut usage = String::new();
+pub(super) fn build_desc(comment_lines: &[&[u8]]) -> (String, String) {
+    let mut description = String::new();
 
     let mut num_spaces = 0;
     let mut first = true;
@@ -75,17 +75,17 @@ pub(super) fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
             String::from_utf8_lossy(&contents[pos..]).to_string()
         };
 
-        if !usage.is_empty() {
-            usage.push('\n');
+        if !description.is_empty() {
+            description.push('\n');
         }
-        usage.push_str(&comment_line);
+        description.push_str(&comment_line);
     }
 
-    if let Some((brief_usage, extra_usage)) = usage.split_once("\r\n\r\n") {
-        (brief_usage.to_string(), extra_usage.to_string())
-    } else if let Some((brief_usage, extra_usage)) = usage.split_once("\n\n") {
-        (brief_usage.to_string(), extra_usage.to_string())
+    if let Some((brief_desc, extra_desc)) = description.split_once("\r\n\r\n") {
+        (brief_desc.to_string(), extra_desc.to_string())
+    } else if let Some((brief_desc, extra_desc)) = description.split_once("\n\n") {
+        (brief_desc.to_string(), extra_desc.to_string())
     } else {
-        (usage, String::default())
+        (description, String::default())
     }
 }

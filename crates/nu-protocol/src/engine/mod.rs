@@ -5,6 +5,7 @@ mod call;
 mod call_info;
 mod capture_block;
 mod command;
+mod description;
 mod engine_state;
 mod error_handler;
 mod overlay;
@@ -14,7 +15,6 @@ mod stack;
 mod stack_out_dest;
 mod state_delta;
 mod state_working_set;
-mod usage;
 mod variable;
 
 pub use cached_file::CachedFile;

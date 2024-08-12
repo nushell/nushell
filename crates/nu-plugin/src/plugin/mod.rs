@@ -662,10 +662,14 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
     plugin.commands().into_iter().for_each(|command| {
         let signature = command.signature();
         let res = write!(help, "\nCommand: {}", command.name())
-            .and_then(|_| writeln!(help, "\nUsage:\n > {}", command.description()))
+            .and_then(|_| writeln!(help, "\nDescription:\n > {}", command.description()))
             .and_then(|_| {
                 if !command.extra_description().is_empty() {
-                    writeln!(help, "\nExtra usage:\n > {}", command.extra_description())
+                    writeln!(
+                        help,
+                        "\nExtra description:\n > {}",
+                        command.extra_description()
+                    )
                 } else {
                     Ok(())
                 }

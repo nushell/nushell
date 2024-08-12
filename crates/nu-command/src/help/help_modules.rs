@@ -123,7 +123,7 @@ pub fn help_modules(
 
         let module = engine_state.get_module(module_id);
 
-        let module_usage = engine_state.build_module_usage(module_id);
+        let module_desc = engine_state.build_module_desc(module_id);
 
         // TODO: merge this into documentation.rs at some point
         const G: &str = "\x1b[32m"; // green
@@ -133,12 +133,12 @@ pub fn help_modules(
 
         let mut long_desc = String::new();
 
-        if let Some((usage, extra_usage)) = module_usage {
-            long_desc.push_str(&usage);
+        if let Some((desc, extra_desc)) = module_desc {
+            long_desc.push_str(&desc);
             long_desc.push_str("\n\n");
 
-            if !extra_usage.is_empty() {
-                long_desc.push_str(&extra_usage);
+            if !extra_desc.is_empty() {
+                long_desc.push_str(&extra_desc);
                 long_desc.push_str("\n\n");
             }
         }

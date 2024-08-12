@@ -23,7 +23,7 @@ impl Command for Help {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in command names, usage, and search terms",
+                "string to find in command names, descriptions, and search terms",
                 Some('f'),
             )
             .category(Category::Core)
@@ -118,7 +118,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
                 result: None,
             },
             Example {
-                description: "search for string in command names, usage and search terms",
+                description: "search for string in command names, descriptions, and search terms",
                 example: "help --find char",
                 result: None,
             },

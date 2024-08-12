@@ -15,8 +15,8 @@ pub struct Alias {
     /// Wrapped inner [`Command`]. `None` if alias of external call
     pub command: Option<Box<dyn Command>>,
     pub wrapped_call: Expression,
-    pub usage: String,
-    pub extra_usage: String,
+    pub description: String,
+    pub extra_description: String,
 }
 
 impl Command for Alias {
@@ -33,11 +33,11 @@ impl Command for Alias {
     }
 
     fn description(&self) -> &str {
-        &self.usage
+        &self.description
     }
 
     fn extra_description(&self) -> &str {
-        &self.extra_usage
+        &self.extra_description
     }
 
     fn run(

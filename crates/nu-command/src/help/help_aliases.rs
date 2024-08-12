@@ -121,8 +121,8 @@ pub fn help_aliases(
 
         let alias_expansion =
             String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
-        let usage = alias.description();
-        let extra_usage = alias.extra_description();
+        let description = alias.description();
+        let extra_desc = alias.extra_description();
 
         // TODO: merge this into documentation.rs at some point
         const G: &str = "\x1b[32m"; // green
@@ -131,11 +131,11 @@ pub fn help_aliases(
 
         let mut long_desc = String::new();
 
-        long_desc.push_str(usage);
+        long_desc.push_str(description);
         long_desc.push_str("\n\n");
 
-        if !extra_usage.is_empty() {
-            long_desc.push_str(extra_usage);
+        if !extra_desc.is_empty() {
+            long_desc.push_str(extra_desc);
             long_desc.push_str("\n\n");
         }
 

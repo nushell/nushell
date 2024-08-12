@@ -50,15 +50,15 @@ impl NuHelpCompleter {
             .map(|decl| {
                 let mut long_desc = String::new();
 
-                let usage = decl.description();
-                if !usage.is_empty() {
-                    long_desc.push_str(usage);
+                let description = decl.description();
+                if !description.is_empty() {
+                    long_desc.push_str(description);
                     long_desc.push_str("\r\n\r\n");
                 }
 
-                let extra_usage = decl.extra_description();
-                if !extra_usage.is_empty() {
-                    long_desc.push_str(extra_usage);
+                let extra_desc = decl.extra_description();
+                if !extra_desc.is_empty() {
+                    long_desc.push_str(extra_desc);
                     long_desc.push_str("\r\n\r\n");
                 }
 

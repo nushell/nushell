@@ -76,15 +76,15 @@ fn get_documentation(
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
 
-    let usage = &sig.description;
-    if !usage.is_empty() {
-        long_desc.push_str(usage);
+    let desc = &sig.description;
+    if !desc.is_empty() {
+        long_desc.push_str(desc);
         long_desc.push_str("\n\n");
     }
 
-    let extra_usage = &sig.extra_description;
-    if !extra_usage.is_empty() {
-        long_desc.push_str(extra_usage);
+    let extra_desc = &sig.extra_description;
+    if !extra_desc.is_empty() {
+        long_desc.push_str(extra_desc);
         long_desc.push_str("\n\n");
     }
 
