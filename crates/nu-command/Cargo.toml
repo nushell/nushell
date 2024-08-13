@@ -50,7 +50,7 @@ encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
 filetime = { workspace = true }
-fs_extra = { workspace =  true }
+fs_extra = { workspace = true }
 human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
@@ -88,7 +88,7 @@ sysinfo = { workspace = true }
 tabled = { workspace = true, features = ["color"], default-features = false }
 terminal_size = { workspace = true }
 titlecase = { workspace = true }
-toml = { workspace = true, features = ["preserve_order"]}
+toml = { workspace = true, features = ["preserve_order"] }
 unicode-segmentation = { workspace = true }
 ureq = { workspace = true, default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = { workspace = true }
