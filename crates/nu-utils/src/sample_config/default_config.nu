@@ -692,6 +692,13 @@ $env.config = {
             event: { send: enter }
         }
         {
+            name: insert_newline
+            modifier: alt
+            keycode: enter
+            mode: [emacs vi_normal vi_insert]
+            event: { edit: insertnewline }
+        }
+        {
             name: move_left
             modifier: control
             keycode: char_b
