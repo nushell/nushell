@@ -815,13 +815,9 @@ fn list_symlink_with_full_path() {
         sandbox.with_files(&[EmptyFile("test_file.txt")]);
 
         #[cfg(unix)]
-        let _ =
-            std::os::unix::fs::symlink("test_file.txt", dirs.test().join("test_link1")).unwrap();
+        let _ = std::os::unix::fs::symlink("test_file.txt", dirs.test().join("test_link1"));
         #[cfg(windows)]
-        let _ = std::os::windows::fs::symlink_file(
-            "test_file.txt",
-            dirs.test().join("test_link1").unwrap(),
-        );
+        let _ = std::os::windows::fs::symlink_file("test_file.txt", dirs.test().join("test_link1"));
         let actual = nu!(
             cwd: dirs.test(),
             "ls -l test_link1 | get target.0"
