@@ -110,7 +110,7 @@ lsp-types = "0.95.0"
 mach2 = "0.4"
 md5 = { version = "0.10", package = "md-5" }
 miette = "7.2"
-mime = "0.3"
+mime = "0.3.17"
 mime_guess = "2.0"
 mockito = { version = "1.5", default-features = false }
 multipart-rs = "0.1.11"
