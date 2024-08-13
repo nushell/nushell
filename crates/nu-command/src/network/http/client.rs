@@ -567,10 +567,7 @@ fn transform_response_using_content_type(
     let content_type = mime::Mime::from_str(&content_type_trim).map_err(|err| {
         LabeledError::new(err.to_string())
             .with_help("given unknown MIME type, or error parsing MIME type")
-            .with_label(
-                format!("MIME type unknown: {content_type_trim}"),
-                Span::unknown(),
-            )
+            .with_label(format!("MIME type unknown: {content_type_trim}"), span)
     })?;
 
     let ext = match (content_type.type_(), content_type.subtype()) {
