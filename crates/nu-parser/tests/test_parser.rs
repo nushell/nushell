@@ -2,7 +2,7 @@ use nu_parser::*;
 use nu_protocol::{
     ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
     engine::{Call, Command, EngineState, Stack, StateWorkingSet},
-    ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
+    Category, ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
 };
 use rstest::rstest;
 
@@ -63,6 +63,35 @@ impl Command for Mut {
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "equals sign followed by value",
             )
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        todo!()
+    }
+}
+
+#[derive(Clone)]
+pub struct ToCustom;
+
+impl Command for ToCustom {
+    fn name(&self) -> &str {
+        "to-custom"
+    }
+
+    fn usage(&self) -> &str {
+        "Mock converter command."
+    }
+
+    fn signature(&self) -> nu_protocol::Signature {
+        Signature::build(self.name())
+            .input_output_type(Type::Any, Type::Custom("custom".into()))
+            .category(Category::Custom("custom".into()))
     }
 
     fn run(
@@ -1799,13 +1828,55 @@ mod range {
     }
 
     #[test]
-    fn vars_not_read_as_units() {
+    fn vars_read_as_units() {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         let _ = parse(&mut working_set, None, b"0..<$day", true);
 
-        assert!(working_set.parse_errors.is_empty());
+        assert!(
+            working_set.parse_errors.len() == 1,
+            "Errors: {:?}",
+            working_set.parse_errors
+        );
+        let err = &working_set.parse_errors[0].to_string();
+        assert!(
+            err.contains("Variable not found"),
+            "Expected variable not found error, got {}",
+            err
+        );
+    }
+
+    #[rstest]
+    #[case("(to-custom)..")]
+    #[case("..(to-custom)")]
+    #[case("(to-custom)..0")]
+    #[case("..(to-custom)..0")]
+    #[case("(to-custom)..0..")]
+    #[case("(to-custom)..0..1")]
+    #[case("0..(to-custom)")]
+    #[case("0..(to-custom)..")]
+    #[case("0..(to-custom)..1")]
+    #[case("..1..(to-custom)")]
+    #[case("0..1..(to-custom)")]
+    fn type_mismatch_errors(#[case] code: &str) {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let _ = parse(&mut working_set, None, code.as_bytes(), true);
+
+        assert!(
+            working_set.parse_errors.len() == 1,
+            "Errors: {:?}",
+            working_set.parse_errors
+        );
+        let err = &working_set.parse_errors[0].to_string();
+        assert!(
+            err.contains("range is not supported"),
+            "Expected unsupported operation error, got {}",
+            err
+        );
     }
 }
 
@@ -1889,35 +1960,6 @@ mod input_types {
             Signature::build(self.name())
                 .required("column", SyntaxShape::String, "column name")
                 .category(Category::Default)
-        }
-
-        fn run(
-            &self,
-            _engine_state: &EngineState,
-            _stack: &mut Stack,
-            _call: &Call,
-            _input: PipelineData,
-        ) -> Result<PipelineData, ShellError> {
-            todo!()
-        }
-    }
-
-    #[derive(Clone)]
-    pub struct ToCustom;
-
-    impl Command for ToCustom {
-        fn name(&self) -> &str {
-            "to-custom"
-        }
-
-        fn usage(&self) -> &str {
-            "Mock converter command."
-        }
-
-        fn signature(&self) -> nu_protocol::Signature {
-            Signature::build(self.name())
-                .input_output_type(Type::Any, Type::Custom("custom".into()))
-                .category(Category::Custom("custom".into()))
         }
 
         fn run(

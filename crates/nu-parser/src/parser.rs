@@ -4,7 +4,7 @@ use crate::{
     parse_keywords::*,
     parse_patterns::parse_pattern,
     parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
-    type_check::{self, math_result_type, type_compatible},
+    type_check::{self, check_range_types, math_result_type, type_compatible},
     Token, TokenContents,
 };
 use itertools::Itertools;
@@ -109,14 +109,9 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     }
     working_set.parse_errors.truncate(starting_error_count);
 
-    parse_range(working_set, span);
-
-    if working_set.parse_errors.len() == starting_error_count {
-        return true;
-    }
+    let is_range = parse_range(working_set, span).is_some();
     working_set.parse_errors.truncate(starting_error_count);
-
-    false
+    is_range
 }
 
 fn is_identifier(bytes: &[u8]) -> bool {
@@ -1389,8 +1384,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             trace!("-- found leading range indicator");
             let starting_error_count = working_set.parse_errors.len();
 
-            let range_expr = parse_range(working_set, spans[0]);
-            if working_set.parse_errors.len() == starting_error_count {
+            if let Some(range_expr) = parse_range(working_set, spans[0]) {
                 trace!("-- successfully parsed range");
                 return range_expr;
             }
@@ -1598,7 +1592,7 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
     garbage(working_set, span)
 }
 
-pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expression> {
     trace!("parsing: range");
 
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
@@ -1614,12 +1608,20 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         s
     } else {
         working_set.error(ParseError::NonUtf8(span));
-        return garbage(working_set, span);
+        return None;
     };
+
+    if token.starts_with("...") {
+        working_set.error(ParseError::Expected(
+            "range operator ('..'), got spread ('...')",
+            span,
+        ));
+        return None;
+    }
 
     if !token.contains("..") {
         working_set.error(ParseError::Expected("at least one range bound set", span));
-        return garbage(working_set, span);
+        return None;
     }
 
     // First, figure out what exact operators are used and determine their positions
@@ -1633,7 +1635,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
                 "one range operator ('..' or '..<') and optionally one next operator ('..')",
                 span,
             ));
-            return garbage(working_set, span);
+            return None;
         }
     };
     // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
@@ -1648,7 +1650,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         );
         if let Some(_err) = err {
             working_set.error(ParseError::Expected("Valid expression before ..", span));
-            return garbage(working_set, span);
+            return None;
         }
     }
 
@@ -1665,7 +1667,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
                 "inclusive operator preceding second range bound",
                 span,
             ));
-            return garbage(working_set, span);
+            return None;
         }
     } else {
         let op_str = if token.contains("..=") { "..=" } else { ".." };
@@ -1698,7 +1700,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
 
     if let (None, None) = (&from, &to) {
         working_set.error(ParseError::Expected("at least one range bound set", span));
-        return garbage(working_set, span);
+        return None;
     }
 
     let (next, next_op_span) = if let Some(pos) = next_op_pos {
@@ -1719,14 +1721,21 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         next_op_span,
     };
 
-    let range = Range {
+    let mut range = Range {
         from,
         next,
         to,
         operator,
     };
 
-    Expression::new(working_set, Expr::Range(Box::new(range)), span, Type::Range)
+    check_range_types(working_set, &mut range);
+
+    Some(Expression::new(
+        working_set,
+        Expr::Range(Box::new(range)),
+        span,
+        Type::Range,
+    ))
 }
 
 pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -1740,8 +1749,7 @@ pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: Span) -
     } else {
         let starting_error_count = working_set.parse_errors.len();
 
-        let expr = parse_range(working_set, span);
-        if starting_error_count == working_set.parse_errors.len() {
+        if let Some(expr) = parse_range(working_set, span) {
             expr
         } else {
             working_set.parse_errors.truncate(starting_error_count);
@@ -1812,9 +1820,7 @@ pub fn parse_paren_expr(
 ) -> Expression {
     let starting_error_count = working_set.parse_errors.len();
 
-    let expr = parse_range(working_set, span);
-
-    if starting_error_count == working_set.parse_errors.len() {
+    if let Some(expr) = parse_range(working_set, span) {
         expr
     } else {
         working_set.parse_errors.truncate(starting_error_count);
@@ -4733,7 +4739,9 @@ pub fn parse_value(
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),
         SyntaxShape::Filesize => parse_filesize(working_set, span),
-        SyntaxShape::Range => parse_range(working_set, span),
+        SyntaxShape::Range => {
+            parse_range(working_set, span).unwrap_or_else(|| garbage(working_set, span))
+        }
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
