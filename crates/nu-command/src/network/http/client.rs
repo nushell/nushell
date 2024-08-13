@@ -4,7 +4,6 @@ use base64::{
     engine::{general_purpose::PAD, GeneralPurpose},
     Engine,
 };
-use fancy_regex::Regex;
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, LabeledError, Signals};
@@ -561,14 +560,9 @@ fn transform_response_using_content_type(
     resp: Response,
     content_type: &str,
 ) -> Result<PipelineData, ShellError> {
-    let regex = Regex::new("\"").expect("Failed to create regex");
-    let content_type_trim = regex.replace_all(content_type, "").to_string();
-
-    let content_type = mime::Mime::from_str(&content_type_trim).map_err(|err| {
-        LabeledError::new(err.to_string())
-            .with_help("given unknown MIME type, or error parsing MIME type")
-            .with_label(format!("MIME type unknown: {content_type_trim}"), span)
-    })?;
+    let content_type = mime::Mime::from_str(content_type)
+        .or_else(|_| mime::Mime::from_str("text/plain"))
+        .expect("Failed to parse content type, and failed to default to text/plain");
 
     let ext = match (content_type.type_(), content_type.subtype()) {
         (mime::TEXT, mime::PLAIN) => {

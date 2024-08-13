@@ -273,3 +273,25 @@ fn http_get_self_signed_override() {
     let actual = nu!("http get --insecure https://self-signed.badssl.com/");
     assert!(actual.out.contains("<html>"));
 }
+
+#[test]
+fn http_get_with_invalid_mime_type() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/foo.nuon")
+        .with_status(200)
+        .with_header("content-type", r#""what/ever""#)
+        .with_body("[1 2 3]")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            r#"http get {url}/foo.nuon | to json --raw"#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert_eq!(actual.out, "[1,2,3]");
+}
