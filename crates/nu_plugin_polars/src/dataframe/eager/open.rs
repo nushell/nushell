@@ -127,6 +127,17 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let spanned_file: Spanned<PathBuf> = call.req(0)?;
     let cloud_options = cloud_options_from_path(spanned_file.item.as_ref())?;
+
+    if cloud_options.is_some() && call.has_flag("eager")? {
+        Err(ShellError::GenericError {
+            error: "Eager dataframes can not be read from cloud sources".into(),
+            msg: "".into(),
+            span: Some(spanned_file.span),
+            help: None,
+            inner: vec![],
+        })?;
+    }
+
     let file_path = if cloud_options.is_some() {
         spanned_file.item
     } else {
@@ -146,6 +157,24 @@ fn command(
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
+            // todo - remove ndjson in the next revision release. it's supported in head already
+            ft @ PolarsFileType::Json
+            | ft @ PolarsFileType::Avro
+            | ft @ PolarsFileType::NdJson
+            | ft @ PolarsFileType::Tsv
+                if cloud_options.is_some() =>
+            {
+                Err(ShellError::GenericError {
+                    error: format!(
+                        "Reading from cloud storage not supported for this file type: {}",
+                        ft.to_str()
+                    ),
+                    msg: "".into(),
+                    span: Some(file_span),
+                    help: None,
+                    inner: vec![],
+                })
+            }
             PolarsFileType::Csv | PolarsFileType::Tsv => {
                 from_csv(plugin, engine, call, cloud_options, &file_path, file_span)
             }

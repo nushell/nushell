@@ -135,6 +135,7 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let spanned_file: Spanned<PathBuf> = call.req(0)?;
     let cloud_options = cloud_options_from_path(spanned_file.item.as_ref())?;
+
     let file_path = if cloud_options.is_some() {
         spanned_file.item
     } else {
@@ -152,6 +153,24 @@ fn command(
 
     match type_option {
         Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
+            ft @ PolarsFileType::Json
+            | ft @ PolarsFileType::Avro
+            | ft @ PolarsFileType::NdJson
+            | ft @ PolarsFileType::Csv
+            | ft @ PolarsFileType::Tsv
+                if cloud_options.is_some() =>
+            {
+                Err(ShellError::GenericError {
+                    error: format!(
+                        "Writing to cloud storage not supported for this file type: {}",
+                        ft.to_str()
+                    ),
+                    msg: "".into(),
+                    span: Some(file_span),
+                    help: None,
+                    inner: vec![],
+                })
+            }
             PolarsFileType::Parquet => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
                     parquet::command_lazy(call, lazy, cloud_options, &file_path, file_span)
@@ -166,7 +185,10 @@ fn command(
             },
             PolarsFileType::Arrow => match polars_object {
                 PolarsPluginObject::NuLazyFrame(ref lazy) => {
-                    arrow::command_lazy(call, lazy, &file_path, file_span)
+                    arrow::command_lazy(call, lazy, cloud_options, &file_path, file_span)
+                }
+                PolarsPluginObject::NuDataFrame(ref df) if cloud_options.is_some() => {
+                    arrow::command_lazy(call, &df.lazy(), cloud_options, &file_path, file_span)
                 }
                 PolarsPluginObject::NuDataFrame(ref df) => {
                     arrow::command_eager(df, &file_path, file_span)

@@ -3,7 +3,7 @@ use std::{fs::File, path::Path};
 use nu_plugin::EvaluatedCall;
 use nu_protocol::{ShellError, Span};
 use polars::prelude::{IpcWriter, SerWriter};
-use polars_io::ipc::IpcWriterOptions;
+use polars_io::{cloud::CloudOptions, ipc::IpcWriterOptions};
 
 use crate::values::{NuDataFrame, NuLazyFrame};
 
@@ -12,12 +12,26 @@ use super::polars_file_save_error;
 pub(crate) fn command_lazy(
     _call: &EvaluatedCall,
     lazy: &NuLazyFrame,
+    cloud_options: Option<CloudOptions>,
     file_path: &Path,
     file_span: Span,
 ) -> Result<(), ShellError> {
-    lazy.to_polars()
-        .sink_ipc(file_path, IpcWriterOptions::default())
-        .map_err(|e| polars_file_save_error(e, file_span))
+    if cloud_options.is_some() {
+        lazy.to_polars()
+            .sink_ipc_cloud(
+                file_path
+                    .to_str()
+                    .expect("path should already be valid unicode")
+                    .to_owned(),
+                cloud_options,
+                IpcWriterOptions::default(),
+            )
+            .map_err(|e| polars_file_save_error(e, file_span))
+    } else {
+        lazy.to_polars()
+            .sink_ipc(file_path, IpcWriterOptions::default())
+            .map_err(|e| polars_file_save_error(e, file_span))
+    }
 }
 
 pub(crate) fn command_eager(
