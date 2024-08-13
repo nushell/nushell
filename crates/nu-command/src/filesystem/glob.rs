@@ -148,40 +148,41 @@ impl Command for Glob {
             }
         };
 
-        let glob_pattern = match glob_pattern_input {
-            Value::String { val, .. } => {
-                if val.is_empty() {
-                    return Err(ShellError::GenericError {
-                        error: "glob pattern must not be empty".into(),
-                        msg: "glob pattern is empty".into(),
-                        span: Some(glob_span),
-                        help: Some("add characters to the glob pattern".into()),
-                        inner: vec![],
-                    });
-                } else {
-                    val
+        let glob_pattern =
+            match glob_pattern_input {
+                Value::String { val, .. } => {
+                    if val.is_empty() {
+                        return Err(ShellError::GenericError {
+                            error: "glob pattern must not be empty".into(),
+                            msg: "glob pattern is empty".into(),
+                            span: Some(glob_span),
+                            help: Some("add characters to the glob pattern".into()),
+                            inner: vec![],
+                        });
+                    } else {
+                        val
+                    }
                 }
-            }
-            Value::Glob { val, .. } => {
-                if val.is_empty() {
-                    return Err(ShellError::GenericError {
-                        error: "glob pattern must not be empty".into(),
-                        msg: "glob pattern is empty".into(),
-                        span: Some(glob_span),
-                        help: Some("add characters to the glob pattern".into()),
-                        inner: vec![],
-                    });
-                } else {
-                    val
+                Value::Glob { val, .. } => {
+                    if val.is_empty() {
+                        return Err(ShellError::GenericError {
+                            error: "glob pattern must not be empty".into(),
+                            msg: "glob pattern is empty".into(),
+                            span: Some(glob_span),
+                            help: Some("add characters to the glob pattern".into()),
+                            inner: vec![],
+                        });
+                    } else {
+                        val
+                    }
                 }
-            }
-            _ => {
-                return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "Incorrect parameter type".to_string(),
-                    span: glob_span,
-                })
-            }
-        };
+                _ => return Err(ShellError::IncorrectValue {
+                    msg: "Incorrect glob pattern supplied to glob. Please use string or glob only."
+                        .to_string(),
+                    val_span: call.head,
+                    call_span: glob_span,
+                }),
+            };
 
         let folder_depth = if let Some(depth) = depth {
             depth
