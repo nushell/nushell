@@ -13,7 +13,7 @@ impl Command for Glob {
     fn signature(&self) -> Signature {
         Signature::build("glob")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
-            .required("glob", SyntaxShape::String, "The glob expression.")
+            .required("glob", SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::GlobPattern]), "The glob expression.")
             .named(
                 "depth",
                 SyntaxShape::Int,
@@ -126,12 +126,12 @@ impl Command for Glob {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let glob_pattern_input: Value = call.req(engine_state, stack, 0)?;
+        let glob_span = glob_pattern_input.span();
         let depth = call.get_flag(engine_state, stack, "depth")?;
         let no_dirs = call.has_flag(engine_state, stack, "no-dir")?;
         let no_files = call.has_flag(engine_state, stack, "no-file")?;
         let no_symlinks = call.has_flag(engine_state, stack, "no-symlink")?;
-
         let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
 
         let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
@@ -148,15 +148,40 @@ impl Command for Glob {
             }
         };
 
-        if glob_pattern.item.is_empty() {
-            return Err(ShellError::GenericError {
-                error: "glob pattern must not be empty".into(),
-                msg: "glob pattern is empty".into(),
-                span: Some(glob_pattern.span),
-                help: Some("add characters to the glob pattern".into()),
-                inner: vec![],
-            });
-        }
+        let glob_pattern = match glob_pattern_input {
+            Value::String { val, .. } => {
+                if val.is_empty() {
+                    return Err(ShellError::GenericError {
+                        error: "glob pattern must not be empty".into(),
+                        msg: "glob pattern is empty".into(),
+                        span: Some(glob_span),
+                        help: Some("add characters to the glob pattern".into()),
+                        inner: vec![],
+                    });
+                } else {
+                    val
+                }
+            }
+            Value::Glob { val, .. } => {
+                if val.is_empty() {
+                    return Err(ShellError::GenericError {
+                        error: "glob pattern must not be empty".into(),
+                        msg: "glob pattern is empty".into(),
+                        span: Some(glob_span),
+                        help: Some("add characters to the glob pattern".into()),
+                        inner: vec![],
+                    });
+                } else {
+                    val
+                }
+            }
+            _ => {
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "Incorrect parameter type".to_string(),
+                    span: glob_span,
+                })
+            }
+        };
 
         let folder_depth = if let Some(depth) = depth {
             depth
@@ -164,13 +189,13 @@ impl Command for Glob {
             usize::MAX
         };
 
-        let (prefix, glob) = match WaxGlob::new(&glob_pattern.item) {
+        let (prefix, glob) = match WaxGlob::new(&glob_pattern) {
             Ok(p) => p.partition(),
             Err(e) => {
                 return Err(ShellError::GenericError {
                     error: "error with glob pattern".into(),
                     msg: format!("{e}"),
-                    span: Some(glob_pattern.span),
+                    span: Some(glob_span),
                     help: None,
                     inner: vec![],
                 })
@@ -189,7 +214,7 @@ impl Command for Glob {
                 return Err(ShellError::GenericError {
                     error: "error in canonicalize".into(),
                     msg: format!("{e}"),
-                    span: Some(glob_pattern.span),
+                    span: Some(glob_span),
                     help: None,
                     inner: vec![],
                 })
