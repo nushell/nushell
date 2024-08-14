@@ -889,5 +889,26 @@ $env.config = {
             mode: emacs
             event: { edit: selectall }
         }
+        # {
+        #     name: insert_newline
+        #     modifier: alt
+        #     keycode: enter
+        #     mode: [emacs vi_normal vi_insert]
+        #     event: { edit: insertnewline }
+        # }
+        # {
+        #     name: insert_newline
+        #     modifier: none
+        #     keycode: char_o
+        #     mode: [vi_normal]
+        #     event: { edit: insertnewline }
+        # }
+        # {
+        #     name: insert_newline
+        #     modifier: control
+        #     keycode: char_j
+        #     mode: [emacs]
+        #     event: { edit: insertnewline }
+        # }
     ]
 }
