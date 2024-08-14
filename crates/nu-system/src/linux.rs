@@ -142,6 +142,10 @@ impl ProcessInfo {
 
     /// Name of command
     pub fn name(&self) -> String {
+        if let Some(name) = self.comm() {
+            return name;
+        }
+        // Fall back in case /proc/<pid>/stat source is not available.
         if let Ok(mut cmd) = self.curr_proc.cmdline() {
             if let Some(name) = cmd.first_mut() {
                 // Take over the first element and return it without extra allocations
@@ -149,7 +153,7 @@ impl ProcessInfo {
                 return std::mem::take(name);
             }
         }
-        self.comm()
+        String::new()
     }
 
     /// Full name of command, with arguments
@@ -159,12 +163,12 @@ impl ProcessInfo {
     // TODO: Maybe rename this to display_command and add escaping compatible with nushell?
     pub fn command(&self) -> String {
         if let Ok(cmd) = self.curr_proc.cmdline() {
-            // TODO: When can it successfully return empty?
+            // Things like kworker/0:0 still have the cmdline file in proc, even though it's empty.
             if !cmd.is_empty() {
                 return cmd.join(" ").replace(['\n', '\t'], " ");
             }
         }
-        self.comm()
+        self.comm().unwrap_or_default()
     }
 
     pub fn cwd(&self) -> String {
@@ -227,7 +231,7 @@ impl ProcessInfo {
         self.curr_proc.stat().map(|p| p.vsize).unwrap_or_default()
     }
 
-    fn comm(&self) -> String {
-        self.curr_proc.stat().map(|st| st.comm).unwrap_or_default()
+    fn comm(&self) -> Option<String> {
+        self.curr_proc.stat().map(|st| st.comm).ok()
     }
 }
