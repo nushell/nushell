@@ -135,10 +135,6 @@ pub fn evaluate_repl(
         // escape a few things because this says so
         // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
         let cmd_text = line_editor.current_buffer_contents().to_string();
-        // let replaced_cmd_text = cmd_text
-        //     .replace('\\', "\\\\")
-        //     .replace('\n', "\x0a")
-        //     .replace(';', "\x3b");
 
         let replaced_cmd_text = cmd_text
             .chars()
@@ -1055,10 +1051,6 @@ fn run_shell_integration_osc633(
 
             // escape a few things because this says so
             // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
-            // let cmd_text = repl_cmd_line_text
-            //     .replace('\\', "\\\\")
-            //     .replace('\n', "\x0a")
-            //     .replace(';', "\x3b");
 
             let replaced_cmd_text: String = repl_cmd_line_text
                 .chars()
