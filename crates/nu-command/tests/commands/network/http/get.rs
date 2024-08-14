@@ -281,16 +281,37 @@ fn http_get_with_invalid_mime_type() {
     let _mock = server
         .mock("GET", "/foo.nuon")
         .with_status(200)
-        .with_header("content-type", r#""what/ever""#)
+        // `what&ever` is not a parseable MIME type
+        .with_header("content-type", "what&ever")
         .with_body("[1 2 3]")
         .create();
 
+    // but `from nuon` is a known command in nu, so we take `foo.{ext}` and pass it to `from {ext}`
     let actual = nu!(pipeline(
         format!(
             r#"http get {url}/foo.nuon | to json --raw"#,
             url = server.url()
         )
         .as_str()
+    ));
+
+    assert_eq!(actual.out, "[1,2,3]");
+}
+
+#[test]
+fn http_get_with_unknown_mime_type() {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/foo")
+        .with_status(200)
+        // `application/nuon` is not an IANA-registered MIME type
+        .with_header("content-type", "application/nuon")
+        .with_body("[1 2 3]")
+        .create();
+
+    // but `from nuon` is a known command in nu, so we take `{garbage}/{whatever}` and pass it to `from {whatever}`
+    let actual = nu!(pipeline(
+        format!(r#"http get {url}/foo | to json --raw"#, url = server.url()).as_str()
     ));
 
     assert_eq!(actual.out, "[1,2,3]");

@@ -561,6 +561,9 @@ fn transform_response_using_content_type(
     content_type: &str,
 ) -> Result<PipelineData, ShellError> {
     let content_type = mime::Mime::from_str(content_type)
+        // there are invalid content types in the wild, so we try to recover
+        // Example: `Content-Type: "text/plain"; charset="utf8"` (note the quotes)
+        .or_else(|_| mime::Mime::from_str(&content_type.replace('"', "")))
         .or_else(|_| mime::Mime::from_str("text/plain"))
         .expect("Failed to parse content type, and failed to default to text/plain");
 
