@@ -896,7 +896,7 @@ $env.config = {
         # So please feel free to uncomment and try the keybindings that will work for you.
         # {
         #     name: insert_newline
-        #     modifier: alt
+        #     modifier: alt     # In case of problems, check if the control or shift modifier works for you
         #     keycode: enter
         #     mode: [emacs vi_normal vi_insert]
         #     event: { edit: insertnewline }
