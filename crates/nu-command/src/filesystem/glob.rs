@@ -150,32 +150,7 @@ impl Command for Glob {
 
         let glob_pattern =
             match glob_pattern_input {
-                Value::String { val, .. } => {
-                    if val.is_empty() {
-                        return Err(ShellError::GenericError {
-                            error: "glob pattern must not be empty".into(),
-                            msg: "glob pattern is empty".into(),
-                            span: Some(glob_span),
-                            help: Some("add characters to the glob pattern".into()),
-                            inner: vec![],
-                        });
-                    } else {
-                        val
-                    }
-                }
-                Value::Glob { val, .. } => {
-                    if val.is_empty() {
-                        return Err(ShellError::GenericError {
-                            error: "glob pattern must not be empty".into(),
-                            msg: "glob pattern is empty".into(),
-                            span: Some(glob_span),
-                            help: Some("add characters to the glob pattern".into()),
-                            inner: vec![],
-                        });
-                    } else {
-                        val
-                    }
-                }
+                Value::String { val, .. } | Value::Glob { val, .. } => val,
                 _ => return Err(ShellError::IncorrectValue {
                     msg: "Incorrect glob pattern supplied to glob. Please use string or glob only."
                         .to_string(),
@@ -183,6 +158,16 @@ impl Command for Glob {
                     call_span: glob_span,
                 }),
             };
+
+        if glob_pattern.is_empty() {
+            return Err(ShellError::GenericError {
+                error: "glob pattern must not be empty".into(),
+                msg: "glob pattern is empty".into(),
+                span: Some(glob_span),
+                help: Some("add characters to the glob pattern".into()),
+                inner: vec![],
+            });
+        }
 
         let folder_depth = if let Some(depth) = depth {
             depth
