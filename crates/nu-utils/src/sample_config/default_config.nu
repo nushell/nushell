@@ -901,19 +901,19 @@ $env.config = {
         #     mode: [emacs vi_normal vi_insert]
         #     event: { edit: insertnewline }
         # }
-        # {
-        #     name: insert_newline
-        #     modifier: none
-        #     keycode: char_o
-        #     mode: [vi_normal]
-        #     event: { edit: insertnewline }
-        # }
-        # {
-        #     name: insert_newline
-        #     modifier: control
-        #     keycode: char_j
-        #     mode: [emacs]
-        #     event: { edit: insertnewline }
-        # }
+        {
+            name: insert_newline
+            modifier: none
+            keycode: char_o
+            mode: [vi_normal]
+            event: { edit: insertnewline }
+        }
+        {
+            name: insert_newline
+            modifier: control
+            keycode: char_j
+            mode: [emacs]
+            event: { edit: insertnewline }
+        }
     ]
 }
