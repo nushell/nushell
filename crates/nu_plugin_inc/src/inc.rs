@@ -29,7 +29,7 @@ impl Inc {
     fn apply(&self, input: &str, head: Span) -> Value {
         match &self.action {
             Some(Action::SemVerAction(act_on)) => {
-                let mut ver = match semver::Version::parse(input) {
+               let mut ver = match semver::Version::parse(input) {
                     Ok(parsed_ver) => parsed_ver,
                     Err(_) => return Value::string(input, head),
                 };
@@ -87,10 +87,6 @@ impl Inc {
 
     fn log_error(&mut self, message: &str) {
         self.error = Some(message.to_string());
-    }
-
-    pub fn usage() -> &'static str {
-        "Usage: inc field [--major|--minor|--patch]"
     }
 
     pub fn inc(&self, head: Span, value: &Value) -> Result<Value, LabeledError> {
