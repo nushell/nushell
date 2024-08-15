@@ -470,7 +470,7 @@ impl<'e, 's> ScopeData<'e, 's> {
         sort_rows(&mut export_submodules);
         sort_rows(&mut export_consts);
 
-        let (module_usage, module_extra_usage) = self
+        let (module_desc, module_extra_desc) = self
             .engine_state
             .build_module_desc(*module_id)
             .unwrap_or_default();
@@ -484,8 +484,8 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "submodules" => Value::list(export_submodules, span),
                 "constants" => Value::list(export_consts, span),
                 "has_env_block" => Value::bool(module.env_block.is_some(), span),
-                "usage" => Value::string(module_usage, span),
-                "extra_usage" => Value::string(module_extra_usage, span),
+                "usage" => Value::string(module_desc, span),
+                "extra_usage" => Value::string(module_extra_desc, span),
                 "module_id" => Value::int(*module_id as i64, span),
             },
             span,
