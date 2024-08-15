@@ -76,7 +76,7 @@ macro_rules! expr_command {
 
             fn signature(&self) -> Signature {
                 Signature::build(self.name())
-                    .usage($desc)
+                    .description($desc)
                     .input_output_type(
                         Type::Custom("expression".into()),
                         Type::Custom("expression".into()),
