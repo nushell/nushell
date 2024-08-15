@@ -50,7 +50,6 @@ encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
 filetime = { workspace = true }
-fs_extra = { workspace = true }
 human-date-parser = { workspace = true }
 indexmap = { workspace = true }
 indicatif = { workspace = true }
