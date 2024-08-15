@@ -24,7 +24,7 @@ impl Command for Encode {
         Signature::build("encode")
             .input_output_types(vec![(Type::String, Type::Binary)])
             .required_positional_arg("encoding", SyntaxShape::String, "The text encoding to use.")
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-errors",
                 "when a character isn't in the given encoding, replace with a HTML entity (like `&#127880;`)",
                 Some('i'),

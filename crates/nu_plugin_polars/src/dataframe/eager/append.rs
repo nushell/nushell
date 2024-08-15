@@ -18,7 +18,7 @@ impl PluginCommand for AppendDF {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required_positional_arg("other", SyntaxShape::Any, "other dataframe to append")
-            .optional_named_flag("col", "append as new columns instead of rows", Some('c'))
+            .optional_named_flag_arg("col", "append as new columns instead of rows", Some('c'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

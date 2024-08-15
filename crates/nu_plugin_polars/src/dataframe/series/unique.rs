@@ -35,12 +35,12 @@ impl PluginCommand for Unique {
                 "Subset of column(s) to use to maintain rows (lazy df)",
                 Some('s'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "last",
                 "Keeps last unique value. Default keeps first value (lazy df)",
                 Some('l'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "maintain-order",
                 "Keep the same order as the original DataFrame (lazy df)",
                 Some('k'),

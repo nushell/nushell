@@ -32,8 +32,8 @@ impl PluginCommand for DropDuplicates {
                 SyntaxShape::Table(vec![]),
                 "subset of columns to drop duplicates",
             )
-            .optional_named_flag("maintain", "maintain order", Some('m'))
-            .optional_named_flag(
+            .optional_named_flag_arg("maintain", "maintain order", Some('m'))
+            .optional_named_flag_arg(
                 "last",
                 "keeps last duplicate value (by default keeps first)",
                 Some('l'),

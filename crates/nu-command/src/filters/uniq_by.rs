@@ -19,22 +19,22 @@ impl Command for UniqBy {
                 ),
             ])
             .rest_positional_arg("columns", SyntaxShape::Any, "The column(s) to filter by.")
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "count",
                 "Return a table containing the distinct input values together with their counts",
                 Some('c'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "repeated",
                 "Return the input values that occur more than once",
                 Some('d'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-case",
                 "Ignore differences in case when comparing input values",
                 Some('i'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "unique",
                 "Return the input values that occur once only",
                 Some('u'),

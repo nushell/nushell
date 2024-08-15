@@ -47,12 +47,12 @@ impl Command for SubCommand {
                 "custom headers you want to add ",
                 Some('H'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "insecure",
                 "allow insecure server connections when using SSL",
                 Some('k'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),

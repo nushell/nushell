@@ -25,7 +25,7 @@ impl Command for RollRight {
                 "Number of columns to roll",
                 Some('b'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "cells-only",
                 "rotates columns leaving headers fixed",
                 Some('c'),

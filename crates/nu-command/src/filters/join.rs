@@ -42,10 +42,10 @@ impl Command for Join {
                 SyntaxShape::String,
                 "Name of column in right table to join on. Defaults to same column as left table.",
             )
-            .optional_named_flag("inner", "Inner join (default)", Some('i'))
-            .optional_named_flag("left", "Left-outer join", Some('l'))
-            .optional_named_flag("right", "Right-outer join", Some('r'))
-            .optional_named_flag("outer", "Outer join", Some('o'))
+            .optional_named_flag_arg("inner", "Inner join (default)", Some('i'))
+            .optional_named_flag_arg("left", "Left-outer join", Some('l'))
+            .optional_named_flag_arg("right", "Right-outer join", Some('r'))
+            .optional_named_flag_arg("outer", "Outer join", Some('o'))
             .input_output_types(vec![(Type::table(), Type::table())])
             .category(Category::Filters)
     }

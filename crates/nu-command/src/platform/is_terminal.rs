@@ -12,9 +12,9 @@ impl Command for IsTerminal {
     fn signature(&self) -> Signature {
         Signature::build("is-terminal")
             .input_output_type(Type::Nothing, Type::Bool)
-            .optional_named_flag("stdin", "Check if stdin is a terminal", Some('i'))
-            .optional_named_flag("stdout", "Check if stdout is a terminal", Some('o'))
-            .optional_named_flag("stderr", "Check if stderr is a terminal", Some('e'))
+            .optional_named_flag_arg("stdin", "Check if stdin is a terminal", Some('i'))
+            .optional_named_flag_arg("stdout", "Check if stdout is a terminal", Some('o'))
+            .optional_named_flag_arg("stderr", "Check if stderr is a terminal", Some('e'))
             .category(Category::Platform)
     }
 

@@ -22,7 +22,7 @@ impl Command for Debug {
                 (Type::Any, Type::String),
             ])
             .category(Category::Debug)
-            .optional_named_flag("raw", "Prints the raw value representation", Some('r'))
+            .optional_named_flag_arg("raw", "Prints the raw value representation", Some('r'))
     }
 
     fn run(

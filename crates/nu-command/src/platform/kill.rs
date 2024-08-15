@@ -23,8 +23,8 @@ impl Command for Kill {
                 "Process id of process that is to be killed.",
             )
             .rest_positional_arg("rest", SyntaxShape::Int, "Rest of processes to kill.")
-            .optional_named_flag("force", "forcefully kill the process", Some('f'))
-            .optional_named_flag("quiet", "won't print anything to the console", Some('q'))
+            .optional_named_flag_arg("force", "forcefully kill the process", Some('f'))
+            .optional_named_flag_arg("quiet", "won't print anything to the console", Some('q'))
             .category(Category::Platform);
 
         if cfg!(windows) {

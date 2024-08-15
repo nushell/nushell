@@ -37,7 +37,7 @@ impl Command for BytesReplace {
                 SyntaxShape::CellPath,
                 "For a data structure input, replace bytes in data at the given cell paths.",
             )
-            .optional_named_flag("all", "replace all occurrences of find binary", Some('a'))
+            .optional_named_flag_arg("all", "replace all occurrences of find binary", Some('a'))
             .category(Category::Bytes)
     }
 

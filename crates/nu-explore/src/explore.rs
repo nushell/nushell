@@ -33,13 +33,13 @@ impl Command for Explore {
                 "Show or hide column headers (default true)",
                 None,
             )
-            .optional_named_flag("index", "Show row indexes when viewing a list", Some('i'))
-            .optional_named_flag(
+            .optional_named_flag_arg("index", "Show row indexes when viewing a list", Some('i'))
+            .optional_named_flag_arg(
                 "tail",
                 "Start with the viewport scrolled to the bottom",
                 Some('t'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "peek",
                 "When quitting, output the value of the cell the cursor was on",
                 Some('p'),

@@ -30,7 +30,7 @@ impl Command for Parse {
                 (Type::String, Type::table()),
                 (Type::List(Box::new(Type::Any)), Type::table()),
             ])
-            .optional_named_flag("regex", "use full regex syntax for patterns", Some('r'))
+            .optional_named_flag_arg("regex", "use full regex syntax for patterns", Some('r'))
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }

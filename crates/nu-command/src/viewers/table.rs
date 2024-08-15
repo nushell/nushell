@@ -79,7 +79,7 @@ impl Command for Table {
                 "number of terminal columns wide (not output columns)",
                 Some('w'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "expand",
                 "expand the table structure in a light mode",
                 Some('e'),
@@ -90,14 +90,14 @@ impl Command for Table {
                 "an expand limit of recursion which will take place, must be used with --expand",
                 Some('d'),
             )
-            .optional_named_flag("flatten", "Flatten simple arrays", None)
+            .optional_named_flag_arg("flatten", "Flatten simple arrays", None)
             .named_flag_arg(
                 "flatten-separator",
                 SyntaxShape::String,
                 "sets a separator when 'flatten' used",
                 None,
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "collapse",
                 "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
                 Some('c'),
@@ -108,7 +108,7 @@ impl Command for Table {
                 "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
                 Some('a'),
             )
-            .optional_named_flag("list", "list available table modes/themes", Some('l'))
+            .optional_named_flag_arg("list", "list available table modes/themes", Some('l'))
             .category(Category::Viewers)
     }
 

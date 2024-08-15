@@ -24,7 +24,7 @@ impl Command for Flatten {
                 SyntaxShape::String,
                 "Optionally flatten data by column.",
             )
-            .optional_named_flag("all", "flatten inner table one level out", Some('a'))
+            .optional_named_flag_arg("all", "flatten inner table one level out", Some('a'))
             .category(Category::Filters)
     }
 

@@ -43,7 +43,7 @@ impl Command for Input {
                 "number of characters to read; suppresses output",
                 Some('n'),
             )
-            .optional_named_flag("suppress-output", "don't print keystroke values", Some('s'))
+            .optional_named_flag_arg("suppress-output", "don't print keystroke values", Some('s'))
             .category(Category::Platform)
     }
 

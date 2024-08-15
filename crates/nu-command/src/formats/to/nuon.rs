@@ -11,7 +11,7 @@ impl Command for ToNuon {
     fn signature(&self) -> Signature {
         Signature::build("to nuon")
             .input_output_types(vec![(Type::Any, Type::String)])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "raw",
                 "remove all of the whitespace (default behaviour and overwrites -i and -t)",
                 Some('r'),

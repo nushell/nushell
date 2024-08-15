@@ -21,7 +21,7 @@ impl Command for SubCommand {
                 SyntaxShape::Any,
                 "The value that denotes what separates the list.",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "regex",
                 "separator is a regular expression, matching values that can be coerced into a string",
                 Some('r'))

@@ -16,13 +16,13 @@ impl Command for Print {
             ])
             .allow_variants_without_examples(true)
             .rest_positional_arg("rest", SyntaxShape::Any, "the values to print")
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "no-newline",
                 "print without inserting a newline for the line ending",
                 Some('n'),
             )
-            .optional_named_flag("stderr", "print to stderr instead of stdout", Some('e'))
-            .optional_named_flag(
+            .optional_named_flag_arg("stderr", "print to stderr instead of stdout", Some('e'))
+            .optional_named_flag_arg(
                 "raw",
                 "print without formatting (including binary data)",
                 Some('r'),

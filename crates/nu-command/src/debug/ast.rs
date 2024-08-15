@@ -22,8 +22,8 @@ impl Command for Ast {
                 SyntaxShape::String,
                 "The pipeline to print the ast for.",
             )
-            .optional_named_flag("json", "serialize to json", Some('j'))
-            .optional_named_flag("minify", "minify the nuon or json output", Some('m'))
+            .optional_named_flag_arg("json", "serialize to json", Some('j'))
+            .optional_named_flag_arg("minify", "minify the nuon or json output", Some('m'))
             .allow_variants_without_examples(true)
             .category(Category::Debug)
     }

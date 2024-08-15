@@ -32,8 +32,8 @@ impl PluginCommand for ValueCount {
                 "Provide a custom name for the coutn column",
                 Some('c'),
             )
-            .optional_named_flag("sort", "Whether or not values should be sorted", Some('s'))
-            .optional_named_flag(
+            .optional_named_flag_arg("sort", "Whether or not values should be sorted", Some('s'))
+            .optional_named_flag_arg(
                 "parallel",
                 "Use multiple threads when processing",
                 Some('p'),

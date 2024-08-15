@@ -36,12 +36,12 @@ If multiple cell paths are given, this will produce a list of values."#
                 "The cell path to the data.",
             )
             .rest_positional_arg("rest", SyntaxShape::CellPath, "Additional cell paths.")
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional)",
                 Some('i'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "sensitive",
                 "get path in a case sensitive manner",
                 Some('s'),

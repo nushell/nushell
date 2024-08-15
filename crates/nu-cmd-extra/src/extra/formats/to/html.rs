@@ -86,14 +86,14 @@ impl Command for ToHtml {
         Signature::build("to html")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::Any, Type::String)])
             .allow_variants_without_examples(true)
-            .optional_named_flag("html-color", "change ansi colors to html colors", Some('c'))
-            .optional_named_flag("no-color", "remove all ansi colors in output", Some('n'))
-            .optional_named_flag(
+            .optional_named_flag_arg("html-color", "change ansi colors to html colors", Some('c'))
+            .optional_named_flag_arg("no-color", "remove all ansi colors in output", Some('n'))
+            .optional_named_flag_arg(
                 "dark",
                 "indicate your background color is a darker color",
                 Some('d'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "partial",
                 "only output the html for the content itself",
                 Some('p'),
@@ -104,7 +104,7 @@ impl Command for ToHtml {
                 "the name of the theme to use (github, blulocolight, ...)",
                 Some('t'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "list",
                 "produce a color table of all available themes",
                 Some('l'),

@@ -51,12 +51,12 @@ impl Command for SubCommand {
                 "character to trim (default: whitespace)",
                 Some('c'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "left",
                 "trims characters only from the beginning of the string",
                 Some('l'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "right",
                 "trims characters only from the end of the string",
                 Some('r'),

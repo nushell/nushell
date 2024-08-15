@@ -16,7 +16,7 @@ impl Command for MetadataSet {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("metadata set")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "datasource-ls",
                 "Assign the DataSource::Ls metadata to the input",
                 Some('l'),

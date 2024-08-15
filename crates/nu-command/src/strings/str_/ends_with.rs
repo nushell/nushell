@@ -38,7 +38,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
-            .optional_named_flag("ignore-case", "search is case insensitive", Some('i'))
+            .optional_named_flag_arg("ignore-case", "search is case insensitive", Some('i'))
             .category(Category::Strings)
     }
 

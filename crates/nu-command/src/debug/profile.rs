@@ -19,20 +19,20 @@ impl Command for DebugProfile {
                 SyntaxShape::Closure(None),
                 "The closure to profile.",
             )
-            .optional_named_flag("spans", "Collect spans of profiled elements", Some('s'))
-            .optional_named_flag(
+            .optional_named_flag_arg("spans", "Collect spans of profiled elements", Some('s'))
+            .optional_named_flag_arg(
                 "expand-source",
                 "Collect full source fragments of profiled elements",
                 Some('e'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "values",
                 "Collect pipeline element output values",
                 Some('v'),
             )
-            .optional_named_flag("expr", "Collect expression types", Some('x'))
-            .optional_named_flag("instructions", "Collect IR instructions", Some('i'))
-            .optional_named_flag("lines", "Collect line numbers", Some('l'))
+            .optional_named_flag_arg("expr", "Collect expression types", Some('x'))
+            .optional_named_flag_arg("instructions", "Collect IR instructions", Some('i'))
+            .optional_named_flag_arg("lines", "Collect line numbers", Some('l'))
             .named_flag_arg(
                 "max-depth",
                 SyntaxShape::Int,

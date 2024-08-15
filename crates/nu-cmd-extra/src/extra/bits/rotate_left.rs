@@ -39,7 +39,7 @@ impl Command for BitsRol {
             ])
             .allow_variants_without_examples(true)
             .required_positional_arg("bits", SyntaxShape::Int, "number of bits to rotate left")
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "signed",
                 "always treat input number as a signed number",
                 Some('s'),

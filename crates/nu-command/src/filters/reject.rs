@@ -16,7 +16,7 @@ impl Command for Reject {
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
             ])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional)",
                 Some('i'),

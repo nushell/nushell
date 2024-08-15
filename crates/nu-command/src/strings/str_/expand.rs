@@ -25,7 +25,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::List(Box::new(Type::String)))),
                 ),
             ])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "path",
                 "Replaces all backslashes with double backslashes, useful for Path.",
                 None,

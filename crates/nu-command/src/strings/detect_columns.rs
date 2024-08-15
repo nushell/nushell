@@ -22,14 +22,14 @@ impl Command for DetectColumns {
                 Some('s'),
             )
             .input_output_types(vec![(Type::String, Type::table())])
-            .optional_named_flag("no-headers", "don't detect headers", Some('n'))
+            .optional_named_flag_arg("no-headers", "don't detect headers", Some('n'))
             .named_flag_arg(
                 "combine-columns",
                 SyntaxShape::Range,
                 "columns to be combined; listed as a range",
                 Some('c'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "guess",
                 "detect columns by guessing width, it may be useful if default one doesn't work",
                 None,

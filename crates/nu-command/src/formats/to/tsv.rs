@@ -20,7 +20,7 @@ impl Command for ToTsv {
                 (Type::record(), Type::String),
                 (Type::table(), Type::String),
             ])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "noheaders",
                 "do not output the column names as the first row",
                 Some('n'),

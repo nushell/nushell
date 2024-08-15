@@ -25,8 +25,8 @@ impl Command for SubCommand {
                 SyntaxShape::String,
                 "The character or string that denotes what separates columns.",
             )
-            .optional_named_flag("collapse-empty", "remove empty columns", Some('c'))
-            .optional_named_flag("regex", "separator is a regular expression", Some('r'))
+            .optional_named_flag_arg("collapse-empty", "remove empty columns", Some('c'))
+            .optional_named_flag_arg("regex", "separator is a regular expression", Some('r'))
             .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,

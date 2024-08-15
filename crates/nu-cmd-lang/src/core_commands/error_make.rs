@@ -17,7 +17,7 @@ impl Command for ErrorMake {
                 SyntaxShape::Record(vec![]),
                 "The error to create.",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "unspanned",
                 "remove the origin label from the error",
                 Some('u'),

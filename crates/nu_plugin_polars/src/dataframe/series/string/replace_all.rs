@@ -25,13 +25,13 @@ impl PluginCommand for ReplaceAll {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required_named_flag(
+            .required_named_flag_arg(
                 "pattern",
                 SyntaxShape::String,
                 "Regex pattern to be matched",
                 Some('p'),
             )
-            .required_named_flag(
+            .required_named_flag_arg(
                 "replace",
                 SyntaxShape::String,
                 "replacing string",

@@ -44,7 +44,7 @@ impl Command for UMkdir {
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Directory]),
                 "The name(s) of the path(s) to create.",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "verbose",
                 "print a message for each created directory.",
                 Some('v'),

@@ -32,7 +32,7 @@ impl Command for Griddle {
                 "number of terminal columns wide (not output columns)",
                 Some('w'),
             )
-            .optional_named_flag("color", "draw output with color", Some('c'))
+            .optional_named_flag_arg("color", "draw output with color", Some('c'))
             .named_flag_arg(
                 "separator",
                 SyntaxShape::String,

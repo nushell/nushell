@@ -53,7 +53,7 @@ where
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "binary",
                 "Output binary instead of hexadecimal representation",
                 Some('b'),

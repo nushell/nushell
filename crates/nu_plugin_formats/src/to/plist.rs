@@ -29,7 +29,7 @@ impl SimplePluginCommand for IntoPlist {
 
     fn signature(&self) -> Signature {
         Signature::build(PluginCommand::name(self))
-            .optional_named_flag("binary", "Output plist in binary format", Some('b'))
+            .optional_named_flag_arg("binary", "Output plist in binary format", Some('b'))
             .category(Category::Formats)
     }
 

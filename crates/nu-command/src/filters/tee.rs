@@ -29,7 +29,7 @@ use it in your pipeline."#
     fn signature(&self) -> Signature {
         Signature::build("tee")
             .input_output_type(Type::Any, Type::Any)
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "stderr",
                 "For external commands: copy the standard error stream instead.",
                 Some('e'),

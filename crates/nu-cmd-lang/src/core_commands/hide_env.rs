@@ -17,7 +17,7 @@ impl Command for HideEnv {
                 SyntaxShape::String,
                 "Environment variable names to hide.",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-errors",
                 "do not throw an error if an environment variable was not found",
                 Some('i'),

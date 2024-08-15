@@ -32,12 +32,12 @@ impl Command for OverlayUse {
                 SyntaxShape::Keyword(b"as".to_vec(), Box::new(SyntaxShape::String)),
                 "`as` keyword followed by a new name.",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "prefix",
                 "Prepend module name to the imported commands and aliases",
                 Some('p'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "reload",
                 "If the overlay already exists, reload its definitions and environment.",
                 Some('r'),

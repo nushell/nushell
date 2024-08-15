@@ -20,8 +20,8 @@ impl Command for NuCheck {
             ])
             // type is string to avoid automatically canonicalizing the path
             .optional_position_arg("path", SyntaxShape::String, "File path to parse.")
-            .optional_named_flag("as-module", "Parse content as module", Some('m'))
-            .optional_named_flag("debug", "Show error messages", Some('d'))
+            .optional_named_flag_arg("as-module", "Parse content as module", Some('m'))
+            .optional_named_flag_arg("debug", "Show error messages", Some('d'))
             .category(Category::Strings)
     }
 

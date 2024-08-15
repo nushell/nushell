@@ -16,7 +16,7 @@ impl Command for StorUpdate {
                 (Type::Nothing, Type::table()),
                 (Type::record(), Type::table()),
             ])
-            .required_named_flag(
+            .required_named_flag_arg(
                 "table-name",
                 SyntaxShape::String,
                 "name of the table you want to insert into",

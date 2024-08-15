@@ -34,7 +34,7 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
-            .optional_named_flag("compact", "output without padding zeros", Some('c'))
+            .optional_named_flag_arg("compact", "output without padding zeros", Some('c'))
             .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,

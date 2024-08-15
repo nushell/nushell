@@ -26,7 +26,7 @@ impl SimplePluginCommand for One {
         Signature::build(self.name())
             .required_positional_arg("a", SyntaxShape::Int, "required integer value")
             .required_positional_arg("b", SyntaxShape::String, "required string value")
-            .optional_named_flag("flag", "a flag for the signature", Some('f'))
+            .optional_named_flag_arg("flag", "a flag for the signature", Some('f'))
             .optional_position_arg("opt", SyntaxShape::Int, "Optional number")
             .named_flag_arg("named", SyntaxShape::String, "named string", Some('n'))
             .rest_positional_arg("rest", SyntaxShape::String, "rest value string")

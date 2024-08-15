@@ -14,12 +14,12 @@ impl Command for ToMd {
     fn signature(&self) -> Signature {
         Signature::build("to md")
             .input_output_types(vec![(Type::Any, Type::String)])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "pretty",
                 "Formats the Markdown table to vertically align items",
                 Some('p'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "per-element",
                 "treat each row as markdown syntax element",
                 Some('e'),

@@ -16,7 +16,7 @@ impl Command for Which {
             .allow_variants_without_examples(true)
             .required_positional_arg("application", SyntaxShape::String, "Application.")
             .rest_positional_arg("rest", SyntaxShape::String, "Additional applications.")
-            .optional_named_flag("all", "list all executables", Some('a'))
+            .optional_named_flag_arg("all", "list all executables", Some('a'))
             .category(Category::System)
     }
 

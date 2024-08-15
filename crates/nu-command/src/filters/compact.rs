@@ -14,7 +14,7 @@ impl Command for Compact {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::Any)),
             )])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "empty",
                 "also compact empty items like \"\", {}, and []",
                 Some('e'),

@@ -20,7 +20,7 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .optional_named_flag(
+            .optional_named_flag_arg(
             "all",
             "encode all non-alphanumeric chars including `/`, `.`, `:`",
             Some('a'))

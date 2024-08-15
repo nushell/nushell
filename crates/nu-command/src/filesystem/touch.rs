@@ -33,17 +33,17 @@ impl Command for Touch {
                 "change the file or directory time to the time of the reference file/directory",
                 Some('r'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "modified",
                 "change the modification time of the file or directory. If no reference file/directory is given, the current time is used",
                 Some('m'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "access",
                 "change the access time of the file or directory. If no reference file/directory is given, the current time is used",
                 Some('a'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "no-create",
                 "do not create the file if it does not exist",
                 Some('c'),

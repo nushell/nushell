@@ -28,7 +28,7 @@ impl SimplePluginCommand for Env {
                 SyntaxShape::String,
                 "The name of the environment variable to get",
             )
-            .optional_named_flag("cwd", "Get current working directory instead", None)
+            .optional_named_flag_arg("cwd", "Get current working directory instead", None)
             .named_flag_arg(
                 "set",
                 SyntaxShape::Any,

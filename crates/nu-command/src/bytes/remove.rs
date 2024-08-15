@@ -35,8 +35,8 @@ impl Command for BytesRemove {
                 SyntaxShape::CellPath,
                 "For a data structure input, remove bytes from data at the given cell paths.",
             )
-            .optional_named_flag("end", "remove from end of binary", Some('e'))
-            .optional_named_flag("all", "remove occurrences of finding binary", Some('a'))
+            .optional_named_flag_arg("end", "remove from end of binary", Some('e'))
+            .optional_named_flag_arg("all", "remove occurrences of finding binary", Some('a'))
             .category(Category::Bytes)
     }
 

@@ -37,21 +37,21 @@ impl Command for Rm {
         Signature::build("rm")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .rest_positional_arg("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The file paths(s) to remove.")
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "trash",
                 "move to the platform's trash instead of permanently deleting. not used on android and ios",
                 Some('t'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "permanent",
                 "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
                 Some('p'),
             )
-            .optional_named_flag("recursive", "delete subdirectories recursively", Some('r'))
-            .optional_named_flag("force", "suppress error when no file", Some('f'))
-            .optional_named_flag("verbose", "print names of deleted files", Some('v'))
-            .optional_named_flag("interactive", "ask user to confirm action", Some('i'))
-            .optional_named_flag(
+            .optional_named_flag_arg("recursive", "delete subdirectories recursively", Some('r'))
+            .optional_named_flag_arg("force", "suppress error when no file", Some('f'))
+            .optional_named_flag_arg("verbose", "print names of deleted files", Some('v'))
+            .optional_named_flag_arg("interactive", "ask user to confirm action", Some('i'))
+            .optional_named_flag_arg(
                 "interactive-once",
                 "ask user to confirm action only once",
                 Some('I'),

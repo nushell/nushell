@@ -509,17 +509,17 @@ impl Command for AnsiCommand {
                 SyntaxShape::Any,
                 "The name of the code to use (from `ansi -l`).",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "escape", // \x1b[
                 r"escape sequence without the escape character(s) ('\x1b[' is not required)",
                 Some('e'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "osc", // \x1b]
                 r"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)",
                 Some('o'),
             )
-            .optional_named_flag("list", "list available ansi code names", Some('l'))
+            .optional_named_flag_arg("list", "list available ansi code names", Some('l'))
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }

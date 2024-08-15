@@ -76,7 +76,7 @@ impl Command for SubCommand {
                 "byte encode endian, available options: native(default), little, big",
                 Some('e'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "signed",
                 "always treat input number as a signed number",
                 Some('s'),

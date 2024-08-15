@@ -28,17 +28,17 @@ impl SimplePluginCommand for Inc {
     fn signature(&self) -> Signature {
         Signature::build(PluginCommand::name(self))
             .optional_position_arg("cell_path", SyntaxShape::CellPath, "cell path to update")
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "major",
                 "increment the major version (eg 1.2.1 -> 2.0.0)",
                 Some('M'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "minor",
                 "increment the minor version (eg 1.2.1 -> 1.3.0)",
                 Some('m'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "patch",
                 "increment the patch version (eg 1.2.1 -> 1.2.2)",
                 Some('p'),

@@ -20,17 +20,17 @@ impl Command for Glob {
                 "directory depth to search",
                 Some('d'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "no-dir",
                 "Whether to filter out directories from the returned paths",
                 Some('D'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "no-file",
                 "Whether to filter out files from the returned paths",
                 Some('F'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "no-symlink",
                 "Whether to filter out symlinks from the returned paths",
                 Some('S'),

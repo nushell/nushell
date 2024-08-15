@@ -42,7 +42,7 @@ impl PluginCommand for AsDateTime {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required_positional_arg("format", SyntaxShape::String, "formatting date time string")
-            .optional_named_flag("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
+            .optional_named_flag_arg("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

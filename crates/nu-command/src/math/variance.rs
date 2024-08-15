@@ -16,7 +16,7 @@ impl Command for SubCommand {
                 (Type::table(), Type::record()),
                 (Type::record(), Type::record()),
             ])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "sample",
                 "calculate sample variance (i.e. using N-1 as the denominator)",
                 Some('s'),

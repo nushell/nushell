@@ -61,8 +61,8 @@ impl Command for Watch {
                 "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true)",
                 Some('r'),
             )
-            .optional_named_flag("quiet", "Hide the initial status message (default: false)", Some('q'))
-            .optional_named_flag("verbose", "Operate in verbose mode (default: false)", Some('v'))
+            .optional_named_flag_arg("quiet", "Hide the initial status message (default: false)", Some('q'))
+            .optional_named_flag_arg("verbose", "Operate in verbose mode (default: false)", Some('v'))
             .category(Category::FileSystem)
     }
 

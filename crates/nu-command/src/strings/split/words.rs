@@ -44,12 +44,12 @@ impl Command for SubCommand {
                 "The minimum word length",
                 Some('l'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "grapheme-clusters",
                 "measure word length in grapheme clusters (requires -l)",
                 Some('g'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "utf-8-bytes",
                 "measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are length 2+)",
                 Some('b'),

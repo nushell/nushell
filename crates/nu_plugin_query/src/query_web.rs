@@ -21,7 +21,7 @@ impl SimplePluginCommand for QueryWeb {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .named_flag_arg("query", SyntaxShape::String, "selector query", Some('q'))
-            .optional_named_flag("as-html", "return the query output as html", Some('m'))
+            .optional_named_flag_arg("as-html", "return the query output as html", Some('m'))
             .named_flag_arg(
                 "attribute",
                 SyntaxShape::Any,
@@ -44,7 +44,7 @@ impl SimplePluginCommand for QueryWeb {
                 "find table based on column header list",
                 Some('t'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "inspect",
                 "run in inspect mode to provide more information for determining column headers",
                 Some('i'),

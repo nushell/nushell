@@ -13,7 +13,7 @@ impl Command for StorDelete {
     fn signature(&self) -> Signature {
         Signature::build("stor delete")
             .input_output_types(vec![(Type::Nothing, Type::table())])
-            .required_named_flag(
+            .required_named_flag_arg(
                 "table-name",
                 SyntaxShape::String,
                 "name of the table you want to insert into",

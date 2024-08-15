@@ -30,7 +30,7 @@ using `plugin stop example`."
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional_named_flag("reset", "Turn the garbage collector back on", None)
+            .optional_named_flag_arg("reset", "Turn the garbage collector back on", None)
             .category(Category::Experimental)
     }
 

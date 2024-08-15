@@ -21,8 +21,8 @@ impl Command for History {
         Signature::build("history")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .optional_named_flag("clear", "Clears out the history entries", Some('c'))
-            .optional_named_flag(
+            .optional_named_flag_arg("clear", "Clears out the history entries", Some('c'))
+            .optional_named_flag_arg(
                 "long",
                 "Show long listing of entries for sqlite history",
                 Some('l'),

@@ -22,7 +22,7 @@ impl Command for IntoValue {
                 "list of columns to update",
                 Some('c'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "prefer-filesizes",
                 "For ints display them as human-readable file sizes",
                 Some('f'),

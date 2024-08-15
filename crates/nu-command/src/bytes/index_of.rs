@@ -42,8 +42,8 @@ impl Command for BytesIndexOf {
                 SyntaxShape::CellPath,
                 "For a data structure input, find the indexes at the given cell paths.",
             )
-            .optional_named_flag("all", "returns all matched index", Some('a'))
-            .optional_named_flag("end", "search from the end of the binary", Some('e'))
+            .optional_named_flag_arg("all", "returns all matched index", Some('a'))
+            .optional_named_flag_arg("end", "search from the end of the binary", Some('e'))
             .category(Category::Bytes)
     }
 

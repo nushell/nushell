@@ -31,17 +31,17 @@ impl Command for Find {
                 "regex to match with",
                 Some('r'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-case",
                 "case-insensitive regex mode; equivalent to (?i)",
                 Some('i'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "multiline",
                 "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "dotall",
                 "dotall regex mode: allow a dot . to match newlines \\n; equivalent to (?s)",
                 Some('s'),
@@ -52,7 +52,7 @@ impl Command for Find {
                 "column names to be searched (with rest parameter, not regex yet)",
                 Some('c'),
             )
-            .optional_named_flag("invert", "invert the match", Some('v'))
+            .optional_named_flag_arg("invert", "invert the match", Some('v'))
             .rest_positional_arg("rest", SyntaxShape::Any, "Terms to search.")
             .category(Category::Filters)
     }

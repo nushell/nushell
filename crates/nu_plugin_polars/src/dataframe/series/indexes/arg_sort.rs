@@ -28,9 +28,9 @@ impl PluginCommand for ArgSort {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional_named_flag("reverse", "reverse order", Some('r'))
-            .optional_named_flag("nulls-last", "nulls ordered last", Some('n'))
-            .optional_named_flag(
+            .optional_named_flag_arg("reverse", "reverse order", Some('r'))
+            .optional_named_flag_arg("nulls-last", "nulls ordered last", Some('n'))
+            .optional_named_flag_arg(
                 "maintain-order",
                 "maintain order on sorted items",
                 Some('m'),

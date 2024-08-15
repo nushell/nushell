@@ -18,7 +18,7 @@ impl Command for Select {
                 (Type::table(), Type::table()),
                 (Type::List(Box::new(Type::Any)), Type::Any),
             ])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional)",
                 Some('i'),

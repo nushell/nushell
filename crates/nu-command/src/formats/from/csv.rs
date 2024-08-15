@@ -36,17 +36,17 @@ impl Command for FromCsv {
                 "an escape character for strings containing the quote character",
                 Some('e'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "noheaders",
                 "don't treat the first row as column names",
                 Some('n'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "flexible",
                 "allow the number of fields in records to be variable",
                 None,
             )
-            .optional_named_flag("no-infer", "no field type inferencing", None)
+            .optional_named_flag_arg("no-infer", "no field type inferencing", None)
             .named_flag_arg(
                 "trim",
                 SyntaxShape::String,

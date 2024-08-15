@@ -35,8 +35,8 @@ impl Command for Mktemp {
             )
             .named_flag_arg("suffix", SyntaxShape::String, "Append suffix to template; must not contain a slash.", None)
             .named_flag_arg("tmpdir-path", SyntaxShape::Filepath, "Interpret TEMPLATE relative to tmpdir-path. If tmpdir-path is not set use $TMPDIR", Some('p'))
-            .optional_named_flag("tmpdir", "Interpret TEMPLATE relative to the system temporary directory.", Some('t'))
-            .optional_named_flag("directory", "Create a directory instead of a file.", Some('d'))
+            .optional_named_flag_arg("tmpdir", "Interpret TEMPLATE relative to the system temporary directory.", Some('t'))
+            .optional_named_flag_arg("directory", "Create a directory instead of a file.", Some('d'))
             .category(Category::FileSystem)
     }
 

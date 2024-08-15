@@ -19,14 +19,14 @@ fn test_signature_chained() {
         .usage("description")
         .required_positional_arg("required", SyntaxShape::String, "required description")
         .optional_position_arg("optional", SyntaxShape::String, "optional description")
-        .required_named_flag(
+        .required_named_flag_arg(
             "req-named",
             SyntaxShape::String,
             "required named description",
             Some('r'),
         )
         .named_flag_arg("named", SyntaxShape::String, "named description", Some('n'))
-        .optional_named_flag("switch", "switch description", None)
+        .optional_named_flag_arg("switch", "switch description", None)
         .rest_positional_arg("rest", SyntaxShape::String, "rest description");
 
     assert_eq!(signature.required_positional.len(), 1);
@@ -103,7 +103,7 @@ fn test_signature_chained() {
 fn test_signature_same_short() {
     // Creating signature with same short name should panic
     Signature::new("new_signature")
-        .required_named_flag(
+        .required_named_flag_arg(
             "required-named",
             SyntaxShape::String,
             "required named description",
@@ -117,7 +117,7 @@ fn test_signature_same_short() {
 fn test_signature_same_name() {
     // Creating signature with same short name should panic
     Signature::new("new-signature")
-        .required_named_flag(
+        .required_named_flag_arg(
             "name",
             SyntaxShape::String,
             "required named description",
@@ -133,14 +133,14 @@ fn test_signature_round_trip() {
         .required_positional_arg("first", SyntaxShape::String, "first required")
         .required_positional_arg("second", SyntaxShape::Int, "second required")
         .optional_position_arg("optional", SyntaxShape::String, "optional description")
-        .required_named_flag(
+        .required_named_flag_arg(
             "req-named",
             SyntaxShape::String,
             "required named description",
             Some('r'),
         )
         .named_flag_arg("named", SyntaxShape::String, "named description", Some('n'))
-        .optional_named_flag("switch", "switch description", None)
+        .optional_named_flag_arg("switch", "switch description", None)
         .rest_positional_arg("rest", SyntaxShape::String, "rest description")
         .category(nu_protocol::Category::Conversions);
 

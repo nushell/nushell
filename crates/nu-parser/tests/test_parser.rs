@@ -650,7 +650,7 @@ pub fn parse_call_short_flag_batch_arg_allowed() {
 
     let sig = Signature::build("foo")
         .named_flag_arg("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
-        .optional_named_flag("--math", "math!!", Some('m'));
+        .optional_named_flag_arg("--math", "math!!", Some('m'));
     working_set.add_decl(sig.predeclare());
 
     let block = parse(&mut working_set, None, b"foo -mj 10", true);
@@ -677,7 +677,7 @@ pub fn parse_call_short_flag_batch_arg_disallowed() {
 
     let sig = Signature::build("foo")
         .named_flag_arg("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
-        .optional_named_flag("--math", "math!!", Some('m'));
+        .optional_named_flag_arg("--math", "math!!", Some('m'));
     working_set.add_decl(sig.predeclare());
 
     parse(&mut working_set, None, b"foo -jm 10", true);
@@ -709,7 +709,7 @@ pub fn parse_call_unknown_shorthand() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").optional_named_flag("--jazz", "jazz!!", Some('j'));
+    let sig = Signature::build("foo").optional_named_flag_arg("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
     parse(&mut working_set, None, b"foo -mj", true);
     assert!(matches!(
@@ -723,7 +723,7 @@ pub fn parse_call_extra_positional() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").optional_named_flag("--jazz", "jazz!!", Some('j'));
+    let sig = Signature::build("foo").optional_named_flag_arg("--jazz", "jazz!!", Some('j'));
     working_set.add_decl(sig.predeclare());
     parse(&mut working_set, None, b"foo -j 100", true);
     assert!(matches!(
@@ -752,7 +752,7 @@ pub fn parse_call_missing_req_flag() {
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig =
-        Signature::build("foo").required_named_flag("--jazz", SyntaxShape::Int, "jazz!!", None);
+        Signature::build("foo").required_named_flag_arg("--jazz", SyntaxShape::Int, "jazz!!", None);
     working_set.add_decl(sig.predeclare());
     parse(&mut working_set, None, b"foo", true);
     assert!(matches!(

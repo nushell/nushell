@@ -54,7 +54,7 @@ impl PluginCommand for SaveDF {
                 "file delimiter character",
                 None,
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "csv-no-header",
                 "Indicates to exclude a header row for CSV files.",
                 None,

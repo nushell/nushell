@@ -43,7 +43,7 @@ with 'transpose' first."#
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run.",
             )
-            .optional_named_flag("keep-empty", "keep empty result cells", Some('k'))
+            .optional_named_flag_arg("keep-empty", "keep empty result cells", Some('k'))
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }

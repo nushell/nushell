@@ -29,13 +29,13 @@ impl PluginCommand for UnpivotDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required_named_flag(
+            .required_named_flag_arg(
                 "index",
                 SyntaxShape::Table(vec![]),
                 "column names for unpivoting",
                 Some('i'),
             )
-            .required_named_flag(
+            .required_named_flag_arg(
                 "on",
                 SyntaxShape::Table(vec![]),
                 "column names used as value columns",
@@ -57,7 +57,7 @@ impl PluginCommand for UnpivotDF {
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "streamable",
                 "Whether or not to use the polars streaming engine. Only valid for lazy dataframes",
                 Some('t'),

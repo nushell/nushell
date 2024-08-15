@@ -15,12 +15,12 @@ impl Command for ViewIr {
                 SyntaxShape::Any,
                 "The name or block to view compiled code for.",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "json",
                 "Dump the raw block data as JSON (unstable).",
                 Some('j'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "decl-id",
                 "Integer is a declaration ID rather than a block ID.",
                 Some('d'),

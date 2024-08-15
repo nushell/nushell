@@ -19,8 +19,8 @@ impl Command for Def {
             .required_positional_arg("def_name", SyntaxShape::String, "Command name.")
             .required_positional_arg("params", SyntaxShape::Signature, "Parameters.")
             .required_positional_arg("block", SyntaxShape::Closure(None), "Body of the definition.")
-            .optional_named_flag("env", "keep the environment defined inside the command", None)
-            .optional_named_flag("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
+            .optional_named_flag_arg("env", "keep the environment defined inside the command", None)
+            .optional_named_flag_arg("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
             .category(Category::Core)
     }
 

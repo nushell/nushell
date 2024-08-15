@@ -17,7 +17,7 @@ impl Command for GroupBy {
             // the current signature would suffice even when a Table example
             // exists.
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "to-table",
                 "Return a table with \"groups\" and \"items\" columns",
                 None,

@@ -31,7 +31,7 @@ impl Command for ParEach {
                 "the number of threads to use",
                 Some('t'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "keep-order",
                 "keep sequence of output same as the order of input",
                 Some('k'),

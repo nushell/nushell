@@ -29,7 +29,7 @@ impl Command for InputListen {
                 "Listen for event of specified types only (can be one of: focus, key, mouse, paste, resize)",
                 Some('t'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "raw",
                 "Add raw_code field with numeric value of keycode and raw_flags with bit mask flags",
                 Some('r'),

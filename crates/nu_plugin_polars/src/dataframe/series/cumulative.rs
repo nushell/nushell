@@ -58,7 +58,7 @@ impl PluginCommand for Cumulative {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required_positional_arg("type", SyntaxShape::String, "rolling operation")
-            .optional_named_flag("reverse", "Reverse cumulative calculation", Some('r'))
+            .optional_named_flag_arg("reverse", "Reverse cumulative calculation", Some('r'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

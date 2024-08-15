@@ -33,12 +33,12 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "strict",
                 "Throw an error if the path could not be expanded",
                 Some('s'),
             )
-            .optional_named_flag("no-symlink", "Do not resolve symbolic links", Some('n'))
+            .optional_named_flag_arg("no-symlink", "Do not resolve symbolic links", Some('n'))
             .category(Category::Path)
     }
 

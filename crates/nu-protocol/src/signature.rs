@@ -348,7 +348,7 @@ impl Signature {
     }
 
     /// Add a required named flag argument to the signature
-    pub fn required_named_flag(
+    pub fn required_named_flag_arg(
         mut self,
         name: impl Into<String>,
         shape: impl Into<SyntaxShape>,
@@ -371,7 +371,7 @@ impl Signature {
     }
 
     /// Add a switch to the signature
-    pub fn optional_named_flag(
+    pub fn optional_named_flag_arg(
         mut self,
         name: impl Into<String>,
         desc: impl Into<String>,

@@ -37,7 +37,7 @@ impl PluginCommand for ToDataFrame {
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "as-columns",
                 r#"When input shape is record of lists, treat each list as column values."#,
                 Some('c'),

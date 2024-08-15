@@ -25,12 +25,12 @@ impl Command for ToXml {
                 "Formats the XML text with the provided indentation setting",
                 Some('i'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "partial-escape",
                 "Only escape mandatory characters in text and attributes",
                 Some('p'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "self-closed",
                 "Output empty tags as self closing",
                 Some('s'),

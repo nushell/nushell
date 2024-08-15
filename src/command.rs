@@ -323,8 +323,8 @@ impl Command for Nu {
                 "set the NU_LIB_DIRS for the given script (delimited by char record_sep ('\x1e'))",
                 Some('I'),
             )
-            .optional_named_flag("interactive", "start as an interactive shell", Some('i'))
-            .optional_named_flag("login", "start as a login shell", Some('l'))
+            .optional_named_flag_arg("interactive", "start as an interactive shell", Some('i'))
+            .optional_named_flag_arg("login", "start as a login shell", Some('l'))
             .named_flag_arg(
                 "table-mode",
                 SyntaxShape::String,
@@ -337,25 +337,25 @@ impl Command for Nu {
                 "the error style to use (fancy or plain). default: fancy",
                 None,
             )
-            .optional_named_flag("no-newline", "print the result for --commands(-c) without a newline", None)
-            .optional_named_flag(
+            .optional_named_flag_arg("no-newline", "print the result for --commands(-c) without a newline", None)
+            .optional_named_flag_arg(
                 "no-config-file",
                 "start with no config file and no env file",
                 Some('n'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "no-history",
                 "disable reading and writing to command history",
                 None,
             )
-            .optional_named_flag("no-std-lib", "start with no standard library", None)
+            .optional_named_flag_arg("no-std-lib", "start with no standard library", None)
             .named_flag_arg(
                 "threads",
                 SyntaxShape::Int,
                 "threads to use for parallel commands",
                 Some('t'),
             )
-            .optional_named_flag("version", "print the version", Some('v'))
+            .optional_named_flag_arg("version", "print the version", Some('v'))
             .named_flag_arg(
                 "config",
                 SyntaxShape::Filepath,
@@ -368,7 +368,7 @@ impl Command for Nu {
                 "start with an alternate environment config file",
                 None,
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                "lsp",
                "start nu's language server protocol",
                None,
@@ -397,7 +397,7 @@ impl Command for Nu {
                 "run a diagnostic check on the given source and limit number of errors returned to provided number",
                 None,
             )
-            .optional_named_flag("ide-ast", "generate the ast on the given source", None);
+            .optional_named_flag_arg("ide-ast", "generate the ast on the given source", None);
 
         #[cfg(feature = "plugin")]
         {
@@ -441,7 +441,7 @@ impl Command for Nu {
                 "set the Rust module prefixes to exclude from the log output",
                 None,
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "stdin",
                 "redirect standard input to a command (with `-c`) or a script file",
                 None,

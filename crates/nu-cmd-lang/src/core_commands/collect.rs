@@ -17,7 +17,7 @@ impl Command for Collect {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run once the stream is collected.",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "keep-env",
                 "let the closure affect environment variables",
                 None,

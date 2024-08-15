@@ -19,7 +19,7 @@ impl Command for Every {
                 SyntaxShape::Int,
                 "How many rows to skip between (and including) each row returned.",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "skip",
                 "skip the rows that would be returned, instead of selecting them",
                 Some('s'),

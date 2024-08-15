@@ -49,22 +49,22 @@ impl Command for SubCommand {
                 "custom headers you want to add ",
                 Some('H'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "raw",
                 "return values as a string instead of a table",
                 Some('r'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "insecure",
                 "allow insecure server connections when using SSL",
                 Some('k'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "full",
                 "returns the full response instead of only the body",
                 Some('f'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),

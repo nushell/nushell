@@ -31,7 +31,7 @@ impl Command for SubCommand {
                 "Split into maximum number of items",
                 Some('n'),
             )
-            .optional_named_flag("regex", "use regex syntax for separator", Some('r'))
+            .optional_named_flag_arg("regex", "use regex syntax for separator", Some('r'))
             .category(Category::Strings)
     }
 

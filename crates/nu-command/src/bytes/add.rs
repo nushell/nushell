@@ -42,7 +42,7 @@ impl Command for BytesAdd {
                 "index to insert binary data",
                 Some('i'),
             )
-            .optional_named_flag("end", "add to the end of binary", Some('e'))
+            .optional_named_flag_arg("end", "add to the end of binary", Some('e'))
             .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,

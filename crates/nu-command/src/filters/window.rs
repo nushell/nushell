@@ -23,7 +23,7 @@ impl Command for Window {
                 "the number of rows to slide over between windows",
                 Some('s'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "remainder",
                 "yield last chunks even if they have fewer elements than size",
                 Some('r'),

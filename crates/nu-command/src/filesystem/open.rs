@@ -38,7 +38,7 @@ impl Command for Open {
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "The file(s) to open.",
             )
-            .optional_named_flag("raw", "open file as raw binary", Some('r'))
+            .optional_named_flag_arg("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
     }
 

@@ -45,18 +45,18 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "For a data structure input, operate on strings at the given cell paths.",
             )
-            .optional_named_flag("all", "replace all occurrences of the pattern", Some('a'))
-            .optional_named_flag(
+            .optional_named_flag_arg("all", "replace all occurrences of the pattern", Some('a'))
+            .optional_named_flag_arg(
                 "no-expand",
                 "do not expand capture groups (like $name) in the replacement string",
                 Some('n'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "regex",
                 "match the pattern as a regular expression in the input, instead of a substring",
                 Some('r'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "multiline",
                 "multi-line regex mode (implies --regex): ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),

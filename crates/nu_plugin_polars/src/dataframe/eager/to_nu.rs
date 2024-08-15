@@ -34,8 +34,8 @@ impl PluginCommand for ToNu {
                 "number of rows to be shown",
                 Some('n'),
             )
-            .optional_named_flag("tail", "shows tail rows", Some('t'))
-            .optional_named_flag("index", "add an index column", Some('i'))
+            .optional_named_flag_arg("tail", "shows tail rows", Some('t'))
+            .optional_named_flag_arg("index", "add an index column", Some('i'))
             .input_output_types(vec![
                 (Type::Custom("expression".into()), Type::Any),
                 (Type::Custom("dataframe".into()), Type::table()),

@@ -18,18 +18,18 @@ impl Command for Sort {
             Type::List(Box::new(Type::Any)),
             Type::List(Box::new(Type::Any)),
         ), (Type::record(), Type::record()),])
-    .optional_named_flag("reverse", "Sort in reverse order", Some('r'))
-            .optional_named_flag(
+    .optional_named_flag_arg("reverse", "Sort in reverse order", Some('r'))
+            .optional_named_flag_arg(
                 "ignore-case",
                 "Sort string-based data case-insensitively",
                 Some('i'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "values",
                 "If input is a single record, sort the record by values; ignored if input is not a single record",
                 Some('v'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "natural",
                 "Sort alphanumeric string-based values naturally (1, 9, 10, 99, 100, ...)",
                 Some('n'),

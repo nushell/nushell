@@ -29,14 +29,14 @@ impl PluginCommand for LazyJoin {
             .required_positional_arg("other", SyntaxShape::Any, "LazyFrame to join with")
             .required_positional_arg("left_on", SyntaxShape::Any, "Left column(s) to join on")
             .required_positional_arg("right_on", SyntaxShape::Any, "Right column(s) to join on")
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "inner",
                 "inner joining between lazyframes (default)",
                 Some('i'),
             )
-            .optional_named_flag("left", "left join between lazyframes", Some('l'))
-            .optional_named_flag("full", "full join between lazyframes", Some('f'))
-            .optional_named_flag("cross", "cross join between lazyframes", Some('c'))
+            .optional_named_flag_arg("left", "left join between lazyframes", Some('l'))
+            .optional_named_flag_arg("full", "full join between lazyframes", Some('f'))
+            .optional_named_flag_arg("cross", "cross join between lazyframes", Some('c'))
             .named_flag_arg(
                 "suffix",
                 SyntaxShape::String,

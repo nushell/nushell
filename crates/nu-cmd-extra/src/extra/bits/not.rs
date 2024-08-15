@@ -37,7 +37,7 @@ impl Command for BitsNot {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "signed",
                 "always treat input number as a signed number",
                 Some('s'),

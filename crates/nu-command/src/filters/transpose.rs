@@ -23,27 +23,27 @@ impl Command for Transpose {
                 (Type::table(), Type::Any),
                 (Type::record(), Type::table()),
             ])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "header-row",
                 "treat the first row as column names",
                 Some('r'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-titles",
                 "don't transpose the column names into values",
                 Some('i'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "as-record",
                 "transfer to record if the result is a table and contains only one row",
                 Some('d'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "keep-last",
                 "on repetition of record fields due to `header-row`, keep the last value obtained",
                 Some('l'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "keep-all",
                 "on repetition of record fields due to `header-row`, keep all the values obtained",
                 Some('a'),

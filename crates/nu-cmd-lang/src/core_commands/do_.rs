@@ -25,27 +25,27 @@ impl Command for Do {
         Signature::build("do")
             .required_positional_arg("closure", SyntaxShape::Closure(None), "The closure to run.")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-errors",
                 "ignore errors as the closure runs",
                 Some('i'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-shell-errors",
                 "ignore shell errors as the closure runs",
                 Some('s'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "ignore-program-errors",
                 "ignore external program errors as the closure runs",
                 Some('p'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "capture-errors",
                 "catch errors as the closure runs, and return them",
                 Some('c'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "env",
                 "keep the environment defined inside the command",
                 None,

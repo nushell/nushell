@@ -38,12 +38,12 @@ impl PluginCommand for LazySortBy {
                 "Reverse sorting. Default is false",
                 Some('r'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "nulls-last",
                 "nulls are shown last in the dataframe",
                 Some('n'),
             )
-            .optional_named_flag("maintain-order", "Maintains order during sort", Some('m'))
+            .optional_named_flag_arg("maintain-order", "Maintains order during sort", Some('m'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

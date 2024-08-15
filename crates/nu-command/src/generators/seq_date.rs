@@ -49,7 +49,7 @@ impl Command for SeqDate {
                 "number of days to print",
                 Some('d'),
             )
-            .optional_named_flag("reverse", "print dates in reverse", Some('r'))
+            .optional_named_flag_arg("reverse", "print dates in reverse", Some('r'))
             .category(Category::Generators)
     }
 

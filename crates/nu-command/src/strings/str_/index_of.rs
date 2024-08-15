@@ -39,12 +39,12 @@ impl Command for SubCommand {
             ])
             .allow_variants_without_examples(true)
             .required_positional_arg("string", SyntaxShape::String, "The string to find in the input.")
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "grapheme-clusters",
                 "count indexes using grapheme clusters (all visible chars have length 1)",
                 Some('g'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "utf-8-bytes",
                 "count indexes using UTF-8 bytes (default; non-ASCII chars have length 2+)",
                 Some('b'),
@@ -60,7 +60,7 @@ impl Command for SubCommand {
                 "optional start and/or end index",
                 Some('r'),
             )
-            .optional_named_flag("end", "search from the end of the input", Some('e'))
+            .optional_named_flag_arg("end", "search from the end of the input", Some('e'))
             .category(Category::Strings)
     }
 

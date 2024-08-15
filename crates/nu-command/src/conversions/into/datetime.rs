@@ -84,12 +84,12 @@ impl Command for SubCommand {
                 "Specify expected format of INPUT string to parse to datetime. Use --list to see options",
                 Some('f'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "list",
                 "Show all possible variables for use in --format flag",
                 Some('l'),
                 )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "list-human",
                 "Show human-readable datetime parsing examples",
                 Some('n'),

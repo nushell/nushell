@@ -21,7 +21,7 @@ impl PluginCommand for SchemaCmd {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional_named_flag("datatype-list", "creates a lazy dataframe", Some('l'))
+            .optional_named_flag_arg("datatype-list", "creates a lazy dataframe", Some('l'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

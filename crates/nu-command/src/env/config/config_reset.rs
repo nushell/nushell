@@ -14,9 +14,9 @@ impl Command for ConfigReset {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional_named_flag("nu", "reset only nu config, config.nu", Some('n'))
-            .optional_named_flag("env", "reset only env config, env.nu", Some('e'))
-            .optional_named_flag("without-backup", "do not make a backup", Some('w'))
+            .optional_named_flag_arg("nu", "reset only nu config, config.nu", Some('n'))
+            .optional_named_flag_arg("env", "reset only env config, env.nu", Some('e'))
+            .optional_named_flag_arg("without-backup", "do not make a backup", Some('w'))
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
             .category(Category::Env)

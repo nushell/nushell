@@ -49,10 +49,10 @@ impl Command for Save {
                 "the filename used to save stderr, only works with `-r` flag",
                 Some('e'),
             )
-            .optional_named_flag("raw", "save file as raw binary", Some('r'))
-            .optional_named_flag("append", "append input to the end of the file", Some('a'))
-            .optional_named_flag("force", "overwrite the destination", Some('f'))
-            .optional_named_flag("progress", "enable progress bar", Some('p'))
+            .optional_named_flag_arg("raw", "save file as raw binary", Some('r'))
+            .optional_named_flag_arg("append", "append input to the end of the file", Some('a'))
+            .optional_named_flag_arg("force", "overwrite the destination", Some('f'))
+            .optional_named_flag_arg("progress", "enable progress bar", Some('p'))
             .category(Category::FileSystem)
     }
 

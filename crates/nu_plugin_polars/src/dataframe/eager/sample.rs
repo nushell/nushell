@@ -44,8 +44,8 @@ impl PluginCommand for SampleDF {
                 "seed for the selection",
                 Some('s'),
             )
-            .optional_named_flag("replace", "sample with replace", Some('e'))
-            .optional_named_flag("shuffle", "shuffle sample", Some('u'))
+            .optional_named_flag_arg("replace", "sample with replace", Some('e'))
+            .optional_named_flag_arg("shuffle", "shuffle sample", Some('u'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

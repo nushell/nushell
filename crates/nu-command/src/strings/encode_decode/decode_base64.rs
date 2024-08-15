@@ -27,7 +27,7 @@ impl Command for DecodeBase64 {
                 CHARACTER_SET_DESC,
                 Some('c'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "binary",
                 "Output a binary value instead of decoding payload as UTF-8",
                 Some('b'),

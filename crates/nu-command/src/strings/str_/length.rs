@@ -32,12 +32,12 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "grapheme-clusters",
                 "count length using grapheme clusters (all visible chars have length 1)",
                 Some('g'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "utf-8-bytes",
                 "count length using UTF-8 bytes (default; all non-ASCII chars have length 2+)",
                 Some('b'),

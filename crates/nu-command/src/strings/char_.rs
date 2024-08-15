@@ -182,9 +182,9 @@ impl Command for Char {
                 "The name of the character to output.",
             )
             .rest_positional_arg("rest", SyntaxShape::Any, "Multiple Unicode bytes.")
-            .optional_named_flag("list", "List all supported character names", Some('l'))
-            .optional_named_flag("unicode", "Unicode string i.e. 1f378", Some('u'))
-            .optional_named_flag("integer", "Create a codepoint from an integer", Some('i'))
+            .optional_named_flag_arg("list", "List all supported character names", Some('l'))
+            .optional_named_flag_arg("unicode", "Unicode string i.e. 1f378", Some('u'))
+            .optional_named_flag_arg("integer", "Create a codepoint from an integer", Some('i'))
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }

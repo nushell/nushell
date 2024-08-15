@@ -21,8 +21,8 @@ impl Command for SubCommand {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .optional_named_flag("grapheme-clusters", "split on grapheme clusters", Some('g'))
-            .optional_named_flag(
+            .optional_named_flag_arg("grapheme-clusters", "split on grapheme clusters", Some('g'))
+            .optional_named_flag_arg(
                 "code-points",
                 "split on code points (default; splits combined characters)",
                 Some('c'),

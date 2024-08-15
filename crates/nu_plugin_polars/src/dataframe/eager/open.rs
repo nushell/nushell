@@ -56,7 +56,7 @@ impl PluginCommand for OpenDataFrame {
                 SyntaxShape::Filepath,
                 "file path to load values from",
             )
-            .optional_named_flag("eager", "Open dataframe as an eager dataframe", None)
+            .optional_named_flag_arg("eager", "Open dataframe as an eager dataframe", None)
             .named_flag_arg(
                 "type",
                 SyntaxShape::String,
@@ -69,7 +69,7 @@ impl PluginCommand for OpenDataFrame {
                 "file delimiter character. CSV file",
                 Some('d'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "no-header",
                 "Indicates if file doesn't have header. CSV file",
                 None,

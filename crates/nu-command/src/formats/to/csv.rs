@@ -26,7 +26,7 @@ impl Command for ToCsv {
                 "a character to separate columns, defaults to ','",
                 Some('s'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "noheaders",
                 "do not output the columns names as the first row",
                 Some('n'),

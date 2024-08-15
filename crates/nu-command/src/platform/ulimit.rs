@@ -509,14 +509,14 @@ impl Command for ULimit {
     fn signature(&self) -> Signature {
         let mut sig = Signature::build("ulimit")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .optional_named_flag("soft", "Sets soft resource limit", Some('S'))
-            .optional_named_flag("hard", "Sets hard resource limit", Some('H'))
-            .optional_named_flag("all", "Prints all current limits", Some('a'))
+            .optional_named_flag_arg("soft", "Sets soft resource limit", Some('S'))
+            .optional_named_flag_arg("hard", "Sets hard resource limit", Some('H'))
+            .optional_named_flag_arg("all", "Prints all current limits", Some('a'))
             .optional_position_arg("limit", SyntaxShape::Any, "Limit value.")
             .category(Category::Platform);
 
         for res in RESOURCE_ARRAY.iter() {
-            sig = sig.optional_named_flag(res.name, res.desc, Some(res.flag));
+            sig = sig.optional_named_flag_arg(res.name, res.desc, Some(res.flag));
         }
 
         sig

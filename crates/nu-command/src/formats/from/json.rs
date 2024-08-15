@@ -18,8 +18,8 @@ impl Command for FromJson {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("from json")
             .input_output_types(vec![(Type::String, Type::Any)])
-            .optional_named_flag("objects", "treat each line as a separate value", Some('o'))
-            .optional_named_flag("strict", "follow the json specification exactly", Some('s'))
+            .optional_named_flag_arg("objects", "treat each line as a separate value", Some('o'))
+            .optional_named_flag_arg("strict", "follow the json specification exactly", Some('s'))
             .category(Category::Formats)
     }
 

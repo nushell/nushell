@@ -40,12 +40,12 @@ impl Command for Du {
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "Starting directory.",
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "all",
                 "Output file sizes as well as directory sizes",
                 Some('a'),
             )
-            .optional_named_flag(
+            .optional_named_flag_arg(
                 "deref",
                 "Dereference symlinks to their targets for size",
                 Some('r'),
