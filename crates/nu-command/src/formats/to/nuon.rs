@@ -11,18 +11,18 @@ impl Command for ToNuon {
     fn signature(&self) -> Signature {
         Signature::build("to nuon")
             .input_output_types(vec![(Type::Any, Type::String)])
-            .switch(
+            .optional_named_flag(
                 "raw",
                 "remove all of the whitespace (default behaviour and overwrites -i and -t)",
                 Some('r'),
             )
-            .named(
+            .named_flag_arg(
                 "indent",
                 SyntaxShape::Number,
                 "specify indentation width",
                 Some('i'),
             )
-            .named(
+            .named_flag_arg(
                 "tabs",
                 SyntaxShape::Number,
                 "specify indentation tab quantity",

@@ -17,13 +17,13 @@ impl Command for DropNth {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::Any)),
             )])
-            .required(
+            .required_positional_arg(
                 "row number or row range",
                 // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
                 SyntaxShape::Any,
                 "The number of the row to drop or a range to drop consecutive rows.",
             )
-            .rest("rest", SyntaxShape::Any, "The number of the row to drop.")
+            .rest_positional_arg("rest", SyntaxShape::Any, "The number of the row to drop.")
             .category(Category::Filters)
     }
 

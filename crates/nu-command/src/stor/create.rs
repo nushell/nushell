@@ -12,13 +12,13 @@ impl Command for StorCreate {
     fn signature(&self) -> Signature {
         Signature::build("stor create")
             .input_output_types(vec![(Type::Nothing, Type::table())])
-            .required_named(
+            .required_named_flag(
                 "table-name",
                 SyntaxShape::String,
                 "name of the table you want to create",
                 Some('t'),
             )
-            .required_named(
+            .required_named_flag(
                 "columns",
                 SyntaxShape::Record(vec![]),
                 "a record of column names and datatypes",

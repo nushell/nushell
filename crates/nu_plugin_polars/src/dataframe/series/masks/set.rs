@@ -25,8 +25,8 @@ impl PluginCommand for SetSeries {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("value", SyntaxShape::Any, "value to be inserted in series")
-            .required_named(
+            .required_positional_arg("value", SyntaxShape::Any, "value to be inserted in series")
+            .required_named_flag(
                 "mask",
                 SyntaxShape::Any,
                 "mask indicating insertions",

@@ -14,9 +14,9 @@ impl Command for Which {
         Signature::build("which")
             .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
-            .required("application", SyntaxShape::String, "Application.")
-            .rest("rest", SyntaxShape::String, "Additional applications.")
-            .switch("all", "list all executables", Some('a'))
+            .required_positional_arg("application", SyntaxShape::String, "Application.")
+            .rest_positional_arg("rest", SyntaxShape::String, "Additional applications.")
+            .optional_named_flag("all", "list all executables", Some('a'))
             .category(Category::System)
     }
 

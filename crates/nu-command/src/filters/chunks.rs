@@ -16,7 +16,7 @@ impl Command for Chunks {
                 (Type::table(), Type::list(Type::table())),
                 (Type::list(Type::Any), Type::list(Type::list(Type::Any))),
             ])
-            .required("chunk_size", SyntaxShape::Int, "The size of each chunk.")
+            .required_positional_arg("chunk_size", SyntaxShape::Int, "The size of each chunk.")
             .category(Category::Filters)
     }
 

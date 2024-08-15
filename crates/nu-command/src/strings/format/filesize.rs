@@ -29,12 +29,12 @@ impl Command for FormatFilesize {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "format value",
                 SyntaxShape::String,
                 "The format into which convert the file sizes.",
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, format filesizes at the given cell paths.",

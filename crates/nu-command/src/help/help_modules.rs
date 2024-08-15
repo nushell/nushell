@@ -24,12 +24,12 @@ are also available in the current scope. Commands/aliases that were imported und
     fn signature(&self) -> Signature {
         Signature::build("help modules")
             .category(Category::Core)
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,
                 "The name of module to get help on.",
             )
-            .named(
+            .named_flag_arg(
                 "find",
                 SyntaxShape::String,
                 "string to find in module names and usage",

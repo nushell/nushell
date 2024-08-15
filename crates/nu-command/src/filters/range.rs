@@ -16,7 +16,7 @@ impl Command for Range {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::Any)),
             )])
-            .required("rows", SyntaxShape::Range, "Range of rows to return.")
+            .required_positional_arg("rows", SyntaxShape::Range, "Range of rows to return.")
             .category(Category::Filters)
     }
 

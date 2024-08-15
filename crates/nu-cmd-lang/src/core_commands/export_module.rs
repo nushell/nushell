@@ -17,8 +17,8 @@ impl Command for ExportModule {
         Signature::build("export module")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("module", SyntaxShape::String, "Module name or module path.")
-            .optional(
+            .required_positional_arg("module", SyntaxShape::String, "Module name or module path.")
+            .optional_position_arg(
                 "block",
                 SyntaxShape::Block,
                 "Body of the module if 'module' parameter is not a path.",

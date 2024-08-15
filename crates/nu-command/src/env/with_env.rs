@@ -12,12 +12,12 @@ impl Command for WithEnv {
     fn signature(&self) -> Signature {
         Signature::build("with-env")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required(
+            .required_positional_arg(
                 "variable",
                 SyntaxShape::Any,
                 "The environment variable to temporarily set.",
             )
-            .required(
+            .required_positional_arg(
                 "block",
                 SyntaxShape::Closure(None),
                 "The block to run once the variable is set.",

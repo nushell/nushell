@@ -25,7 +25,7 @@ impl PluginCommand for Contains {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "pattern",
                 SyntaxShape::String,
                 "Regex pattern to be searched",

@@ -31,13 +31,13 @@ impl PluginCommand for ToDataFrame {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named(
+            .named_flag_arg(
                 "schema",
                 SyntaxShape::Record(vec![]),
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
                 Some('s'),
             )
-            .switch(
+            .optional_named_flag(
                 "as-columns",
                 r#"When input shape is record of lists, treat each list as column values."#,
                 Some('c'),

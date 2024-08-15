@@ -36,15 +36,15 @@ impl Command for InputList {
                 (Type::List(Box::new(Type::Any)), Type::Any),
                 (Type::Range, Type::Int),
             ])
-            .optional("prompt", SyntaxShape::String, "The prompt to display.")
-            .switch(
+            .optional_position_arg("prompt", SyntaxShape::String, "The prompt to display.")
+            .optional_named_flag(
                 "multi",
                 "Use multiple results, you can press a to toggle all options on/off",
                 Some('m'),
             )
-            .switch("fuzzy", "Use a fuzzy select.", Some('f'))
-            .switch("index", "Returns list indexes.", Some('i'))
-            .named(
+            .optional_named_flag("fuzzy", "Use a fuzzy select.", Some('f'))
+            .optional_named_flag("index", "Returns list indexes.", Some('i'))
+            .named_flag_arg(
                 "display",
                 SyntaxShape::CellPath,
                 "Field to use as display value",

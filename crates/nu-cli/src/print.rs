@@ -15,14 +15,14 @@ impl Command for Print {
                 (Type::Any, Type::Nothing),
             ])
             .allow_variants_without_examples(true)
-            .rest("rest", SyntaxShape::Any, "the values to print")
-            .switch(
+            .rest_positional_arg("rest", SyntaxShape::Any, "the values to print")
+            .optional_named_flag(
                 "no-newline",
                 "print without inserting a newline for the line ending",
                 Some('n'),
             )
-            .switch("stderr", "print to stderr instead of stdout", Some('e'))
-            .switch(
+            .optional_named_flag("stderr", "print to stderr instead of stdout", Some('e'))
+            .optional_named_flag(
                 "raw",
                 "print without formatting (including binary data)",
                 Some('r'),

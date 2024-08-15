@@ -27,25 +27,25 @@ impl Command for Join {
 
     fn signature(&self) -> Signature {
         Signature::build("join")
-            .required(
+            .required_positional_arg(
                 "right-table",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "The right table in the join.",
             )
-            .required(
+            .required_positional_arg(
                 "left-on",
                 SyntaxShape::String,
                 "Name of column in input (left) table to join on.",
             )
-            .optional(
+            .optional_position_arg(
                 "right-on",
                 SyntaxShape::String,
                 "Name of column in right table to join on. Defaults to same column as left table.",
             )
-            .switch("inner", "Inner join (default)", Some('i'))
-            .switch("left", "Left-outer join", Some('l'))
-            .switch("right", "Right-outer join", Some('r'))
-            .switch("outer", "Outer join", Some('o'))
+            .optional_named_flag("inner", "Inner join (default)", Some('i'))
+            .optional_named_flag("left", "Left-outer join", Some('l'))
+            .optional_named_flag("right", "Right-outer join", Some('r'))
+            .optional_named_flag("outer", "Outer join", Some('o'))
             .input_output_types(vec![(Type::table(), Type::table())])
             .category(Category::Filters)
     }

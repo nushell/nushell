@@ -23,13 +23,13 @@ impl SimplePluginCommand for Env {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Experimental)
-            .optional(
+            .optional_position_arg(
                 "name",
                 SyntaxShape::String,
                 "The name of the environment variable to get",
             )
-            .switch("cwd", "Get current working directory instead", None)
-            .named(
+            .optional_named_flag("cwd", "Get current working directory instead", None)
+            .named_flag_arg(
                 "set",
                 SyntaxShape::Any,
                 "Set an environment variable to the value",

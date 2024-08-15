@@ -22,28 +22,28 @@ impl Command for Touch {
     fn signature(&self) -> Signature {
         Signature::build("touch")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .rest(
+            .rest_positional_arg(
                 "files",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Filepath]),
                 "The file(s) to create."
             )
-            .named(
+            .named_flag_arg(
                 "reference",
                 SyntaxShape::String,
                 "change the file or directory time to the time of the reference file/directory",
                 Some('r'),
             )
-            .switch(
+            .optional_named_flag(
                 "modified",
                 "change the modification time of the file or directory. If no reference file/directory is given, the current time is used",
                 Some('m'),
             )
-            .switch(
+            .optional_named_flag(
                 "access",
                 "change the access time of the file or directory. If no reference file/directory is given, the current time is used",
                 Some('a'),
             )
-            .switch(
+            .optional_named_flag(
                 "no-create",
                 "do not create the file if it does not exist",
                 Some('c'),

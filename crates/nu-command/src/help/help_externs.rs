@@ -17,12 +17,12 @@ impl Command for HelpExterns {
     fn signature(&self) -> Signature {
         Signature::build("help externs")
             .category(Category::Core)
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,
                 "The name of extern to get help on.",
             )
-            .named(
+            .named_flag_arg(
                 "find",
                 SyntaxShape::String,
                 "string to find in extern names and usage",

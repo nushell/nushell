@@ -14,8 +14,8 @@ impl Command for Rotate {
                 (Type::record(), Type::table()),
                 (Type::table(), Type::table()),
             ])
-            .switch("ccw", "rotate counter clockwise", None)
-            .rest(
+            .optional_named_flag("ccw", "rotate counter clockwise", None)
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,
                 "the names to give columns once rotated",

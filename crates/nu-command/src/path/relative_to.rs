@@ -27,7 +27,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .required(
+            .required_positional_arg(
                 "path",
                 SyntaxShape::String,
                 "Parent shared with the input path.",

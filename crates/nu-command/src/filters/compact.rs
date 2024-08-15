@@ -14,12 +14,12 @@ impl Command for Compact {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::Any)),
             )])
-            .switch(
+            .optional_named_flag(
                 "empty",
                 "also compact empty items like \"\", {}, and []",
                 Some('e'),
             )
-            .rest(
+            .rest_positional_arg(
                 "columns",
                 SyntaxShape::Any,
                 "The columns to compact from the table.",

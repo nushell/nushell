@@ -23,7 +23,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Float)),
                 ),
             ])
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert data at the given cell paths.",

@@ -16,12 +16,12 @@ impl Command for SubCommand {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::List(Box::new(Type::Any)))),
             )])
-            .required(
+            .required_positional_arg(
                 "separator",
                 SyntaxShape::Any,
                 "The value that denotes what separates the list.",
             )
-            .switch(
+            .optional_named_flag(
                 "regex",
                 "separator is a regular expression, matching values that can be coerced into a string",
                 Some('r'))

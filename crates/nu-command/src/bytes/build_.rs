@@ -19,7 +19,7 @@ impl Command for BytesBuild {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("bytes build")
             .input_output_types(vec![(Type::Nothing, Type::Binary)])
-            .rest("rest", SyntaxShape::Any, "List of bytes.")
+            .rest_positional_arg("rest", SyntaxShape::Any, "List of bytes.")
             .category(Category::Bytes)
     }
 

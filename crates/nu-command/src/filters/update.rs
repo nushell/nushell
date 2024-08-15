@@ -19,12 +19,12 @@ impl Command for Update {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
-            .required(
+            .required_positional_arg(
                 "field",
                 SyntaxShape::CellPath,
                 "The name of the column to update.",
             )
-            .required(
+            .required_positional_arg(
                 "replacement value",
                 SyntaxShape::Any,
                 "The new value to give the cell(s), or a closure to create the value.",

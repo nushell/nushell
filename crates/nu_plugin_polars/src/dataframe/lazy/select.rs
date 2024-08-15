@@ -24,7 +24,7 @@ impl PluginCommand for LazySelect {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest(
+            .rest_positional_arg(
                 "select expressions",
                 SyntaxShape::Any,
                 "Expression(s) that define the column selection",

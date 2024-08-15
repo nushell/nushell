@@ -10,7 +10,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math arccos")
-            .switch("degrees", "Return degrees instead of radians", Some('d'))
+            .optional_named_flag("degrees", "Return degrees instead of radians", Some('d'))
             .input_output_types(vec![
                 (Type::Number, Type::Float),
                 (

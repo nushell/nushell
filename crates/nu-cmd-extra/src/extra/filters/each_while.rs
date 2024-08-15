@@ -23,7 +23,7 @@ impl Command for EachWhile {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::Any)),
             )])
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "the closure to run",

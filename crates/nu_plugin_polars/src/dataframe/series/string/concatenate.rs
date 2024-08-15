@@ -25,7 +25,7 @@ impl PluginCommand for Concatenate {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "other",
                 SyntaxShape::Any,
                 "Other array with string to be concatenated",

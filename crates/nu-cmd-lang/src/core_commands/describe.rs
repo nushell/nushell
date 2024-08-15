@@ -16,12 +16,12 @@ impl Command for Describe {
     fn signature(&self) -> Signature {
         Signature::build("describe")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .switch(
+            .optional_named_flag(
                 "no-collect",
                 "do not collect streams of structured data",
                 Some('n'),
             )
-            .switch(
+            .optional_named_flag(
                 "detailed",
                 "show detailed information about the value",
                 Some('d'),

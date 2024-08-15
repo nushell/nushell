@@ -23,13 +23,13 @@ impl Command for InputListen {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Platform)
-            .named(
+            .named_flag_arg(
                 "types",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Listen for event of specified types only (can be one of: focus, key, mouse, paste, resize)",
                 Some('t'),
             )
-            .switch(
+            .optional_named_flag(
                 "raw",
                 "Add raw_code field with numeric value of keycode and raw_flags with bit mask flags",
                 Some('r'),

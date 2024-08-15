@@ -23,8 +23,8 @@ impl Command for Encode {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("encode")
             .input_output_types(vec![(Type::String, Type::Binary)])
-            .required("encoding", SyntaxShape::String, "The text encoding to use.")
-            .switch(
+            .required_positional_arg("encoding", SyntaxShape::String, "The text encoding to use.")
+            .optional_named_flag(
                 "ignore-errors",
                 "when a character isn't in the given encoding, replace with a HTML entity (like `&#127880;`)",
                 Some('i'),

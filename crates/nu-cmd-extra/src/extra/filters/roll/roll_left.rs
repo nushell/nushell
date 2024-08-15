@@ -19,13 +19,13 @@ impl Command for RollLeft {
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
             ])
-            .named(
+            .named_flag_arg(
                 "by",
                 SyntaxShape::Int,
                 "Number of columns to roll",
                 Some('b'),
             )
-            .switch(
+            .optional_named_flag(
                 "cells-only",
                 "rotates columns leaving headers fixed",
                 Some('c'),

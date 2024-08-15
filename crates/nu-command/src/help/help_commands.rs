@@ -17,12 +17,12 @@ impl Command for HelpCommands {
     fn signature(&self) -> Signature {
         Signature::build("help commands")
             .category(Category::Core)
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,
                 "The name of command to get help on.",
             )
-            .named(
+            .named_flag_arg(
                 "find",
                 SyntaxShape::String,
                 "string to find in command names, usage, and search terms",
@@ -164,7 +164,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
                 ));
             }
 
-            for named_param in &sig.named {
+            for named_param in &sig.named_flag {
                 let name = if let Some(short) = named_param.short {
                     if named_param.long.is_empty() {
                         format!("-{}", short)

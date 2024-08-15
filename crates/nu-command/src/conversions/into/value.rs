@@ -16,13 +16,13 @@ impl Command for IntoValue {
     fn signature(&self) -> Signature {
         Signature::build("into value")
             .input_output_types(vec![(Type::table(), Type::table())])
-            .named(
+            .named_flag_arg(
                 "columns",
                 SyntaxShape::Table(vec![]),
                 "list of columns to update",
                 Some('c'),
             )
-            .switch(
+            .optional_named_flag(
                 "prefer-filesizes",
                 "For ints display them as human-readable file sizes",
                 Some('f'),

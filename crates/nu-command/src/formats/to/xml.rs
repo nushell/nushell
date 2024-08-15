@@ -19,18 +19,18 @@ impl Command for ToXml {
     fn signature(&self) -> Signature {
         Signature::build("to xml")
             .input_output_types(vec![(Type::record(), Type::String)])
-            .named(
+            .named_flag_arg(
                 "indent",
                 SyntaxShape::Int,
                 "Formats the XML text with the provided indentation setting",
                 Some('i'),
             )
-            .switch(
+            .optional_named_flag(
                 "partial-escape",
                 "Only escape mandatory characters in text and attributes",
                 Some('p'),
             )
-            .switch(
+            .optional_named_flag(
                 "self-closed",
                 "Output empty tags as self closing",
                 Some('s'),

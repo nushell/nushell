@@ -24,12 +24,12 @@ impl SimplePluginCommand for One {
         // The signature defines the usage of the command inside Nu, and also automatically
         // generates its help page.
         Signature::build(self.name())
-            .required("a", SyntaxShape::Int, "required integer value")
-            .required("b", SyntaxShape::String, "required string value")
-            .switch("flag", "a flag for the signature", Some('f'))
-            .optional("opt", SyntaxShape::Int, "Optional number")
-            .named("named", SyntaxShape::String, "named string", Some('n'))
-            .rest("rest", SyntaxShape::String, "rest value string")
+            .required_positional_arg("a", SyntaxShape::Int, "required integer value")
+            .required_positional_arg("b", SyntaxShape::String, "required string value")
+            .optional_named_flag("flag", "a flag for the signature", Some('f'))
+            .optional_position_arg("opt", SyntaxShape::Int, "Optional number")
+            .named_flag_arg("named", SyntaxShape::String, "named string", Some('n'))
+            .rest_positional_arg("rest", SyntaxShape::String, "rest value string")
             .category(Category::Experimental)
     }
 

@@ -17,12 +17,12 @@ impl Command for HelpAliases {
     fn signature(&self) -> Signature {
         Signature::build("help aliases")
             .category(Category::Core)
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,
                 "The name of alias to get help on.",
             )
-            .named(
+            .named_flag_arg(
                 "find",
                 SyntaxShape::String,
                 "string to find in alias names and usage",

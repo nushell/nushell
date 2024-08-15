@@ -18,41 +18,41 @@ impl Command for SubCommand {
         Signature::build("http options")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "URL",
                 SyntaxShape::String,
                 "The URL to fetch the options from.",
             )
-            .named(
+            .named_flag_arg(
                 "user",
                 SyntaxShape::Any,
                 "the username when authenticating",
                 Some('u'),
             )
-            .named(
+            .named_flag_arg(
                 "password",
                 SyntaxShape::Any,
                 "the password when authenticating",
                 Some('p'),
             )
-            .named(
+            .named_flag_arg(
                 "max-time",
                 SyntaxShape::Int,
                 "timeout period in seconds",
                 Some('m'),
             )
-            .named(
+            .named_flag_arg(
                 "headers",
                 SyntaxShape::Any,
                 "custom headers you want to add ",
                 Some('H'),
             )
-            .switch(
+            .optional_named_flag(
                 "insecure",
                 "allow insecure server connections when using SSL",
                 Some('k'),
             )
-            .switch(
+            .optional_named_flag(
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),

@@ -18,38 +18,38 @@ impl Command for SeqDate {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("seq date")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
-            .named(
+            .named_flag_arg(
                 "output-format",
                 SyntaxShape::String,
                 "prints dates in this format (defaults to %Y-%m-%d)",
                 Some('o'),
             )
-            .named(
+            .named_flag_arg(
                 "input-format",
                 SyntaxShape::String,
                 "give argument dates in this format (defaults to %Y-%m-%d)",
                 Some('i'),
             )
-            .named(
+            .named_flag_arg(
                 "begin-date",
                 SyntaxShape::String,
                 "beginning date range",
                 Some('b'),
             )
-            .named("end-date", SyntaxShape::String, "ending date", Some('e'))
-            .named(
+            .named_flag_arg("end-date", SyntaxShape::String, "ending date", Some('e'))
+            .named_flag_arg(
                 "increment",
                 SyntaxShape::Int,
                 "increment dates by this number",
                 Some('n'),
             )
-            .named(
+            .named_flag_arg(
                 "days",
                 SyntaxShape::Int,
                 "number of days to print",
                 Some('d'),
             )
-            .switch("reverse", "print dates in reverse", Some('r'))
+            .optional_named_flag("reverse", "print dates in reverse", Some('r'))
             .category(Category::Generators)
     }
 

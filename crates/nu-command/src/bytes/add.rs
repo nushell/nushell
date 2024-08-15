@@ -35,15 +35,15 @@ impl Command for BytesAdd {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .required("data", SyntaxShape::Binary, "The binary to add.")
-            .named(
+            .required_positional_arg("data", SyntaxShape::Binary, "The binary to add.")
+            .named_flag_arg(
                 "index",
                 SyntaxShape::Int,
                 "index to insert binary data",
                 Some('i'),
             )
-            .switch("end", "add to the end of binary", Some('e'))
-            .rest(
+            .optional_named_flag("end", "add to the end of binary", Some('e'))
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, add bytes to the data at the given cell paths.",

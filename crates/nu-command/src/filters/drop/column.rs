@@ -16,7 +16,7 @@ impl Command for DropColumn {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
-            .optional(
+            .optional_position_arg(
                 "columns",
                 SyntaxShape::Int,
                 "Starting from the end, the number of columns to remove.",

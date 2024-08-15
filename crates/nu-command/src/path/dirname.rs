@@ -27,13 +27,13 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .named(
+            .named_flag_arg(
                 "replace",
                 SyntaxShape::String,
                 "Return original path with dirname replaced by this string",
                 Some('r'),
             )
-            .named(
+            .named_flag_arg(
                 "num-levels",
                 SyntaxShape::Int,
                 "Number of directories to walk up",

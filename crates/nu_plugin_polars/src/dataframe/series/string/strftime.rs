@@ -25,7 +25,7 @@ impl PluginCommand for StrFTime {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("fmt", SyntaxShape::String, "Format rule")
+            .required_positional_arg("fmt", SyntaxShape::String, "Format rule")
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

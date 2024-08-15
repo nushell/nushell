@@ -35,26 +35,26 @@ impl PluginCommand for SaveDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxShape::Filepath, "Path to write to.")
-            .named(
+            .required_positional_arg("path", SyntaxShape::Filepath, "Path to write to.")
+            .named_flag_arg(
                 "type",
                 SyntaxShape::String,
                 "File type: csv, json, parquet, arrow/ipc. If omitted, derive from file extension",
                 Some('t'),
             )
-            .named(
+            .named_flag_arg(
                 "avro-compression",
                 SyntaxShape::String,
                 "Compression for avro supports deflate or snappy",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "csv-delimiter",
                 SyntaxShape::String,
                 "file delimiter character",
                 None,
             )
-            .switch(
+            .optional_named_flag(
                 "csv-no-header",
                 "Indicates to exclude a header row for CSV files.",
                 None,

@@ -27,7 +27,7 @@ impl PluginCommand for LazyAggregate {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest(
+            .rest_positional_arg(
                 "Group-by expressions",
                 SyntaxShape::Any,
                 "Expression(s) that define the aggregations to be applied",

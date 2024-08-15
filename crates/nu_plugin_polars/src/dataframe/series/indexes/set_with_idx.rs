@@ -28,8 +28,8 @@ impl PluginCommand for SetWithIndex {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("value", SyntaxShape::Any, "value to be inserted in series")
-            .required_named(
+            .required_positional_arg("value", SyntaxShape::Any, "value to be inserted in series")
+            .required_named_flag(
                 "indices",
                 SyntaxShape::Any,
                 "list of indices indicating where to set the value",

@@ -13,12 +13,12 @@ impl Command for Default {
             // TODO: Give more specific type signature?
             // TODO: Declare usage of cell paths in signature? (It seems to behave as if it uses cell paths)
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required(
+            .required_positional_arg(
                 "default value",
                 SyntaxShape::Any,
                 "The value to use as a default.",
             )
-            .optional(
+            .optional_position_arg(
                 "column name",
                 SyntaxShape::String,
                 "The name of the column.",

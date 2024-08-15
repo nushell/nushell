@@ -28,7 +28,7 @@ impl PluginCommand for LazyQuantile {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "quantile",
                 SyntaxShape::Number,
                 "quantile value for quantile operation",

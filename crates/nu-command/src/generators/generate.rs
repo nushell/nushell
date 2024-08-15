@@ -12,12 +12,12 @@ impl Command for Generate {
     fn signature(&self) -> Signature {
         Signature::build("generate")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Any)))])
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "Generator function.",
             )
-            .optional("initial", SyntaxShape::Any, "Initial value.")
+            .optional_position_arg("initial", SyntaxShape::Any, "Initial value.")
             .allow_variants_without_examples(true)
             .category(Category::Generators)
     }

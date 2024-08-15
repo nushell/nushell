@@ -18,22 +18,22 @@ impl Command for Uniq {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::Any)),
             )])
-            .switch(
+            .optional_named_flag(
                 "count",
                 "Return a table containing the distinct input values together with their counts",
                 Some('c'),
             )
-            .switch(
+            .optional_named_flag(
                 "repeated",
                 "Return the input values that occur more than once",
                 Some('d'),
             )
-            .switch(
+            .optional_named_flag(
                 "ignore-case",
                 "Compare input values case-insensitively",
                 Some('i'),
             )
-            .switch(
+            .optional_named_flag(
                 "unique",
                 "Return the input values that occur once only",
                 Some('u'),

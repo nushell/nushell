@@ -27,19 +27,19 @@ impl Command for Explore {
 
         Signature::build("explore")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .named(
+            .named_flag_arg(
                 "head",
                 SyntaxShape::Boolean,
                 "Show or hide column headers (default true)",
                 None,
             )
-            .switch("index", "Show row indexes when viewing a list", Some('i'))
-            .switch(
+            .optional_named_flag("index", "Show row indexes when viewing a list", Some('i'))
+            .optional_named_flag(
                 "tail",
                 "Start with the viewport scrolled to the bottom",
                 Some('t'),
             )
-            .switch(
+            .optional_named_flag(
                 "peek",
                 "When quitting, output the value of the cell the cursor was on",
                 Some('p'),

@@ -23,12 +23,12 @@ impl Command for BitsAnd {
                     Type::List(Box::new(Type::Binary)),
                 ),
             ])
-            .required(
+            .required_positional_arg(
                 "target",
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::Int]),
                 "right-hand side of the operation",
             )
-            .named(
+            .named_flag_arg(
                 "endian",
                 SyntaxShape::String,
                 "byte encode endian, available options: native(default), little, big",

@@ -17,7 +17,7 @@ impl SimplePluginCommand for Generate2 {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional(
+            .optional_position_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "An optional closure to pass the custom value to",

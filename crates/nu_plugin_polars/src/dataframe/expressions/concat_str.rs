@@ -25,12 +25,12 @@ impl PluginCommand for ExprConcatStr {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "separator",
                 SyntaxShape::String,
                 "Separator used during the concatenation",
             )
-            .required(
+            .required_positional_arg(
                 "concat expressions",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "Expression(s) that define the string concatenation",

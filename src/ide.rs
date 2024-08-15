@@ -214,7 +214,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
             description.push_str("### Usage\n```\n");
             let signature = decl.signature();
             description.push_str(&format!("  {}", signature.name));
-            if !signature.named.is_empty() {
+            if !signature.named_flag.is_empty() {
                 description.push_str(" {flags}")
             }
             for required_arg in &signature.required_positional {
@@ -230,11 +230,11 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
             description.push_str("\n```\n");
 
             // Flags
-            if !signature.named.is_empty() {
+            if !signature.named_flag.is_empty() {
                 description.push_str("\n### Flags\n\n");
 
                 let mut first = true;
-                for named in &signature.named {
+                for named in &signature.named_flag {
                     if !first {
                         description.push_str("\\\n");
                     } else {

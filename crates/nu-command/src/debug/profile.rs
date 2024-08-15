@@ -14,26 +14,26 @@ impl Command for DebugProfile {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("debug profile")
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(None),
                 "The closure to profile.",
             )
-            .switch("spans", "Collect spans of profiled elements", Some('s'))
-            .switch(
+            .optional_named_flag("spans", "Collect spans of profiled elements", Some('s'))
+            .optional_named_flag(
                 "expand-source",
                 "Collect full source fragments of profiled elements",
                 Some('e'),
             )
-            .switch(
+            .optional_named_flag(
                 "values",
                 "Collect pipeline element output values",
                 Some('v'),
             )
-            .switch("expr", "Collect expression types", Some('x'))
-            .switch("instructions", "Collect IR instructions", Some('i'))
-            .switch("lines", "Collect line numbers", Some('l'))
-            .named(
+            .optional_named_flag("expr", "Collect expression types", Some('x'))
+            .optional_named_flag("instructions", "Collect IR instructions", Some('i'))
+            .optional_named_flag("lines", "Collect line numbers", Some('l'))
+            .named_flag_arg(
                 "max-depth",
                 SyntaxShape::Int,
                 "How many blocks/closures deep to step into (default 2)",

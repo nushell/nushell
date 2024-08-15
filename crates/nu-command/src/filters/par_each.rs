@@ -25,18 +25,18 @@ impl Command for ParEach {
                 (Type::table(), Type::List(Box::new(Type::Any))),
                 (Type::Any, Type::Any),
             ])
-            .named(
+            .named_flag_arg(
                 "threads",
                 SyntaxShape::Int,
                 "the number of threads to use",
                 Some('t'),
             )
-            .switch(
+            .optional_named_flag(
                 "keep-order",
                 "keep sequence of output same as the order of input",
                 Some('k'),
             )
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "The closure to run.",

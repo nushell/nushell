@@ -424,7 +424,7 @@ pub(crate) fn compile_try(
         .map(|catch_expr| match catch_expr.as_block() {
             Some(block_id) => {
                 let block = working_set.get_block(block_id);
-                let var_id = block.signature.get_positional(0).and_then(|v| v.var_id);
+                let var_id = block.signature.get_positional_arg(0).and_then(|v| v.var_id);
                 Ok(CatchType::Block { block, var_id })
             }
             None => {

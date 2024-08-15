@@ -14,12 +14,12 @@ impl Command for Every {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::Any)),
             )])
-            .required(
+            .required_positional_arg(
                 "stride",
                 SyntaxShape::Int,
                 "How many rows to skip between (and including) each row returned.",
             )
-            .switch(
+            .optional_named_flag(
                 "skip",
                 "skip the rows that would be returned, instead of selecting them",
                 Some('s'),

@@ -549,7 +549,7 @@ pub fn parse_def(
         if let Some(arg_name) = &signature.rest_positional {
             verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
         }
-        for flag_name in &signature.get_names() {
+        for flag_name in &signature.get_long_named_flags() {
             verify_not_reserved_variable_name(working_set, flag_name, sig.span);
         }
 
@@ -778,7 +778,7 @@ pub fn parse_extern(
                     if signature.rest_positional.is_none() {
                         // Make sure that a known external takes rest args with ExternalArgument
                         // shape
-                        *signature = signature.rest(
+                        *signature = signature.rest_positional_arg(
                             "args",
                             SyntaxShape::ExternalArgument,
                             "all other arguments to the command",

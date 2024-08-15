@@ -29,14 +29,14 @@ impl Command for BytesRemove {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
-            .required("pattern", SyntaxShape::Binary, "The pattern to find.")
-            .rest(
+            .required_positional_arg("pattern", SyntaxShape::Binary, "The pattern to find.")
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, remove bytes from data at the given cell paths.",
             )
-            .switch("end", "remove from end of binary", Some('e'))
-            .switch("all", "remove occurrences of finding binary", Some('a'))
+            .optional_named_flag("end", "remove from end of binary", Some('e'))
+            .optional_named_flag("all", "remove occurrences of finding binary", Some('a'))
             .category(Category::Bytes)
     }
 

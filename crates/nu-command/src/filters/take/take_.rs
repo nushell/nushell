@@ -21,7 +21,7 @@ impl Command for Take {
                 (Type::Binary, Type::Binary),
                 (Type::Range, Type::List(Box::new(Type::Number))),
             ])
-            .required(
+            .required_positional_arg(
                 "n",
                 SyntaxShape::Int,
                 "Starting from the front, the number of elements to return.",

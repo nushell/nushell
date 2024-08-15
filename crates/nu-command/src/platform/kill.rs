@@ -17,21 +17,21 @@ impl Command for Kill {
         let signature = Signature::build("kill")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "pid",
                 SyntaxShape::Int,
                 "Process id of process that is to be killed.",
             )
-            .rest("rest", SyntaxShape::Int, "Rest of processes to kill.")
-            .switch("force", "forcefully kill the process", Some('f'))
-            .switch("quiet", "won't print anything to the console", Some('q'))
+            .rest_positional_arg("rest", SyntaxShape::Int, "Rest of processes to kill.")
+            .optional_named_flag("force", "forcefully kill the process", Some('f'))
+            .optional_named_flag("quiet", "won't print anything to the console", Some('q'))
             .category(Category::Platform);
 
         if cfg!(windows) {
             return signature;
         }
 
-        signature.named(
+        signature.named_flag_arg(
             "signal",
             SyntaxShape::Int,
             "signal decimal number to be sent instead of the default 15 (unsupported on Windows)",

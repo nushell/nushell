@@ -30,18 +30,18 @@ If multiple cell paths are given, this will produce a list of values."#
                 (Type::table(), Type::Any),
                 (Type::record(), Type::Any),
             ])
-            .required(
+            .required_positional_arg(
                 "cell_path",
                 SyntaxShape::CellPath,
                 "The cell path to the data.",
             )
-            .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
-            .switch(
+            .rest_positional_arg("rest", SyntaxShape::CellPath, "Additional cell paths.")
+            .optional_named_flag(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional)",
                 Some('i'),
             )
-            .switch(
+            .optional_named_flag(
                 "sensitive",
                 "get path in a case sensitive manner",
                 Some('s'),

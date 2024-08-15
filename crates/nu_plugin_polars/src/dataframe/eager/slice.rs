@@ -24,8 +24,8 @@ impl PluginCommand for SliceDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("offset", SyntaxShape::Int, "start of slice")
-            .required("size", SyntaxShape::Int, "size of slice")
+            .required_positional_arg("offset", SyntaxShape::Int, "start of slice")
+            .required_positional_arg("size", SyntaxShape::Int, "size of slice")
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

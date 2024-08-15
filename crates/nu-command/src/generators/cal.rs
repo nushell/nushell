@@ -25,23 +25,23 @@ impl Command for Cal {
 
     fn signature(&self) -> Signature {
         Signature::build("cal")
-            .switch("year", "Display the year column", Some('y'))
-            .switch("quarter", "Display the quarter column", Some('q'))
-            .switch("month", "Display the month column", Some('m'))
-            .switch("as-table", "output as a table", Some('t'))
-            .named(
+            .optional_named_flag("year", "Display the year column", Some('y'))
+            .optional_named_flag("quarter", "Display the quarter column", Some('q'))
+            .optional_named_flag("month", "Display the month column", Some('m'))
+            .optional_named_flag("as-table", "output as a table", Some('t'))
+            .named_flag_arg(
                 "full-year",
                 SyntaxShape::Int,
                 "Display a year-long calendar for the specified year",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "week-start",
                 SyntaxShape::String,
                 "Display the calendar with the specified day as the first day of the week",
                 None,
             )
-            .switch(
+            .optional_named_flag(
                 "month-names",
                 "Display the month names instead of integers",
                 None,

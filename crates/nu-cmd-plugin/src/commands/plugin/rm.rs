@@ -14,18 +14,18 @@ impl Command for PluginRm {
         Signature::build(self.name())
             .input_output_type(Type::Nothing, Type::Nothing)
             // This matches the option to `nu`
-            .named(
+            .named_flag_arg(
                 "plugin-config",
                 SyntaxShape::Filepath,
                 "Use a plugin registry file other than the one set in `$nu.plugin-path`",
                 None,
             )
-            .switch(
+            .optional_named_flag(
                 "force",
                 "Don't cause an error if the plugin name wasn't found in the file",
                 Some('f'),
             )
-            .required(
+            .required_positional_arg(
                 "name",
                 SyntaxShape::String,
                 "The name, or filename, of the plugin to remove",

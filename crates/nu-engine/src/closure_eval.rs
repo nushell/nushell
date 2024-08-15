@@ -100,7 +100,7 @@ impl ClosureEval {
         if let Some(var_id) = self
             .block
             .signature
-            .get_positional(self.arg_index)
+            .get_positional_arg(self.arg_index)
             .and_then(|var| var.var_id)
         {
             self.stack.add_var(var_id, value.into_owned());
@@ -201,7 +201,7 @@ impl<'a> ClosureEvalOnce<'a> {
         if let Some(var_id) = self
             .block
             .signature
-            .get_positional(self.arg_index)
+            .get_positional_arg(self.arg_index)
             .and_then(|var| var.var_id)
         {
             self.stack.add_var(var_id, value.into_owned());

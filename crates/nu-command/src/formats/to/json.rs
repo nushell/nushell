@@ -12,14 +12,14 @@ impl Command for ToJson {
     fn signature(&self) -> Signature {
         Signature::build("to json")
             .input_output_types(vec![(Type::Any, Type::String)])
-            .switch("raw", "remove all of the whitespace", Some('r'))
-            .named(
+            .optional_named_flag("raw", "remove all of the whitespace", Some('r'))
+            .named_flag_arg(
                 "indent",
                 SyntaxShape::Number,
                 "specify indentation width",
                 Some('i'),
             )
-            .named(
+            .named_flag_arg(
                 "tabs",
                 SyntaxShape::Number,
                 "specify indentation tab quantity",

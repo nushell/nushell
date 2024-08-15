@@ -37,12 +37,12 @@ impl Command for BitsNot {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .switch(
+            .optional_named_flag(
                 "signed",
                 "always treat input number as a signed number",
                 Some('s'),
             )
-            .named(
+            .named_flag_arg(
                 "number-bytes",
                 SyntaxShape::Int,
                 "the size of unsigned number in bytes, it can be 1, 2, 4, 8, auto",

@@ -26,26 +26,26 @@ impl PluginCommand for SampleDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named(
+            .named_flag_arg(
                 "n-rows",
                 SyntaxShape::Int,
                 "number of rows to be taken from dataframe",
                 Some('n'),
             )
-            .named(
+            .named_flag_arg(
                 "fraction",
                 SyntaxShape::Number,
                 "fraction of dataframe to be taken",
                 Some('f'),
             )
-            .named(
+            .named_flag_arg(
                 "seed",
                 SyntaxShape::Number,
                 "seed for the selection",
                 Some('s'),
             )
-            .switch("replace", "sample with replace", Some('e'))
-            .switch("shuffle", "shuffle sample", Some('u'))
+            .optional_named_flag("replace", "sample with replace", Some('e'))
+            .optional_named_flag("shuffle", "shuffle sample", Some('u'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

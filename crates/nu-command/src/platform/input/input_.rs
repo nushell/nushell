@@ -30,20 +30,20 @@ impl Command for Input {
         Signature::build("input")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .optional("prompt", SyntaxShape::String, "Prompt to show the user.")
-            .named(
+            .optional_position_arg("prompt", SyntaxShape::String, "Prompt to show the user.")
+            .named_flag_arg(
                 "bytes-until-any",
                 SyntaxShape::String,
                 "read bytes (not text) until any of the given stop bytes is seen",
                 Some('u'),
             )
-            .named(
+            .named_flag_arg(
                 "numchar",
                 SyntaxShape::Int,
                 "number of characters to read; suppresses output",
                 Some('n'),
             )
-            .switch("suppress-output", "don't print keystroke values", Some('s'))
+            .optional_named_flag("suppress-output", "don't print keystroke values", Some('s'))
             .category(Category::Platform)
     }
 

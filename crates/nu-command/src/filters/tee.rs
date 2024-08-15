@@ -29,12 +29,12 @@ use it in your pipeline."#
     fn signature(&self) -> Signature {
         Signature::build("tee")
             .input_output_type(Type::Any, Type::Any)
-            .switch(
+            .optional_named_flag(
                 "stderr",
                 "For external commands: copy the standard error stream instead.",
                 Some('e'),
             )
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(None),
                 "The other command to send the stream to.",

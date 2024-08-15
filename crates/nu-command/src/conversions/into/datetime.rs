@@ -66,35 +66,35 @@ impl Command for SubCommand {
             (Type::record(), Type::record()),
         ])
         .allow_variants_without_examples(true)
-        .named(
+        .named_flag_arg(
                 "timezone",
                 SyntaxShape::String,
                 "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or 'LOCAL' ('l')",
                 Some('z'),
             )
-            .named(
+            .named_flag_arg(
                 "offset",
                 SyntaxShape::Int,
                 "Specify timezone by offset from UTC if the input is a Unix timestamp, like '+8', '-4'",
                 Some('o'),
             )
-            .named(
+            .named_flag_arg(
                 "format",
                 SyntaxShape::String,
                 "Specify expected format of INPUT string to parse to datetime. Use --list to see options",
                 Some('f'),
             )
-            .switch(
+            .optional_named_flag(
                 "list",
                 "Show all possible variables for use in --format flag",
                 Some('l'),
                 )
-            .switch(
+            .optional_named_flag(
                 "list-human",
                 "Show human-readable datetime parsing examples",
                 Some('n'),
                 )
-            .rest(
+            .rest_positional_arg(
             "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert data at the given cell paths.",

@@ -18,7 +18,7 @@ impl Command for SubCommand {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .named(
+            .named_flag_arg(
                 "precision",
                 SyntaxShape::Number,
                 "digits of precision",

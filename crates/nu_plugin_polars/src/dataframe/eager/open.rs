@@ -51,48 +51,48 @@ impl PluginCommand for OpenDataFrame {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "file",
                 SyntaxShape::Filepath,
                 "file path to load values from",
             )
-            .switch("eager", "Open dataframe as an eager dataframe", None)
-            .named(
+            .optional_named_flag("eager", "Open dataframe as an eager dataframe", None)
+            .named_flag_arg(
                 "type",
                 SyntaxShape::String,
                 "File type: csv, tsv, json, parquet, arrow, avro. If omitted, derive from file extension",
                 Some('t'),
             )
-            .named(
+            .named_flag_arg(
                 "delimiter",
                 SyntaxShape::String,
                 "file delimiter character. CSV file",
                 Some('d'),
             )
-            .switch(
+            .optional_named_flag(
                 "no-header",
                 "Indicates if file doesn't have header. CSV file",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "infer-schema",
                 SyntaxShape::Number,
                 "Number of rows to infer the schema of the file. CSV file",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "skip-rows",
                 SyntaxShape::Number,
                 "Number of rows to skip from file. CSV file",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Columns to be selected from csv file. CSV and Parquet file",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "schema",
                 SyntaxShape::Record(vec![]),
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,

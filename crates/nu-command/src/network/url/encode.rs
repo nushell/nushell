@@ -20,11 +20,11 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .switch(
+            .optional_named_flag(
             "all",
             "encode all non-alphanumeric chars including `/`, `.`, `:`",
             Some('a'))
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, check strings at the given cell paths, and replace with result.",

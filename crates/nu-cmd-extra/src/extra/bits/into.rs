@@ -37,7 +37,7 @@ impl Command for BitsInto {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "for a data structure input, convert data at the given cell paths",

@@ -14,13 +14,13 @@ impl Command for SubCommand {
         Signature::build("random dice")
             .input_output_types(vec![(Type::Nothing, Type::ListStream)])
             .allow_variants_without_examples(true)
-            .named(
+            .named_flag_arg(
                 "dice",
                 SyntaxShape::Int,
                 "The amount of dice being rolled",
                 Some('d'),
             )
-            .named(
+            .named_flag_arg(
                 "sides",
                 SyntaxShape::Int,
                 "The amount of sides a die has",

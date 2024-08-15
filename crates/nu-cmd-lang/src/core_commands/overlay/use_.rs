@@ -22,22 +22,22 @@ impl Command for OverlayUse {
         Signature::build("overlay use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "name",
                 SyntaxShape::String,
                 "Module name to use overlay for.",
             )
-            .optional(
+            .optional_position_arg(
                 "as",
                 SyntaxShape::Keyword(b"as".to_vec(), Box::new(SyntaxShape::String)),
                 "`as` keyword followed by a new name.",
             )
-            .switch(
+            .optional_named_flag(
                 "prefix",
                 "Prepend module name to the imported commands and aliases",
                 Some('p'),
             )
-            .switch(
+            .optional_named_flag(
                 "reload",
                 "If the overlay already exists, reload its definitions and environment.",
                 Some('r'),

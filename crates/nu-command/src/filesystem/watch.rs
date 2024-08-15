@@ -39,30 +39,30 @@ impl Command for Watch {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
         .input_output_types(vec![(Type::Nothing, Type::table())])
-            .required("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
-            .required("closure",
+            .required_positional_arg("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
+            .required_positional_arg("closure",
             SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
                 "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order.")
-            .named(
+            .named_flag_arg(
                 "debounce-ms",
                 SyntaxShape::Int,
                 "Debounce changes for this many milliseconds (default: 100). Adjust if you find that single writes are reported as multiple events",
                 Some('d'),
             )
-            .named(
+            .named_flag_arg(
                 "glob",
                 SyntaxShape::String, // SyntaxShape::GlobPattern gets interpreted relative to cwd, so use String instead
                 "Only report changes for files that match this glob pattern (default: all files)",
                 Some('g'),
             )
-            .named(
+            .named_flag_arg(
                 "recursive",
                 SyntaxShape::Boolean,
                 "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true)",
                 Some('r'),
             )
-            .switch("quiet", "Hide the initial status message (default: false)", Some('q'))
-            .switch("verbose", "Operate in verbose mode (default: false)", Some('v'))
+            .optional_named_flag("quiet", "Hide the initial status message (default: false)", Some('q'))
+            .optional_named_flag("verbose", "Operate in verbose mode (default: false)", Some('v'))
             .category(Category::FileSystem)
     }
 

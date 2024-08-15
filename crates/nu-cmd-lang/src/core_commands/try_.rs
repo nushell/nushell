@@ -16,8 +16,8 @@ impl Command for Try {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("try")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("try_block", SyntaxShape::Block, "Block to run.")
-            .optional(
+            .required_positional_arg("try_block", SyntaxShape::Block, "Block to run.")
+            .optional_position_arg(
                 "catch_closure",
                 SyntaxShape::Keyword(
                     b"catch".to_vec(),
@@ -119,7 +119,7 @@ fn handle_catch(
     if let Some(catch_block) = catch_block {
         let catch_block = engine_state.get_block(catch_block.block_id);
         // Put the error value in the positional closure var
-        if let Some(var) = catch_block.signature.get_positional(0) {
+        if let Some(var) = catch_block.signature.get_positional_arg(0) {
             if let Some(var_id) = &var.var_id {
                 stack.add_var(*var_id, err_value.clone());
             }

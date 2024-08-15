@@ -17,7 +17,7 @@ impl Command for FromMsgpackz {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_type(Type::Binary, Type::Any)
-            .switch("objects", "Read multiple objects from input", None)
+            .optional_named_flag("objects", "Read multiple objects from input", None)
             .category(Category::Formats)
     }
 

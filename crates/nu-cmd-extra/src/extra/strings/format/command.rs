@@ -15,7 +15,7 @@ impl Command for FormatPattern {
                 (Type::table(), Type::List(Box::new(Type::String))),
                 (Type::record(), Type::Any),
             ])
-            .required(
+            .required_positional_arg(
                 "pattern",
                 SyntaxShape::String,
                 "the pattern to output. e.g.) \"{foo}: {bar}\"",

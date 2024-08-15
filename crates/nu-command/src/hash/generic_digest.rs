@@ -53,12 +53,12 @@ where
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .switch(
+            .optional_named_flag(
                 "binary",
                 "Output binary instead of hexadecimal representation",
                 Some('b'),
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 format!("Optionally {} hash data by cell path.", D::name()),

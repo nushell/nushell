@@ -17,7 +17,7 @@ impl SimplePluginCommand for UpdateArg {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "custom_value",
                 SyntaxShape::Any,
                 "the custom value to update",

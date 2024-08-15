@@ -28,7 +28,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                 ),
                 (Type::Range, Type::List(Box::new(Type::Any))),
             ])
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "Predicate closure.",

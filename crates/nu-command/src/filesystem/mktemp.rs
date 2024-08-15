@@ -28,15 +28,15 @@ impl Command for Mktemp {
     fn signature(&self) -> Signature {
         Signature::build("mktemp")
             .input_output_types(vec![(Type::Nothing, Type::String)])
-            .optional(
+            .optional_position_arg(
                 "template",
                 SyntaxShape::String,
                 "Optional pattern from which the name of the file or directory is derived. Must contain at least three 'X's in last component.",
             )
-            .named("suffix", SyntaxShape::String, "Append suffix to template; must not contain a slash.", None)
-            .named("tmpdir-path", SyntaxShape::Filepath, "Interpret TEMPLATE relative to tmpdir-path. If tmpdir-path is not set use $TMPDIR", Some('p'))
-            .switch("tmpdir", "Interpret TEMPLATE relative to the system temporary directory.", Some('t'))
-            .switch("directory", "Create a directory instead of a file.", Some('d'))
+            .named_flag_arg("suffix", SyntaxShape::String, "Append suffix to template; must not contain a slash.", None)
+            .named_flag_arg("tmpdir-path", SyntaxShape::Filepath, "Interpret TEMPLATE relative to tmpdir-path. If tmpdir-path is not set use $TMPDIR", Some('p'))
+            .optional_named_flag("tmpdir", "Interpret TEMPLATE relative to the system temporary directory.", Some('t'))
+            .optional_named_flag("directory", "Create a directory instead of a file.", Some('d'))
             .category(Category::FileSystem)
     }
 

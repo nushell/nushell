@@ -51,30 +51,30 @@ impl Command for Ls {
             .input_output_types(vec![(Type::Nothing, Type::table())])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
-            .rest("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")
-            .switch("all", "Show hidden files", Some('a'))
-            .switch(
+            .rest_positional_arg("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")
+            .optional_named_flag("all", "Show hidden files", Some('a'))
+            .optional_named_flag(
                 "long",
                 "Get all available columns for each entry (slower; columns are platform-dependent)",
                 Some('l'),
             )
-            .switch(
+            .optional_named_flag(
                 "short-names",
                 "Only print the file names, and not the path",
                 Some('s'),
             )
-            .switch("full-paths", "display paths as absolute paths", Some('f'))
-            .switch(
+            .optional_named_flag("full-paths", "display paths as absolute paths", Some('f'))
+            .optional_named_flag(
                 "du",
                 "Display the apparent directory size (\"disk usage\") in place of the directory metadata size",
                 Some('d'),
             )
-            .switch(
+            .optional_named_flag(
                 "directory",
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
-            .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
+            .optional_named_flag("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
             .category(Category::FileSystem)
     }
 

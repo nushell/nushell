@@ -24,7 +24,7 @@ impl Command for Zip {
                     Type::List(Box::new(Type::List(Box::new(Type::Any)))),
                 ),
             ])
-            .required(
+            .required_positional_arg(
                 "other",
                 SyntaxShape::OneOf(vec![SyntaxShape::Any, SyntaxShape::Closure(Some(vec![]))]),
                 "The other input, or closure returning a stream.",

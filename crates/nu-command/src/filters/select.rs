@@ -18,12 +18,12 @@ impl Command for Select {
                 (Type::table(), Type::table()),
                 (Type::List(Box::new(Type::Any)), Type::Any),
             ])
-            .switch(
+            .optional_named_flag(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional)",
                 Some('i'),
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "The columns to select from the table.",

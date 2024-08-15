@@ -13,12 +13,12 @@ impl Command for Tutor {
         Signature::build("tutor")
             .input_output_types(vec![(Type::Nothing, Type::String)])
             .allow_variants_without_examples(true)
-            .optional(
+            .optional_position_arg(
                 "search",
                 SyntaxShape::String,
                 "Item to search for, or 'list' to list available tutorials.",
             )
-            .named(
+            .named_flag_arg(
                 "find",
                 SyntaxShape::String,
                 "Search tutorial for a phrase",

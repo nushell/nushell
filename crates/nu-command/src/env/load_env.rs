@@ -19,7 +19,7 @@ impl Command for LoadEnv {
                 (Type::Nothing, Type::Nothing),
             ])
             .allow_variants_without_examples(true)
-            .optional(
+            .optional_position_arg(
                 "update",
                 SyntaxShape::Record(vec![]),
                 "The record to use for updates.",

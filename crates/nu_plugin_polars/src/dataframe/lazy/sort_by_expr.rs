@@ -27,23 +27,23 @@ impl PluginCommand for LazySortBy {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest(
+            .rest_positional_arg(
                 "sort expression",
                 SyntaxShape::Any,
                 "sort expression for the dataframe",
             )
-            .named(
+            .named_flag_arg(
                 "reverse",
                 SyntaxShape::List(Box::new(SyntaxShape::Boolean)),
                 "Reverse sorting. Default is false",
                 Some('r'),
             )
-            .switch(
+            .optional_named_flag(
                 "nulls-last",
                 "nulls are shown last in the dataframe",
                 Some('n'),
             )
-            .switch("maintain-order", "Maintains order during sort", Some('m'))
+            .optional_named_flag("maintain-order", "Maintains order during sort", Some('m'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

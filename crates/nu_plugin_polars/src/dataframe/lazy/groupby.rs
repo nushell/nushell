@@ -26,7 +26,7 @@ impl PluginCommand for ToLazyGroupBy {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest(
+            .rest_positional_arg(
                 "Group-by expressions",
                 SyntaxShape::Any,
                 "Expression(s) that define the lazy group-by",

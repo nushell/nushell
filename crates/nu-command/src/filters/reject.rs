@@ -16,12 +16,12 @@ impl Command for Reject {
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
             ])
-            .switch(
+            .optional_named_flag(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional)",
                 Some('i'),
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "The names of columns to remove from the table.",

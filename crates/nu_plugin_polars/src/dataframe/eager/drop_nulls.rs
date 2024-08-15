@@ -26,7 +26,7 @@ impl PluginCommand for DropNulls {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional(
+            .optional_position_arg(
                 "subset",
                 SyntaxShape::Table(vec![]),
                 "subset of columns to drop nulls",

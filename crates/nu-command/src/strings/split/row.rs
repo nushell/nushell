@@ -20,18 +20,18 @@ impl Command for SubCommand {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "separator",
                 SyntaxShape::String,
                 "A character or regex that denotes what separates rows.",
             )
-            .named(
+            .named_flag_arg(
                 "number",
                 SyntaxShape::Int,
                 "Split into maximum number of items",
                 Some('n'),
             )
-            .switch("regex", "use regex syntax for separator", Some('r'))
+            .optional_named_flag("regex", "use regex syntax for separator", Some('r'))
             .category(Category::Strings)
     }
 

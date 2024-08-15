@@ -25,7 +25,7 @@ impl SimplePluginCommand for FromEml {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::record())])
-            .named(
+            .named_flag_arg(
                 "preview-body",
                 SyntaxShape::Int,
                 "How many bytes of the body to preview",

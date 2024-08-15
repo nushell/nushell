@@ -26,7 +26,7 @@ impl PluginCommand for LazyFilter {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "filter expression",
                 SyntaxShape::Any,
                 "Expression that define the column selection",

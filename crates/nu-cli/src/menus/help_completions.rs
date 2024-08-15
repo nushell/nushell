@@ -62,7 +62,7 @@ impl NuHelpCompleter {
                 let sig = decl.signature();
                 let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
 
-                if !sig.named.is_empty() {
+                if !sig.named_flag.is_empty() {
                     long_desc.push_str(&get_flags_section(&sig, &help_style, |v| {
                         v.to_parsable_string(", ", &self.config)
                     }))

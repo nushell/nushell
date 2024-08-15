@@ -10,17 +10,17 @@ impl Command for ViewIr {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "target",
                 SyntaxShape::Any,
                 "The name or block to view compiled code for.",
             )
-            .switch(
+            .optional_named_flag(
                 "json",
                 "Dump the raw block data as JSON (unstable).",
                 Some('j'),
             )
-            .switch(
+            .optional_named_flag(
                 "decl-id",
                 "Integer is a declaration ID rather than a block ID.",
                 Some('d'),

@@ -32,18 +32,18 @@ impl Command for BytesIndexOf {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "pattern",
                 SyntaxShape::Binary,
                 "The pattern to find index of.",
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, find the indexes at the given cell paths.",
             )
-            .switch("all", "returns all matched index", Some('a'))
-            .switch("end", "search from the end of the binary", Some('e'))
+            .optional_named_flag("all", "returns all matched index", Some('a'))
+            .optional_named_flag("end", "search from the end of the binary", Some('e'))
             .category(Category::Bytes)
     }
 

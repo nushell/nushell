@@ -205,7 +205,7 @@ pub(crate) fn check_call(
             ))
         }
     } else {
-        for req_flag in sig.named.iter().filter(|x| x.required) {
+        for req_flag in sig.named_flag.iter().filter(|x| x.required) {
             if call.named_iter().all(|(n, _, _)| n.item != req_flag.long) {
                 working_set.error(ParseError::MissingRequiredFlag(
                     req_flag.long.clone(),
@@ -678,7 +678,7 @@ fn parse_short_flags(
             if found_short_flags.is_empty()
                 // check to see if we have a negative number
                 && matches!(
-                    sig.get_positional(positional_idx),
+                    sig.get_positional_arg(positional_idx),
                     Some(PositionalArg {
                         shape: SyntaxShape::Int | SyntaxShape::Number | SyntaxShape::Float,
                         ..
@@ -716,11 +716,11 @@ fn first_kw_idx(
     spans_idx: usize,
     positional_idx: usize,
 ) -> (Option<usize>, usize) {
-    for idx in (positional_idx + 1)..signature.num_positionals() {
+    for idx in (positional_idx + 1)..signature.get_positional_arg_count() {
         if let Some(PositionalArg {
             shape: SyntaxShape::Keyword(kw, ..),
             ..
-        }) = signature.get_positional(idx)
+        }) = signature.get_positional_arg(idx)
         {
             for (span_idx, &span) in spans.iter().enumerate().skip(spans_idx) {
                 let contents = working_set.get_span_contents(span);
@@ -760,7 +760,7 @@ fn calculate_end_span(
             }
         } else {
             // Make space for the remaining require positionals, if we can
-            if signature.num_positionals_after(positional_idx) == 0 {
+            if signature.get_positional_args_after(positional_idx) == 0 {
                 spans.len()
             } else if positional_idx < signature.required_positional.len()
                 && spans.len() > (signature.required_positional.len() - positional_idx)
@@ -1180,7 +1180,7 @@ pub fn parse_internal_call(
         }
 
         // Parse a positional arg if there is one
-        if let Some(positional) = signature.get_positional(positional_idx) {
+        if let Some(positional) = signature.get_positional_arg(positional_idx) {
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
 
             let end = if spans.len() > spans_idx && end == spans_idx {
@@ -3965,7 +3965,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                     sig.optional_positional.push(positional)
                 }
             }
-            Arg::Flag { flag, .. } => sig.named.push(flag),
+            Arg::Flag { flag, .. } => sig.named_flag.push(flag),
             Arg::RestPositional(positional) => {
                 if positional.name.is_empty() {
                     working_set.error(ParseError::RestNeedsName(span))
@@ -4612,7 +4612,7 @@ pub fn parse_closure_expression(
     // TODO: Finish this
     if let SyntaxShape::Closure(Some(v)) = shape {
         if let Some((sig, sig_span)) = &signature {
-            if sig.num_positionals() > v.len() {
+            if sig.get_positional_arg_count() > v.len() {
                 working_set.error(ParseError::ExpectedWithStringMsg(
                     format!(
                         "{} closure parameter{}",
@@ -5976,7 +5976,7 @@ pub fn discover_captures_in_closure(
     seen_blocks: &mut HashMap<BlockId, Vec<(VarId, Span)>>,
     output: &mut Vec<(VarId, Span)>,
 ) -> Result<(), ParseError> {
-    for flag in &block.signature.named {
+    for flag in &block.signature.named_flag {
         if let Some(var_id) = flag.var_id {
             seen.push(var_id);
         }
@@ -6294,7 +6294,7 @@ pub fn discover_captures_in_expr(
                     seen.push(var_id);
                 }
             }
-            for named in &sig.named {
+            for named in &sig.named_flag {
                 if let Some(var_id) = named.var_id {
                     seen.push(var_id);
                 }

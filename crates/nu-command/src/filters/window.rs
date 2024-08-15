@@ -16,14 +16,14 @@ impl Command for Window {
                 Type::list(Type::Any),
                 Type::list(Type::list(Type::Any)),
             )])
-            .required("window_size", SyntaxShape::Int, "The size of each window.")
-            .named(
+            .required_positional_arg("window_size", SyntaxShape::Int, "The size of each window.")
+            .named_flag_arg(
                 "stride",
                 SyntaxShape::Int,
                 "the number of rows to slide over between windows",
                 Some('s'),
             )
-            .switch(
+            .optional_named_flag(
                 "remainder",
                 "yield last chunks even if they have fewer elements than size",
                 Some('r'),

@@ -15,8 +15,8 @@ impl Command for FromXml {
     fn signature(&self) -> Signature {
         Signature::build("from xml")
             .input_output_types(vec![(Type::String, Type::record())])
-            .switch("keep-comments", "add comment nodes to result", None)
-            .switch(
+            .optional_named_flag("keep-comments", "add comment nodes to result", None)
+            .optional_named_flag(
                 "keep-pi",
                 "add processing instruction nodes to result",
                 None,

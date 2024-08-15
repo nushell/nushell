@@ -16,7 +16,7 @@ impl Command for FromOds {
         Signature::build("from ods")
             .input_output_types(vec![(Type::String, Type::table())])
             .allow_variants_without_examples(true)
-            .named(
+            .named_flag_arg(
                 "sheets",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Only convert specified sheets",

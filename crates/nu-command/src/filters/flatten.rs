@@ -19,12 +19,12 @@ impl Command for Flatten {
                 ),
                 (Type::record(), Type::table()),
             ])
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,
                 "Optionally flatten data by column.",
             )
-            .switch("all", "flatten inner table one level out", Some('a'))
+            .optional_named_flag("all", "flatten inner table one level out", Some('a'))
             .category(Category::Filters)
     }
 

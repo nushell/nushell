@@ -15,21 +15,21 @@ impl Command for DetectColumns {
 
     fn signature(&self) -> Signature {
         Signature::build("detect columns")
-            .named(
+            .named_flag_arg(
                 "skip",
                 SyntaxShape::Int,
                 "number of rows to skip before detecting",
                 Some('s'),
             )
             .input_output_types(vec![(Type::String, Type::table())])
-            .switch("no-headers", "don't detect headers", Some('n'))
-            .named(
+            .optional_named_flag("no-headers", "don't detect headers", Some('n'))
+            .named_flag_arg(
                 "combine-columns",
                 SyntaxShape::Range,
                 "columns to be combined; listed as a range",
                 Some('c'),
             )
-            .switch(
+            .optional_named_flag(
                 "guess",
                 "detect columns by guessing width, it may be useful if default one doesn't work",
                 None,

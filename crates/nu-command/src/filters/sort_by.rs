@@ -18,14 +18,14 @@ impl Command for SortBy {
                 (Type::record(), Type::table()),
                 (Type::table(), Type::table()),
             ])
-            .rest("columns", SyntaxShape::Any, "The column(s) to sort by.")
-            .switch("reverse", "Sort in reverse order", Some('r'))
-            .switch(
+            .rest_positional_arg("columns", SyntaxShape::Any, "The column(s) to sort by.")
+            .optional_named_flag("reverse", "Sort in reverse order", Some('r'))
+            .optional_named_flag(
                 "ignore-case",
                 "Sort string-based columns case-insensitively",
                 Some('i'),
             )
-            .switch(
+            .optional_named_flag(
                 "natural",
                 "Sort alphanumeric string-based columns naturally (1, 9, 10, 99, 100, ...)",
                 Some('n'),

@@ -1071,7 +1071,7 @@ fn find_named_var_id(
     short: &[u8],
     span: Span,
 ) -> Result<VarId, ShellError> {
-    sig.named
+    sig.named_flag
         .iter()
         .find(|n| {
             if !n.long.is_empty() {
@@ -1213,7 +1213,7 @@ fn gather_arguments(
         );
     }
 
-    for named_arg in &block.signature.named {
+    for named_arg in &block.signature.named_flag {
         if let Some(var_id) = named_arg.var_id {
             // For named arguments, we do this check by looking to see if the variable was set yet on
             // the stack. This assumes that the stack's variables was previously empty, but that's a

@@ -18,7 +18,7 @@ impl Command for Explain {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("explain")
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run.",

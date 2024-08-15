@@ -42,17 +42,17 @@ impl Command for Save {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
             .input_output_types(vec![(Type::Any, Type::Nothing)])
-            .required("filename", SyntaxShape::Filepath, "The filename to use.")
-            .named(
+            .required_positional_arg("filename", SyntaxShape::Filepath, "The filename to use.")
+            .named_flag_arg(
                 "stderr",
                 SyntaxShape::Filepath,
                 "the filename used to save stderr, only works with `-r` flag",
                 Some('e'),
             )
-            .switch("raw", "save file as raw binary", Some('r'))
-            .switch("append", "append input to the end of the file", Some('a'))
-            .switch("force", "overwrite the destination", Some('f'))
-            .switch("progress", "enable progress bar", Some('p'))
+            .optional_named_flag("raw", "save file as raw binary", Some('r'))
+            .optional_named_flag("append", "append input to the end of the file", Some('a'))
+            .optional_named_flag("force", "overwrite the destination", Some('f'))
+            .optional_named_flag("progress", "enable progress bar", Some('p'))
             .category(Category::FileSystem)
     }
 

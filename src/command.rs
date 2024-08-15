@@ -305,110 +305,110 @@ impl Command for Nu {
     fn signature(&self) -> Signature {
         let mut signature = Signature::build("nu")
             .usage("The nushell language and shell.")
-            .named(
+            .named_flag_arg(
                 "commands",
                 SyntaxShape::String,
                 "run the given commands and then exit",
                 Some('c'),
             )
-            .named(
+            .named_flag_arg(
                 "execute",
                 SyntaxShape::String,
                 "run the given commands and then enter an interactive shell",
                 Some('e'),
             )
-            .named(
+            .named_flag_arg(
                 "include-path",
                 SyntaxShape::String,
                 "set the NU_LIB_DIRS for the given script (delimited by char record_sep ('\x1e'))",
                 Some('I'),
             )
-            .switch("interactive", "start as an interactive shell", Some('i'))
-            .switch("login", "start as a login shell", Some('l'))
-            .named(
+            .optional_named_flag("interactive", "start as an interactive shell", Some('i'))
+            .optional_named_flag("login", "start as a login shell", Some('l'))
+            .named_flag_arg(
                 "table-mode",
                 SyntaxShape::String,
                 "the table mode to use. rounded is default.",
                 Some('m'),
             )
-            .named(
+            .named_flag_arg(
                 "error-style",
                 SyntaxShape::String,
                 "the error style to use (fancy or plain). default: fancy",
                 None,
             )
-            .switch("no-newline", "print the result for --commands(-c) without a newline", None)
-            .switch(
+            .optional_named_flag("no-newline", "print the result for --commands(-c) without a newline", None)
+            .optional_named_flag(
                 "no-config-file",
                 "start with no config file and no env file",
                 Some('n'),
             )
-            .switch(
+            .optional_named_flag(
                 "no-history",
                 "disable reading and writing to command history",
                 None,
             )
-            .switch("no-std-lib", "start with no standard library", None)
-            .named(
+            .optional_named_flag("no-std-lib", "start with no standard library", None)
+            .named_flag_arg(
                 "threads",
                 SyntaxShape::Int,
                 "threads to use for parallel commands",
                 Some('t'),
             )
-            .switch("version", "print the version", Some('v'))
-            .named(
+            .optional_named_flag("version", "print the version", Some('v'))
+            .named_flag_arg(
                 "config",
                 SyntaxShape::Filepath,
                 "start with an alternate config file",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "env-config",
                 SyntaxShape::Filepath,
                 "start with an alternate environment config file",
                 None,
             )
-            .switch(
+            .optional_named_flag(
                "lsp",
                "start nu's language server protocol",
                None,
             )
-           .named(
+           .named_flag_arg(
                 "ide-goto-def",
                 SyntaxShape::Int,
                 "go to the definition of the item at the given position",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "ide-hover",
                 SyntaxShape::Int,
                 "give information about the item at the given position",
                 None,
              )
-            .named(
+            .named_flag_arg(
                 "ide-complete",
                 SyntaxShape::Int,
                 "list completions for the item at the given position",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "ide-check",
                 SyntaxShape::Int,
                 "run a diagnostic check on the given source and limit number of errors returned to provided number",
                 None,
             )
-            .switch("ide-ast", "generate the ast on the given source", None);
+            .optional_named_flag("ide-ast", "generate the ast on the given source", None);
 
         #[cfg(feature = "plugin")]
         {
             signature = signature
-                .named(
+                .named_flag_arg(
                     "plugin-config",
                     SyntaxShape::Filepath,
                     "start with an alternate plugin registry file",
                     None,
                 )
-                .named(
+                .named_flag_arg(
                     "plugins",
                     SyntaxShape::List(Box::new(SyntaxShape::Filepath)),
                     "list of plugin executable files to load, separately from the registry file",
@@ -417,47 +417,47 @@ impl Command for Nu {
         }
 
         signature = signature
-            .named(
+            .named_flag_arg(
                 "log-level",
                 SyntaxShape::String,
                 "log level for diagnostic logs (error, warn, info, debug, trace). Off by default",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "log-target",
                 SyntaxShape::String,
                 "set the target for the log to output. stdout, stderr(default), mixed or file",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "log-include",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "set the Rust module prefixes to include in the log output. default: [nu]",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "log-exclude",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "set the Rust module prefixes to exclude from the log output",
                 None,
             )
-            .switch(
+            .optional_named_flag(
                 "stdin",
                 "redirect standard input to a command (with `-c`) or a script file",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "testbin",
                 SyntaxShape::String,
                 "run internal test binary",
                 None,
             )
-            .optional(
+            .optional_position_arg(
                 "script file",
                 SyntaxShape::Filepath,
                 "name of the optional script file to run",
             )
-            .rest(
+            .rest_positional_arg(
                 "script args",
                 SyntaxShape::String,
                 "parameters to the script file",

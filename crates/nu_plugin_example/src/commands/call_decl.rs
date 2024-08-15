@@ -16,17 +16,17 @@ impl PluginCommand for CallDecl {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "name",
                 SyntaxShape::String,
                 "the name of the command to call",
             )
-            .optional(
+            .optional_position_arg(
                 "named_args",
                 SyntaxShape::Record(vec![]),
                 "named arguments to pass to the command",
             )
-            .rest(
+            .rest_positional_arg(
                 "positional_args",
                 SyntaxShape::Any,
                 "positional arguments to pass to the command",

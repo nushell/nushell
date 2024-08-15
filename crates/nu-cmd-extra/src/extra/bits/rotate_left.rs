@@ -38,13 +38,13 @@ impl Command for BitsRol {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .required("bits", SyntaxShape::Int, "number of bits to rotate left")
-            .switch(
+            .required_positional_arg("bits", SyntaxShape::Int, "number of bits to rotate left")
+            .optional_named_flag(
                 "signed",
                 "always treat input number as a signed number",
                 Some('s'),
             )
-            .named(
+            .named_flag_arg(
                 "number-bytes",
                 SyntaxShape::Int,
                 "the word size in number of bytes, it can be 1, 2, 4, 8, auto, default value `8`",

@@ -18,7 +18,7 @@ impl Command for ViewSource {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("view source")
             .input_output_types(vec![(Type::Nothing, Type::String)])
-            .required("item", SyntaxShape::Any, "Name or block to view.")
+            .required_positional_arg("item", SyntaxShape::Any, "Name or block to view.")
             .category(Category::Debug)
     }
 
@@ -41,7 +41,7 @@ impl Command for ViewSource {
                     let vec_of_required = &sig.required_positional;
                     let vec_of_optional = &sig.optional_positional;
                     let rest = &sig.rest_positional;
-                    let vec_of_flags = &sig.named;
+                    let vec_of_flags = &sig.named_flag;
                     let type_signatures = &sig.input_output_types;
 
                     if decl.is_alias() {

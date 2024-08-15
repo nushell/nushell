@@ -51,19 +51,19 @@ impl Command for Fill {
                 (Type::List(Box::new(Type::Any)), Type::List(Box::new(Type::String))),
                 ])
             .allow_variants_without_examples(true)
-            .named(
+            .named_flag_arg(
                 "width",
                 SyntaxShape::Int,
                 "The width of the output. Defaults to 1",
                 Some('w'),
             )
-            .named(
+            .named_flag_arg(
                 "alignment",
                 SyntaxShape::String,
                 "The alignment of the output. Defaults to Left (Left(l), Right(r), Center(c/m), MiddleRight(cr/mr))",
                 Some('a'),
             )
-            .named(
+            .named_flag_arg(
                 "character",
                 SyntaxShape::String,
                 "The character to fill with. Defaults to ' ' (space)",

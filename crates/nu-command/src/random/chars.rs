@@ -19,7 +19,7 @@ impl Command for SubCommand {
         Signature::build("random chars")
             .input_output_types(vec![(Type::Nothing, Type::String)])
             .allow_variants_without_examples(true)
-            .named(
+            .named_flag_arg(
                 "length",
                 SyntaxShape::Int,
                 "Number of chars (default 25)",

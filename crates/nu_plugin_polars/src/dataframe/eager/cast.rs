@@ -38,12 +38,12 @@ impl PluginCommand for CastDF {
                     Type::Custom("dataframe".into()),
                 ),
             ])
-            .required(
+            .required_positional_arg(
                 "dtype",
                 SyntaxShape::String,
                 "The dtype to cast the column to",
             )
-            .optional(
+            .optional_position_arg(
                 "column",
                 SyntaxShape::String,
                 "The column to cast. Required when used with a dataframe.",

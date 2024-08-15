@@ -17,7 +17,7 @@ impl Command for SourceEnv {
     fn signature(&self) -> Signature {
         Signature::build("source-env")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required(
+            .required_positional_arg(
                 "filename",
                 SyntaxShape::String, // type is string to avoid automatically canonicalizing the path
                 "The filepath to the script file to source the environment from.",

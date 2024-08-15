@@ -32,13 +32,13 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
             ])
-            .required("string", SyntaxShape::String, "The substring to find.")
-            .rest(
+            .required_positional_arg("string", SyntaxShape::String, "The substring to find.")
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
-            .switch("ignore-case", "search is case insensitive", Some('i'))
+            .optional_named_flag("ignore-case", "search is case insensitive", Some('i'))
             .category(Category::Strings)
     }
 

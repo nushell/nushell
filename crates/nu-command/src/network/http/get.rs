@@ -19,56 +19,56 @@ impl Command for SubCommand {
         Signature::build("http get")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "URL",
                 SyntaxShape::String,
                 "The URL to fetch the contents from.",
             )
-            .named(
+            .named_flag_arg(
                 "user",
                 SyntaxShape::Any,
                 "the username when authenticating",
                 Some('u'),
             )
-            .named(
+            .named_flag_arg(
                 "password",
                 SyntaxShape::Any,
                 "the password when authenticating",
                 Some('p'),
             )
-            .named(
+            .named_flag_arg(
                 "max-time",
                 SyntaxShape::Int,
                 "timeout period in seconds",
                 Some('m'),
             )
-            .named(
+            .named_flag_arg(
                 "headers",
                 SyntaxShape::Any,
                 "custom headers you want to add ",
                 Some('H'),
             )
-            .switch(
+            .optional_named_flag(
                 "raw",
                 "fetch contents as text rather than a table",
                 Some('r'),
             )
-            .switch(
+            .optional_named_flag(
                 "insecure",
                 "allow insecure server connections when using SSL",
                 Some('k'),
             )
-            .switch(
+            .optional_named_flag(
                 "full",
                 "returns the full response instead of only the body",
                 Some('f'),
             )
-            .switch(
+            .optional_named_flag(
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),
             )
-            .named(
+            .named_flag_arg(
                 "redirect-mode",
                 SyntaxShape::String,
                 "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",

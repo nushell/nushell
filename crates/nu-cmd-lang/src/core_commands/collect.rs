@@ -12,12 +12,12 @@ impl Command for Collect {
     fn signature(&self) -> Signature {
         Signature::build("collect")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .optional(
+            .optional_position_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run once the stream is collected.",
             )
-            .switch(
+            .optional_named_flag(
                 "keep-env",
                 "let the closure affect environment variables",
                 None,
@@ -64,7 +64,7 @@ is particularly large, this can cause high memory usage."#
                 stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
 
             let mut saved_positional = None;
-            if let Some(var) = block.signature.get_positional(0) {
+            if let Some(var) = block.signature.get_positional_arg(0) {
                 if let Some(var_id) = &var.var_id {
                     stack_captures.add_var(*var_id, input.clone());
                     saved_positional = Some(*var_id);

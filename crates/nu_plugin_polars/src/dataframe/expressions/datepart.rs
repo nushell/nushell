@@ -33,7 +33,7 @@ impl PluginCommand for ExprDatePart {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "Datepart name",
                 SyntaxShape::String,
                 "Part of the date to capture.  Possible values are year, quarter, month, week, weekday, day, hour, minute, second, millisecond, microsecond, nanosecond",

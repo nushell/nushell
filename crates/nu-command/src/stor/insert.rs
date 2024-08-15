@@ -17,13 +17,13 @@ impl Command for StorInsert {
                 (Type::Nothing, Type::table()),
                 (Type::record(), Type::table()),
             ])
-            .required_named(
+            .required_named_flag(
                 "table-name",
                 SyntaxShape::String,
                 "name of the table you want to insert into",
                 Some('t'),
             )
-            .named(
+            .named_flag_arg(
                 "data-record",
                 SyntaxShape::Record(vec![]),
                 "a record of column names and column values to insert into the specified table",

@@ -21,13 +21,13 @@ impl Command for If {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("if")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("cond", SyntaxShape::MathExpression, "Condition to check.")
-            .required(
+            .required_positional_arg("cond", SyntaxShape::MathExpression, "Condition to check.")
+            .required_positional_arg(
                 "then_block",
                 SyntaxShape::Block,
                 "Block to run if check succeeds.",
             )
-            .optional(
+            .optional_position_arg(
                 "else_expression",
                 SyntaxShape::Keyword(
                     b"else".to_vec(),

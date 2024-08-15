@@ -29,7 +29,7 @@ impl PluginCommand for FilterWith {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
+            .required_positional_arg(
                 "mask or expression",
                 SyntaxShape::Any,
                 "boolean mask used to filter data",

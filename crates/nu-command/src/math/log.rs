@@ -10,7 +10,7 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math log")
-            .required(
+            .required_positional_arg(
                 "base",
                 SyntaxShape::Number,
                 "Base for which the logarithm should be computed.",

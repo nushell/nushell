@@ -25,7 +25,7 @@ impl Command for SubCommand {
                 (Type::record(), Type::String),
                 (Type::table(), Type::List(Box::new(Type::String))),
             ])
-            .rest(
+            .rest_positional_arg(
                 "append",
                 SyntaxShape::String,
                 "Path to append to the input.",

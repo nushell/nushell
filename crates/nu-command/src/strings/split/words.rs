@@ -38,18 +38,18 @@ impl Command for SubCommand {
             //     "ignore punctuation around words by removing them",
             //     Some('p'),
             // )
-            .named(
+            .named_flag_arg(
                 "min-word-length",
                 SyntaxShape::Int,
                 "The minimum word length",
                 Some('l'),
             )
-            .switch(
+            .optional_named_flag(
                 "grapheme-clusters",
                 "measure word length in grapheme clusters (requires -l)",
                 Some('g'),
             )
-            .switch(
+            .optional_named_flag(
                 "utf-8-bytes",
                 "measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are length 2+)",
                 Some('b'),

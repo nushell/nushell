@@ -13,7 +13,7 @@ impl Command for StorExport {
     fn signature(&self) -> Signature {
         Signature::build("stor export")
             .input_output_types(vec![(Type::Nothing, Type::table())])
-            .required_named(
+            .required_named_flag(
                 "file-name",
                 SyntaxShape::String,
                 "file name to export the sqlite in-memory database to",

@@ -21,18 +21,18 @@ impl Command for DecodeBase64 {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .named(
+            .named_flag_arg(
                 "character-set",
                 SyntaxShape::String,
                 CHARACTER_SET_DESC,
                 Some('c'),
             )
-            .switch(
+            .optional_named_flag(
                 "binary",
                 "Output a binary value instead of decoding payload as UTF-8",
                 Some('b'),
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, decode data at the given cell paths.",

@@ -19,7 +19,7 @@ impl Command for Wrap {
                 (Type::Range, Type::table()),
                 (Type::Any, Type::record()),
             ])
-            .required("name", SyntaxShape::String, "The name of the column.")
+            .required_positional_arg("name", SyntaxShape::String, "The name of the column.")
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }

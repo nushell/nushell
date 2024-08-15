@@ -20,18 +20,18 @@ impl Command for ToCsv {
                 (Type::record(), Type::String),
                 (Type::table(), Type::String),
             ])
-            .named(
+            .named_flag_arg(
                 "separator",
                 SyntaxShape::String,
                 "a character to separate columns, defaults to ','",
                 Some('s'),
             )
-            .switch(
+            .optional_named_flag(
                 "noheaders",
                 "do not output the columns names as the first row",
                 Some('n'),
             )
-            .named(
+            .named_flag_arg(
                 "columns",
                 SyntaxShape::List(SyntaxShape::String.into()),
                 "the names (in order) of the columns to use",

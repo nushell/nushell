@@ -27,7 +27,7 @@ impl SimplePluginCommand for GStat {
 
     fn signature(&self) -> Signature {
         Signature::build(PluginCommand::name(self))
-            .optional("path", SyntaxShape::Filepath, "path to repo")
+            .optional_position_arg("path", SyntaxShape::Filepath, "path to repo")
             .category(Category::Custom("prompt".to_string()))
     }
 

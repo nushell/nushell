@@ -36,22 +36,22 @@ impl Command for Rm {
     fn signature(&self) -> Signature {
         Signature::build("rm")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The file paths(s) to remove.")
-            .switch(
+            .rest_positional_arg("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The file paths(s) to remove.")
+            .optional_named_flag(
                 "trash",
                 "move to the platform's trash instead of permanently deleting. not used on android and ios",
                 Some('t'),
             )
-            .switch(
+            .optional_named_flag(
                 "permanent",
                 "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
                 Some('p'),
             )
-            .switch("recursive", "delete subdirectories recursively", Some('r'))
-            .switch("force", "suppress error when no file", Some('f'))
-            .switch("verbose", "print names of deleted files", Some('v'))
-            .switch("interactive", "ask user to confirm action", Some('i'))
-            .switch(
+            .optional_named_flag("recursive", "delete subdirectories recursively", Some('r'))
+            .optional_named_flag("force", "suppress error when no file", Some('f'))
+            .optional_named_flag("verbose", "print names of deleted files", Some('v'))
+            .optional_named_flag("interactive", "ask user to confirm action", Some('i'))
+            .optional_named_flag(
                 "interactive-once",
                 "ask user to confirm action only once",
                 Some('I'),

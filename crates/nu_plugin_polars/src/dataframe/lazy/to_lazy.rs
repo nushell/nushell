@@ -21,7 +21,7 @@ impl PluginCommand for ToLazyFrame {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named(
+            .named_flag_arg(
                 "schema",
                 SyntaxShape::Record(vec![]),
                 r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,

@@ -20,9 +20,9 @@ impl SimplePluginCommand for QueryWeb {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named("query", SyntaxShape::String, "selector query", Some('q'))
-            .switch("as-html", "return the query output as html", Some('m'))
-            .named(
+            .named_flag_arg("query", SyntaxShape::String, "selector query", Some('q'))
+            .optional_named_flag("as-html", "return the query output as html", Some('m'))
+            .named_flag_arg(
                 "attribute",
                 SyntaxShape::Any,
                 "downselect based on the given attribute",
@@ -38,13 +38,13 @@ impl SimplePluginCommand for QueryWeb {
             //     "downselect based on the given attribute",
             //     Some('a'),
             // )
-            .named(
+            .named_flag_arg(
                 "as-table",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "find table based on column header list",
                 Some('t'),
             )
-            .switch(
+            .optional_named_flag(
                 "inspect",
                 "run in inspect mode to provide more information for determining column headers",
                 Some('i'),

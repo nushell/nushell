@@ -17,19 +17,19 @@ impl Command for PluginAdd {
         Signature::build(self.name())
             .input_output_type(Type::Nothing, Type::Nothing)
             // This matches the option to `nu`
-            .named(
+            .named_flag_arg(
                 "plugin-config",
                 SyntaxShape::Filepath,
                 "Use a plugin registry file other than the one set in `$nu.plugin-path`",
                 None,
             )
-            .named(
+            .named_flag_arg(
                 "shell",
                 SyntaxShape::Filepath,
                 "Use an additional shell program (cmd, sh, python, etc.) to run the plugin",
                 Some('s'),
             )
-            .required(
+            .required_positional_arg(
                 "filename",
                 SyntaxShape::Filepath,
                 "Path to the executable for the plugin",

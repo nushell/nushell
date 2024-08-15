@@ -15,7 +15,7 @@ impl Command for TakeUntil {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::Any)),
             )])
-            .required(
+            .required_positional_arg(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "The predicate that element(s) must not match.",

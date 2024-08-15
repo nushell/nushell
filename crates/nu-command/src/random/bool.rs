@@ -14,7 +14,7 @@ impl Command for SubCommand {
         Signature::build("random bool")
             .input_output_types(vec![(Type::Nothing, Type::Bool)])
             .allow_variants_without_examples(true)
-            .named(
+            .named_flag_arg(
                 "bias",
                 SyntaxShape::Number,
                 "Adjusts the probability of a \"true\" outcome",

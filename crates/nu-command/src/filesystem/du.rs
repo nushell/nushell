@@ -35,34 +35,34 @@ impl Command for Du {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
-            .rest(
+            .rest_positional_arg(
                 "path",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "Starting directory.",
             )
-            .switch(
+            .optional_named_flag(
                 "all",
                 "Output file sizes as well as directory sizes",
                 Some('a'),
             )
-            .switch(
+            .optional_named_flag(
                 "deref",
                 "Dereference symlinks to their targets for size",
                 Some('r'),
             )
-            .named(
+            .named_flag_arg(
                 "exclude",
                 SyntaxShape::GlobPattern,
                 "Exclude these file names",
                 Some('x'),
             )
-            .named(
+            .named_flag_arg(
                 "max-depth",
                 SyntaxShape::Int,
                 "Directory recursion limit",
                 Some('d'),
             )
-            .named(
+            .named_flag_arg(
                 "min-size",
                 SyntaxShape::Int,
                 "Exclude files below this size",

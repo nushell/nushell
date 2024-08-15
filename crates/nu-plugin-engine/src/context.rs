@@ -196,7 +196,7 @@ impl<'a> PluginExecutionContext for PluginExecutionCommandContext<'a> {
 
         // Set up the positional arguments
         for (idx, value) in positional.into_iter().enumerate() {
-            if let Some(arg) = block.signature.get_positional(idx) {
+            if let Some(arg) = block.signature.get_positional_arg(idx) {
                 if let Some(var_id) = arg.var_id {
                     stack.add_var(var_id, value);
                 } else {

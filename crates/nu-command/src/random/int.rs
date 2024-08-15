@@ -15,7 +15,7 @@ impl Command for SubCommand {
         Signature::build("random int")
             .input_output_types(vec![(Type::Nothing, Type::Int)])
             .allow_variants_without_examples(true)
-            .optional(
+            .optional_position_arg(
                 "range",
                 SyntaxShape::Range,
                 "Range of potential values, inclusive of both start and end values.",

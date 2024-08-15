@@ -15,7 +15,7 @@ impl Command for TimeIt {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("timeit")
-            .required(
+            .required_positional_arg(
                 "command",
                 SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
                 "The command or block to run.",

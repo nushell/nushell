@@ -33,7 +33,7 @@ not supported."#
                 (Type::table(), Type::table()),
                 (Type::Range, Type::Any),
             ])
-            .required(
+            .required_positional_arg(
                 "row_condition",
                 SyntaxShape::RowCondition,
                 "Filter condition.",

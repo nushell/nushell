@@ -18,8 +18,8 @@ impl Command for Match {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("match")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("value", SyntaxShape::Any, "Value to check.")
-            .required(
+            .required_positional_arg("value", SyntaxShape::Any, "Value to check.")
+            .required_positional_arg(
                 "match_block",
                 SyntaxShape::MatchBlock,
                 "Block to run if check succeeds.",

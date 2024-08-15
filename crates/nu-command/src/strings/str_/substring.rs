@@ -45,22 +45,22 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .switch(
+            .optional_named_flag(
                 "grapheme-clusters",
                 "count indexes and split using grapheme clusters (all visible chars have length 1)",
                 Some('g'),
             )
-            .switch(
+            .optional_named_flag(
                 "utf-8-bytes",
                 "count indexes and split using UTF-8 bytes (default; non-ASCII chars have length 2+)",
                 Some('b'),
             )
-            .required(
+            .required_positional_arg(
                 "range",
                 SyntaxShape::Any,
                 "The indexes to substring [start end].",
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, turn strings at the given cell paths into substrings.",

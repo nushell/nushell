@@ -28,14 +28,14 @@ impl PluginCommand for ToNu {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named(
+            .named_flag_arg(
                 "rows",
                 SyntaxShape::Number,
                 "number of rows to be shown",
                 Some('n'),
             )
-            .switch("tail", "shows tail rows", Some('t'))
-            .switch("index", "add an index column", Some('i'))
+            .optional_named_flag("tail", "shows tail rows", Some('t'))
+            .optional_named_flag("index", "add an index column", Some('i'))
             .input_output_types(vec![
                 (Type::Custom("expression".into()), Type::Any),
                 (Type::Custom("dataframe".into()), Type::table()),

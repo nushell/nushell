@@ -23,12 +23,12 @@ impl Command for IntoSqliteDb {
                 (Type::record(), Type::Nothing),
             ])
             .allow_variants_without_examples(true)
-            .required(
+            .required_positional_arg(
                 "file-name",
                 SyntaxShape::String,
                 "Specify the filename to save the database to.",
             )
-            .named(
+            .named_flag_arg(
                 "table-name",
                 SyntaxShape::String,
                 "Specify table name to store the data in",

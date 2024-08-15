@@ -29,18 +29,18 @@ impl PluginCommand for Unique {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named(
+            .named_flag_arg(
                 "subset",
                 SyntaxShape::Any,
                 "Subset of column(s) to use to maintain rows (lazy df)",
                 Some('s'),
             )
-            .switch(
+            .optional_named_flag(
                 "last",
                 "Keeps last unique value. Default keeps first value (lazy df)",
                 Some('l'),
             )
-            .switch(
+            .optional_named_flag(
                 "maintain-order",
                 "Keep the same order as the original DataFrame (lazy df)",
                 Some('k'),

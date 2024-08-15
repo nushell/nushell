@@ -22,7 +22,7 @@ impl PluginCommand for Dummies {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .switch("drop-first", "Drop first row", Some('d'))
+            .optional_named_flag("drop-first", "Drop first row", Some('d'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

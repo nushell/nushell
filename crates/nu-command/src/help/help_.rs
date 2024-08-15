@@ -15,12 +15,12 @@ impl Command for Help {
     fn signature(&self) -> Signature {
         Signature::build("help")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,
                 "The name of command, alias or module to get help on.",
             )
-            .named(
+            .named_flag_arg(
                 "find",
                 SyntaxShape::String,
                 "string to find in command names, usage, and search terms",

@@ -11,22 +11,22 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch(
+            .optional_named_flag(
                 "append",
                 "appends the string to the end of the buffer",
                 Some('a'),
             )
-            .switch(
+            .optional_named_flag(
                 "insert",
                 "inserts the string into the buffer at the cursor position",
                 Some('i'),
             )
-            .switch(
+            .optional_named_flag(
                 "replace",
                 "replaces the current contents of the buffer (default)",
                 Some('r'),
             )
-            .required(
+            .required_positional_arg(
                 "str",
                 SyntaxShape::String,
                 "the string to perform the operation with",

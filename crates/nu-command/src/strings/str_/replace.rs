@@ -38,25 +38,25 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .required("find", SyntaxShape::String, "The pattern to find.")
-            .required("replace", SyntaxShape::String, "The replacement string.")
-            .rest(
+            .required_positional_arg("find", SyntaxShape::String, "The pattern to find.")
+            .required_positional_arg("replace", SyntaxShape::String, "The replacement string.")
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, operate on strings at the given cell paths.",
             )
-            .switch("all", "replace all occurrences of the pattern", Some('a'))
-            .switch(
+            .optional_named_flag("all", "replace all occurrences of the pattern", Some('a'))
+            .optional_named_flag(
                 "no-expand",
                 "do not expand capture groups (like $name) in the replacement string",
                 Some('n'),
             )
-            .switch(
+            .optional_named_flag(
                 "regex",
                 "match the pattern as a regular expression in the input, instead of a substring",
                 Some('r'),
             )
-            .switch(
+            .optional_named_flag(
                 "multiline",
                 "multi-line regex mode (implies --regex): ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),

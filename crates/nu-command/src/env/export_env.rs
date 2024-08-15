@@ -12,7 +12,7 @@ impl Command for ExportEnv {
     fn signature(&self) -> Signature {
         Signature::build("export-env")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required(
+            .required_positional_arg(
                 "block",
                 SyntaxShape::Block,
                 "The block to run to set the environment.",

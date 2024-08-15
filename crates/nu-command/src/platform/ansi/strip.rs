@@ -31,7 +31,7 @@ impl Command for SubCommand {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
-            .rest(
+            .rest_positional_arg(
                 "cell path",
                 SyntaxShape::CellPath,
                 "For a data structure input, remove ANSI sequences from strings at the given cell paths.",

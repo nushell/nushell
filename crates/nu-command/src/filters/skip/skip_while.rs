@@ -18,7 +18,7 @@ impl Command for SkipWhile {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
-            .required(
+            .required_positional_arg(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "The predicate that skipped element must match.",

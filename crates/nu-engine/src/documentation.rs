@@ -130,7 +130,7 @@ fn get_documentation(
         long_desc.push('\n');
     }
 
-    if !sig.named.is_empty() {
+    if !sig.named_flag.is_empty() {
         long_desc.push_str(&get_flags_section(sig, &help_style, |v| {
             nu_highlight_string(&v.to_parsable_string(", ", &nu_config), engine_state, stack)
         }))
@@ -546,7 +546,7 @@ where
 
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
-    for flag in &signature.named {
+    for flag in &signature.named_flag {
         // Indentation
         long_desc.push_str("  ");
         // Short flag shown before long flag

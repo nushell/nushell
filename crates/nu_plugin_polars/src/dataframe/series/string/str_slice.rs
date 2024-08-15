@@ -28,8 +28,8 @@ impl PluginCommand for StrSlice {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("start", SyntaxShape::Int, "start of slice")
-            .named("length", SyntaxShape::Int, "optional length", Some('l'))
+            .required_positional_arg("start", SyntaxShape::Int, "start of slice")
+            .named_flag_arg("length", SyntaxShape::Int, "optional length", Some('l'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

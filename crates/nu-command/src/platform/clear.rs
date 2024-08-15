@@ -23,7 +23,7 @@ impl Command for Clear {
         Signature::build("clear")
             .category(Category::Platform)
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch(
+            .optional_named_flag(
                 "all",
                 "Clear the terminal and its scroll-back history",
                 Some('a'),

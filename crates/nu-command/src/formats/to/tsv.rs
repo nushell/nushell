@@ -20,12 +20,12 @@ impl Command for ToTsv {
                 (Type::record(), Type::String),
                 (Type::table(), Type::String),
             ])
-            .switch(
+            .optional_named_flag(
                 "noheaders",
                 "do not output the column names as the first row",
                 Some('n'),
             )
-            .named(
+            .named_flag_arg(
                 "columns",
                 SyntaxShape::List(SyntaxShape::String.into()),
                 "the names (in order) of the columns to use",

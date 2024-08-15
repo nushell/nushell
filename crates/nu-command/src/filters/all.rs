@@ -12,7 +12,7 @@ impl Command for All {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Bool)])
-            .required(
+            .required_positional_arg(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "A closure that must evaluate to a boolean.",

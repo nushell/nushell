@@ -61,54 +61,54 @@ impl Command for Table {
         Signature::build("table")
             .input_output_types(vec![(Type::Any, Type::Any)])
             // TODO: make this more precise: what turns into string and what into raw stream
-            .named(
+            .named_flag_arg(
                 "theme",
                 SyntaxShape::String,
                 "set a table mode/theme",
                 Some('t'),
             )
-            .named(
+            .named_flag_arg(
                 "index",
                 SyntaxShape::Any,
                 "enable (true) or disable (false) the #/index column or set the starting index",
                 Some('i'),
             )
-            .named(
+            .named_flag_arg(
                 "width",
                 SyntaxShape::Int,
                 "number of terminal columns wide (not output columns)",
                 Some('w'),
             )
-            .switch(
+            .optional_named_flag(
                 "expand",
                 "expand the table structure in a light mode",
                 Some('e'),
             )
-            .named(
+            .named_flag_arg(
                 "expand-deep",
                 SyntaxShape::Int,
                 "an expand limit of recursion which will take place, must be used with --expand",
                 Some('d'),
             )
-            .switch("flatten", "Flatten simple arrays", None)
-            .named(
+            .optional_named_flag("flatten", "Flatten simple arrays", None)
+            .named_flag_arg(
                 "flatten-separator",
                 SyntaxShape::String,
                 "sets a separator when 'flatten' used",
                 None,
             )
-            .switch(
+            .optional_named_flag(
                 "collapse",
                 "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
                 Some('c'),
             )
-            .named(
+            .named_flag_arg(
                 "abbreviated",
                 SyntaxShape::Int,
                 "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
                 Some('a'),
             )
-            .switch("list", "list available table modes/themes", Some('l'))
+            .optional_named_flag("list", "list available table modes/themes", Some('l'))
             .category(Category::Viewers)
     }
 

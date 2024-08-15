@@ -34,8 +34,8 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
-            .switch("compact", "output without padding zeros", Some('c'))
-            .rest(
+            .optional_named_flag("compact", "output without padding zeros", Some('c'))
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert data at the given cell paths.",

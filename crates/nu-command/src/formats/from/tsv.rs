@@ -12,36 +12,36 @@ impl Command for FromTsv {
     fn signature(&self) -> Signature {
         Signature::build("from tsv")
             .input_output_types(vec![(Type::String, Type::table())])
-            .named(
+            .named_flag_arg(
                 "comment",
                 SyntaxShape::String,
                 "a comment character to ignore lines starting with it",
                 Some('c'),
             )
-            .named(
+            .named_flag_arg(
                 "quote",
                 SyntaxShape::String,
                 "a quote character to ignore separators in strings, defaults to '\"'",
                 Some('q'),
             )
-            .named(
+            .named_flag_arg(
                 "escape",
                 SyntaxShape::String,
                 "an escape character for strings containing the quote character",
                 Some('e'),
             )
-            .switch(
+            .optional_named_flag(
                 "noheaders",
                 "don't treat the first row as column names",
                 Some('n'),
             )
-            .switch(
+            .optional_named_flag(
                 "flexible",
                 "allow the number of fields in records to be variable",
                 None,
             )
-            .switch("no-infer", "no field type inferencing", None)
-            .named(
+            .optional_named_flag("no-infer", "no field type inferencing", None)
+            .named_flag_arg(
                 "trim",
                 SyntaxShape::String,
                 "drop leading and trailing whitespaces around headers names and/or field values",

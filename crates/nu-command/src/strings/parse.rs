@@ -25,12 +25,12 @@ impl Command for Parse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("parse")
-            .required("pattern", SyntaxShape::String, "The pattern to match.")
+            .required_positional_arg("pattern", SyntaxShape::String, "The pattern to match.")
             .input_output_types(vec![
                 (Type::String, Type::table()),
                 (Type::List(Box::new(Type::Any)), Type::table()),
             ])
-            .switch("regex", "use full regex syntax for patterns", Some('r'))
+            .optional_named_flag("regex", "use full regex syntax for patterns", Some('r'))
             .allow_variants_without_examples(true)
             .category(Category::Strings)
     }

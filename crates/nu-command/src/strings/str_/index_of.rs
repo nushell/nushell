@@ -38,29 +38,29 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .required("string", SyntaxShape::String, "The string to find in the input.")
-            .switch(
+            .required_positional_arg("string", SyntaxShape::String, "The string to find in the input.")
+            .optional_named_flag(
                 "grapheme-clusters",
                 "count indexes using grapheme clusters (all visible chars have length 1)",
                 Some('g'),
             )
-            .switch(
+            .optional_named_flag(
                 "utf-8-bytes",
                 "count indexes using UTF-8 bytes (default; non-ASCII chars have length 2+)",
                 Some('b'),
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, search strings at the given cell paths, and replace with result.",
             )
-            .named(
+            .named_flag_arg(
                 "range",
                 SyntaxShape::Range,
                 "optional start and/or end index",
                 Some('r'),
             )
-            .switch("end", "search from the end of the input", Some('e'))
+            .optional_named_flag("end", "search from the end of the input", Some('e'))
             .category(Category::Strings)
     }
 

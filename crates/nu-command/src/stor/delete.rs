@@ -13,13 +13,13 @@ impl Command for StorDelete {
     fn signature(&self) -> Signature {
         Signature::build("stor delete")
             .input_output_types(vec![(Type::Nothing, Type::table())])
-            .required_named(
+            .required_named_flag(
                 "table-name",
                 SyntaxShape::String,
                 "name of the table you want to insert into",
                 Some('t'),
             )
-            .named(
+            .named_flag_arg(
                 "where-clause",
                 SyntaxShape::String,
                 "a sql string to use as a where clause without the WHERE keyword",

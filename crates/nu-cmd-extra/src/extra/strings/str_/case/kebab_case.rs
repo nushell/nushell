@@ -22,7 +22,7 @@ impl Command for SubCommand {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert strings at the given cell paths",

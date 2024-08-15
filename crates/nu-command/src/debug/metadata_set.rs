@@ -16,18 +16,18 @@ impl Command for MetadataSet {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("metadata set")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .switch(
+            .optional_named_flag(
                 "datasource-ls",
                 "Assign the DataSource::Ls metadata to the input",
                 Some('l'),
             )
-            .named(
+            .named_flag_arg(
                 "datasource-filepath",
                 SyntaxShape::Filepath,
                 "Assign the DataSource::FilePath metadata to the input",
                 Some('f'),
             )
-            .named(
+            .named_flag_arg(
                 "content-type",
                 SyntaxShape::String,
                 "Assign content type metadata to the input",

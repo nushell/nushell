@@ -20,14 +20,14 @@ impl Command for SubCommand {
                     Type::table(),
                 ),
             ])
-            .required(
+            .required_positional_arg(
                 "separator",
                 SyntaxShape::String,
                 "The character or string that denotes what separates columns.",
             )
-            .switch("collapse-empty", "remove empty columns", Some('c'))
-            .switch("regex", "separator is a regular expression", Some('r'))
-            .rest(
+            .optional_named_flag("collapse-empty", "remove empty columns", Some('c'))
+            .optional_named_flag("regex", "separator is a regular expression", Some('r'))
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::String,
                 "Column names to give the new columns.",

@@ -15,7 +15,7 @@ impl Command for ConfigNu {
         Signature::build(self.name())
             .category(Category::Env)
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .switch(
+            .optional_named_flag(
                 "default",
                 "Print default `config.nu` file instead.",
                 Some('d'),

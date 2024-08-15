@@ -27,7 +27,7 @@ impl PluginCommand for CacheGet {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("key", SyntaxShape::String, "Key of objects to get")
+            .required_positional_arg("key", SyntaxShape::String, "Key of objects to get")
             .input_output_types(vec![
                 (Type::Any, Type::Custom("dataframe".into())),
                 (Type::Any, Type::Custom("expression".into())),

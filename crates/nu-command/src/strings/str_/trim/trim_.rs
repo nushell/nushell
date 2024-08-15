@@ -40,23 +40,23 @@ impl Command for SubCommand {
                 (Type::record(), Type::record()),
             ])
             .allow_variants_without_examples(true)
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, trim strings at the given cell paths.",
             )
-            .named(
+            .named_flag_arg(
                 "char",
                 SyntaxShape::String,
                 "character to trim (default: whitespace)",
                 Some('c'),
             )
-            .switch(
+            .optional_named_flag(
                 "left",
                 "trims characters only from the beginning of the string",
                 Some('l'),
             )
-            .switch(
+            .optional_named_flag(
                 "right",
                 "trims characters only from the end of the string",
                 Some('r'),

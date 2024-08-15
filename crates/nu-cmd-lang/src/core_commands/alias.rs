@@ -16,8 +16,8 @@ impl Command for Alias {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("alias")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("name", SyntaxShape::String, "Name of the alias.")
-            .required(
+            .required_positional_arg("name", SyntaxShape::String, "Name of the alias.")
+            .required_positional_arg(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
                 "Equals sign followed by value.",

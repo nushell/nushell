@@ -39,12 +39,12 @@ impl Command for UMkdir {
     fn signature(&self) -> Signature {
         Signature::build("mkdir")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Directory]),
                 "The name(s) of the path(s) to create.",
             )
-            .switch(
+            .optional_named_flag(
                 "verbose",
                 "print a message for each created directory.",
                 Some('v'),

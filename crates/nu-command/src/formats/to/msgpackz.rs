@@ -19,13 +19,13 @@ impl Command for ToMsgpackz {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_type(Type::Any, Type::Binary)
-            .named(
+            .named_flag_arg(
                 "quality",
                 SyntaxShape::Int,
                 "Quality of brotli compression (default 3)",
                 Some('q'),
             )
-            .named(
+            .named_flag_arg(
                 "window-size",
                 SyntaxShape::Int,
                 "Window size for brotli compression (default 20)",

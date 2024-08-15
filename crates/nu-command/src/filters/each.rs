@@ -38,12 +38,12 @@ with 'transpose' first."#
                 (Type::table(), Type::List(Box::new(Type::Any))),
                 (Type::Any, Type::Any),
             ])
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run.",
             )
-            .switch("keep-empty", "keep empty result cells", Some('k'))
+            .optional_named_flag("keep-empty", "keep empty result cells", Some('k'))
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }

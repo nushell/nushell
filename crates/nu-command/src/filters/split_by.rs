@@ -12,7 +12,7 @@ impl Command for SplitBy {
     fn signature(&self) -> Signature {
         Signature::build("split-by")
             .input_output_types(vec![(Type::record(), Type::record())])
-            .optional("splitter", SyntaxShape::Any, "The splitter value to use.")
+            .optional_position_arg("splitter", SyntaxShape::Any, "The splitter value to use.")
             .category(Category::Filters)
     }
 

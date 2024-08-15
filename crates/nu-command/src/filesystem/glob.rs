@@ -13,29 +13,29 @@ impl Command for Glob {
     fn signature(&self) -> Signature {
         Signature::build("glob")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
-            .required("glob", SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::GlobPattern]), "The glob expression.")
-            .named(
+            .required_positional_arg("glob", SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::GlobPattern]), "The glob expression.")
+            .named_flag_arg(
                 "depth",
                 SyntaxShape::Int,
                 "directory depth to search",
                 Some('d'),
             )
-            .switch(
+            .optional_named_flag(
                 "no-dir",
                 "Whether to filter out directories from the returned paths",
                 Some('D'),
             )
-            .switch(
+            .optional_named_flag(
                 "no-file",
                 "Whether to filter out files from the returned paths",
                 Some('F'),
             )
-            .switch(
+            .optional_named_flag(
                 "no-symlink",
                 "Whether to filter out symlinks from the returned paths",
                 Some('S'),
             )
-            .named(
+            .named_flag_arg(
                 "exclude",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Patterns to exclude from the search: `glob` will not walk the inside of directories matching the excluded patterns.",

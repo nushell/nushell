@@ -30,7 +30,7 @@ impl PluginCommand for QueryDf {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("sql", SyntaxShape::String, "sql query")
+            .required_positional_arg("sql", SyntaxShape::String, "sql query")
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

@@ -12,7 +12,7 @@ impl Command for Seq {
     fn signature(&self) -> Signature {
         Signature::build("seq")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Number)))])
-            .rest("rest", SyntaxShape::Number, "Sequence values.")
+            .rest_positional_arg("rest", SyntaxShape::Number, "Sequence values.")
             .category(Category::Generators)
     }
 

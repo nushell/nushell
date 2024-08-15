@@ -25,35 +25,35 @@ impl Command for Find {
                 ),
                 (Type::String, Type::Any),
             ])
-            .named(
+            .named_flag_arg(
                 "regex",
                 SyntaxShape::String,
                 "regex to match with",
                 Some('r'),
             )
-            .switch(
+            .optional_named_flag(
                 "ignore-case",
                 "case-insensitive regex mode; equivalent to (?i)",
                 Some('i'),
             )
-            .switch(
+            .optional_named_flag(
                 "multiline",
                 "multi-line regex mode: ^ and $ match begin/end of line; equivalent to (?m)",
                 Some('m'),
             )
-            .switch(
+            .optional_named_flag(
                 "dotall",
                 "dotall regex mode: allow a dot . to match newlines \\n; equivalent to (?s)",
                 Some('s'),
             )
-            .named(
+            .named_flag_arg(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "column names to be searched (with rest parameter, not regex yet)",
                 Some('c'),
             )
-            .switch("invert", "invert the match", Some('v'))
-            .rest("rest", SyntaxShape::Any, "Terms to search.")
+            .optional_named_flag("invert", "invert the match", Some('v'))
+            .rest_positional_arg("rest", SyntaxShape::Any, "Terms to search.")
             .category(Category::Filters)
     }
 

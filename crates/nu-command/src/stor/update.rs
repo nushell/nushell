@@ -16,19 +16,19 @@ impl Command for StorUpdate {
                 (Type::Nothing, Type::table()),
                 (Type::record(), Type::table()),
             ])
-            .required_named(
+            .required_named_flag(
                 "table-name",
                 SyntaxShape::String,
                 "name of the table you want to insert into",
                 Some('t'),
             )
-            .named(
+            .named_flag_arg(
                 "update-record",
                 SyntaxShape::Record(vec![]),
                 "a record of column names and column values to update in the specified table",
                 Some('u'),
             )
-            .named(
+            .named_flag_arg(
                 "where-clause",
                 SyntaxShape::String,
                 "a sql string to use as a where clause without the WHERE keyword",

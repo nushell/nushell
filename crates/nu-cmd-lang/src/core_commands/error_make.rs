@@ -12,12 +12,12 @@ impl Command for ErrorMake {
     fn signature(&self) -> Signature {
         Signature::build("error make")
             .input_output_types(vec![(Type::Nothing, Type::Error)])
-            .required(
+            .required_positional_arg(
                 "error_struct",
                 SyntaxShape::Record(vec![]),
                 "The error to create.",
             )
-            .switch(
+            .optional_named_flag(
                 "unspanned",
                 "remove the origin label from the error",
                 Some('u'),

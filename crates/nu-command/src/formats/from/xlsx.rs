@@ -17,7 +17,7 @@ impl Command for FromXlsx {
         Signature::build("from xlsx")
             .input_output_types(vec![(Type::Binary, Type::table())])
             .allow_variants_without_examples(true)
-            .named(
+            .named_flag_arg(
                 "sheets",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Only convert specified sheets",

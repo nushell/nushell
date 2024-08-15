@@ -59,8 +59,8 @@ impl PluginCommand for Rolling {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("type", SyntaxShape::String, "rolling operation")
-            .required("window", SyntaxShape::Int, "Window size for rolling")
+            .required_positional_arg("type", SyntaxShape::String, "rolling operation")
+            .required_positional_arg("window", SyntaxShape::Int, "Window size for rolling")
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

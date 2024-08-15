@@ -12,42 +12,42 @@ impl Command for FromCsv {
     fn signature(&self) -> Signature {
         Signature::build("from csv")
             .input_output_types(vec![(Type::String, Type::table())])
-            .named(
+            .named_flag_arg(
                 "separator",
                 SyntaxShape::String,
                 "a character to separate columns (either single char or 4 byte unicode sequence), defaults to ','",
                 Some('s'),
             )
-            .named(
+            .named_flag_arg(
                 "comment",
                 SyntaxShape::String,
                 "a comment character to ignore lines starting with it",
                 Some('c'),
             )
-            .named(
+            .named_flag_arg(
                 "quote",
                 SyntaxShape::String,
                 "a quote character to ignore separators in strings, defaults to '\"'",
                 Some('q'),
             )
-            .named(
+            .named_flag_arg(
                 "escape",
                 SyntaxShape::String,
                 "an escape character for strings containing the quote character",
                 Some('e'),
             )
-            .switch(
+            .optional_named_flag(
                 "noheaders",
                 "don't treat the first row as column names",
                 Some('n'),
             )
-            .switch(
+            .optional_named_flag(
                 "flexible",
                 "allow the number of fields in records to be variable",
                 None,
             )
-            .switch("no-infer", "no field type inferencing", None)
-            .named(
+            .optional_named_flag("no-infer", "no field type inferencing", None)
+            .named_flag_arg(
                 "trim",
                 SyntaxShape::String,
                 "drop leading and trailing whitespaces around headers names and/or field values",

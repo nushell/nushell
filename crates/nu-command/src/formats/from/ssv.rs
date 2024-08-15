@@ -14,13 +14,13 @@ impl Command for FromSsv {
     fn signature(&self) -> Signature {
         Signature::build("from ssv")
             .input_output_types(vec![(Type::String, Type::table())])
-            .switch(
+            .optional_named_flag(
                 "noheaders",
                 "don't treat the first row as column names",
                 Some('n'),
             )
-            .switch("aligned-columns", "assume columns are aligned", Some('a'))
-            .named(
+            .optional_named_flag("aligned-columns", "assume columns are aligned", Some('a'))
+            .named_flag_arg(
                 "minimum-spaces",
                 SyntaxShape::Int,
                 "the minimum spaces to separate columns",

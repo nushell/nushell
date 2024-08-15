@@ -18,23 +18,23 @@ impl Command for UniqBy {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
-            .rest("columns", SyntaxShape::Any, "The column(s) to filter by.")
-            .switch(
+            .rest_positional_arg("columns", SyntaxShape::Any, "The column(s) to filter by.")
+            .optional_named_flag(
                 "count",
                 "Return a table containing the distinct input values together with their counts",
                 Some('c'),
             )
-            .switch(
+            .optional_named_flag(
                 "repeated",
                 "Return the input values that occur more than once",
                 Some('d'),
             )
-            .switch(
+            .optional_named_flag(
                 "ignore-case",
                 "Ignore differences in case when comparing input values",
                 Some('i'),
             )
-            .switch(
+            .optional_named_flag(
                 "unique",
                 "Return the input values that occur once only",
                 Some('u'),

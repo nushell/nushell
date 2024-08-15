@@ -16,8 +16,8 @@ impl Command for ExportUse {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("module", SyntaxShape::String, "Module or module file.")
-            .rest(
+            .required_positional_arg("module", SyntaxShape::String, "Module or module file.")
+            .rest_positional_arg(
                 "members",
                 SyntaxShape::Any,
                 "Which members of the module to import.",

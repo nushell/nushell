@@ -12,12 +12,12 @@ impl Command for QueryDb {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required(
+            .required_positional_arg(
                 "SQL",
                 SyntaxShape::String,
                 "SQL to execute against the database.",
             )
-            .named(
+            .named_flag_arg(
                 "params",
                 // TODO: Use SyntaxShape::OneOf with Records and Lists, when Lists no longer break inside OneOf
                 SyntaxShape::Any,

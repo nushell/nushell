@@ -16,13 +16,13 @@ impl Command for OverlayHide {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay hide")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .optional("name", SyntaxShape::String, "Overlay to hide.")
-            .switch(
+            .optional_position_arg("name", SyntaxShape::String, "Overlay to hide.")
+            .optional_named_flag(
                 "keep-custom",
                 "Keep all newly added commands and aliases in the next activated overlay.",
                 Some('k'),
             )
-            .named(
+            .named_flag_arg(
                 "keep-env",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "List of environment variables to keep in the next activated overlay",

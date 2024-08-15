@@ -21,8 +21,8 @@ impl Command for SubCommand {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .switch("grapheme-clusters", "split on grapheme clusters", Some('g'))
-            .switch(
+            .optional_named_flag("grapheme-clusters", "split on grapheme clusters", Some('g'))
+            .optional_named_flag(
                 "code-points",
                 "split on code points (default; splits combined characters)",
                 Some('c'),

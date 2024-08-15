@@ -69,19 +69,19 @@ impl Command for SubCommand {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
-            .named(
+            .named_flag_arg("radix", SyntaxShape::Number, "radix of integer", Some('r'))
+            .named_flag_arg(
                 "endian",
                 SyntaxShape::String,
                 "byte encode endian, available options: native(default), little, big",
                 Some('e'),
             )
-            .switch(
+            .optional_named_flag(
                 "signed",
                 "always treat input number as a signed number",
                 Some('s'),
             )
-            .rest(
+            .rest_positional_arg(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert data at the given cell paths.",

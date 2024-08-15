@@ -36,14 +36,14 @@ using `zip { ... } | flatten` instead."#
                 (Type::List(Type::Any.into()), Type::List(Type::Any.into())),
                 (Type::Nothing, Type::List(Type::Any.into())),
             ])
-            .named(
+            .named_flag_arg(
                 "buffer-size",
                 SyntaxShape::Int,
                 "Number of items to buffer from the streams. Increases memory usage, but can help \
                     performance when lots of output is produced.",
                 Some('b'),
             )
-            .rest(
+            .rest_positional_arg(
                 "closures",
                 SyntaxShape::Closure(None),
                 "The closures that will generate streams to be combined.",

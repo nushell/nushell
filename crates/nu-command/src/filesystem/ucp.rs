@@ -31,24 +31,24 @@ impl Command for UCp {
     fn signature(&self) -> Signature {
         Signature::build("cp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch("recursive", "copy directories recursively", Some('r'))
-            .switch("verbose", "explicitly state what is being done", Some('v'))
-            .switch(
+            .optional_named_flag("recursive", "copy directories recursively", Some('r'))
+            .optional_named_flag("verbose", "explicitly state what is being done", Some('v'))
+            .optional_named_flag(
                 "force",
                 "if an existing destination file cannot be opened, remove it and try
                     again (this option is ignored when the -n option is also used).
                     currently not implemented for windows",
                 Some('f'),
             )
-            .switch("interactive", "ask before overwriting files", Some('i'))
-            .switch(
+            .optional_named_flag("interactive", "ask before overwriting files", Some('i'))
+            .optional_named_flag(
                 "update",
                 "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
                 Some('u')
             )
-            .switch("progress", "display a progress bar", Some('p'))
-            .switch("no-clobber", "do not overwrite an existing file", Some('n'))
-            .named(
+            .optional_named_flag("progress", "display a progress bar", Some('p'))
+            .optional_named_flag("no-clobber", "do not overwrite an existing file", Some('n'))
+            .named_flag_arg(
                 "preserve",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "preserve only the specified attributes (empty list means no attributes preserved)
@@ -56,8 +56,8 @@ impl Command for UCp {
                     possible values: mode, ownership (unix only), timestamps, context, link, links, xattr",
                 None
             )
-            .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "Copy SRC file/s to DEST.")
+            .optional_named_flag("debug", "explain how a file is copied. Implies -v", None)
+            .rest_positional_arg("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }

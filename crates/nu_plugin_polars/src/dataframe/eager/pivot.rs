@@ -30,36 +30,36 @@ impl PluginCommand for PivotDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required_named(
+            .required_named_flag(
                 "on",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "column names for pivoting",
                 Some('o'),
             )
-            .required_named(
+            .required_named_flag(
                 "index",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "column names for indexes",
                 Some('i'),
             )
-            .required_named(
+            .required_named_flag(
                 "values",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "column names used as value columns",
                 Some('v'),
             )
-            .named(
+            .named_flag_arg(
                 "aggregate",
                 SyntaxShape::String,
                 "Aggregation to apply when pivoting. The following are supported: first, sum, min, max, mean, median, count, last",
                 Some('a'),
             )
-            .switch(
+            .optional_named_flag(
                 "sort",
                 "Sort columns",
                 Some('s'),
             )
-            .switch(
+            .optional_named_flag(
                 "streamable",
                 "Whether or not to use the polars streaming engine. Only valid for lazy dataframes",
                 Some('t'),
@@ -75,7 +75,7 @@ impl PluginCommand for PivotDF {
         vec![
             Example {
                 example: "[[name subject test_1 test_2]; [Cady maths 98 100] [Cady physics 99 100] [Karen maths 61 60] [Karen physics 58 60]] | polars into-df |  polars pivot --on [subject] --index [name] --values [test_1]",
-                description: "Perform a pivot in order to show individuals test score by subject", 
+                description: "Perform a pivot in order to show individuals test score by subject",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![

@@ -13,12 +13,12 @@ impl Command for UpdateCells {
     fn signature(&self) -> Signature {
         Signature::build("update cells")
             .input_output_types(vec![(Type::table(), Type::table())])
-            .required(
+            .required_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the closure to run an update for each cell",
             )
-            .named(
+            .named_flag_arg(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "list of columns to update",

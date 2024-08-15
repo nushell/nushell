@@ -11,31 +11,31 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi gradient")
-            .named(
+            .named_flag_arg(
                 "fgstart",
                 SyntaxShape::String,
                 "foreground gradient start color in hex (0x123456)",
                 Some('a'),
             )
-            .named(
+            .named_flag_arg(
                 "fgend",
                 SyntaxShape::String,
                 "foreground gradient end color in hex",
                 Some('b'),
             )
-            .named(
+            .named_flag_arg(
                 "bgstart",
                 SyntaxShape::String,
                 "background gradient start color in hex",
                 Some('c'),
             )
-            .named(
+            .named_flag_arg(
                 "bgend",
                 SyntaxShape::String,
                 "background gradient end color in hex",
                 Some('d'),
             )
-            .rest(
+            .rest_positional_arg(
                 "cell path",
                 SyntaxShape::CellPath,
                 "for a data structure input, add a gradient to strings at the given cell paths",
