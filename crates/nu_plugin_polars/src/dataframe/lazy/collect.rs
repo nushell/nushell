@@ -75,6 +75,11 @@ impl PluginCommand for LazyCollect {
                 ))
             }
             PolarsPluginObject::NuDataFrame(df) => {
+                // This should just increment the cache value.
+                // We can return a value back without incrementing the
+                // cache value or the value will be dropped (issue #12828)
+                let _ = plugin.cache.get(&df.id, true)?;
+
                 // just return the dataframe, add to cache again to be safe
                 Ok(PipelineData::Value(
                     df.cache(plugin, engine, call.head)?.into_value(call.head),

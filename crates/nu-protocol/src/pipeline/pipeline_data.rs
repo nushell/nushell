@@ -604,6 +604,31 @@ impl PipelineData {
         }
     }
 
+    /// Consume and print self data without any extra formatting.
+    ///
+    /// This does not use the `table` command to format data, and also prints binary values and
+    /// streams in their raw format without generating a hexdump first.
+    ///
+    /// `no_newline` controls if we need to attach newline character to output.
+    /// `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
+    pub fn print_raw(
+        self,
+        engine_state: &EngineState,
+        no_newline: bool,
+        to_stderr: bool,
+    ) -> Result<Option<ExitStatus>, ShellError> {
+        if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
+            if to_stderr {
+                stderr_write_all_and_flush(bytes)?;
+            } else {
+                stdout_write_all_and_flush(bytes)?;
+            }
+            Ok(None)
+        } else {
+            self.write_all_and_flush(engine_state, no_newline, to_stderr)
+        }
+    }
+
     fn write_all_and_flush(
         self,
         engine_state: &EngineState,

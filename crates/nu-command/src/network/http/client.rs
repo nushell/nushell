@@ -6,7 +6,7 @@ use base64::{
 };
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStream, Signals};
+use nu_protocol::{ByteStream, LabeledError, Signals};
 use std::{
     collections::HashMap,
     io::Cursor,
@@ -560,23 +560,23 @@ fn transform_response_using_content_type(
     resp: Response,
     content_type: &str,
 ) -> Result<PipelineData, ShellError> {
-    let content_type =
-        mime::Mime::from_str(content_type).map_err(|_| ShellError::GenericError {
-            error: format!("MIME type unknown: {content_type}"),
-            msg: "".into(),
-            span: None,
-            help: Some("given unknown MIME type".into()),
-            inner: vec![],
-        })?;
+    let content_type = mime::Mime::from_str(content_type)
+        // there are invalid content types in the wild, so we try to recover
+        // Example: `Content-Type: "text/plain"; charset="utf8"` (note the quotes)
+        .or_else(|_| mime::Mime::from_str(&content_type.replace('"', "")))
+        .or_else(|_| mime::Mime::from_str("text/plain"))
+        .expect("Failed to parse content type, and failed to default to text/plain");
+
     let ext = match (content_type.type_(), content_type.subtype()) {
         (mime::TEXT, mime::PLAIN) => {
             let path_extension = url::Url::parse(requested_url)
-                .map_err(|_| ShellError::GenericError {
-                    error: format!("Cannot parse URL: {requested_url}"),
-                    msg: "".into(),
-                    span: None,
-                    help: Some("cannot parse".into()),
-                    inner: vec![],
+                .map_err(|err| {
+                    LabeledError::new(err.to_string())
+                        .with_help("cannot parse")
+                        .with_label(
+                            format!("Cannot parse URL: {requested_url}"),
+                            Span::unknown(),
+                        )
                 })?
                 .path_segments()
                 .and_then(|segments| segments.last())
