@@ -1,16 +1,16 @@
 use crate::{ModuleId, Span};
 use std::collections::HashMap;
 
-/// Organizes usage messages for various primitives
+/// Organizes documentation comments for various primitives
 #[derive(Debug, Clone)]
-pub(super) struct Usage {
+pub(super) struct Doccomments {
     // TODO: Move decl usages here
     module_comments: HashMap<ModuleId, Vec<Span>>,
 }
 
-impl Usage {
+impl Doccomments {
     pub fn new() -> Self {
-        Usage {
+        Doccomments {
             module_comments: HashMap::new(),
         }
     }
@@ -24,12 +24,12 @@ impl Usage {
     }
 
     /// Overwrite own values with the other
-    pub fn merge_with(&mut self, other: Usage) {
+    pub fn merge_with(&mut self, other: Doccomments) {
         self.module_comments.extend(other.module_comments);
     }
 }
 
-impl Default for Usage {
+impl Default for Doccomments {
     fn default() -> Self {
         Self::new()
     }

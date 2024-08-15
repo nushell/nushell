@@ -278,7 +278,7 @@ impl<'a> StateWorkingSet<'a> {
         let module_id = self.num_modules() - 1;
 
         if !comments.is_empty() {
-            self.delta.usage.add_module_comments(module_id, comments);
+            self.delta.doccomments.add_module_comments(module_id, comments);
         }
 
         self.last_overlay_mut().modules.insert(name, module_id);
@@ -288,7 +288,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
         self.delta
-            .usage
+            .doccomments
             .get_module_comments(module_id)
             .or_else(|| self.permanent_state.get_module_comments(module_id))
     }
