@@ -1,8 +1,8 @@
 use crate::{
     ast::Block,
     engine::{
-        description::Doccomments, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame, Variable,
-        VirtualPath,
+        description::Doccomments, CachedFile, Command, EngineState, OverlayFrame, ScopeFrame,
+        Variable, VirtualPath,
     },
     Module, Span,
 };

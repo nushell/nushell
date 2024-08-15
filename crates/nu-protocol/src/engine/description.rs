@@ -4,7 +4,7 @@ use std::collections::HashMap;
 /// Organizes documentation comments for various primitives
 #[derive(Debug, Clone)]
 pub(super) struct Doccomments {
-    // TODO: Move decl usages here
+    // TODO: Move decl doccomments here
     module_comments: HashMap<ModuleId, Vec<Span>>,
 }
 
@@ -41,7 +41,7 @@ pub(super) fn build_desc(comment_lines: &[&[u8]]) -> (String, String) {
     let mut num_spaces = 0;
     let mut first = true;
 
-    // Use the comments to build the usage
+    // Use the comments to build the item/command description
     for contents in comment_lines {
         let comment_line = if first {
             // Count the number of spaces still at the front, skipping the '#'
