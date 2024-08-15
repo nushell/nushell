@@ -17,7 +17,7 @@ impl SimplePluginCommand for One {
     }
 
     fn extra_description(&self) -> &str {
-        "Extra usage for example one"
+        "Extra description for example one"
     }
 
     fn signature(&self) -> Signature {
