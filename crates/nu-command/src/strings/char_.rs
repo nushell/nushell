@@ -176,7 +176,7 @@ impl Command for Char {
     fn signature(&self) -> Signature {
         Signature::build("char")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .optional_position_arg(
+            .optional_positional_arg(
                 "character",
                 SyntaxShape::Any,
                 "The name of the character to output.",

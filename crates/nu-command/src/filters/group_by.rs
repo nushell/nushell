@@ -22,7 +22,7 @@ impl Command for GroupBy {
                 "Return a table with \"groups\" and \"items\" columns",
                 None,
             )
-            .optional_position_arg(
+            .optional_positional_arg(
                 "grouper",
                 SyntaxShape::OneOf(vec![
                     SyntaxShape::CellPath,

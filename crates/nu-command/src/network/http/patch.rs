@@ -18,7 +18,7 @@ impl Command for SubCommand {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required_positional_arg("URL", SyntaxShape::String, "The URL to post to.")
-            .optional_position_arg("data", SyntaxShape::Any, "The contents of the post body.")
+            .optional_positional_arg("data", SyntaxShape::Any, "The contents of the post body.")
             .named_flag_arg(
                 "user",
                 SyntaxShape::Any,

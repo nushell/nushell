@@ -23,7 +23,7 @@ impl SimplePluginCommand for Env {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Experimental)
-            .optional_position_arg(
+            .optional_positional_arg(
                 "name",
                 SyntaxShape::String,
                 "The name of the environment variable to get",

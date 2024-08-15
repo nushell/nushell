@@ -43,7 +43,7 @@ impl PluginCommand for CastDF {
                 SyntaxShape::String,
                 "The dtype to cast the column to",
             )
-            .optional_position_arg(
+            .optional_positional_arg(
                 "column",
                 SyntaxShape::String,
                 "The column to cast. Required when used with a dataframe.",

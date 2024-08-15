@@ -504,7 +504,7 @@ impl Command for AnsiCommand {
     fn signature(&self) -> Signature {
         Signature::build("ansi")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .optional_position_arg(
+            .optional_positional_arg(
                 "code",
                 SyntaxShape::Any,
                 "The name of the code to use (from `ansi -l`).",

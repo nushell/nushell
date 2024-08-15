@@ -18,7 +18,7 @@ impl Command for SubCommand {
                 "set the current cursor position to the end of the buffer",
                 Some('e'),
             )
-            .optional_position_arg("pos", SyntaxShape::Int, "Cursor position to be set")
+            .optional_positional_arg("pos", SyntaxShape::Int, "Cursor position to be set")
             .category(Category::Core)
     }
 

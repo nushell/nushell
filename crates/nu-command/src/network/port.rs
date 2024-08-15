@@ -13,12 +13,12 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("port")
             .input_output_types(vec![(Type::Nothing, Type::Int)])
-            .optional_position_arg(
+            .optional_positional_arg(
                 "start",
                 SyntaxShape::Int,
                 "The start port to scan (inclusive).",
             )
-            .optional_position_arg("end", SyntaxShape::Int, "The end port to scan (inclusive).")
+            .optional_positional_arg("end", SyntaxShape::Int, "The end port to scan (inclusive).")
             .category(Category::Network)
     }
 

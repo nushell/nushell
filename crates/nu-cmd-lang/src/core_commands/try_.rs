@@ -17,7 +17,7 @@ impl Command for Try {
         Signature::build("try")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required_positional_arg("try_block", SyntaxShape::Block, "Block to run.")
-            .optional_position_arg(
+            .optional_positional_arg(
                 "catch_closure",
                 SyntaxShape::Keyword(
                     b"catch".to_vec(),

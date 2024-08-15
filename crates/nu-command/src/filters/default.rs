@@ -18,7 +18,7 @@ impl Command for Default {
                 SyntaxShape::Any,
                 "The value to use as a default.",
             )
-            .optional_position_arg(
+            .optional_positional_arg(
                 "column name",
                 SyntaxShape::String,
                 "The name of the column.",

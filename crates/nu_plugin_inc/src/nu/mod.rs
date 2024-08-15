@@ -27,7 +27,7 @@ impl SimplePluginCommand for Inc {
 
     fn signature(&self) -> Signature {
         Signature::build(PluginCommand::name(self))
-            .optional_position_arg("cell_path", SyntaxShape::CellPath, "cell path to update")
+            .optional_positional_arg("cell_path", SyntaxShape::CellPath, "cell path to update")
             .optional_named_flag_arg(
                 "major",
                 "increment the major version (eg 1.2.1 -> 2.0.0)",

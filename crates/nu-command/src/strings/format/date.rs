@@ -22,7 +22,7 @@ impl Command for FormatDate {
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .optional_named_flag_arg("list", "lists strftime cheatsheet", Some('l'))
-            .optional_position_arg(
+            .optional_positional_arg(
                 "format string",
                 SyntaxShape::String,
                 "The desired format date.",

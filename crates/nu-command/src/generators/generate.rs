@@ -17,7 +17,7 @@ impl Command for Generate {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "Generator function.",
             )
-            .optional_position_arg("initial", SyntaxShape::Any, "Initial value.")
+            .optional_positional_arg("initial", SyntaxShape::Any, "Initial value.")
             .allow_variants_without_examples(true)
             .category(Category::Generators)
     }

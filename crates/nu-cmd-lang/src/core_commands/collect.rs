@@ -12,7 +12,7 @@ impl Command for Collect {
     fn signature(&self) -> Signature {
         Signature::build("collect")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .optional_position_arg(
+            .optional_positional_arg(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run once the stream is collected.",

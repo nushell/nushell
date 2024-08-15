@@ -21,7 +21,7 @@ impl Command for Last {
                 (Type::Binary, Type::Binary),
                 (Type::Range, Type::Any),
             ])
-            .optional_position_arg(
+            .optional_positional_arg(
                 "rows",
                 SyntaxShape::Int,
                 "Starting from the back, the number of rows to return.",

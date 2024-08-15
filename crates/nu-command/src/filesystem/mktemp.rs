@@ -28,7 +28,7 @@ impl Command for Mktemp {
     fn signature(&self) -> Signature {
         Signature::build("mktemp")
             .input_output_types(vec![(Type::Nothing, Type::String)])
-            .optional_position_arg(
+            .optional_positional_arg(
                 "template",
                 SyntaxShape::String,
                 "Optional pattern from which the name of the file or directory is derived. Must contain at least three 'X's in last component.",

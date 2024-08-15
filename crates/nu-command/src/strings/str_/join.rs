@@ -17,7 +17,7 @@ impl Command for StrJoin {
                 (Type::List(Box::new(Type::Any)), Type::String),
                 (Type::String, Type::String),
             ])
-            .optional_position_arg(
+            .optional_positional_arg(
                 "separator",
                 SyntaxShape::String,
                 "Optional separator to use when creating string.",

@@ -36,7 +36,7 @@ impl Command for InputList {
                 (Type::List(Box::new(Type::Any)), Type::Any),
                 (Type::Range, Type::Int),
             ])
-            .optional_position_arg("prompt", SyntaxShape::String, "The prompt to display.")
+            .optional_positional_arg("prompt", SyntaxShape::String, "The prompt to display.")
             .optional_named_flag_arg(
                 "multi",
                 "Use multiple results, you can press a to toggle all options on/off",

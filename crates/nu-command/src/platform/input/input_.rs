@@ -30,7 +30,7 @@ impl Command for Input {
         Signature::build("input")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .optional_position_arg("prompt", SyntaxShape::String, "Prompt to show the user.")
+            .optional_positional_arg("prompt", SyntaxShape::String, "Prompt to show the user.")
             .named_flag_arg(
                 "bytes-until-any",
                 SyntaxShape::String,

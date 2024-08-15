@@ -13,7 +13,7 @@ impl Command for Tutor {
         Signature::build("tutor")
             .input_output_types(vec![(Type::Nothing, Type::String)])
             .allow_variants_without_examples(true)
-            .optional_position_arg(
+            .optional_positional_arg(
                 "search",
                 SyntaxShape::String,
                 "Item to search for, or 'list' to list available tutorials.",

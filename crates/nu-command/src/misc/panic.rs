@@ -17,7 +17,7 @@ impl Command for Panic {
             .input_output_types(vec![(Type::Nothing, Type::table())])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
-            .optional_position_arg("msg", SyntaxShape::String, "The glob pattern to use.")
+            .optional_positional_arg("msg", SyntaxShape::String, "The glob pattern to use.")
             .category(Category::Experimental)
     }
 

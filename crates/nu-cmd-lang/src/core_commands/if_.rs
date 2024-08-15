@@ -27,7 +27,7 @@ impl Command for If {
                 SyntaxShape::Block,
                 "Block to run if check succeeds.",
             )
-            .optional_position_arg(
+            .optional_positional_arg(
                 "else_expression",
                 SyntaxShape::Keyword(
                     b"else".to_vec(),

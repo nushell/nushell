@@ -16,7 +16,7 @@ impl Command for OverlayHide {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("overlay hide")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .optional_position_arg("name", SyntaxShape::String, "Overlay to hide.")
+            .optional_positional_arg("name", SyntaxShape::String, "Overlay to hide.")
             .optional_named_flag_arg(
                 "keep-custom",
                 "Keep all newly added commands and aliases in the next activated overlay.",

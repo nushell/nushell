@@ -20,7 +20,7 @@ impl Command for Metadata {
         Signature::build("metadata")
             .input_output_types(vec![(Type::Any, Type::record())])
             .allow_variants_without_examples(true)
-            .optional_position_arg(
+            .optional_positional_arg(
                 "expression",
                 SyntaxShape::Any,
                 "The expression you want metadata for.",

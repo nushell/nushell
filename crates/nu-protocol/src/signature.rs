@@ -274,7 +274,7 @@ impl Signature {
     }
 
     /// Add an optional positional argument to the signature
-    pub fn optional_position_arg(
+    pub fn optional_positional_arg(
         mut self,
         name: impl Into<String>,
         shape: impl Into<SyntaxShape>,

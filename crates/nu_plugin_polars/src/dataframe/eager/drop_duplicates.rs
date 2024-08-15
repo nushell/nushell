@@ -27,7 +27,7 @@ impl PluginCommand for DropDuplicates {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional_position_arg(
+            .optional_positional_arg(
                 "subset",
                 SyntaxShape::Table(vec![]),
                 "subset of columns to drop duplicates",

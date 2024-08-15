@@ -18,7 +18,7 @@ fn test_signature_chained() {
     let signature = Signature::new("new_signature")
         .usage("description")
         .required_positional_arg("required", SyntaxShape::String, "required description")
-        .optional_position_arg("optional", SyntaxShape::String, "optional description")
+        .optional_positional_arg("optional", SyntaxShape::String, "optional description")
         .required_named_flag_arg(
             "req-named",
             SyntaxShape::String,
@@ -132,7 +132,7 @@ fn test_signature_round_trip() {
         .usage("description")
         .required_positional_arg("first", SyntaxShape::String, "first required")
         .required_positional_arg("second", SyntaxShape::Int, "second required")
-        .optional_position_arg("optional", SyntaxShape::String, "optional description")
+        .optional_positional_arg("optional", SyntaxShape::String, "optional description")
         .required_named_flag_arg(
             "req-named",
             SyntaxShape::String,

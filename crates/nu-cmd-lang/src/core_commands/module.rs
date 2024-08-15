@@ -18,7 +18,7 @@ impl Command for Module {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
             .required_positional_arg("module", SyntaxShape::String, "Module name or module path.")
-            .optional_position_arg(
+            .optional_positional_arg(
                 "block",
                 SyntaxShape::Block,
                 "Body of the module if 'module' parameter is not a module path.",

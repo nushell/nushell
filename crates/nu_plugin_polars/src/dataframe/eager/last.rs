@@ -26,7 +26,7 @@ impl PluginCommand for LastDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional_position_arg("rows", SyntaxShape::Int, "Number of rows for tail")
+            .optional_positional_arg("rows", SyntaxShape::Int, "Number of rows for tail")
             .input_output_types(vec![
                 (
                     Type::Custom("expression".into()),

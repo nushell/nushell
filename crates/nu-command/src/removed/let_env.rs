@@ -12,8 +12,8 @@ impl Command for LetEnv {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .optional_position_arg("var_name", SyntaxShape::String, "Variable name.")
-            .optional_position_arg(
+            .optional_positional_arg("var_name", SyntaxShape::String, "Variable name.")
+            .optional_positional_arg(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "Equals sign followed by value.",

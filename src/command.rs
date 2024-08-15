@@ -452,7 +452,7 @@ impl Command for Nu {
                 "run internal test binary",
                 None,
             )
-            .optional_position_arg(
+            .optional_positional_arg(
                 "script file",
                 SyntaxShape::Filepath,
                 "name of the optional script file to run",

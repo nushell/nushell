@@ -26,7 +26,7 @@ impl PluginCommand for FirstDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional_position_arg(
+            .optional_positional_arg(
                 "rows",
                 SyntaxShape::Int,
                 "starting from the front, the number of rows to return",

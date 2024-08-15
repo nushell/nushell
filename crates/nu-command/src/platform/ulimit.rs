@@ -512,7 +512,7 @@ impl Command for ULimit {
             .optional_named_flag_arg("soft", "Sets soft resource limit", Some('S'))
             .optional_named_flag_arg("hard", "Sets hard resource limit", Some('H'))
             .optional_named_flag_arg("all", "Prints all current limits", Some('a'))
-            .optional_position_arg("limit", SyntaxShape::Any, "Limit value.")
+            .optional_positional_arg("limit", SyntaxShape::Any, "Limit value.")
             .category(Category::Platform);
 
         for res in RESOURCE_ARRAY.iter() {

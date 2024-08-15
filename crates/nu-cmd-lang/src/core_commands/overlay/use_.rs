@@ -27,7 +27,7 @@ impl Command for OverlayUse {
                 SyntaxShape::String,
                 "Module name to use overlay for.",
             )
-            .optional_position_arg(
+            .optional_positional_arg(
                 "as",
                 SyntaxShape::Keyword(b"as".to_vec(), Box::new(SyntaxShape::String)),
                 "`as` keyword followed by a new name.",

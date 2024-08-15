@@ -11,7 +11,7 @@ impl Command for Exit {
     fn signature(&self) -> Signature {
         Signature::build("exit")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .optional_position_arg(
+            .optional_positional_arg(
                 "exit_code",
                 SyntaxShape::Int,
                 "Exit code to return immediately with.",

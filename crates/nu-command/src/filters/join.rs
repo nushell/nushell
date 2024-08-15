@@ -37,7 +37,7 @@ impl Command for Join {
                 SyntaxShape::String,
                 "Name of column in input (left) table to join on.",
             )
-            .optional_position_arg(
+            .optional_positional_arg(
                 "right-on",
                 SyntaxShape::String,
                 "Name of column in right table to join on. Defaults to same column as left table.",
