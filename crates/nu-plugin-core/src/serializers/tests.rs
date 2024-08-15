@@ -221,16 +221,21 @@ macro_rules! generate_tests {
         fn response_round_trip_signature() {
             let signature = PluginSignature::new(
                 Signature::build("nu-plugin")
-                    .required("first", SyntaxShape::String, "first required")
-                    .required("second", SyntaxShape::Int, "second required")
-                    .required_named("first-named", SyntaxShape::String, "first named", Some('f'))
-                    .required_named(
+                    .required_positional_arg("first", SyntaxShape::String, "first required")
+                    .required_positional_arg("second", SyntaxShape::Int, "second required")
+                    .required_named_flag_arg(
+                        "first-named",
+                        SyntaxShape::String,
+                        "first named",
+                        Some('f'),
+                    )
+                    .required_named_flag_arg(
                         "second-named",
                         SyntaxShape::String,
                         "second named",
                         Some('s'),
                     )
-                    .rest("remaining", SyntaxShape::Int, "remaining"),
+                    .rest_positional_arg("remaining", SyntaxShape::Int, "remaining"),
                 vec![],
             );
 
@@ -277,9 +282,9 @@ macro_rules! generate_tests {
 
                     signature
                         .sig
-                        .named
+                        .named_flag
                         .iter()
-                        .zip(returned_signature[0].sig.named.iter())
+                        .zip(returned_signature[0].sig.named_flag.iter())
                         .for_each(|(lhs, rhs)| assert_eq!(lhs, rhs));
 
                     assert_eq!(
