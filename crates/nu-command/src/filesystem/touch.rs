@@ -180,11 +180,6 @@ impl Command for Touch {
                 result: None,
             },
             Example {
-                description: "Changes the last modified time of files a, b and c to a date",
-                example: r#"touch -m -d "yesterday" a b c"#,
-                result: None,
-            },
-            Example {
                 description: r#"Changes the last modified time of file d and e to "fixture.json"'s last modified time"#,
                 example: r#"touch -m -r fixture.json d e"#,
                 result: None,
