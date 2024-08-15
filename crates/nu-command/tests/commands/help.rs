@@ -36,8 +36,8 @@ fn help_aliases() {
 }
 
 #[test]
-fn help_alias_usage_1() {
-    Playground::setup("help_alias_usage_1", |dirs, sandbox| {
+fn help_alias_description_1() {
+    Playground::setup("help_alias_description_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
@@ -57,7 +57,7 @@ fn help_alias_usage_1() {
 }
 
 #[test]
-fn help_alias_usage_2() {
+fn help_alias_description_2() {
     let code = &[
         "alias SPAM = print 'spam'  # line2",
         "help aliases | where name == SPAM | get 0.usage",
@@ -68,8 +68,8 @@ fn help_alias_usage_2() {
 }
 
 #[test]
-fn help_alias_usage_3() {
-    Playground::setup("help_alias_usage_3", |dirs, sandbox| {
+fn help_alias_description_3() {
+    Playground::setup("help_alias_description_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
@@ -172,8 +172,8 @@ fn help_export_alias_name_multi_word() {
 }
 
 #[test]
-fn help_module_usage_1() {
-    Playground::setup("help_module_usage", |dirs, sandbox| {
+fn help_module_description_1() {
+    Playground::setup("help_module_description", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
             r#"
@@ -260,11 +260,13 @@ fn help_module_sorted_aliases() {
 }
 
 #[test]
-fn help_usage_extra_usage_command() {
-    Playground::setup("help_usage_extra_usage_command", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            r#"
+fn help_description_extra_description_command() {
+    Playground::setup(
+        "help_description_extra_description_command",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContent(
+                "spam.nu",
+                r#"
                 # module_line1
                 #
                 # module_line2
@@ -274,34 +276,37 @@ fn help_usage_extra_usage_command() {
                 # def_line2
                 export def foo [] {}
             "#,
-        )]);
+            )]);
 
-        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help modules spam");
-        assert!(actual.out.contains("module_line1"));
-        assert!(actual.out.contains("module_line2"));
+            let actual = nu!(cwd: dirs.test(), "use spam.nu *; help modules spam");
+            assert!(actual.out.contains("module_line1"));
+            assert!(actual.out.contains("module_line2"));
 
-        let actual = nu!(cwd: dirs.test(),
+            let actual = nu!(cwd: dirs.test(),
             "use spam.nu *; help modules | where name == spam | get 0.usage");
-        assert!(actual.out.contains("module_line1"));
-        assert!(!actual.out.contains("module_line2"));
+            assert!(actual.out.contains("module_line1"));
+            assert!(!actual.out.contains("module_line2"));
 
-        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help commands foo");
-        assert!(actual.out.contains("def_line1"));
-        assert!(actual.out.contains("def_line2"));
+            let actual = nu!(cwd: dirs.test(), "use spam.nu *; help commands foo");
+            assert!(actual.out.contains("def_line1"));
+            assert!(actual.out.contains("def_line2"));
 
-        let actual = nu!(cwd: dirs.test(),
+            let actual = nu!(cwd: dirs.test(),
             "use spam.nu *; help commands | where name == foo | get 0.usage");
-        assert!(actual.out.contains("def_line1"));
-        assert!(!actual.out.contains("def_line2"));
-    })
+            assert!(actual.out.contains("def_line1"));
+            assert!(!actual.out.contains("def_line2"));
+        },
+    )
 }
 
 #[test]
-fn help_usage_extra_usage_alias() {
-    Playground::setup("help_usage_extra_usage_alias", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContent(
-            "spam.nu",
-            r#"
+fn help_description_extra_description_alias() {
+    Playground::setup(
+        "help_description_extra_description_alias",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContent(
+                "spam.nu",
+                r#"
                 # module_line1
                 #
                 # module_line2
@@ -311,26 +316,27 @@ fn help_usage_extra_usage_alias() {
                 # alias_line2
                 export alias bar = echo 'bar'
             "#,
-        )]);
+            )]);
 
-        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help modules spam");
-        assert!(actual.out.contains("module_line1"));
-        assert!(actual.out.contains("module_line2"));
+            let actual = nu!(cwd: dirs.test(), "use spam.nu *; help modules spam");
+            assert!(actual.out.contains("module_line1"));
+            assert!(actual.out.contains("module_line2"));
 
-        let actual = nu!(cwd: dirs.test(),
+            let actual = nu!(cwd: dirs.test(),
             "use spam.nu *; help modules | where name == spam | get 0.usage");
-        assert!(actual.out.contains("module_line1"));
-        assert!(!actual.out.contains("module_line2"));
+            assert!(actual.out.contains("module_line1"));
+            assert!(!actual.out.contains("module_line2"));
 
-        let actual = nu!(cwd: dirs.test(), "use spam.nu *; help aliases bar");
-        assert!(actual.out.contains("alias_line1"));
-        assert!(actual.out.contains("alias_line2"));
+            let actual = nu!(cwd: dirs.test(), "use spam.nu *; help aliases bar");
+            assert!(actual.out.contains("alias_line1"));
+            assert!(actual.out.contains("alias_line2"));
 
-        let actual = nu!(cwd: dirs.test(),
+            let actual = nu!(cwd: dirs.test(),
             "use spam.nu *; help aliases | where name == bar | get 0.usage");
-        assert!(actual.out.contains("alias_line1"));
-        assert!(!actual.out.contains("alias_line2"));
-    })
+            assert!(actual.out.contains("alias_line1"));
+            assert!(!actual.out.contains("alias_line2"));
+        },
+    )
 }
 
 #[test]
