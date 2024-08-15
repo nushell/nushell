@@ -98,7 +98,7 @@ pub trait PluginCommand: Sync {
     ///
     /// This is optional - any arguments documented by [`.signature()`](Self::signature) will be
     /// shown in the help page automatically. However, this can be useful for explaining things that
-    /// would be too brief to include in [`.usage()`](Self::usage) and may span multiple lines.
+    /// would be too brief to include in [`.description()`](Self::description) and may span multiple lines.
     fn extra_description(&self) -> &str {
         ""
     }
@@ -236,7 +236,7 @@ pub trait SimplePluginCommand: Sync {
     ///
     /// This is optional - any arguments documented by [`.signature()`] will be shown in the help
     /// page automatically. However, this can be useful for explaining things that would be too
-    /// brief to include in [`.usage()`] and may span multiple lines.
+    /// brief to include in [`.description()`](Self::description) and may span multiple lines.
     fn extra_description(&self) -> &str {
         ""
     }
