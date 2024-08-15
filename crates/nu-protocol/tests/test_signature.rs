@@ -9,8 +9,8 @@ fn test_signature() {
     assert_eq!(signature, from_build);
 
     // constructing signature with description
-    let signature = Signature::new("signature").description("example usage");
-    assert_eq!(signature.description, "example usage".to_string())
+    let signature = Signature::new("signature").description("example description");
+    assert_eq!(signature.description, "example description".to_string())
 }
 
 #[test]
