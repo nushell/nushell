@@ -3075,7 +3075,6 @@ dependencies = [
  "fancy-regex",
  "filesize",
  "filetime",
- "fs_extra",
  "human-date-parser",
  "indexmap",
  "indicatif",
