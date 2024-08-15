@@ -25,7 +25,7 @@ impl Command for HelpExterns {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in extern names and usage",
+                "string to find in extern names and descriptions",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -45,7 +45,7 @@ impl Command for HelpExterns {
                 result: None,
             },
             Example {
-                description: "search for string in extern names and usages",
+                description: "search for string in extern names and descriptions",
                 example: "help externs --find smth",
                 result: None,
             },
