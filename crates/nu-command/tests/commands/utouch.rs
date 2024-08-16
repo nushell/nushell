@@ -1,4 +1,4 @@
-use chrono::{DateTime, Days, Local, NaiveDate, Utc};
+use chrono::{DateTime, Days, Local, TimeDelta, Utc};
 use filetime::FileTime;
 use nu_test_support::fs::{files_exist_at, Stub};
 use nu_test_support::nu;
@@ -293,7 +293,10 @@ fn change_file_mtime_to_reference() {
     })
 }
 
+// TODO when https://github.com/uutils/coreutils/issues/6629 is fixed,
+// unignore this test
 #[test]
+#[ignore]
 fn change_file_times_to_reference_file_with_date() {
     Playground::setup(
         "change_file_times_to_reference_file_with_date",
@@ -425,24 +428,32 @@ fn change_modified_and_access_time_of_dir_to_today() {
     })
 }
 
+// TODO when https://github.com/uutils/coreutils/issues/6629 is fixed,
+// unignore this test
 #[test]
+#[ignore]
 fn change_file_times_to_date() {
     Playground::setup("change_file_times_to_date", |dirs, sandbox| {
         sandbox.with_files(&[Stub::EmptyFile("target_file")]);
 
-        nu!(cwd: dirs.test(), "utouch -d '2024-01-01' target_file");
+        let expected = Utc::now().checked_sub_signed(TimeDelta::hours(2)).unwrap();
+        nu!(cwd: dirs.test(), "utouch -d '-2 hours' target_file");
 
-        let expected = NaiveDate::from_yo_opt(2024, 1).unwrap();
         let (got_atime, got_mtime) = file_times(&dirs.test().join("target_file"));
-        let got = (
-            DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds())
-                .unwrap()
-                .date_naive(),
-            DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds())
-                .unwrap()
-                .date_naive(),
+        let got_atime =
+            DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap();
+        let got_mtime =
+            DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds()).unwrap();
+        let threshold = TimeDelta::minutes(1);
+        assert!(
+            got_atime.signed_duration_since(expected).lt(&threshold)
+                && got_mtime.signed_duration_since(expected).lt(&threshold),
+            "Expected: {}. Got: atime={}, mtime={}",
+            expected,
+            got_atime,
+            got_mtime
         );
-        assert_eq!((expected, expected), got);
+        assert!(got_mtime.signed_duration_since(expected).lt(&threshold));
     })
 }
 
