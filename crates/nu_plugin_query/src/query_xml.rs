@@ -88,7 +88,7 @@ pub fn execute_xpath_query(
 
             match r {
                 sxd_xpath::Value::Nodeset(ns) => {
-                    for n in ns.into_iter() {
+                    for n in ns.document_order() {
                         record.push(key.clone(), Value::string(n.string_value(), call.head));
                     }
                 }

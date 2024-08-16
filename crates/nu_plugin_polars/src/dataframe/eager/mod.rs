@@ -9,11 +9,12 @@ mod filter_with;
 mod first;
 mod get;
 mod last;
-mod melt;
 mod open;
+mod pivot;
 mod query_df;
 mod rename;
 mod sample;
+mod save;
 mod schema;
 mod shape;
 mod slice;
@@ -21,13 +22,9 @@ mod sql_context;
 mod sql_expr;
 mod summary;
 mod take;
-mod to_arrow;
-mod to_avro;
-mod to_csv;
 mod to_df;
-mod to_json_lines;
 mod to_nu;
-mod to_parquet;
+mod unpivot;
 mod with_column;
 
 use crate::PolarsPlugin;
@@ -44,7 +41,6 @@ pub use filter_with::FilterWith;
 pub use first::FirstDF;
 pub use get::GetDF;
 pub use last::LastDF;
-pub use melt::MeltDF;
 use nu_plugin::PluginCommand;
 pub use query_df::QueryDf;
 pub use rename::RenameDF;
@@ -55,13 +51,9 @@ pub use slice::SliceDF;
 pub use sql_context::SQLContext;
 pub use summary::Summary;
 pub use take::TakeDF;
-pub use to_arrow::ToArrow;
-pub use to_avro::ToAvro;
-pub use to_csv::ToCSV;
 pub use to_df::ToDataFrame;
-pub use to_json_lines::ToJsonLines;
 pub use to_nu::ToNu;
-pub use to_parquet::ToParquet;
+pub use unpivot::UnpivotDF;
 pub use with_column::WithColumn;
 
 pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin>>> {
@@ -76,7 +68,8 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(FilterWith),
         Box::new(GetDF),
         Box::new(OpenDataFrame),
-        Box::new(MeltDF),
+        Box::new(pivot::PivotDF),
+        Box::new(UnpivotDF),
         Box::new(Summary),
         Box::new(FirstDF),
         Box::new(LastDF),
@@ -87,13 +80,9 @@ pub(crate) fn eager_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugi
         Box::new(SchemaCmd),
         Box::new(TakeDF),
         Box::new(ToNu),
-        Box::new(ToArrow),
-        Box::new(ToAvro),
         Box::new(ToDataFrame),
-        Box::new(ToCSV),
-        Box::new(ToJsonLines),
-        Box::new(ToParquet),
         Box::new(QueryDf),
         Box::new(WithColumn),
+        Box::new(save::SaveDF),
     ]
 }

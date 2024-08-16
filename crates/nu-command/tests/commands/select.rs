@@ -50,7 +50,7 @@ fn complex_nested_columns() {
         r#"
                 {sample}
                 | select nu."0xATYKARNU" nu.committers.name nu.releases.version
-                | get nu_releases_version
+                | get "nu.releases.version"
                 | where $it > "0.8"
                 | get 0
             "#

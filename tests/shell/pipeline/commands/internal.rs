@@ -550,7 +550,6 @@ fn dynamic_closure_rest_args() {
     assert_eq!(actual.out, "1, 2, 3");
 }
 
-#[cfg(feature = "which-support")]
 #[test]
 fn argument_subexpression_reports_errors() {
     let actual = nu!("echo (ferris_is_not_here.exe)");
@@ -1161,4 +1160,12 @@ fn command_not_found_error_shows_not_found_2() {
         actual.err.contains("Command `foo` not found")
             && actual.err.contains("Did you mean `for`?")
     );
+}
+
+#[test]
+fn error_on_out_greater_pipe() {
+    let actual = nu!(r#""foo" o>| print"#);
+    assert!(actual
+        .err
+        .contains("Redirecting stdout to a pipe is the same as normal piping"))
 }

@@ -1,4 +1,3 @@
-use log::info;
 use lscolors::LsColors;
 use std::io::{Result, Write};
 
@@ -393,31 +392,27 @@ pub fn get_ls_colors(lscolors_env_string: Option<String>) -> LsColors {
 }
 
 // Log some performance metrics (green text with yellow timings)
-pub fn perf(
-    msg: &str,
-    dur: std::time::Instant,
-    file: &str,
-    line: u32,
-    column: u32,
-    use_color: bool,
-) {
-    if use_color {
-        info!(
-            "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
-            file,
-            line,
-            column,
-            msg,
-            dur.elapsed(),
-        );
-    } else {
-        info!(
-            "perf: {}:{}:{} {} took {:?}",
-            file,
-            line,
-            column,
-            msg,
-            dur.elapsed(),
-        );
-    }
+#[macro_export]
+macro_rules! perf {
+    ($msg:expr, $dur:expr, $use_color:expr) => {
+        if $use_color {
+            log::info!(
+                "perf: {}:{}:{} \x1b[32m{}\x1b[0m took \x1b[33m{:?}\x1b[0m",
+                file!(),
+                line!(),
+                column!(),
+                $msg,
+                $dur.elapsed(),
+            );
+        } else {
+            log::info!(
+                "perf: {}:{}:{} {} took {:?}",
+                file!(),
+                line!(),
+                column!(),
+                $msg,
+                $dur.elapsed(),
+            );
+        }
+    };
 }

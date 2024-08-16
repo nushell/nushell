@@ -1,22 +1,21 @@
 use crate::nu_common::NuConfig;
 use nu_color_config::StyleComputer;
-use nu_protocol::{Record, Span, Value};
+use nu_protocol::{Record, Signals, Span, Value};
 use nu_table::{
     common::{nu_value_to_string, nu_value_to_string_clean},
     ExpandedTable, TableOpts,
 };
-use std::sync::{atomic::AtomicBool, Arc};
 
 pub fn try_build_table(
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: &Signals,
     config: &NuConfig,
     style_computer: &StyleComputer,
     value: Value,
 ) -> String {
     let span = value.span();
     match value {
-        Value::List { vals, .. } => try_build_list(vals, ctrlc, config, span, style_computer),
-        Value::Record { val, .. } => try_build_map(&val, span, style_computer, ctrlc, config),
+        Value::List { vals, .. } => try_build_list(vals, signals, config, span, style_computer),
+        Value::Record { val, .. } => try_build_map(&val, span, style_computer, signals, config),
         val if matches!(val, Value::String { .. }) => {
             nu_value_to_string_clean(&val, config, style_computer).0
         }
@@ -28,13 +27,13 @@ fn try_build_map(
     record: &Record,
     span: Span,
     style_computer: &StyleComputer,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: &Signals,
     config: &NuConfig,
 ) -> String {
     let opts = TableOpts::new(
         config,
         style_computer,
-        ctrlc,
+        signals,
         Span::unknown(),
         usize::MAX,
         (config.table_indent.left, config.table_indent.right),
@@ -53,7 +52,7 @@ fn try_build_map(
 
 fn try_build_list(
     vals: Vec<Value>,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: &Signals,
     config: &NuConfig,
     span: Span,
     style_computer: &StyleComputer,
@@ -61,7 +60,7 @@ fn try_build_list(
     let opts = TableOpts::new(
         config,
         style_computer,
-        ctrlc,
+        signals,
         Span::unknown(),
         usize::MAX,
         (config.table_indent.left, config.table_indent.right),

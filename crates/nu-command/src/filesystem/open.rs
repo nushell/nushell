@@ -1,7 +1,7 @@
 use super::util::get_rest_for_glob_pattern;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, get_eval_block};
-use nu_protocol::{ByteStream, DataSource, NuGlob, PipelineMetadata};
+use nu_protocol::{ast, ByteStream, DataSource, NuGlob, PipelineMetadata};
 use std::path::Path;
 
 #[cfg(feature = "sqlite")]
@@ -51,13 +51,12 @@ impl Command for Open {
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let call_span = call.head;
-        let ctrlc = engine_state.ctrlc.clone();
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
         let mut paths = get_rest_for_glob_pattern(engine_state, stack, call, 0)?;
         let eval_block = get_eval_block(engine_state);
 
-        if paths.is_empty() && call.rest_iter(0).next().is_none() {
+        if paths.is_empty() && !call.has_positional_args(stack, 0) {
             // try to use path from pipeline input if there were no positional or spread args
             let (filename, span) = match input {
                 PipelineData::Value(val, ..) => {
@@ -122,8 +121,12 @@ impl Command for Open {
                 } else {
                     #[cfg(feature = "sqlite")]
                     if !raw {
-                        let res = SQLiteDatabase::try_from_path(path, arg_span, ctrlc.clone())
-                            .map(|db| db.into_value(call.head).into_pipeline_data());
+                        let res = SQLiteDatabase::try_from_path(
+                            path,
+                            arg_span,
+                            engine_state.signals().clone(),
+                        )
+                        .map(|db| db.into_value(call.head).into_pipeline_data());
 
                         if res.is_ok() {
                             return res;
@@ -143,10 +146,19 @@ impl Command for Open {
                         }
                     };
 
+                    let content_type = if raw {
+                        path.extension()
+                            .map(|ext| ext.to_string_lossy().to_string())
+                            .and_then(|ref s| detect_content_type(s))
+                    } else {
+                        None
+                    };
+
                     let stream = PipelineData::ByteStream(
-                        ByteStream::file(file, call_span, ctrlc.clone()),
+                        ByteStream::file(file, call_span, engine_state.signals().clone()),
                         Some(PipelineMetadata {
                             data_source: DataSource::FilePath(path.to_path_buf()),
+                            content_type,
                         }),
                     );
 
@@ -176,7 +188,8 @@ impl Command for Open {
                                 let block = engine_state.get_block(block_id);
                                 eval_block(engine_state, stack, block, stream)
                             } else {
-                                decl.run(engine_state, stack, &Call::new(call_span), stream)
+                                let call = ast::Call::new(call_span);
+                                decl.run(engine_state, stack, &(&call).into(), stream)
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{
@@ -202,7 +215,7 @@ impl Command for Open {
             Ok(output
                 .into_iter()
                 .flatten()
-                .into_pipeline_data(call_span, ctrlc))
+                .into_pipeline_data(call_span, engine_state.signals().clone()))
         }
     }
 
@@ -262,4 +275,23 @@ fn extract_extensions(filename: &str) -> Vec<String> {
     extensions.reverse();
 
     extensions
+}
+
+fn detect_content_type(extension: &str) -> Option<String> {
+    // This will allow the overriding of metadata to be consistent with
+    // the content type
+    match extension {
+        // Per RFC-9512, application/yaml should be used
+        "yaml" | "yml" => Some("application/yaml".to_string()),
+        _ => mime_guess::from_ext(extension)
+            .first()
+            .map(|mime| mime.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    #[test]
+    fn test_content_type() {}
 }

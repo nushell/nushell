@@ -557,12 +557,12 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
-    #[error("Cannot find column")]
+    #[error("Cannot find column '{col_name}'")]
     #[diagnostic(code(nu::shell::column_not_found))]
     CantFindColumn {
         col_name: String,
         #[label = "cannot find column '{col_name}'"]
-        span: Span,
+        span: Option<Span>,
         #[label = "value originates here"]
         src_span: Span,
     },
@@ -876,6 +876,21 @@ pub enum ShellError {
         span: Span,
     },
 
+    #[cfg(unix)]
+    /// An I/O operation failed.
+    ///
+    /// ## Resolution
+    ///
+    /// This is a generic error. Refer to the specific error message for further details.
+    #[error("program coredump error")]
+    #[diagnostic(code(nu::shell::coredump_error))]
+    CoredumpErrorSpanned {
+        msg: String,
+        signal: i32,
+        #[label("{msg}")]
+        span: Span,
+    },
+
     /// Tried to `cd` to a path that isn't a directory.
     ///
     /// ## Resolution
@@ -1172,6 +1187,13 @@ pub enum ShellError {
         span: Option<Span>,
     },
 
+    /// Operation interrupted
+    #[error("Operation interrupted")]
+    Interrupted {
+        #[label("This operation was interrupted")]
+        span: Span,
+    },
+
     /// Operation interrupted by user
     #[error("Operation interrupted by user")]
     InterruptedByUser {
@@ -1354,6 +1376,23 @@ On Windows, this would be %USERPROFILE%\AppData\Roaming"#
         help("Set XDG_CONFIG_HOME to an absolute path, or set it to an empty string to ignore it")
     )]
     InvalidXdgConfig { xdg: String, default: String },
+
+    /// An unexpected error occurred during IR evaluation.
+    ///
+    /// ## Resolution
+    ///
+    /// This is most likely a correctness issue with the IR compiler or evaluator. Please file a
+    /// bug with the minimum code needed to reproduce the issue, if possible.
+    #[error("IR evaluation error: {msg}")]
+    #[diagnostic(
+        code(nu::shell::ir_eval_error),
+        help("this is a bug, please report it at https://github.com/nushell/nushell/issues/new along with the code you were running if able")
+    )]
+    IrEvalError {
+        msg: String,
+        #[label = "while running this code"]
+        span: Option<Span>,
+    },
 }
 
 // TODO: Implement as From trait

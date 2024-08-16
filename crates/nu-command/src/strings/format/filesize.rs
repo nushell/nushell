@@ -1,6 +1,6 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::format_filesize;
+use nu_protocol::{engine::StateWorkingSet, format_filesize};
 
 struct Arguments {
     format_value: String,
@@ -50,6 +50,10 @@ impl Command for FormatFilesize {
         vec!["convert", "display", "pattern", "human readable"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -72,7 +76,32 @@ impl Command for FormatFilesize {
             arg,
             input,
             call.head,
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
+        )
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let format_value = call
+            .req_const::<Value>(working_set, 0)?
+            .coerce_into_string()?
+            .to_ascii_lowercase();
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
+        let arg = Arguments {
+            format_value,
+            cell_paths,
+        };
+        operate(
+            format_value_impl,
+            arg,
+            input,
+            call.head,
+            working_set.permanent().signals(),
         )
     }
 

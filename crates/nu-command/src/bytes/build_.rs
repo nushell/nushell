@@ -49,10 +49,8 @@ impl Command for BytesBuild {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let mut output = vec![];
-        for val in call.rest_iter_flattened(0, |expr| {
-            let eval_expression = get_eval_expression(engine_state);
-            eval_expression(engine_state, stack, expr)
-        })? {
+        let eval_expression = get_eval_expression(engine_state);
+        for val in call.rest_iter_flattened(engine_state, stack, eval_expression, 0)? {
             let val_span = val.span();
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),

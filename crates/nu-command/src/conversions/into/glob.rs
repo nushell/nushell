@@ -87,7 +87,7 @@ fn glob_helper(
         Ok(Value::glob(stream.into_string()?, false, head).into_pipeline_data())
     } else {
         let args = Arguments { cell_paths };
-        operate(action, args, input, head, engine_state.ctrlc.clone())
+        operate(action, args, input, head, engine_state.signals())
     }
 }
 

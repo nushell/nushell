@@ -8,7 +8,7 @@ use nu_protocol::{
     report_error_new, HistoryFileFormat, PipelineData,
 };
 #[cfg(feature = "plugin")]
-use nu_utils::utils::perf;
+use nu_utils::perf;
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
@@ -53,13 +53,10 @@ pub fn read_plugin_file(
     // Reading signatures from plugin registry file
     // The plugin.msgpackz file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state, plugin_file.clone(), storage_path);
-    perf(
+    perf!(
         "add plugin file to engine_state",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        engine_state.get_config().use_ansi_coloring,
+        engine_state.get_config().use_ansi_coloring
     );
 
     start_time = std::time::Instant::now();
@@ -137,13 +134,10 @@ pub fn read_plugin_file(
             }
         };
 
-        perf(
+        perf!(
             &format!("read plugin file {}", plugin_path.display()),
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            engine_state.get_config().use_ansi_coloring,
+            engine_state.get_config().use_ansi_coloring
         );
         start_time = std::time::Instant::now();
 
@@ -156,13 +150,10 @@ pub fn read_plugin_file(
             return;
         }
 
-        perf(
+        perf!(
             &format!("load plugin file {}", plugin_path.display()),
             start_time,
-            file!(),
-            line!(),
-            column!(),
-            engine_state.get_config().use_ansi_coloring,
+            engine_state.get_config().use_ansi_coloring
         );
     }
 }
@@ -201,7 +192,8 @@ pub fn add_plugin_file(
         } else if let Some(mut plugin_path) = nu_path::config_dir() {
             // Path to store plugins signatures
             plugin_path.push(storage_path);
-            let mut plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
+            let mut plugin_path =
+                canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path.into());
             plugin_path.push(PLUGIN_FILE);
             let plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
             engine_state.plugin_path = Some(plugin_path);
@@ -256,7 +248,7 @@ pub(crate) fn get_history_path(storage_path: &str, mode: HistoryFileFormat) -> O
             HistoryFileFormat::PlainText => HISTORY_FILE_TXT,
             HistoryFileFormat::Sqlite => HISTORY_FILE_SQLITE,
         });
-        history_path
+        history_path.into()
     })
 }
 
@@ -344,7 +336,10 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
             name: identity.name().to_owned(),
             filename: identity.filename().to_owned(),
             shell: identity.shell().map(|p| p.to_owned()),
-            data: PluginRegistryItemData::Valid { commands },
+            data: PluginRegistryItemData::Valid {
+                metadata: Default::default(),
+                commands,
+            },
         });
     }
 
@@ -378,13 +373,10 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState, storage_path: &str) -
         );
     }
 
-    perf(
+    perf!(
         "migrate old plugin file",
         start_time,
-        file!(),
-        line!(),
-        column!(),
-        engine_state.get_config().use_ansi_coloring,
+        engine_state.get_config().use_ansi_coloring
     );
     true
 }

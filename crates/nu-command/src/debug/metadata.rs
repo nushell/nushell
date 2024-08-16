@@ -28,6 +28,10 @@ impl Command for Metadata {
             .category(Category::Debug)
     }
 
+    fn requires_ast_for_arguments(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -35,7 +39,7 @@ impl Command for Metadata {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let arg = call.positional_nth(0);
+        let arg = call.positional_nth(stack, 0);
         let head = call.head;
 
         match arg {
@@ -80,16 +84,23 @@ impl Command for Metadata {
                     match x {
                         PipelineMetadata {
                             data_source: DataSource::Ls,
+                            ..
                         } => record.push("source", Value::string("ls", head)),
                         PipelineMetadata {
                             data_source: DataSource::HtmlThemes,
+                            ..
                         } => record.push("source", Value::string("into html --list", head)),
                         PipelineMetadata {
                             data_source: DataSource::FilePath(path),
+                            ..
                         } => record.push(
                             "source",
                             Value::string(path.to_string_lossy().to_string(), head),
                         ),
+                        _ => {}
+                    }
+                    if let Some(ref content_type) = x.content_type {
+                        record.push("content_type", Value::string(content_type, head));
                     }
                 }
 
@@ -133,16 +144,23 @@ fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head:
         match x {
             PipelineMetadata {
                 data_source: DataSource::Ls,
+                ..
             } => record.push("source", Value::string("ls", head)),
             PipelineMetadata {
                 data_source: DataSource::HtmlThemes,
+                ..
             } => record.push("source", Value::string("into html --list", head)),
             PipelineMetadata {
                 data_source: DataSource::FilePath(path),
+                ..
             } => record.push(
                 "source",
                 Value::string(path.to_string_lossy().to_string(), head),
             ),
+            _ => {}
+        }
+        if let Some(ref content_type) = x.content_type {
+            record.push("content_type", Value::string(content_type, head));
         }
     }
 

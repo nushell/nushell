@@ -1,1 +1,2 @@
+mod binary;
 mod int;

@@ -27,7 +27,7 @@ impl NuCmd {
 }
 
 impl ViewCommand for NuCmd {
-    type View = NuView<'static>;
+    type View = NuView;
 
     fn name(&self) -> &'static str {
         Self::NAME
@@ -48,6 +48,7 @@ impl ViewCommand for NuCmd {
         engine_state: &EngineState,
         stack: &mut Stack,
         value: Option<Value>,
+        config: &ViewConfig,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
 
@@ -62,22 +63,22 @@ impl ViewCommand for NuCmd {
             return Ok(NuView::Preview(Preview::new(&text)));
         }
 
-        let mut view = RecordView::new(columns, values);
+        let mut view = RecordView::new(columns, values, config.explore_config.clone());
 
         if is_record {
-            view.set_orientation_current(Orientation::Left);
+            view.set_top_layer_orientation(Orientation::Left);
         }
 
         Ok(NuView::Records(view))
     }
 }
 
-pub enum NuView<'a> {
-    Records(RecordView<'a>),
+pub enum NuView {
+    Records(RecordView),
     Preview(Preview),
 }
 
-impl View for NuView<'_> {
+impl View for NuView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         match self {
             NuView::Records(v) => v.draw(f, area, cfg, layout),
@@ -117,13 +118,6 @@ impl View for NuView<'_> {
         match self {
             NuView::Records(v) => v.exit(),
             NuView::Preview(v) => v.exit(),
-        }
-    }
-
-    fn setup(&mut self, config: ViewConfig<'_>) {
-        match self {
-            NuView::Records(v) => v.setup(config),
-            NuView::Preview(v) => v.setup(config),
         }
     }
 }

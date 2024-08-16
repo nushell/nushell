@@ -36,7 +36,7 @@
 export def main [
     condition: bool, # Condition, which should be true
     message?: string, # Optional error message
-    --error-label: record # Label for `error make` if you want to create a custom assert
+    --error-label: record<text: string, span: record<start: int, end: int>> # Label for `error make` if you want to create a custom assert
 ] {
     if $condition { return }
     error make {
@@ -81,7 +81,7 @@ export def main [
 export def not [
     condition: bool, # Condition, which should be false
     message?: string, # Optional error message
-    --error-label: record # Label for `error make` if you want to create a custom assert
+    --error-label: record<text: string, span: record<start: int, end: int>> # Label for `error make` if you want to create a custom assert
 ] {
     if $condition {
         let span = (metadata $condition).span

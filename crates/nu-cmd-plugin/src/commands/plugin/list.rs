@@ -16,6 +16,7 @@ impl Command for PluginList {
                 Type::Table(
                     [
                         ("name".into(), Type::String),
+                        ("version".into(), Type::String),
                         ("is_running".into(), Type::Bool),
                         ("pid".into(), Type::Int),
                         ("filename".into(), Type::String),
@@ -43,6 +44,7 @@ impl Command for PluginList {
                 description: "List installed plugins.",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "name" => Value::test_string("inc"),
+                    "version" => Value::test_string(env!("CARGO_PKG_VERSION")),
                     "is_running" => Value::test_bool(true),
                     "pid" => Value::test_int(106480),
                     "filename" => if cfg!(windows) {
@@ -98,8 +100,15 @@ impl Command for PluginList {
                 .map(|s| Value::string(s.to_string_lossy(), head))
                 .unwrap_or(Value::nothing(head));
 
+            let metadata = plugin.metadata();
+            let version = metadata
+                .and_then(|m| m.version)
+                .map(|s| Value::string(s, head))
+                .unwrap_or(Value::nothing(head));
+
             let record = record! {
                 "name" => Value::string(plugin.identity().name(), head),
+                "version" => version,
                 "is_running" => Value::bool(plugin.is_running(), head),
                 "pid" => pid,
                 "filename" => Value::string(plugin.identity().filename().to_string_lossy(), head),

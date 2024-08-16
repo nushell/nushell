@@ -38,8 +38,8 @@ def assert_error [] {
     assert error $failing_code
 
     let good_code = {|| }
-    let assert_error_raised = (try { do assert $good_code; false } catch { true })
-    assert $assert_error_raised "The assert error should raise an error if there is no error in the executed code."
+    let assert_error_raised = (try { assert error $good_code; false } catch { true })
+    assert $assert_error_raised "The assert error should be false if there is no error in the executed code."
 }
 
 #[test]

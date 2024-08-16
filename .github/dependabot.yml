@@ -18,6 +18,21 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-patch"]
+    groups:
+      # Only update polars as a whole as there are many subcrates that need to
+      # be updated at once. We explicitly depend on some of them, so batch their
+      # updates to not take up dependabot PR slots with dysfunctional PRs
+      polars:
+        patterns:
+          - "polars"
+          - "polars-*"
+      # uutils/coreutils also versions all their workspace crates the same at the moment
+      # Most of them have bleeding edge version requirements (some not)
+      # see: https://github.com/uutils/coreutils/blob/main/Cargo.toml
+      uutils:
+        patterns:
+          - "uucore"
+          - "uu_*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

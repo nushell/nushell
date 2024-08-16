@@ -46,6 +46,9 @@ impl Command for Let {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
         let var_id = call
             .positional_nth(0)
             .expect("checked through parser")

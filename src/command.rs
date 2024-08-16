@@ -29,13 +29,15 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
         }
 
         let flag_value = match arg.as_ref() {
-            "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" | "--config"
-            | "--env-config" | "-I" | "ide-ast" => args.next().map(|a| escape_quote_string(&a)),
+            "--commands" | "-c" | "--table-mode" | "-m" | "--error-style" | "-e" | "--execute"
+            | "--config" | "--env-config" | "-I" | "ide-ast" => {
+                args.next().map(|a| escape_quote_string(&a))
+            }
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
-            "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
-            | "--include-path" | "--lsp" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
-            | "--ide-check" => args.next(),
+            "--log-level" | "--log-target" | "--log-include" | "--log-exclude" | "--testbin"
+            | "--threads" | "-t" | "--include-path" | "--lsp" | "--ide-goto-def"
+            | "--ide-hover" | "--ide-complete" | "--ide-check" => args.next(),
             #[cfg(feature = "plugin")]
             "--plugins" => args.next(),
             _ => None,
@@ -97,9 +99,13 @@ pub(crate) fn parse_commandline_args(
             let env_file = call.get_flag_expr("env-config");
             let log_level = call.get_flag_expr("log-level");
             let log_target = call.get_flag_expr("log-target");
+            let log_include = call.get_flag_expr("log-include");
+            let log_exclude = call.get_flag_expr("log-exclude");
             let execute = call.get_flag_expr("execute");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
+            let error_style: Option<Value> =
+                call.get_flag(engine_state, &mut stack, "error-style")?;
             let no_newline = call.get_named_arg("no-newline");
 
             // ide flags
@@ -155,38 +161,46 @@ pub(crate) fn parse_commandline_args(
                 }
             }
 
+            fn extract_list(
+                expression: Option<&Expression>,
+                type_name: &str,
+                mut extract_item: impl FnMut(&Expression) -> Option<String>,
+            ) -> Result<Option<Vec<Spanned<String>>>, ShellError> {
+                expression
+                    .map(|expr| match &expr.expr {
+                        Expr::List(list) => list
+                            .iter()
+                            .map(|item| {
+                                extract_item(item.expr())
+                                    .map(|s| s.into_spanned(item.expr().span))
+                                    .ok_or_else(|| ShellError::TypeMismatch {
+                                        err_message: type_name.into(),
+                                        span: item.expr().span,
+                                    })
+                            })
+                            .collect::<Result<Vec<Spanned<String>>, _>>(),
+                        _ => Err(ShellError::TypeMismatch {
+                            err_message: format!("list<{type_name}>"),
+                            span: expr.span,
+                        }),
+                    })
+                    .transpose()
+            }
+
             let commands = extract_contents(commands)?;
             let testbin = extract_contents(testbin)?;
             #[cfg(feature = "plugin")]
             let plugin_file = extract_path(plugin_file)?;
+            #[cfg(feature = "plugin")]
+            let plugins = extract_list(plugins, "path", |expr| expr.as_filepath().map(|t| t.0))?;
             let config_file = extract_path(config_file)?;
             let env_file = extract_path(env_file)?;
             let log_level = extract_contents(log_level)?;
             let log_target = extract_contents(log_target)?;
+            let log_include = extract_list(log_include, "string", |expr| expr.as_string())?;
+            let log_exclude = extract_list(log_exclude, "string", |expr| expr.as_string())?;
             let execute = extract_contents(execute)?;
             let include_path = extract_contents(include_path)?;
-
-            #[cfg(feature = "plugin")]
-            let plugins = plugins
-                .map(|expr| match &expr.expr {
-                    Expr::List(list) => list
-                        .iter()
-                        .map(|item| {
-                            item.expr()
-                                .as_filepath()
-                                .map(|(s, _)| s.into_spanned(item.expr().span))
-                                .ok_or_else(|| ShellError::TypeMismatch {
-                                    err_message: "path".into(),
-                                    span: item.expr().span,
-                                })
-                        })
-                        .collect::<Result<Vec<Spanned<String>>, _>>(),
-                    _ => Err(ShellError::TypeMismatch {
-                        err_message: "list<path>".into(),
-                        span: expr.span,
-                    }),
-                })
-                .transpose()?;
 
             let help = call.has_flag(engine_state, &mut stack, "help")?;
 
@@ -224,6 +238,8 @@ pub(crate) fn parse_commandline_args(
                 env_file,
                 log_level,
                 log_target,
+                log_include,
+                log_exclude,
                 execute,
                 include_path,
                 ide_goto_def,
@@ -233,6 +249,7 @@ pub(crate) fn parse_commandline_args(
                 ide_check,
                 ide_ast,
                 table_mode,
+                error_style,
                 no_newline,
             });
         }
@@ -262,8 +279,11 @@ pub(crate) struct NushellCliArgs {
     pub(crate) env_file: Option<Spanned<String>>,
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
+    pub(crate) log_include: Option<Vec<Spanned<String>>>,
+    pub(crate) log_exclude: Option<Vec<Spanned<String>>>,
     pub(crate) execute: Option<Spanned<String>>,
     pub(crate) table_mode: Option<Value>,
+    pub(crate) error_style: Option<Value>,
     pub(crate) no_newline: Option<Spanned<String>>,
     pub(crate) include_path: Option<Spanned<String>>,
     pub(crate) lsp: bool,
@@ -310,6 +330,12 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "the table mode to use. rounded is default.",
                 Some('m'),
+            )
+            .named(
+                "error-style",
+                SyntaxShape::String,
+                "the error style to use (fancy or plain). default: fancy",
+                None,
             )
             .switch("no-newline", "print the result for --commands(-c) without a newline", None)
             .switch(
@@ -401,6 +427,18 @@ impl Command for Nu {
                 "log-target",
                 SyntaxShape::String,
                 "set the target for the log to output. stdout, stderr(default), mixed or file",
+                None,
+            )
+            .named(
+                "log-include",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "set the Rust module prefixes to include in the log output. default: [nu]",
+                None,
+            )
+            .named(
+                "log-exclude",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "set the Rust module prefixes to exclude from the log output",
                 None,
             )
             .switch(

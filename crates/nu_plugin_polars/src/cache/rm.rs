@@ -63,7 +63,7 @@ fn remove_cache_entry(
     let key = as_uuid(key, span)?;
     let msg = plugin
         .cache
-        .remove(Some(engine), &key, true)?
+        .remove(engine, &key, true)?
         .map(|_| format!("Removed: {key}"))
         .unwrap_or_else(|| format!("No value found for key: {key}"));
     Ok(Value::string(msg, span))

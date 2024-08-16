@@ -1,22 +1,24 @@
 //! Interface used by the plugin to communicate with the engine.
 
 use nu_plugin_core::{
-    util::{Sequence, Waitable, WaitableMut},
+    util::{Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
 };
 use nu_plugin_protocol::{
-    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, Ordering, PluginCall,
-    PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption, PluginOutput,
-    ProtocolInfo,
+    CallInfo, CustomValueOp, EngineCall, EngineCallId, EngineCallResponse, EvaluatedCall, Ordering,
+    PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue, PluginInput, PluginOption,
+    PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, LabeledError, PipelineData, PluginSignature, ShellError, Span,
-    Spanned, Value,
+    engine::{Closure, Sequence},
+    Config, DeclId, Handler, HandlerGuard, Handlers, LabeledError, PipelineData, PluginMetadata,
+    PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
 };
+use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
-    sync::{mpsc, Arc},
+    sync::{atomic::AtomicBool, mpsc, Arc},
 };
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
@@ -29,6 +31,9 @@ use std::{
 #[derive(Debug)]
 #[doc(hidden)]
 pub enum ReceivedPluginCall {
+    Metadata {
+        engine: EngineInterface,
+    },
     Signature {
         engine: EngineInterface,
     },
@@ -59,6 +64,11 @@ struct EngineInterfaceState {
         mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
+    /// Mirror signals from `EngineState`. You can make use of this with
+    /// `engine_interface.signals()` when constructing a Stream that requires signals
+    signals: Signals,
+    /// Registered signal handlers
+    signal_handlers: Handlers,
 }
 
 impl std::fmt::Debug for EngineInterfaceState {
@@ -112,6 +122,8 @@ impl EngineInterfaceManager {
                 stream_id_sequence: Sequence::default(),
                 engine_call_subscription_sender: subscription_tx,
                 writer: Box::new(writer),
+                signals: Signals::new(Arc::new(AtomicBool::new(false))),
+                signal_handlers: Handlers::new(),
             }),
             protocol_info_mut,
             plugin_call_sender: Some(plug_tx),
@@ -231,7 +243,6 @@ impl InterfaceManager for EngineInterfaceManager {
 
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
         log::trace!("from engine: {:?}", input);
-
         match input {
             PluginInput::Hello(info) => {
                 let info = Arc::new(info);
@@ -271,7 +282,9 @@ impl InterfaceManager for EngineInterfaceManager {
             PluginInput::Call(id, call) => {
                 let interface = self.interface_for_context(id);
                 // Read streams in the input
-                let call = match call.map_data(|input| self.read_pipeline_data(input, None)) {
+                let call = match call
+                    .map_data(|input| self.read_pipeline_data(input, &Signals::empty()))
+                {
                     Ok(call) => call,
                     Err(err) => {
                         // If there's an error with initialization of the input stream, just send
@@ -280,8 +293,11 @@ impl InterfaceManager for EngineInterfaceManager {
                     }
                 };
                 match call {
-                    // We just let the receiver handle it rather than trying to store signature here
-                    // or something
+                    // Ask the plugin for metadata
+                    PluginCall::Metadata => {
+                        self.send_plugin_call(ReceivedPluginCall::Metadata { engine: interface })
+                    }
+                    // Ask the plugin for signatures
                     PluginCall::Signature => {
                         self.send_plugin_call(ReceivedPluginCall::Signature { engine: interface })
                     }
@@ -314,13 +330,21 @@ impl InterfaceManager for EngineInterfaceManager {
             }
             PluginInput::EngineCallResponse(id, response) => {
                 let response = response
-                    .map_data(|header| self.read_pipeline_data(header, None))
+                    .map_data(|header| self.read_pipeline_data(header, &Signals::empty()))
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to an engine
                         // call error response, but send it anyway
                         EngineCallResponse::Error(err)
                     });
                 self.send_engine_call_response(id, response)
+            }
+            PluginInput::Signal(action) => {
+                match action {
+                    SignalAction::Interrupt => self.state.signals.trigger(),
+                    SignalAction::Reset => self.state.signals.reset(),
+                }
+                self.state.signal_handlers.run(action);
+                Ok(())
             }
         }
     }
@@ -416,6 +440,13 @@ impl EngineInterface {
         }
     }
 
+    /// Write a call response of plugin metadata.
+    pub(crate) fn write_metadata(&self, metadata: PluginMetadata) -> Result<(), ShellError> {
+        let response = PluginCallResponse::Metadata(metadata);
+        self.write(PluginOutput::CallResponse(self.context()?, response))?;
+        self.flush()
+    }
+
     /// Write a call response of plugin signatures.
     ///
     /// Any custom values in the examples will be rendered using `to_base_value()`.
@@ -494,6 +525,12 @@ impl EngineInterface {
         self.state.writer.is_stdout()
     }
 
+    /// Register a closure which will be called when the engine receives an interrupt signal.
+    /// Returns a RAII guard that will keep the closure alive until it is dropped.
+    pub fn register_signal_handler(&self, handler: Handler) -> Result<HandlerGuard, ShellError> {
+        self.state.signal_handlers.register(handler)
+    }
+
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
     /// provided on request only.
     ///
@@ -510,9 +547,9 @@ impl EngineInterface {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn get_config(&self) -> Result<Box<Config>, ShellError> {
+    pub fn get_config(&self) -> Result<Arc<Config>, ShellError> {
         match self.engine_call(EngineCall::GetConfig)? {
-            EngineCallResponse::Config(config) => Ok(config),
+            EngineCallResponse::Config(config) => Ok(SharedCow::into_arc(config)),
             EngineCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response for EngineCall::GetConfig".into(),
@@ -602,8 +639,9 @@ impl EngineInterface {
 
     /// Get all environment variables from the engine.
     ///
-    /// Since this is quite a large map that has to be sent, prefer to use [`.get_env_var()`] if
-    /// the variables needed are known ahead of time and there are only a small number needed.
+    /// Since this is quite a large map that has to be sent, prefer to use
+    /// [`.get_env_var()`] (Self::get_env_var) if the variables needed are known ahead of time
+    /// and there are only a small number needed.
     ///
     /// # Example
     /// ```rust,no_run
@@ -856,6 +894,71 @@ impl EngineInterface {
         }
     }
 
+    /// Ask the engine for the identifier for a declaration. If found, the result can then be passed
+    /// to [`.call_decl()`](Self::call_decl) to call other internal commands.
+    ///
+    /// See [`.call_decl()`](Self::call_decl) for an example.
+    pub fn find_decl(&self, name: impl Into<String>) -> Result<Option<DeclId>, ShellError> {
+        let call = EngineCall::FindDecl(name.into());
+
+        match self.engine_call(call)? {
+            EngineCallResponse::Error(err) => Err(err),
+            EngineCallResponse::Identifier(id) => Ok(Some(id)),
+            EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::FindDecl".into(),
+            }),
+        }
+    }
+
+    /// Ask the engine to call an internal command, using the declaration ID previously looked up
+    /// with [`.find_decl()`](Self::find_decl).
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use nu_protocol::{Value, ShellError, PipelineData};
+    /// # use nu_plugin::{EngineInterface, EvaluatedCall};
+    /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<Value, ShellError> {
+    /// if let Some(decl_id) = engine.find_decl("scope commands")? {
+    ///     let commands = engine.call_decl(
+    ///         decl_id,
+    ///         EvaluatedCall::new(call.head),
+    ///         PipelineData::Empty,
+    ///         true,
+    ///         false,
+    ///     )?;
+    ///     commands.into_value(call.head)
+    /// } else {
+    ///     Ok(Value::list(vec![], call.head))
+    /// }
+    /// # }
+    /// ```
+    pub fn call_decl(
+        &self,
+        decl_id: DeclId,
+        call: EvaluatedCall,
+        input: PipelineData,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+    ) -> Result<PipelineData, ShellError> {
+        let call = EngineCall::CallDecl {
+            decl_id,
+            call,
+            input,
+            redirect_stdout,
+            redirect_stderr,
+        };
+
+        match self.engine_call(call)? {
+            EngineCallResponse::Error(err) => Err(err),
+            EngineCallResponse::PipelineData(data) => Ok(data),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::CallDecl".into(),
+            }),
+        }
+    }
+
     /// Tell the engine whether to disable garbage collection for this plugin.
     ///
     /// The garbage collector is enabled by default, but plugins can turn it off (ideally
@@ -876,6 +979,10 @@ impl EngineInterface {
         let response = PluginCallResponse::Ordering(ordering.map(|o| o.into()));
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
+    }
+
+    pub fn signals(&self) -> &Signals {
+        &self.state.signals
     }
 }
 
@@ -927,7 +1034,7 @@ impl Interface for EngineInterface {
 
 /// Keeps the plugin in the foreground as long as it is alive.
 ///
-/// Use [`.leave()`] to leave the foreground without ignoring the error.
+/// Use [`.leave()`](Self::leave) to leave the foreground without ignoring the error.
 pub struct ForegroundGuard(Option<EngineInterface>);
 
 impl ForegroundGuard {

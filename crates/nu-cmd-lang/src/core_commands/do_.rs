@@ -23,11 +23,7 @@ impl Command for Do {
 
     fn signature(&self) -> Signature {
         Signature::build("do")
-            .required(
-                "closure",
-                SyntaxShape::OneOf(vec![SyntaxShape::Closure(None), SyntaxShape::Any]),
-                "The closure to run.",
-            )
+            .required("closure", SyntaxShape::Closure(None), "The closure to run.")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
                 "ignore-errors",
@@ -85,6 +81,10 @@ impl Command for Do {
 
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+
+        // Applies to all block evaluation once set true
+        callee_stack.use_ir = caller_stack.has_env_var(engine_state, "NU_USE_IR");
+
         let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input);
 
         if has_env {
@@ -229,14 +229,24 @@ impl Command for Do {
                 result: None,
             },
             Example {
-                description: "Run the closure, with a positional parameter",
-                example: r#"do {|x| 100 + $x } 77"#,
+                description: "Run the closure with a positional, type-checked parameter",
+                example: r#"do {|x:int| 100 + $x } 77"#,
                 result: Some(Value::test_int(177)),
             },
             Example {
-                description: "Run the closure, with input",
-                example: r#"77 | do {|x| 100 + $in }"#,
-                result: None, // TODO: returns 177
+                description: "Run the closure with pipeline input",
+                example: r#"77 | do { 100 + $in }"#,
+                result: Some(Value::test_int(177)),
+            },
+            Example {
+                description: "Run the closure with a default parameter value",
+                example: r#"77 | do {|x=100| $x + $in }"#,
+                result: Some(Value::test_int(177)),
+            },
+            Example {
+                description: "Run the closure with two positional parameters",
+                example: r#"do {|x,y| $x + $y } 77 100"#,
+                result: Some(Value::test_int(177)),
             },
             Example {
                 description: "Run the closure and keep changes to the environment",

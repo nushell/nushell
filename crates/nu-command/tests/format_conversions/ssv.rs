@@ -74,7 +74,7 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() {
                 open oc_get_svc.txt
                 | from ssv --noheaders -a
                 | first
-                | get column1
+                | get column0
             "#
         ));
 
@@ -84,7 +84,7 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() {
                 open oc_get_svc.txt
                 | from ssv --noheaders
                 | first
-                | get column1
+                | get column0
 
             "#
         ));

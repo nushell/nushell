@@ -1,41 +1,32 @@
-#[cfg(windows)]
-use omnipath::WinPathExt;
-use std::path::PathBuf;
+use crate::AbsolutePathBuf;
 
-pub fn home_dir() -> Option<PathBuf> {
-    dirs_next::home_dir()
+pub fn home_dir() -> Option<AbsolutePathBuf> {
+    dirs::home_dir().and_then(|home| AbsolutePathBuf::try_from(home).ok())
 }
 
-pub fn config_dir() -> Option<PathBuf> {
-    match std::env::var("XDG_CONFIG_HOME").map(PathBuf::from) {
-        Ok(xdg_config) if xdg_config.is_absolute() => {
-            Some(canonicalize(&xdg_config).unwrap_or(xdg_config))
-        }
-        _ => config_dir_old(),
-    }
+/// Return the data directory for the current platform or XDG_DATA_HOME if specified.
+pub fn data_dir() -> Option<AbsolutePathBuf> {
+    std::env::var("XDG_DATA_HOME")
+        .ok()
+        .and_then(|path| AbsolutePathBuf::try_from(path).ok())
+        .or_else(|| dirs::data_dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
+        .map(|path| path.canonicalize().map(Into::into).unwrap_or(path))
 }
 
-/// Get the old default config directory. Outside of Linux, this will ignore `XDG_CONFIG_HOME`
-pub fn config_dir_old() -> Option<PathBuf> {
-    let path = dirs_next::config_dir()?;
-    Some(canonicalize(&path).unwrap_or(path))
+/// Return the cache directory for the current platform or XDG_CACHE_HOME if specified.
+pub fn cache_dir() -> Option<AbsolutePathBuf> {
+    std::env::var("XDG_CACHE_HOME")
+        .ok()
+        .and_then(|path| AbsolutePathBuf::try_from(path).ok())
+        .or_else(|| dirs::cache_dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
+        .map(|path| path.canonicalize().map(Into::into).unwrap_or(path))
 }
 
-#[cfg(windows)]
-pub fn canonicalize(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
-    path.canonicalize()?.to_winuser_path()
-}
-#[cfg(not(windows))]
-pub fn canonicalize(path: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
-    path.canonicalize()
-}
-
-#[cfg(windows)]
-pub fn simiplified(path: &std::path::Path) -> PathBuf {
-    path.to_winuser_path()
-        .unwrap_or_else(|_| path.to_path_buf())
-}
-#[cfg(not(windows))]
-pub fn simiplified(path: &std::path::Path) -> PathBuf {
-    path.to_path_buf()
+/// Return the config directory for the current platform or XDG_CONFIG_HOME if specified.
+pub fn config_dir() -> Option<AbsolutePathBuf> {
+    std::env::var("XDG_CONFIG_HOME")
+        .ok()
+        .and_then(|path| AbsolutePathBuf::try_from(path).ok())
+        .or_else(|| dirs::config_dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
+        .map(|path| path.canonicalize().map(Into::into).unwrap_or(path))
 }

@@ -130,7 +130,7 @@ pub fn split(
                     Some(group_key) => Ok(group_key.coerce_string()?),
                     None => Err(ShellError::CantFindColumn {
                         col_name: column_name.item.to_string(),
-                        span: column_name.span,
+                        span: Some(column_name.span),
                         src_span: row.span(),
                     }),
                 }

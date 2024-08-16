@@ -35,7 +35,7 @@ impl PluginCommand for ExprLit {
             example: "polars lit 2 | polars into-nu",
             result: Some(Value::test_record(record! {
                 "expr" =>  Value::test_string("literal"),
-                "value" => Value::test_string("2"),
+                "value" => Value::test_string("dyn int: 2"),
             })),
         }]
     }

@@ -129,7 +129,7 @@ pub fn run_seq(
                 span,
             },
             span,
-            engine_state.ctrlc.clone(),
+            engine_state.signals().clone(),
         )
     } else {
         ListStream::new(
@@ -141,7 +141,7 @@ pub fn run_seq(
                 span,
             },
             span,
-            engine_state.ctrlc.clone(),
+            engine_state.signals().clone(),
         )
     };
 

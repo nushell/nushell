@@ -1,3 +1,4 @@
+//! Handling of external subprocesses
 mod child;
 mod exit_status;
 

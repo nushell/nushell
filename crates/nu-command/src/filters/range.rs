@@ -106,7 +106,7 @@ impl Command for Range {
                         Ok(PipelineData::Value(Value::nothing(head), None))
                     } else {
                         let iter = v.into_iter().skip(from).take(to - from + 1);
-                        Ok(iter.into_pipeline_data(head, engine_state.ctrlc.clone()))
+                        Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
                     }
                 } else {
                     let from = start as usize;
@@ -116,7 +116,7 @@ impl Command for Range {
                         Ok(PipelineData::Value(Value::nothing(head), None))
                     } else {
                         let iter = input.into_iter().skip(from).take(to - from + 1);
-                        Ok(iter.into_pipeline_data(head, engine_state.ctrlc.clone()))
+                        Ok(iter.into_pipeline_data(head, engine_state.signals().clone()))
                     }
                 }
                 .map(|x| x.set_metadata(metadata))

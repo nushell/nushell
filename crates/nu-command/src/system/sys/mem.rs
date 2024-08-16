@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use sysinfo::System;
 
 #[derive(Clone)]
 pub struct SysMem;
@@ -26,7 +27,7 @@ impl Command for SysMem {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(super::mem(call.head).into_pipeline_data())
+        Ok(mem(call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -36,4 +37,21 @@ impl Command for SysMem {
             result: None,
         }]
     }
+}
+
+fn mem(span: Span) -> Value {
+    let mut sys = System::new();
+    sys.refresh_memory();
+
+    let record = record! {
+        "total" => Value::filesize(sys.total_memory() as i64, span),
+        "free" => Value::filesize(sys.free_memory() as i64, span),
+        "used" => Value::filesize(sys.used_memory() as i64, span),
+        "available" => Value::filesize(sys.available_memory() as i64, span),
+        "swap total" => Value::filesize(sys.total_swap() as i64, span),
+        "swap free" => Value::filesize(sys.free_swap() as i64, span),
+        "swap used" => Value::filesize(sys.used_swap() as i64, span),
+    };
+
+    Value::record(record, span)
 }

@@ -6,7 +6,7 @@ use std::{
 use nu_plugin_engine::{GetPlugin, PluginInterface};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    PluginGcConfig, PluginIdentity, RegisteredPlugin, ShellError,
+    PluginGcConfig, PluginIdentity, PluginMetadata, RegisteredPlugin, ShellError,
 };
 
 pub struct FakePersistentPlugin {
@@ -41,6 +41,12 @@ impl RegisteredPlugin for FakePersistentPlugin {
     fn pid(&self) -> Option<u32> {
         None
     }
+
+    fn metadata(&self) -> Option<PluginMetadata> {
+        None
+    }
+
+    fn set_metadata(&self, _metadata: Option<PluginMetadata>) {}
 
     fn set_gc_config(&self, _gc_config: &PluginGcConfig) {
         // We don't have a GC

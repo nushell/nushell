@@ -70,7 +70,7 @@ fn command(
             let value: Value = schema.into();
             Ok(PipelineData::Value(value, None))
         }
-        PolarsPluginObject::NuLazyFrame(lazy) => {
+        PolarsPluginObject::NuLazyFrame(mut lazy) => {
             let schema = lazy.schema()?;
             let value: Value = schema.into();
             Ok(PipelineData::Value(value, None))

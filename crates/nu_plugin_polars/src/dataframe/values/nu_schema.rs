@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use nu_protocol::{ShellError, Span, Value};
-use polars::prelude::{DataType, Field, Schema, SchemaRef, TimeUnit};
+use polars::{
+    datatypes::UnknownKind,
+    prelude::{DataType, Field, Schema, SchemaRef, TimeUnit},
+};
 
 #[derive(Debug, Clone)]
 pub struct NuSchema {
@@ -104,7 +107,7 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
         "date" => Ok(DataType::Date),
         "time" => Ok(DataType::Time),
         "null" => Ok(DataType::Null),
-        "unknown" => Ok(DataType::Unknown),
+        "unknown" => Ok(DataType::Unknown(UnknownKind::Any)),
         "object" => Ok(DataType::Object("unknown", None)),
         _ if dtype.starts_with("list") => {
             let dtype = dtype
@@ -299,7 +302,7 @@ mod test {
 
         let dtype = "unknown";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
-        let expected = DataType::Unknown;
+        let expected = DataType::Unknown(UnknownKind::Any);
         assert_eq!(schema, expected);
 
         let dtype = "object";

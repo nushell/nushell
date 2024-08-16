@@ -2,25 +2,29 @@ use crate::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
-    Value,
+    engine::{Command, EngineState, Stack, UNKNOWN_SPAN_ID},
+    record, Category, Config, Example, IntoPipelineData, PipelineData, PositionalArg, Signature,
+    Span, SpanId, Spanned, SyntaxShape, Type, Value,
 };
 use std::{collections::HashMap, fmt::Write};
+use terminal_size::{Height, Width};
+
+/// ANSI style reset
+const RESET: &str = "\x1b[0m";
+/// ANSI set default color (as set in the terminal)
+const DEFAULT_COLOR: &str = "\x1b[39m";
 
 pub fn get_full_help(
     command: &dyn Command,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> String {
-    let config = engine_state.get_config();
-    let doc_config = DocumentationConfig {
-        no_subcommands: false,
-        no_color: !config.use_ansi_coloring,
-        brief: false,
-    };
-
+    // Precautionary step to capture any command output generated during this operation. We
+    // internally call several commands (`table`, `ansi`, `nu-highlight`) and get their
+    // `PipelineData` using this `Stack`, any other output should not be redirected like the main
+    // execution.
     let stack = &mut stack.start_capture();
+
     let signature = command.signature().update_from_command(command);
 
     get_documentation(
@@ -28,27 +32,21 @@ pub fn get_full_help(
         &command.examples(),
         engine_state,
         stack,
-        &doc_config,
         command.is_keyword(),
     )
 }
 
-#[derive(Default)]
-struct DocumentationConfig {
-    no_subcommands: bool,
-    no_color: bool,
-    brief: bool,
-}
-
-// Utility returns nu-highlighted string
+/// Syntax highlight code using the `nu-highlight` command if available
 fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mut Stack) -> String {
     if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
         let decl = engine_state.get_decl(highlighter);
 
+        let call = Call::new(Span::unknown());
+
         if let Ok(output) = decl.run(
             engine_state,
             stack,
-            &Call::new(Span::unknown()),
+            &(&call).into(),
             Value::string(code_string, Span::unknown()).into_pipeline_data(),
         ) {
             let result = output.into_value(Span::unknown());
@@ -65,21 +63,15 @@ fn get_documentation(
     examples: &[Example],
     engine_state: &EngineState,
     stack: &mut Stack,
-    config: &DocumentationConfig,
     is_parser_keyword: bool,
 ) -> String {
+    let nu_config = stack.get_config(engine_state);
+
     // Create ansi colors
-    //todo make these configurable -- pull from enginestate.config
-    let help_section_name: String =
-        get_ansi_color_for_component_or_default(engine_state, "shape_string", "\x1b[32m"); // default: green
-
-    let help_subcolor_one: String =
-        get_ansi_color_for_component_or_default(engine_state, "shape_external", "\x1b[36m"); // default: cyan
-                                                                                             // was const bb: &str = "\x1b[1;34m"; // bold blue
-    let help_subcolor_two: String =
-        get_ansi_color_for_component_or_default(engine_state, "shape_block", "\x1b[94m"); // default: light blue (nobold, should be bolding the *names*)
-
-    const RESET: &str = "\x1b[0m"; // reset
+    let mut help_style = HelpStyle::default();
+    help_style.update_from_config(engine_state, &nu_config);
+    let help_section_name = &help_style.section_name;
+    let help_subcolor_one = &help_style.subcolor_one;
 
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
@@ -90,44 +82,46 @@ fn get_documentation(
         long_desc.push_str("\n\n");
     }
 
-    let extra_usage = if config.brief { "" } else { &sig.extra_usage };
+    let extra_usage = &sig.extra_usage;
     if !extra_usage.is_empty() {
         long_desc.push_str(extra_usage);
         long_desc.push_str("\n\n");
     }
 
-    let mut subcommands = vec![];
-    if !config.no_subcommands {
-        let signatures = engine_state.get_signatures(true);
-        for sig in signatures {
-            if sig.name.starts_with(&format!("{cmd_name} "))
-                // Don't display removed/deprecated commands in the Subcommands list
-                    && !matches!(sig.category, Category::Removed)
-            {
-                subcommands.push(format!(
-                    "  {help_subcolor_one}{}{RESET} - {}",
-                    sig.name, sig.usage
-                ));
-            }
-        }
-    }
-
     if !sig.search_terms.is_empty() {
-        let text = format!(
-            "{help_section_name}Search terms{RESET}: {help_subcolor_one}{}{}\n\n",
+        let _ = write!(
+            long_desc,
+            "{help_section_name}Search terms{RESET}: {help_subcolor_one}{}{RESET}\n\n",
             sig.search_terms.join(", "),
-            RESET
         );
-        let _ = write!(long_desc, "{text}");
     }
 
-    let text = format!(
-        "{}Usage{}:\n  > {}\n",
-        help_section_name,
-        RESET,
+    let _ = write!(
+        long_desc,
+        "{help_section_name}Usage{RESET}:\n  > {}\n",
         sig.call_signature()
     );
-    let _ = write!(long_desc, "{text}");
+
+    // TODO: improve the subcommand name resolution
+    // issues:
+    // - Aliases are included
+    //   - https://github.com/nushell/nushell/issues/11657
+    // - Subcommands are included violating module scoping
+    //   - https://github.com/nushell/nushell/issues/11447
+    //   - https://github.com/nushell/nushell/issues/11625
+    let mut subcommands = vec![];
+    let signatures = engine_state.get_signatures(true);
+    for sig in signatures {
+        // Don't display removed/deprecated commands in the Subcommands list
+        if sig.name.starts_with(&format!("{cmd_name} "))
+            && !matches!(sig.category, Category::Removed)
+        {
+            subcommands.push(format!(
+                "  {help_subcolor_one}{}{RESET} - {}",
+                sig.name, sig.usage
+            ));
+        }
+    }
 
     if !subcommands.is_empty() {
         let _ = write!(long_desc, "\n{help_section_name}Subcommands{RESET}:\n");
@@ -137,12 +131,8 @@ fn get_documentation(
     }
 
     if !sig.named.is_empty() {
-        long_desc.push_str(&get_flags_section(Some(engine_state), sig, |v| {
-            nu_highlight_string(
-                &v.to_parsable_string(", ", &engine_state.config),
-                engine_state,
-                stack,
-            )
+        long_desc.push_str(&get_flags_section(sig, &help_style, |v| {
+            nu_highlight_string(&v.to_parsable_string(", ", &nu_config), engine_state, stack)
         }))
     }
 
@@ -152,70 +142,46 @@ fn get_documentation(
     {
         let _ = write!(long_desc, "\n{help_section_name}Parameters{RESET}:\n");
         for positional in &sig.required_positional {
-            let text = match &positional.shape {
-                SyntaxShape::Keyword(kw, shape) => {
-                    format!(
-                        "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {}",
-                        String::from_utf8_lossy(kw),
-                        document_shape(*shape.clone()),
-                        positional.desc
-                    )
-                }
-                _ => {
-                    format!(
-                        "  {help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}",
-                        positional.name,
-                        document_shape(positional.shape.clone()),
-                        positional.desc
-                    )
-                }
-            };
-            let _ = writeln!(long_desc, "{text}");
+            write_positional(
+                &mut long_desc,
+                positional,
+                PositionalKind::Required,
+                &help_style,
+                &nu_config,
+                engine_state,
+                stack,
+            );
         }
         for positional in &sig.optional_positional {
-            let text = match &positional.shape {
-                SyntaxShape::Keyword(kw, shape) => {
-                    format!(
-                        "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {} (optional)",
-                        String::from_utf8_lossy(kw),
-                        document_shape(*shape.clone()),
-                        positional.desc
-                    )
-                }
-                _ => {
-                    let opt_suffix = if let Some(value) = &positional.default_value {
-                        format!(
-                            " (optional, default: {})",
-                            nu_highlight_string(
-                                &value.to_parsable_string(", ", &engine_state.config),
-                                engine_state,
-                                stack
-                            )
-                        )
-                    } else {
-                        (" (optional)").to_string()
-                    };
-
-                    format!(
-                        "  {help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}{}",
-                        positional.name,
-                        document_shape(positional.shape.clone()),
-                        positional.desc,
-                        opt_suffix,
-                    )
-                }
-            };
-            let _ = writeln!(long_desc, "{text}");
+            write_positional(
+                &mut long_desc,
+                positional,
+                PositionalKind::Optional,
+                &help_style,
+                &nu_config,
+                engine_state,
+                stack,
+            );
         }
 
         if let Some(rest_positional) = &sig.rest_positional {
-            let text = format!(
-                "  ...{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}",
-                rest_positional.name,
-                document_shape(rest_positional.shape.clone()),
-                rest_positional.desc
+            write_positional(
+                &mut long_desc,
+                rest_positional,
+                PositionalKind::Rest,
+                &help_style,
+                &nu_config,
+                engine_state,
+                stack,
             );
-            let _ = writeln!(long_desc, "{text}");
+        }
+    }
+
+    fn get_term_width() -> usize {
+        if let Some((Width(w), Height(_))) = terminal_size::terminal_size() {
+            w as usize
+        } else {
+            80
         }
     }
 
@@ -241,7 +207,18 @@ fn get_documentation(
                 &Call {
                     decl_id,
                     head: span,
-                    arguments: vec![],
+                    arguments: vec![Argument::Named((
+                        Spanned {
+                            item: "width".to_string(),
+                            span: Span::unknown(),
+                        },
+                        None,
+                        Some(Expression::new_unknown(
+                            Expr::Int(get_term_width() as i64 - 2), // padding, see below
+                            Span::unknown(),
+                            Type::Int,
+                        )),
+                    ))],
                     parser_info: HashMap::new(),
                 },
                 PipelineData::Value(Value::list(vals, span), None),
@@ -265,37 +242,49 @@ fn get_documentation(
         long_desc.push_str("  ");
         long_desc.push_str(example.description);
 
-        if config.no_color {
+        if !nu_config.use_ansi_coloring {
             let _ = write!(long_desc, "\n  > {}\n", example.example);
-        } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
-            let decl = engine_state.get_decl(highlighter);
-
-            match decl.run(
-                engine_state,
-                stack,
-                &Call::new(Span::unknown()),
-                Value::string(example.example, Span::unknown()).into_pipeline_data(),
-            ) {
-                Ok(output) => {
-                    let result = output.into_value(Span::unknown());
-                    match result.and_then(Value::coerce_into_string) {
-                        Ok(s) => {
-                            let _ = write!(long_desc, "\n  > {s}\n");
-                        }
-                        _ => {
-                            let _ = write!(long_desc, "\n  > {}\n", example.example);
-                        }
-                    }
-                }
-                Err(_) => {
-                    let _ = write!(long_desc, "\n  > {}\n", example.example);
-                }
-            }
         } else {
-            let _ = write!(long_desc, "\n  > {}\n", example.example);
-        }
+            let code_string = nu_highlight_string(example.example, engine_state, stack);
+            let _ = write!(long_desc, "\n  > {code_string}\n");
+        };
 
         if let Some(result) = &example.result {
+            let mut table_call = Call::new(Span::unknown());
+            if example.example.ends_with("--collapse") {
+                // collapse the result
+                table_call.add_named((
+                    Spanned {
+                        item: "collapse".to_string(),
+                        span: Span::unknown(),
+                    },
+                    None,
+                    None,
+                ))
+            } else {
+                // expand the result
+                table_call.add_named((
+                    Spanned {
+                        item: "expand".to_string(),
+                        span: Span::unknown(),
+                    },
+                    None,
+                    None,
+                ))
+            }
+            table_call.add_named((
+                Spanned {
+                    item: "width".to_string(),
+                    span: Span::unknown(),
+                },
+                None,
+                Some(Expression::new_unknown(
+                    Expr::Int(get_term_width() as i64 - 2),
+                    Span::unknown(),
+                    Type::Int,
+                )),
+            ));
+
             let table = engine_state
                 .find_decl("table".as_bytes(), &[])
                 .and_then(|decl_id| {
@@ -304,7 +293,7 @@ fn get_documentation(
                         .run(
                             engine_state,
                             stack,
-                            &Call::new(Span::new(0, 0)),
+                            &(&table_call).into(),
                             PipelineData::Value(result.clone(), None),
                         )
                         .ok()
@@ -314,7 +303,7 @@ fn get_documentation(
                 let _ = writeln!(
                     long_desc,
                     "  {}",
-                    item.to_expanded_string("", engine_state.get_config())
+                    item.to_expanded_string("", &nu_config)
                         .replace('\n', "\n  ")
                         .trim()
                 );
@@ -324,23 +313,25 @@ fn get_documentation(
 
     long_desc.push('\n');
 
-    if config.no_color {
+    if !nu_config.use_ansi_coloring {
         nu_utils::strip_ansi_string_likely(long_desc)
     } else {
         long_desc
     }
 }
 
-fn get_ansi_color_for_component_or_default(
+fn update_ansi_from_config(
+    ansi_code: &mut String,
     engine_state: &EngineState,
+    nu_config: &Config,
     theme_component: &str,
-    default: &str,
-) -> String {
-    if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
+) {
+    if let Some(color) = &nu_config.color_config.get(theme_component) {
         let caller_stack = &mut Stack::new().capture();
         let span = Span::unknown();
+        let span_id = UNKNOWN_SPAN_ID;
 
-        let argument_opt = get_argument_for_color_value(engine_state, color, span);
+        let argument_opt = get_argument_for_color_value(nu_config, color, span, span_id);
 
         // Call ansi command using argument
         if let Some(argument) = argument_opt {
@@ -357,20 +348,19 @@ fn get_ansi_color_for_component_or_default(
                     PipelineData::Empty,
                 ) {
                     if let Ok((str, ..)) = result.collect_string_strict(span) {
-                        return str;
+                        *ansi_code = str;
                     }
                 }
             }
         }
     }
-
-    default.to_string()
 }
 
 fn get_argument_for_color_value(
-    engine_state: &EngineState,
-    color: &&Value,
+    nu_config: &Config,
+    color: &Value,
     span: Span,
+    span_id: SpanId,
 ) -> Option<Argument> {
     match color {
         Value::Record { val, .. } => {
@@ -378,178 +368,213 @@ fn get_argument_for_color_value(
                 .iter()
                 .map(|(k, v)| {
                     RecordItem::Pair(
-                        Expression {
-                            expr: Expr::String(k.clone()),
+                        Expression::new_existing(
+                            Expr::String(k.clone()),
                             span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        },
-                        Expression {
-                            expr: Expr::String(
-                                v.clone().to_expanded_string("", engine_state.get_config()),
-                            ),
+                            span_id,
+                            Type::String,
+                        ),
+                        Expression::new_existing(
+                            Expr::String(v.clone().to_expanded_string("", nu_config)),
                             span,
-                            ty: Type::String,
-                            custom_completion: None,
-                        },
+                            span_id,
+                            Type::String,
+                        ),
                     )
                 })
                 .collect();
 
-            Some(Argument::Positional(Expression {
-                span: Span::unknown(),
-                ty: Type::Record(
+            Some(Argument::Positional(Expression::new_existing(
+                Expr::Record(record_exp),
+                Span::unknown(),
+                UNKNOWN_SPAN_ID,
+                Type::Record(
                     [
                         ("fg".to_string(), Type::String),
                         ("attr".to_string(), Type::String),
                     ]
                     .into(),
                 ),
-                expr: Expr::Record(record_exp),
-                custom_completion: None,
-            }))
+            )))
         }
-        Value::String { val, .. } => Some(Argument::Positional(Expression {
-            span: Span::unknown(),
-            ty: Type::String,
-            expr: Expr::String(val.clone()),
-            custom_completion: None,
-        })),
+        Value::String { val, .. } => Some(Argument::Positional(Expression::new_existing(
+            Expr::String(val.clone()),
+            Span::unknown(),
+            UNKNOWN_SPAN_ID,
+            Type::String,
+        ))),
         _ => None,
     }
 }
 
-// document shape helps showing more useful information
-pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
+/// Contains the settings for ANSI colors in help output
+///
+/// By default contains a fixed set of (4-bit) colors
+///
+/// Can reflect configuration using [`HelpStyle::update_from_config`]
+pub struct HelpStyle {
+    section_name: String,
+    subcolor_one: String,
+    subcolor_two: String,
+}
+
+impl Default for HelpStyle {
+    fn default() -> Self {
+        HelpStyle {
+            // default: green
+            section_name: "\x1b[32m".to_string(),
+            // default: cyan
+            subcolor_one: "\x1b[36m".to_string(),
+            // default: light blue
+            subcolor_two: "\x1b[94m".to_string(),
+        }
+    }
+}
+
+impl HelpStyle {
+    /// Pull colors from the [`Config`]
+    ///
+    /// Uses some arbitrary `shape_*` settings, assuming they are well visible in the terminal theme.
+    ///
+    /// Implementation detail: currently executes `ansi` command internally thus requiring the
+    /// [`EngineState`] for execution.
+    /// See <https://github.com/nushell/nushell/pull/10623> for details
+    pub fn update_from_config(&mut self, engine_state: &EngineState, nu_config: &Config) {
+        update_ansi_from_config(
+            &mut self.section_name,
+            engine_state,
+            nu_config,
+            "shape_string",
+        );
+        update_ansi_from_config(
+            &mut self.subcolor_one,
+            engine_state,
+            nu_config,
+            "shape_external",
+        );
+        update_ansi_from_config(
+            &mut self.subcolor_two,
+            engine_state,
+            nu_config,
+            "shape_block",
+        );
+    }
+}
+
+/// Make syntax shape presentable by stripping custom completer info
+fn document_shape(shape: &SyntaxShape) -> &SyntaxShape {
     match shape {
-        SyntaxShape::CompleterWrapper(inner_shape, _) => *inner_shape,
+        SyntaxShape::CompleterWrapper(inner_shape, _) => inner_shape,
         _ => shape,
     }
 }
 
+#[derive(PartialEq)]
+enum PositionalKind {
+    Required,
+    Optional,
+    Rest,
+}
+
+fn write_positional(
+    long_desc: &mut String,
+    positional: &PositionalArg,
+    arg_kind: PositionalKind,
+    help_style: &HelpStyle,
+    nu_config: &Config,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) {
+    let help_subcolor_one = &help_style.subcolor_one;
+    let help_subcolor_two = &help_style.subcolor_two;
+
+    // Indentation
+    long_desc.push_str("  ");
+    if arg_kind == PositionalKind::Rest {
+        long_desc.push_str("...");
+    }
+    match &positional.shape {
+        SyntaxShape::Keyword(kw, shape) => {
+            let _ = write!(
+                long_desc,
+                "{help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>",
+                String::from_utf8_lossy(kw),
+                document_shape(shape),
+            );
+        }
+        _ => {
+            let _ = write!(
+                long_desc,
+                "{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>",
+                positional.name,
+                document_shape(&positional.shape),
+            );
+        }
+    };
+    if !positional.desc.is_empty() || arg_kind == PositionalKind::Optional {
+        let _ = write!(long_desc, ": {}", positional.desc);
+    }
+    if arg_kind == PositionalKind::Optional {
+        if let Some(value) = &positional.default_value {
+            let _ = write!(
+                long_desc,
+                " (optional, default: {})",
+                nu_highlight_string(
+                    &value.to_parsable_string(", ", nu_config),
+                    engine_state,
+                    stack
+                )
+            );
+        } else {
+            long_desc.push_str(" (optional)");
+        };
+    }
+    long_desc.push('\n');
+}
+
 pub fn get_flags_section<F>(
-    engine_state_opt: Option<&EngineState>,
     signature: &Signature,
+    help_style: &HelpStyle,
     mut value_formatter: F, // format default Value (because some calls cant access config or nu-highlight)
 ) -> String
 where
     F: FnMut(&nu_protocol::Value) -> String,
 {
-    //todo make these configurable -- pull from enginestate.config
-    let help_section_name: String;
-    let help_subcolor_one: String;
-    let help_subcolor_two: String;
-
-    // Sometimes we want to get the flags without engine_state
-    // For example, in nu-plugin. In that case, we fall back on default values
-    if let Some(engine_state) = engine_state_opt {
-        help_section_name =
-            get_ansi_color_for_component_or_default(engine_state, "shape_string", "\x1b[32m"); // default: green
-        help_subcolor_one =
-            get_ansi_color_for_component_or_default(engine_state, "shape_external", "\x1b[36m"); // default: cyan
-                                                                                                 // was const bb: &str = "\x1b[1;34m"; // bold blue
-        help_subcolor_two =
-            get_ansi_color_for_component_or_default(engine_state, "shape_block", "\x1b[94m");
-    // default: light blue (nobold, should be bolding the *names*)
-    } else {
-        help_section_name = "\x1b[32m".to_string();
-        help_subcolor_one = "\x1b[36m".to_string();
-        help_subcolor_two = "\x1b[94m".to_string();
-    }
-
-    const RESET: &str = "\x1b[0m"; // reset
-    const D: &str = "\x1b[39m"; // default
+    let help_section_name = &help_style.section_name;
+    let help_subcolor_one = &help_style.subcolor_one;
+    let help_subcolor_two = &help_style.subcolor_two;
 
     let mut long_desc = String::new();
     let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
     for flag in &signature.named {
-        let default_str = if let Some(value) = &flag.default_value {
-            format!(
-                " (default: {help_subcolor_two}{}{RESET})",
-                &value_formatter(value)
-            )
-        } else {
-            "".to_string()
-        };
-
-        let msg = if let Some(arg) = &flag.arg {
-            if let Some(short) = flag.short {
-                if flag.required {
-                    format!(
-                        "  {help_subcolor_one}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
-                        short,
-                        if !flag.long.is_empty() {
-                            format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
-                        } else {
-                            "".into()
-                        },
-                        arg,
-                        flag.desc,
-                        default_str,
-                    )
-                } else {
-                    format!(
-                        "  {help_subcolor_one}-{}{}{RESET} <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
-                        short,
-                        if !flag.long.is_empty() {
-                            format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
-                        } else {
-                            "".into()
-                        },
-                        arg,
-                        flag.desc,
-                        default_str,
-                    )
-                }
-            } else if flag.required {
-                format!(
-                    "  {help_subcolor_one}--{}{RESET} (required parameter) <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
-                    flag.long, arg, flag.desc, default_str,
-                )
-            } else {
-                format!(
-                    "  {help_subcolor_one}--{}{RESET} <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
-                    flag.long, arg, flag.desc, default_str,
-                )
+        // Indentation
+        long_desc.push_str("  ");
+        // Short flag shown before long flag
+        if let Some(short) = flag.short {
+            let _ = write!(long_desc, "{help_subcolor_one}-{}{RESET}", short);
+            if !flag.long.is_empty() {
+                let _ = write!(long_desc, "{DEFAULT_COLOR},{RESET} ");
             }
-        } else if let Some(short) = flag.short {
-            if flag.required {
-                format!(
-                    "  {help_subcolor_one}-{}{}{RESET} (required parameter) - {}{}\n",
-                    short,
-                    if !flag.long.is_empty() {
-                        format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
-                    } else {
-                        "".into()
-                    },
-                    flag.desc,
-                    default_str,
-                )
-            } else {
-                format!(
-                    "  {help_subcolor_one}-{}{}{RESET} - {}{}\n",
-                    short,
-                    if !flag.long.is_empty() {
-                        format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
-                    } else {
-                        "".into()
-                    },
-                    flag.desc,
-                    default_str
-                )
-            }
-        } else if flag.required {
-            format!(
-                "  {help_subcolor_one}--{}{RESET} (required parameter) - {}{}\n",
-                flag.long, flag.desc, default_str,
-            )
-        } else {
-            format!(
-                "  {help_subcolor_one}--{}{RESET} - {}\n",
-                flag.long, flag.desc
-            )
-        };
-        long_desc.push_str(&msg);
+        }
+        if !flag.long.is_empty() {
+            let _ = write!(long_desc, "{help_subcolor_one}--{}{RESET}", flag.long);
+        }
+        if flag.required {
+            long_desc.push_str(" (required parameter)")
+        }
+        // Type/Syntax shape info
+        if let Some(arg) = &flag.arg {
+            let _ = write!(
+                long_desc,
+                " <{help_subcolor_two}{}{RESET}>",
+                document_shape(arg)
+            );
+        }
+        let _ = write!(long_desc, " - {}", flag.desc);
+        if let Some(value) = &flag.default_value {
+            let _ = write!(long_desc, " (default: {})", &value_formatter(value));
+        }
+        long_desc.push('\n');
     }
     long_desc
 }

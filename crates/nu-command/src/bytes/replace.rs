@@ -73,7 +73,7 @@ impl Command for BytesReplace {
             all: call.has_flag(engine_state, stack, "all")?,
         };
 
-        operate(replace, arg, input, call.head, engine_state.ctrlc.clone())
+        operate(replace, arg, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

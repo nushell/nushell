@@ -35,6 +35,35 @@ impl ReconstructVal for CompletionAlgorithm {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq)]
+pub enum CompletionSort {
+    #[default]
+    Smart,
+    Alphabetical,
+}
+
+impl FromStr for CompletionSort {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "smart" => Ok(Self::Smart),
+            "alphabetical" => Ok(Self::Alphabetical),
+            _ => Err("expected either 'smart' or 'alphabetical'"),
+        }
+    }
+}
+
+impl ReconstructVal for CompletionSort {
+    fn reconstruct_value(&self, span: Span) -> Value {
+        let str = match self {
+            Self::Smart => "smart",
+            Self::Alphabetical => "alphabetical",
+        };
+        Value::string(str, span)
+    }
+}
+
 pub(super) fn reconstruct_external_completer(config: &Config, span: Span) -> Value {
     if let Some(closure) = config.external_completer.as_ref() {
         Value::closure(closure.clone(), span)

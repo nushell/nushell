@@ -1,5 +1,5 @@
-use nu_protocol::{ast::CellPath, PipelineData, ShellError, Span, Value};
-use std::sync::{atomic::AtomicBool, Arc};
+use nu_protocol::{ast::CellPath, PipelineData, ShellError, Signals, Span, Value};
+use std::sync::Arc;
 
 pub trait CmdArgument {
     fn take_cell_paths(&mut self) -> Option<Vec<CellPath>>;
@@ -40,7 +40,7 @@ pub fn operate<C, A>(
     mut arg: A,
     input: PipelineData,
     span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: &Signals,
 ) -> Result<PipelineData, ShellError>
 where
     A: CmdArgument + Send + Sync + 'static,
@@ -55,7 +55,7 @@ where
                     _ => cmd(&v, &arg, span),
                 }
             },
-            ctrlc,
+            signals,
         ),
         Some(column_paths) => {
             let arg = Arc::new(arg);
@@ -79,7 +79,7 @@ where
                     }
                     v
                 },
-                ctrlc,
+                signals,
             )
         }
     }

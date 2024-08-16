@@ -1,5 +1,8 @@
 use nu_engine::{command_prelude::*, ClosureEvalOnce};
-use nu_protocol::{debugger::Profiler, engine::Closure};
+use nu_protocol::{
+    debugger::{Profiler, ProfilerOptions},
+    engine::Closure,
+};
 
 #[derive(Clone)]
 pub struct DebugProfile;
@@ -28,6 +31,7 @@ impl Command for DebugProfile {
                 Some('v'),
             )
             .switch("expr", "Collect expression types", Some('x'))
+            .switch("instructions", "Collect IR instructions", Some('i'))
             .switch("lines", "Collect line numbers", Some('l'))
             .named(
                 "max-depth",
@@ -91,19 +95,23 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
         let collect_expanded_source = call.has_flag(engine_state, stack, "expanded-source")?;
         let collect_values = call.has_flag(engine_state, stack, "values")?;
         let collect_exprs = call.has_flag(engine_state, stack, "expr")?;
+        let collect_instructions = call.has_flag(engine_state, stack, "instructions")?;
         let collect_lines = call.has_flag(engine_state, stack, "lines")?;
         let max_depth = call
             .get_flag(engine_state, stack, "max-depth")?
             .unwrap_or(2);
 
         let profiler = Profiler::new(
-            max_depth,
-            collect_spans,
-            true,
-            collect_expanded_source,
-            collect_values,
-            collect_exprs,
-            collect_lines,
+            ProfilerOptions {
+                max_depth,
+                collect_spans,
+                collect_source: true,
+                collect_expanded_source,
+                collect_values,
+                collect_exprs,
+                collect_instructions,
+                collect_lines,
+            },
             call.span(),
         );
 

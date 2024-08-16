@@ -194,7 +194,7 @@ pub fn eval_hook(
                 let Some(follow) = val.get("code") else {
                     return Err(ShellError::CantFindColumn {
                         col_name: "code".into(),
-                        span,
+                        span: Some(span),
                         src_span: span,
                     });
                 };

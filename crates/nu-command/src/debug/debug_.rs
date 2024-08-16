@@ -33,7 +33,7 @@ impl Command for Debug {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let config = engine_state.get_config().clone();
+        let config = stack.get_config(engine_state);
         let raw = call.has_flag(engine_state, stack, "raw")?;
 
         // Should PipelineData::Empty result in an error here?
@@ -46,7 +46,7 @@ impl Command for Debug {
                     Value::string(x.to_expanded_string(", ", &config), head)
                 }
             },
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 

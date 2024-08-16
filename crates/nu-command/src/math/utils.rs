@@ -1,6 +1,6 @@
 use core::slice;
 use indexmap::IndexMap;
-use nu_protocol::{ast::Call, IntoPipelineData, PipelineData, ShellError, Span, Value};
+use nu_protocol::{engine::Call, IntoPipelineData, PipelineData, ShellError, Signals, Span, Value};
 
 pub fn run_with_function(
     call: &Call,
@@ -92,7 +92,7 @@ pub fn calculate(
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val
-                .into_range_iter(span, None)
+                .into_range_iter(span, Signals::empty())
                 .map(|val| mf(&[val], span, name))
                 .collect();
 

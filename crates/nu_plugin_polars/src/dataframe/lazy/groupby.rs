@@ -148,11 +148,11 @@ fn command(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    lazy: NuLazyFrame,
+    mut lazy: NuLazyFrame,
     expressions: Vec<Expr>,
 ) -> Result<PipelineData, ShellError> {
     let group_by = lazy.to_polars().group_by(expressions);
-    let group_by = NuLazyGroupBy::new(group_by, lazy.from_eager, lazy.schema()?);
+    let group_by = NuLazyGroupBy::new(group_by, lazy.from_eager, lazy.schema().clone()?);
     group_by.to_pipeline_data(plugin, engine, call.head)
 }
 

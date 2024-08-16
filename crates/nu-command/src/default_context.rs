@@ -31,6 +31,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             All,
             Any,
             Append,
+            Chunks,
             Columns,
             Compact,
             Default,
@@ -127,7 +128,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             SysTemp,
             SysUsers,
             UName,
-
+            Which,
         };
 
         // Help
@@ -154,6 +155,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             TimeIt,
             View,
             ViewFiles,
+            ViewIr,
             ViewSource,
             ViewSpan,
         };
@@ -172,9 +174,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         ))]
         bind_command! { Ps };
 
-        #[cfg(feature = "which-support")]
-        bind_command! { Which };
-
         // Strings
         bind_command! {
             Char,
@@ -192,6 +191,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Str,
             StrCapitalize,
             StrContains,
+            StrDeunicode,
             StrDistance,
             StrDowncase,
             StrEndswith,
@@ -292,7 +292,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ToText,
             ToToml,
             ToTsv,
-            Touch,
             Upsert,
             Where,
             ToXml,
@@ -399,6 +398,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             RandomFloat,
             RandomInt,
             RandomUuid,
+            RandomBinary
         };
 
         // Generators

@@ -150,13 +150,9 @@ fn fill(
         FillAlignment::Left
     };
 
-    let width = if let Some(arg) = width_arg { arg } else { 1 };
+    let width = width_arg.unwrap_or(1);
 
-    let character = if let Some(arg) = character_arg {
-        arg
-    } else {
-        " ".to_string()
-    };
+    let character = character_arg.unwrap_or_else(|| " ".to_string());
 
     let arg = Arguments {
         width,
@@ -165,7 +161,7 @@ fn fill(
         cell_paths,
     };
 
-    operate(action, arg, input, call.head, engine_state.ctrlc.clone())
+    operate(action, arg, input, call.head, engine_state.signals())
 }
 
 fn action(input: &Value, args: &Arguments, span: Span) -> Value {

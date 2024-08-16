@@ -1,7 +1,7 @@
 use crate::{grapheme_flags, grapheme_flags_const};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
-use nu_protocol::engine::StateWorkingSet;
+
 use unicode_segmentation::UnicodeSegmentation;
 
 struct Arguments {
@@ -130,7 +130,7 @@ fn run(
         cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
         graphemes,
     };
-    operate(action, args, input, call.head, engine_state.ctrlc.clone())
+    operate(action, args, input, call.head, engine_state.signals())
 }
 
 fn action(input: &Value, arg: &Arguments, head: Span) -> Value {

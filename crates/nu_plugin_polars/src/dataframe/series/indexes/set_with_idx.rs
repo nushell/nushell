@@ -7,7 +7,10 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{ChunkSet, DataType, IntoSeries};
+use polars::{
+    chunked_array::cast::CastOptions,
+    prelude::{ChunkSet, DataType, IntoSeries},
+};
 
 #[derive(Clone)]
 pub struct SetWithIndex;
@@ -96,7 +99,7 @@ fn command(
     let casted = match indices.dtype() {
         DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => indices
             .as_ref()
-            .cast(&DataType::UInt32)
+            .cast(&DataType::UInt32, CastOptions::default())
             .map_err(|e| ShellError::GenericError {
                 error: "Error casting indices".into(),
                 msg: e.to_string(),

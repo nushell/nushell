@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::ast::{Assignment, Bits, Boolean, Comparison, Math, Operator};
 
 #[derive(Clone)]
 pub struct HelpOperators;
@@ -27,282 +28,148 @@ impl Command for HelpOperators {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let op_info = generate_operator_info();
-        let mut recs = vec![];
-
-        for op in op_info {
-            recs.push(Value::record(
+        let mut operators = [
+            Operator::Assignment(Assignment::Assign),
+            Operator::Assignment(Assignment::PlusAssign),
+            Operator::Assignment(Assignment::AppendAssign),
+            Operator::Assignment(Assignment::MinusAssign),
+            Operator::Assignment(Assignment::MultiplyAssign),
+            Operator::Assignment(Assignment::DivideAssign),
+            Operator::Comparison(Comparison::Equal),
+            Operator::Comparison(Comparison::NotEqual),
+            Operator::Comparison(Comparison::LessThan),
+            Operator::Comparison(Comparison::GreaterThan),
+            Operator::Comparison(Comparison::LessThanOrEqual),
+            Operator::Comparison(Comparison::GreaterThanOrEqual),
+            Operator::Comparison(Comparison::RegexMatch),
+            Operator::Comparison(Comparison::NotRegexMatch),
+            Operator::Comparison(Comparison::In),
+            Operator::Comparison(Comparison::NotIn),
+            Operator::Comparison(Comparison::StartsWith),
+            Operator::Comparison(Comparison::EndsWith),
+            Operator::Math(Math::Plus),
+            Operator::Math(Math::Append),
+            Operator::Math(Math::Minus),
+            Operator::Math(Math::Multiply),
+            Operator::Math(Math::Divide),
+            Operator::Math(Math::Modulo),
+            Operator::Math(Math::FloorDivision),
+            Operator::Math(Math::Pow),
+            Operator::Bits(Bits::BitOr),
+            Operator::Bits(Bits::BitXor),
+            Operator::Bits(Bits::BitAnd),
+            Operator::Bits(Bits::ShiftLeft),
+            Operator::Bits(Bits::ShiftRight),
+            Operator::Boolean(Boolean::And),
+            Operator::Boolean(Boolean::Or),
+            Operator::Boolean(Boolean::Xor),
+        ]
+        .into_iter()
+        .map(|op| {
+            Value::record(
                 record! {
-                    "type" => Value::string(op.op_type, head),
-                    "operator" => Value::string(op.operator, head),
-                    "name" => Value::string(op.name, head),
-                    "description" => Value::string(op.description, head),
-                    "precedence" => Value::int(op.precedence, head),
+                    "type" => Value::string(op_type(&op), head),
+                    "operator" => Value::string(op.to_string(), head),
+                    "name" => Value::string(name(&op), head),
+                    "description" => Value::string(description(&op), head),
+                    "precedence" => Value::int(op.precedence().into(), head),
                 },
                 head,
-            ));
-        }
+            )
+        })
+        .collect::<Vec<_>>();
 
-        Ok(Value::list(recs, head).into_pipeline_data())
+        operators.push(Value::record(
+            record! {
+                "type" => Value::string("Boolean", head),
+                "operator" => Value::string("not", head),
+                "name" => Value::string("Not", head),
+                "description" => Value::string("Negates a value or expression.", head),
+                "precedence" => Value::int(0, head),
+            },
+            head,
+        ));
+
+        Ok(Value::list(operators, head).into_pipeline_data())
     }
 }
 
-struct OperatorInfo {
-    op_type: String,
-    operator: String,
-    name: String,
-    description: String,
-    precedence: i64,
+fn op_type(operator: &Operator) -> &'static str {
+    match operator {
+        Operator::Comparison(_) => "Comparison",
+        Operator::Math(_) => "Math",
+        Operator::Boolean(_) => "Boolean",
+        Operator::Bits(_) => "Bitwise",
+        Operator::Assignment(_) => "Assignment",
+    }
 }
 
-fn generate_operator_info() -> Vec<OperatorInfo> {
-    vec![
-        OperatorInfo {
-            op_type: "Assignment".into(),
-            operator: "=".into(),
-            name: "Assign".into(),
-            description: "Assigns a value to a variable.".into(),
-            precedence: 10,
-        },
-        OperatorInfo {
-            op_type: "Assignment".into(),
-            operator: "+=".into(),
-            name: "PlusAssign".into(),
-            description: "Adds a value to a variable.".into(),
-            precedence: 10,
-        },
-        OperatorInfo {
-            op_type: "Assignment".into(),
-            operator: "++=".into(),
-            name: "AppendAssign".into(),
-            description: "Appends a list or a value to a variable.".into(),
-            precedence: 10,
-        },
-        OperatorInfo {
-            op_type: "Assignment".into(),
-            operator: "-=".into(),
-            name: "MinusAssign".into(),
-            description: "Subtracts a value from a variable.".into(),
-            precedence: 10,
-        },
-        OperatorInfo {
-            op_type: "Assignment".into(),
-            operator: "*=".into(),
-            name: "MultiplyAssign".into(),
-            description: "Multiplies a variable by a value.".into(),
-            precedence: 10,
-        },
-        OperatorInfo {
-            op_type: "Assignment".into(),
-            operator: "/=".into(),
-            name: "DivideAssign".into(),
-            description: "Divides a variable by a value.".into(),
-            precedence: 10,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "==".into(),
-            name: "Equal".into(),
-            description: "Checks if two values are equal.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "!=".into(),
-            name: "NotEqual".into(),
-            description: "Checks if two values are not equal.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "<".into(),
-            name: "LessThan".into(),
-            description: "Checks if a value is less than another.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "<=".into(),
-            name: "LessThanOrEqual".into(),
-            description: "Checks if a value is less than or equal to another.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: ">".into(),
-            name: "GreaterThan".into(),
-            description: "Checks if a value is greater than another.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: ">=".into(),
-            name: "GreaterThanOrEqual".into(),
-            description: "Checks if a value is greater than or equal to another.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "=~".into(),
-            name: "RegexMatch".into(),
-            description: "Checks if a value matches a regular expression.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "!~".into(),
-            name: "NotRegexMatch".into(),
-            description: "Checks if a value does not match a regular expression.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "in".into(),
-            name: "In".into(),
-            description: "Checks if a value is in a list or string.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "not-in".into(),
-            name: "NotIn".into(),
-            description: "Checks if a value is not in a list or string.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "starts-with".into(),
-            name: "StartsWith".into(),
-            description: "Checks if a string starts with another.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "ends-with".into(),
-            name: "EndsWith".into(),
-            description: "Checks if a string ends with another.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Comparison".into(),
-            operator: "not".into(),
-            name: "UnaryNot".into(),
-            description: "Negates a value or expression.".into(),
-            precedence: 0,
-        },
-        OperatorInfo {
-            op_type: "Math".into(),
-            operator: "+".into(),
-            name: "Plus".into(),
-            description: "Adds two values.".into(),
-            precedence: 90,
-        },
-        OperatorInfo {
-            op_type: "Math".into(),
-            operator: "++".into(),
-            name: "Append".into(),
-            description: "Appends two lists or a list and a value.".into(),
-            precedence: 80,
-        },
-        OperatorInfo {
-            op_type: "Math".into(),
-            operator: "-".into(),
-            name: "Minus".into(),
-            description: "Subtracts two values.".into(),
-            precedence: 90,
-        },
-        OperatorInfo {
-            op_type: "Math".into(),
-            operator: "*".into(),
-            name: "Multiply".into(),
-            description: "Multiplies two values.".into(),
-            precedence: 95,
-        },
-        OperatorInfo {
-            op_type: "Math".into(),
-            operator: "/".into(),
-            name: "Divide".into(),
-            description: "Divides two values.".into(),
-            precedence: 95,
-        },
-        OperatorInfo {
-            op_type: "Math".into(),
-            operator: "//".into(),
-            name: "FloorDivision".into(),
-            description: "Divides two values and floors the result.".into(),
-            precedence: 95,
-        },
-        OperatorInfo {
-            op_type: "Math".into(),
-            operator: "mod".into(),
-            name: "Modulo".into(),
-            description: "Divides two values and returns the remainder.".into(),
-            precedence: 95,
-        },
-        OperatorInfo {
-            op_type: "Math".into(),
-            operator: "**".into(),
-            name: "Pow ".into(),
-            description: "Raises one value to the power of another.".into(),
-            precedence: 100,
-        },
-        OperatorInfo {
-            op_type: "Bitwise".into(),
-            operator: "bit-or".into(),
-            name: "BitOr".into(),
-            description: "Performs a bitwise OR on two values.".into(),
-            precedence: 60,
-        },
-        OperatorInfo {
-            op_type: "Bitwise".into(),
-            operator: "bit-xor".into(),
-            name: "BitXor".into(),
-            description: "Performs a bitwise XOR on two values.".into(),
-            precedence: 70,
-        },
-        OperatorInfo {
-            op_type: "Bitwise".into(),
-            operator: "bit-and".into(),
-            name: "BitAnd".into(),
-            description: "Performs a bitwise AND on two values.".into(),
-            precedence: 75,
-        },
-        OperatorInfo {
-            op_type: "Bitwise".into(),
-            operator: "bit-shl".into(),
-            name: "ShiftLeft".into(),
-            description: "Shifts a value left by another.".into(),
-            precedence: 85,
-        },
-        OperatorInfo {
-            op_type: "Bitwise".into(),
-            operator: "bit-shr".into(),
-            name: "ShiftRight".into(),
-            description: "Shifts a value right by another.".into(),
-            precedence: 85,
-        },
-        OperatorInfo {
-            op_type: "Boolean".into(),
-            operator: "and".into(),
-            name: "And".into(),
-            description: "Checks if two values are true.".into(),
-            precedence: 50,
-        },
-        OperatorInfo {
-            op_type: "Boolean".into(),
-            operator: "or".into(),
-            name: "Or".into(),
-            description: "Checks if either value is true.".into(),
-            precedence: 40,
-        },
-        OperatorInfo {
-            op_type: "Boolean".into(),
-            operator: "xor".into(),
-            name: "Xor".into(),
-            description: "Checks if one value is true and the other is false.".into(),
-            precedence: 45,
-        },
-    ]
+fn name(operator: &Operator) -> String {
+    match operator {
+        Operator::Comparison(op) => format!("{op:?}"),
+        Operator::Math(op) => format!("{op:?}"),
+        Operator::Boolean(op) => format!("{op:?}"),
+        Operator::Bits(op) => format!("{op:?}"),
+        Operator::Assignment(op) => format!("{op:?}"),
+    }
+}
+
+fn description(operator: &Operator) -> &'static str {
+    // NOTE: if you have to add an operator here, also add it to the operator list above.
+    match operator {
+        Operator::Comparison(Comparison::Equal) => "Checks if two values are equal.",
+        Operator::Comparison(Comparison::NotEqual) => "Checks if two values are not equal.",
+        Operator::Comparison(Comparison::LessThan) => "Checks if a value is less than another.",
+        Operator::Comparison(Comparison::GreaterThan) => {
+            "Checks if a value is greater than another."
+        }
+        Operator::Comparison(Comparison::LessThanOrEqual) => {
+            "Checks if a value is less than or equal to another."
+        }
+        Operator::Comparison(Comparison::GreaterThanOrEqual) => {
+            "Checks if a value is greater than or equal to another."
+        }
+        Operator::Comparison(Comparison::RegexMatch) => {
+            "Checks if a value matches a regular expression."
+        }
+        Operator::Comparison(Comparison::NotRegexMatch) => {
+            "Checks if a value does not match a regular expression."
+        }
+        Operator::Comparison(Comparison::In) => {
+            "Checks if a value is in a list, is part of a string, or is a key in a record."
+        }
+        Operator::Comparison(Comparison::NotIn) => {
+            "Checks if a value is not in a list, is not part of a string, or is not a key in a record."
+        }
+        Operator::Comparison(Comparison::StartsWith) => "Checks if a string starts with another.",
+        Operator::Comparison(Comparison::EndsWith) => "Checks if a string ends with another.",
+        Operator::Math(Math::Plus) => "Adds two values.",
+        Operator::Math(Math::Append) => {
+            "Appends two lists, a list and a value, two strings, or two binary values."
+        }
+        Operator::Math(Math::Minus) => "Subtracts two values.",
+        Operator::Math(Math::Multiply) => "Multiplies two values.",
+        Operator::Math(Math::Divide) => "Divides two values.",
+        Operator::Math(Math::Modulo) => "Divides two values and returns the remainder.",
+        Operator::Math(Math::FloorDivision) => "Divides two values and floors the result.",
+        Operator::Math(Math::Pow) => "Raises one value to the power of another.",
+        Operator::Boolean(Boolean::And) => "Checks if both values are true.",
+        Operator::Boolean(Boolean::Or) => "Checks if either value is true.",
+        Operator::Boolean(Boolean::Xor) => "Checks if one value is true and the other is false.",
+        Operator::Bits(Bits::BitOr) => "Performs a bitwise OR on two values.",
+        Operator::Bits(Bits::BitXor) => "Performs a bitwise XOR on two values.",
+        Operator::Bits(Bits::BitAnd) => "Performs a bitwise AND on two values.",
+        Operator::Bits(Bits::ShiftLeft) => "Bitwise shifts a value left by another.",
+        Operator::Bits(Bits::ShiftRight) => "Bitwise shifts a value right by another.",
+        Operator::Assignment(Assignment::Assign) => "Assigns a value to a variable.",
+        Operator::Assignment(Assignment::PlusAssign) => "Adds a value to a variable.",
+        Operator::Assignment(Assignment::AppendAssign) => {
+            "Appends a list, a value, a string, or a binary value to a variable."
+        }
+        Operator::Assignment(Assignment::MinusAssign) => "Subtracts a value from a variable.",
+        Operator::Assignment(Assignment::MultiplyAssign) => "Multiplies a variable by a value.",
+        Operator::Assignment(Assignment::DivideAssign) => "Divides a variable by a value.",
+    }
 }
 
 #[cfg(test)]

@@ -16,7 +16,7 @@ impl PluginCommand for ListDF {
     }
 
     fn usage(&self) -> &str {
-        "Lists stored dataframes."
+        "Lists stored polars objects."
     }
 
     fn signature(&self) -> Signature {
@@ -119,6 +119,20 @@ impl PluginCommand for ListDF {
                     },
                     call.head,
                 ))),
+                PolarsPluginObject::NuPolarsTestData(_, _) => Ok(Some(Value::record(
+                    record! {
+                        "key" => Value::string(key.to_string(), call.head),
+                        "columns" => Value::nothing(call.head),
+                        "rows" => Value::nothing(call.head),
+                        "type" => Value::string("When", call.head),
+                        "estimated_size" => Value::nothing(call.head),
+                        "span_contents" =>  Value::string(span_contents.to_string(), call.head),
+                        "span_start" => Value::int(call.head.start as i64, call.head),
+                        "span_end" => Value::int(call.head.end as i64, call.head),
+                        "reference_count" => Value::int(value.reference_count as i64, call.head),
+                    },
+                    call.head,
+                )))
             }
         })?;
         let vals = vals.into_iter().flatten().collect();

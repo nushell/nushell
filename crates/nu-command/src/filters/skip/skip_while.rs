@@ -94,7 +94,7 @@ impl Command for SkipWhile {
                     .map(|cond| cond.is_true())
                     .unwrap_or(false)
             })
-            .into_pipeline_data_with_metadata(head, engine_state.ctrlc.clone(), metadata))
+            .into_pipeline_data_with_metadata(head, engine_state.signals().clone(), metadata))
     }
 }
 

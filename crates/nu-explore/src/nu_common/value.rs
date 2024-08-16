@@ -176,10 +176,6 @@ pub fn create_map(value: &Value) -> Option<HashMap<String, Value>> {
     )
 }
 
-pub fn map_into_value(hm: HashMap<String, Value>) -> Value {
-    Value::record(hm.into_iter().collect(), NuSpan::unknown())
-}
-
 fn unknown_error_value() -> Value {
     Value::string(String::from("❎"), NuSpan::unknown())
 }

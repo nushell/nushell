@@ -1,4 +1,4 @@
-use mockito::Server;
+use mockito::{Matcher, Server, ServerOpts};
 use nu_test_support::{nu, pipeline};
 
 #[test]
@@ -11,6 +11,24 @@ fn http_post_is_success() {
         format!(
             r#"
         http post {url} "foo"
+        "#,
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(actual.out.is_empty())
+}
+#[test]
+fn http_post_is_success_pipeline() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("POST", "/").match_body("foo").create();
+
+    let actual = nu!(pipeline(
+        format!(
+            r#"
+        "foo" | http post {url}
         "#,
             url = server.url()
         )
@@ -55,7 +73,9 @@ fn http_post_failed_due_to_missing_body() {
         .as_str()
     ));
 
-    assert!(actual.err.contains("Usage: http post"))
+    assert!(actual
+        .err
+        .contains("Data must be provided either through pipeline or positional argument"))
 }
 
 #[test]
@@ -176,4 +196,35 @@ fn http_post_redirect_mode_error() {
     assert!(&actual.err.contains(
         "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
     ));
+}
+#[test]
+fn http_post_multipart_is_success() {
+    let mut server = Server::new_with_opts(ServerOpts {
+        assert_on_drop: true,
+        ..Default::default()
+    });
+    let _mock = server
+        .mock("POST", "/")
+        .match_header(
+            "content-type",
+            Matcher::Regex("multipart/form-data; boundary=.*".to_string()),
+        )
+        .match_body(Matcher::AllOf(vec![
+            Matcher::Regex(r#"(?m)^Content-Disposition: form-data; name="foo""#.to_string()),
+            Matcher::Regex(r#"(?m)^Content-Type: application/octet-stream"#.to_string()),
+            Matcher::Regex(r#"(?m)^Content-Length: 3"#.to_string()),
+            Matcher::Regex(r#"(?m)^bar"#.to_string()),
+        ]))
+        .with_status(200)
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http post --content-type multipart/form-data {url} {{foo: ('bar' | into binary) }}",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(actual.out.is_empty())
 }

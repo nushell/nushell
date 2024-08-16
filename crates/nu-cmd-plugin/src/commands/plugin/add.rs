@@ -118,11 +118,12 @@ apparent the next time `nu` is next launched with that plugin registry file.
             },
         ));
         let interface = plugin.clone().get_plugin(Some((engine_state, stack)))?;
+        let metadata = interface.get_metadata()?;
         let commands = interface.get_signature()?;
 
         modify_plugin_file(engine_state, stack, call.head, custom_path, |contents| {
-            // Update the file with the received signatures
-            let item = PluginRegistryItem::new(plugin.identity(), commands);
+            // Update the file with the received metadata and signatures
+            let item = PluginRegistryItem::new(plugin.identity(), metadata, commands);
             contents.upsert_plugin(item);
             Ok(())
         })?;

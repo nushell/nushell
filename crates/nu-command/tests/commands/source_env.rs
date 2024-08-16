@@ -1,4 +1,3 @@
-use nu_test_support::fs::AbsolutePath;
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::nu;
 use nu_test_support::pipeline;
@@ -8,17 +7,18 @@ use nu_test_support::playground::Playground;
 #[test]
 fn sources_also_files_under_custom_lib_dirs_path() {
     Playground::setup("source_test_1", |dirs, nu| {
-        let file = AbsolutePath::new(dirs.test().join("config.toml"));
-        let library_path = AbsolutePath::new(dirs.test().join("lib"));
+        let file = dirs.test().join("config.toml");
+        let library_path = dirs.test().join("lib");
 
-        nu.with_config(&file);
+        nu.with_config(file);
         nu.with_files(&[FileWithContent(
             "config.toml",
             &format!(
                 r#"
-                lib_dirs = ["{library_path}"]
+                lib_dirs = ["{}"]
                 skip_welcome_message = true
-            "#
+            "#,
+                library_path.as_os_str().to_str().unwrap(),
             ),
         )]);
 

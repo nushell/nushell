@@ -1,15 +1,11 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
 use nu_protocol::{
-    byte_stream::copy_with_interrupt, engine::Closure, process::ChildPipe, ByteStream,
-    ByteStreamSource, OutDest, PipelineMetadata,
+    byte_stream::copy_with_signals, engine::Closure, process::ChildPipe, ByteStream,
+    ByteStreamSource, OutDest, PipelineMetadata, Signals,
 };
 use std::{
     io::{self, Read, Write},
-    sync::{
-        atomic::AtomicBool,
-        mpsc::{self, Sender},
-        Arc,
-    },
+    sync::mpsc::{self, Sender},
     thread::{self, JoinHandle},
 };
 
@@ -103,12 +99,11 @@ use it in your pipeline."#
 
         if let PipelineData::ByteStream(stream, metadata) = input {
             let span = stream.span();
-            let ctrlc = engine_state.ctrlc.clone();
             let type_ = stream.type_();
 
             let info = StreamInfo {
                 span,
-                ctrlc: ctrlc.clone(),
+                signals: engine_state.signals().clone(),
                 type_,
                 metadata: metadata.clone(),
             };
@@ -123,7 +118,7 @@ use it in your pipeline."#
                     let tee = IoTee::new(read, tee_thread);
 
                     Ok(PipelineData::ByteStream(
-                        ByteStream::read(tee, span, ctrlc, type_),
+                        ByteStream::read(tee, span, engine_state.signals().clone(), type_),
                         metadata,
                     ))
                 }
@@ -136,7 +131,7 @@ use it in your pipeline."#
                     let tee = IoTee::new(file, tee_thread);
 
                     Ok(PipelineData::ByteStream(
-                        ByteStream::read(tee, span, ctrlc, type_),
+                        ByteStream::read(tee, span, engine_state.signals().clone(), type_),
                         metadata,
                     ))
                 }
@@ -234,19 +229,19 @@ use it in your pipeline."#
             }
 
             let span = input.span().unwrap_or(head);
-            let ctrlc = engine_state.ctrlc.clone();
             let metadata = input.metadata();
             let metadata_clone = metadata.clone();
+            let signals = engine_state.signals().clone();
 
             Ok(tee(input.into_iter(), move |rx| {
-                let input = rx.into_pipeline_data_with_metadata(span, ctrlc, metadata_clone);
+                let input = rx.into_pipeline_data_with_metadata(span, signals, metadata_clone);
                 eval_block(input)
             })
             .err_span(call.head)?
             .map(move |result| result.unwrap_or_else(|err| Value::error(err, closure_span)))
             .into_pipeline_data_with_metadata(
                 span,
-                engine_state.ctrlc.clone(),
+                engine_state.signals().clone(),
                 metadata,
             ))
         }
@@ -386,8 +381,13 @@ fn spawn_tee(
     let thread = thread::Builder::new()
         .name("tee".into())
         .spawn(move || {
-            // We don't use ctrlc here because we assume it already has it on the other side
-            let stream = ByteStream::from_iter(receiver.into_iter(), info.span, None, info.type_);
+            // We use Signals::empty() here because we assume there already is a Signals on the other side
+            let stream = ByteStream::from_iter(
+                receiver.into_iter(),
+                info.span,
+                Signals::empty(),
+                info.type_,
+            );
             eval_block(PipelineData::ByteStream(stream, info.metadata))
         })
         .err_span(info.span)?;
@@ -398,13 +398,13 @@ fn spawn_tee(
 #[derive(Clone)]
 struct StreamInfo {
     span: Span,
-    ctrlc: Option<Arc<AtomicBool>>,
+    signals: Signals,
     type_: ByteStreamType,
     metadata: Option<PipelineMetadata>,
 }
 
 fn copy(src: impl Read, dest: impl Write, info: &StreamInfo) -> Result<(), ShellError> {
-    copy_with_interrupt(src, dest, info.span, info.ctrlc.as_deref())?;
+    copy_with_signals(src, dest, info.span, &info.signals)?;
     Ok(())
 }
 
@@ -421,11 +421,11 @@ fn copy_on_thread(
     info: &StreamInfo,
 ) -> Result<JoinHandle<Result<(), ShellError>>, ShellError> {
     let span = info.span;
-    let ctrlc = info.ctrlc.clone();
+    let signals = info.signals.clone();
     thread::Builder::new()
         .name("stderr copier".into())
         .spawn(move || {
-            copy_with_interrupt(src, dest, span, ctrlc.as_deref())?;
+            copy_with_signals(src, dest, span, &signals)?;
             Ok(())
         })
         .map_err(|e| e.into_spanned(span).into())

@@ -46,7 +46,7 @@ impl Command for BytesLen {
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let arg = CellPathOnlyArgs::from(cell_paths);
-        operate(length, arg, input, call.head, engine_state.ctrlc.clone())
+        operate(length, arg, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example> {

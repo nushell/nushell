@@ -1,10 +1,11 @@
 use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
+use nu_path::AbsolutePathBuf;
 use nu_protocol::engine::StateWorkingSet;
-use std::path::{Path, PathBuf};
+use std::{io, path::Path};
 
 struct Arguments {
-    pwd: PathBuf,
+    pwd: AbsolutePathBuf,
 }
 
 impl PathSubcommandArguments for Arguments {}
@@ -36,7 +37,7 @@ impl Command for SubCommand {
 
     fn extra_usage(&self) -> &str {
         r#"This checks the file system to confirm the path's object type.
-If nothing is found, an empty string will be returned."#
+If the path does not exist, null will be returned."#
     }
 
     fn is_const(&self) -> bool {
@@ -61,7 +62,7 @@ If nothing is found, an empty string will be returned."#
         }
         input.map(
             move |value| super::operate(&path_type, &args, value, head),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 
@@ -82,7 +83,7 @@ If nothing is found, an empty string will be returned."#
         }
         input.map(
             move |value| super::operate(&path_type, &args, value, head),
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 
@@ -104,9 +105,11 @@ If nothing is found, an empty string will be returned."#
 
 fn path_type(path: &Path, span: Span, args: &Arguments) -> Value {
     let path = nu_path::expand_path_with(path, &args.pwd, true);
-    let meta = path.symlink_metadata();
-    let ty = meta.as_ref().map(get_file_type).unwrap_or("");
-    Value::string(ty, span)
+    match path.symlink_metadata() {
+        Ok(metadata) => Value::string(get_file_type(&metadata), span),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => Value::nothing(span),
+        Err(err) => Value::error(err.into_spanned(span).into(), span),
+    }
 }
 
 fn get_file_type(md: &std::fs::Metadata) -> &str {

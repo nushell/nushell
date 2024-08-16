@@ -60,14 +60,13 @@ impl Command for Items {
 
                                 match result {
                                     Ok(value) => Some(value),
-                                    Err(ShellError::Break { .. }) => None,
                                     Err(err) => {
                                         let err = chain_error_with_input(err, false, span);
                                         Some(Value::error(err, head))
                                     }
                                 }
                             })
-                            .into_pipeline_data(head, engine_state.ctrlc.clone()))
+                            .into_pipeline_data(head, engine_state.signals().clone()))
                     }
                     Value::Error { error, .. } => Err(*error),
                     other => Err(ShellError::OnlySupportsThisInputType {

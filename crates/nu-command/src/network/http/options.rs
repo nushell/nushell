@@ -4,6 +4,8 @@ use crate::network::http::client::{
 };
 use nu_engine::command_prelude::*;
 
+use super::client::HttpBody;
+
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -149,7 +151,6 @@ fn helper(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
-    let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
     let client = http_client(args.insecure, RedirectMode::Follow, engine_state, stack)?;
@@ -159,7 +160,13 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let response = send_request(request.clone(), None, None, ctrl_c);
+    let response = send_request(
+        request.clone(),
+        HttpBody::None,
+        None,
+        call.head,
+        engine_state.signals(),
+    );
 
     // http options' response always showed in header, so we set full to true.
     // And `raw` is useless too because options method doesn't return body, here we set to true

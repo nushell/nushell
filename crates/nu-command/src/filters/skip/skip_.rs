@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::Signals;
 use std::io::{self, Read};
 
 #[derive(Clone)]
@@ -90,8 +91,6 @@ impl Command for Skip {
             }
             None => 1,
         };
-
-        let ctrlc = engine_state.ctrlc.clone();
         let input_span = input.span().unwrap_or(call.head);
         match input {
             PipelineData::ByteStream(stream, metadata) => {
@@ -102,7 +101,12 @@ impl Command for Skip {
                         io::copy(&mut (&mut reader).take(n as u64), &mut io::sink())
                             .err_span(span)?;
                         Ok(PipelineData::ByteStream(
-                            ByteStream::read(reader, call.head, None, ByteStreamType::Binary),
+                            ByteStream::read(
+                                reader,
+                                call.head,
+                                Signals::empty(),
+                                ByteStreamType::Binary,
+                            ),
                             metadata,
                         ))
                     } else {
@@ -124,7 +128,11 @@ impl Command for Skip {
             _ => Ok(input
                 .into_iter_strict(call.head)?
                 .skip(n)
-                .into_pipeline_data_with_metadata(input_span, ctrlc, metadata)),
+                .into_pipeline_data_with_metadata(
+                    input_span,
+                    engine_state.signals().clone(),
+                    metadata,
+                )),
         }
     }
 }

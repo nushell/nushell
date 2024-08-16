@@ -1,3 +1,6 @@
+//! This module manages the step of turning error types into printed error messages
+//!
+//! Relies on the `miette` crate for pretty layout
 use crate::{
     engine::{EngineState, StateWorkingSet},
     ErrorStyle,
@@ -37,6 +40,26 @@ pub fn report_error(
 }
 
 pub fn report_error_new(
+    engine_state: &EngineState,
+    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
+) {
+    let working_set = StateWorkingSet::new(engine_state);
+    report_error(&working_set, error);
+}
+
+pub fn report_warning(
+    working_set: &StateWorkingSet,
+    error: &(dyn miette::Diagnostic + Send + Sync + 'static),
+) {
+    eprintln!("Warning: {:?}", CliError(error, working_set));
+    // reset vt processing, aka ansi because illbehaved externals can break it
+    #[cfg(windows)]
+    {
+        let _ = nu_utils::enable_vt_processing();
+    }
+}
+
+pub fn report_warning_new(
     engine_state: &EngineState,
     error: &(dyn miette::Diagnostic + Send + Sync + 'static),
 ) {
@@ -106,5 +129,9 @@ impl<'src> miette::Diagnostic for CliError<'src> {
 
     fn related<'a>(&'a self) -> Option<Box<dyn Iterator<Item = &'a dyn miette::Diagnostic> + 'a>> {
         self.0.related()
+    }
+
+    fn diagnostic_source(&self) -> Option<&dyn miette::Diagnostic> {
+        self.0.diagnostic_source()
     }
 }

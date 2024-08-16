@@ -81,7 +81,9 @@ pub(super) fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
         usage.push_str(&comment_line);
     }
 
-    if let Some((brief_usage, extra_usage)) = usage.split_once("\n\n") {
+    if let Some((brief_usage, extra_usage)) = usage.split_once("\r\n\r\n") {
+        (brief_usage.to_string(), extra_usage.to_string())
+    } else if let Some((brief_usage, extra_usage)) = usage.split_once("\n\n") {
         (brief_usage.to_string(), extra_usage.to_string())
     } else {
         (usage, String::default())

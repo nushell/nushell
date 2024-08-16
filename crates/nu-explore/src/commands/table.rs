@@ -1,10 +1,9 @@
 use super::ViewCommand;
 use crate::{
     nu_common::collect_input,
-    views::{Orientation, RecordView},
+    views::{Orientation, RecordView, ViewConfig},
 };
 use anyhow::Result;
-use nu_ansi_term::Style;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
@@ -19,12 +18,6 @@ pub struct TableCmd {
 #[derive(Debug, Default, Clone)]
 struct TableSettings {
     orientation: Option<Orientation>,
-    split_line_s: Option<Style>,
-    selected_cell_s: Option<Style>,
-    selected_row_s: Option<Style>,
-    selected_column_s: Option<Style>,
-    padding_column_left: Option<usize>,
-    padding_column_right: Option<usize>,
     turn_on_cursor_mode: bool,
 }
 
@@ -37,7 +30,7 @@ impl TableCmd {
 }
 
 impl ViewCommand for TableCmd {
-    type View = RecordView<'static>;
+    type View = RecordView;
 
     fn name(&self) -> &'static str {
         Self::NAME
@@ -56,48 +49,21 @@ impl ViewCommand for TableCmd {
         _: &EngineState,
         _: &mut Stack,
         value: Option<Value>,
+        config: &ViewConfig,
     ) -> Result<Self::View> {
         let value = value.unwrap_or_default();
         let is_record = matches!(value, Value::Record { .. });
 
         let (columns, data) = collect_input(value)?;
 
-        let mut view = RecordView::new(columns, data);
-
-        // todo: use setup instead ????
+        let mut view = RecordView::new(columns, data, config.explore_config.clone());
 
         if is_record {
-            view.set_orientation_current(Orientation::Left);
+            view.set_top_layer_orientation(Orientation::Left);
         }
 
         if let Some(o) = self.settings.orientation {
-            view.set_orientation_current(o);
-        }
-
-        if let Some(style) = self.settings.selected_cell_s {
-            view.set_style_selected_cell(style);
-        }
-
-        if let Some(style) = self.settings.selected_column_s {
-            view.set_style_selected_column(style);
-        }
-
-        if let Some(style) = self.settings.selected_row_s {
-            view.set_style_selected_row(style);
-        }
-
-        if let Some(style) = self.settings.split_line_s {
-            view.set_style_split_line(style);
-        }
-
-        if let Some(p) = self.settings.padding_column_left {
-            let c = view.get_padding_column();
-            view.set_padding_column((p, c.1))
-        }
-
-        if let Some(p) = self.settings.padding_column_right {
-            let c = view.get_padding_column();
-            view.set_padding_column((c.0, p))
+            view.set_top_layer_orientation(o);
         }
 
         if self.settings.turn_on_cursor_mode {

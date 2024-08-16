@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block, get_eval_expression};
+use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
 pub struct While;
@@ -29,6 +30,15 @@ impl Command for While {
         vec!["loop"]
     }
 
+    fn extra_usage(&self) -> &str {
+        r#"This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"#
+    }
+
+    fn command_type(&self) -> CommandType {
+        CommandType::Keyword
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -36,6 +46,10 @@ impl Command for While {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // This is compiled specially by the IR compiler. The code here is never used when
+        // running in IR mode.
+        let call = call.assert_ast_call()?;
+        let head = call.head;
         let cond = call.positional_nth(0).expect("checked through parser");
         let block_id = call
             .positional_nth(1)
@@ -49,9 +63,7 @@ impl Command for While {
         let stack = &mut stack.push_redirection(None, None);
 
         loop {
-            if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-                break;
-            }
+            engine_state.signals().check(head)?;
 
             let result = eval_expression(engine_state, stack, cond)?;
 

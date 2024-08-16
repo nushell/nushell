@@ -1,6 +1,7 @@
 use super::{PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData};
 use crate::{
-    Category, PluginExample, PluginSignature, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, PluginExample, PluginMetadata, PluginSignature, ShellError, Signature, SyntaxShape,
+    Type, Value,
 };
 use pretty_assertions::assert_eq;
 use std::io::Cursor;
@@ -11,6 +12,9 @@ fn foo_plugin() -> PluginRegistryItem {
         filename: "/path/to/nu_plugin_foo".into(),
         shell: None,
         data: PluginRegistryItemData::Valid {
+            metadata: PluginMetadata {
+                version: Some("0.1.0".into()),
+            },
             commands: vec![PluginSignature {
                 sig: Signature::new("foo")
                     .input_output_type(Type::Int, Type::List(Box::new(Type::Int)))
@@ -36,6 +40,9 @@ fn bar_plugin() -> PluginRegistryItem {
         filename: "/path/to/nu_plugin_bar".into(),
         shell: None,
         data: PluginRegistryItemData::Valid {
+            metadata: PluginMetadata {
+                version: Some("0.2.0".into()),
+            },
             commands: vec![PluginSignature {
                 sig: Signature::new("bar")
                     .usage("overwrites files with random data")

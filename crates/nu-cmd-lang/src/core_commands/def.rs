@@ -61,9 +61,19 @@ impl Command for Def {
                 result: Some(Value::test_string("BAZ")),
             },
             Example {
+                description: "cd affects the environment, so '--env' is required to change directory from within a command",
+                example: r#"def --env gohome [] { cd ~ }; gohome; $env.PWD == ('~' | path expand)"#,
+                result: Some(Value::test_string("true")),
+            },
+            Example {
                 description: "Define a custom wrapper for an external command",
-                example: r#"def --wrapped my-echo [...rest] { echo $rest }; my-echo spam"#,
-                result: Some(Value::test_list(vec![Value::test_string("spam")])),
+                example: r#"def --wrapped my-echo [...rest] { ^echo ...$rest }; my-echo -e 'spam\tspam'"#,
+                result: Some(Value::test_string("spam\tspam")),
+            },
+            Example {
+                description: "Define a custom command with a type signature. Passing a non-int value will result in an error",
+                example: r#"def only_int []: int -> int { $in }; 42 | only_int"#,
+                result: Some(Value::test_int(42)),
             },
         ]
     }

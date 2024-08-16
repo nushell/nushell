@@ -1,9 +1,10 @@
 use crate::{
     dataframe::values::NuSchema,
-    values::{CustomValueSupport, NuLazyFrame},
-    PolarsPlugin,
+    values::{CustomValueSupport, NuLazyFrame, PolarsFileType},
+    EngineWrapper, PolarsPlugin,
 };
 use nu_path::expand_path_with;
+use nu_utils::perf;
 
 use super::super::values::NuDataFrame;
 use nu_plugin::PluginCommand;
@@ -15,15 +16,24 @@ use nu_protocol::{
 use std::{
     fs::File,
     io::BufReader,
+    num::NonZeroUsize,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
-use polars::prelude::{
-    CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
-    LazyFrame, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
+use polars::{
+    lazy::frame::LazyJsonLineReader,
+    prelude::{
+        CsvEncoding, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
+        LazyFrame, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
+    },
 };
 
-use polars_io::{avro::AvroReader, prelude::ParallelStrategy, HiveOptions};
+use polars_io::{
+    avro::AvroReader, csv::read::CsvReadOptions, prelude::ParallelStrategy, HiveOptions,
+};
+
+const DEFAULT_INFER_SCHEMA: usize = 100;
 
 #[derive(Clone)]
 pub struct OpenDataFrame;
@@ -36,7 +46,7 @@ impl PluginCommand for OpenDataFrame {
     }
 
     fn usage(&self) -> &str {
-        "Opens CSV, JSON, JSON lines, arrow, avro, or parquet file to create dataframe."
+        "Opens CSV, JSON, NDJSON/JSON lines, arrow, avro, or parquet file to create dataframe. A lazy dataframe will be created by default, if supported."
     }
 
     fn signature(&self) -> Signature {
@@ -46,7 +56,7 @@ impl PluginCommand for OpenDataFrame {
                 SyntaxShape::Filepath,
                 "file path to load values from",
             )
-            .switch("lazy", "creates a lazy dataframe", Some('l'))
+            .switch("eager", "Open dataframe as an eager dataframe", None)
             .named(
                 "type",
                 SyntaxShape::String,
@@ -120,33 +130,37 @@ fn command(
     let file_path = expand_path_with(&spanned_file.item, engine.get_current_dir()?, true);
     let file_span = spanned_file.span;
 
-    let type_option: Option<Spanned<String>> = call.get_flag("type")?;
+    let type_option: Option<(String, Span)> = call
+        .get_flag("type")?
+        .map(|t: Spanned<String>| (t.item, t.span))
+        .or_else(|| {
+            file_path
+                .extension()
+                .map(|e| (e.to_string_lossy().into_owned(), spanned_file.span))
+        });
 
-    let type_id = match &type_option {
-        Some(ref t) => Some((t.item.to_owned(), "Invalid type", t.span)),
-        None => file_path.extension().map(|e| {
-            (
-                e.to_string_lossy().into_owned(),
-                "Invalid extension",
-                spanned_file.span,
-            )
-        }),
-    };
-
-    match type_id {
-        Some((e, msg, blamed)) => match e.as_str() {
-            "csv" | "tsv" => from_csv(plugin, engine, call, &file_path, file_span),
-            "parquet" | "parq" => from_parquet(plugin, engine, call, &file_path, file_span),
-            "ipc" | "arrow" => from_ipc(plugin, engine, call, &file_path, file_span),
-            "json" => from_json(plugin, engine, call, &file_path, file_span),
-            "jsonl" => from_jsonl(plugin, engine, call, &file_path, file_span),
-            "avro" => from_avro(plugin, engine, call, &file_path, file_span),
-            _ => Err(ShellError::FileNotFoundCustom {
-                msg: format!(
-                    "{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json, jsonl, avro"
-                ),
-                span: blamed,
-            }),
+    match type_option {
+        Some((ext, blamed)) => match PolarsFileType::from(ext.as_str()) {
+            PolarsFileType::Csv | PolarsFileType::Tsv => {
+                from_csv(plugin, engine, call, &file_path, file_span)
+            }
+            PolarsFileType::Parquet => from_parquet(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::Arrow => from_arrow(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::Json => from_json(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::NdJson => from_ndjson(plugin, engine, call, &file_path, file_span),
+            PolarsFileType::Avro => from_avro(plugin, engine, call, &file_path, file_span),
+            _ => Err(PolarsFileType::build_unsupported_error(
+                &ext,
+                &[
+                    PolarsFileType::Csv,
+                    PolarsFileType::Tsv,
+                    PolarsFileType::Parquet,
+                    PolarsFileType::Arrow,
+                    PolarsFileType::NdJson,
+                    PolarsFileType::Avro,
+                ],
+                blamed,
+            )),
         },
         None => Err(ShellError::FileNotFoundCustom {
             msg: "File without extension".into(),
@@ -163,7 +177,7 @@ fn from_parquet(
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
-    if call.has_flag("lazy")? {
+    if !call.has_flag("eager")? {
         let file: String = call.req(0)?;
         let args = ScanArgsParquet {
             n_rows: None,
@@ -175,6 +189,7 @@ fn from_parquet(
             cloud_options: None,
             use_statistics: false,
             hive_options: HiveOptions::default(),
+            glob: true,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
@@ -257,14 +272,14 @@ fn from_avro(
     df.cache_and_to_value(plugin, engine, call.head)
 }
 
-fn from_ipc(
+fn from_arrow(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
-    if call.has_flag("lazy")? {
+    if !call.has_flag("eager")? {
         let file: String = call.req(0)?;
         let args = ScanArgsIpc {
             n_rows: None,
@@ -359,48 +374,83 @@ fn from_json(
     df.cache_and_to_value(plugin, engine, call.head)
 }
 
-fn from_jsonl(
+fn from_ndjson(
     plugin: &PolarsPlugin,
     engine: &nu_plugin::EngineInterface,
     call: &nu_plugin::EvaluatedCall,
     file_path: &Path,
     file_span: Span,
 ) -> Result<Value, ShellError> {
-    let infer_schema: Option<usize> = call.get_flag("infer-schema")?;
+    let infer_schema: NonZeroUsize = call
+        .get_flag("infer-schema")?
+        .and_then(NonZeroUsize::new)
+        .unwrap_or(
+            NonZeroUsize::new(DEFAULT_INFER_SCHEMA)
+                .expect("The default infer-schema should be non zero"),
+        );
     let maybe_schema = call
         .get_flag("schema")?
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
-    let file = File::open(file_path).map_err(|e| ShellError::GenericError {
-        error: "Error opening file".into(),
-        msg: e.to_string(),
-        span: Some(file_span),
-        help: None,
-        inner: vec![],
-    })?;
 
-    let buf_reader = BufReader::new(file);
-    let reader = JsonReader::new(buf_reader)
-        .with_json_format(JsonFormat::JsonLines)
-        .infer_schema_len(infer_schema);
+    if !call.has_flag("eager")? {
+        let start_time = std::time::Instant::now();
 
-    let reader = match maybe_schema {
-        Some(schema) => reader.with_schema(schema.into()),
-        None => reader,
-    };
+        let df = LazyJsonLineReader::new(file_path)
+            .with_infer_schema_length(Some(infer_schema))
+            .with_schema(maybe_schema.map(|s| s.into()))
+            .finish()
+            .map_err(|e| ShellError::GenericError {
+                error: format!("NDJSON reader error: {e}"),
+                msg: "".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?;
 
-    let df: NuDataFrame = reader
-        .finish()
-        .map_err(|e| ShellError::GenericError {
-            error: "Json lines reader error".into(),
-            msg: format!("{e:?}"),
-            span: Some(call.head),
+        perf!("Lazy NDJSON dataframe open", start_time, engine.use_color());
+
+        let df = NuLazyFrame::new(false, df);
+        df.cache_and_to_value(plugin, engine, call.head)
+    } else {
+        let file = File::open(file_path).map_err(|e| ShellError::GenericError {
+            error: "Error opening file".into(),
+            msg: e.to_string(),
+            span: Some(file_span),
             help: None,
             inner: vec![],
-        })?
-        .into();
+        })?;
+        let buf_reader = BufReader::new(file);
+        let reader = JsonReader::new(buf_reader)
+            .with_json_format(JsonFormat::JsonLines)
+            .infer_schema_len(Some(infer_schema));
 
-    df.cache_and_to_value(plugin, engine, call.head)
+        let reader = match maybe_schema {
+            Some(schema) => reader.with_schema(schema.into()),
+            None => reader,
+        };
+
+        let start_time = std::time::Instant::now();
+
+        let df: NuDataFrame = reader
+            .finish()
+            .map_err(|e| ShellError::GenericError {
+                error: "Json lines reader error".into(),
+                msg: format!("{e:?}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?
+            .into();
+
+        perf!(
+            "Eager NDJSON dataframe open",
+            start_time,
+            engine.use_color()
+        );
+
+        df.cache_and_to_value(plugin, engine, call.head)
+    }
 }
 
 fn from_csv(
@@ -412,7 +462,9 @@ fn from_csv(
 ) -> Result<Value, ShellError> {
     let delimiter: Option<Spanned<String>> = call.get_flag("delimiter")?;
     let no_header: bool = call.has_flag("no-header")?;
-    let infer_schema: Option<usize> = call.get_flag("infer-schema")?;
+    let infer_schema: usize = call
+        .get_flag("infer-schema")?
+        .unwrap_or(DEFAULT_INFER_SCHEMA);
     let skip_rows: Option<usize> = call.get_flag("skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
@@ -421,7 +473,7 @@ fn from_csv(
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
 
-    if call.has_flag("lazy")? {
+    if !call.has_flag("eager")? {
         let csv_reader = LazyCsvReader::new(file_path);
 
         let csv_reader = match delimiter {
@@ -445,27 +497,25 @@ fn from_csv(
             }
         };
 
-        let csv_reader = csv_reader.has_header(!no_header);
+        let csv_reader = csv_reader.with_has_header(!no_header);
 
         let csv_reader = match maybe_schema {
             Some(schema) => csv_reader.with_schema(Some(schema.into())),
             None => csv_reader,
         };
 
-        let csv_reader = match infer_schema {
-            None => csv_reader,
-            Some(r) => csv_reader.with_infer_schema_length(Some(r)),
-        };
+        let csv_reader = csv_reader.with_infer_schema_length(Some(infer_schema));
 
         let csv_reader = match skip_rows {
             None => csv_reader,
             Some(r) => csv_reader.with_skip_rows(r),
         };
 
+        let start_time = std::time::Instant::now();
         let df: NuLazyFrame = csv_reader
             .finish()
             .map_err(|e| ShellError::GenericError {
-                error: "Parquet reader error".into(),
+                error: "CSV reader error".into(),
                 msg: format!("{e:?}"),
                 span: Some(call.head),
                 help: None,
@@ -473,9 +523,28 @@ fn from_csv(
             })?
             .into();
 
+        perf!("Lazy CSV dataframe open", start_time, engine.use_color());
+
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
-        let csv_reader = CsvReader::from_path(file_path)
+        let start_time = std::time::Instant::now();
+        let df = CsvReadOptions::default()
+            .with_has_header(!no_header)
+            .with_infer_schema_length(Some(infer_schema))
+            .with_skip_rows(skip_rows.unwrap_or_default())
+            .with_schema(maybe_schema.map(|s| s.into()))
+            .with_columns(columns.map(|v| Arc::from(v.into_boxed_slice())))
+            .map_parse_options(|options| {
+                options
+                    .with_separator(
+                        delimiter
+                            .as_ref()
+                            .and_then(|d| d.item.chars().next().map(|c| c as u8))
+                            .unwrap_or(b','),
+                    )
+                    .with_encoding(CsvEncoding::LossyUtf8)
+            })
+            .try_into_reader_with_file_path(Some(file_path.to_path_buf()))
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating CSV reader".into(),
                 msg: e.to_string(),
@@ -483,62 +552,18 @@ fn from_csv(
                 help: None,
                 inner: vec![],
             })?
-            .with_encoding(CsvEncoding::LossyUtf8);
-
-        let csv_reader = match delimiter {
-            None => csv_reader,
-            Some(d) => {
-                if d.item.len() != 1 {
-                    return Err(ShellError::GenericError {
-                        error: "Incorrect delimiter".into(),
-                        msg: "Delimiter has to be one character".into(),
-                        span: Some(d.span),
-                        help: None,
-                        inner: vec![],
-                    });
-                } else {
-                    let delimiter = match d.item.chars().next() {
-                        Some(d) => d as u8,
-                        None => unreachable!(),
-                    };
-                    csv_reader.with_separator(delimiter)
-                }
-            }
-        };
-
-        let csv_reader = csv_reader.has_header(!no_header);
-
-        let csv_reader = match maybe_schema {
-            Some(schema) => csv_reader.with_schema(Some(schema.into())),
-            None => csv_reader,
-        };
-
-        let csv_reader = match infer_schema {
-            None => csv_reader,
-            Some(r) => csv_reader.infer_schema(Some(r)),
-        };
-
-        let csv_reader = match skip_rows {
-            None => csv_reader,
-            Some(r) => csv_reader.with_skip_rows(r),
-        };
-
-        let csv_reader = match columns {
-            None => csv_reader,
-            Some(columns) => csv_reader.with_columns(Some(columns)),
-        };
-
-        let df: NuDataFrame = csv_reader
             .finish()
             .map_err(|e| ShellError::GenericError {
-                error: "Parquet reader error".into(),
+                error: "CSV reader error".into(),
                 msg: format!("{e:?}"),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
-            })?
-            .into();
+            })?;
 
+        perf!("Eager CSV dataframe open", start_time, engine.use_color());
+
+        let df = NuDataFrame::new(false, df);
         df.cache_and_to_value(plugin, engine, call.head)
     }
 }

@@ -61,7 +61,7 @@ impl Command for SubCommand {
         }
         input.map(
             move |value| super::operate(&get_basename, &args, value, head),
-            engine_state.ctrlc.clone(),
+            engine_state.signals(),
         )
     }
 
@@ -82,7 +82,7 @@ impl Command for SubCommand {
         }
         input.map(
             move |value| super::operate(&get_basename, &args, value, head),
-            working_set.permanent().ctrlc.clone(),
+            working_set.permanent().signals(),
         )
     }
 
