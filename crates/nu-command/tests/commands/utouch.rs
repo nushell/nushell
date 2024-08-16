@@ -8,10 +8,10 @@ use std::path::Path;
 // Use 1 instead of 0 because 0 has a special meaning in Windows
 const TIME_ONE: FileTime = FileTime::from_unix_time(1, 0);
 
-fn file_times(file: &Path) -> (FileTime, FileTime) {
+fn file_times(file: impl AsRef<Path>) -> (FileTime, FileTime) {
     (
-        file.metadata().unwrap().accessed().unwrap().into(),
-        file.metadata().unwrap().modified().unwrap().into(),
+        file.as_ref().metadata().unwrap().accessed().unwrap().into(),
+        file.as_ref().metadata().unwrap().modified().unwrap().into(),
     )
 }
 
@@ -327,7 +327,7 @@ fn change_file_times_to_reference_file_with_date() {
                 r#"utouch -r reference_file -d "yesterday" target_file"#
             );
 
-            let (got_atime, got_mtime) = file_times(&target);
+            let (got_atime, got_mtime) = file_times(target);
             let got = (
                 DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap(),
                 DateTime::from_timestamp(got_mtime.seconds(), got_mtime.nanoseconds()).unwrap(),
@@ -355,7 +355,7 @@ fn change_file_times_to_timestamp() {
 
         nu!(cwd: dirs.test(), format!("utouch --timestamp {} target_file", timestamp));
 
-        assert_eq!((TIME_ONE, TIME_ONE), file_times(&target));
+        assert_eq!((TIME_ONE, TIME_ONE), file_times(target));
     })
 }
 
@@ -439,7 +439,7 @@ fn change_file_times_to_date() {
         let expected = Utc::now().checked_sub_signed(TimeDelta::hours(2)).unwrap();
         nu!(cwd: dirs.test(), "utouch -d '-2 hours' target_file");
 
-        let (got_atime, got_mtime) = file_times(&dirs.test().join("target_file"));
+        let (got_atime, got_mtime) = file_times(dirs.test().join("target_file"));
         let got_atime =
             DateTime::from_timestamp(got_atime.seconds(), got_atime.nanoseconds()).unwrap();
         let got_mtime =
@@ -570,12 +570,12 @@ fn create_a_file_with_tilde() {
     Playground::setup("utouch with tilde", |dirs, _| {
         let actual = nu!(cwd: dirs.test(), "utouch '~tilde'");
         assert!(actual.err.is_empty());
-        assert!(files_exist_at(vec![Path::new("~tilde")], dirs.test()));
+        assert!(files_exist_at(&[Path::new("~tilde")], dirs.test()));
 
         // pass variable
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde2'; utouch $f");
         assert!(actual.err.is_empty());
-        assert!(files_exist_at(vec![Path::new("~tilde2")], dirs.test()));
+        assert!(files_exist_at(&[Path::new("~tilde2")], dirs.test()));
     })
 }
 

@@ -6,8 +6,7 @@ use filetime::FileTime;
 
 use nu_engine::CallExt;
 use nu_path::expand_path_with;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Call, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, NuGlob, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
