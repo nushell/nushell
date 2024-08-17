@@ -1,13 +1,14 @@
 use crate::{
     ast::{CellPath, PathMember},
     engine::Closure,
-    NuGlob, Range, Record, ShellError, Spanned, Type, Value,
+    NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
     any,
     cmp::Ordering,
     collections::{HashMap, VecDeque},
+    fmt,
     path::PathBuf,
     str::FromStr,
 };
@@ -666,6 +667,26 @@ where
 
     fn expected_type() -> Type {
         T::expected_type()
+    }
+}
+
+// Foreign Types
+
+impl FromValue for bytes::Bytes {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Binary { val, .. } => Ok(val.into()),
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::Binary
     }
 }
 

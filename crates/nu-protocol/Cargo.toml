@@ -19,6 +19,7 @@ nu-system = { path = "../nu-system", version = "0.96.2" }
 nu-derive-value = { path = "../nu-derive-value", version = "0.96.2" }
 
 brotli = { workspace = true, optional = true }
+bytes = { workspace = true }
 byte-unit = { version = "5.1", features = [ "serde" ] }
 chrono = { workspace = true, features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = { workspace = true }
