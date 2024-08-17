@@ -207,7 +207,7 @@ fn signatures() -> Vec<Value> {
             "required_positional": [],
             "optional_positional": [],
             "rest_positional": null,
-            "named": [],
+            "named_flag": [],
             "input_output_types": [],
             "allow_variants_without_examples": false,
             "is_filter": false,
