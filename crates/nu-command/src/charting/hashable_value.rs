@@ -2,7 +2,7 @@ use chrono::{DateTime, FixedOffset};
 use nu_protocol::{ShellError, Span, Value};
 use std::hash::{Hash, Hasher};
 
-/// A subset of [`Value`](crate::Value), which is hashable.
+/// A subset of [`Value`], which is hashable.
 /// And it means that we can put the value into something like
 /// [`HashMap`](std::collections::HashMap) or [`HashSet`](std::collections::HashSet) for further
 /// usage like value statistics.

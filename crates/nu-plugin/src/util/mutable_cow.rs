@@ -1,5 +1,5 @@
-/// Like [`Cow`] but with a mutable reference instead. So not exactly clone-on-write, but can be
-/// made owned.
+/// Like [`Cow`](std::borrow::Cow) but with a mutable reference instead. So not exactly
+/// clone-on-write, but can be made owned.
 pub enum MutableCow<'a, T> {
     Borrowed(&'a mut T),
     Owned(T),

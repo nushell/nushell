@@ -376,7 +376,9 @@ pub enum PluginOption {
     /// Send `GcDisabled(true)` to stop the plugin from being automatically garbage collected, or
     /// `GcDisabled(false)` to enable it again.
     ///
-    /// See [`EngineInterface::set_gc_disabled`] for more information.
+    /// See [`EngineInterface::set_gc_disabled`][ei_sgd] for more information.
+    ///
+    /// [ei_sgd]: crate::plugin::EngineInterface::set_gc_disabled
     GcDisabled(bool),
 }
 
