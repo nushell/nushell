@@ -48,7 +48,7 @@ fn help_alias_description_1() {
 
         let code = &[
             "source spam.nu",
-            "help aliases | where name == SPAM | get 0.usage",
+            "help aliases | where name == SPAM | get 0.description",
         ];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
 
@@ -60,7 +60,7 @@ fn help_alias_description_1() {
 fn help_alias_description_2() {
     let code = &[
         "alias SPAM = print 'spam'  # line2",
-        "help aliases | where name == SPAM | get 0.usage",
+        "help aliases | where name == SPAM | get 0.description",
     ];
     let actual = nu!(nu_repl_code(code));
 
@@ -80,7 +80,7 @@ fn help_alias_description_3() {
 
         let code = &[
             "source spam.nu",
-            "help aliases | where name == SPAM | get 0.usage",
+            "help aliases | where name == SPAM | get 0.description",
         ];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
 
@@ -121,7 +121,7 @@ fn help_alias_name_f() {
             "#,
         )]);
 
-        let code = &["source spam.nu", "help aliases -f SPAM | get 0.usage"];
+        let code = &["source spam.nu", "help aliases -f SPAM | get 0.description"];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
 
         assert!(actual.out.contains("line1"));
@@ -186,7 +186,7 @@ fn help_module_description_1() {
 
         let code = &[
             "source spam.nu",
-            "help modules | where name == SPAM | get 0.usage",
+            "help modules | where name == SPAM | get 0.description",
         ];
         let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
 
@@ -283,7 +283,7 @@ fn help_description_extra_description_command() {
             assert!(actual.out.contains("module_line2"));
 
             let actual = nu!(cwd: dirs.test(),
-            "use spam.nu *; help modules | where name == spam | get 0.usage");
+            "use spam.nu *; help modules | where name == spam | get 0.description");
             assert!(actual.out.contains("module_line1"));
             assert!(!actual.out.contains("module_line2"));
 
@@ -292,7 +292,7 @@ fn help_description_extra_description_command() {
             assert!(actual.out.contains("def_line2"));
 
             let actual = nu!(cwd: dirs.test(),
-            "use spam.nu *; help commands | where name == foo | get 0.usage");
+            "use spam.nu *; help commands | where name == foo | get 0.description");
             assert!(actual.out.contains("def_line1"));
             assert!(!actual.out.contains("def_line2"));
         },
@@ -323,7 +323,7 @@ fn help_description_extra_description_alias() {
             assert!(actual.out.contains("module_line2"));
 
             let actual = nu!(cwd: dirs.test(),
-            "use spam.nu *; help modules | where name == spam | get 0.usage");
+            "use spam.nu *; help modules | where name == spam | get 0.description");
             assert!(actual.out.contains("module_line1"));
             assert!(!actual.out.contains("module_line2"));
 
@@ -332,7 +332,7 @@ fn help_description_extra_description_alias() {
             assert!(actual.out.contains("alias_line2"));
 
             let actual = nu!(cwd: dirs.test(),
-            "use spam.nu *; help aliases | where name == bar | get 0.usage");
+            "use spam.nu *; help aliases | where name == bar | get 0.description");
             assert!(actual.out.contains("alias_line1"));
             assert!(!actual.out.contains("alias_line2"));
         },

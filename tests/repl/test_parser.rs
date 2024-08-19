@@ -264,7 +264,7 @@ fn commands_have_description() -> TestResult {
 #[test]
 fn commands_from_crlf_source_have_short_description() -> TestResult {
     run_test_contains(
-        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get usage.0",
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get description.0",
         "This is a test",
     )
 }
@@ -272,7 +272,7 @@ fn commands_from_crlf_source_have_short_description() -> TestResult {
 #[test]
 fn commands_from_crlf_source_have_extra_description() -> TestResult {
     run_test_contains(
-        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_usage.0",
+        "# This is a test\r\n#\r\n# To see if I have cool description\r\ndef foo [] {}\r\nscope commands | where name == foo | get extra_description.0",
         "To see if I have cool description",
     )
 }
