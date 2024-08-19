@@ -93,7 +93,7 @@ pub fn help_modules(
         let found_cmds_vec = highlight_search_in_table(
             all_cmds_vec,
             &f.item,
-            &["name", "usage"],
+            &["name", "description"],
             &string_style,
             &highlight_style,
         )?;

@@ -332,7 +332,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             if decl.is_known_external() {
                 let record = record! {
                     "name" => Value::string(String::from_utf8_lossy(command_name), span),
-                    "usage" => Value::string(decl.description(), span),
+                    "description" => Value::string(decl.description(), span),
                     "decl_id" => Value::int(**decl_id as i64, span),
                 };
 
@@ -366,7 +366,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                         record! {
                             "name" => Value::string(String::from_utf8_lossy(&decl_name), span),
                             "expansion" => Value::string(expansion, span),
-                            "usage" => Value::string(alias.description(), span),
+                            "description" => Value::string(alias.description(), span),
                             "decl_id" => Value::int(decl_id as i64, span),
                             "aliased_decl_id" => aliased_decl_id,
                         },
@@ -484,8 +484,8 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "submodules" => Value::list(export_submodules, span),
                 "constants" => Value::list(export_consts, span),
                 "has_env_block" => Value::bool(module.env_block.is_some(), span),
-                "usage" => Value::string(module_desc, span),
-                "extra_usage" => Value::string(module_extra_desc, span),
+                "description" => Value::string(module_desc, span),
+                "extra_description" => Value::string(module_extra_desc, span),
                 "module_id" => Value::int(*module_id as i64, span),
             },
             span,
