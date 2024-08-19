@@ -150,9 +150,9 @@ mod test {
 
     #[test]
     fn test_convert_real() {
-        let plist_val = PlistValue::Real(3.14);
+        let plist_val = PlistValue::Real(3.5);
         let result = convert_plist_value(&plist_val, Span::test_data());
-        assert_eq!(result, Ok(NuValue::float(3.14, Span::test_data())));
+        assert_eq!(result, Ok(NuValue::float(3.5, Span::test_data())));
     }
 
     #[test]
@@ -216,9 +216,10 @@ mod test {
 
     #[test]
     fn test_convert_array() {
-        let mut arr = Vec::new();
-        arr.push(PlistValue::String("a".to_string()));
-        arr.push(PlistValue::String("b".to_string()));
+        let arr = vec![
+            PlistValue::String("a".into()),
+            PlistValue::String("b".into()),
+        ];
         let nu_arr = convert_array(&arr, Span::test_data()).unwrap();
         assert_eq!(
             nu_arr,
