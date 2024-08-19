@@ -55,10 +55,8 @@ fn derive_struct_from_value(
     attributes::deny_fields(&data.fields)?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let from_value_impl = struct_from_value(&data);
-    let expected_type_impl = struct_expected_type(
-        &data.fields,
-        container_attrs.type_name.as_ref().map(String::as_str),
-    );
+    let expected_type_impl =
+        struct_expected_type(&data.fields, container_attrs.type_name.as_deref());
     Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
@@ -376,8 +374,7 @@ fn derive_enum_from_value(
     let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let from_value_impl = enum_from_value(&data, &attrs)?;
-    let expected_type_impl =
-        enum_expected_type(container_attrs.type_name.as_ref().map(String::as_str));
+    let expected_type_impl = enum_expected_type(container_attrs.type_name.as_deref());
     Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
@@ -501,9 +498,14 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
 /// ```
 fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
     let type_name = attr_type_name?;
-    Some(quote!(nu_protocol::Type::Custom(
-        <std::string::String as std::convert::From::<&str>>::from(#type_name).into_boxed_str()
-    )))
+    Some(quote! {
+        fn expected_type() -> nu_protocol::Type {
+            nu_protocol::Type::Custom(
+                <std::string::String as std::convert::From::<&str>>::from(#type_name)
+                    .into_boxed_str()
+            )
+        }
+    })
 }
 
 /// Parses a `Value` into self.
