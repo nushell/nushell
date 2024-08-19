@@ -86,28 +86,6 @@ fn unexpected_attribute() {
 }
 
 #[test]
-fn deny_attribute_on_structs() {
-    let input = quote! {
-        #[nu_value]
-        struct SomeStruct;
-    };
-
-    let from_res = derive_from_value(input.clone());
-    assert!(
-        matches!(from_res, Err(DeriveError::InvalidAttributePosition { .. })),
-        "expected `DeriveError::InvalidAttributePosition`, got {:?}",
-        from_res
-    );
-
-    let into_res = derive_into_value(input);
-    assert!(
-        matches!(into_res, Err(DeriveError::InvalidAttributePosition { .. })),
-        "expected `DeriveError::InvalidAttributePosition`, got {:?}",
-        into_res
-    );
-}
-
-#[test]
 fn deny_attribute_on_fields() {
     let input = quote! {
         struct SomeStruct {

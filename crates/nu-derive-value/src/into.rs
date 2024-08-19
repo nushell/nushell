@@ -50,8 +50,6 @@ pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, DeriveErro
 /// For structs with unnamed fields, this generates a `Value::List` with each field in the list.
 /// For unit structs, this generates `Value::Nothing`, because there is no data.
 ///
-/// Note: The helper attribute `#[nu_value(...)]` is currently not allowed on structs.
-///
 /// # Examples
 ///
 /// These examples show what the macro would generate.
@@ -109,7 +107,7 @@ fn struct_into_value(
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
-    attributes::deny(&attrs)?;
+    let _ = ContainerAttributes::parse_attrs(attrs.iter())?;
     attributes::deny_fields(&data.fields)?;
     let record = match &data.fields {
         Fields::Named(fields) => {
