@@ -66,7 +66,7 @@ pub fn help_commands(
         let found_cmds_vec = highlight_search_in_table(
             all_cmds_vec,
             &f.item,
-            &["name", "usage", "search_terms"],
+            &["name", "description", "search_terms"],
             &string_style,
             &highlight_style,
         )?;
@@ -216,7 +216,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
             "name" => Value::string(key, span),
             "category" => Value::string(sig.category.to_string(), span),
             "command_type" => Value::string(command_type, span),
-            "usage" => Value::string(description, span),
+            "description" => Value::string(description, span),
             "params" => param_table,
             "input_output" => input_output_table,
             "search_terms" => Value::string(search_terms.join(", "), span),
