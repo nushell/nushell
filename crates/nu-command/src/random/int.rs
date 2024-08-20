@@ -1,6 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::Range;
-use rand::prelude::{thread_rng, Rng};
+use rand::prelude::Rng;
 use std::ops::Bound;
 
 #[derive(Clone)]
@@ -19,6 +19,12 @@ impl Command for SubCommand {
                 "range",
                 SyntaxShape::Range,
                 "Range of potential values, inclusive of both start and end values.",
+            )
+            .named(
+                "seed",
+                SyntaxShape::Int,
+                "Seeds the RNG to get reproducible results.",
+                None,
             )
             .category(Category::Random)
     }
@@ -75,7 +81,7 @@ fn integer(
     let span = call.head;
     let range: Option<Spanned<Range>> = call.opt(engine_state, stack, 0)?;
 
-    let mut thread_rng = thread_rng();
+    let mut rng = super::rng(engine_state, stack, call)?;
 
     match range {
         Some(range) => {
@@ -94,9 +100,9 @@ fn integer(
                     }
 
                     let value = match range.end() {
-                        Bound::Included(end) => thread_rng.gen_range(range.start()..=end),
-                        Bound::Excluded(end) => thread_rng.gen_range(range.start()..end),
-                        Bound::Unbounded => thread_rng.gen_range(range.start()..=i64::MAX),
+                        Bound::Included(end) => rng.gen_range(range.start()..=end),
+                        Bound::Excluded(end) => rng.gen_range(range.start()..end),
+                        Bound::Unbounded => rng.gen_range(range.start()..=i64::MAX),
                     };
 
                     Ok(PipelineData::Value(Value::int(value, span), None))
@@ -110,7 +116,7 @@ fn integer(
             }
         }
         None => Ok(PipelineData::Value(
-            Value::int(thread_rng.gen_range(0..=i64::MAX), span),
+            Value::int(rng.gen_range(0..=i64::MAX), span),
             None,
         )),
     }

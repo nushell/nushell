@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use uuid::Uuid;
+use uuid::Builder;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -13,6 +13,12 @@ impl Command for SubCommand {
         Signature::build("random uuid")
             .category(Category::Random)
             .input_output_types(vec![(Type::Nothing, Type::String)])
+            .named(
+                "seed",
+                SyntaxShape::Int,
+                "Seeds the RNG to get reproducible results.",
+                None,
+            )
             .allow_variants_without_examples(true)
     }
 
@@ -26,12 +32,22 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        uuid(call)
+        let span = call.head;
+
+        let mut rng = super::rng(engine_state, stack, call)?;
+        let mut random_bytes = [0u8; 16];
+        rng.fill_bytes(&mut random_bytes);
+        let uuid_4 = Builder::from_random_bytes(random_bytes)
+            .into_uuid()
+            .hyphenated()
+            .to_string();
+
+        Ok(PipelineData::Value(Value::string(uuid_4, span), None))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -41,13 +57,6 @@ impl Command for SubCommand {
             result: None,
         }]
     }
-}
-
-fn uuid(call: &Call) -> Result<PipelineData, ShellError> {
-    let span = call.head;
-    let uuid_4 = Uuid::new_v4().hyphenated().to_string();
-
-    Ok(PipelineData::Value(Value::string(uuid_4, span), None))
 }
 
 #[cfg(test)]
