@@ -148,4 +148,4 @@ quickcheck_macros = { workspace = true }
 rstest = { workspace = true, default-features = false }
 pretty_assertions = { workspace = true }
 tempfile = { workspace = true }
-rand_chacha = "0.3.1"
+rand_chacha = { workspace = true }
