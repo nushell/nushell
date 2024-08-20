@@ -1,4 +1,4 @@
-use crate::repl::tests::{run_test, TestResult};
+use crate::repl::tests::{fail_test, run_test, TestResult};
 
 #[test]
 fn bits_and() -> TestResult {
@@ -57,6 +57,33 @@ fn bits_shift_left() -> TestResult {
 }
 
 #[test]
+fn bits_shift_left_negative_operand() -> TestResult {
+    fail_test("8 | bits shl -2", "positive value")
+}
+
+#[test]
+fn bits_shift_left_exceeding1() -> TestResult {
+    // We have no type accepting more than 64 bits so guaranteed fail
+    fail_test("8 | bits shl 65", "more than the available bits")
+}
+
+#[test]
+fn bits_shift_left_exceeding2() -> TestResult {
+    // Explicitly specifying 2 bytes, but 16 is already the max
+    fail_test(
+        "8 | bits shl --number-bytes 2 16",
+        "more than the available bits",
+    )
+}
+
+#[test]
+fn bits_shift_left_exceeding3() -> TestResult {
+    // This is purely down to the current autodetect feature limiting to the smallest integer
+    // type thus assuming a u8
+    fail_test("8 | bits shl 9", "more than the available bits")
+}
+
+#[test]
 fn bits_shift_left_negative() -> TestResult {
     run_test("-3 | bits shl 5", "-96")
 }
@@ -72,6 +99,33 @@ fn bits_shift_left_list() -> TestResult {
 #[test]
 fn bits_shift_right() -> TestResult {
     run_test("8 | bits shr 2", "2")
+}
+
+#[test]
+fn bits_shift_right_negative_operand() -> TestResult {
+    fail_test("8 | bits shr -2", "positive value")
+}
+
+#[test]
+fn bits_shift_right_exceeding1() -> TestResult {
+    // We have no type accepting more than 64 bits so guaranteed fail
+    fail_test("8 | bits shr 65", "more than the available bits")
+}
+
+#[test]
+fn bits_shift_right_exceeding2() -> TestResult {
+    // Explicitly specifying 2 bytes, but 16 is already the max
+    fail_test(
+        "8 | bits shr --number-bytes 2 16",
+        "more than the available bits",
+    )
+}
+
+#[test]
+fn bits_shift_right_exceeding3() -> TestResult {
+    // This is purely down to the current autodetect feature limiting to the smallest integer
+    // type thus assuming a u8
+    fail_test("8 | bits shr 9", "more than the available bits")
 }
 
 #[test]
