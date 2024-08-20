@@ -164,6 +164,22 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let bit_shift = bits % 8;
 
             let len = val.len();
+            // This check is done for symmetry with the int case and the previous
+            // implementation would overflow byte indices leading to unexpected output
+            // lengths
+            if bits > len * 8 {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!(
+                            "Trying to shift by more than the available bits ({})",
+                            len * 8
+                        ),
+                        val_span: bits_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
             use itertools::Position::*;
             let bytes = iter::repeat(0)
                 .take(byte_shift)

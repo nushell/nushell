@@ -191,6 +191,21 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let byte_shift = bits / 8;
             let bit_shift = bits % 8;
 
+            // This is purely for symmetry with the int case and the fact that the
+            // shift right implementation in its current form panicked with an overflow
+            if bits > val.len() * 8 {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!(
+                            "Trying to shift by more than the available bits ({})",
+                            val.len() * 8
+                        ),
+                        val_span: bits_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
             use itertools::Position::*;
             let bytes = val
                 .iter()
