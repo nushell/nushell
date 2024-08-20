@@ -7,7 +7,7 @@ use std::iter;
 
 struct Arguments {
     signed: bool,
-    bits: usize,
+    bits: Spanned<usize>,
     number_size: NumberBytes,
 }
 
@@ -71,7 +71,9 @@ impl Command for BitsShl {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let bits: usize = call.req(engine_state, stack, 0)?;
+        // This restricts to a positive shift value (our underlying operations do not
+        // permit them)
+        let bits: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
@@ -131,14 +133,29 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         number_size,
         bits,
     } = *args;
+    let bits_span = bits.span;
+    let bits = bits.item;
 
     match input {
         Value::Int { val, .. } => {
             use InputNumType::*;
             let val = *val;
-            let bits = bits as u64;
+            let bits = bits as u32;
 
             let input_num_type = get_input_num_type(val, signed, number_size);
+            if !input_num_type.is_permitted_bit_shift(bits) {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!(
+                            "Trying to shift by more than the available bits (permitted < {})",
+                            input_num_type.num_bits()
+                        ),
+                        val_span: bits_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
             let int = match input_num_type {
                 One => ((val as u8) << bits) as i64,
                 Two => ((val as u16) << bits) as i64,
@@ -147,12 +164,14 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     let Ok(i) = i64::try_from((val as u64) << bits) else {
                         return Value::error(
                             ShellError::GenericError {
-                                error: "result out of range for specified number".into(),
+                                error: "result out of range for int".into(),
                                 msg: format!(
                                     "shifting left by {bits} is out of range for the value {val}"
                                 ),
                                 span: Some(span),
-                                help: None,
+                                help: Some(
+                                    "Ensure the result fits in a 64-bit signed integer.".into(),
+                                ),
                                 inner: vec![],
                             },
                             span,
