@@ -1594,6 +1594,7 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
 pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expression> {
     trace!("parsing: range");
+    let starting_error_count = working_set.parse_errors.len();
 
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
     //   where <next_operator> is ".."
@@ -1714,6 +1715,10 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     } else {
         (None, span)
     };
+
+    if working_set.parse_errors.len() != starting_error_count {
+        return None;
+    }
 
     let operator = RangeOperator {
         inclusion,
