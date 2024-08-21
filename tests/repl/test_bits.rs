@@ -123,6 +123,15 @@ fn bits_shift_left_binary3() -> TestResult {
 }
 
 #[test]
+fn bits_shift_left_binary4() -> TestResult {
+    // Shifting by both bytes and bits
+    run_test(
+        "0x[01 30 80] | bits shl 15 | into bits",
+        "01000000 00000000 00000000",
+    )
+}
+
+#[test]
 fn bits_shift_left_binary_exceeding() -> TestResult {
     // Compared to the int case this is made inclusive of the bit count
     fail_test("0x[01 30] | bits shl 17 | into bits", "")
@@ -196,6 +205,15 @@ fn bits_shift_right_binary3() -> TestResult {
     run_test(
         "0x[01 30 80] | bits shr 24 | into bits",
         "00000000 00000000 00000000",
+    )
+}
+
+#[test]
+fn bits_shift_right_binary4() -> TestResult {
+    // Shifting by both bytes and bits
+    run_test(
+        "0x[01 30 80] | bits shr 15 | into bits",
+        "00000000 00000000 00000010",
     )
 }
 
