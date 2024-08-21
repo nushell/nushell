@@ -206,19 +206,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     span,
                 );
             }
-            use itertools::Position::*;
-            let bytes = val
-                .iter()
-                .copied()
-                .skip(byte_shift)
-                .circular_tuple_windows::<(u8, u8)>()
-                .with_position()
-                .map(|(pos, (lhs, rhs))| match pos {
-                    Last | Only => lhs << bit_shift,
-                    _ => (lhs << bit_shift) | (rhs >> (8 - bit_shift)),
-                })
-                .chain(iter::repeat(0).take(byte_shift))
-                .collect::<Vec<u8>>();
+            let bytes = if bit_shift == 0 {
+                shift_bytes_left(val, byte_shift)
+            } else {
+                shift_bytes_and_bits_left(val, byte_shift, bit_shift)
+            };
 
             Value::binary(bytes, span)
         }
@@ -234,6 +226,31 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             span,
         ),
     }
+}
+
+fn shift_bytes_left(data: &[u8], byte_shift: usize) -> Vec<u8> {
+    let len = data.len();
+    let mut output = vec![0; len];
+    output[..len - byte_shift].copy_from_slice(&data[byte_shift..]);
+    output
+}
+
+fn shift_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) -> Vec<u8> {
+    use itertools::Position::*;
+    debug_assert!((1..8).contains(&bit_shift),
+        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift"
+    );
+    data.iter()
+        .copied()
+        .skip(byte_shift)
+        .circular_tuple_windows::<(u8, u8)>()
+        .with_position()
+        .map(|(pos, (lhs, rhs))| match pos {
+            Last | Only => lhs << bit_shift,
+            _ => (lhs << bit_shift) | (rhs >> (8 - bit_shift)),
+        })
+        .chain(iter::repeat(0).take(byte_shift))
+        .collect::<Vec<u8>>()
 }
 
 #[cfg(test)]
