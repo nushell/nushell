@@ -1828,23 +1828,13 @@ mod range {
     }
 
     #[test]
-    fn vars_read_as_units() {
+    fn vars_not_read_as_units() {
         let engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
 
         let _ = parse(&mut working_set, None, b"0..<$day", true);
 
-        assert!(
-            working_set.parse_errors.len() == 1,
-            "Errors: {:?}",
-            working_set.parse_errors
-        );
-        let err = &working_set.parse_errors[0].to_string();
-        assert!(
-            err.contains("Variable not found"),
-            "Expected variable not found error, got {}",
-            err
-        );
+        assert!(working_set.parse_errors.is_empty());
     }
 
     #[rstest]
@@ -1876,6 +1866,26 @@ mod range {
             err.contains("range is not supported"),
             "Expected unsupported operation error, got {}",
             err
+        );
+    }
+
+    #[test]
+    fn dont_mess_with_external_calls() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(ToCustom));
+
+        let result = parse(&mut working_set, None, b"../foo", true);
+
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "Errors: {:?}",
+            working_set.parse_errors
+        );
+        let expr = &result.pipelines[0].elements[0].expr.expr;
+        assert!(
+            matches!(expr, Expr::ExternalCall(..)),
+            "Should've been parsed as a call"
         );
     }
 }
