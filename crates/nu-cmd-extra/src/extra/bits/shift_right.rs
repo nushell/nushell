@@ -2,7 +2,6 @@ use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
-
 struct Arguments {
     signed: bool,
     bits: Spanned<usize>,
