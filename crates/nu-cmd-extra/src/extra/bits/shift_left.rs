@@ -215,7 +215,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 .with_position()
                 .map(|(pos, (lhs, rhs))| match pos {
                     Last | Only => lhs << bit_shift,
-                    _ => (lhs << bit_shift) | (rhs >> bit_shift),
+                    _ => (lhs << bit_shift) | (rhs >> (8 - bit_shift)),
                 })
                 .chain(iter::repeat(0).take(byte_shift))
                 .collect::<Vec<u8>>();
