@@ -1,9 +1,7 @@
 use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
-use itertools::Itertools;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
-use std::iter;
 
 struct Arguments {
     signed: bool,
@@ -180,21 +178,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     span,
                 );
             }
-            use itertools::Position::*;
-            let bytes = iter::repeat(0)
-                .take(byte_shift)
-                .chain(
-                    val.iter()
-                        .copied()
-                        .circular_tuple_windows::<(u8, u8)>()
-                        .with_position()
-                        .map(|(pos, (lhs, rhs))| match pos {
-                            First | Only => lhs >> bit_shift,
-                            _ => (lhs >> bit_shift) | (rhs << bit_shift),
-                        })
-                        .take(len - byte_shift),
-                )
-                .collect::<Vec<u8>>();
+            let bytes = if bit_shift == 0 {
+                shift_bytes_right(val, byte_shift)
+            } else {
+                shift_bytes_and_bits_right(val, byte_shift, bit_shift)
+            };
 
             Value::binary(bytes, span)
         }
@@ -210,6 +198,35 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             span,
         ),
     }
+}
+fn shift_bytes_right(data: &[u8], byte_shift: usize) -> Vec<u8> {
+    let len = data.len();
+    let mut output = vec![0; len];
+    output[byte_shift..].copy_from_slice(&data[..len - byte_shift]);
+    output
+}
+
+fn shift_bytes_and_bits_right(data: &[u8], byte_shift: usize, bit_shift: usize) -> Vec<u8> {
+    debug_assert!(
+        bit_shift > 0 && bit_shift < 8,
+        "bit_shift should be in the range (0, 8)"
+    );
+    let len = data.len();
+    let mut output = vec![0; len];
+
+    for i in byte_shift..len {
+        let shifted_bits = data[i - byte_shift] >> bit_shift;
+        let carried_bits = if i > byte_shift {
+            data[i - byte_shift - 1] << (8 - bit_shift)
+        } else {
+            0
+        };
+        let shifted_byte = shifted_bits | carried_bits;
+
+        output[i] = shifted_byte;
+    }
+
+    output
 }
 
 #[cfg(test)]
