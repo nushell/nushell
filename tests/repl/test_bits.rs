@@ -295,18 +295,18 @@ fn bits_rotate_left_binary4() -> TestResult {
 
 #[test]
 fn bits_rotate_right() -> TestResult {
-    run_test("2 | bits ror 62", "8")
+    run_test("2 | bits ror 6", "8")
 }
 
 #[test]
 fn bits_rotate_right_negative() -> TestResult {
-    run_test("-3 | bits ror 60", "-33")
+    run_test("-3 | bits ror 4", "-33")
 }
 
 #[test]
 fn bits_rotate_right_list() -> TestResult {
     run_test(
-        "[1 2 7 32 23 10] | bits ror 60 | str join '.'",
+        "[1 2 7 32 23 10] | bits ror 4 | str join '.'",
         "16.32.112.2.113.160",
     )
 }
