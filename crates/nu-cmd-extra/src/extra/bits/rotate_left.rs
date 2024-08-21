@@ -160,12 +160,15 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let byte_shift = bits / 8;
             let bit_rotate = bits % 8;
 
-            let mut bytes = val
-                .iter()
-                .copied()
-                .circular_tuple_windows::<(u8, u8)>()
-                .map(|(lhs, rhs)| (lhs << bit_rotate) | (rhs >> (8 - bit_rotate)))
-                .collect::<Vec<u8>>();
+            let mut bytes = if bit_rotate == 0 {
+                val.clone()
+            } else {
+                val.iter()
+                    .copied()
+                    .circular_tuple_windows::<(u8, u8)>()
+                    .map(|(lhs, rhs)| (lhs << bit_rotate) | (rhs >> (8 - bit_rotate)))
+                    .collect::<Vec<u8>>()
+            };
             bytes.rotate_left(byte_shift);
 
             Value::binary(bytes, span)
