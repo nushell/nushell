@@ -7,7 +7,7 @@ use std::iter;
 
 struct Arguments {
     signed: bool,
-    bits: usize,
+    bits: Spanned<usize>,
     number_size: NumberBytes,
 }
 
@@ -71,7 +71,9 @@ impl Command for BitsShl {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let bits: usize = call.req(engine_state, stack, 0)?;
+        // This restricts to a positive shift value (our underlying operations do not
+        // permit them)
+        let bits: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
@@ -131,14 +133,29 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         number_size,
         bits,
     } = *args;
+    let bits_span = bits.span;
+    let bits = bits.item;
 
     match input {
         Value::Int { val, .. } => {
             use InputNumType::*;
             let val = *val;
-            let bits = bits as u64;
+            let bits = bits as u32;
 
             let input_num_type = get_input_num_type(val, signed, number_size);
+            if !input_num_type.is_permitted_bit_shift(bits) {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!(
+                            "Trying to shift by more than the available bits (permitted < {})",
+                            input_num_type.num_bits()
+                        ),
+                        val_span: bits_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
             let int = match input_num_type {
                 One => ((val as u8) << bits) as i64,
                 Two => ((val as u16) << bits) as i64,
@@ -147,12 +164,14 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     let Ok(i) = i64::try_from((val as u64) << bits) else {
                         return Value::error(
                             ShellError::GenericError {
-                                error: "result out of range for specified number".into(),
+                                error: "result out of range for int".into(),
                                 msg: format!(
                                     "shifting left by {bits} is out of range for the value {val}"
                                 ),
                                 span: Some(span),
-                                help: None,
+                                help: Some(
+                                    "Ensure the result fits in a 64-bit signed integer.".into(),
+                                ),
                                 inner: vec![],
                             },
                             span,
@@ -172,19 +191,26 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let byte_shift = bits / 8;
             let bit_shift = bits % 8;
 
-            use itertools::Position::*;
-            let bytes = val
-                .iter()
-                .copied()
-                .skip(byte_shift)
-                .circular_tuple_windows::<(u8, u8)>()
-                .with_position()
-                .map(|(pos, (lhs, rhs))| match pos {
-                    Last | Only => lhs << bit_shift,
-                    _ => (lhs << bit_shift) | (rhs >> bit_shift),
-                })
-                .chain(iter::repeat(0).take(byte_shift))
-                .collect::<Vec<u8>>();
+            // This is purely for symmetry with the int case and the fact that the
+            // shift right implementation in its current form panicked with an overflow
+            if bits > val.len() * 8 {
+                return Value::error(
+                    ShellError::IncorrectValue {
+                        msg: format!(
+                            "Trying to shift by more than the available bits ({})",
+                            val.len() * 8
+                        ),
+                        val_span: bits_span,
+                        call_span: span,
+                    },
+                    span,
+                );
+            }
+            let bytes = if bit_shift == 0 {
+                shift_bytes_left(val, byte_shift)
+            } else {
+                shift_bytes_and_bits_left(val, byte_shift, bit_shift)
+            };
 
             Value::binary(bytes, span)
         }
@@ -200,6 +226,31 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             span,
         ),
     }
+}
+
+fn shift_bytes_left(data: &[u8], byte_shift: usize) -> Vec<u8> {
+    let len = data.len();
+    let mut output = vec![0; len];
+    output[..len - byte_shift].copy_from_slice(&data[byte_shift..]);
+    output
+}
+
+fn shift_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) -> Vec<u8> {
+    use itertools::Position::*;
+    debug_assert!((1..8).contains(&bit_shift),
+        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift"
+    );
+    data.iter()
+        .copied()
+        .skip(byte_shift)
+        .circular_tuple_windows::<(u8, u8)>()
+        .with_position()
+        .map(|(pos, (lhs, rhs))| match pos {
+            Last | Only => lhs << bit_shift,
+            _ => (lhs << bit_shift) | (rhs >> (8 - bit_shift)),
+        })
+        .chain(iter::repeat(0).take(byte_shift))
+        .collect::<Vec<u8>>()
 }
 
 #[cfg(test)]
