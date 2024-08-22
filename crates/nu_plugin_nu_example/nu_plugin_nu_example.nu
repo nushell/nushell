@@ -148,8 +148,7 @@ def process_call [
                       }
                     }
                   }) |
-                  each { into record } |
-                  transpose --as-record --header-row
+                  into record
               ),
               span: $span
             }
