@@ -193,16 +193,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let byte_shift = bits / 8;
             let bit_rotate = bits % 8;
 
-            let mut bytes = if bit_rotate == 0 {
-                val.clone()
+            let bytes = if bit_rotate == 0 {
+                rotate_bytes_right(val, byte_shift)
             } else {
-                val.iter()
-                    .copied()
-                    .circular_tuple_windows::<(u8, u8)>()
-                    .map(|(lhs, rhs)| (lhs >> bit_rotate) | (rhs << (8 - bit_rotate)))
-                    .collect::<Vec<u8>>()
+                rotate_bytes_and_bits_right(val, byte_shift, bit_rotate)
             };
-            bytes.rotate_right(byte_shift);
 
             Value::binary(bytes, span)
         }
@@ -220,6 +215,29 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
     }
 }
 
+fn rotate_bytes_right(data: &[u8], byte_shift: usize) -> Vec<u8> {
+    let len = data.len();
+    let mut output = vec![0; len];
+    output[byte_shift..].copy_from_slice(&data[..len - byte_shift]);
+    output[..byte_shift].copy_from_slice(&data[len - byte_shift..]);
+    output
+}
+
+fn rotate_bytes_and_bits_right(data: &[u8], byte_shift: usize, bit_shift: usize) -> Vec<u8> {
+    debug_assert!(byte_shift <= data.len());
+    debug_assert!(
+        (1..8).contains(&bit_shift),
+        "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift"
+    );
+    let mut bytes = data
+        .iter()
+        .copied()
+        .circular_tuple_windows::<(u8, u8)>()
+        .map(|(lhs, rhs)| (lhs >> bit_shift) | (rhs << (8 - bit_shift)))
+        .collect::<Vec<u8>>();
+    bytes.rotate_right(byte_shift);
+    bytes
+}
 #[cfg(test)]
 mod test {
     use super::*;
