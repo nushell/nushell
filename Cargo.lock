@@ -3364,6 +3364,7 @@ version = "0.97.2"
 dependencies = [
  "brotli",
  "byte-unit",
+ "bytes",
  "chrono",
  "chrono-humanize",
  "convert_case",
