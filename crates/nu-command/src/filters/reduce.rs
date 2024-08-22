@@ -120,7 +120,8 @@ impl Command for Reduce {
             engine_state.signals().check(head)?;
             acc = closure
                 .add_arg(value)
-                .run_with_value(acc)?
+                .add_arg(acc.clone())
+                .run_with_input(PipelineData::Value(acc, None))?
                 .into_value(head)?;
         }
 
