@@ -328,7 +328,6 @@ fn bits_rotate_right_exceeding2() -> TestResult {
     fail_test("8 | bits ror 9", "more than the available bits (8)")
 }
 
-//TODO fix the binary tests for rotate right
 #[test]
 fn bits_rotate_right_binary1() -> TestResult {
     run_test(
