@@ -242,6 +242,58 @@ fn bits_rotate_left_list() -> TestResult {
 }
 
 #[test]
+fn bits_rotate_left_negative_operand() -> TestResult {
+    fail_test("8 | bits rol -2", "positive value")
+}
+#[test]
+fn bits_rotate_left_exceeding1() -> TestResult {
+    // We have no type accepting more than 64 bits so guaranteed fail
+    fail_test("8 | bits rol 65", "more than the available bits (8)")
+}
+
+#[test]
+fn bits_rotate_left_exceeding2() -> TestResult {
+    // This is purely down to the current autodetect feature limiting to the smallest integer
+    // type thus assuming a u8
+    fail_test("8 | bits rol 9", "more than the available bits (8)")
+}
+
+#[test]
+fn bits_rotate_left_binary1() -> TestResult {
+    run_test(
+        "0x[01 30 80] | bits rol 3 | into bits",
+        "00001001 10000100 00000000",
+    )
+}
+
+#[test]
+fn bits_rotate_left_binary2() -> TestResult {
+    // Whole byte case
+    run_test(
+        "0x[01 30 80] | bits rol 8 | into bits",
+        "00110000 10000000 00000001",
+    )
+}
+
+#[test]
+fn bits_rotate_left_binary3() -> TestResult {
+    // Compared to the int case this is made inclusive of the bit count
+    run_test(
+        "0x[01 30 80] | bits rol 24 | into bits",
+        "00000001 00110000 10000000",
+    )
+}
+
+#[test]
+fn bits_rotate_left_binary4() -> TestResult {
+    // Shifting by both bytes and bits
+    run_test(
+        "0x[01 30 80] | bits rol 15 | into bits",
+        "01000000 00000000 10011000",
+    )
+}
+
+#[test]
 fn bits_rotate_right() -> TestResult {
     run_test("2 | bits ror 62", "8")
 }
@@ -256,5 +308,58 @@ fn bits_rotate_right_list() -> TestResult {
     run_test(
         "[1 2 7 32 23 10] | bits ror 60 | str join '.'",
         "16.32.112.2.113.160",
+    )
+}
+#[test]
+fn bits_rotate_right_negative_operand() -> TestResult {
+    fail_test("8 | bits ror -2", "positive value")
+}
+
+#[test]
+fn bits_rotate_right_exceeding1() -> TestResult {
+    // We have no type accepting more than 64 bits so guaranteed fail
+    fail_test("8 | bits ror 65", "more than the available bits (8)")
+}
+
+#[test]
+fn bits_rotate_right_exceeding2() -> TestResult {
+    // This is purely down to the current autodetect feature limiting to the smallest integer
+    // type thus assuming a u8
+    fail_test("8 | bits ror 9", "more than the available bits (8)")
+}
+
+//TODO fix the binary tests for rotate right
+#[test]
+fn bits_rotate_right_binary1() -> TestResult {
+    run_test(
+        "0x[01 30 80] | bits ror 3 | into bits",
+        "00000000 00100110 00010000",
+    )
+}
+
+#[test]
+fn bits_rotate_right_binary2() -> TestResult {
+    // Whole byte case
+    run_test(
+        "0x[01 30 80] | bits ror 8 | into bits",
+        "10000000 00000001 00110000",
+    )
+}
+
+#[test]
+fn bits_rotate_right_binary3() -> TestResult {
+    // Compared to the int case this is made inclusive of the bit count
+    run_test(
+        "0x[01 30 80] | bits ror 24 | into bits",
+        "00000001 00110000 10000000",
+    )
+}
+
+#[test]
+fn bits_rotate_right_binary4() -> TestResult {
+    // Shifting by both bytes and bits
+    run_test(
+        "0x[01 30 80] | bits ror 15 | into bits",
+        "01100001 00000000 00000010",
     )
 }
