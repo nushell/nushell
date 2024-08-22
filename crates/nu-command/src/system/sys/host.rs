@@ -18,7 +18,7 @@ impl Command for SysHost {
             .input_output_types(vec![(Type::Nothing, Type::record())])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View information about the system host."
     }
 

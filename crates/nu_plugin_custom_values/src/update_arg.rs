@@ -11,7 +11,7 @@ impl SimplePluginCommand for UpdateArg {
         "custom-value update-arg"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Updates a custom value as an argument"
     }
 

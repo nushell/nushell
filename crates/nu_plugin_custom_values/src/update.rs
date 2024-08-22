@@ -13,7 +13,7 @@ impl SimplePluginCommand for Update {
         "custom-value update"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "PluginSignature for a plugin that updates a custom value"
     }
 

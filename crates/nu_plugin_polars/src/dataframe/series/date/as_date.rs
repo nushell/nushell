@@ -18,11 +18,11 @@ impl PluginCommand for AsDate {
         "polars as-date"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         r#"Converts string to date."#
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Format example:
         "%Y-%m-%d"    => 2021-12-31
         "%d-%m-%Y"    => 31-12-2021

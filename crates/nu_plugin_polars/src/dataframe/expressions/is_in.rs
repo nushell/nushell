@@ -20,7 +20,7 @@ impl PluginCommand for ExprIsIn {
         "polars is-in"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates an is-in expression or checks to see if the elements are contained in the right series"
     }
 

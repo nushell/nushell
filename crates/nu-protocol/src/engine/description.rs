@@ -1,16 +1,16 @@
 use crate::{ModuleId, Span};
 use std::collections::HashMap;
 
-/// Organizes usage messages for various primitives
+/// Organizes documentation comments for various primitives
 #[derive(Debug, Clone)]
-pub(super) struct Usage {
-    // TODO: Move decl usages here
+pub(super) struct Doccomments {
+    // TODO: Move decl doccomments here
     module_comments: HashMap<ModuleId, Vec<Span>>,
 }
 
-impl Usage {
+impl Doccomments {
     pub fn new() -> Self {
-        Usage {
+        Doccomments {
             module_comments: HashMap::new(),
         }
     }
@@ -24,24 +24,24 @@ impl Usage {
     }
 
     /// Overwrite own values with the other
-    pub fn merge_with(&mut self, other: Usage) {
+    pub fn merge_with(&mut self, other: Doccomments) {
         self.module_comments.extend(other.module_comments);
     }
 }
 
-impl Default for Usage {
+impl Default for Doccomments {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub(super) fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
-    let mut usage = String::new();
+pub(super) fn build_desc(comment_lines: &[&[u8]]) -> (String, String) {
+    let mut description = String::new();
 
     let mut num_spaces = 0;
     let mut first = true;
 
-    // Use the comments to build the usage
+    // Use the comments to build the item/command description
     for contents in comment_lines {
         let comment_line = if first {
             // Count the number of spaces still at the front, skipping the '#'
@@ -75,17 +75,17 @@ pub(super) fn build_usage(comment_lines: &[&[u8]]) -> (String, String) {
             String::from_utf8_lossy(&contents[pos..]).to_string()
         };
 
-        if !usage.is_empty() {
-            usage.push('\n');
+        if !description.is_empty() {
+            description.push('\n');
         }
-        usage.push_str(&comment_line);
+        description.push_str(&comment_line);
     }
 
-    if let Some((brief_usage, extra_usage)) = usage.split_once("\r\n\r\n") {
-        (brief_usage.to_string(), extra_usage.to_string())
-    } else if let Some((brief_usage, extra_usage)) = usage.split_once("\n\n") {
-        (brief_usage.to_string(), extra_usage.to_string())
+    if let Some((brief_desc, extra_desc)) = description.split_once("\r\n\r\n") {
+        (brief_desc.to_string(), extra_desc.to_string())
+    } else if let Some((brief_desc, extra_desc)) = description.split_once("\n\n") {
+        (brief_desc.to_string(), extra_desc.to_string())
     } else {
-        (usage, String::default())
+        (description, String::default())
     }
 }

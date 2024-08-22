@@ -8,7 +8,7 @@ impl Command for Whoami {
         "whoami"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the current username using uutils/coreutils whoami."
     }
 

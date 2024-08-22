@@ -19,7 +19,7 @@ impl PluginCommand for NUnique {
         "polars n-unique"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Counts unique values."
     }
 

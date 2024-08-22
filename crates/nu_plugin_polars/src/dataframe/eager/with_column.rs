@@ -20,7 +20,7 @@ impl PluginCommand for WithColumn {
         "polars with-column"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Adds a series to the dataframe."
     }
 

@@ -37,7 +37,7 @@ impl Command for DetectColumns {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Attempt to automatically split text into multiple columns."
     }
 

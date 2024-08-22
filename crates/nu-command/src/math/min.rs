@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Finds the minimum within a list of values or tables."
     }
 

@@ -21,7 +21,7 @@ impl PluginCommand for LazySortBy {
         "polars sort-by"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Sorts a lazy dataframe based on expression(s)."
     }
 

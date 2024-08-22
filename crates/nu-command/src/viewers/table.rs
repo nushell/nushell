@@ -45,11 +45,11 @@ impl Command for Table {
         "table"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Render the table."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "If the table contains a column called 'index', this column is used as the table index instead of the usual continuous index."
     }
 

@@ -22,7 +22,7 @@ impl PluginCommand for RenameDF {
         "polars rename"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Rename a dataframe column."
     }
 

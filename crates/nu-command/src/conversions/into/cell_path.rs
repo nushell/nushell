@@ -25,7 +25,7 @@ impl Command for IntoCellPath {
             .allow_variants_without_examples(true)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert value to a cell-path."
     }
 
@@ -33,7 +33,7 @@ impl Command for IntoCellPath {
         vec!["convert"]
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Converting a string directly into a cell path is intentionally not supported."
     }
 

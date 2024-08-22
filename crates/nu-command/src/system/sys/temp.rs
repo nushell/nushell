@@ -16,11 +16,11 @@ impl Command for SysTemp {
             .input_output_types(vec![(Type::Nothing, Type::table())])
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View the temperatures of system components."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Some system components do not support temperature readings, so this command may return an empty list if no components support temperature."
     }
 

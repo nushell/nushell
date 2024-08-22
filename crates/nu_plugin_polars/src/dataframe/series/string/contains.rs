@@ -19,7 +19,7 @@ impl PluginCommand for Contains {
         "polars contains"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Checks if a pattern is contained in a string."
     }
 

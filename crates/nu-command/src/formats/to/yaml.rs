@@ -15,7 +15,7 @@ impl Command for ToYaml {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into .yaml/.yml text."
     }
 

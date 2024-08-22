@@ -47,7 +47,7 @@ impl Command for BytesIndexOf {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns start index of first occurrence of pattern in bytes, or -1 if no match."
     }
 

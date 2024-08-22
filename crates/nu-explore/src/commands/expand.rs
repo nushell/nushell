@@ -30,7 +30,7 @@ impl ViewCommand for ExpandCmd {
         Self::NAME
     }
 
-    fn usage(&self) -> &'static str {
+    fn description(&self) -> &'static str {
         ""
     }
 

@@ -19,7 +19,7 @@ impl PluginCommand for Replace {
         "polars replace"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Replace the leftmost (sub)string by a regex pattern."
     }
 

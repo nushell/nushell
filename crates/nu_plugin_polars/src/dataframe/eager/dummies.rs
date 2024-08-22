@@ -16,7 +16,7 @@ impl PluginCommand for Dummies {
         "polars dummies"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a new dataframe with dummy variables."
     }
 

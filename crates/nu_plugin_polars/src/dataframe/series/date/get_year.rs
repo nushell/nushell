@@ -21,7 +21,7 @@ impl PluginCommand for GetYear {
         "polars get-year"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets year from date."
     }
 

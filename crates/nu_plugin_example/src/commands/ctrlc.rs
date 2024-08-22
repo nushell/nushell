@@ -15,7 +15,7 @@ impl PluginCommand for Ctrlc {
         "example ctrlc"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example command that demonstrates registering an interrupt signal handler"
     }
 

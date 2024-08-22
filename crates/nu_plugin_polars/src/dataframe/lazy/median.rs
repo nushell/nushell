@@ -19,7 +19,7 @@ impl PluginCommand for LazyMedian {
         "polars median"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Median value from columns in a dataframe or creates expression for an aggregation"
     }
 

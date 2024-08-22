@@ -17,7 +17,7 @@ impl PluginCommand for AllTrue {
         "polars all-true"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns true if all values are true."
     }
 

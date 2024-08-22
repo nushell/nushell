@@ -528,11 +528,11 @@ impl Command for AnsiCommand {
         true
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output ANSI codes to change color and style of text."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "An introduction to what ANSI escape sequences are can be found in the
 \u{1b}]8;;https://en.wikipedia.org/wiki/ANSI_escape_code\u{1b}\\ANSI escape code\u{1b}]8;;\u{1b}\\ Wikipedia page.
 

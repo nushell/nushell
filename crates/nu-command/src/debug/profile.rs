@@ -43,11 +43,11 @@ impl Command for DebugProfile {
             .category(Category::Debug)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Profile pipeline elements in a closure."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"The profiler profiles every evaluated pipeline element inside a closure, stepping into all
 commands calls and other blocks/closures.
 

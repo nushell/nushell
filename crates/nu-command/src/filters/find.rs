@@ -57,7 +57,7 @@ impl Command for Find {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Searches terms in the input."
     }
 

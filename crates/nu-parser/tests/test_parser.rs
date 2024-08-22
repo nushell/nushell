@@ -16,7 +16,7 @@ impl Command for Let {
         "let"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Create a variable and give it a value."
     }
 
@@ -51,7 +51,7 @@ impl Command for Mut {
         "mut"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Mock mut command."
     }
 
@@ -84,7 +84,7 @@ impl Command for ToCustom {
         "to-custom"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Mock converter command."
     }
 
@@ -1903,7 +1903,7 @@ mod input_types {
             "ls"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock ls command."
         }
 
@@ -1930,7 +1930,7 @@ mod input_types {
             "def"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock def command."
         }
 
@@ -1962,7 +1962,7 @@ mod input_types {
             "group-by"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock group-by command."
         }
 
@@ -1984,6 +1984,35 @@ mod input_types {
     }
 
     #[derive(Clone)]
+    pub struct ToCustom;
+
+    impl Command for ToCustom {
+        fn name(&self) -> &str {
+            "to-custom"
+        }
+
+        fn description(&self) -> &str {
+            "Mock converter command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name())
+                .input_output_type(Type::Any, Type::Custom("custom".into()))
+                .category(Category::Custom("custom".into()))
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
     pub struct GroupByCustom;
 
     impl Command for GroupByCustom {
@@ -1991,7 +2020,7 @@ mod input_types {
             "group-by"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom group-by command."
         }
 
@@ -2022,7 +2051,7 @@ mod input_types {
             "agg"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom agg command."
         }
 
@@ -2052,7 +2081,7 @@ mod input_types {
             "min"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom min command."
         }
 
@@ -2079,7 +2108,7 @@ mod input_types {
             "with-column"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom with-column command."
         }
 
@@ -2109,7 +2138,7 @@ mod input_types {
             "collect"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock custom collect command."
         }
 
@@ -2138,7 +2167,7 @@ mod input_types {
             "if"
         }
 
-        fn usage(&self) -> &str {
+        fn description(&self) -> &str {
             "Mock if command."
         }
 

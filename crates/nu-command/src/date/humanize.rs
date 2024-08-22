@@ -21,7 +21,7 @@ impl Command for SubCommand {
             .category(Category::Date)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Print a 'humanized' format for the date, relative to now."
     }
 

@@ -8,11 +8,11 @@ impl Command for Merge {
         "merge"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Merge the input with a record or table, overwriting values in matching columns."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"You may provide a column structure to merge
 
 When merging tables, row 0 of the input table is overwritten

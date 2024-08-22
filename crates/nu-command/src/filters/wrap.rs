@@ -8,7 +8,7 @@ impl Command for Wrap {
         "wrap"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Wrap the value into a column."
     }
 

@@ -24,7 +24,7 @@ impl Command for ToText {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts data into simple text."
     }
 

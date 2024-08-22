@@ -9,7 +9,7 @@ impl Command for While {
         "while"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Conditionally run a block in a loop."
     }
 
@@ -30,7 +30,7 @@ impl Command for While {
         vec!["loop"]
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }

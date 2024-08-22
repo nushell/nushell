@@ -25,7 +25,7 @@ impl PluginCommand for Summary {
         "polars summary"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "For a dataframe, produces descriptive statistics (summary statistics) for its numeric columns."
     }
 

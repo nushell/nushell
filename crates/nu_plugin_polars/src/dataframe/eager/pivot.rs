@@ -24,7 +24,7 @@ impl PluginCommand for PivotDF {
         "polars pivot"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Pivot a DataFrame from wide to long format."
     }
 

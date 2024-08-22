@@ -11,7 +11,7 @@ impl SimplePluginCommand for Generate2 {
         "custom-value generate2"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "PluginSignature for a plugin that generates a different custom value"
     }
 

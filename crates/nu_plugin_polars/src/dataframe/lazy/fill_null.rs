@@ -19,7 +19,7 @@ impl PluginCommand for LazyFillNull {
         "polars fill-null"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Replaces NULL values with the given expression."
     }
 

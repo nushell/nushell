@@ -38,7 +38,7 @@ impl Command for StorUpdate {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Update information in a specified table in the in-memory sqlite database."
     }
 

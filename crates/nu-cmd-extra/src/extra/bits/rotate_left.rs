@@ -53,7 +53,7 @@ impl Command for BitsRol {
             .category(Category::Bits)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Bitwise rotate left for ints or binary values."
     }
 

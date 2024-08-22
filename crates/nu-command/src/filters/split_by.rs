@@ -16,7 +16,7 @@ impl Command for SplitBy {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Split a record into groups."
     }
 

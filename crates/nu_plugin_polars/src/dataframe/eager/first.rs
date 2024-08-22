@@ -20,7 +20,7 @@ impl PluginCommand for FirstDF {
         "polars first"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show only the first number of rows or create a first expression"
     }
 

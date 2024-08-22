@@ -145,7 +145,7 @@ impl Command for SubCommand {
         }
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert text or timestamp into a datetime."
     }
 

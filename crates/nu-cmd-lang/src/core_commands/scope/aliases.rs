@@ -15,7 +15,7 @@ impl Command for ScopeAliases {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output info on the aliases in the current scope."
     }
 

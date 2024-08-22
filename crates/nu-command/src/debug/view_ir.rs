@@ -29,11 +29,11 @@ impl Command for ViewIr {
             .category(Category::Debug)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "View the compiled IR code for a block of code."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "
 The target can be a closure, the name of a custom command, or an internal block
 ID. Closure literals within IR dumps often reference the block by ID (e.g.

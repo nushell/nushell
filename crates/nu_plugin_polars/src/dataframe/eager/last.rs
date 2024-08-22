@@ -20,7 +20,7 @@ impl PluginCommand for LastDF {
         "polars last"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates new dataframe with tail rows or creates a last expression."
     }
 

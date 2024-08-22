@@ -8,7 +8,7 @@ impl Command for Enumerate {
         "enumerate"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Enumerate the elements in a stream."
     }
 

@@ -17,7 +17,7 @@ impl PluginCommand for ExprOtherwise {
         "polars otherwise"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Completes a when expression."
     }
 

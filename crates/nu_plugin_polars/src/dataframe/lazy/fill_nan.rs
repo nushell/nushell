@@ -19,7 +19,7 @@ impl PluginCommand for LazyFillNA {
         "polars fill-nan"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Replaces NaN values with the given expression."
     }
 

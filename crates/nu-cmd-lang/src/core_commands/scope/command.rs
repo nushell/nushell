@@ -15,7 +15,7 @@ impl Command for Scope {
             .allow_variants_without_examples(true)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Commands for getting info about what is in scope."
     }
 

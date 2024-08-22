@@ -24,7 +24,7 @@ pub use table::TableCmd;
 pub trait SimpleCommand {
     fn name(&self) -> &'static str;
 
-    fn usage(&self) -> &'static str;
+    fn description(&self) -> &'static str;
 
     fn parse(&mut self, args: &str) -> Result<()>;
 
@@ -42,7 +42,7 @@ pub trait ViewCommand {
 
     fn name(&self) -> &'static str;
 
-    fn usage(&self) -> &'static str;
+    fn description(&self) -> &'static str;
 
     fn parse(&mut self, args: &str) -> Result<()>;
 

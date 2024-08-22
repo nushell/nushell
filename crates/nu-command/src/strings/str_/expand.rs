@@ -8,11 +8,11 @@ impl Command for SubCommand {
         "str expand"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generates all possible combinations defined in brace expansion syntax."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This syntax may seem familiar with `glob {A,B}.C`. The difference is glob relies on filesystem, but str expand is not. Inside braces, we put variants. Then basically we're creating all possible outcomes."
     }
 

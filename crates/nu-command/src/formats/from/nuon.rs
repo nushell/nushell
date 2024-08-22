@@ -8,7 +8,7 @@ impl Command for FromNuon {
         "from nuon"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert from nuon to structured data."
     }
 

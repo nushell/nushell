@@ -17,7 +17,7 @@ impl Command for Do {
         "do"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Run a closure, providing it with the pipeline input."
     }
 

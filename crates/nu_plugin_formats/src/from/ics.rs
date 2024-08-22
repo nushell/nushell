@@ -17,7 +17,7 @@ impl SimplePluginCommand for FromIcs {
         "from ics"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .ics and create table."
     }
 

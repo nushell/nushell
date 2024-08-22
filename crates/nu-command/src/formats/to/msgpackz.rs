@@ -34,11 +34,11 @@ impl Command for ToMsgpackz {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert Nu values into brotli-compressed MessagePack."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This is the format used by the plugin registry file ($nu.plugin-path)."
     }
 

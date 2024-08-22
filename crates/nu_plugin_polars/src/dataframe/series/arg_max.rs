@@ -18,7 +18,7 @@ impl PluginCommand for ArgMax {
         "polars arg-max"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return index for max value in series."
     }
 

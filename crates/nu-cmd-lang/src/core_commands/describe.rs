@@ -9,7 +9,7 @@ impl Command for Describe {
         "describe"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Describe the type and structure of the value(s) piped in."
     }
 
