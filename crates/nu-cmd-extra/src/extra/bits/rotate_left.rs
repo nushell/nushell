@@ -1,5 +1,4 @@
 use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
-use itertools::Itertools;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::command_prelude::*;
 
@@ -220,17 +219,22 @@ fn rotate_bytes_left(data: &[u8], byte_shift: usize) -> Vec<u8> {
 }
 
 fn rotate_bytes_and_bits_left(data: &[u8], byte_shift: usize, bit_shift: usize) -> Vec<u8> {
-    debug_assert!(byte_shift <= data.len());
+    debug_assert!(byte_shift < data.len());
     debug_assert!(
         (1..8).contains(&bit_shift),
         "Bit shifts of 0 can't be handled by this impl and everything else should be part of the byteshift");
-    let mut bytes = data
-        .iter()
-        .copied()
-        .circular_tuple_windows::<(u8, u8)>()
-        .map(|(lhs, rhs)| (lhs << bit_shift) | (rhs >> (8 - bit_shift)))
-        .collect::<Vec<u8>>();
-    bytes.rotate_left(byte_shift);
+    let mut bytes = Vec::with_capacity(data.len());
+    let mut next_index = byte_shift;
+    for _ in 0..data.len() {
+        let curr_byte = data[next_index];
+        next_index += 1;
+        if next_index == data.len() {
+            next_index = 0;
+        }
+        let next_byte = data[next_index];
+        let new_byte = (curr_byte << bit_shift) | (next_byte >> (8 - bit_shift));
+        bytes.push(new_byte);
+    }
     bytes
 }
 
