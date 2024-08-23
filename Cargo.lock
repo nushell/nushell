@@ -3134,7 +3134,6 @@ dependencies = [
  "roxmltree",
  "rstest",
  "rusqlite",
- "same-file",
  "serde",
  "serde_json",
  "serde_urlencoded",
