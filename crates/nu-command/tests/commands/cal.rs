@@ -90,7 +90,7 @@ fn cal_year_num_lines() {
         "#
     ));
 
-    assert_eq!(actual.out, "67");
+    assert_eq!(actual.out, "68");
 }
 
 #[test]

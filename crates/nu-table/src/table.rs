@@ -578,12 +578,6 @@ fn load_theme(
         theme.set_horizontal_lines(Default::default());
     }
 
-    if with_header && with_footer && table.count_rows() > 2 {
-        if let Some(line) = theme.get_horizontal_line(1) {
-            theme.insert_horizontal_line(table.count_rows() - 1, *line);
-        }
-    }
-
     table.with(theme);
 
     if let Some(style) = sep_color {
@@ -594,6 +588,8 @@ fn load_theme(
 
     if !with_header {
         table.with(RemoveHorizontalLine);
+    } else if with_footer {
+        table.with(CopyFirstHorizontalLineAtLast);
     }
 }
 
@@ -1232,5 +1228,22 @@ struct RemoveHorizontalLine;
 impl<D> TableOption<NuRecords, ColoredConfig, D> for RemoveHorizontalLine {
     fn change(self, recs: &mut NuRecords, cfg: &mut ColoredConfig, _: &mut D) {
         cfg.remove_horizontal_line(1, recs.count_rows());
+    }
+}
+
+struct CopyFirstHorizontalLineAtLast;
+
+impl<D> TableOption<NuRecords, ColoredConfig, D> for CopyFirstHorizontalLineAtLast {
+    fn change(self, recs: &mut NuRecords, cfg: &mut ColoredConfig, _: &mut D) {
+        if recs.count_rows() <= 2 {
+            return;
+        }
+
+        let line = match cfg.get_horizontal_line(1) {
+            Some(line) => *line,
+            None => return,
+        };
+
+        cfg.insert_horizontal_line(recs.count_rows() - 1, line);
     }
 }
