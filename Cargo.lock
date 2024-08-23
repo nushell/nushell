@@ -1154,6 +1154,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "data-encoding"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
+
+[[package]]
 name = "deranged"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3066,6 +3072,7 @@ dependencies = [
  "chrono-tz 0.8.6",
  "crossterm",
  "csv",
+ "data-encoding",
  "deunicode",
  "dialoguer",
  "digest",
@@ -3120,6 +3127,7 @@ dependencies = [
  "quickcheck",
  "quickcheck_macros",
  "rand",
+ "rand_chacha",
  "rayon",
  "regex",
  "rmp",
