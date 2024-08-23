@@ -156,7 +156,7 @@ sha2 = "0.10"
 strip-ansi-escapes = "0.2.0"
 syn = "2.0"
 sysinfo = "0.30"
-tabled = { version = "0.14.0", default-features = false }
+tabled = { version = "0.16.0", default-features = false }
 tempfile = "3.10"
 terminal_size = "0.3"
 titlecase = "2.0"
