@@ -14,7 +14,7 @@ impl Command for UMv {
         "mv"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Move files or directories using uutils/coreutils mv."
     }
 

@@ -18,7 +18,7 @@ impl PluginCommand for SliceDF {
         "polars slice"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates new dataframe from a slice of rows."
     }
 

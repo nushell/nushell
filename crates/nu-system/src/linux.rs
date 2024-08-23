@@ -142,31 +142,33 @@ impl ProcessInfo {
 
     /// Name of command
     pub fn name(&self) -> String {
-        self.command()
-            .split(' ')
-            .collect::<Vec<_>>()
-            .first()
-            .map(|x| x.to_string())
-            .unwrap_or_default()
+        if let Some(name) = self.comm() {
+            return name;
+        }
+        // Fall back in case /proc/<pid>/stat source is not available.
+        if let Ok(mut cmd) = self.curr_proc.cmdline() {
+            if let Some(name) = cmd.first_mut() {
+                // Take over the first element and return it without extra allocations
+                // (String::default() is allocation-free).
+                return std::mem::take(name);
+            }
+        }
+        String::new()
     }
 
     /// Full name of command, with arguments
+    ///
+    /// WARNING: As this does no escaping, this function is lossy. It's OK-ish for display purposes
+    /// but nothing else.
+    // TODO: Maybe rename this to display_command and add escaping compatible with nushell?
     pub fn command(&self) -> String {
-        if let Ok(cmd) = &self.curr_proc.cmdline() {
+        if let Ok(cmd) = self.curr_proc.cmdline() {
+            // Things like kworker/0:0 still have the cmdline file in proc, even though it's empty.
             if !cmd.is_empty() {
-                cmd.join(" ").replace(['\n', '\t'], " ")
-            } else {
-                match self.curr_proc.stat() {
-                    Ok(p) => p.comm,
-                    Err(_) => "".to_string(),
-                }
-            }
-        } else {
-            match self.curr_proc.stat() {
-                Ok(p) => p.comm,
-                Err(_) => "".to_string(),
+                return cmd.join(" ").replace(['\n', '\t'], " ");
             }
         }
+        self.comm().unwrap_or_default()
     }
 
     pub fn cwd(&self) -> String {
@@ -227,5 +229,9 @@ impl ProcessInfo {
     /// Virtual memory size in bytes
     pub fn virtual_size(&self) -> u64 {
         self.curr_proc.stat().map(|p| p.vsize).unwrap_or_default()
+    }
+
+    fn comm(&self) -> Option<String> {
+        self.curr_proc.stat().map(|st| st.comm).ok()
     }
 }

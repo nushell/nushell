@@ -8,7 +8,7 @@ impl Command for LoadEnv {
         "load-env"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Loads an environment update from a record."
     }
 

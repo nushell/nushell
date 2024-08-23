@@ -28,7 +28,7 @@ impl Command for SubCommand {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Split a list into multiple lists using a separator."
     }
 

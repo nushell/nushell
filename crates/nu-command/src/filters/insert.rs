@@ -33,11 +33,11 @@ impl Command for Insert {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Insert a new column, using an expression or closure to create each row's values."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "When inserting a column, the closure will be run for each row, and the current row will be passed as the first argument.
 When inserting into a specific index, the closure will instead get the current value at the index or null if inserting at the end of a list/table."
     }

@@ -19,7 +19,7 @@ impl PluginCommand for NotSeries {
         "polars not"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Inverts boolean mask."
     }
 

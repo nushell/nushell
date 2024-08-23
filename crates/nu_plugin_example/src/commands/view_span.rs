@@ -13,11 +13,11 @@ impl SimplePluginCommand for ViewSpan {
         "example view span"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example command for looking up the contents of a parser span"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Shows the original source code of the expression that generated the value passed as input."
     }
 

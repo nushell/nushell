@@ -2,14 +2,14 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
-        ctrlc,
-        usage::{build_usage, Usage},
+        description::{build_desc, Doccomments},
         CachedFile, Command, CommandType, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta,
         Variable, Visibility, DEFAULT_OVERLAY_NAME,
     },
     eval_const::create_nu_constant,
-    BlockId, Category, Config, DeclId, FileId, GetSpan, HistoryConfig, Module, ModuleId, OverlayId,
-    ShellError, Signals, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    BlockId, Category, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, Module, ModuleId,
+    OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
+    VirtualPathId,
 };
 use fancy_regex::Regex;
 use lru::LruCache;
@@ -84,10 +84,10 @@ pub struct EngineState {
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
     pub(super) modules: Arc<Vec<Arc<Module>>>,
     pub spans: Vec<Span>,
-    usage: Usage,
+    doccomments: Doccomments,
     pub scope: ScopeFrame,
-    pub ctrlc_handlers: Option<ctrlc::Handlers>,
     signals: Signals,
+    pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
     pub previous_env_vars: Arc<HashMap<String, Value>>,
     pub config: Arc<Config>,
@@ -140,14 +140,14 @@ impl EngineState {
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
             ))]),
             spans: vec![Span::unknown()],
-            usage: Usage::new(),
+            doccomments: Doccomments::new(),
             // make sure we have some default overlay:
             scope: ScopeFrame::with_empty_overlay(
                 DEFAULT_OVERLAY_NAME.as_bytes().to_vec(),
                 0,
                 false,
             ),
-            ctrlc_handlers: None,
+            signal_handlers: None,
             signals: Signals::empty(),
             env_vars: Arc::new(
                 [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
@@ -186,7 +186,10 @@ impl EngineState {
     }
 
     pub fn reset_signals(&mut self) {
-        self.signals.reset()
+        self.signals.reset();
+        if let Some(ref handlers) = self.signal_handlers {
+            handlers.run(SignalAction::Reset);
+        }
     }
 
     pub fn set_signals(&mut self, signals: Signals) {
@@ -206,7 +209,7 @@ impl EngineState {
         self.virtual_paths.extend(delta.virtual_paths);
         self.vars.extend(delta.vars);
         self.spans.extend(delta.spans);
-        self.usage.merge_with(delta.usage);
+        self.doccomments.merge_with(delta.doccomments);
 
         // Avoid potentially cloning the Arcs if we aren't adding anything
         if !delta.decls.is_empty() {
@@ -272,9 +275,9 @@ impl EngineState {
         #[cfg(feature = "plugin")]
         if !delta.plugins.is_empty() {
             for plugin in std::mem::take(&mut delta.plugins) {
-                // Connect plugins to the ctrlc handlers
-                if let Some(handlers) = &self.ctrlc_handlers {
-                    plugin.clone().configure_ctrlc_handler(handlers)?;
+                // Connect plugins to the signal handlers
+                if let Some(handlers) = &self.signal_handlers {
+                    plugin.clone().configure_signal_handler(handlers)?;
                 }
 
                 // Replace plugins that overlap in identity.
@@ -641,7 +644,7 @@ impl EngineState {
     }
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
-        self.usage.get_module_comments(module_id)
+        self.doccomments.get_module_comments(module_id)
     }
 
     #[cfg(feature = "plugin")]
@@ -712,7 +715,7 @@ impl EngineState {
                     }
                     output.push((
                         decl.0.clone(),
-                        Some(command.usage().to_string()),
+                        Some(command.description().to_string()),
                         command.command_type(),
                     ));
                 }
@@ -894,17 +897,17 @@ impl EngineState {
         self.config_path.get(key)
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+    pub fn build_desc(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(*span))
             .collect();
-        build_usage(&comment_lines)
+        build_desc(&comment_lines)
     }
 
-    pub fn build_module_usage(&self, module_id: ModuleId) -> Option<(String, String)> {
+    pub fn build_module_desc(&self, module_id: ModuleId) -> Option<(String, String)> {
         self.get_module_comments(module_id)
-            .map(|comment_spans| self.build_usage(comment_spans))
+            .map(|comment_spans| self.build_desc(comment_spans))
     }
 
     /// Returns the current working directory, which is guaranteed to be canonicalized.

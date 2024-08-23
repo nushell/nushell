@@ -26,7 +26,7 @@ impl Command for Histogram {
             .category(Category::Chart)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a new table with a histogram based on the column name passed in."
     }
 

@@ -6,7 +6,7 @@
 # it also allows us to test the plugin interface with something manually implemented in a scripting
 # language without adding any extra dependencies to our tests.
 
-const NUSHELL_VERSION = "0.96.2"
+const NUSHELL_VERSION = "0.97.2"
 const PLUGIN_VERSION = "0.1.1" # bump if you change commands!
 
 def main [--stdio] {
@@ -22,8 +22,8 @@ const SIGNATURES = [
   {
     sig: {
       name: nu_plugin_nu_example,
-      usage: "Signature test for Nushell plugin in Nushell",
-      extra_usage: "",
+      description: "Signature test for Nushell plugin in Nushell",
+      extra_description: "",
       required_positional: [
         [
           name,
@@ -148,8 +148,7 @@ def process_call [
                       }
                     }
                   }) |
-                  each { into record } |
-                  transpose --as-record --header-row
+                  into record
               ),
               span: $span
             }

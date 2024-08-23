@@ -4,7 +4,7 @@ use crate::{
     parse_keywords::*,
     parse_patterns::parse_pattern,
     parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
-    type_check::{self, math_result_type, type_compatible},
+    type_check::{self, check_range_types, math_result_type, type_compatible},
     Token, TokenContents,
 };
 use itertools::Itertools;
@@ -109,14 +109,9 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
     }
     working_set.parse_errors.truncate(starting_error_count);
 
-    parse_range(working_set, span);
-
-    if working_set.parse_errors.len() == starting_error_count {
-        return true;
-    }
+    let is_range = parse_range(working_set, span).is_some();
     working_set.parse_errors.truncate(starting_error_count);
-
-    false
+    is_range
 }
 
 fn is_identifier(bytes: &[u8]) -> bool {
@@ -954,7 +949,7 @@ pub fn parse_internal_call(
     let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
-    let signature = decl.signature();
+    let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
     // storing the var ID for later due to borrowing issues
@@ -1389,8 +1384,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             trace!("-- found leading range indicator");
             let starting_error_count = working_set.parse_errors.len();
 
-            let range_expr = parse_range(working_set, spans[0]);
-            if working_set.parse_errors.len() == starting_error_count {
+            if let Some(range_expr) = parse_range(working_set, spans[0]) {
                 trace!("-- successfully parsed range");
                 return range_expr;
             }
@@ -1598,8 +1592,9 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
     garbage(working_set, span)
 }
 
-pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expression> {
     trace!("parsing: range");
+    let starting_error_count = working_set.parse_errors.len();
 
     // Range follows the following syntax: [<from>][<next_operator><next>]<range_operator>[<to>]
     //   where <next_operator> is ".."
@@ -1614,12 +1609,20 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         s
     } else {
         working_set.error(ParseError::NonUtf8(span));
-        return garbage(working_set, span);
+        return None;
     };
+
+    if token.starts_with("...") {
+        working_set.error(ParseError::Expected(
+            "range operator ('..'), got spread ('...')",
+            span,
+        ));
+        return None;
+    }
 
     if !token.contains("..") {
         working_set.error(ParseError::Expected("at least one range bound set", span));
-        return garbage(working_set, span);
+        return None;
     }
 
     // First, figure out what exact operators are used and determine their positions
@@ -1633,7 +1636,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
                 "one range operator ('..' or '..<') and optionally one next operator ('..')",
                 span,
             ));
-            return garbage(working_set, span);
+            return None;
         }
     };
     // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
@@ -1648,7 +1651,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         );
         if let Some(_err) = err {
             working_set.error(ParseError::Expected("Valid expression before ..", span));
-            return garbage(working_set, span);
+            return None;
         }
     }
 
@@ -1665,7 +1668,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
                 "inclusive operator preceding second range bound",
                 span,
             ));
-            return garbage(working_set, span);
+            return None;
         }
     } else {
         let op_str = if token.contains("..=") { "..=" } else { ".." };
@@ -1698,7 +1701,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
 
     if let (None, None) = (&from, &to) {
         working_set.error(ParseError::Expected("at least one range bound set", span));
-        return garbage(working_set, span);
+        return None;
     }
 
     let (next, next_op_span) = if let Some(pos) = next_op_pos {
@@ -1713,20 +1716,31 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
         (None, span)
     };
 
+    if working_set.parse_errors.len() != starting_error_count {
+        return None;
+    }
+
     let operator = RangeOperator {
         inclusion,
         span: range_op_span,
         next_op_span,
     };
 
-    let range = Range {
+    let mut range = Range {
         from,
         next,
         to,
         operator,
     };
 
-    Expression::new(working_set, Expr::Range(Box::new(range)), span, Type::Range)
+    check_range_types(working_set, &mut range);
+
+    Some(Expression::new(
+        working_set,
+        Expr::Range(Box::new(range)),
+        span,
+        Type::Range,
+    ))
 }
 
 pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -1740,8 +1754,7 @@ pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: Span) -
     } else {
         let starting_error_count = working_set.parse_errors.len();
 
-        let expr = parse_range(working_set, span);
-        if starting_error_count == working_set.parse_errors.len() {
+        if let Some(expr) = parse_range(working_set, span) {
             expr
         } else {
             working_set.parse_errors.truncate(starting_error_count);
@@ -1812,9 +1825,7 @@ pub fn parse_paren_expr(
 ) -> Expression {
     let starting_error_count = working_set.parse_errors.len();
 
-    let expr = parse_range(working_set, span);
-
-    if starting_error_count == working_set.parse_errors.len() {
+    if let Some(expr) = parse_range(working_set, span) {
         expr
     } else {
         working_set.parse_errors.truncate(starting_error_count);
@@ -4701,6 +4712,15 @@ pub fn parse_value(
             | SyntaxShape::String
             | SyntaxShape::GlobPattern
             | SyntaxShape::ExternalArgument => {}
+            SyntaxShape::OneOf(possible_shapes) => {
+                if !possible_shapes
+                    .iter()
+                    .any(|s| matches!(s, SyntaxShape::List(_)))
+                {
+                    working_set.error(ParseError::Expected("non-[] value", span));
+                    return Expression::garbage(working_set, span);
+                }
+            }
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(working_set, span);
@@ -4724,7 +4744,9 @@ pub fn parse_value(
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),
         SyntaxShape::Filesize => parse_filesize(working_set, span),
-        SyntaxShape::Range => parse_range(working_set, span),
+        SyntaxShape::Range => {
+            parse_range(working_set, span).unwrap_or_else(|| garbage(working_set, span))
+        }
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
@@ -4778,6 +4800,31 @@ pub fn parse_value(
         }
 
         SyntaxShape::ExternalArgument => parse_regular_external_arg(working_set, span),
+        SyntaxShape::OneOf(possible_shapes) => {
+            for s in possible_shapes {
+                let starting_error_count = working_set.parse_errors.len();
+                let value = parse_value(working_set, span, s);
+
+                if starting_error_count == working_set.parse_errors.len() {
+                    return value;
+                } else if let Some(
+                    ParseError::Expected(..) | ParseError::ExpectedWithStringMsg(..),
+                ) = working_set.parse_errors.last()
+                {
+                    working_set.parse_errors.truncate(starting_error_count);
+                    continue;
+                }
+            }
+
+            if working_set.parse_errors.is_empty() {
+                working_set.error(ParseError::ExpectedWithStringMsg(
+                    format!("one of a list of accepted shapes: {possible_shapes:?}"),
+                    span,
+                ));
+            }
+
+            Expression::garbage(working_set, span)
+        }
 
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
@@ -4904,6 +4951,30 @@ pub fn parse_assignment_expression(
     trace!("parsing: assignment right-hand side subexpression");
     let rhs_block = parse_block(working_set, &rhs_tokens, rhs_span, false, true);
     let rhs_ty = rhs_block.output_type();
+
+    // TEMP: double-check that if the RHS block starts with an external call, it must start with a
+    // caret. This is to mitigate the change in assignment parsing introduced in 0.97.0 which could
+    // result in unintentional execution of commands.
+    if let Some(Expr::ExternalCall(head, ..)) = rhs_block
+        .pipelines
+        .first()
+        .and_then(|pipeline| pipeline.elements.first())
+        .map(|element| &element.expr.expr)
+    {
+        let contents = working_set.get_span_contents(Span {
+            start: head.span.start - 1,
+            end: head.span.end,
+        });
+        if !contents.starts_with(b"^") {
+            working_set.parse_errors.push(ParseError::LabeledErrorWithHelp {
+                error: "External command calls must be explicit in assignments".into(),
+                label: "add a caret (^) before the command name if you intended to run and capture its output".into(),
+                help: "the parsing of assignments was changed in 0.97.0, and this would have previously been treated as a string. Alternatively, quote the string with single or double quotes to avoid it being interpreted as a command name. This restriction may be removed in a future release.".into(),
+                span: head.span,
+            });
+        }
+    }
+
     let rhs_block_id = working_set.add_block(Arc::new(rhs_block));
     let mut rhs = Expression::new(
         working_set,

@@ -20,7 +20,7 @@ impl Command for IsEmpty {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Check for empty values."
     }
 

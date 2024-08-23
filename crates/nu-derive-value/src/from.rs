@@ -42,9 +42,7 @@ pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, DeriveErro
 
 /// Implements the `#[derive(FromValue)]` macro for structs.
 ///
-/// This function ensures that the helper attribute is not used anywhere, as it is not supported for
-/// structs.
-/// Other than this, this function provides the impl signature for `FromValue`.
+/// This function provides the impl signature for `FromValue`.
 /// The implementation for `FromValue::from_value` is handled by [`struct_from_value`] and the
 /// `FromValue::expected_type` is handled by [`struct_expected_type`].
 fn derive_struct_from_value(
@@ -53,11 +51,12 @@ fn derive_struct_from_value(
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
-    attributes::deny(&attrs)?;
+    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     attributes::deny_fields(&data.fields)?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let from_value_impl = struct_from_value(&data);
-    let expected_type_impl = struct_expected_type(&data.fields);
+    let expected_type_impl =
+        struct_expected_type(&data.fields, container_attrs.type_name.as_deref());
     Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
@@ -219,13 +218,16 @@ fn struct_from_value(data: &DataStruct) -> TokenStream2 {
 /// `list[type0, type1, type2]`.
 /// No fields expect the `Type::Nothing`.
 ///
+/// If `#[nu_value(type_name = "...")]` is used, the output type will be `Type::Custom` with that
+/// passed name.
+///
 /// # Examples
 ///
 /// These examples show what the macro would generate.
 ///
 /// Struct with named fields:
 /// ```rust
-/// #[derive(IntoValue)]
+/// #[derive(FromValue)]
 /// struct Pet {
 ///     name: String,
 ///     age: u8,
@@ -256,7 +258,7 @@ fn struct_from_value(data: &DataStruct) -> TokenStream2 {
 ///
 /// Struct with unnamed fields:
 /// ```rust
-/// #[derive(IntoValue)]
+/// #[derive(FromValue)]
 /// struct Color(u8, u8, u8);
 ///
 /// impl nu_protocol::FromValue for Color {
@@ -276,7 +278,7 @@ fn struct_from_value(data: &DataStruct) -> TokenStream2 {
 ///
 /// Unit struct:
 /// ```rust
-/// #[derive(IntoValue)]
+/// #[derive(FromValue)]
 /// struct Unicorn;
 ///
 /// impl nu_protocol::FromValue for Color {
@@ -285,9 +287,30 @@ fn struct_from_value(data: &DataStruct) -> TokenStream2 {
 ///     }
 /// }
 /// ```
-fn struct_expected_type(fields: &Fields) -> TokenStream2 {
-    let ty = match fields {
-        Fields::Named(fields) => {
+///
+/// Struct with passed type name:
+/// ```rust
+/// #[derive(FromValue)]
+/// #[nu_value(type_name = "bird")]
+/// struct Parrot;
+///
+/// impl nu_protocol::FromValue for Parrot {
+///     fn expected_type() -> nu_protocol::Type {
+///         nu_protocol::Type::Custom(
+///             <std::string::String as std::convert::From::<&str>>::from("bird")
+///                 .into_boxed_str()
+///         )
+///     }
+/// }
+/// ```
+fn struct_expected_type(fields: &Fields, attr_type_name: Option<&str>) -> TokenStream2 {
+    let ty = match (fields, attr_type_name) {
+        (_, Some(type_name)) => {
+            quote!(nu_protocol::Type::Custom(
+                <std::string::String as std::convert::From::<&str>>::from(#type_name).into_boxed_str()
+            ))
+        }
+        (Fields::Named(fields), _) => {
             let fields = fields.named.iter().map(|field| {
                 let ident = field.ident.as_ref().expect("named has idents");
                 let ident_s = ident.to_string();
@@ -301,7 +324,7 @@ fn struct_expected_type(fields: &Fields) -> TokenStream2 {
                 std::vec![#(#fields),*].into_boxed_slice()
             ))
         }
-        Fields::Unnamed(fields) => {
+        (Fields::Unnamed(fields), _) => {
             let mut iter = fields.unnamed.iter();
             let fields = fields.unnamed.iter().map(|field| {
                 let ty = &field.ty;
@@ -324,7 +347,7 @@ fn struct_expected_type(fields: &Fields) -> TokenStream2 {
                 )
             }
         }
-        Fields::Unit => quote!(nu_protocol::Type::Nothing),
+        (Fields::Unit, _) => quote!(nu_protocol::Type::Nothing),
     };
 
     quote! {
@@ -338,23 +361,25 @@ fn struct_expected_type(fields: &Fields) -> TokenStream2 {
 ///
 /// This function constructs the implementation of the `FromValue` trait for enums.
 /// It is designed to be on the same level as [`derive_struct_from_value`], even though this
-/// function only provides the impl signature for `FromValue`.
-/// The actual implementation for `FromValue::from_value` is handled by [`enum_from_value`].
-///
-/// Since variants are difficult to type with the current type system, this function uses the
-/// default implementation for `expected_type`.
+/// implementation is a lot simpler.
+/// The main `FromValue::from_value` implementation is handled by [`enum_from_value`].
+/// The `FromValue::expected_type` implementation is usually kept empty to use the default
+/// implementation, but if `#[nu_value(type_name = "...")]` if given, we use that.
 fn derive_enum_from_value(
     ident: Ident,
     data: DataEnum,
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
+    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let from_value_impl = enum_from_value(&data, &attrs)?;
+    let expected_type_impl = enum_expected_type(container_attrs.type_name.as_deref());
     Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
             #from_value_impl
+            #expected_type_impl
         }
     })
 }
@@ -444,6 +469,41 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
                     help: std::option::Option::None,
                 }),
             }
+        }
+    })
+}
+
+/// Implements `FromValue::expected_type` for enums.
+///  
+/// Since it's difficult to name the type of an enum in the current type system, we want to use the
+/// default implementation if `#[nu_value(type_name = "...")]` was *not* given.
+/// For that, a `None` value is returned, for a passed type name we return something like this:
+/// ```rust
+/// #[derive(IntoValue)]
+/// #[nu_value(type_name = "sunny | cloudy | raining")]
+/// enum Weather {
+///     Sunny,
+///     Cloudy,
+///     Raining
+/// }
+///
+/// impl nu_protocol::FromValue for Weather {
+///     fn expected_type() -> nu_protocol::Type {
+///         nu_protocol::Type::Custom(
+///             <std::string::String as std::convert::From::<&str>>::from("sunny | cloudy | raining")
+///                 .into_boxed_str()
+///         )
+///     }
+/// }
+/// ```
+fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
+    let type_name = attr_type_name?;
+    Some(quote! {
+        fn expected_type() -> nu_protocol::Type {
+            nu_protocol::Type::Custom(
+                <std::string::String as std::convert::From::<&str>>::from(#type_name)
+                    .into_boxed_str()
+            )
         }
     })
 }

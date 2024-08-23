@@ -849,7 +849,8 @@ fn truncate_columns_by_head(
     widths
 }
 
-/// The same as [`tabled::peaker::PriorityMax`] but prioritizes left columns first in case of equal width.
+/// The same as [`tabled::settings::peaker::PriorityMax`] but prioritizes left columns first in case
+/// of equal width.
 #[derive(Debug, Default, Clone)]
 pub struct PriorityMax;
 

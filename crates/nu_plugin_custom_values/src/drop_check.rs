@@ -66,7 +66,7 @@ impl SimplePluginCommand for DropCheck {
         "custom-value drop-check"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generates a custom value that prints a message when dropped"
     }
 

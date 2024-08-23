@@ -53,7 +53,7 @@ impl PluginCommand for Rolling {
         "polars rolling"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Rolling calculation for a series."
     }
 

@@ -16,7 +16,7 @@ impl SimplePluginCommand for FromVcf {
         "from vcf"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .vcf and create table."
     }
 

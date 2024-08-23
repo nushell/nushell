@@ -25,7 +25,9 @@ pub fn get_full_help(
     // execution.
     let stack = &mut stack.start_capture();
 
-    let signature = command.signature().update_from_command(command);
+    let signature = engine_state
+        .get_signature(command)
+        .update_from_command(command);
 
     get_documentation(
         &signature,
@@ -76,15 +78,15 @@ fn get_documentation(
     let cmd_name = &sig.name;
     let mut long_desc = String::new();
 
-    let usage = &sig.usage;
-    if !usage.is_empty() {
-        long_desc.push_str(usage);
+    let desc = &sig.description;
+    if !desc.is_empty() {
+        long_desc.push_str(desc);
         long_desc.push_str("\n\n");
     }
 
-    let extra_usage = &sig.extra_usage;
-    if !extra_usage.is_empty() {
-        long_desc.push_str(extra_usage);
+    let extra_desc = &sig.extra_description;
+    if !extra_desc.is_empty() {
+        long_desc.push_str(extra_desc);
         long_desc.push_str("\n\n");
     }
 
@@ -118,7 +120,7 @@ fn get_documentation(
         {
             subcommands.push(format!(
                 "  {help_subcolor_one}{}{RESET} - {}",
-                sig.name, sig.usage
+                sig.name, sig.description
             ));
         }
     }

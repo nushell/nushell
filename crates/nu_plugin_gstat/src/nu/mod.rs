@@ -21,7 +21,7 @@ impl SimplePluginCommand for GStat {
         "gstat"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the git status of a repo"
     }
 

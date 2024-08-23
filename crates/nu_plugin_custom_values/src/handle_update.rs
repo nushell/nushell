@@ -29,7 +29,7 @@ impl SimplePluginCommand for HandleUpdate {
             )
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Update the value in a handle and return a new handle with the result"
     }
 

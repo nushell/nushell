@@ -31,7 +31,7 @@ impl Command for IntoValue {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Infer nushell datatype for each cell."
     }
 

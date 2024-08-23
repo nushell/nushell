@@ -1,3 +1,4 @@
+mod file_type;
 mod nu_dataframe;
 mod nu_expression;
 mod nu_lazyframe;
@@ -8,6 +9,7 @@ pub mod utils;
 
 use std::{cmp::Ordering, fmt};
 
+pub use file_type::PolarsFileType;
 pub use nu_dataframe::{Axis, Column, NuDataFrame, NuDataFrameCustomValue};
 pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
@@ -123,6 +125,20 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuPolarsTestData(id, s) => {
                 Value::string(format!("{id}:{s}"), Span::test_data())
             }
+        }
+    }
+
+    pub fn dataframe(&self) -> Option<&NuDataFrame> {
+        match self {
+            PolarsPluginObject::NuDataFrame(df) => Some(df),
+            _ => None,
+        }
+    }
+
+    pub fn lazyframe(&self) -> Option<&NuLazyFrame> {
+        match self {
+            PolarsPluginObject::NuLazyFrame(lf) => Some(lf),
+            _ => None,
         }
     }
 }

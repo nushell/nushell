@@ -18,7 +18,7 @@ impl PluginCommand for ToLowerCase {
         "polars lowercase"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Lowercase the strings in the column."
     }
 

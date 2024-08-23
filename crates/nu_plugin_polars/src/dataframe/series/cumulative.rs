@@ -51,7 +51,7 @@ impl PluginCommand for Cumulative {
         "polars cumulative"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Cumulative calculation for a series."
     }
 

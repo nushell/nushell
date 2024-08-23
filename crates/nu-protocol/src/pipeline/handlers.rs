@@ -1,10 +1,10 @@
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 
-use crate::{engine::Sequence, ShellError};
+use crate::{engine::Sequence, ShellError, SignalAction};
 
 /// Handler is a closure that can be sent across threads and shared.
-pub type Handler = Box<dyn Fn() + Send + Sync>;
+pub type Handler = Box<dyn Fn(SignalAction) + Send + Sync>;
 
 /// Manages a collection of handlers.
 #[derive(Clone)]
@@ -23,16 +23,16 @@ impl Debug for Handlers {
     }
 }
 
-/// Guard that unregisters a handler when dropped.
+/// HandlerGuard that unregisters a handler when dropped.
 #[derive(Clone)]
-pub struct Guard {
+pub struct HandlerGuard {
     /// Unique ID of the handler.
     id: usize,
     /// Reference to the handlers list.
     handlers: Arc<Mutex<Vec<(usize, Handler)>>>,
 }
 
-impl Drop for Guard {
+impl Drop for HandlerGuard {
     /// Drops the `Guard`, removing the associated handler from the list.
     fn drop(&mut self) {
         if let Ok(mut handlers) = self.handlers.lock() {
@@ -41,7 +41,7 @@ impl Drop for Guard {
     }
 }
 
-impl Debug for Guard {
+impl Debug for HandlerGuard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Guard").field("id", &self.id).finish()
     }
@@ -56,23 +56,23 @@ impl Handlers {
 
     /// Registers a new handler and returns an RAII guard which will unregister the handler when
     /// dropped.
-    pub fn register(&self, handler: Handler) -> Result<Guard, ShellError> {
+    pub fn register(&self, handler: Handler) -> Result<HandlerGuard, ShellError> {
         let id = self.next_id.next()?;
         if let Ok(mut handlers) = self.handlers.lock() {
             handlers.push((id, handler));
         }
 
-        Ok(Guard {
+        Ok(HandlerGuard {
             id,
             handlers: Arc::clone(&self.handlers),
         })
     }
 
     /// Runs all registered handlers.
-    pub fn run(&self) {
+    pub fn run(&self, action: SignalAction) {
         if let Ok(handlers) = self.handlers.lock() {
             for (_, handler) in handlers.iter() {
-                handler();
+                handler(action);
             }
         }
     }
@@ -99,14 +99,14 @@ mod tests {
         let called1_clone = Arc::clone(&called1);
         let called2_clone = Arc::clone(&called2);
 
-        let _guard1 = handlers.register(Box::new(move || {
+        let _guard1 = handlers.register(Box::new(move |_| {
             called1_clone.store(true, Ordering::SeqCst);
         }));
-        let _guard2 = handlers.register(Box::new(move || {
+        let _guard2 = handlers.register(Box::new(move |_| {
             called2_clone.store(true, Ordering::SeqCst);
         }));
 
-        handlers.run();
+        handlers.run(SignalAction::Interrupt);
 
         assert!(called1.load(Ordering::SeqCst));
         assert!(called2.load(Ordering::SeqCst));
@@ -119,7 +119,7 @@ mod tests {
         let called = Arc::new(AtomicBool::new(false));
         let called_clone = Arc::clone(&called);
 
-        let guard = handlers.register(Box::new(move || {
+        let guard = handlers.register(Box::new(move |_| {
             called_clone.store(true, Ordering::Relaxed);
         }));
 
@@ -131,7 +131,7 @@ mod tests {
         // Ensure the handler is removed after dropping the guard
         assert_eq!(handlers.handlers.lock().unwrap().len(), 0);
 
-        handlers.run();
+        handlers.run(SignalAction::Interrupt);
 
         // Ensure the handler is not called after being dropped
         assert!(!called.load(Ordering::Relaxed));

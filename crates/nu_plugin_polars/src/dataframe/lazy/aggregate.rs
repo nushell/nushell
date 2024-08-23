@@ -21,7 +21,7 @@ impl PluginCommand for LazyAggregate {
         "polars agg"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Performs a series of aggregations from a group-by."
     }
 

@@ -73,11 +73,11 @@ def get-all-operators [] { return [
 ]}
 
 def "nu-complete list-aliases" [] {
-    scope aliases | select name usage | rename value description
+    scope aliases | select name description | rename value description
 }
 
 def "nu-complete list-modules" [] {
-    scope modules | select name usage | rename value description
+    scope modules | select name description | rename value description
 }
 
 def "nu-complete list-operators" [] {
@@ -90,7 +90,7 @@ def "nu-complete list-operators" [] {
 }
 
 def "nu-complete list-commands" [] {
-    scope commands | select name usage | rename value description
+    scope commands | select name description | rename value description
 }
 
 def "nu-complete main-help" [] {
@@ -106,7 +106,7 @@ def "nu-complete main-help" [] {
 }
 
 def "nu-complete list-externs" [] {
-    scope commands | where is_extern | select name usage | rename value description
+    scope commands | where is_extern | select name description | rename value description
 }
 
 def build-help-header [
@@ -123,8 +123,8 @@ def build-help-header [
 }
 
 def build-module-page [module: record] {
-    let usage = (if not ($module.usage? | is-empty) {[
-        $module.usage
+    let description = (if not ($module.description? | is-empty) {[
+        $module.description
         ""
     ]} else { [] })
 
@@ -157,7 +157,7 @@ def build-module-page [module: record] {
         (view source $module.env_block)
     ]})
 
-    [$usage $name $commands $aliases $env_block] | flatten | str join "\n"
+    [$description $name $commands $aliases $env_block] | flatten | str join "\n"
 }
 
 # Show help on nushell modules.
@@ -203,7 +203,7 @@ def build-module-page [module: record] {
 #     show all aliases
 #     > help modules
 #     ╭───┬──────┬──────────┬────────────────┬──────────────┬───────────────╮
-#     │ # │ name │ commands │    aliases     │  env_block   │     usage     │
+#     │ # │ name │ commands │    aliases     │  env_block   │  description  │
 #     ├───┼──────┼──────────┼────────────────┼──────────────┼───────────────┤
 #     │ 0 │ bar  │ [baz]    │ [list 0 items] │ <Block 1331> │ my bar module │
 #     │ 1 │ baz  │ [bar]    │ [list 0 items] │ <Block 1335> │ my baz module │
@@ -213,7 +213,7 @@ def build-module-page [module: record] {
 #     search for string in module names
 #     > help modules --find ba
 #     ╭───┬──────┬─────────────┬────────────────┬──────────────┬───────────────╮
-#     │ # │ name │  commands   │    aliases     │  env_block   │     usage     │
+#     │ # │ name │  commands   │    aliases     │  env_block   │  description  │
 #     ├───┼──────┼─────────────┼────────────────┼──────────────┼───────────────┤
 #     │ 0 │ bar  │ ╭───┬─────╮ │ [list 0 items] │ <Block 1331> │ my bar module │
 #     │   │      │ │ 0 │ baz │ │                │              │               │
@@ -253,7 +253,7 @@ export def modules [
     let modules = (scope modules)
 
     if not ($find | is-empty) {
-        $modules | find $find --columns [name usage]
+        $modules | find $find --columns [name description]
     } else if not ($module | is-empty) {
         let found_module = ($modules | where name == ($module | str join " "))
 
@@ -268,8 +268,8 @@ export def modules [
 }
 
 def build-alias-page [alias: record] {
-    let usage = (if not ($alias.usage? | is-empty) {[
-        $alias.usage
+    let description = (if not ($alias.description? | is-empty) {[
+        $alias.description
         ""
     ]} else { [] })
 
@@ -281,7 +281,7 @@ def build-alias-page [alias: record] {
         $"  ($alias.expansion)"
     ]
 
-    [$usage $rest] | flatten | str join "\n"
+    [$description $rest] | flatten | str join "\n"
 }
 
 # Show help on nushell aliases.
@@ -309,7 +309,7 @@ def build-alias-page [alias: record] {
 #     show all aliases
 #     > help aliases
 #     ╭───┬───────┬────────────────────┬───────────────────╮
-#     │ # │ name  │     expansion      │       usage       │
+#     │ # │ name  │     expansion      │    description    │
 #     ├───┼───────┼────────────────────┼───────────────────┤
 #     │ 0 │ bar   │ echo "this is bar" │ my bar alias      │
 #     │ 1 │ baz   │ echo "this is baz" │ my baz alias      │
@@ -324,7 +324,7 @@ def build-alias-page [alias: record] {
 #     search for string in alias names
 #     > help aliases --find ba
 #     ╭───┬──────┬────────────────────┬──────────────╮
-#     │ # │ name │     expansion      │    usage     │
+#     │ # │ name │     expansion      │ description  │
 #     ├───┼──────┼────────────────────┼──────────────┤
 #     │ 0 │ bar  │ echo "this is bar" │ my bar alias │
 #     │ 1 │ baz  │ echo "this is baz" │ my baz alias │
@@ -359,7 +359,7 @@ export def aliases [
     let aliases = (scope aliases | sort-by name)
 
     if not ($find | is-empty) {
-        $aliases | find $find --columns [name usage]
+        $aliases | find $find --columns [name description]
     } else if not ($alias | is-empty) {
         let found_alias = ($aliases | where name == ($alias | str join " "))
 
@@ -374,8 +374,8 @@ export def aliases [
 }
 
 def build-extern-page [extern: record] {
-    let usage = (if not ($extern.usage? | is-empty) {[
-        $extern.usage
+    let description = (if not ($extern.description? | is-empty) {[
+        $extern.description
         ""
     ]} else { [] })
 
@@ -384,7 +384,7 @@ def build-extern-page [extern: record] {
         $" ($extern.name)"
     ]
 
-    [$usage $rest] | flatten | str join "\n"
+    [$description $rest] | flatten | str join "\n"
 }
 
 # Show help on nushell externs.
@@ -395,13 +395,13 @@ export def externs [
     let externs = (
         scope commands
         | where is_extern
-        | select name module_name usage
+        | select name module_name description
         | sort-by name
         | str trim
     )
 
     if not ($find | is-empty) {
-        $externs | find $find --columns [name usage]
+        $externs | find $find --columns [name description]
     } else if not ($extern | is-empty) {
         let found_extern = ($externs | where name == ($extern | str join " "))
 
@@ -482,12 +482,12 @@ export def operators [
 }
 
 def build-command-page [command: record] {
-    let usage = (if not ($command.usage? | is-empty) {[
-        $command.usage
+    let description = (if not ($command.description? | is-empty) {[
+        $command.description
     ]} else { [] })
-    let extra_usage = (if not ($command.extra_usage? | is-empty) {[
+    let extra_description = (if not ($command.extra_description? | is-empty) {[
         ""
-        $command.extra_usage
+        $command.extra_description
     ]} else { [] })
 
     let search_terms = (if not ($command.search_terms? | is-empty) {[
@@ -568,11 +568,11 @@ def build-command-page [command: record] {
         ]
     } else { [] })
 
-    let subcommands = (scope commands | where name =~ $"^($command.name) " | select name usage)
+    let subcommands = (scope commands | where name =~ $"^($command.name) " | select name description)
     let subcommands = (if not ($subcommands | is-empty) {[
         (build-help-header "Subcommands")
         ($subcommands | each {|subcommand |
-            $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.usage)"
+            $"  (ansi teal)($subcommand.name)(ansi reset) - ($subcommand.description)"
         } | str join "\n")
     ]} else { [] })
 
@@ -671,8 +671,8 @@ def build-command-page [command: record] {
     ] | flatten} else { [] })
 
     [
-        $usage
-        $extra_usage
+        $description
+        $extra_description
         $search_terms
         $module
         $category
@@ -687,13 +687,13 @@ def build-command-page [command: record] {
 # Show help on commands.
 export def commands [
     ...command: string@"nu-complete list-commands"  # the name of command to get help on
-    --find (-f): string  # string to find in command names and usage
+    --find (-f): string  # string to find in command names and description
 ] {
     let commands = (scope commands | sort-by name)
 
     if not ($find | is-empty) {
         # TODO: impl find for external commands
-        $commands | find $find --columns [name usage search_terms] | select name category usage signatures search_terms
+        $commands | find $find --columns [name description search_terms] | select name category description signatures search_terms
     } else if not ($command | is-empty) {
         let target_command = ($command | str join " ")
         let found_command = ($commands | where name == $target_command)
@@ -709,7 +709,7 @@ export def commands [
 
         build-command-page ($found_command | get 0)
     } else {
-        $commands | select name category usage signatures search_terms
+        $commands | select name category description signatures search_terms
     }
 }
 
@@ -729,11 +729,11 @@ def pretty-cmd [] {
 #   show help for single sub-command, alias, or module
 #   > help str join
 #
-#   search for string in command names, usage and search terms
+#   search for string in command names, description and search terms
 #   > help --find char
 export def main [
     ...item: string@"nu-complete main-help"  # the name of the help item to get help on
-    --find (-f): string  # string to find in help items names and usage
+    --find (-f): string  # string to find in help items names and description
 ] {
     if ($item | is-empty) and ($find | is-empty) {
         print $"Welcome to Nushell.

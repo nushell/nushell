@@ -23,7 +23,7 @@ impl PluginCommand for UnpivotDF {
         "polars unpivot"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Unpivot a DataFrame from wide to long format."
     }
 

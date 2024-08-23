@@ -6,12 +6,14 @@ use crate::{error::DeriveError, HELPER_ATTRIBUTE};
 #[derive(Debug)]
 pub struct ContainerAttributes {
     pub rename_all: Case,
+    pub type_name: Option<String>,
 }
 
 impl Default for ContainerAttributes {
     fn default() -> Self {
         Self {
             rename_all: Case::Snake,
+            type_name: None,
         }
     }
 }
@@ -58,6 +60,11 @@ impl ContainerAttributes {
                             }
                         };
                         container_attrs.rename_all = case;
+                    }
+                    "type_name" => {
+                        let type_name: LitStr = meta.value()?.parse()?;
+                        let type_name = type_name.value();
+                        container_attrs.type_name = Some(type_name);
                     }
                     ident => {
                         err = Err(DeriveError::UnexpectedAttribute {

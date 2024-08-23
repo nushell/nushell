@@ -1,13 +1,14 @@
 use crate::{
     ast::{CellPath, PathMember},
     engine::Closure,
-    NuGlob, Range, Record, ShellError, Spanned, Type, Value,
+    NuGlob, Range, Record, ShellError, Span, Spanned, Type, Value,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
     any,
     cmp::Ordering,
     collections::{HashMap, VecDeque},
+    fmt,
     path::PathBuf,
     str::FromStr,
 };
@@ -33,10 +34,14 @@ use std::{
 /// [`#[serde(rename_all = "...")]`](https://serde.rs/container-attrs.html#rename_all) are valid
 /// here.
 ///
+/// Additionally, you can use `#[nu_value(type_name = "...")]` in the derive macro to set a custom type name
+/// for `FromValue::expected_type`. This will result in a `Type::Custom` with the specified type name.
+/// This can be useful in situations where the default type name is not desired.
+///
 /// ```
 /// # use nu_protocol::{FromValue, Value, ShellError};
 /// #[derive(FromValue, Debug, PartialEq)]
-/// #[nu_value(rename_all = "COBOL-CASE")]
+/// #[nu_value(rename_all = "COBOL-CASE", type_name = "birb")]
 /// enum Bird {
 ///     MountainEagle,
 ///     ForestOwl,
@@ -46,6 +51,11 @@ use std::{
 /// assert_eq!(
 ///     Bird::from_value(Value::test_string("RIVER-DUCK")).unwrap(),
 ///     Bird::RiverDuck
+/// );
+///
+/// assert_eq!(
+///     &Bird::expected_type().to_string(),
+///     "birb"
 /// );
 /// ```
 pub trait FromValue: Sized {
@@ -221,20 +231,8 @@ macro_rules! impl_from_value_for_int {
                         "int should be within the valid range for {}",
                         stringify!($type)
                     ),
-                    i64::MIN..=MIN => ShellError::GenericError {
-                        error: "Integer too small".to_string(),
-                        msg: format!("{int} is smaller than {}", <$type>::MIN),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    },
-                    MAX..=i64::MAX => ShellError::GenericError {
-                        error: "Integer too large".to_string(),
-                        msg: format!("{int} is larger than {}", <$type>::MAX),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    },
+                    i64::MIN..=MIN => int_too_small_error(int, <$type>::MIN, span),
+                    MAX..=i64::MAX => int_too_large_error(int, <$type>::MAX, span),
                 })
             }
 
@@ -417,14 +415,31 @@ impl FromValue for String {
     }
 }
 
-// This impl is different from Vec<T> as it reads from Value::Binary and
-// Value::String instead of Value::List.
-// This also denies implementing FromValue for u8.
+// This impl is different from Vec<T> as it allows reading from Value::Binary and Value::String too.
+// This also denies implementing FromValue for u8 as it would be in conflict with the Vec<T> impl.
 impl FromValue for Vec<u8> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Binary { val, .. } => Ok(val),
             Value::String { val, .. } => Ok(val.into_bytes()),
+            Value::List { vals, .. } => {
+                const U8MIN: i64 = u8::MIN as i64;
+                const U8MAX: i64 = u8::MAX as i64;
+                let mut this = Vec::with_capacity(vals.len());
+                for val in vals {
+                    let span = val.span();
+                    let int = i64::from_value(val)?;
+                    // calculating -1 on these ranges would be less readable
+                    #[allow(overlapping_range_endpoints)]
+                    #[allow(clippy::match_overlapping_arm)]
+                    match int {
+                        U8MIN..=U8MAX => this.push(int as u8),
+                        i64::MIN..=U8MIN => return Err(int_too_small_error(int, U8MIN, span)),
+                        U8MAX..=i64::MAX => return Err(int_too_large_error(int, U8MAX, span)),
+                    };
+                }
+                Ok(this)
+            }
             v => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),
@@ -664,9 +679,51 @@ where
     }
 }
 
+// Foreign Types
+
+impl FromValue for bytes::Bytes {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::Binary { val, .. } => Ok(val.into()),
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::Binary
+    }
+}
+
+// Use generics with `fmt::Display` to allow passing different kinds of integer
+fn int_too_small_error(int: impl fmt::Display, min: impl fmt::Display, span: Span) -> ShellError {
+    ShellError::GenericError {
+        error: "Integer too small".to_string(),
+        msg: format!("{int} is smaller than {min}"),
+        span: Some(span),
+        help: None,
+        inner: vec![],
+    }
+}
+
+fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Span) -> ShellError {
+    ShellError::GenericError {
+        error: "Integer too large".to_string(),
+        msg: format!("{int} is larger than {max}"),
+        span: Some(span),
+        help: None,
+        inner: vec![],
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{engine::Closure, FromValue, Record, Type};
+    use crate::{engine::Closure, FromValue, IntoValue, Record, Span, Type, Value};
+    use std::ops::Deref;
 
     #[test]
     fn expected_type_default_impl() {
@@ -679,5 +736,35 @@ mod tests {
             Closure::expected_type(),
             Type::Custom("Closure".to_string().into_boxed_str())
         );
+    }
+
+    #[test]
+    fn from_value_vec_u8() {
+        let vec: Vec<u8> = vec![1, 2, 3];
+        let span = Span::test_data();
+        let string = "Hello Vec<u8>!".to_string();
+
+        assert_eq!(
+            Vec::<u8>::from_value(vec.clone().into_value(span)).unwrap(),
+            vec.clone(),
+            "Vec<u8> roundtrip"
+        );
+
+        assert_eq!(
+            Vec::<u8>::from_value(Value::test_string(string.clone()))
+                .unwrap()
+                .deref(),
+            string.as_bytes(),
+            "Vec<u8> from String"
+        );
+
+        assert_eq!(
+            Vec::<u8>::from_value(Value::test_binary(vec.clone())).unwrap(),
+            vec,
+            "Vec<u8> from Binary"
+        );
+
+        assert!(Vec::<u8>::from_value(vec![u8::MIN as i32 - 1].into_value(span)).is_err());
+        assert!(Vec::<u8>::from_value(vec![u8::MAX as i32 + 1].into_value(span)).is_err());
     }
 }

@@ -25,7 +25,7 @@ impl Command for Rm {
         "rm"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Remove files and directories."
     }
 

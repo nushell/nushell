@@ -12,7 +12,7 @@ impl SimplePluginCommand for QueryWebpageInfo {
         "query webpage-info"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "uses the webpage crate to extract info from html: title, description, language, links, RSS feeds, Opengraph, Schema.org, and more"
     }
 

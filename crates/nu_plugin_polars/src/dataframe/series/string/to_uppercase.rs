@@ -18,7 +18,7 @@ impl PluginCommand for ToUpperCase {
         "polars uppercase"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Uppercase the strings in the column."
     }
 

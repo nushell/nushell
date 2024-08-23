@@ -18,7 +18,7 @@ impl Command for SubCommand {
             .category(Category::Random)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Generate random bytes."
     }
 
@@ -45,7 +45,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Generate 16 random bytes",
-            example: "random bytes 16",
+            example: "random binary 16",
             result: None,
         }]
     }

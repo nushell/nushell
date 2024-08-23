@@ -15,7 +15,7 @@ impl PluginCommand for ListDF {
         "polars store-ls"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Lists stored polars objects."
     }
 

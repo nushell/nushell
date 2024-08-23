@@ -25,11 +25,11 @@ impl Command for Collect {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Collect a stream into a value."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"If provided, run a closure with the collected value as input.
 
 The entire stream will be collected into one value in memory, so if the stream

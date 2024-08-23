@@ -28,7 +28,7 @@ impl Command for ToJson {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts table data into JSON text."
     }
 

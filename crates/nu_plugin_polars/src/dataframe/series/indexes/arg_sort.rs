@@ -18,7 +18,7 @@ impl PluginCommand for ArgSort {
         "polars arg-sort"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns indexes for a sorted series."
     }
 

@@ -12,7 +12,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     ast::Operator, engine::Sequence, CustomValue, IntoSpanned, PipelineData, PluginMetadata,
-    PluginSignature, ShellError, Signals, Span, Spanned, Value,
+    PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -664,9 +664,9 @@ impl PluginInterface {
         self.flush()
     }
 
-    /// Send the plugin a ctrl-c signal.
-    pub fn ctrlc(&self) -> Result<(), ShellError> {
-        self.write(PluginInput::Ctrlc)?;
+    /// Send the plugin a signal.
+    pub fn signal(&self, action: SignalAction) -> Result<(), ShellError> {
+        self.write(PluginInput::Signal(action))?;
         self.flush()
     }
 

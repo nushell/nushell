@@ -127,6 +127,15 @@ fn command_not_found_error_suggests_typo_fix() {
     assert!(actual.err.contains("timeit"));
 }
 
+#[cfg(not(windows))]
+#[test]
+fn command_not_found_error_recognizes_non_executable_file() {
+    let actual = nu!("./Cargo.toml");
+    assert!(actual.err.contains(
+        "refers to a file that is not executable. Did you forget to to set execute permissions?"
+    ));
+}
+
 #[test]
 fn command_not_found_error_shows_not_found_1() {
     let actual = nu!(r#"
