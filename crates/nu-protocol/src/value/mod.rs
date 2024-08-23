@@ -3317,7 +3317,18 @@ impl Value {
     pub fn bit_shl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs << rhs, span))
+                // Currently we disallow negative operands like Rust's `Shl`
+                // Cheap guarding with TryInto<u32>
+                if let Some(val) = (*rhs).try_into().ok().and_then(|rhs| lhs.checked_shl(rhs)) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "right operand to bit-shl exceeds available bits in underlying data"
+                            .into(),
+                        span,
+                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                    })
+                }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
@@ -3335,7 +3346,18 @@ impl Value {
     pub fn bit_shr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::int(*lhs >> rhs, span))
+                // Currently we disallow negative operands like Rust's `Shr`
+                // Cheap guarding with TryInto<u32>
+                if let Some(val) = (*rhs).try_into().ok().and_then(|rhs| lhs.checked_shr(rhs)) {
+                    Ok(Value::int(val, span))
+                } else {
+                    Err(ShellError::OperatorOverflow {
+                        msg: "right operand to bit-shr exceeds available bits in underlying data"
+                            .into(),
+                        span,
+                        help: format!("Limit operand to 0 <= rhs < {}", i64::BITS),
+                    })
+                }
             }
             (Value::Custom { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)

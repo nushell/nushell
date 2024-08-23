@@ -1,4 +1,5 @@
 use crate::{record, FromValue, IntoValue, Record, Span, Value};
+use bytes::Bytes;
 use std::collections::HashMap;
 
 // Make nu_protocol available in this namespace, consumers of this crate will
@@ -439,6 +440,59 @@ enum_rename_all! {
     Train: "Train-Case" => ["Alpha-One", "Beta-Two", "Charlie-Three"],
     Flat: "flatcase" => ["alphaone", "betatwo", "charliethree"],
     UpperFlat: "UPPERFLATCASE" => ["ALPHAONE", "BETATWO", "CHARLIETHREE"]
+}
+
+#[derive(IntoValue, FromValue, Debug, PartialEq)]
+struct ByteContainer {
+    vec: Vec<u8>,
+    bytes: Bytes,
+}
+
+impl ByteContainer {
+    fn make() -> Self {
+        ByteContainer {
+            vec: vec![1, 2, 3],
+            bytes: Bytes::from_static(&[4, 5, 6]),
+        }
+    }
+
+    fn value() -> Value {
+        Value::test_record(record! {
+            "vec" => Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_int(2),
+                Value::test_int(3),
+            ]),
+            "bytes" => Value::test_binary(vec![4, 5, 6]),
+        })
+    }
+}
+
+#[test]
+fn bytes_into_value() {
+    let expected = ByteContainer::value();
+    let actual = ByteContainer::make().into_test_value();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn bytes_from_value() {
+    let expected = ByteContainer::make();
+    let actual = ByteContainer::from_value(ByteContainer::value()).unwrap();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn bytes_roundtrip() {
+    let expected = ByteContainer::make();
+    let actual = ByteContainer::from_value(ByteContainer::make().into_test_value()).unwrap();
+    assert_eq!(expected, actual);
+
+    let expected = ByteContainer::value();
+    let actual = ByteContainer::from_value(ByteContainer::value())
+        .unwrap()
+        .into_test_value();
+    assert_eq!(expected, actual);
 }
 
 #[test]

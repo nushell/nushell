@@ -33,11 +33,11 @@ impl Command for Upsert {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Update an existing column to have a new value, or insert a new column."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "When updating or inserting a column, the closure will be run for each row, and the current row will be passed as the first argument. \
 Referencing `$in` inside the closure will provide the value at the column for the current row or null if the column does not exist.
 

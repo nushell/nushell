@@ -12,7 +12,7 @@ impl Command for Metadata {
         "metadata"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the metadata for items in the stream."
     }
 

@@ -45,7 +45,7 @@ impl PluginCommand for OpenDataFrame {
         "polars open"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Opens CSV, JSON, NDJSON/JSON lines, arrow, avro, or parquet file to create dataframe. A lazy dataframe will be created by default, if supported."
     }
 

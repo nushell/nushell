@@ -15,7 +15,7 @@ impl PluginCommand for Lowercase {
         "lowercase"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert each string in a stream to lowercase"
     }
 

@@ -21,7 +21,7 @@ impl PluginCommand for GetSecond {
         "polars get-second"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets second from date."
     }
 

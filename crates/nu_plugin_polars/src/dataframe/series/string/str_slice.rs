@@ -22,7 +22,7 @@ impl PluginCommand for StrSlice {
         "polars str-slice"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Slices the string from the start position until the selected length."
     }
 

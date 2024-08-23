@@ -23,7 +23,7 @@ impl PluginCommand for FilterWith {
         "polars filter-with"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Filters dataframe using a mask or expression as reference."
     }
 

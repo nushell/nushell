@@ -51,7 +51,7 @@ impl Command for Touch {
             .category(Category::FileSystem)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates one or more files."
     }
 

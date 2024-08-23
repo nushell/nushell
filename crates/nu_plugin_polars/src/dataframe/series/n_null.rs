@@ -17,7 +17,7 @@ impl PluginCommand for NNull {
         "polars count-null"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Counts null values."
     }
 

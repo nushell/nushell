@@ -10,7 +10,7 @@ impl Command for HelpAliases {
         "help aliases"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show help on nushell aliases."
     }
 
@@ -25,7 +25,7 @@ impl Command for HelpAliases {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in alias names and usage",
+                "string to find in alias names and descriptions",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -45,7 +45,7 @@ impl Command for HelpAliases {
                 result: None,
             },
             Example {
-                description: "search for string in alias names and usages",
+                description: "search for string in alias names and descriptions",
                 example: "help aliases --find my-alias",
                 result: None,
             },
@@ -86,7 +86,7 @@ pub fn help_aliases(
         let found_cmds_vec = highlight_search_in_table(
             all_cmds_vec,
             &f.item,
-            &["name", "usage"],
+            &["name", "description"],
             &string_style,
             &highlight_style,
         )?;
@@ -121,8 +121,8 @@ pub fn help_aliases(
 
         let alias_expansion =
             String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
-        let usage = alias.usage();
-        let extra_usage = alias.extra_usage();
+        let description = alias.description();
+        let extra_desc = alias.extra_description();
 
         // TODO: merge this into documentation.rs at some point
         const G: &str = "\x1b[32m"; // green
@@ -131,11 +131,11 @@ pub fn help_aliases(
 
         let mut long_desc = String::new();
 
-        long_desc.push_str(usage);
+        long_desc.push_str(description);
         long_desc.push_str("\n\n");
 
-        if !extra_usage.is_empty() {
-            long_desc.push_str(extra_usage);
+        if !extra_desc.is_empty() {
+            long_desc.push_str(extra_desc);
             long_desc.push_str("\n\n");
         }
 

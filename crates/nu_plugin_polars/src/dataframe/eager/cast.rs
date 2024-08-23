@@ -22,7 +22,7 @@ impl PluginCommand for CastDF {
         "polars cast"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Cast a column to a different dtype."
     }
 

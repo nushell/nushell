@@ -22,7 +22,7 @@ impl PluginCommand for ToNu {
         "polars into-nu"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts a dataframe or an expression into nushell value for access and exploration."
     }
 

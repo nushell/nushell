@@ -17,7 +17,7 @@ impl PluginCommand for LazyFetch {
         "polars fetch"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Collects the lazyframe to the selected rows."
     }
 

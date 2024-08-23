@@ -20,11 +20,11 @@ impl PluginCommand for AsDateTime {
         "polars as-datetime"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         r#"Converts string to datetime."#
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Format example:
         "%y/%m/%d %H:%M:%S"  => 21/12/31 12:54:98
         "%y-%m-%d %H:%M:%S"  => 2021-12-31 24:58:01

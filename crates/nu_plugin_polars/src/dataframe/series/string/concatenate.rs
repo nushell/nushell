@@ -19,7 +19,7 @@ impl PluginCommand for Concatenate {
         "polars concatenate"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Concatenates strings with other array."
     }
 

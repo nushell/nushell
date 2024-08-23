@@ -22,7 +22,7 @@ impl Command for ConfigReset {
             .category(Category::Env)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Reset nushell environment configurations to default, and saves old config files in the config location as oldconfig.nu and oldenv.nu."
     }
 

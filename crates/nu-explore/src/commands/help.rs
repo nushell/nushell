@@ -91,7 +91,7 @@ impl ViewCommand for HelpCmd {
         Self::NAME
     }
 
-    fn usage(&self) -> &'static str {
+    fn description(&self) -> &'static str {
         ""
     }
 

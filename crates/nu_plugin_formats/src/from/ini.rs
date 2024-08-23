@@ -14,7 +14,7 @@ impl SimplePluginCommand for FromIni {
         "from ini"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .ini and create table."
     }
 

@@ -19,7 +19,7 @@ impl PluginCommand for ReplaceAll {
         "polars replace-all"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Replace all (sub)strings by a regex pattern."
     }
 

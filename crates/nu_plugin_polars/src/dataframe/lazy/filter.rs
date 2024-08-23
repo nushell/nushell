@@ -20,7 +20,7 @@ impl PluginCommand for LazyFilter {
         "polars filter"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Filter dataframe based in expression."
     }
 

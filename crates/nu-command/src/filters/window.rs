@@ -31,11 +31,11 @@ impl Command for Window {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a sliding window of `window_size` that slide by n rows/elements across input."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "This command will error if `window_size` or `stride` are negative or zero."
     }
 

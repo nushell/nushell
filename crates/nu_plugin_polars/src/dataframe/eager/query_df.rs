@@ -24,7 +24,7 @@ impl PluginCommand for QueryDf {
         "polars query"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Query dataframe using SQL. Note: The dataframe is always named 'df' in your query's from clause."
     }
 

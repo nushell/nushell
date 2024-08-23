@@ -9,7 +9,7 @@ impl Command for Continue {
         "continue"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Continue a loop from the next iteration."
     }
 
@@ -19,7 +19,7 @@ impl Command for Continue {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html
 

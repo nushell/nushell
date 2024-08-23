@@ -28,7 +28,7 @@ impl Command for Watch {
         "watch"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Watch for file changes and execute Nu code when they happen."
     }
 

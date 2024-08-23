@@ -18,11 +18,11 @@ impl Command for Open {
         "open"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "Support to automatically parse files with an extension `.xyz` can be provided by a `from xyz` command in scope."
     }
 

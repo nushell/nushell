@@ -54,7 +54,7 @@ impl Command for Cal {
             .category(Category::Generators)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Display a calendar."
     }
 

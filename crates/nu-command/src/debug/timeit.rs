@@ -9,7 +9,7 @@ impl Command for TimeIt {
         "timeit"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Time the running time of a block."
     }
 

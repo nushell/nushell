@@ -15,7 +15,7 @@ impl PluginCommand for ToLazyFrame {
         "polars into-lazy"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts a dataframe into a lazy dataframe."
     }
 

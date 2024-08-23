@@ -15,7 +15,7 @@ impl Command for Sleep {
         "sleep"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Delay for a specified amount of time."
     }
 

@@ -31,7 +31,7 @@ impl Command for ToNuon {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts table data into Nuon (Nushell Object Notation) text."
     }
 

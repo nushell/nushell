@@ -16,7 +16,7 @@ impl Command for ToToml {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert record into .toml text."
     }
 

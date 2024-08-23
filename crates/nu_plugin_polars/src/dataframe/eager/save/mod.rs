@@ -29,7 +29,7 @@ impl PluginCommand for SaveDF {
         "polars save"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Saves a dataframe to disk. For lazy dataframes a sink operation will be used if the file type supports it (parquet, ipc/arrow, csv, and ndjson)."
     }
 

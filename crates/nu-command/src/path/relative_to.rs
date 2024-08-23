@@ -35,11 +35,11 @@ impl Command for SubCommand {
             .category(Category::Path)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Express a path as relative to another path."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Can be used only when the input and the argument paths are either both
 absolute or both relative. The argument path needs to be a parent of the input
 path."#

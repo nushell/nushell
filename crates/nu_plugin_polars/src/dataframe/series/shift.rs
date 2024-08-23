@@ -24,7 +24,7 @@ impl PluginCommand for Shift {
         "polars shift"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Shifts the values by a given period."
     }
 

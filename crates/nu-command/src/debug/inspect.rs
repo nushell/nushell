@@ -10,7 +10,7 @@ impl Command for Inspect {
         "inspect"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Inspect pipeline results while running a pipeline."
     }
 

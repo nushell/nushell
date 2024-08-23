@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .category(Category::Math)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns the maximum of a list of values, or of columns in a table."
     }
 

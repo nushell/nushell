@@ -8,7 +8,7 @@ impl Command for Panic {
         "panic"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Executes a rust panic, useful only for testing."
     }
 

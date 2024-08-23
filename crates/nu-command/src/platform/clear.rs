@@ -15,7 +15,7 @@ impl Command for Clear {
         "clear"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Clear the terminal."
     }
 

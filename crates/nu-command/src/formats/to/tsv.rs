@@ -34,7 +34,7 @@ impl Command for ToTsv {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into .tsv text."
     }
 

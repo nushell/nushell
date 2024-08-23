@@ -12,10 +12,6 @@ impl Query {
     pub fn new() -> Self {
         Default::default()
     }
-
-    pub fn usage() -> &'static str {
-        "Usage: query"
-    }
 }
 
 impl Plugin for Query {
@@ -44,7 +40,7 @@ impl SimplePluginCommand for QueryCommand {
         "query"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show all the query commands"
     }
 

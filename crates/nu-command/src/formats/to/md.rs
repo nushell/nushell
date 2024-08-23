@@ -27,7 +27,7 @@ impl Command for ToMd {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into simple Markdown."
     }
 

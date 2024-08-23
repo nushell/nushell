@@ -22,7 +22,7 @@ impl PluginCommand for LazyQuantile {
         "polars quantile"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Aggregates the columns to the selected quantile."
     }
 

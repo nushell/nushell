@@ -11,7 +11,7 @@ impl Command for ParEach {
         "par-each"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Run a closure on each row of the input list in parallel, creating a new list with the results."
     }
 

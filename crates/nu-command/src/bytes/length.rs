@@ -29,7 +29,7 @@ impl Command for BytesLen {
             .category(Category::Bytes)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output the length of any bytes in the pipeline."
     }
 

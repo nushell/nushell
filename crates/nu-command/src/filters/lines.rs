@@ -8,7 +8,7 @@ impl Command for Lines {
         "lines"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts input to lines."
     }
 

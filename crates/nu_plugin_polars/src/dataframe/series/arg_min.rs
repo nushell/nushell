@@ -18,7 +18,7 @@ impl PluginCommand for ArgMin {
         "polars arg-min"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Return index for min value in series."
     }
 

@@ -38,7 +38,7 @@ impl Command for Ls {
         "ls"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "List the filenames, sizes, and modification times of items in a directory."
     }
 

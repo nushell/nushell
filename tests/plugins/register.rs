@@ -11,7 +11,7 @@ fn help() {
         );
 
         assert!(actual.out.contains("test example 1"));
-        assert!(actual.out.contains("Extra usage for example one"));
+        assert!(actual.out.contains("Extra description for example one"));
     })
 }
 

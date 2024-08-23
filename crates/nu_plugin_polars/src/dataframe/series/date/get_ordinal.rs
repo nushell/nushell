@@ -21,7 +21,7 @@ impl PluginCommand for GetOrdinal {
         "polars get-ordinal"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets ordinal from date."
     }
 

@@ -29,7 +29,7 @@ impl Command for StorDelete {
             .category(Category::Database)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Delete a table or specified rows in the in-memory sqlite database."
     }
 
