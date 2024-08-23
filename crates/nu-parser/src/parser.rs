@@ -949,7 +949,7 @@ pub fn parse_internal_call(
     let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
-    let signature = decl.signature();
+    let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
     // storing the var ID for later due to borrowing issues

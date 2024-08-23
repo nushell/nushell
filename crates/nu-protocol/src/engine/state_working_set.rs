@@ -5,7 +5,7 @@ use crate::{
         StateDelta, Variable, VirtualPath, Visibility,
     },
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError,
-    ParseWarning, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ParseWarning, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -707,6 +707,14 @@ impl<'a> StateWorkingSet<'a> {
                 .decls
                 .get_mut(decl_id - num_permanent_decls)
                 .expect("internal error: missing declaration")
+        }
+    }
+
+    pub fn get_signature(&self, decl: &dyn Command) -> Signature {
+        if let Some(block_id) = decl.block_id() {
+            *self.get_block(block_id).signature.clone()
+        } else {
+            decl.signature()
         }
     }
 
