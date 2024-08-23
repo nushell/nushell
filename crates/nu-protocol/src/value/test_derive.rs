@@ -494,3 +494,24 @@ fn bytes_roundtrip() {
         .into_test_value();
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn struct_type_name_attr() {
+    #[derive(FromValue, Debug)]
+    #[nu_value(type_name = "struct")]
+    struct TypeNameStruct;
+
+    assert_eq!(
+        TypeNameStruct::expected_type().to_string().as_str(),
+        "struct"
+    );
+}
+
+#[test]
+fn enum_type_name_attr() {
+    #[derive(FromValue, Debug)]
+    #[nu_value(type_name = "enum")]
+    struct TypeNameEnum;
+
+    assert_eq!(TypeNameEnum::expected_type().to_string().as_str(), "enum");
+}

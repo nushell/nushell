@@ -34,10 +34,14 @@ use std::{
 /// [`#[serde(rename_all = "...")]`](https://serde.rs/container-attrs.html#rename_all) are valid
 /// here.
 ///
+/// Additionally, you can use `#[nu_value(type_name = "...")]` in the derive macro to set a custom type name
+/// for `FromValue::expected_type`. This will result in a `Type::Custom` with the specified type name.
+/// This can be useful in situations where the default type name is not desired.
+///
 /// ```
 /// # use nu_protocol::{FromValue, Value, ShellError};
 /// #[derive(FromValue, Debug, PartialEq)]
-/// #[nu_value(rename_all = "COBOL-CASE")]
+/// #[nu_value(rename_all = "COBOL-CASE", type_name = "birb")]
 /// enum Bird {
 ///     MountainEagle,
 ///     ForestOwl,
@@ -47,6 +51,11 @@ use std::{
 /// assert_eq!(
 ///     Bird::from_value(Value::test_string("RIVER-DUCK")).unwrap(),
 ///     Bird::RiverDuck
+/// );
+///
+/// assert_eq!(
+///     &Bird::expected_type().to_string(),
+///     "birb"
 /// );
 /// ```
 pub trait FromValue: Sized {
