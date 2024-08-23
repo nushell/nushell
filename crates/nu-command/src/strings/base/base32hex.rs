@@ -20,11 +20,11 @@ impl Command for DecodeBase32Hex {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Encode a base32hex value."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         EXTRA_USAGE
     }
 
@@ -102,11 +102,11 @@ impl Command for EncodeBase32Hex {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Encode a binary value or a string using base32hex."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         EXTRA_USAGE
     }
 

@@ -50,11 +50,11 @@ impl Command for DecodeBase64 {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Decode a Base64 value."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         EXTRA_USAGE
     }
 
@@ -123,11 +123,11 @@ impl Command for EncodeBase64 {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Encode a string or binary value using Base64."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         EXTRA_USAGE
     }
 

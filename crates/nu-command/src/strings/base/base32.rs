@@ -22,11 +22,11 @@ impl Command for DecodeBase32 {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Decode a Base32 value."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         EXTRA_USAGE
     }
 
@@ -102,11 +102,11 @@ impl Command for EncodeBase32 {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Encode a string or binary value using Base32."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         EXTRA_USAGE
     }
 
