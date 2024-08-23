@@ -304,7 +304,7 @@ impl Command for Nu {
 
     fn signature(&self) -> Signature {
         let mut signature = Signature::build("nu")
-            .usage("The nushell language and shell.")
+            .description("The nushell language and shell.")
             .named(
                 "commands",
                 SyntaxShape::String,
@@ -467,7 +467,7 @@ impl Command for Nu {
         signature
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "The nushell language and shell."
     }
 

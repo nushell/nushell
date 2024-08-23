@@ -444,7 +444,15 @@ pub(crate) fn compile_expression(
                     working_set,
                     builder,
                     &full_cell_path.head,
-                    RedirectModes::capture_out(expr.span),
+                    // Only capture the output if there is a tail. This was a bit of a headscratcher
+                    // as the parser emits a FullCellPath with no tail for subexpressions in
+                    // general, which shouldn't be captured any differently than they otherwise
+                    // would be.
+                    if !full_cell_path.tail.is_empty() {
+                        RedirectModes::capture_out(expr.span)
+                    } else {
+                        redirect_modes
+                    },
                     in_reg,
                     out_reg,
                 )?;

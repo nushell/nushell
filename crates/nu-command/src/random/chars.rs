@@ -19,12 +19,17 @@ impl Command for SubCommand {
         Signature::build("random chars")
             .input_output_types(vec![(Type::Nothing, Type::String)])
             .allow_variants_without_examples(true)
-            .named("length", SyntaxShape::Int, "Number of chars", Some('l'))
+            .named(
+                "length",
+                SyntaxShape::Int,
+                "Number of chars (default 25)",
+                Some('l'),
+            )
             .category(Category::Random)
     }
 
-    fn usage(&self) -> &str {
-        "Generate random chars."
+    fn description(&self) -> &str {
+        "Generate random chars uniformly distributed over ASCII letters and numbers: a-z, A-Z and 0-9."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -44,7 +49,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Generate random chars",
+                description: "Generate a string with 25 random chars",
                 example: "random chars",
                 result: None,
             },

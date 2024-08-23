@@ -12,11 +12,11 @@ impl SimplePluginCommand for DisableGc {
         "example disable-gc"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Disable the plugin garbage collector for `example`"
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         "\
 Plugins are garbage collected by default after a period of inactivity. This
 behavior is configurable with `$env.config.plugin_gc.default`, or to change it

@@ -21,7 +21,7 @@ impl PluginCommand for GetDay {
         "polars get-day"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets day from date."
     }
 
@@ -58,7 +58,7 @@ impl PluginCommand for GetDay {
         command(plugin, engine, call, input).map_err(LabeledError::from)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         ""
     }
 

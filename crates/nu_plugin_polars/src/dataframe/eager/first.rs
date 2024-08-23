@@ -1,5 +1,5 @@
 use crate::{
-    values::{Column, CustomValueSupport, NuLazyFrame},
+    values::{Column, CustomValueSupport, NuLazyFrame, PolarsPluginObject},
     PolarsPlugin,
 };
 
@@ -20,7 +20,7 @@ impl PluginCommand for FirstDF {
         "polars first"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show only the first number of rows or create a first expression"
     }
 
@@ -98,20 +98,25 @@ impl PluginCommand for FirstDF {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let value = input.into_value(call.head)?;
-        if NuDataFrame::can_downcast(&value) || NuLazyFrame::can_downcast(&value) {
-            let df = NuDataFrame::try_from_value_coerce(plugin, &value, call.head)?;
-            command(plugin, engine, call, df).map_err(|e| e.into())
-        } else {
-            let expr = NuExpression::try_from_value(plugin, &value)?;
-            let expr: NuExpression = expr.into_polars().first().into();
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => {
+                command_eager(plugin, engine, call, df).map_err(|e| e.into())
+            }
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                command_lazy(plugin, engine, call, lazy).map_err(|e| e.into())
+            }
+            _ => {
+                let expr = NuExpression::try_from_value(plugin, &value)?;
+                let expr: NuExpression = expr.into_polars().first().into();
 
-            expr.to_pipeline_data(plugin, engine, call.head)
-                .map_err(LabeledError::from)
+                expr.to_pipeline_data(plugin, engine, call.head)
+                    .map_err(LabeledError::from)
+            }
         }
     }
 }
 
-fn command(
+fn command_eager(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
@@ -123,6 +128,19 @@ fn command(
     let res = df.as_ref().head(Some(rows));
     let res = NuDataFrame::new(false, res);
 
+    res.to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_lazy(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    lazy: NuLazyFrame,
+) -> Result<PipelineData, ShellError> {
+    let rows: Option<u32> = call.opt(0)?;
+    let rows = rows.unwrap_or(1);
+
+    let res: NuLazyFrame = lazy.to_polars().limit(rows).into();
     res.to_pipeline_data(plugin, engine, call.head)
 }
 

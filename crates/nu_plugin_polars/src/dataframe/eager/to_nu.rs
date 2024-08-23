@@ -22,8 +22,8 @@ impl PluginCommand for ToNu {
         "polars into-nu"
     }
 
-    fn usage(&self) -> &str {
-        "Converts a dataframe or an expression into into nushell value for access and exploration."
+    fn description(&self) -> &str {
+        "Converts a dataframe or an expression into nushell value for access and exploration."
     }
 
     fn signature(&self) -> Signature {

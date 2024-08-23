@@ -20,7 +20,7 @@ impl PluginCommand for LazyJoin {
         "polars join"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Joins a lazy frame with other lazy frame."
     }
 

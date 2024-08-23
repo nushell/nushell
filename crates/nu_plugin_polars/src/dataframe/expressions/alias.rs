@@ -17,7 +17,7 @@ impl PluginCommand for ExprAlias {
         "polars as"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates an alias expression."
     }
 

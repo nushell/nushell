@@ -68,7 +68,7 @@ impl Command for SubCommand {
             .category(Category::Strings)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get part of a string. Note that the first character of a string is index 0."
     }
 

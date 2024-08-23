@@ -15,7 +15,7 @@ impl Command for ScopeCommands {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Output info on the commands in the current scope."
     }
 

@@ -22,7 +22,7 @@ impl PluginCommand for IsNull {
         "polars is-null"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates mask where value is null."
     }
 

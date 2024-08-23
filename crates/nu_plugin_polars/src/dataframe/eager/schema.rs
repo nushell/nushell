@@ -15,7 +15,7 @@ impl PluginCommand for SchemaCmd {
         "polars schema"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show schema for a dataframe."
     }
 

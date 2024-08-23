@@ -172,6 +172,14 @@ impl IntoValue for Value {
     }
 }
 
+// Foreign Types
+
+impl IntoValue for bytes::Bytes {
+    fn into_value(self, span: Span) -> Value {
+        Value::binary(self.to_vec(), span)
+    }
+}
+
 // TODO: use this type for all the `into_value` methods that types implement but return a Result
 /// A trait for trying to convert a value into a `Value`.
 ///

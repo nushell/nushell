@@ -26,7 +26,7 @@ impl Command for PluginCommand {
             .category(Category::Plugin)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Commands for managing plugins."
     }
 

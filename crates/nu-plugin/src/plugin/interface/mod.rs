@@ -1,7 +1,7 @@
 //! Interface used by the plugin to communicate with the engine.
 
 use nu_plugin_core::{
-    util::{Sequence, Waitable, WaitableMut},
+    util::{Waitable, WaitableMut},
     Interface, InterfaceManager, PipelineDataWriter, PluginRead, PluginWrite, StreamManager,
     StreamManagerHandle,
 };
@@ -11,13 +11,14 @@ use nu_plugin_protocol::{
     PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    engine::Closure, Config, DeclId, LabeledError, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, Signals, Span, Spanned, Value,
+    engine::{Closure, Sequence},
+    Config, DeclId, Handler, HandlerGuard, Handlers, LabeledError, PipelineData, PluginMetadata,
+    PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
 };
 use nu_utils::SharedCow;
 use std::{
     collections::{btree_map, BTreeMap, HashMap},
-    sync::{mpsc, Arc},
+    sync::{atomic::AtomicBool, mpsc, Arc},
 };
 
 /// Plugin calls that are received by the [`EngineInterfaceManager`] for handling.
@@ -63,6 +64,11 @@ struct EngineInterfaceState {
         mpsc::Sender<(EngineCallId, mpsc::Sender<EngineCallResponse<PipelineData>>)>,
     /// The synchronized output writer
     writer: Box<dyn PluginWrite<PluginOutput>>,
+    /// Mirror signals from `EngineState`. You can make use of this with
+    /// `engine_interface.signals()` when constructing a Stream that requires signals
+    signals: Signals,
+    /// Registered signal handlers
+    signal_handlers: Handlers,
 }
 
 impl std::fmt::Debug for EngineInterfaceState {
@@ -116,6 +122,8 @@ impl EngineInterfaceManager {
                 stream_id_sequence: Sequence::default(),
                 engine_call_subscription_sender: subscription_tx,
                 writer: Box::new(writer),
+                signals: Signals::new(Arc::new(AtomicBool::new(false))),
+                signal_handlers: Handlers::new(),
             }),
             protocol_info_mut,
             plugin_call_sender: Some(plug_tx),
@@ -235,7 +243,6 @@ impl InterfaceManager for EngineInterfaceManager {
 
     fn consume(&mut self, input: Self::Input) -> Result<(), ShellError> {
         log::trace!("from engine: {:?}", input);
-
         match input {
             PluginInput::Hello(info) => {
                 let info = Arc::new(info);
@@ -330,6 +337,14 @@ impl InterfaceManager for EngineInterfaceManager {
                         EngineCallResponse::Error(err)
                     });
                 self.send_engine_call_response(id, response)
+            }
+            PluginInput::Signal(action) => {
+                match action {
+                    SignalAction::Interrupt => self.state.signals.trigger(),
+                    SignalAction::Reset => self.state.signals.reset(),
+                }
+                self.state.signal_handlers.run(action);
+                Ok(())
             }
         }
     }
@@ -510,6 +525,12 @@ impl EngineInterface {
         self.state.writer.is_stdout()
     }
 
+    /// Register a closure which will be called when the engine receives an interrupt signal.
+    /// Returns a RAII guard that will keep the closure alive until it is dropped.
+    pub fn register_signal_handler(&self, handler: Handler) -> Result<HandlerGuard, ShellError> {
+        self.state.signal_handlers.register(handler)
+    }
+
     /// Get the full shell configuration from the engine. As this is quite a large object, it is
     /// provided on request only.
     ///
@@ -618,8 +639,9 @@ impl EngineInterface {
 
     /// Get all environment variables from the engine.
     ///
-    /// Since this is quite a large map that has to be sent, prefer to use [`.get_env_var()`] if
-    /// the variables needed are known ahead of time and there are only a small number needed.
+    /// Since this is quite a large map that has to be sent, prefer to use
+    /// [`.get_env_var()`] (Self::get_env_var) if the variables needed are known ahead of time
+    /// and there are only a small number needed.
     ///
     /// # Example
     /// ```rust,no_run
@@ -873,9 +895,9 @@ impl EngineInterface {
     }
 
     /// Ask the engine for the identifier for a declaration. If found, the result can then be passed
-    /// to [`.call_decl()`] to call other internal commands.
+    /// to [`.call_decl()`](Self::call_decl) to call other internal commands.
     ///
-    /// See [`.call_decl()`] for an example.
+    /// See [`.call_decl()`](Self::call_decl) for an example.
     pub fn find_decl(&self, name: impl Into<String>) -> Result<Option<DeclId>, ShellError> {
         let call = EngineCall::FindDecl(name.into());
 
@@ -890,7 +912,7 @@ impl EngineInterface {
     }
 
     /// Ask the engine to call an internal command, using the declaration ID previously looked up
-    /// with [`.find_decl()`].
+    /// with [`.find_decl()`](Self::find_decl).
     ///
     /// # Example
     ///
@@ -958,6 +980,10 @@ impl EngineInterface {
         self.write(PluginOutput::CallResponse(self.context()?, response))?;
         self.flush()
     }
+
+    pub fn signals(&self) -> &Signals {
+        &self.state.signals
+    }
 }
 
 impl Interface for EngineInterface {
@@ -1008,7 +1034,7 @@ impl Interface for EngineInterface {
 
 /// Keeps the plugin in the foreground as long as it is alive.
 ///
-/// Use [`.leave()`] to leave the foreground without ignoring the error.
+/// Use [`.leave()`](Self::leave) to leave the foreground without ignoring the error.
 pub struct ForegroundGuard(Option<EngineInterface>);
 
 impl ForegroundGuard {

@@ -17,7 +17,7 @@ impl Command for Explore {
         "explore"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Explore acts as a table pager, just like `less` does for text."
     }
 
@@ -47,7 +47,7 @@ impl Command for Explore {
             .category(Category::Viewers)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Press `:` then `h` to get a help menu."#
     }
 

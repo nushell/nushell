@@ -14,7 +14,7 @@ impl PluginCommand for ExprLit {
         "polars lit"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a literal expression."
     }
 

@@ -1,15 +1,18 @@
 mod from;
+mod to;
 
 use nu_plugin::{Plugin, PluginCommand};
 
-pub use from::eml::FromEml;
-pub use from::ics::FromIcs;
-pub use from::ini::FromIni;
-pub use from::vcf::FromVcf;
+use from::eml::FromEml;
+use from::ics::FromIcs;
+use from::ini::FromIni;
+use from::plist::FromPlist;
+use from::vcf::FromVcf;
+use to::plist::IntoPlist;
 
-pub struct FromCmds;
+pub struct FormatCmdsPlugin;
 
-impl Plugin for FromCmds {
+impl Plugin for FormatCmdsPlugin {
     fn version(&self) -> String {
         env!("CARGO_PKG_VERSION").into()
     }
@@ -20,6 +23,8 @@ impl Plugin for FromCmds {
             Box::new(FromIcs),
             Box::new(FromIni),
             Box::new(FromVcf),
+            Box::new(FromPlist),
+            Box::new(IntoPlist),
         ]
     }
 }

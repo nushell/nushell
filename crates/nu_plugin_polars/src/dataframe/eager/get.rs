@@ -20,7 +20,7 @@ impl PluginCommand for GetDF {
         "polars get"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates dataframe with the selected columns."
     }
 

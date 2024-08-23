@@ -20,7 +20,7 @@ impl PluginCommand for DropDF {
         "polars drop"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a new dataframe by dropping the selected columns."
     }
 

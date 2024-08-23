@@ -21,7 +21,7 @@ impl PluginCommand for GetWeekDay {
         "polars get-weekday"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets weekday from date."
     }
 

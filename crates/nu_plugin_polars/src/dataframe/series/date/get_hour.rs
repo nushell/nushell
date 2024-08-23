@@ -21,7 +21,7 @@ impl PluginCommand for GetHour {
         "polars get-hour"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets hour from date."
     }
 

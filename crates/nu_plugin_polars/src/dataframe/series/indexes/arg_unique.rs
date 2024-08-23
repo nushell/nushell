@@ -18,7 +18,7 @@ impl PluginCommand for ArgUnique {
         "polars arg-unique"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns indexes for unique values."
     }
 

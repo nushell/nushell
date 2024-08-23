@@ -1,6 +1,7 @@
 use crate::prompt_update::{
     POST_EXECUTION_MARKER_PREFIX, POST_EXECUTION_MARKER_SUFFIX, PRE_EXECUTION_MARKER,
-    RESET_APPLICATION_MODE, VSCODE_CWD_PROPERTY_MARKER_PREFIX, VSCODE_CWD_PROPERTY_MARKER_SUFFIX,
+    RESET_APPLICATION_MODE, VSCODE_COMMANDLINE_MARKER_PREFIX, VSCODE_COMMANDLINE_MARKER_SUFFIX,
+    VSCODE_CWD_PROPERTY_MARKER_PREFIX, VSCODE_CWD_PROPERTY_MARKER_SUFFIX,
     VSCODE_POST_EXECUTION_MARKER_PREFIX, VSCODE_POST_EXECUTION_MARKER_SUFFIX,
     VSCODE_PRE_EXECUTION_MARKER,
 };
@@ -131,7 +132,26 @@ pub fn evaluate_repl(
         run_shell_integration_osc9_9(engine_state, &mut unique_stack, use_color);
     }
     if shell_integration_osc633 {
-        run_shell_integration_osc633(engine_state, &mut unique_stack, use_color);
+        // escape a few things because this says so
+        // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
+        let cmd_text = line_editor.current_buffer_contents().to_string();
+
+        let replaced_cmd_text = cmd_text
+            .chars()
+            .map(|c| match c {
+                '\n' => '\x0a',
+                '\r' => '\x0d',
+                '\x1b' => '\x1b',
+                _ => c,
+            })
+            .collect();
+
+        run_shell_integration_osc633(
+            engine_state,
+            &mut unique_stack,
+            use_color,
+            replaced_cmd_text,
+        );
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
@@ -452,14 +472,19 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     let line_editor_input_time = std::time::Instant::now();
     match input {
-        Ok(Signal::Success(s)) => {
+        Ok(Signal::Success(repl_cmd_line_text)) => {
             let history_supports_meta = matches!(
                 engine_state.history_config().map(|h| h.file_format),
                 Some(HistoryFileFormat::Sqlite)
             );
 
             if history_supports_meta {
-                prepare_history_metadata(&s, hostname, engine_state, &mut line_editor);
+                prepare_history_metadata(
+                    &repl_cmd_line_text,
+                    hostname,
+                    engine_state,
+                    &mut line_editor,
+                );
             }
 
             // For pre_exec_hook
@@ -470,7 +495,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             if let Some(hook) = config.hooks.pre_execution.clone() {
                 // Set the REPL buffer to the current command for the "pre_execution" hook
                 let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-                repl.buffer = s.to_string();
+                repl.buffer = repl_cmd_line_text.to_string();
                 drop(repl);
 
                 if let Err(err) = eval_hook(
@@ -531,7 +556,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             // Actual command execution logic starts from here
             let cmd_execution_start_time = Instant::now();
 
-            match parse_operation(s.clone(), engine_state, &stack) {
+            match parse_operation(repl_cmd_line_text.clone(), engine_state, &stack) {
                 Ok(operation) => match operation {
                     ReplOperation::AutoCd { cwd, target, span } => {
                         do_auto_cd(target, cwd, &mut stack, engine_state, span);
@@ -577,7 +602,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
             if history_supports_meta {
                 if let Err(e) = fill_in_result_related_history_metadata(
-                    &s,
+                    &repl_cmd_line_text,
                     engine_state,
                     cmd_duration,
                     &mut stack,
@@ -597,7 +622,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 run_shell_integration_osc9_9(engine_state, &mut stack, use_color);
             }
             if shell_integration_osc633 {
-                run_shell_integration_osc633(engine_state, &mut stack, use_color);
+                run_shell_integration_osc633(
+                    engine_state,
+                    &mut stack,
+                    use_color,
+                    repl_cmd_line_text,
+                );
             }
             if shell_integration_reset_application_mode {
                 run_shell_integration_reset_application_mode();
@@ -911,7 +941,12 @@ fn run_shell_integration_osc2(
 
         // Try to abbreviate string for windows title
         let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-            path.replace(&p.as_path().display().to_string(), "~")
+            let home_dir_str = p.as_path().display().to_string();
+            if path.starts_with(&home_dir_str) {
+                path.replacen(&home_dir_str, "~", 1)
+            } else {
+                path
+            }
         } else {
             path
         };
@@ -988,7 +1023,12 @@ fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack, u
     }
 }
 
-fn run_shell_integration_osc633(engine_state: &EngineState, stack: &mut Stack, use_color: bool) {
+fn run_shell_integration_osc633(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    use_color: bool,
+    repl_cmd_line_text: String,
+) {
     #[allow(deprecated)]
     if let Ok(path) = current_dir_str(engine_state, stack) {
         // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
@@ -1008,6 +1048,27 @@ fn run_shell_integration_osc633(engine_state: &EngineState, stack: &mut Stack, u
                 start_time,
                 use_color
             );
+
+            // escape a few things because this says so
+            // https://code.visualstudio.com/docs/terminal/shell-integration#_vs-code-custom-sequences-osc-633-st
+
+            let replaced_cmd_text: String = repl_cmd_line_text
+                .chars()
+                .map(|c| match c {
+                    '\n' => '\x0a',
+                    '\r' => '\x0d',
+                    '\x1b' => '\x1b',
+                    _ => c,
+                })
+                .collect();
+
+            //OSC 633 ; E ; <commandline> [; <nonce] ST - Explicitly set the command line with an optional nonce.
+            run_ansi_sequence(&format!(
+                "{}{}{}",
+                VSCODE_COMMANDLINE_MARKER_PREFIX,
+                replaced_cmd_text,
+                VSCODE_COMMANDLINE_MARKER_SUFFIX
+            ));
         }
     }
 }
@@ -1337,20 +1398,26 @@ fn are_session_ids_in_sync() {
 #[cfg(test)]
 mod test_auto_cd {
     use super::{do_auto_cd, parse_operation, ReplOperation};
+    use nu_path::AbsolutePath;
     use nu_protocol::engine::{EngineState, Stack};
-    use std::path::Path;
     use tempfile::tempdir;
 
     /// Create a symlink. Works on both Unix and Windows.
     #[cfg(any(unix, windows))]
-    fn symlink(original: impl AsRef<Path>, link: impl AsRef<Path>) -> std::io::Result<()> {
+    fn symlink(
+        original: impl AsRef<AbsolutePath>,
+        link: impl AsRef<AbsolutePath>,
+    ) -> std::io::Result<()> {
+        let original = original.as_ref();
+        let link = link.as_ref();
+
         #[cfg(unix)]
         {
             std::os::unix::fs::symlink(original, link)
         }
         #[cfg(windows)]
         {
-            if original.as_ref().is_dir() {
+            if original.is_dir() {
                 std::os::windows::fs::symlink_dir(original, link)
             } else {
                 std::os::windows::fs::symlink_file(original, link)
@@ -1362,11 +1429,11 @@ mod test_auto_cd {
     /// `before`, and after `input` is parsed and evaluated, PWD should be
     /// changed to `after`.
     #[track_caller]
-    fn check(before: impl AsRef<Path>, input: &str, after: impl AsRef<Path>) {
+    fn check(before: impl AsRef<AbsolutePath>, input: &str, after: impl AsRef<AbsolutePath>) {
         // Setup EngineState and Stack.
         let mut engine_state = EngineState::new();
         let mut stack = Stack::new();
-        stack.set_cwd(before).unwrap();
+        stack.set_cwd(before.as_ref()).unwrap();
 
         // Parse the input. It must be an auto-cd operation.
         let op = parse_operation(input.to_string(), &engine_state, &stack).unwrap();
@@ -1382,54 +1449,66 @@ mod test_auto_cd {
         // don't have to be byte-wise equal (on Windows, the 8.3 filename
         // conversion messes things up),
         let updated_cwd = std::fs::canonicalize(updated_cwd).unwrap();
-        let after = std::fs::canonicalize(after).unwrap();
+        let after = std::fs::canonicalize(after.as_ref()).unwrap();
         assert_eq!(updated_cwd, after);
     }
 
     #[test]
     fn auto_cd_root() {
         let tempdir = tempdir().unwrap();
-        let root = if cfg!(windows) { r"C:\" } else { "/" };
-        check(&tempdir, root, root);
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        let input = if cfg!(windows) { r"C:\" } else { "/" };
+        let root = AbsolutePath::try_new(input).unwrap();
+        check(tempdir, input, root);
     }
 
     #[test]
     fn auto_cd_tilde() {
         let tempdir = tempdir().unwrap();
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
         let home = nu_path::home_dir().unwrap();
-        check(&tempdir, "~", home);
+        check(tempdir, "~", home);
     }
 
     #[test]
     fn auto_cd_dot() {
         let tempdir = tempdir().unwrap();
-        check(&tempdir, ".", &tempdir);
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        check(tempdir, ".", tempdir);
     }
 
     #[test]
     fn auto_cd_double_dot() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo");
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        let dir = tempdir.join("foo");
         std::fs::create_dir_all(&dir).unwrap();
-        check(dir, "..", &tempdir);
+        check(dir, "..", tempdir);
     }
 
     #[test]
     fn auto_cd_triple_dot() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo").join("bar");
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        let dir = tempdir.join("foo").join("bar");
         std::fs::create_dir_all(&dir).unwrap();
-        check(dir, "...", &tempdir);
+        check(dir, "...", tempdir);
     }
 
     #[test]
     fn auto_cd_relative() {
         let tempdir = tempdir().unwrap();
-        let foo = tempdir.path().join("foo");
-        let bar = tempdir.path().join("bar");
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
+
+        let foo = tempdir.join("foo");
+        let bar = tempdir.join("bar");
         std::fs::create_dir_all(&foo).unwrap();
         std::fs::create_dir_all(&bar).unwrap();
-
         let input = if cfg!(windows) { r"..\bar" } else { "../bar" };
         check(foo, input, bar);
     }
@@ -1437,32 +1516,35 @@ mod test_auto_cd {
     #[test]
     fn auto_cd_trailing_slash() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo");
-        std::fs::create_dir_all(&dir).unwrap();
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
 
+        let dir = tempdir.join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
         let input = if cfg!(windows) { r"foo\" } else { "foo/" };
-        check(&tempdir, input, dir);
+        check(tempdir, input, dir);
     }
 
     #[test]
     fn auto_cd_symlink() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo");
-        std::fs::create_dir_all(&dir).unwrap();
-        let link = tempdir.path().join("link");
-        symlink(&dir, &link).unwrap();
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
 
+        let dir = tempdir.join("foo");
+        std::fs::create_dir_all(&dir).unwrap();
+        let link = tempdir.join("link");
+        symlink(&dir, &link).unwrap();
         let input = if cfg!(windows) { r".\link" } else { "./link" };
-        check(&tempdir, input, link);
+        check(tempdir, input, link);
     }
 
     #[test]
     #[should_panic(expected = "was not parsed into an auto-cd operation")]
     fn auto_cd_nonexistent_directory() {
         let tempdir = tempdir().unwrap();
-        let dir = tempdir.path().join("foo");
+        let tempdir = AbsolutePath::try_new(tempdir.path()).unwrap();
 
+        let dir = tempdir.join("foo");
         let input = if cfg!(windows) { r"foo\" } else { "foo/" };
-        check(&tempdir, input, dir);
+        check(tempdir, input, dir);
     }
 }

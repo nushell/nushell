@@ -19,7 +19,7 @@ impl PluginCommand for TakeDF {
         "polars take"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates new dataframe using the given indices."
     }
 

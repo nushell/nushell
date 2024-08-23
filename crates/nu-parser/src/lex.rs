@@ -6,6 +6,7 @@ pub enum TokenContents {
     Comment,
     Pipe,
     PipePipe,
+    AssignmentOperator,
     ErrGreaterPipe,
     OutErrGreaterPipe,
     Semicolon,
@@ -67,6 +68,12 @@ fn is_item_terminator(
             || c == b';'
             || additional_whitespace.contains(&c)
             || special_tokens.contains(&c))
+}
+
+/// Assignment operators have special handling distinct from math expressions, as they cause the
+/// rest of the pipeline to be consumed.
+pub fn is_assignment_operator(bytes: &[u8]) -> bool {
+    matches!(bytes, b"=" | b"+=" | b"++=" | b"-=" | b"*=" | b"/=")
 }
 
 // A special token is one that is a byte that stands alone as its own token. For example
@@ -297,6 +304,10 @@ pub fn lex_item(
 
     let mut err = None;
     let output = match &input[(span.start - span_offset)..(span.end - span_offset)] {
+        bytes if is_assignment_operator(bytes) => Token {
+            contents: TokenContents::AssignmentOperator,
+            span,
+        },
         b"out>" | b"o>" => Token {
             contents: TokenContents::OutGreaterThan,
             span,

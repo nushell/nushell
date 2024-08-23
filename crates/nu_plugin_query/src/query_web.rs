@@ -14,7 +14,7 @@ impl SimplePluginCommand for QueryWeb {
         "query web"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "execute selector query on html/web"
     }
 
@@ -81,7 +81,7 @@ pub fn web_examples() -> Vec<Example<'static>> {
             result: None
         },
         Example {
-            example: "http get https://www.nushell.sh | query web --query 'h2, h2 + p' | each {str join} | group 2 | each {rotate --ccw tagline description} | flatten",
+            example: "http get https://www.nushell.sh | query web --query 'h2, h2 + p' | each {str join} | chunks 2 | each {rotate --ccw tagline description} | flatten",
             description: "Pass multiple css selectors to extract several elements within single query, group the query results together and rotate them to create a table",
             result: None,
         },
@@ -99,29 +99,11 @@ pub fn web_examples() -> Vec<Example<'static>> {
 }
 
 pub struct Selector {
-    pub query: String,
+    pub query: Spanned<String>,
     pub as_html: bool,
     pub attribute: Value,
     pub as_table: Value,
-    pub inspect: bool,
-}
-
-impl Selector {
-    pub fn new() -> Selector {
-        Selector {
-            query: String::new(),
-            as_html: false,
-            attribute: Value::string("".to_string(), Span::unknown()),
-            as_table: Value::string("".to_string(), Span::unknown()),
-            inspect: false,
-        }
-    }
-}
-
-impl Default for Selector {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub inspect: Spanned<bool>,
 }
 
 pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
@@ -136,43 +118,46 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
         .unwrap_or_else(|| Value::nothing(head));
 
     let inspect = call.has_flag("inspect")?;
-
-    if let Some(query) = &query {
-        if let Err(err) = ScraperSelector::parse(&query.item) {
-            return Err(LabeledError::new("CSS query parse error")
-                .with_label(err.to_string(), query.span)
-                .with_help("cannot parse this query as a valid CSS selector"));
-        }
-    }
+    let inspect_span = call.get_flag_span("inspect").unwrap_or(call.head);
 
     let selector = Selector {
-        query: query.map(|q| q.item).unwrap_or_default(),
+        query: query.unwrap_or(Spanned {
+            span: call.head,
+            item: "".to_owned(),
+        }),
         as_html,
         attribute,
         as_table,
-        inspect,
+        inspect: Spanned {
+            item: inspect,
+            span: inspect_span,
+        },
     };
 
     let span = input.span();
     match input {
-        Value::String { val, .. } => Ok(begin_selector_query(val.to_string(), selector, span)),
+        Value::String { val, .. } => begin_selector_query(val.to_string(), selector, span),
         _ => Err(LabeledError::new("Requires text input")
             .with_label("expected text from pipeline", span)),
     }
 }
 
-fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> Value {
+fn begin_selector_query(
+    input_html: String,
+    selector: Selector,
+    span: Span,
+) -> Result<Value, LabeledError> {
     if let Value::List { .. } = selector.as_table {
-        return retrieve_tables(
+        retrieve_tables(
             input_html.as_str(),
             &selector.as_table,
-            selector.inspect,
+            selector.inspect.item,
             span,
-        );
+        )
     } else if selector.attribute.is_empty() {
         execute_selector_query(
             input_html.as_str(),
-            selector.query.as_str(),
+            selector.query,
             selector.as_html,
             selector.inspect,
             span,
@@ -180,7 +165,7 @@ fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> V
     } else if let Value::List { .. } = selector.attribute {
         execute_selector_query_with_attributes(
             input_html.as_str(),
-            selector.query.as_str(),
+            selector.query,
             &selector.attribute,
             selector.inspect,
             span,
@@ -188,7 +173,7 @@ fn begin_selector_query(input_html: String, selector: Selector, span: Span) -> V
     } else {
         execute_selector_query_with_attribute(
             input_html.as_str(),
-            selector.query.as_str(),
+            selector.query,
             selector.attribute.as_str().unwrap_or(""),
             selector.inspect,
             span,
@@ -201,7 +186,7 @@ pub fn retrieve_tables(
     columns: &Value,
     inspect_mode: bool,
     span: Span,
-) -> Value {
+) -> Result<Value, LabeledError> {
     let html = input_string;
     let mut cols: Vec<String> = Vec::new();
     if let Value::List { vals, .. } = &columns {
@@ -228,11 +213,15 @@ pub fn retrieve_tables(
     };
 
     if tables.len() == 1 {
-        return retrieve_table(
-            tables.into_iter().next().expect("Error retrieving table"),
+        return Ok(retrieve_table(
+            tables.into_iter().next().ok_or_else(|| {
+                LabeledError::new("Cannot retrieve table")
+                    .with_label("Error retrieving table.", span)
+                    .with_help("No table found.")
+            })?,
             columns,
             span,
-        );
+        ));
     }
 
     let vals = tables
@@ -240,7 +229,7 @@ pub fn retrieve_tables(
         .map(move |table| retrieve_table(table, columns, span))
         .collect();
 
-    Value::list(vals, span)
+    Ok(Value::list(vals, span))
 }
 
 fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
@@ -323,15 +312,15 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
 
 fn execute_selector_query_with_attribute(
     input_string: &str,
-    query_string: &str,
+    query_string: Spanned<String>,
     attribute: &str,
-    inspect: bool,
+    inspect: Spanned<bool>,
     span: Span,
-) -> Value {
+) -> Result<Value, LabeledError> {
     let doc = Html::parse_fragment(input_string);
 
     let vals: Vec<Value> = doc
-        .select(&css(query_string, inspect))
+        .select(&fallible_css(query_string, inspect)?)
         .map(|selection| {
             Value::string(
                 selection.value().attr(attribute).unwrap_or("").to_string(),
@@ -339,16 +328,16 @@ fn execute_selector_query_with_attribute(
             )
         })
         .collect();
-    Value::list(vals, span)
+    Ok(Value::list(vals, span))
 }
 
 fn execute_selector_query_with_attributes(
     input_string: &str,
-    query_string: &str,
+    query_string: Spanned<String>,
     attributes: &Value,
-    inspect: bool,
+    inspect: Spanned<bool>,
     span: Span,
-) -> Value {
+) -> Result<Value, LabeledError> {
     let doc = Html::parse_fragment(input_string);
 
     let mut attrs: Vec<String> = Vec::new();
@@ -361,7 +350,7 @@ fn execute_selector_query_with_attributes(
     }
 
     let vals: Vec<Value> = doc
-        .select(&css(query_string, inspect))
+        .select(&fallible_css(query_string, inspect)?)
         .map(|selection| {
             let mut record = Record::new();
             for attr in &attrs {
@@ -373,25 +362,25 @@ fn execute_selector_query_with_attributes(
             Value::record(record, span)
         })
         .collect();
-    Value::list(vals, span)
+    Ok(Value::list(vals, span))
 }
 
 fn execute_selector_query(
     input_string: &str,
-    query_string: &str,
+    query_string: Spanned<String>,
     as_html: bool,
-    inspect: bool,
+    inspect: Spanned<bool>,
     span: Span,
-) -> Value {
+) -> Result<Value, LabeledError> {
     let doc = Html::parse_fragment(input_string);
 
     let vals: Vec<Value> = match as_html {
         true => doc
-            .select(&css(query_string, inspect))
+            .select(&fallible_css(query_string, inspect)?)
             .map(|selection| Value::string(selection.html(), span))
             .collect(),
         false => doc
-            .select(&css(query_string, inspect))
+            .select(&fallible_css(query_string, inspect)?)
             .map(|selection| {
                 Value::list(
                     selection
@@ -404,7 +393,28 @@ fn execute_selector_query(
             .collect(),
     };
 
-    Value::list(vals, span)
+    Ok(Value::list(vals, span))
+}
+
+fn fallible_css(
+    selector: Spanned<String>,
+    inspect: Spanned<bool>,
+) -> Result<ScraperSelector, LabeledError> {
+    if inspect.item {
+        ScraperSelector::parse("html").map_err(|e| {
+            LabeledError::new("CSS query parse error")
+                .with_label(e.to_string(), inspect.span)
+                .with_help(
+                    "cannot parse query `html` as a valid CSS selector, possibly an internal error",
+                )
+        })
+    } else {
+        ScraperSelector::parse(&selector.item).map_err(|e| {
+            LabeledError::new("CSS query parse error")
+                .with_label(e.to_string(), selector.span)
+                .with_help("cannot parse query as a valid CSS selector")
+        })
+    }
 }
 
 pub fn css(selector: &str, inspect: bool) -> ScraperSelector {
@@ -433,15 +443,23 @@ mod tests {
         <a href="https://example.com" target="_self">Example</a>
     "#;
 
+    fn null_spanned<T: ToOwned + ?Sized>(input: &T) -> Spanned<T::Owned> {
+        Spanned {
+            item: input.to_owned(),
+            span: Span::unknown(),
+        }
+    }
+
     #[test]
     fn test_first_child_is_not_empty() {
         assert!(!execute_selector_query(
             SIMPLE_LIST,
-            "li:first-child",
+            null_spanned("li:first-child"),
             false,
-            false,
+            null_spanned(&false),
             Span::test_data()
         )
+        .unwrap()
         .is_empty())
     }
 
@@ -449,11 +467,12 @@ mod tests {
     fn test_first_child() {
         let item = execute_selector_query(
             SIMPLE_LIST,
-            "li:first-child",
+            null_spanned("li:first-child"),
             false,
-            false,
+            null_spanned(&false),
             Span::test_data(),
-        );
+        )
+        .unwrap();
         let config = nu_protocol::Config::default();
         let out = item.to_expanded_string("\n", &config);
         assert_eq!("[[Coffee]]".to_string(), out)
@@ -463,11 +482,12 @@ mod tests {
     fn test_nested_text_nodes() {
         let item = execute_selector_query(
             NESTED_TEXT,
-            "p:first-child",
+            null_spanned("p:first-child"),
             false,
-            false,
+            null_spanned(&false),
             Span::test_data(),
-        );
+        )
+        .unwrap();
         let out = item
             .into_list()
             .unwrap()
@@ -492,7 +512,7 @@ mod tests {
     fn test_multiple_attributes() {
         let item = execute_selector_query_with_attributes(
             MULTIPLE_ATTRIBUTES,
-            "a",
+            null_spanned("a"),
             &Value::list(
                 vec![
                     Value::string("href".to_string(), Span::unknown()),
@@ -500,9 +520,10 @@ mod tests {
                 ],
                 Span::unknown(),
             ),
-            false,
+            null_spanned(&false),
             Span::test_data(),
-        );
+        )
+        .unwrap();
         let out = item
             .into_list()
             .unwrap()

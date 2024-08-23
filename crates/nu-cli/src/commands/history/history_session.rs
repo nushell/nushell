@@ -8,7 +8,7 @@ impl Command for HistorySession {
         "history session"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the command history session."
     }
 

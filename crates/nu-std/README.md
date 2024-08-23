@@ -9,8 +9,8 @@ provide interactive utilities and building blocks for users writing casual scrip
 To see what's here:
 ```text
 > use std
-> scope commands | select name usage | where name =~ "std "
-#┬───────────name────────────┬──────────────────────usage──────────────────────
+> scope commands | select name description | where name =~ "std "
+#┬───────────name────────────┬───────────────────description───────────────────
 0│std assert                 │Universal assert command
 1│std assert equal           │Assert $left == $right
 2│std assert error           │Assert that executing the code generates an error

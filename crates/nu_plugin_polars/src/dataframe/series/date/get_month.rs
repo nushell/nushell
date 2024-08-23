@@ -21,7 +21,7 @@ impl PluginCommand for GetMonth {
         "polars get-month"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets month from date."
     }
 

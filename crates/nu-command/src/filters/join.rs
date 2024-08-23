@@ -50,7 +50,7 @@ impl Command for Join {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Join two tables."
     }
 

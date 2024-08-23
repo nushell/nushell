@@ -16,7 +16,7 @@ impl Command for SubCommand {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get the current cursor position."
     }
 

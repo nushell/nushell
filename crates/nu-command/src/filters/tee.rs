@@ -17,11 +17,11 @@ impl Command for Tee {
         "tee"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Copy a stream to another command in parallel."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This is useful for doing something else with a stream while still continuing to
 use it in your pipeline."#
     }

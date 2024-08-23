@@ -48,6 +48,7 @@ impl NuCompleter {
         let options = CompletionOptions {
             case_sensitive: config.case_sensitive_completions,
             match_algorithm: config.completion_algorithm.into(),
+            sort: config.completion_sort,
             ..Default::default()
         };
 
@@ -443,14 +444,11 @@ pub fn map_value_completions<'a>(
             return Some(SemanticSuggestion {
                 suggestion: Suggestion {
                     value: s,
-                    description: None,
-                    style: None,
-                    extra: None,
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
                     },
-                    append_whitespace: false,
+                    ..Suggestion::default()
                 },
                 kind: Some(SuggestionKind::Type(x.get_type())),
             });
@@ -460,14 +458,11 @@ pub fn map_value_completions<'a>(
         if let Ok(record) = x.as_record() {
             let mut suggestion = Suggestion {
                 value: String::from(""), // Initialize with empty string
-                description: None,
-                style: None,
-                extra: None,
                 span: reedline::Span {
                     start: span.start - offset,
                     end: span.end - offset,
                 },
-                append_whitespace: false,
+                ..Suggestion::default()
             };
 
             // Iterate the cols looking for `value` and `description`

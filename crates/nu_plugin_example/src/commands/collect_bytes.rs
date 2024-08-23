@@ -16,7 +16,7 @@ impl PluginCommand for CollectBytes {
         "example collect-bytes"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Example transformer to byte stream"
     }
 

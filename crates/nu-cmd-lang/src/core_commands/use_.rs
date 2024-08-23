@@ -14,7 +14,7 @@ impl Command for Use {
         "use"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Use definitions from a module, making them available in your shell."
     }
 
@@ -35,7 +35,7 @@ impl Command for Use {
         vec!["module", "import", "include", "scope"]
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"See `help std` for the standard library module.
 See `help modules` to list all available modules.
 

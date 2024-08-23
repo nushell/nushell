@@ -8,11 +8,11 @@ impl Command for Get {
         "get"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Extract data using a cell path."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
 
 If multiple cell paths are given, this will produce a list of values."#

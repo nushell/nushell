@@ -19,7 +19,7 @@ impl PluginCommand for ExprWhen {
         "polars when"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates and modifies a when expression."
     }
 

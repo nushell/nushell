@@ -27,7 +27,7 @@ impl PluginCommand for ExprDatePart {
         "polars datepart"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates an expression for capturing the specified datepart in a column."
     }
 

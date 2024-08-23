@@ -48,14 +48,12 @@ impl Completer for DirectoryCompletion {
         .map(move |x| SemanticSuggestion {
             suggestion: Suggestion {
                 value: x.1,
-                description: None,
                 style: x.2,
-                extra: None,
                 span: reedline::Span {
                     start: x.0.start - offset,
                     end: x.0.end - offset,
                 },
-                append_whitespace: false,
+                ..Suggestion::default()
             },
             // TODO????
             kind: None,

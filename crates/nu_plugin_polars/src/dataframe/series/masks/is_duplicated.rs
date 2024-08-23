@@ -18,7 +18,7 @@ impl PluginCommand for IsDuplicated {
         "polars is-duplicated"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates mask indicating duplicated values."
     }
 

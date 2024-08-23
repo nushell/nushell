@@ -23,7 +23,8 @@ pub mod test_util;
 
 use nu_protocol::{
     ast::Operator, engine::Closure, ByteStreamType, Config, DeclId, LabeledError, PipelineData,
-    PluginMetadata, PluginSignature, ShellError, Span, Spanned, Value,
+    PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned,
+    Value,
 };
 use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
@@ -78,7 +79,7 @@ pub enum PipelineDataHeader {
     /// No input
     Empty,
     /// A single value
-    Value(Value),
+    Value(Value, Option<PipelineMetadata>),
     /// Initiate [`nu_protocol::PipelineData::ListStream`].
     ///
     /// Items are sent via [`StreamData`]
@@ -94,10 +95,22 @@ impl PipelineDataHeader {
     pub fn stream_id(&self) -> Option<StreamId> {
         match self {
             PipelineDataHeader::Empty => None,
-            PipelineDataHeader::Value(_) => None,
+            PipelineDataHeader::Value(_, _) => None,
             PipelineDataHeader::ListStream(info) => Some(info.id),
             PipelineDataHeader::ByteStream(info) => Some(info.id),
         }
+    }
+
+    pub fn value(value: Value) -> Self {
+        PipelineDataHeader::Value(value, None)
+    }
+
+    pub fn list_stream(info: ListStreamInfo) -> Self {
+        PipelineDataHeader::ListStream(info)
+    }
+
+    pub fn byte_stream(info: ByteStreamInfo) -> Self {
+        PipelineDataHeader::ByteStream(info)
     }
 }
 
@@ -106,6 +119,18 @@ impl PipelineDataHeader {
 pub struct ListStreamInfo {
     pub id: StreamId,
     pub span: Span,
+    pub metadata: Option<PipelineMetadata>,
+}
+
+impl ListStreamInfo {
+    /// Create a new `ListStreamInfo` with a unique ID
+    pub fn new(id: StreamId, span: Span) -> Self {
+        ListStreamInfo {
+            id,
+            span,
+            metadata: None,
+        }
+    }
 }
 
 /// Additional information about byte streams
@@ -115,6 +140,19 @@ pub struct ByteStreamInfo {
     pub span: Span,
     #[serde(rename = "type")]
     pub type_: ByteStreamType,
+    pub metadata: Option<PipelineMetadata>,
+}
+
+impl ByteStreamInfo {
+    /// Create a new `ByteStreamInfo` with a unique ID
+    pub fn new(id: StreamId, span: Span, type_: ByteStreamType) -> Self {
+        ByteStreamInfo {
+            id,
+            span,
+            type_,
+            metadata: None,
+        }
+    }
 }
 
 /// Calls that a plugin can execute. The type parameter determines the input type.
@@ -208,6 +246,8 @@ pub enum PluginInput {
     Drop(StreamId),
     /// See [`StreamMessage::Ack`].
     Ack(StreamId),
+    /// Relay signals to the plugin
+    Signal(SignalAction),
 }
 
 impl TryFrom<PluginInput> for StreamMessage {
@@ -342,7 +382,7 @@ impl PluginCallResponse<PipelineDataHeader> {
         if value.is_nothing() {
             PluginCallResponse::PipelineData(PipelineDataHeader::Empty)
         } else {
-            PluginCallResponse::PipelineData(PipelineDataHeader::Value(value))
+            PluginCallResponse::PipelineData(PipelineDataHeader::value(value))
         }
     }
 }

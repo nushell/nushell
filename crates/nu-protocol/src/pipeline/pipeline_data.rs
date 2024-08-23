@@ -19,12 +19,12 @@ const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 /// We've tried a few variations of this structure. Listing these below so we have a record.
 ///
 /// * We tried always assuming a stream in Nushell. This was a great 80% solution, but it had some rough edges.
-/// Namely, how do you know the difference between a single string and a list of one string. How do you know
-/// when to flatten the data given to you from a data source into the stream or to keep it as an unflattened
-/// list?
+///   Namely, how do you know the difference between a single string and a list of one string. How do you know
+///   when to flatten the data given to you from a data source into the stream or to keep it as an unflattened
+///   list?
 ///
 /// * We tried putting the stream into Value. This had some interesting properties as now commands "just worked
-/// on values", but lead to a few unfortunate issues.
+///   on values", but lead to a few unfortunate issues.
 ///
 /// The first is that you can't easily clone Values in a way that felt largely immutable. For example, if
 /// you cloned a Value which contained a stream, and in one variable drained some part of it, then the second
@@ -37,8 +37,8 @@ const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 /// concrete list values rather than streams, and be able to view them without non-local effects.
 ///
 /// * A balance of the two approaches is what we've landed on: Values are thread-safe to pass, and we can stream
-/// them into any sources. Streams are still available to model the infinite streams approach of original
-/// Nushell.
+///   them into any sources. Streams are still available to model the infinite streams approach of original
+///   Nushell.
 #[derive(Debug)]
 pub enum PipelineData {
     Empty,
@@ -117,7 +117,8 @@ impl PipelineData {
     /// Get a type that is representative of the `PipelineData`.
     ///
     /// The type returned here makes no effort to collect a stream, so it may be a different type
-    /// than would be returned by [`Value::get_type()`] on the result of [`.into_value()`].
+    /// than would be returned by [`Value::get_type()`] on the result of
+    /// [`.into_value()`](Self::into_value).
     ///
     /// Specifically, a `ListStream` results in [`list stream`](Type::ListStream) rather than
     /// the fully complete [`list`](Type::List) type (which would require knowing the contents),
@@ -600,6 +601,31 @@ impl PipelineData {
                     self.write_all_and_flush(engine_state, no_newline, to_stderr)
                 }
             }
+        }
+    }
+
+    /// Consume and print self data without any extra formatting.
+    ///
+    /// This does not use the `table` command to format data, and also prints binary values and
+    /// streams in their raw format without generating a hexdump first.
+    ///
+    /// `no_newline` controls if we need to attach newline character to output.
+    /// `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
+    pub fn print_raw(
+        self,
+        engine_state: &EngineState,
+        no_newline: bool,
+        to_stderr: bool,
+    ) -> Result<Option<ExitStatus>, ShellError> {
+        if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
+            if to_stderr {
+                stderr_write_all_and_flush(bytes)?;
+            } else {
+                stdout_write_all_and_flush(bytes)?;
+            }
+            Ok(None)
+        } else {
+            self.write_all_and_flush(engine_state, no_newline, to_stderr)
         }
     }
 

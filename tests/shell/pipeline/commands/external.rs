@@ -127,6 +127,15 @@ fn command_not_found_error_suggests_typo_fix() {
     assert!(actual.err.contains("timeit"));
 }
 
+#[cfg(not(windows))]
+#[test]
+fn command_not_found_error_recognizes_non_executable_file() {
+    let actual = nu!("./Cargo.toml");
+    assert!(actual.err.contains(
+        "refers to a file that is not executable. Did you forget to to set execute permissions?"
+    ));
+}
+
 #[test]
 fn command_not_found_error_shows_not_found_1() {
     let actual = nu!(r#"
@@ -207,6 +216,12 @@ fn run_glob_if_pass_variable_to_external() {
         assert!(actual.out.contains("jt_likes_cake.txt"));
         assert!(actual.out.contains("andres_likes_arepas.txt"));
     })
+}
+
+#[test]
+fn subexpression_does_not_implicitly_capture() {
+    let actual = nu!("(nu --testbin cococo); null");
+    assert_eq!(actual.out, "cococo");
 }
 
 mod it_evaluation {

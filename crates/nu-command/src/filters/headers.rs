@@ -22,7 +22,7 @@ impl Command for Headers {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Use the first row of the table as column names."
     }
 

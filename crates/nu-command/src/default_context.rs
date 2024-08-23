@@ -179,8 +179,16 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Char,
             Decode,
             Encode,
+            DecodeHex,
+            EncodeHex,
+            DecodeBase32,
+            EncodeBase32,
+            DecodeBase32Hex,
+            EncodeBase32Hex,
             DecodeBase64,
             EncodeBase64,
+            DecodeBase64Old,
+            EncodeBase64Old,
             DetectColumns,
             Parse,
             Split,
@@ -397,6 +405,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             RandomFloat,
             RandomInt,
             RandomUuid,
+            RandomBinary
         };
 
         // Generators

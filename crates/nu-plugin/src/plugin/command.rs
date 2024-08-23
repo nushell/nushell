@@ -33,7 +33,7 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 ///         "lowercase"
 ///     }
 ///
-///     fn usage(&self) -> &str {
+///     fn description(&self) -> &str {
 ///         "Convert each string in a stream to lowercase"
 ///     }
 ///
@@ -75,8 +75,8 @@ use crate::{EngineInterface, EvaluatedCall, Plugin};
 pub trait PluginCommand: Sync {
     /// The type of plugin this command runs on.
     ///
-    /// Since [`.run()`] takes a reference to the plugin, it is necessary to define the type of
-    /// plugin that the command expects here.
+    /// Since [`.run()`](Self::run) takes a reference to the plugin, it is necessary to define the
+    /// type of plugin that the command expects here.
     type Plugin: Plugin;
 
     /// The name of the command from within Nu.
@@ -92,14 +92,14 @@ pub trait PluginCommand: Sync {
     /// A brief description of usage for the command.
     ///
     /// This should be short enough to fit in completion menus.
-    fn usage(&self) -> &str;
+    fn description(&self) -> &str;
 
     /// Additional documentation for usage of the command.
     ///
-    /// This is optional - any arguments documented by [`.signature()`] will be shown in the help
-    /// page automatically. However, this can be useful for explaining things that would be too
-    /// brief to include in [`.usage()`] and may span multiple lines.
-    fn extra_usage(&self) -> &str {
+    /// This is optional - any arguments documented by [`.signature()`](Self::signature) will be
+    /// shown in the help page automatically. However, this can be useful for explaining things that
+    /// would be too brief to include in [`.description()`](Self::description) and may span multiple lines.
+    fn extra_description(&self) -> &str {
         ""
     }
 
@@ -177,7 +177,7 @@ pub trait PluginCommand: Sync {
 ///         "hello"
 ///     }
 ///
-///     fn usage(&self) -> &str {
+///     fn description(&self) -> &str {
 ///         "Every programmer's favorite greeting"
 ///     }
 ///
@@ -230,14 +230,14 @@ pub trait SimplePluginCommand: Sync {
     /// A brief description of usage for the command.
     ///
     /// This should be short enough to fit in completion menus.
-    fn usage(&self) -> &str;
+    fn description(&self) -> &str;
 
     /// Additional documentation for usage of the command.
     ///
     /// This is optional - any arguments documented by [`.signature()`] will be shown in the help
     /// page automatically. However, this can be useful for explaining things that would be too
-    /// brief to include in [`.usage()`] and may span multiple lines.
-    fn extra_usage(&self) -> &str {
+    /// brief to include in [`.description()`](Self::description) and may span multiple lines.
+    fn extra_description(&self) -> &str {
         ""
     }
 
@@ -301,8 +301,8 @@ where
         <Self as SimplePluginCommand>::examples(self)
     }
 
-    fn extra_usage(&self) -> &str {
-        <Self as SimplePluginCommand>::extra_usage(self)
+    fn extra_description(&self) -> &str {
+        <Self as SimplePluginCommand>::extra_description(self)
     }
 
     fn name(&self) -> &str {
@@ -333,8 +333,8 @@ where
         <Self as SimplePluginCommand>::signature(self)
     }
 
-    fn usage(&self) -> &str {
-        <Self as SimplePluginCommand>::usage(self)
+    fn description(&self) -> &str {
+        <Self as SimplePluginCommand>::description(self)
     }
 }
 
@@ -349,8 +349,8 @@ pub fn create_plugin_signature(command: &(impl PluginCommand + ?Sized)) -> Plugi
         // Add results of trait methods to signature
         command
             .signature()
-            .usage(command.usage())
-            .extra_usage(command.extra_usage())
+            .description(command.description())
+            .extra_description(command.extra_description())
             .search_terms(
                 command
                     .search_terms()

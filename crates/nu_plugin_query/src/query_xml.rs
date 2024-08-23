@@ -15,7 +15,7 @@ impl SimplePluginCommand for QueryXml {
         "query xml"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "execute xpath query on xml"
     }
 

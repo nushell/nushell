@@ -20,7 +20,7 @@ impl PluginCommand for ToLazyGroupBy {
         "polars group-by"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a group-by object that can be used for other aggregations."
     }
 

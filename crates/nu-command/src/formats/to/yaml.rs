@@ -15,7 +15,7 @@ impl Command for ToYaml {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert table into .yaml/.yml text."
     }
 
@@ -95,11 +95,19 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
 }
 
 fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+    let metadata = input
+        .metadata()
+        .unwrap_or_default()
+        // Per RFC-9512, application/yaml should be used
+        .with_content_type(Some("application/yaml".into()));
     let value = input.into_value(head)?;
 
     let yaml_value = value_to_yaml_value(&value)?;
     match serde_yaml::to_string(&yaml_value) {
-        Ok(serde_yaml_string) => Ok(Value::string(serde_yaml_string, head).into_pipeline_data()),
+        Ok(serde_yaml_string) => {
+            Ok(Value::string(serde_yaml_string, head)
+                .into_pipeline_data_with_metadata(Some(metadata)))
+        }
         _ => Ok(Value::error(
             ShellError::CantConvert {
                 to_type: "YAML".into(),
@@ -109,12 +117,16 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
             },
             head,
         )
-        .into_pipeline_data()),
+        .into_pipeline_data_with_metadata(Some(metadata))),
     }
 }
 
 #[cfg(test)]
 mod test {
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::Metadata;
+
     use super::*;
 
     #[test]
@@ -122,5 +134,35 @@ mod test {
         use crate::test_examples;
 
         test_examples(ToYaml {})
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToYaml {}));
+            working_set.add_decl(Box::new(Metadata {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{a: 1 b: 2} | to yaml  | metadata | get content_type";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_record(record!("content_type" => Value::test_string("application/yaml"))),
+            result.expect("There should be a result")
+        );
     }
 }
