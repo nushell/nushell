@@ -575,7 +575,7 @@ fn load_theme(
     let mut theme = theme.get_theme();
 
     if !with_header {
-        theme.remove_horizontal_lines();
+        theme.set_horizontal_lines(Default::default());
     }
 
     if with_header && with_footer && table.count_rows() > 2 {

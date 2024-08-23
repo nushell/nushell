@@ -53,7 +53,7 @@ fn build_table(
     let mut table = PoolTable::from(val);
 
     let mut theme = theme.get_theme_full();
-    theme.remove_horizontal_lines();
+    theme.set_horizontal_lines(Default::default());
 
     table.with(Padding::new(indent.0, indent.1, 0, 0));
     table.with(SetRawStyle(theme));

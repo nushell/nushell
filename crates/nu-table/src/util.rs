@@ -4,7 +4,7 @@ use tabled::{
     grid::{
         ansi::{ANSIBuf, ANSIStr},
         records::vec_records::Text,
-        util::string::get_string_width,
+        util::string::get_text_width,
     },
     settings::{width::Truncate, Color, Modify, Padding, Style, Width},
 };
@@ -12,7 +12,7 @@ use tabled::{
 use crate::common::get_leading_trailing_space_style;
 
 pub fn string_width(text: &str) -> usize {
-    get_string_width(text)
+    get_text_width(text)
 }
 
 pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
