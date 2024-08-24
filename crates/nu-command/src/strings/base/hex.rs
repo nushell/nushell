@@ -53,7 +53,7 @@ impl Command for DecodeHex {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        todo!()
+        super::decode(data_encoding::HEXLOWER_PERMISSIVE, call.span(), input)
     }
 }
 

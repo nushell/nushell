@@ -2,10 +2,12 @@ use nu_test_support::nu;
 
 #[test]
 fn canonical() {
-    for value in super::random_bytes() {
-        let outcome = nu!("{} | encode hex | decode hex | to nuon", value);
-        assert_eq!(outcome.out, value);
-    }
+    super::test_canonical("hex");
+}
+
+#[test]
+fn const_() {
+    super::test_const("hex");
 }
 
 #[test]
