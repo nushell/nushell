@@ -2,16 +2,14 @@ use nu_test_support::nu;
 
 #[test]
 fn canonical() {
-    for value in super::random_bytes() {
-        let outcome = nu!("{} | encode base32hex | decode base32hex | to nuon", value);
-        assert_eq!(outcome.out, value);
+    super::test_canonical("base32hex");
+    super::test_canonical("base32hex --nopad");
+}
 
-        let outcome = nu!(
-            "{} | encode base32hex --nopad | decode base32hex --nopad | to nuon",
-            value
-        );
-        assert_eq!(outcome.out, value);
-    }
+#[test]
+fn const_() {
+    super::test_const("base32hex");
+    super::test_const("base32hex --nopad");
 }
 
 #[test]
