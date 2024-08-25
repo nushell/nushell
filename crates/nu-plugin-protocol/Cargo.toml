@@ -10,6 +10,9 @@ version = "0.97.2"
 [lib]
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
 nu-protocol = { path = "../nu-protocol", version = "0.97.2", features = ["plugin"] }
 nu-utils = { path = "../nu-utils", version = "0.97.2" }

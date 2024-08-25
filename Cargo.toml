@@ -182,6 +182,12 @@ windows = "0.54"
 windows-sys = "0.48"
 winreg = "0.52"
 
+[workspace.lints.clippy]
+# todo = "warn"
+
+[lints]
+workspace = true
+
 [dependencies]
 nu-cli = { path = "./crates/nu-cli", version = "0.97.2" }
 nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.97.2" }

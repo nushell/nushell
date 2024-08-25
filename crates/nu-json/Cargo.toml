@@ -30,3 +30,6 @@ nu-test-support = { path = "../nu-test-support", version = "0.97.2" }
 nu-path = { path = "../nu-path", version = "0.97.2" }
 serde_json = "1.0"
 fancy-regex = "0.13.0"
+
+[lints]
+workspace = true

@@ -12,6 +12,9 @@ license = "MIT"
 [lib]
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
 libc = { workspace = true }
 log = { workspace = true }
