@@ -310,9 +310,43 @@ impl PipelineData {
         insensitive: bool,
     ) -> Result<Value, ShellError> {
         match self {
-            // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
-                .follow_cell_path(cell_path, insensitive),
+            PipelineData::ListStream(stream, ..) => {
+                if let Some(path_member) = cell_path.get(0) {
+                    match *path_member {
+                        PathMember::Int {
+                            val,
+                            span,
+                            optional,
+                        } => {
+                            if let Some(v) = stream.into_iter().nth(val) {
+                                let next_cell_path: Vec<PathMember> =
+                                    cell_path.into_iter().skip(1).cloned().collect();
+                                if next_cell_path.is_empty() {
+                                    return Ok(v);
+                                }
+
+                                return v.into_pipeline_data().follow_cell_path(
+                                    next_cell_path.as_slice(),
+                                    head,
+                                    insensitive,
+                                );
+                            } else {
+                                if optional {
+                                    return Ok(Value::nothing(span));
+                                } else {
+                                    return Err(ShellError::AccessBeyondEndOfStream { span });
+                                }
+                            }
+                        }
+                        PathMember::String { .. } => {
+                            /* Fall through to collecting the list to be built into a table. */
+                        }
+                    }
+                }
+
+                return Value::list(stream.into_iter().collect(), head)
+                    .follow_cell_path(cell_path, insensitive);
+            }
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
             PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
                 type_name: "empty pipeline".to_string(),
