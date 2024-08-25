@@ -495,6 +495,50 @@ fn partial_completions() {
     // Match the results
     match_suggestions(&expected_paths, &suggestions);
 
+    // Test completion where there is a sneaky `...` in the path
+    let dir_str = file(dir.join("par").join("...").join("par").join("fi").join("so"));
+    let target_dir = format!("rm {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        file(
+            dir.join("partial")
+                .join("..")
+                .join("..")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-a")
+                .join("..")
+                .join("..")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-b")
+                .join("..")
+                .join("..")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+        file(
+            dir.join("partial-c")
+                .join("..")
+                .join("..")
+                .join("partial_completions")
+                .join("final_partial")
+                .join("somefile"),
+        ),
+    ];
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+
     // Test completion for all files under directories whose names begin with "pa"
     let file_str = file(dir.join("partial-a").join("have"));
     let target_file = format!("rm {file_str}");
