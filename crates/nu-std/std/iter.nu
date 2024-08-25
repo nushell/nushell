@@ -31,7 +31,7 @@ export def find [ # -> any | null
     fn: closure          # the closure used to perform the search 
 ] {
     try {
-       filter $fn | get 0?
+       filter $fn | first
     } catch {
        null
     }
@@ -60,20 +60,7 @@ export def find [ # -> any | null
 export def find-index [ # -> int
     fn: closure                # the closure used to perform the search
 ] {
-    let matches = (
-        enumerate
-        | each {|it|
-            if (do $fn $it.item) {
-                $it.index
-            }
-        }
-    )
-
-    if ($matches | is-empty) {
-        -1
-    } else {
-        $matches | first
-    }
+    enumerate | find {|it| do $fn $it.item} | get index? | default (-1)
 }
 
 # Returns a new list with the separator between adjacent
@@ -89,13 +76,7 @@ export def find-index [ # -> int
 export def intersperse [ # -> list<any>
     separator: any              # the separator to be used
 ] {
-    reduce --fold [] {|it, acc|
-         $acc ++ [$it, $separator]
-    } 
-    | match $in {
-         [] => [],
-         $xs => ($xs | take (($xs | length) - 1 ))
-    }
+    each {|it| [$it, $separator]} | flatten | drop
 }
 
 # Returns a list of intermediate steps performed by `reduce`

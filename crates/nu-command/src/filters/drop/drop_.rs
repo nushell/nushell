@@ -1,40 +1,6 @@
 use itertools::{Itertools, MultiPeek};
 use nu_engine::command_prelude::*;
 
-// Drops the specified numbers of rows from the end of the iterator.
-struct DropIterator<Item, Iter: Iterator<Item = Item>> {
-    iter: MultiPeek<Iter>,
-    rows: usize,
-}
-
-impl<Item, Iter> DropIterator<Item, Iter>
-where
-    Iter: Iterator<Item = Item>,
-{
-    fn new(iter: Iter, rows: usize) -> Self {
-        DropIterator {
-            iter: iter.multipeek(),
-            rows,
-        }
-    }
-}
-
-impl<Item, Iter> Iterator for DropIterator<Item, Iter>
-where
-    Iter: Iterator<Item = Item>,
-{
-    type Item = Item;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        for _ in 0..(self.rows + 1) {
-            if self.iter.peek().is_none() {
-                return None;
-            }
-        }
-        self.iter.next()
-    }
-}
-
 #[derive(Clone)]
 pub struct Drop;
 
@@ -115,16 +81,50 @@ impl Command for Drop {
         let metadata = input.metadata();
         let rows: usize = call.opt(engine_state, stack, 0)?.or(Some(1)).unwrap();
 
-        input
-            .into_iter_strict(head)
-            .map(|iter| DropIterator::new(iter, rows))
-            .map(|iter| {
-                iter.into_pipeline_data_with_metadata(
-                    head,
-                    engine_state.signals().clone(),
-                    metadata,
-                )
-            })
+        input.into_iter_strict(head).map(|iter| {
+            DropIterator::new(iter, rows).into_pipeline_data_with_metadata(
+                head,
+                engine_state.signals().clone(),
+                metadata,
+            )
+        })
+    }
+}
+
+/// Drops the specified numbers of rows from the end of an iterator.
+struct DropIterator<Item, Iter>
+where
+    Iter: Iterator<Item = Item>,
+{
+    iter: MultiPeek<Iter>,
+    rows: usize,
+}
+
+impl<Item, Iter> DropIterator<Item, Iter>
+where
+    Iter: Iterator<Item = Item>,
+{
+    fn new(iter: Iter, rows: usize) -> Self {
+        Self {
+            iter: iter.multipeek(),
+            rows,
+        }
+    }
+}
+
+impl<Item, Iter> Iterator for DropIterator<Item, Iter>
+where
+    Iter: Iterator<Item = Item>,
+{
+    type Item = Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for _ in 0..(self.rows + 1) {
+            if self.iter.peek().is_none() {
+                return None;
+            }
+        }
+        self.iter.next()
     }
 }
 
