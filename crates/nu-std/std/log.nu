@@ -36,8 +36,8 @@ export def log-short-prefix [] {
     }
 }
 export-env {
-    $env.NU_LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
-    $env.NU_LOG_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%.3f"
+    $env.NU_LOG_FORMAT = $env.NU_LOG_FORMAT? | default "%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
+    $env.NU_LOG_DATE_FORMAT = $env.NU_LOG_DATE_FORMAT | default "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
 def log-types [] {
