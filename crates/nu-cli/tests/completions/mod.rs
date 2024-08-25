@@ -958,6 +958,87 @@ fn folder_with_directorycompletions() {
 }
 
 #[test]
+fn folder_with_directorycompletions_with_dots() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_engine();
+    let dir_string = dir
+        .join("directory_completion")
+        .join("folder_inside_folder")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+    
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Test completions for the current folder
+    let target_dir = format!("cd {dir_string}{MAIN_SEPARATOR}..{MAIN_SEPARATOR}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("folder_inside_folder")),
+    ];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("cd {dir_str}/");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths: Vec<String> = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(&expected_slash_paths, &slash_suggestions);
+    }
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
+fn folder_with_directorycompletions_with_three_trailing_dots() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_engine();
+    let dir_string = dir
+        .join("directory_completion")
+        .join("folder_inside_folder")
+        .join(".../")
+        .into_os_string()
+        .into_string()
+        .unwrap();
+    
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    // Test completions for the current folder
+    let target_dir = format!("cd {dir_string}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("completions")),
+    ];
+
+    #[cfg(windows)]
+    {
+        let target_dir = format!("cd {dir_str}/");
+        let slash_suggestions = completer.complete(&target_dir, target_dir.len());
+
+        let expected_slash_paths: Vec<String> = expected_paths
+            .iter()
+            .map(|s| s.replace('\\', "/"))
+            .collect();
+
+        match_suggestions(&expected_slash_paths, &slash_suggestions);
+    }
+
+    // Match the results
+    match_suggestions(&expected_paths, &suggestions);
+}
+
+#[test]
 fn variables_completions() {
     // Create a new engine
     let (dir, _, mut engine, mut stack) = new_engine();
