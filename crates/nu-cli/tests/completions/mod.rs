@@ -1018,7 +1018,11 @@ fn folder_with_directorycompletions_with_three_trailing_dots() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("completions")),
+        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("another")),
+        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("directory_completion")),
+        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("test_a")),
+        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("test_b")),
+        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join(".hidden_folder")),
     ];
 
     #[cfg(windows)]

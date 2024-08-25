@@ -12,7 +12,7 @@ use nu_protocol::{
 };
 use nu_utils::get_ls_colors;
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
-
+use nu_path::dots::expand_ndots;
 use super::MatchAlgorithm;
 
 #[derive(Clone, Default)]
@@ -41,7 +41,7 @@ pub fn complete_rec(
     let mut completions = vec![];
 
     if let Some((&base, rest)) = partial.split_first() {
-        if (base == "." || base == "..") && (isdir || !rest.is_empty()) {
+        if base.chars().all(| c| c =='.') && (isdir || !rest.is_empty()) {
             let mut built = built.clone();
             built.parts.push(base.to_string());
             built.isdir = true;
@@ -156,9 +156,18 @@ pub fn complete_item(
     engine_state: &EngineState,
     stack: &Stack,
 ) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    let partial = surround_remove(partial);
-    let isdir = partial.ends_with(is_separator);
+    let cleaned_partial = surround_remove(partial);
+    let isdir = cleaned_partial.ends_with(is_separator);
+    let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
+    let mut partial = expanded_partial.to_string_lossy().to_string();
+    
+    // Handle the trailing dot case
+     if cleaned_partial.ends_with("/.") {
+         partial.push_str("/.");
+     }
 
+
+    //let isdir = path.is_dir();
     #[cfg(unix)]
     let path_separator = SEP;
     #[cfg(windows)]
