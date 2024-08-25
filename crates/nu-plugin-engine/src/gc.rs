@@ -295,7 +295,8 @@ mod tests {
     #[test]
     fn adding_locks_changes_last_update() {
         let mut state = test_state();
-        let original_last_update = Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
+        let original_last_update =
+            Some(Instant::now().checked_sub(Duration::from_secs(1)).unwrap());
         state.last_update = original_last_update;
         state.handle_message(PluginGcMsg::AddLocks(1));
         assert_ne!(original_last_update, state.last_update, "not updated");
