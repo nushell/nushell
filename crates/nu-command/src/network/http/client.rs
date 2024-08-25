@@ -342,6 +342,15 @@ pub fn send_request(
                         signals,
                     )
                 }
+                Value::Int { .. } if body_type == BodyType::Json => {
+                    let data = value_to_json_value(&body)?;
+                    send_cancellable_request(
+                        &request_url,
+                        Box::new(|| req.send_json(data)),
+                        span,
+                        signals,
+                    )
+                }
                 _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
                     msg: "unsupported body input".into(),
                 })),
