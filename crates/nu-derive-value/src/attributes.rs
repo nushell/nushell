@@ -3,19 +3,10 @@ use syn::{spanned::Spanned, Attribute, Fields, LitStr};
 
 use crate::{error::DeriveError, HELPER_ATTRIBUTE};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ContainerAttributes {
     pub rename_all: Option<Case>,
     pub type_name: Option<String>,
-}
-
-impl Default for ContainerAttributes {
-    fn default() -> Self {
-        Self {
-            rename_all: None,
-            type_name: None,
-        }
-    }
 }
 
 impl ContainerAttributes {
