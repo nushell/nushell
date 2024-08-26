@@ -122,10 +122,8 @@ impl Completer for CustomCompletion {
             })
             .unwrap_or_default();
 
-        let options = custom_completion_options
-            .as_ref()
-            .unwrap_or(completion_options);
-        let mut matcher = NuMatcher::new(String::from_utf8_lossy(&prefix), options.clone());
+        let options = custom_completion_options.unwrap_or(completion_options.clone());
+        let mut matcher = NuMatcher::new(String::from_utf8_lossy(&prefix), options);
         for sugg in suggestions {
             matcher.add_semantic_suggestion(sugg);
         }
