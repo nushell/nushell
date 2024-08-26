@@ -5,15 +5,168 @@
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
-    engine::{EngineState, StateWorkingSet},
+    engine::{self, EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
+    record, Config, HistoryFileFormat, IntoValue, PipelineData, Record, ShellError, Span, Value,
+    VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+// allow IntoValue to refer to this crate als "nu_protocol"
+use crate as nu_protocol;
+
+#[derive(Debug, IntoValue)]
+#[nu_value(rename_all = "kebab-case")]
+pub(crate) struct NuConstant {
+    default_config_dir: Result<PathBuf, ShellError>,
+    config_path: Result<PathBuf, ShellError>,
+    env_path: Result<PathBuf, ShellError>,
+    history_path: Result<PathBuf, ShellError>,
+    loginshell_path: Result<PathBuf, ShellError>,
+    #[cfg(feature = "plugin")]
+    plugin_path: Result<PathBuf, ShellError>,
+    home_path: Result<PathBuf, ShellError>,
+    data_dir: Result<PathBuf, ShellError>,
+    cache_dir: Result<PathBuf, ShellError>,
+    vendor_autoload_dirs: Vec<PathBuf>,
+    temp_path: PathBuf,
+    pid: u32,
+    os_info: NuConstantOsInfo,
+    startup_time: Value, // std::time::Duration cannot be fully represented via Value::Duration
+    is_interactive: bool,
+    is_login: bool,
+    history_enabled: bool,
+    current_exe: Result<PathBuf, ShellError>,
+}
+
+#[derive(Debug, IntoValue)]
+pub(crate) struct NuConstantOsInfo {
+    name: &'static str,
+    arch: &'static str,
+    family: &'static str,
+    kernel_version: String,
+}
+
+impl NuConstant {
+    /// Create a Value for `$nu`.
+    pub(crate) fn create(engine_state: &EngineState, span: Span) -> Value {
+        let canonicalize_path = |path: &Path| {
+            #[allow(deprecated)]
+            let cwd = engine_state.current_work_dir();
+
+            if path.exists() {
+                match nu_path::canonicalize_with(path, cwd) {
+                    Ok(canon_path) => canon_path,
+                    Err(_) => path.to_owned(),
+                }
+            } else {
+                path.to_owned()
+            }
+        };
+
+        let config_dir = match nu_path::config_dir() {
+            Some(path) => Ok(canonicalize_path(path.as_ref()).join("nushell")),
+            None => Err(ShellError::ConfigDirNotFound { span: Some(span) }),
+        };
+
+        let default_config_dir = config_dir.clone();
+
+        let config_path = match (
+            engine_state.get_config_path("config-path"),
+            config_dir.clone(),
+        ) {
+            (Some(path), _) => Ok(canonicalize_path(path.as_ref())),
+            (None, Err(e)) => Err(e),
+            (None, Ok(path)) => Ok(canonicalize_path(&path).join("config.nu")),
+        };
+
+        let env_path = match (engine_state.get_config_path("env-path"), config_dir.clone()) {
+            (Some(path), _) => Ok(canonicalize_path(path.as_ref())),
+            (None, Err(e)) => Err(e),
+            (None, Ok(path)) => Ok(canonicalize_path(&path).join("config.nu"))
+        };
+
+        let history_path = config_dir.clone().map(|mut path| {
+            let file = match engine_state.config.history.file_format {
+                HistoryFileFormat::Sqlite => "history.sqlite3",
+                HistoryFileFormat::PlainText => "history.txt",
+            };
+            canonicalize_path(&path).join(file)
+        });
+
+        let loginshell_path = config_dir.clone().map(|path| {
+            canonicalize_path(&path).join("login.nu")
+        });
+
+        #[cfg(feature = "plugin")]
+        let plugin_path = match (&engine_state.plugin_path, config_dir) {
+            (Some(path), _) => Ok(canonicalize_path(path)),
+            (None, Err(e)) => Err(e.to_owned()),
+            (None, Ok(path)) => Ok(canonicalize_path(&path).join("plugin.msgpackz")),
+        };
+
+        let home_path = match nu_path::home_dir() {
+            Some(path) => Ok(canonicalize_path(path.as_ref())),
+            None => Err(ShellError::IOError { msg: "Could not get home path".into() }),
+        };
+
+        let data_dir = match nu_path::data_dir() {
+            Some(path) => Ok(canonicalize_path(path.as_ref()).join("nushell")),
+            None => Err(ShellError::IOError { msg: "Could not get data path".into() }),
+        };
+
+        let cache_dir = match nu_path::cache_dir() {
+            Some(path) => Ok(canonicalize_path(path.as_ref()).join("nushell")),
+            None => Err(ShellError::IOError { msg: "Could not get cache path".into() })
+        };
+
+        let vendor_autoload_dirs = get_vendor_autoload_dirs(engine_state);
+        let temp_path = canonicalize_path(&std::env::temp_dir());
+        let pid = std::process::id();
+
+        let os_info = NuConstantOsInfo {
+            name: get_os_name(),
+            arch: get_os_arch(),
+            family: get_os_family(),
+            kernel_version: get_kernel_version(),
+        };
+
+        let startup_time = Value::duration(engine_state.get_startup_time(), span);
+        let is_interactive = engine_state.is_interactive;
+        let is_login = engine_state.is_login;
+        let history_enabled = engine_state.history_enabled;
+
+        let current_exe = std::env::current_exe().map_err(|_| ShellError::IOError { 
+            msg: "Could not get current executable path".to_string(),
+        });
+
+        NuConstant {
+            default_config_dir,
+            config_path,
+            env_path,
+            history_path,
+            loginshell_path,
+            #[cfg(feature = "plugin")]
+            plugin_path,
+            home_path,
+            data_dir,
+            cache_dir,
+            vendor_autoload_dirs,
+            temp_path,
+            pid,
+            os_info,
+            startup_time,
+            is_interactive,
+            is_login,
+            history_enabled,
+            current_exe,
+        }.into_value(span)
+    }
+}
 
 /// Create a Value for `$nu`.
 pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Value {

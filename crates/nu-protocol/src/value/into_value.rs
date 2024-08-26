@@ -1,4 +1,8 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use crate::{Record, ShellError, Span, Value};
 
@@ -121,7 +125,25 @@ tuple_into_value!(T0:0, T1:1, T2:2, T3:3, T4:4, T5:5, T6:6, T7:7, T8:8, T9:9, T1
 
 // Other std Types
 
+impl IntoValue for &Path {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self.to_string_lossy(), span)
+    }
+}
+
+impl IntoValue for PathBuf {
+    fn into_value(self, span: Span) -> Value {
+        <&Path>::into_value(&self, span)
+    }
+}
+
 impl IntoValue for String {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self, span)
+    }
+}
+
+impl IntoValue for &str {
     fn into_value(self, span: Span) -> Value {
         Value::string(self, span)
     }
@@ -161,6 +183,15 @@ where
             record.push(k, v.into_value(span));
         }
         Value::record(record, span)
+    }
+}
+
+impl<T> IntoValue for Result<T, ShellError> where T: IntoValue {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            Ok(ok) => ok.into_value(span),
+            Err(err) => Value::error(err, span),
+        }
     }
 }
 
