@@ -77,12 +77,15 @@ impl<T> NuMatcher<T> {
                 } else {
                     Cow::Owned(haystack.to_folded_case())
                 };
-                if haystack_lowercased.starts_with(self.needle.as_str()) {
-                    items.push((haystack, item));
-                    true
+                let matches = if self.options.positional {
+                    haystack_lowercased.starts_with(self.needle.as_str())
                 } else {
-                    false
+                    haystack_lowercased.contains(self.needle.as_str())
+                };
+                if matches {
+                    items.push((haystack, item));
                 }
+                matches
             }
             State::Fuzzy { items } => {
                 let mut matcher = SkimMatcherV2::default();
