@@ -43,7 +43,7 @@ use std::{
 /// This can be useful in situations where the default type name is not desired.
 ///
 /// ```
-/// # use nu_protocol::{FromValue, Value, ShellError, record};
+/// # use nu_protocol::{FromValue, Value, ShellError, record, Span};
 /// #
 /// # let span = Span::unknown();
 /// #
@@ -66,7 +66,7 @@ use std::{
 /// );
 ///
 ///
-/// #[derive(FromValue, PartialEq, Eq)]
+/// #[derive(FromValue, PartialEq, Eq, Debug)]
 /// #[nu_value(rename_all = "kebab-case")]
 /// struct Person {
 ///     first_name: String,
