@@ -20,11 +20,11 @@ use std::{
 ///
 /// When derived on structs with named fields, it expects a [`Value::Record`] where each field of
 /// the struct maps to a corresponding field in the record.
-/// You can customize the case conversion of these field names by using 
+/// You can customize the case conversion of these field names by using
 /// `#[nu_value(rename_all = "...")]` on the struct.
-/// Supported case conversions include those provided by [`convert_case::Case`], such as 
+/// Supported case conversions include those provided by [`convert_case::Case`], such as
 /// "snake_case", "kebab-case", "PascalCase", and others.
-/// Additionally, all values accepted by 
+/// Additionally, all values accepted by
 /// [`#[serde(rename_all = "...")]`](https://serde.rs/container-attrs.html#rename_all) are valid here.
 /// If not set, the field names will match the original Rust field names as-is.
 ///
@@ -41,7 +41,7 @@ use std::{
 /// Additionally, you can use `#[nu_value(type_name = "...")]` in the derive macro to set a custom type name
 /// for `FromValue::expected_type`. This will result in a `Type::Custom` with the specified type name.
 /// This can be useful in situations where the default type name is not desired.
-/// 
+///
 /// ```
 /// # use nu_protocol::{FromValue, Value, ShellError, record};
 /// #
@@ -64,8 +64,8 @@ use std::{
 ///     &Bird::expected_type().to_string(),
 ///     "birb"
 /// );
-/// 
-/// 
+///
+///
 /// #[derive(FromValue, PartialEq, Eq)]
 /// #[nu_value(rename_all = "kebab-case")]
 /// struct Person {
