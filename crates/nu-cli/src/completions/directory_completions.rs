@@ -2,7 +2,6 @@ use crate::completions::{
     completion_common::{adjust_if_intermediate, complete_item, AdjustView},
     Completer, CompletionOptions,
 };
-use nu_ansi_term::Style;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span,
@@ -10,7 +9,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::Path;
 
-use super::SemanticSuggestion;
+use super::{completion_common::FileSuggestion, SemanticSuggestion};
 
 #[derive(Clone, Default)]
 pub struct DirectoryCompletion {}
@@ -47,11 +46,11 @@ impl Completer for DirectoryCompletion {
         .into_iter()
         .map(move |x| SemanticSuggestion {
             suggestion: Suggestion {
-                value: x.1,
-                style: x.2,
+                value: x.path,
+                style: x.style,
                 span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
+                    start: x.span.start - offset,
+                    end: x.span.end - offset,
                 },
                 ..Suggestion::default()
             },
@@ -92,6 +91,6 @@ pub fn directory_completion(
     options: &CompletionOptions,
     engine_state: &EngineState,
     stack: &Stack,
-) -> Vec<(nu_protocol::Span, String, Option<Style>)> {
-    complete_item(true, span, partial, cwd, options, engine_state, stack)
+) -> Vec<FileSuggestion> {
+    complete_item(true, span, partial, &[cwd], options, engine_state, stack)
 }

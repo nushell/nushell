@@ -6,7 +6,7 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::{is_separator, Path, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR};
 
-use super::{completion_common::sort_suggestions, SemanticSuggestion};
+use super::SemanticSuggestion;
 
 #[derive(Clone, Default)]
 pub struct DotNuCompletion {}
@@ -87,49 +87,44 @@ impl Completer for DotNuCompletion {
 
         // Fetch the files filtering the ones that ends with .nu
         // and transform them into suggestions
-        let output: Vec<SemanticSuggestion> = search_dirs
-            .into_iter()
-            .flat_map(|search_dir| {
-                let completions = file_path_completion(
-                    span,
-                    &partial,
-                    &search_dir,
-                    options,
-                    working_set.permanent_state,
-                    stack,
-                );
-                completions
-                    .into_iter()
-                    .filter(move |it| {
-                        // Different base dir, so we list the .nu files or folders
-                        if !is_current_folder {
-                            it.1.ends_with(".nu") || it.1.ends_with(SEP)
-                        } else {
-                            // Lib dirs, so we filter only the .nu files or directory modules
-                            if it.1.ends_with(SEP) {
-                                Path::new(&search_dir).join(&it.1).join("mod.nu").exists()
-                            } else {
-                                it.1.ends_with(".nu")
-                            }
-                        }
-                    })
-                    .map(move |x| SemanticSuggestion {
-                        suggestion: Suggestion {
-                            value: x.1,
-                            style: x.2,
-                            span: reedline::Span {
-                                start: x.0.start - offset,
-                                end: x.0.end - offset,
-                            },
-                            append_whitespace: true,
-                            ..Suggestion::default()
-                        },
-                        // TODO????
-                        kind: None,
-                    })
-            })
-            .collect();
 
-        sort_suggestions(&prefix_str, output, options)
+        let completions = file_path_completion(
+            span,
+            &partial,
+            &search_dirs.iter().map(|d| d.as_str()).collect::<Vec<_>>(),
+            options,
+            working_set.permanent_state,
+            stack,
+        );
+        completions
+            .into_iter()
+            .filter(move |it| {
+                // Different base dir, so we list the .nu files or folders
+                if !is_current_folder {
+                    it.path.ends_with(".nu") || it.path.ends_with(SEP)
+                } else {
+                    // Lib dirs, so we filter only the .nu files or directory modules
+                    if it.path.ends_with(SEP) {
+                        Path::new(&it.cwd).join(&it.path).join("mod.nu").exists()
+                    } else {
+                        it.path.ends_with(".nu")
+                    }
+                }
+            })
+            .map(move |x| SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: x.path,
+                    style: x.style,
+                    span: reedline::Span {
+                        start: x.span.start - offset,
+                        end: x.span.end - offset,
+                    },
+                    append_whitespace: true,
+                    ..Suggestion::default()
+                },
+                // TODO????
+                kind: None,
+            })
+            .collect::<Vec<_>>()
     }
 }
