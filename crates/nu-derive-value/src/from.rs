@@ -70,7 +70,7 @@ fn derive_struct_from_value(
 ///
 /// This function constructs the `from_value` function for structs.
 /// The implementation is straightforward as most of the heavy lifting is handled by
-/// `parse_value_via_fields`, and this function only needs to construct the signature around it.
+/// [`parse_value_via_fields`], and this function only needs to construct the signature around it.
 ///
 /// For structs with named fields, this constructs a large return type where each field
 /// contains the implementation for that specific field.
@@ -511,7 +511,7 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 /// Parses a `Value` into self.
 ///
 /// This function handles the actual parsing of a `Value` into self.
-/// It takes two parameters: `fields` and `self_ident`.
+/// It takes three parameters: `fields`, `self_ident` and `rename_all`.
 /// The `fields` parameter determines the expected type of `Value`: named fields expect a
 /// `Value::Record`, unnamed fields expect a `Value::List`, and a unit expects `Value::Nothing`.
 ///
@@ -524,6 +524,10 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 /// The `self_ident` parameter is used to describe the identifier of the returned value.
 /// For structs, `Self` is usually sufficient, but for enums, `Self::Variant` may be needed in the
 /// future.
+/// 
+/// The `rename_all` parameter is provided through `#[nu_value(rename_all = "...")]` and describes 
+/// how, if passed, the field keys in the `Value` should be named.
+/// If this is `None`, we keep the names as they are in the struct.
 ///
 /// This function is more complex than the equivalent for `IntoValue` due to error handling
 /// requirements.
