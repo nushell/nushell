@@ -1295,6 +1295,31 @@ fn sort_fuzzy_completions_in_alphabetical_order(mut fuzzy_alpha_sort_completer: 
     );
 }
 
+#[test]
+fn exact_match() {
+    let (dir, _, engine, stack) = new_partial_engine();
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let target_dir = format!("open {}", folder(dir.join("pArTiAL")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Since it's an exact match, only 'partial' should be suggested, not
+    // 'partial-a' and stuff. Implemented in #13302
+    match_suggestions(
+        &vec![file(dir.join("partial").join("hello.txt"))],
+        &suggestions,
+    );
+
+    let target_dir = format!("open {}", file(dir.join("pArTiAL").join("hello")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    match_suggestions(
+        &vec![file(dir.join("partial").join("hello.txt"))],
+        &suggestions,
+    );
+}
+
 #[ignore = "was reverted, still needs fixing"]
 #[rstest]
 fn alias_offset_bug_7648() {
