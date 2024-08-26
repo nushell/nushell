@@ -91,19 +91,20 @@ fn complete_rec(
                         want_directory,
                         isdir,
                     ));
-                    // For https://github.com/nushell/nushell/issues/13204
-                    if options.match_algorithm == MatchAlgorithm::Prefix {
-                        let exact_match = if options.case_sensitive {
-                            entry_name.eq(base)
-                        } else {
-                            entry_name.to_folded_case().eq(&base.to_folded_case())
-                        };
-                        if exact_match {
-                            break;
-                        }
-                    }
                 } else {
                     completions.push(built);
+                }
+
+                // For https://github.com/nushell/nushell/issues/13204
+                if isdir && options.match_algorithm == MatchAlgorithm::Prefix {
+                    let exact_match = if options.case_sensitive {
+                        entry_name.eq(base)
+                    } else {
+                        entry_name.to_folded_case().eq(&base.to_folded_case())
+                    };
+                    if exact_match {
+                        break;
+                    }
                 }
             }
             None => {

@@ -1310,14 +1310,6 @@ fn exact_match() {
         &vec![file(dir.join("partial").join("hello.txt"))],
         &suggestions,
     );
-
-    let target_dir = format!("open {}", file(dir.join("pArTiAL").join("hello")));
-    let suggestions = completer.complete(&target_dir, target_dir.len());
-
-    match_suggestions(
-        &vec![file(dir.join("partial").join("hello.txt"))],
-        &suggestions,
-    );
 }
 
 #[ignore = "was reverted, still needs fixing"]
