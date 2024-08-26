@@ -837,8 +837,8 @@ fn subcommand_completions(mut subcommand_completer: NuCompleter) {
     match_suggestions(
         &vec![
             "foo bar".to_string(),
-            "foo aabcrr".to_string(),
             "foo abaz".to_string(),
+            "foo aabcrr".to_string(),
         ],
         &suggestions,
     );
