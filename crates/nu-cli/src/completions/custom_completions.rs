@@ -126,7 +126,7 @@ impl Completer for CustomCompletion {
         let options = custom_completion_options
             .as_ref()
             .unwrap_or(completion_options);
-        let suggestions = filter(&prefix, suggestions, completion_options);
+        let suggestions = filter(&prefix, suggestions, options);
         sort_suggestions(&String::from_utf8_lossy(&prefix), suggestions, options)
     }
 }
