@@ -62,6 +62,32 @@ fn extern_completer() -> NuCompleter {
 }
 
 #[fixture]
+fn completer_strings_with_options() -> NuCompleter {
+    // Create a new engine
+    let (dir, _, mut engine, mut stack) = new_engine();
+    // Add record value as example
+    let record = r#"
+        # To test that the config setting has no effect on the custom completions
+        $env.config.completions.algorithm = "fuzzy"
+        def animals [] {
+            {
+                # Very rare and totally real animals
+                completions: ["Abcdef", "Foo Abcdef", "Acd Bar" ],
+                options: {
+                    completion_algorithm: "prefix",
+                    positional: false,
+                    case_sensitive: false,
+                }
+            }
+        }
+        def my-command [animal: string@animals] { print $animal }"#;
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(Arc::new(engine), Arc::new(stack))
+}
+
+#[fixture]
 fn custom_completer() -> NuCompleter {
     // Create a new engine
     let (dir, _, mut engine, mut stack) = new_engine();
@@ -166,6 +192,20 @@ fn variables_customcompletion_subcommands_with_customcompletion_2(
 ) {
     let suggestions = completer_strings.complete("my-command ", 11);
     let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn customcompletions_substring_matching(mut completer_strings_with_options: NuCompleter) {
+    let suggestions = completer_strings_with_options.complete("my-command Abcd", 15);
+    let expected: Vec<String> = vec!["Abcdef".into(), "Foo Abcdef".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn customcompletions_case_insensitive(mut completer_strings_with_options: NuCompleter) {
+    let suggestions = completer_strings_with_options.complete("my-command foo", 14);
+    let expected: Vec<String> = vec!["Foo Abcdef".into()];
     match_suggestions(&expected, &suggestions);
 }
 
