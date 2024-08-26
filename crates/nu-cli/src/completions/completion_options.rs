@@ -245,10 +245,11 @@ mod test {
             match_algorithm: MatchAlgorithm::Fuzzy,
             ..Default::default()
         };
-        let mut matcher = NuMatcher::new("foo bar", options);
-        for item in ["foo/bar", "bar/foo", "foobar"] {
+        let mut matcher = NuMatcher::new("fob", options);
+        for item in ["foo/bar", "fob", "foo bar"] {
             matcher.add(item.to_string(), item);
         }
-        assert_eq!(vec!["bar/foo", "foo/bar", "foobar"], matcher.results());
+        // Sort by score, then in alphabetical order
+        assert_eq!(vec!["fob", "foo bar", "foo/bar"], matcher.results());
     }
 }
