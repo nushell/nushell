@@ -1,4 +1,4 @@
-use convert_case::Casing;
+use convert_case::{Case, Casing};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -107,7 +107,7 @@ fn struct_into_value(
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
-    let _ = ContainerAttributes::parse_attrs(attrs.iter())?;
+    let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
     attributes::deny_fields(&data.fields)?;
     let record = match &data.fields {
         Fields::Named(fields) => {
@@ -116,7 +116,7 @@ fn struct_into_value(
                 .iter()
                 .map(|field| field.ident.as_ref().expect("named has idents"))
                 .map(|ident| quote!(self.#ident));
-            fields_return_value(&data.fields, accessor)
+            fields_return_value(&data.fields, accessor, rename_all)
         }
         Fields::Unnamed(fields) => {
             let accessor = fields
@@ -125,7 +125,7 @@ fn struct_into_value(
                 .enumerate()
                 .map(|(n, _)| Index::from(n))
                 .map(|index| quote!(self.#index));
-            fields_return_value(&data.fields, accessor)
+            fields_return_value(&data.fields, accessor, rename_all)
         }
         Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
     };
@@ -184,7 +184,7 @@ fn enum_into_value(
             let ident = variant.ident;
             let ident_s = format!("{ident}")
                 .as_str()
-                .to_case(container_attrs.rename_all);
+                .to_case(container_attrs.rename_all.unwrap_or(Case::Snake));
             match &variant.fields {
                 // In the future we can implement more complexe enums here.
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
@@ -233,6 +233,7 @@ fn enum_into_value(
 fn fields_return_value(
     fields: &Fields,
     accessor: impl Iterator<Item = impl ToTokens>,
+    rename_all: Option<Case>,
 ) -> TokenStream2 {
     match fields {
         Fields::Named(fields) => {
@@ -242,7 +243,10 @@ fn fields_return_value(
                 .zip(accessor)
                 .map(|(field, accessor)| {
                     let ident = field.ident.as_ref().expect("named has idents");
-                    let field = ident.to_string();
+                    let mut field = ident.to_string();
+                    if let Some(rename_all) = rename_all {
+                        field = field.to_case(rename_all);
+                    }
                     quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span))
                 })
                 .collect();

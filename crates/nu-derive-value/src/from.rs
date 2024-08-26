@@ -1,4 +1,4 @@
-use convert_case::Casing;
+use convert_case::{Case, Casing};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -54,7 +54,7 @@ fn derive_struct_from_value(
     let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     attributes::deny_fields(&data.fields)?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let from_value_impl = struct_from_value(&data);
+    let from_value_impl = struct_from_value(&data, container_attrs.rename_all);
     let expected_type_impl =
         struct_expected_type(&data.fields, container_attrs.type_name.as_deref());
     Ok(quote! {
@@ -198,8 +198,8 @@ fn derive_struct_from_value(
 ///     }
 /// }
 /// ```
-fn struct_from_value(data: &DataStruct) -> TokenStream2 {
-    let body = parse_value_via_fields(&data.fields, quote!(Self));
+fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> TokenStream2 {
+    let body = parse_value_via_fields(&data.fields, quote!(Self), rename_all);
     quote! {
         fn from_value(
             v: nu_protocol::Value
@@ -437,7 +437,7 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
             let ident = &variant.ident;
             let ident_s = format!("{ident}")
                 .as_str()
-                .to_case(container_attrs.rename_all);
+                .to_case(container_attrs.rename_all.unwrap_or(Case::Snake));
             match &variant.fields {
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
                     fields_span: fields.span(),
@@ -533,12 +533,19 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 /// that poorly named fields don't cause issues.
 /// While this style is not typically recommended in handwritten Rust, it is acceptable for code
 /// generation.
-fn parse_value_via_fields(fields: &Fields, self_ident: impl ToTokens) -> TokenStream2 {
+fn parse_value_via_fields(
+    fields: &Fields,
+    self_ident: impl ToTokens,
+    rename_all: Option<Case>,
+) -> TokenStream2 {
     match fields {
         Fields::Named(fields) => {
             let fields = fields.named.iter().map(|field| {
                 let ident = field.ident.as_ref().expect("named has idents");
-                let ident_s = ident.to_string();
+                let mut ident_s = ident.to_string();
+                if let Some(rename_all) = rename_all {
+                    ident_s = ident_s.to_case(rename_all);
+                }
                 let ty = &field.ty;
                 match type_is_option(ty) {
                     true => quote! {
