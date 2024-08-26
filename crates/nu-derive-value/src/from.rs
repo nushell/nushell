@@ -524,8 +524,8 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 /// The `self_ident` parameter is used to describe the identifier of the returned value.
 /// For structs, `Self` is usually sufficient, but for enums, `Self::Variant` may be needed in the
 /// future.
-/// 
-/// The `rename_all` parameter is provided through `#[nu_value(rename_all = "...")]` and describes 
+///
+/// The `rename_all` parameter is provided through `#[nu_value(rename_all = "...")]` and describes
 /// how, if passed, the field keys in the `Value` should be named.
 /// If this is `None`, we keep the names as they are in the struct.
 ///

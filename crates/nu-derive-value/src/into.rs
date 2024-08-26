@@ -50,9 +50,9 @@ pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, DeriveErro
 /// For structs with unnamed fields, this generates a `Value::List` with each field in the list.
 /// For unit structs, this generates `Value::Nothing`, because there is no data.
 ///
-/// This function provides the signature and prepares the call to the [`fields_return_value`] 
+/// This function provides the signature and prepares the call to the [`fields_return_value`]
 /// function which does the heavy lifting of creating the `Value` calls.
-/// 
+///
 /// # Examples
 ///
 /// These examples show what the macro would generate.
@@ -219,12 +219,12 @@ fn enum_into_value(
 ///
 /// This function handles the construction of the final `Value` that the macro generates.
 /// It is currently only used for structs but may be used for enums in the future.
-/// The function takes three parameters: the `fields`, which allow iterating over each field of a 
+/// The function takes three parameters: the `fields`, which allow iterating over each field of a
 /// data type, the `accessor` and `rename_all`.
 /// The fields determine whether we need to generate a `Value::Record`, `Value::List`, or
 /// `Value::Nothing`.
 /// For named fields, they are also directly used to generate the record key.
-/// If `#[nu_value(rename_all = "...")]` is used and then passed in here via `rename_all`, the 
+/// If `#[nu_value(rename_all = "...")]` is used and then passed in here via `rename_all`, the
 /// named fields will be converted to the given case and then uses as the record key.
 ///
 /// The `accessor` parameter generalizes how the data is accessed.
