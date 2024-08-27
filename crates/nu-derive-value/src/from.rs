@@ -395,7 +395,7 @@ fn derive_enum_from_value(
 /// all possible variants.
 /// The input value is expected to be a `Value::String` containing the name of the variant formatted
 /// as defined by the `#[nu_value(rename_all = "...")]` attribute.
-/// If no attribute is given, [`convert_case::Case::Snake`] is expected.
+/// If no attribute is given, [`snake_case`](heck::ToSnakeCase) is expected.
 ///
 /// If no matching variant is found, `ShellError::CantConvert` is returned.
 ///
