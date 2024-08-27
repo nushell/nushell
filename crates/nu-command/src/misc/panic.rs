@@ -13,15 +13,19 @@ impl Command for Panic {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["panic", "crash", "throw"]
+        vec!["crash", "throw"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("panic")
-            .input_output_types(vec![(Type::Nothing, Type::table())])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
-            .optional("msg", SyntaxShape::String, "The glob pattern to use.")
+            .optional(
+                "msg",
+                SyntaxShape::String,
+                "The custom message for the panic.",
+            )
             .category(Category::Debug)
     }
 
