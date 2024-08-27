@@ -8,36 +8,30 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use polars::prelude::DataType;
+use polars::prelude::lit;
 
 #[derive(Clone)]
-pub struct ToDecimal;
+pub struct ToInteger;
 
-impl PluginCommand for ToDecimal {
+impl PluginCommand for ToInteger {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars decimal"
+        "polars integer"
     }
 
     fn description(&self) -> &str {
-        "Converts a string column into a decimal column"
+        "Converts a string column into a integer column"
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["expression", "decimal", "float"]
+        vec!["expression", "integer", "float"]
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required(
-                "infer_length",
-                SyntaxShape::Int,
-                "Number of decimal points to infer",
-            )
             .input_output_type(
                 Type::Custom("expression".into()),
                 Type::Custom("expression".into()),
@@ -47,14 +41,14 @@ impl PluginCommand for ToDecimal {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "Modifies strings to decimal",
-            example: "[[a b]; [1, '2.4']] | polars into-df | polars select (polars col b | polars decimal 2) | polars collect",
+            description: "Modifies strings to integer",
+            example: "[[a b]; [1, '2']] | polars into-df | polars select (polars col b | polars integer) | polars collect",
             result: Some(
                 NuDataFrame::try_from_columns(
                     vec![Column::new(
                         "b".to_string(),
                         vec![
-                            Value::test_float(2.40),
+                            Value::test_int(2),
                         ],
                     )],
                     None,
@@ -87,15 +81,7 @@ fn command(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let infer_length: usize = call.req(0)?;
-    let res: NuExpression = expr
-        .into_polars()
-        .str()
-        .to_decimal(infer_length)
-        // since there isn't a good way to support actual large decimal types
-        // in nushell, just cast it to an f64.
-        .cast(DataType::Float64)
-        .into();
+    let res: NuExpression = expr.into_polars().str().to_integer(lit(10), false).into();
     res.to_pipeline_data(plugin, engine, call.head)
 }
 
@@ -106,6 +92,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command(&ToDecimal)
+        test_polars_plugin_command(&ToInteger)
     }
 }

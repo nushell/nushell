@@ -67,9 +67,7 @@ impl PluginCommand for LazySelect {
 
         let pipeline_value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
-        let lazy: NuLazyFrame =  lazy.to_polars()
-            .select(&expressions)
-            .into();
+        let lazy: NuLazyFrame = lazy.to_polars().select(&expressions).into();
         lazy.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)
     }
