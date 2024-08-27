@@ -860,10 +860,8 @@ fn search_pattern(data: impl Iterator<Item = String>, pat: &str, rev: bool) -> V
         }
     }
 
-    if !rev {
-        matches.sort();
-    } else {
-        matches.sort_by(|a, b| b.cmp(a));
+    if rev {
+        matches.reverse();
     }
 
     matches
