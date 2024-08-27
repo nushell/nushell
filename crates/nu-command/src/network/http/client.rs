@@ -222,51 +222,42 @@ pub fn send_request(
             };
 
             match body_type {
-                BodyType::Json => {
-                    send_json_request(&request_url, body, req, span, signals)
-                }
-                BodyType::Form => {
-                    send_form_request(&request_url, body, req, span, signals)
-                }
+                BodyType::Json => send_json_request(&request_url, body, req, span, signals),
+                BodyType::Form => send_form_request(&request_url, body, req, span, signals),
                 BodyType::Multipart => {
                     send_multipart_request(&request_url, body, req, span, signals)
                 }
-                BodyType::Unknown => {
-                    send_default_request(&request_url, body, req, span, signals)
-                }
+                BodyType::Unknown => send_default_request(&request_url, body, req, span, signals),
             }
         }
     }
 }
 
 fn send_json_request(
-    request_url: &str, 
+    request_url: &str,
     body: Value,
-    req: Request, 
-    span: Span, 
+    req: Request,
+    span: Span,
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let data = match body {
-        Value::Int { .. } | Value::List { .. } | Value::String { .. } | Value::Record { .. }  => value_to_json_value(&body)?,
-        _ => { 
-            return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError { 
+        Value::Int { .. } | Value::List { .. } | Value::String { .. } | Value::Record { .. } => {
+            value_to_json_value(&body)?
+        }
+        _ => {
+            return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
                 msg: "unsupported body input for JSON body type".into(),
             }))
-        },
+        }
     };
-    send_cancellable_request(
-        request_url,
-        Box::new(|| req.send_json(data)),
-        span,
-        signals,
-    )
+    send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
 }
 
 fn send_form_request(
-    request_url: &str, 
+    request_url: &str,
     body: Value,
-    req: Request, 
-    span: Span, 
+    req: Request,
+    span: Span,
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
@@ -284,7 +275,7 @@ fn send_form_request(
 
             let request_fn = map_to_str(data, req);
             send_cancellable_request(request_url, request_fn, span, signals)
-        },
+        }
         Value::Record { val, .. } => {
             let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
 
@@ -294,14 +285,17 @@ fn send_form_request(
 
             let request_fn = map_to_str(data, req);
             send_cancellable_request(request_url, request_fn, span, signals)
-        },
-        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError { 
-            msg: "unsupported body input for Form body type".into(), 
+        }
+        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+            msg: "unsupported body input for Form body type".into(),
         })),
     }
 }
 
-fn map_to_str(data: Vec<(String, String)>, req: Request) -> Box<impl FnOnce() -> Result<Response, Error>> {
+fn map_to_str(
+    data: Vec<(String, String)>,
+    req: Request,
+) -> Box<impl FnOnce() -> Result<Response, Error>> {
     Box::new(move || {
         // coerce `data` into a shape that send_form() is happy with
         let data = data
@@ -313,22 +307,22 @@ fn map_to_str(data: Vec<(String, String)>, req: Request) -> Box<impl FnOnce() ->
 }
 
 fn send_multipart_request(
-    request_url: &str, 
+    request_url: &str,
     body: Value,
-    req: Request, 
-    span: Span, 
+    req: Request,
+    span: Span,
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let request_fn = match body {
-        Value::Record { val, .. }  => {
+        Value::Record { val, .. } => {
             let mut builder = MultipartWriter::new();
-    
+
             let err = |e| {
                 ShellErrorOrRequestError::ShellError(ShellError::IOError {
                     msg: format!("failed to build multipart data: {}", e),
                 })
             };
-    
+
             for (col, val) in val.into_owned() {
                 if let Value::Binary { val, .. } = val {
                     let headers = [
@@ -344,34 +338,33 @@ fn send_multipart_request(
                         .add(&mut Cursor::new(val), &headers.join("\n"))
                         .map_err(err)?;
                 } else {
-                    let headers =
-                        format!(r#"Content-Disposition: form-data; name="{}""#, col);
+                    let headers = format!(r#"Content-Disposition: form-data; name="{}""#, col);
                     builder
                         .add(val.coerce_into_string()?.as_bytes(), &headers)
                         .map_err(err)?;
                 }
             }
             builder.finish();
-    
+
             let (boundary, data) = (builder.boundary, builder.data);
             let content_type = format!("multipart/form-data; boundary={}", boundary);
-    
+
             move || req.set("Content-Type", &content_type).send_bytes(&data)
-        },
-        _ => { 
-            return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError { 
+        }
+        _ => {
+            return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
                 msg: "unsupported body input for Multipart body type".into(),
             }))
-        },
+        }
     };
     send_cancellable_request(request_url, Box::new(request_fn), span, signals)
 }
 
 fn send_default_request(
-    request_url: &str, 
+    request_url: &str,
     body: Value,
-    req: Request, 
-    span: Span, 
+    req: Request,
+    span: Span,
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
@@ -387,7 +380,7 @@ fn send_default_request(
             span,
             signals,
         ),
-        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError { 
+        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
             msg: "unsupported body input for no/unknown body type".into(),
         })),
     }
