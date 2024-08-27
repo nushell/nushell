@@ -3418,6 +3418,7 @@ dependencies = [
  "dirs",
  "dirs-sys",
  "fancy-regex",
+ "heck",
  "indexmap",
  "log",
  "lru",
