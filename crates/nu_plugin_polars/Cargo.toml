@@ -53,6 +53,7 @@ features = [
 	"dtype-categorical",
 	"dtype-datetime",
 	"dtype-struct",
+	"dtype-decimal",
 	"dtype-i8",
 	"dtype-i16",
 	"dtype-u8",
@@ -70,7 +71,8 @@ features = [
 	"serde",
 	"serde-lazy",
 	"strings",
-    "streaming",
+	"string_to_integer",
+	"streaming",
 	"to_dummies",
 ]
 optional = false
