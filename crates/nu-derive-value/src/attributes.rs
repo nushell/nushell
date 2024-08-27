@@ -3,19 +3,10 @@ use syn::{spanned::Spanned, Attribute, Fields, LitStr};
 
 use crate::{error::DeriveError, HELPER_ATTRIBUTE};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ContainerAttributes {
-    pub rename_all: Case,
+    pub rename_all: Option<Case>,
     pub type_name: Option<String>,
-}
-
-impl Default for ContainerAttributes {
-    fn default() -> Self {
-        Self {
-            rename_all: Case::Snake,
-            type_name: None,
-        }
-    }
 }
 
 impl ContainerAttributes {
@@ -59,7 +50,7 @@ impl ContainerAttributes {
                                 return Ok(()); // We stored the err in `err`.
                             }
                         };
-                        container_attrs.rename_all = case;
+                        container_attrs.rename_all = Some(case);
                     }
                     "type_name" => {
                         let type_name: LitStr = meta.value()?.parse()?;

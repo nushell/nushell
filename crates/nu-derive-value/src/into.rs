@@ -1,4 +1,4 @@
-use convert_case::Casing;
+use convert_case::{Case, Casing};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -49,6 +49,9 @@ pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, DeriveErro
 /// Each field value is converted using the `IntoValue::into_value` method.
 /// For structs with unnamed fields, this generates a `Value::List` with each field in the list.
 /// For unit structs, this generates `Value::Nothing`, because there is no data.
+///
+/// This function provides the signature and prepares the call to the [`fields_return_value`]
+/// function which does the heavy lifting of creating the `Value` calls.
 ///
 /// # Examples
 ///
@@ -107,7 +110,7 @@ fn struct_into_value(
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
-    let _ = ContainerAttributes::parse_attrs(attrs.iter())?;
+    let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
     attributes::deny_fields(&data.fields)?;
     let record = match &data.fields {
         Fields::Named(fields) => {
@@ -116,7 +119,7 @@ fn struct_into_value(
                 .iter()
                 .map(|field| field.ident.as_ref().expect("named has idents"))
                 .map(|ident| quote!(self.#ident));
-            fields_return_value(&data.fields, accessor)
+            fields_return_value(&data.fields, accessor, rename_all)
         }
         Fields::Unnamed(fields) => {
             let accessor = fields
@@ -125,7 +128,7 @@ fn struct_into_value(
                 .enumerate()
                 .map(|(n, _)| Index::from(n))
                 .map(|index| quote!(self.#index));
-            fields_return_value(&data.fields, accessor)
+            fields_return_value(&data.fields, accessor, rename_all)
         }
         Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
     };
@@ -184,7 +187,7 @@ fn enum_into_value(
             let ident = variant.ident;
             let ident_s = format!("{ident}")
                 .as_str()
-                .to_case(container_attrs.rename_all);
+                .to_case(container_attrs.rename_all.unwrap_or(Case::Snake));
             match &variant.fields {
                 // In the future we can implement more complexe enums here.
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
@@ -216,11 +219,13 @@ fn enum_into_value(
 ///
 /// This function handles the construction of the final `Value` that the macro generates.
 /// It is currently only used for structs but may be used for enums in the future.
-/// The function takes two parameters: the `fields`, which allow iterating over each field of a data
-/// type, and the `accessor`.
+/// The function takes three parameters: the `fields`, which allow iterating over each field of a
+/// data type, the `accessor` and `rename_all`.
 /// The fields determine whether we need to generate a `Value::Record`, `Value::List`, or
 /// `Value::Nothing`.
 /// For named fields, they are also directly used to generate the record key.
+/// If `#[nu_value(rename_all = "...")]` is used and then passed in here via `rename_all`, the
+/// named fields will be converted to the given case and then uses as the record key.
 ///
 /// The `accessor` parameter generalizes how the data is accessed.
 /// For named fields, this is usually the name of the fields preceded by `self` in a struct, and
@@ -233,6 +238,7 @@ fn enum_into_value(
 fn fields_return_value(
     fields: &Fields,
     accessor: impl Iterator<Item = impl ToTokens>,
+    rename_all: Option<Case>,
 ) -> TokenStream2 {
     match fields {
         Fields::Named(fields) => {
@@ -242,7 +248,10 @@ fn fields_return_value(
                 .zip(accessor)
                 .map(|(field, accessor)| {
                     let ident = field.ident.as_ref().expect("named has idents");
-                    let field = ident.to_string();
+                    let mut field = ident.to_string();
+                    if let Some(rename_all) = rename_all {
+                        field = field.to_case(rename_all);
+                    }
                     quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span))
                 })
                 .collect();

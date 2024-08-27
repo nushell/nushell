@@ -1,4 +1,4 @@
-use convert_case::Casing;
+use convert_case::{Case, Casing};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -54,7 +54,7 @@ fn derive_struct_from_value(
     let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     attributes::deny_fields(&data.fields)?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let from_value_impl = struct_from_value(&data);
+    let from_value_impl = struct_from_value(&data, container_attrs.rename_all);
     let expected_type_impl =
         struct_expected_type(&data.fields, container_attrs.type_name.as_deref());
     Ok(quote! {
@@ -70,7 +70,7 @@ fn derive_struct_from_value(
 ///
 /// This function constructs the `from_value` function for structs.
 /// The implementation is straightforward as most of the heavy lifting is handled by
-/// `parse_value_via_fields`, and this function only needs to construct the signature around it.
+/// [`parse_value_via_fields`], and this function only needs to construct the signature around it.
 ///
 /// For structs with named fields, this constructs a large return type where each field
 /// contains the implementation for that specific field.
@@ -198,8 +198,8 @@ fn derive_struct_from_value(
 ///     }
 /// }
 /// ```
-fn struct_from_value(data: &DataStruct) -> TokenStream2 {
-    let body = parse_value_via_fields(&data.fields, quote!(Self));
+fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> TokenStream2 {
+    let body = parse_value_via_fields(&data.fields, quote!(Self), rename_all);
     quote! {
         fn from_value(
             v: nu_protocol::Value
@@ -437,7 +437,7 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
             let ident = &variant.ident;
             let ident_s = format!("{ident}")
                 .as_str()
-                .to_case(container_attrs.rename_all);
+                .to_case(container_attrs.rename_all.unwrap_or(Case::Snake));
             match &variant.fields {
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
                     fields_span: fields.span(),
@@ -511,7 +511,7 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 /// Parses a `Value` into self.
 ///
 /// This function handles the actual parsing of a `Value` into self.
-/// It takes two parameters: `fields` and `self_ident`.
+/// It takes three parameters: `fields`, `self_ident` and `rename_all`.
 /// The `fields` parameter determines the expected type of `Value`: named fields expect a
 /// `Value::Record`, unnamed fields expect a `Value::List`, and a unit expects `Value::Nothing`.
 ///
@@ -525,6 +525,10 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 /// For structs, `Self` is usually sufficient, but for enums, `Self::Variant` may be needed in the
 /// future.
 ///
+/// The `rename_all` parameter is provided through `#[nu_value(rename_all = "...")]` and describes
+/// how, if passed, the field keys in the `Value` should be named.
+/// If this is `None`, we keep the names as they are in the struct.
+///
 /// This function is more complex than the equivalent for `IntoValue` due to error handling
 /// requirements.
 /// For missing fields, `ShellError::CantFindColumn` is used, and for unit structs,
@@ -533,12 +537,19 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 /// that poorly named fields don't cause issues.
 /// While this style is not typically recommended in handwritten Rust, it is acceptable for code
 /// generation.
-fn parse_value_via_fields(fields: &Fields, self_ident: impl ToTokens) -> TokenStream2 {
+fn parse_value_via_fields(
+    fields: &Fields,
+    self_ident: impl ToTokens,
+    rename_all: Option<Case>,
+) -> TokenStream2 {
     match fields {
         Fields::Named(fields) => {
             let fields = fields.named.iter().map(|field| {
                 let ident = field.ident.as_ref().expect("named has idents");
-                let ident_s = ident.to_string();
+                let mut ident_s = ident.to_string();
+                if let Some(rename_all) = rename_all {
+                    ident_s = ident_s.to_case(rename_all);
+                }
                 let ty = &field.ty;
                 match type_is_option(ty) {
                     true => quote! {
