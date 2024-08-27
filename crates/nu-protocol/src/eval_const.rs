@@ -11,7 +11,7 @@ use crate::{
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Arc,
 };
 
@@ -53,22 +53,36 @@ pub(crate) struct NuConstantOsInfo {
 impl NuConstant {
     /// Create a Value for `$nu`.
     pub(crate) fn create(engine_state: &EngineState, span: Span) -> Value {
-        let canonicalize_path = |path: &Path| {
+        fn canonicalize_path(
+            engine_state: &EngineState,
+            path: impl Into<PathBuf>,
+            join: impl Into<Option<&'static str>>,
+        ) -> PathBuf {
+            let mut path = path.into();
+            let join = join.into();
+
             #[allow(deprecated)]
             let cwd = engine_state.current_work_dir();
 
+            if let Some(join) = join {
+                path.push(join);
+            }
+
             if path.exists() {
-                match nu_path::canonicalize_with(path, cwd) {
+                match nu_path::canonicalize_with(&path, cwd) {
                     Ok(canon_path) => canon_path,
-                    Err(_) => path.to_owned(),
+                    Err(_) => path,
                 }
             } else {
-                path.to_owned()
+                path
             }
-        };
+        }
+
+        // shortcut for function calls
+        let es = engine_state;
 
         let config_dir = match nu_path::config_dir() {
-            Some(path) => Ok(canonicalize_path(path.as_ref()).join("nushell")),
+            Some(path) => Ok(canonicalize_path(es, path.into_std_path_buf(), "nushell")),
             None => Err(ShellError::ConfigDirNotFound { span: Some(span) }),
         };
 
@@ -78,15 +92,15 @@ impl NuConstant {
             engine_state.get_config_path("config-path"),
             config_dir.clone(),
         ) {
-            (Some(path), _) => Ok(canonicalize_path(path.as_ref())),
+            (Some(path), _) => Ok(canonicalize_path(es, path, None)),
             (None, Err(e)) => Err(e),
-            (None, Ok(path)) => Ok(canonicalize_path(&path).join("config.nu")),
+            (None, Ok(path)) => Ok(canonicalize_path(es, path, "config.nu")),
         };
 
         let env_path = match (engine_state.get_config_path("env-path"), config_dir.clone()) {
-            (Some(path), _) => Ok(canonicalize_path(path.as_ref())),
+            (Some(path), _) => Ok(canonicalize_path(es, path, None)),
             (None, Err(e)) => Err(e),
-            (None, Ok(path)) => Ok(canonicalize_path(&path).join("config.nu")),
+            (None, Ok(path)) => Ok(canonicalize_path(es, path, "config.nu")),
         };
 
         let history_path = config_dir.clone().map(|path| {
@@ -94,43 +108,43 @@ impl NuConstant {
                 HistoryFileFormat::Sqlite => "history.sqlite3",
                 HistoryFileFormat::PlainText => "history.txt",
             };
-            canonicalize_path(&path).join(file)
+            canonicalize_path(es, path, file)
         });
 
         let loginshell_path = config_dir
             .clone()
-            .map(|path| canonicalize_path(&path).join("login.nu"));
+            .map(|path| canonicalize_path(es, path, "login.nu"));
 
         #[cfg(feature = "plugin")]
         let plugin_path = match (&engine_state.plugin_path, config_dir) {
-            (Some(path), _) => Ok(canonicalize_path(path)),
+            (Some(path), _) => Ok(canonicalize_path(es, path, None)),
             (None, Err(e)) => Err(e.to_owned()),
-            (None, Ok(path)) => Ok(canonicalize_path(&path).join("plugin.msgpackz")),
+            (None, Ok(path)) => Ok(canonicalize_path(es, path, "plugin.msgpackz")),
         };
 
         let home_path = match nu_path::home_dir() {
-            Some(path) => Ok(canonicalize_path(path.as_ref())),
+            Some(path) => Ok(canonicalize_path(es, path, None)),
             None => Err(ShellError::IOError {
                 msg: "Could not get home path".into(),
             }),
         };
 
         let data_dir = match nu_path::data_dir() {
-            Some(path) => Ok(canonicalize_path(path.as_ref()).join("nushell")),
+            Some(path) => Ok(canonicalize_path(es, path, "nushell")),
             None => Err(ShellError::IOError {
                 msg: "Could not get data path".into(),
             }),
         };
 
         let cache_dir = match nu_path::cache_dir() {
-            Some(path) => Ok(canonicalize_path(path.as_ref()).join("nushell")),
+            Some(path) => Ok(canonicalize_path(es, path, "nushell")),
             None => Err(ShellError::IOError {
                 msg: "Could not get cache path".into(),
             }),
         };
 
         let vendor_autoload_dirs = get_vendor_autoload_dirs(engine_state);
-        let temp_path = canonicalize_path(&std::env::temp_dir());
+        let temp_path = canonicalize_path(es, std::env::temp_dir(), None);
         let pid = std::process::id();
 
         let os_info = NuConstantOsInfo {
