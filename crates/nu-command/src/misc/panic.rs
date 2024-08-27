@@ -9,7 +9,11 @@ impl Command for Panic {
     }
 
     fn description(&self) -> &str {
-        "Executes a rust panic, useful only for testing."
+        "Causes nushell to panic."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["panic", "crash", "throw"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -18,7 +22,7 @@ impl Command for Panic {
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
             .optional("msg", SyntaxShape::String, "The glob pattern to use.")
-            .category(Category::Experimental)
+            .category(Category::Debug)
     }
 
     fn run(
@@ -35,6 +39,10 @@ impl Command for Panic {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![]
+        vec![Example {
+            description: "Panic with a custom message",
+            example: "panic 'This is a custom panic message'",
+            result: None,
+        }]
     }
 }
