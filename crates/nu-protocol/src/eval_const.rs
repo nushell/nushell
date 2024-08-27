@@ -12,7 +12,7 @@ use crate::{
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{path::PathBuf, sync::Arc};
 
-// allow IntoValue to refer to this crate als "nu_protocol"
+// allow IntoValue to refer to this crate also "nu_protocol"
 use crate as nu_protocol;
 
 #[derive(Debug, IntoValue)]
