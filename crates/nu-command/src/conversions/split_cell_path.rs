@@ -66,6 +66,51 @@ impl Command for SubCommand {
             PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
         }
     }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Split a cell-path into its components",
+                example: "$.5?.c | split cell-path",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "value" => Value::test_int(5),
+                        "optional" => Value::test_bool(true),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_string("c"),
+                        "optional" => Value::test_bool(false),
+                    }),
+                ])),
+            },
+            Example {
+                description: "Split a complex cell-path",
+                example: r#"$.a.b?.1."2"."c.d" | split cell-path"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "value" => Value::test_string("a"),
+                        "optional" => Value::test_bool(false),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_string("b"),
+                        "optional" => Value::test_bool(true),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_int(1),
+                        "optional" => Value::test_bool(false),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_string("2"),
+                        "optional" => Value::test_bool(false),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_string("c.d"),
+                        "optional" => Value::test_bool(false),
+                    }),
+                ])),
+            },
+        ]
+    }
 }
 
 fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
@@ -103,8 +148,21 @@ fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
             })
         })
         .collect();
+
     Ok(Value::List {
         vals: members,
         internal_span: span,
     })
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(SubCommand {})
+    }
 }
