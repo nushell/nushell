@@ -1,4 +1,3 @@
-use convert_case::{Case, Casing};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -6,7 +5,10 @@ use syn::{
     Type,
 };
 
-use crate::attributes::{self, ContainerAttributes};
+use crate::{
+    attributes::{self, ContainerAttributes},
+    case::{Case, Casing},
+};
 
 #[derive(Debug)]
 pub struct FromValue;
