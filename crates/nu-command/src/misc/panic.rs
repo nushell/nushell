@@ -19,8 +19,6 @@ impl Command for Panic {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("panic")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            // LsGlobPattern is similar to string, it won't auto-expand
-            // and we use it to track if the user input is quoted.
             .optional(
                 "msg",
                 SyntaxShape::String,
