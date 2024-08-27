@@ -1,0 +1,110 @@
+use nu_engine::command_prelude::*;
+use nu_protocol::{ast::PathMember, IntoValue};
+
+#[derive(Clone)]
+pub struct SubCommand;
+
+impl Command for SubCommand {
+    fn name(&self) -> &str {
+        "split cell-path"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .input_output_types(vec![
+                (Type::CellPath, Type::List(Box::new(Type::Any))),
+                (
+                    Type::CellPath,
+                    Type::List(Box::new(Type::Record(
+                        [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
+                    ))),
+                ),
+            ])
+            .category(Category::Conversions)
+            .allow_variants_without_examples(true)
+    }
+
+    fn description(&self) -> &str {
+        "Split a cell-path into its components."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["convert"]
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+
+        match input {
+            PipelineData::Value(Value::CellPath { val, .. }, _) => {
+                Ok(split_cell_path(val, head)?.into_pipeline_data())
+            }
+            PipelineData::Value(other, _) => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "cell-path".into(),
+                wrong_type: other.get_type().to_string(),
+                dst_span: head,
+                src_span: other.span(),
+            }),
+            PipelineData::ListStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "cell-path".into(),
+                wrong_type: "list".into(),
+                dst_span: head,
+                src_span: stream.span(),
+            }),
+            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "cell-path".into(),
+                wrong_type: stream.type_().describe().into(),
+                dst_span: head,
+                src_span: stream.span(),
+            }),
+            PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
+        }
+    }
+}
+
+fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
+    #[derive(IntoValue)]
+    struct PathMemberRecord {
+        value: Value,
+        optional: bool,
+    }
+
+    impl PathMemberRecord {
+        fn from_path_member(pm: &PathMember) -> Self {
+            let value = match pm {
+                PathMember::String { val, span, .. } => Value::String {
+                    val: val.clone(),
+                    internal_span: *span,
+                },
+                PathMember::Int { val, span, .. } => Value::Int {
+                    val: *val as i64,
+                    internal_span: *span,
+                },
+            };
+            let optional = match pm {
+                PathMember::String { optional, .. } | PathMember::Int { optional, .. } => *optional,
+            };
+            Self { value, optional }
+        }
+    }
+
+    let members = val
+        .members
+        .iter()
+        .map(|pm| {
+            PathMemberRecord::from_path_member(pm).into_value(match pm {
+                PathMember::String { span, .. } | PathMember::Int { span, .. } => *span,
+            })
+        })
+        .collect();
+    Ok(Value::List {
+        vals: members,
+        internal_span: span,
+    })
+}
