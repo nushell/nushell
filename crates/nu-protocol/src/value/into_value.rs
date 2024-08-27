@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    time::Duration,
 };
 
 use crate::{Record, ShellError, Span, Value};

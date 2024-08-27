@@ -5,9 +5,9 @@
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
-    engine::{self, EngineState, StateWorkingSet},
+    engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, Config, HistoryFileFormat, IntoValue, PipelineData, Record, ShellError, Span, Value,
+    Config, HistoryFileFormat, IntoValue, PipelineData, ShellError, Span, Value,
     VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
@@ -90,7 +90,7 @@ impl NuConstant {
             (None, Ok(path)) => Ok(canonicalize_path(&path).join("config.nu"))
         };
 
-        let history_path = config_dir.clone().map(|mut path| {
+        let history_path = config_dir.clone().map(|path| {
             let file = match engine_state.config.history.file_format {
                 HistoryFileFormat::Sqlite => "history.sqlite3",
                 HistoryFileFormat::PlainText => "history.txt",
