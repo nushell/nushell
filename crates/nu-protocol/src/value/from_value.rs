@@ -545,18 +545,21 @@ where
     }
 }
 
-impl<T> FromValue for Result<T, ShellError> where T: FromValue {
+impl<T> FromValue for Result<T, ShellError>
+where
+    T: FromValue,
+{
     fn from_value(v: Value) -> Result<Self, ShellError> {
         match v {
             Value::Error { error, .. } => Ok(Err(error.as_ref().to_owned())),
             v => T::from_value(v).map(Result::Ok),
         }
     }
-    
+
     fn expected_type() -> Type {
         T::expected_type()
     }
-} 
+}
 
 // Nu Types
 

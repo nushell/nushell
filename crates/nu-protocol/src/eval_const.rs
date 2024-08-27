@@ -7,8 +7,7 @@ use crate::{
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    Config, HistoryFileFormat, IntoValue, PipelineData, ShellError, Span, Value,
-    VarId,
+    Config, HistoryFileFormat, IntoValue, PipelineData, ShellError, Span, Value, VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -87,7 +86,7 @@ impl NuConstant {
         let env_path = match (engine_state.get_config_path("env-path"), config_dir.clone()) {
             (Some(path), _) => Ok(canonicalize_path(path.as_ref())),
             (None, Err(e)) => Err(e),
-            (None, Ok(path)) => Ok(canonicalize_path(&path).join("config.nu"))
+            (None, Ok(path)) => Ok(canonicalize_path(&path).join("config.nu")),
         };
 
         let history_path = config_dir.clone().map(|path| {
@@ -98,9 +97,9 @@ impl NuConstant {
             canonicalize_path(&path).join(file)
         });
 
-        let loginshell_path = config_dir.clone().map(|path| {
-            canonicalize_path(&path).join("login.nu")
-        });
+        let loginshell_path = config_dir
+            .clone()
+            .map(|path| canonicalize_path(&path).join("login.nu"));
 
         #[cfg(feature = "plugin")]
         let plugin_path = match (&engine_state.plugin_path, config_dir) {
@@ -111,17 +110,23 @@ impl NuConstant {
 
         let home_path = match nu_path::home_dir() {
             Some(path) => Ok(canonicalize_path(path.as_ref())),
-            None => Err(ShellError::IOError { msg: "Could not get home path".into() }),
+            None => Err(ShellError::IOError {
+                msg: "Could not get home path".into(),
+            }),
         };
 
         let data_dir = match nu_path::data_dir() {
             Some(path) => Ok(canonicalize_path(path.as_ref()).join("nushell")),
-            None => Err(ShellError::IOError { msg: "Could not get data path".into() }),
+            None => Err(ShellError::IOError {
+                msg: "Could not get data path".into(),
+            }),
         };
 
         let cache_dir = match nu_path::cache_dir() {
             Some(path) => Ok(canonicalize_path(path.as_ref()).join("nushell")),
-            None => Err(ShellError::IOError { msg: "Could not get cache path".into() })
+            None => Err(ShellError::IOError {
+                msg: "Could not get cache path".into(),
+            }),
         };
 
         let vendor_autoload_dirs = get_vendor_autoload_dirs(engine_state);
@@ -140,7 +145,7 @@ impl NuConstant {
         let is_login = engine_state.is_login;
         let history_enabled = engine_state.history_enabled;
 
-        let current_exe = std::env::current_exe().map_err(|_| ShellError::IOError { 
+        let current_exe = std::env::current_exe().map_err(|_| ShellError::IOError {
             msg: "Could not get current executable path".to_string(),
         });
 
@@ -164,7 +169,8 @@ impl NuConstant {
             is_login,
             history_enabled,
             current_exe,
-        }.into_value(span)
+        }
+        .into_value(span)
     }
 }
 

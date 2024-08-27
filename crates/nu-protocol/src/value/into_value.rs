@@ -210,7 +210,10 @@ where
     }
 }
 
-impl<T> IntoValue for Result<T, ShellError> where T: IntoValue {
+impl<T> IntoValue for Result<T, ShellError>
+where
+    T: IntoValue,
+{
     fn into_value(self, span: Span) -> Value {
         match self {
             Ok(ok) => ok.into_value(span),
