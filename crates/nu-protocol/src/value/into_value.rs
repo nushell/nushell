@@ -12,7 +12,7 @@ use crate::{Record, ShellError, Span, Value};
 /// [`Value::Record`], where each field of the record corresponds to a field of the struct.
 /// By default, field names will be kept as-is, but you can customize the case conversion
 /// for all fields in a struct by using `#[nu_value(rename_all = "kebab-case")]` on the struct.
-/// All case options from [`heck`] are supported, as well as the values allowed by 
+/// All case options from [`heck`] are supported, as well as the values allowed by
 /// [`#[serde(rename_all)]`](https://serde.rs/container-attrs.html#rename_all).
 ///
 /// For structs with unnamed fields, the value representation will be [`Value::List`], with all
