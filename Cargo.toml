@@ -248,10 +248,8 @@ plugin = [
   "nu-protocol/plugin",
   "nu-engine/plugin",
 ]
-default = ["default-no-clipboard", "system-clipboard"]
-# Enables convenient omitting of the system-clipboard feature, as it leads to problems in ci on linux
-# See https://github.com/nushell/nushell/pull/11535
-default-no-clipboard = [
+
+default = [
   "plugin",
   "trash-support",
   "sqlite",
@@ -265,6 +263,8 @@ stable = ["default"]
 static-link-openssl = ["dep:openssl", "nu-cmd-lang/static-link-openssl"]
 
 mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]
+# Optional system clipboard support in `reedline`, this behavior has problematic compatibility with some systems.
+# Missing X server/ Wayland can cause issues
 system-clipboard = [
   "reedline/system_clipboard",
   "nu-cli/system-clipboard",
