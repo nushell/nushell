@@ -22,7 +22,7 @@ use std::{
 /// the struct maps to a corresponding field in the record.
 /// You can customize the case conversion of these field names by using
 /// `#[nu_value(rename_all = "...")]` on the struct.
-/// Supported case conversions include those provided by [`convert_case::Case`], such as
+/// Supported case conversions include those provided by [`heck`], such as
 /// "snake_case", "kebab-case", "PascalCase", and others.
 /// Additionally, all values accepted by
 /// [`#[serde(rename_all = "...")]`](https://serde.rs/container-attrs.html#rename_all) are valid here.
@@ -35,7 +35,7 @@ use std::{
 ///
 /// Only enums with no fields may derive this trait.
 /// The expected value representation will be the name of the variant as a [`Value::String`].
-/// By default, variant names will be expected in ["snake_case"](convert_case::Case::Snake).
+/// By default, variant names will be expected in ["snake_case"](heck::ToSnakeCase).
 /// You can customize the case conversion using `#[nu_value(rename_all = "kebab-case")]` on the enum.
 ///
 /// Additionally, you can use `#[nu_value(type_name = "...")]` in the derive macro to set a custom type name

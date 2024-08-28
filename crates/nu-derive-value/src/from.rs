@@ -1,4 +1,3 @@
-use convert_case::{Case, Casing};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -6,7 +5,10 @@ use syn::{
     Type,
 };
 
-use crate::attributes::{self, ContainerAttributes};
+use crate::{
+    attributes::{self, ContainerAttributes},
+    case::{Case, Casing},
+};
 
 #[derive(Debug)]
 pub struct FromValue;
@@ -393,7 +395,7 @@ fn derive_enum_from_value(
 /// all possible variants.
 /// The input value is expected to be a `Value::String` containing the name of the variant formatted
 /// as defined by the `#[nu_value(rename_all = "...")]` attribute.
-/// If no attribute is given, [`convert_case::Case::Snake`] is expected.
+/// If no attribute is given, [`snake_case`](heck::ToSnakeCase) is expected.
 ///
 /// If no matching variant is found, `ShellError::CantConvert` is returned.
 ///

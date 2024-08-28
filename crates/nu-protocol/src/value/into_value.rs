@@ -12,8 +12,8 @@ use crate::{Record, ShellError, Span, Value};
 /// [`Value::Record`], where each field of the record corresponds to a field of the struct.
 /// By default, field names will be kept as-is, but you can customize the case conversion
 /// for all fields in a struct by using `#[nu_value(rename_all = "kebab-case")]` on the struct.
-/// All useful case options from [`convert_case::Case`] are supported, as well as the
-/// values allowed by [`#[serde(rename_all)]`](https://serde.rs/container-attrs.html#rename_all).
+/// All case options from [`heck`] are supported, as well as the values allowed by
+/// [`#[serde(rename_all)]`](https://serde.rs/container-attrs.html#rename_all).
 ///
 /// For structs with unnamed fields, the value representation will be [`Value::List`], with all
 /// fields inserted into a list.
@@ -21,7 +21,7 @@ use crate::{Record, ShellError, Span, Value};
 ///
 /// Only enums with no fields may derive this trait.
 /// The resulting value representation will be the name of the variant as a [`Value::String`].
-/// By default, variant names will be converted to ["snake_case"](convert_case::Case::Snake).
+/// By default, variant names will be converted to ["snake_case"](heck::ToSnakeCase).
 /// You can customize the case conversion using `#[nu_value(rename_all = "kebab-case")]` on the enum.
 ///
 /// ```
