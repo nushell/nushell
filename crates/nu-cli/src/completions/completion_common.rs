@@ -57,7 +57,7 @@ pub fn complete_rec(
     let Ok(result) = built_path.read_dir() else {
         return completions;
     };
-
+    
     let mut entries = Vec::new();
     for entry in result.filter_map(|e| e.ok()) {
         let entry_name = entry.file_name().to_string_lossy().into_owned();
@@ -194,16 +194,11 @@ pub fn complete_item(
     match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition
-            components.next();
-            if let Some(Component::RootDir) = components.peek().cloned() {
-                components.next();
-            };
             cwd = [c, Component::RootDir].iter().collect();
             prefix_len = c.as_os_str().len();
             original_cwd = OriginalCwd::Prefix(c.as_os_str().to_string_lossy().into_owned());
         }
         Some(c @ Component::RootDir) => {
-            components.next();
             // This is kind of a hack. When joining an empty string with the rest,
             // we add the slash automagically
             cwd = PathBuf::from(c.as_os_str());
@@ -211,7 +206,6 @@ pub fn complete_item(
             original_cwd = OriginalCwd::Prefix(String::new());
         }
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
-            components.next();
             cwd = home_dir().map(Into::into).unwrap_or(cwd_pathbuf);
             prefix_len = 1;
             original_cwd = OriginalCwd::Home;
