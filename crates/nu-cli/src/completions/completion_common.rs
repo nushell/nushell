@@ -1,3 +1,4 @@
+use super::MatchAlgorithm;
 use crate::{
     completions::{matches, CompletionOptions},
     SemanticSuggestion,
@@ -5,6 +6,7 @@ use crate::{
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
+use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -12,8 +14,6 @@ use nu_protocol::{
 };
 use nu_utils::get_ls_colors;
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
-use nu_path::dots::expand_ndots;
-use super::MatchAlgorithm;
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -41,7 +41,7 @@ pub fn complete_rec(
     let mut completions = vec![];
 
     if let Some((&base, rest)) = partial.split_first() {
-        if base.chars().all(| c| c =='.') && (isdir || !rest.is_empty()) {
+        if base.chars().all(|c| c == '.') && (isdir || !rest.is_empty()) {
             let mut built = built.clone();
             built.parts.push(base.to_string());
             built.isdir = true;
@@ -57,7 +57,7 @@ pub fn complete_rec(
     let Ok(result) = built_path.read_dir() else {
         return completions;
     };
-    
+
     let mut entries = Vec::new();
     for entry in result.filter_map(|e| e.ok()) {
         let entry_name = entry.file_name().to_string_lossy().into_owned();
@@ -160,12 +160,11 @@ pub fn complete_item(
     let isdir = cleaned_partial.ends_with(is_separator);
     let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
     let mut partial = expanded_partial.to_string_lossy().to_string();
-    
-    // Handle the trailing dot case
-     if cleaned_partial.ends_with("/.") {
-         partial.push_str("/.");
-     }
 
+    // Handle the trailing dot case
+    if cleaned_partial.ends_with("/.") {
+        partial.push_str("/.");
+    }
 
     //let isdir = path.is_dir();
     #[cfg(unix)]

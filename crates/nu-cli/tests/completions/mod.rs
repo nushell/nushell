@@ -496,7 +496,13 @@ fn partial_completions() {
     match_suggestions(&expected_paths, &suggestions);
 
     // Test completion where there is a sneaky `...` in the path
-    let dir_str = file(dir.join("par").join("...").join("par").join("fi").join("so"));
+    let dir_str = file(
+        dir.join("par")
+            .join("...")
+            .join("par")
+            .join("fi")
+            .join("so"),
+    );
     let target_dir = format!("rm {dir_str}");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
@@ -967,7 +973,7 @@ fn folder_with_directorycompletions_with_dots() {
         .into_os_string()
         .into_string()
         .unwrap();
-    
+
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -976,9 +982,12 @@ fn folder_with_directorycompletions_with_dots() {
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     // Create the expected values
-    let expected_paths: Vec<String> = vec![
-        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("folder_inside_folder")),
-    ];
+    let expected_paths: Vec<String> = vec![folder(
+        dir.join("directory_completion")
+            .join("folder_inside_folder")
+            .join("..")
+            .join("folder_inside_folder"),
+    )];
 
     #[cfg(windows)]
     {
@@ -1008,7 +1017,7 @@ fn folder_with_directorycompletions_with_three_trailing_dots() {
         .into_os_string()
         .into_string()
         .unwrap();
-    
+
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -1018,11 +1027,41 @@ fn folder_with_directorycompletions_with_three_trailing_dots() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![
-        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("another")),
-        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("directory_completion")),
-        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("test_a")),
-        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join("test_b")),
-        folder(dir.join("directory_completion").join("folder_inside_folder").join("..").join("..").join(".hidden_folder")),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("another"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("directory_completion"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("test_a"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join("test_b"),
+        ),
+        folder(
+            dir.join("directory_completion")
+                .join("folder_inside_folder")
+                .join("..")
+                .join("..")
+                .join(".hidden_folder"),
+        ),
     ];
 
     #[cfg(windows)]
