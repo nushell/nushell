@@ -78,7 +78,7 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
-            use_ir: false,
+            use_ir: true,
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
