@@ -161,19 +161,19 @@ pub fn complete_item(
     let expanded_partial = expand_ndots(Path::new(&cleaned_partial));
     let mut partial = expanded_partial.to_string_lossy().to_string();
 
-    // Handle the trailing dot case
-    if cleaned_partial.ends_with("/.") {
-        partial.push_str("/.");
-    }
-
-    //let isdir = path.is_dir();
     #[cfg(unix)]
     let path_separator = SEP;
     #[cfg(windows)]
-    let path_separator = partial
+    let path_separator = cleaned_partial
         .chars()
         .rfind(|c: &char| is_separator(*c))
         .unwrap_or(SEP);
+
+    // Handle the trailing dot case
+    if cleaned_partial.ends_with(&format!("{path_separator}.")) {
+        partial.push_str(&format!("{path_separator}."));
+    }
+
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
     let ls_colors = (engine_state.config.use_ls_colors_completions
         && engine_state.config.use_ansi_coloring)
