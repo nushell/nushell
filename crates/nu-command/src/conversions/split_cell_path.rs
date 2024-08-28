@@ -11,15 +11,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![
-                (Type::CellPath, Type::List(Box::new(Type::Any))),
-                (
-                    Type::CellPath,
-                    Type::List(Box::new(Type::Record(
-                        [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
-                    ))),
-                ),
-            ])
+            .input_output_type(
+                Type::CellPath,
+                Type::List(Box::new(Type::Record(
+                    [("value".into(), Type::Any), ("optional".into(), Type::Bool)].into(),
+                ))),
+            )
             .category(Category::Conversions)
             .allow_variants_without_examples(true)
     }
