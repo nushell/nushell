@@ -121,19 +121,17 @@ fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
     }
 
     impl PathMemberRecord {
-        fn from_path_member(pm: &PathMember) -> Self {
-            let value = match pm {
-                PathMember::String { val, span, .. } => Value::String {
-                    val: val.clone(),
-                    internal_span: *span,
-                },
-                PathMember::Int { val, span, .. } => Value::Int {
-                    val: *val as i64,
-                    internal_span: *span,
-                },
+        fn from_path_member(pm: PathMember) -> Self {
+            let (optional, internal_span) = match pm {
+                PathMember::String { optional, span, .. }
+                | PathMember::Int { optional, span, .. } => (optional, span),
             };
-            let optional = match pm {
-                PathMember::String { optional, .. } | PathMember::Int { optional, .. } => *optional,
+            let value = match pm {
+                PathMember::String { val, .. } => Value::String { val, internal_span },
+                PathMember::Int { val, .. } => Value::Int {
+                    val: val as i64,
+                    internal_span,
+                },
             };
             Self { value, optional }
         }
@@ -141,11 +139,12 @@ fn split_cell_path(val: CellPath, span: Span) -> Result<Value, ShellError> {
 
     let members = val
         .members
-        .iter()
+        .into_iter()
         .map(|pm| {
-            PathMemberRecord::from_path_member(pm).into_value(match pm {
-                PathMember::String { span, .. } | PathMember::Int { span, .. } => *span,
-            })
+            let span = match pm {
+                PathMember::String { span, .. } | PathMember::Int { span, .. } => span,
+            };
+            PathMemberRecord::from_path_member(pm).into_value(span)
         })
         .collect();
 
