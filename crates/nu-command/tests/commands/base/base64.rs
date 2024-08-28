@@ -2,31 +2,18 @@ use nu_test_support::nu;
 
 #[test]
 fn canonical() {
-    for value in super::random_bytes() {
-        let outcome = nu!(
-            "{} | encode new-base64 | decode new-base64 | to nuon",
-            value
-        );
-        assert_eq!(outcome.out, value);
+    super::test_canonical("new-base64");
+    super::test_canonical("new-base64 --url");
+    super::test_canonical("new-base64 --nopad");
+    super::test_canonical("new-base64 --url --nopad");
+}
 
-        let outcome = nu!(
-            "{} | encode new-base64 --url | decode new-base64 --url | to nuon",
-            value
-        );
-        assert_eq!(outcome.out, value);
-
-        let outcome = nu!(
-            "{} | encode new-base64 --nopad | decode new-base64 --nopad | to nuon",
-            value
-        );
-        assert_eq!(outcome.out, value);
-
-        let outcome = nu!(
-            "{} | encode new-base64 --url --nopad | decode new-base64 --url --nopad | to nuon",
-            value
-        );
-        assert_eq!(outcome.out, value);
-    }
+#[test]
+fn const_() {
+    super::test_const("new-base64");
+    super::test_const("new-base64 --url");
+    super::test_const("new-base64 --nopad");
+    super::test_const("new-base64 --url --nopad");
 }
 
 #[test]

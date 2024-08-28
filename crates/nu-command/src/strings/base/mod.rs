@@ -54,14 +54,17 @@ fn get_string(input: PipelineData, call_span: Span) -> Result<(String, Span), Sh
             match val {
                 Value::String { val, .. } => Ok((val, span)),
 
-                _ => {
-                    todo!("Invalid type")
-                }
+                value => Err(ShellError::TypeMismatch {
+                    err_message: "binary or string".to_owned(),
+                    span: call_span,
+                }),
             }
         }
-        PipelineData::ListStream(..) => {
-            todo!()
-        }
+        PipelineData::ListStream(list, ..) => Err(ShellError::PipelineMismatch {
+            exp_input_type: "binary or string".to_owned(),
+            dst_span: call_span,
+            src_span: list.span(),
+        }),
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
             Ok((stream.into_string()?, span))
@@ -80,20 +83,23 @@ fn get_binary(input: PipelineData, call_span: Span) -> Result<(Vec<u8>, Span), S
                 Value::Binary { val, .. } => Ok((val, span)),
                 Value::String { val, .. } => Ok((val.into_bytes(), span)),
 
-                _ => {
-                    todo!("Invalid type")
-                }
+                value => Err(ShellError::TypeMismatch {
+                    err_message: "binary or string".to_owned(),
+                    span: call_span,
+                }),
             }
         }
-        PipelineData::ListStream(..) => {
-            todo!()
-        }
+        PipelineData::ListStream(list, ..) => Err(ShellError::PipelineMismatch {
+            exp_input_type: "binary or string".to_owned(),
+            dst_span: call_span,
+            src_span: list.span(),
+        }),
         PipelineData::ByteStream(stream, ..) => {
             let span = stream.span();
             Ok((stream.into_bytes()?, span))
         }
-        PipelineData::Empty => {
-            todo!("Can't have empty data");
-        }
+        PipelineData::Empty => Err(ShellError::PipelineEmpty {
+            dst_span: call_span,
+        }),
     }
 }

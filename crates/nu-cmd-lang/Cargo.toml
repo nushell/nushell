@@ -21,10 +21,10 @@ nu-protocol = { path = "../nu-protocol", version = "0.97.2" }
 nu-utils = { path = "../nu-utils", version = "0.97.2" }
 
 itertools = { workspace = true }
-shadow-rs = { version = "0.31", default-features = false }
+shadow-rs = { version = "0.33", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "0.31", default-features = false }
+shadow-rs = { version = "0.33", default-features = false }
 
 [features]
 mimalloc = []

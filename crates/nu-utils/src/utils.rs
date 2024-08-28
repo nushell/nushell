@@ -7,6 +7,7 @@ pub fn enable_vt_processing() -> Result<()> {
         use crossterm_winapi::{ConsoleMode, Handle};
 
         pub const ENABLE_PROCESSED_OUTPUT: u32 = 0x0001;
+        pub const ENABLE_VIRTUAL_TERMINAL_INPUT: u32 = 0x0200;
         pub const ENABLE_VIRTUAL_TERMINAL_PROCESSING: u32 = 0x0004;
         let mask = ENABLE_VIRTUAL_TERMINAL_PROCESSING;
 
@@ -17,8 +18,12 @@ pub fn enable_vt_processing() -> Result<()> {
         // enable_processed_output and enable_virtual_terminal_processing should be used
 
         if old_mode & mask == 0 {
-            console_mode
-                .set_mode(old_mode | ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING)?
+            console_mode.set_mode(
+                old_mode
+                    | ENABLE_PROCESSED_OUTPUT
+                    | ENABLE_VIRTUAL_TERMINAL_PROCESSING
+                    | ENABLE_VIRTUAL_TERMINAL_INPUT,
+            )?
         }
     }
     Ok(())
