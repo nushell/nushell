@@ -9,6 +9,9 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-test
 [lib]
 bench = false
 
+[lints]
+workspace = true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

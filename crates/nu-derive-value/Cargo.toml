@@ -13,6 +13,9 @@ proc-macro = true
 # so we cannot test anything useful in a doctest
 doctest = false 
 
+[lints]
+workspace = true
+
 [dependencies]
 proc-macro2 = { workspace = true }
 syn = { workspace = true }

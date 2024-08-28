@@ -11,6 +11,9 @@ version = "0.97.2"
 doctest = false
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
 nu-path = { path = "../nu-path", version = "0.97.2" }
 nu-glob = { path = "../nu-glob", version = "0.97.2" }

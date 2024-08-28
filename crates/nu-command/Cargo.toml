@@ -12,6 +12,9 @@ version = "0.97.2"
 [lib]
 bench = false
 
+[lints]
+workspace = true
+
 [dependencies]
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.97.2" }
 nu-color-config = { path = "../nu-color-config", version = "0.97.2" }

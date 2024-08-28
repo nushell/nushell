@@ -14,3 +14,6 @@ nu-engine = { version = "0.97.2", path = "../nu-engine" }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 
 log = "0.4"
+
+[lints]
+workspace = true

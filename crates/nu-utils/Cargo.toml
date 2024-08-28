@@ -30,3 +30,6 @@ crossterm_winapi = "0.9"
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true, default-features = false, features = ["user", "fs"] }
+
+[lints]
+workspace = true

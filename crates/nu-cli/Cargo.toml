@@ -47,3 +47,6 @@ which = { workspace = true }
 [features]
 plugin = ["nu-plugin-engine"]
 system-clipboard = ["reedline/system_clipboard"]
+
+[lints]
+workspace = true
