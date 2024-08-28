@@ -38,30 +38,24 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        match input {
+        let src_span = match input {
+            // Early return on correct type and empty pipeline
             PipelineData::Value(Value::CellPath { val, .. }, _) => {
-                Ok(split_cell_path(val, head)?.into_pipeline_data())
+                return Ok(split_cell_path(val, head)?.into_pipeline_data())
             }
-            PipelineData::Value(other, _) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "cell-path".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: head,
-                src_span: other.span(),
-            }),
-            PipelineData::ListStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "cell-path".into(),
-                wrong_type: "list".into(),
-                dst_span: head,
-                src_span: stream.span(),
-            }),
-            PipelineData::ByteStream(stream, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "cell-path".into(),
-                wrong_type: stream.type_().describe().into(),
-                dst_span: head,
-                src_span: stream.span(),
-            }),
-            PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),
-        }
+            PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
+
+            // Extract span from incorrect pipeline types
+            // NOTE: Match arms can't be combined, `stream`s are of different types
+            PipelineData::Value(other, _) => other.span(),
+            PipelineData::ListStream(stream, ..) => stream.span(),
+            PipelineData::ByteStream(stream, ..) => stream.span(),
+        };
+        Err(ShellError::PipelineMismatch {
+            exp_input_type: "cell-path".into(),
+            dst_span: head,
+            src_span,
+        })
     }
 
     fn examples(&self) -> Vec<Example> {
