@@ -1,7 +1,6 @@
-use convert_case::Case;
 use syn::{spanned::Spanned, Attribute, Fields, LitStr};
 
-use crate::{error::DeriveError, HELPER_ATTRIBUTE};
+use crate::{case::Case, error::DeriveError, HELPER_ATTRIBUTE};
 
 #[derive(Debug, Default)]
 pub struct ContainerAttributes {
@@ -22,35 +21,19 @@ impl ContainerAttributes {
                 let ident = meta.path.require_ident()?;
                 match ident.to_string().as_str() {
                     "rename_all" => {
-                        // The matched case are all useful variants from `convert_case` with aliases
-                        // that `serde` uses.
                         let case: LitStr = meta.value()?.parse()?;
-                        let case = match case.value().as_str() {
-                            "UPPER CASE" | "UPPER WITH SPACES CASE" => Case::Upper,
-                            "lower case" | "lower with spaces case" => Case::Lower,
-                            "Title Case" => Case::Title,
-                            "camelCase" => Case::Camel,
-                            "PascalCase" | "UpperCamelCase" => Case::Pascal,
-                            "snake_case" => Case::Snake,
-                            "UPPER_SNAKE_CASE" | "SCREAMING_SNAKE_CASE" => Case::UpperSnake,
-                            "kebab-case" => Case::Kebab,
-                            "COBOL-CASE" | "UPPER-KEBAB-CASE" | "SCREAMING-KEBAB-CASE" => {
-                                Case::Cobol
-                            }
-                            "Train-Case" => Case::Train,
-                            "flatcase" | "lowercase" => Case::Flat,
-                            "UPPERFLATCASE" | "UPPERCASE" => Case::UpperFlat,
-                            // Although very funny, we don't support `Case::{Toggle, Alternating}`,
-                            // as we see no real benefit.
-                            c => {
+                        let value_span = case.span();
+                        let case = case.value();
+                        match Case::from_str(&case) {
+                            Some(case) => container_attrs.rename_all = Some(case),
+                            None => {
                                 err = Err(DeriveError::InvalidAttributeValue {
-                                    value_span: case.span(),
-                                    value: Box::new(c.to_string()),
+                                    value_span,
+                                    value: Box::new(case),
                                 });
                                 return Ok(()); // We stored the err in `err`.
                             }
-                        };
-                        container_attrs.rename_all = Some(case);
+                        }
                     }
                     "type_name" => {
                         let type_name: LitStr = meta.value()?.parse()?;
