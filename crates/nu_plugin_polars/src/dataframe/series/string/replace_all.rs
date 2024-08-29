@@ -59,13 +59,13 @@ impl PluginCommand for ReplaceAll {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Replaces string",
+                description: "Replaces string in a column",
                 example:
-                    "[abac abac abac] | polars into-df | polars replace-all --pattern a --replace A",
+                    "[[a]; [abac] [abac] [abac]] | polars into-df | polars select (polars col a | polars replace-all --pattern a --replace A) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
-                            "0".to_string(),
+                            "a".to_string(),
                             vec![
                                 Value::test_string("AbAc"),
                                 Value::test_string("AbAc"),
@@ -79,13 +79,13 @@ impl PluginCommand for ReplaceAll {
                 ),
             },
             Example {
-                description: "Replaces string in a column",
+                description: "Replaces string",
                 example:
-                    "[[a]; [abac] [abac] [abac]] | polars into-df | polars select (polars col a | polars replace-all --pattern a --replace A) | polars collect",
+                    "[abac abac abac] | polars into-df | polars replace-all --pattern a --replace A",
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
-                            "a".to_string(),
+                            "0".to_string(),
                             vec![
                                 Value::test_string("AbAc"),
                                 Value::test_string("AbAc"),
