@@ -215,7 +215,7 @@ pub fn send_request(
                 Some(it) if it == "application/x-www-form-urlencoded" => (BodyType::Form, request),
                 Some(it) if it == "multipart/form-data" => (BodyType::Multipart, request),
                 Some(it) => {
-                    let r = request.clone().set("Content-Type", &it);
+                    let r = request.clone().set("Content-Type", it);
                     (BodyType::Unknown, r)
                 }
                 _ => (BodyType::Unknown, request),
