@@ -18,6 +18,8 @@ use std::{
 use ureq::{Error, ErrorKind, Request, Response};
 use url::Url;
 
+const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
+
 #[derive(PartialEq, Eq)]
 pub enum BodyType {
     Json,
@@ -245,9 +247,12 @@ fn send_json_request(
             value_to_json_value(&body)?
         }
         _ => {
-            return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                msg: "unsupported body input for JSON body type".into(),
-            }))
+            return Err(ShellErrorOrRequestError::ShellError(
+                ShellError::UnsupportedHttpBody {
+                    msg: format!("Accepted types: [Int, List, String, Record]. Check: {HTTP_DOCS}")
+                        .into(),
+                },
+            ))
         }
     };
     send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
@@ -260,11 +265,20 @@ fn send_form_request(
     span: Span,
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
+    let build_request_fn = |data: Vec<(String, String)>| {
+        // coerce `data` into a shape that send_form() is happy with
+        let data = data
+            .iter()
+            .map(|(a, b)| (a.as_str(), b.as_str()))
+            .collect::<Vec<(&str, &str)>>();
+        req.send_form(&data)
+    };
+
     match body {
         Value::List { vals, .. } => {
             if vals.len() % 2 != 0 {
-                return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                    msg: "unsupported body input".into(),
+                return Err(ShellErrorOrRequestError::ShellError(ShellError::UnsupportedHttpBody {
+                    msg: "Body type 'List' for form requests requires paired values. E.g.: [value, 10]".into(),
                 }));
             }
 
@@ -273,7 +287,7 @@ fn send_form_request(
                 .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
                 .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
 
-            let request_fn = map_to_str(data, req);
+            let request_fn = Box::new(|| build_request_fn(data));
             send_cancellable_request(request_url, request_fn, span, signals)
         }
         Value::Record { val, .. } => {
@@ -283,27 +297,15 @@ fn send_form_request(
                 data.push((col, val.coerce_into_string()?))
             }
 
-            let request_fn = map_to_str(data, req);
+            let request_fn = Box::new(|| build_request_fn(data));
             send_cancellable_request(request_url, request_fn, span, signals)
         }
-        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-            msg: "unsupported body input for Form body type".into(),
-        })),
+        _ => Err(ShellErrorOrRequestError::ShellError(
+            ShellError::UnsupportedHttpBody {
+                msg: format!("Accepted types: [List, Record]. Check: {HTTP_DOCS}").into(),
+            },
+        )),
     }
-}
-
-fn map_to_str(
-    data: Vec<(String, String)>,
-    req: Request,
-) -> Box<impl FnOnce() -> Result<Response, Error>> {
-    Box::new(move || {
-        // coerce `data` into a shape that send_form() is happy with
-        let data = data
-            .iter()
-            .map(|(a, b)| (a.as_str(), b.as_str()))
-            .collect::<Vec<(&str, &str)>>();
-        req.send_form(&data)
-    })
 }
 
 fn send_multipart_request(
@@ -352,9 +354,11 @@ fn send_multipart_request(
             move || req.set("Content-Type", &content_type).send_bytes(&data)
         }
         _ => {
-            return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                msg: "unsupported body input for Multipart body type".into(),
-            }))
+            return Err(ShellErrorOrRequestError::ShellError(
+                ShellError::UnsupportedHttpBody {
+                    msg: format!("Accepted types: [Record]. Check: {HTTP_DOCS}").into(),
+                },
+            ))
         }
     };
     send_cancellable_request(request_url, Box::new(request_fn), span, signals)
@@ -380,9 +384,11 @@ fn send_default_request(
             span,
             signals,
         ),
-        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-            msg: "unsupported body input for no/unknown body type".into(),
-        })),
+        _ => Err(ShellErrorOrRequestError::ShellError(
+            ShellError::UnsupportedHttpBody {
+                msg: format!("Accepted types: [Binary, String]. Check: {HTTP_DOCS}").into(),
+            },
+        )),
     }
 }
 
