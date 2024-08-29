@@ -3433,6 +3433,7 @@ dependencies = [
  "num-format",
  "os_pipe",
  "pretty_assertions",
+ "reedline",
  "rmp-serde",
  "rstest",
  "serde",

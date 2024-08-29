@@ -20,6 +20,7 @@ nu-utils = { path = "../nu-utils", version = "0.97.2" }
 nu-path = { path = "../nu-path", version = "0.97.2" }
 nu-system = { path = "../nu-system", version = "0.97.2" }
 nu-derive-value = { path = "../nu-derive-value", version = "0.97.2" }
+reedline = { path = "../../../reedline" }
 
 brotli = { workspace = true, optional = true }
 bytes = { workspace = true }

@@ -234,7 +234,8 @@ fn get_line_editor(
     use_color: bool,
 ) -> Result<Reedline> {
     let mut start_time = std::time::Instant::now();
-    let mut line_editor = Reedline::create();
+    let mut line_editor =
+        Reedline::create().with_reedline_event_queue(engine_state.reedline_event_queue.clone());
 
     // Now that reedline is created, get the history session id and store it in engine_state
     store_history_id_in_engine(engine_state, &line_editor);
@@ -387,7 +388,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor =
         add_menus(line_editor, engine_reference, &stack_arc, config).unwrap_or_else(|e| {
             report_shell_error(engine_state, &e);
-            Reedline::create()
+            Reedline::create().with_reedline_event_queue(engine_state.reedline_event_queue.clone())
         });
 
     perf!("reedline adding menus", start_time, use_color);
