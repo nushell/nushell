@@ -143,7 +143,9 @@ fn commandline_test_cursor_type() -> TestResult {
 
 #[test]
 fn commandline_test_accept() -> TestResult {
-    run_test("commandline edit --accept \"print accepted\"\n", "accepted")
+    // Explanation: run_test captures a command's output.
+    // But `--accept` executes a new command that then outputs "accepted"
+    run_test("commandline edit --accept \"print accepted\"", "")
 }
 
 #[test]
