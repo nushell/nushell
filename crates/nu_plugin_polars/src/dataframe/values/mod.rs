@@ -185,8 +185,8 @@ impl CustomValueType {
     }
 }
 
-pub fn cant_convert_err(value: &Value, types: &[PolarsPluginType]) -> ShellError {
-    let type_string = types
+pub fn cant_convert_err(value: &Value, expected_types: &[PolarsPluginType]) -> ShellError {
+    let type_string = expected_types
         .iter()
         .map(ToString::to_string)
         .collect::<Vec<String>>()
