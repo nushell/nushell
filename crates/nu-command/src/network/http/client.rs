@@ -249,8 +249,7 @@ fn send_json_request(
         _ => {
             return Err(ShellErrorOrRequestError::ShellError(
                 ShellError::UnsupportedHttpBody {
-                    msg: format!("Accepted types: [Int, List, String, Record]. Check: {HTTP_DOCS}")
-                        .into(),
+                    msg: format!("Accepted types: [Int, List, String, Record]. Check: {HTTP_DOCS}"),
                 },
             ))
         }
@@ -302,7 +301,7 @@ fn send_form_request(
         }
         _ => Err(ShellErrorOrRequestError::ShellError(
             ShellError::UnsupportedHttpBody {
-                msg: format!("Accepted types: [List, Record]. Check: {HTTP_DOCS}").into(),
+                msg: format!("Accepted types: [List, Record]. Check: {HTTP_DOCS}"),
             },
         )),
     }
@@ -356,7 +355,7 @@ fn send_multipart_request(
         _ => {
             return Err(ShellErrorOrRequestError::ShellError(
                 ShellError::UnsupportedHttpBody {
-                    msg: format!("Accepted types: [Record]. Check: {HTTP_DOCS}").into(),
+                    msg: format!("Accepted types: [Record]. Check: {HTTP_DOCS}"),
                 },
             ))
         }
@@ -386,7 +385,7 @@ fn send_default_request(
         ),
         _ => Err(ShellErrorOrRequestError::ShellError(
             ShellError::UnsupportedHttpBody {
-                msg: format!("Accepted types: [Binary, String]. Check: {HTTP_DOCS}").into(),
+                msg: format!("Accepted types: [Binary, String]. Check: {HTTP_DOCS}"),
             },
         )),
     }
