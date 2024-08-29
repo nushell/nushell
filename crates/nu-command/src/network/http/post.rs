@@ -124,7 +124,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Post JSON content from a pipeline to example.com",
-                example: "open foo.json | http post https://www.example.com",
+                example: "open --raw foo.json | http post https://www.example.com",
                 result: None,
             },
             Example {
