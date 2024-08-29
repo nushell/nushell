@@ -210,7 +210,7 @@ pub fn send_request(
             send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
         }
         HttpBody::Value(body) => {
-            let (body_type, req) = match content_type {
+            let (body_type, req) = match &content_type {
                 Some(it) if it == "application/json" => (BodyType::Json, request),
                 Some(it) if it == "application/x-www-form-urlencoded" => (BodyType::Form, request),
                 Some(it) if it == "multipart/form-data" => (BodyType::Multipart, request),
@@ -228,21 +228,20 @@ pub fn send_request(
                     span,
                     signals,
                 ),
-                Value::String { .. } if body_type == BodyType::Json => {
-                    let data = value_to_json_value(&body)?;
+                Value::String { val, .. } => {
+                    // For string type, we should just pass the content type through
+                    let req = if let Some(content_type) = content_type {
+                        req.set("Content-Type", &content_type)
+                    } else {
+                        req
+                    };
                     send_cancellable_request(
                         &request_url,
-                        Box::new(|| req.send_json(data)),
+                        Box::new(move || req.send_string(&val)),
                         span,
                         signals,
                     )
                 }
-                Value::String { val, .. } => send_cancellable_request(
-                    &request_url,
-                    Box::new(move || req.send_string(&val)),
-                    span,
-                    signals,
-                ),
                 Value::Record { .. } if body_type == BodyType::Json => {
                     let data = value_to_json_value(&body)?;
                     send_cancellable_request(
