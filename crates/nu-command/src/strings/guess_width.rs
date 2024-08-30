@@ -203,7 +203,7 @@ fn split(line: &str, pos: &[usize], trim_space: bool) -> Vec<String> {
 
         if pos[n] <= w {
             let end_char = separator_position(&line_chars, p, pos, n);
-            if start_char > end_char {
+            if start_char > end_char || end_char >= line_char_boundaries.len() {
                 break;
             }
             let col = &line[line_char_boundaries[start_char]..line_char_boundaries[end_char]];
