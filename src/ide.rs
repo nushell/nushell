@@ -642,8 +642,8 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
                 {
                     "type": "ast",
                     "span": {
-                        "start": span.start - offset,
-                        "end": span.end - offset,
+                        "start": span.start.checked_sub(offset),
+                        "end": span.end.checked_sub(offset),
                     },
                     "shape": shape.to_string(),
                     "content": content // may not be necessary, but helpful for debugging
