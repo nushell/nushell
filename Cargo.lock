@@ -5137,7 +5137,6 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.34.0"
-source = "git+https://github.com/nushell/reedline?branch=main#7af89595377fa59d2a6a2333718d60adf61c86b1"
 dependencies = [
  "arboard",
  "chrono",
@@ -7560,3 +7559,8 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
+
+[[patch.unused]]
+name = "reedline"
+version = "0.34.0"
+source = "git+https://github.com/nushell/reedline?branch=main#7af89595377fa59d2a6a2333718d60adf61c86b1"

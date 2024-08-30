@@ -65,12 +65,9 @@ impl Command for SubCommand {
             repl.cursor_pos = repl.buffer.len();
         }
         if call.has_flag(engine_state, stack, "accept")? {
-            let event = ReedlineEvent::Enter;
-            engine_state
-                .reedline_event_queue
-                .lock()
-                .unwrap()
-                .push(event.clone());
+            if let Ok(mut queue) = engine_state.reedline_event_queue.lock() {
+                queue.push(ReedlineEvent::Enter);
+            }
         }
         Ok(Value::nothing(call.head).into_pipeline_data())
     }
