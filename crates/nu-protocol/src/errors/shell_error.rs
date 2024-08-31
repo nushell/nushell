@@ -1437,6 +1437,7 @@ impl ShellError {
     pub fn external_exit_code(&self) -> Option<Spanned<i32>> {
         let (item, span) = match *self {
             Self::NonZeroExitCode { exit_code, span } => (exit_code.into(), span),
+            #[cfg(unix)]
             Self::TerminatedBySignal { signal, span, .. }
             | Self::CoreDumped { signal, span, .. } => (-signal, span),
             _ => return None,
