@@ -58,6 +58,7 @@ impl DisplayErrors {
     pub fn should_show(&self, error: &ShellError) -> bool {
         match error {
             ShellError::NonZeroExitCode { .. } => self.exit_code,
+            #[cfg(unix)]
             ShellError::TerminatedBySignal { .. } => self.termination_signal,
             _ => true,
         }
