@@ -4,8 +4,8 @@ use std::{io, num::NonZeroI32};
 use thiserror::Error;
 
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_shell_error, LabeledError, ParseError, Span,
-    Spanned, Value,
+    ast::Operator, engine::StateWorkingSet, format_shell_error, record, LabeledError, ParseError,
+    Span, Spanned, Value,
 };
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
@@ -1446,6 +1446,22 @@ impl ShellError {
 
     pub fn exit_code(&self) -> i32 {
         self.external_exit_code().map(|e| e.item).unwrap_or(1)
+    }
+
+    pub fn into_value(self, span: Span) -> Value {
+        let exit_code = self.external_exit_code();
+
+        let mut record = record! {
+            "msg" => Value::string(self.to_string(), span),
+            "debug" => Value::string(format!("{self:?}"), span),
+            "raw" => Value::error(self, span),
+        };
+
+        if let Some(code) = exit_code {
+            record.push("exit_code", Value::int(code.item.into(), code.span));
+        }
+
+        Value::record(record, span)
     }
 
     // TODO: Implement as From trait

@@ -107,7 +107,7 @@ fn run_catch(
 
     if let Some(catch) = catch {
         stack.set_last_error(&error);
-        let error = err_to_record(error, span);
+        let error = error.into_value(span);
         let block = engine_state.get_block(catch.block_id);
         // Put the error value in the positional closure var
         if let Some(var) = block.signature.get_positional(0) {
@@ -139,23 +139,6 @@ fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> 
         ShellError::Return { .. } => Err(error),
         _ => Ok(error),
     }
-}
-
-/// Convert from `error` to [`Value::Record`] so the error information can be easily accessed in catch.
-fn err_to_record(error: ShellError, head: Span) -> Value {
-    let exit_code = error.external_exit_code();
-
-    let mut record = record! {
-        "msg" => Value::string(error.to_string(), head),
-        "debug" => Value::string(format!("{error:?}"), head),
-        "raw" => Value::error(error, head),
-    };
-
-    if let Some(code) = exit_code {
-        record.push("exit_code", Value::int(code.item.into(), code.span));
-    }
-
-    Value::record(record, head)
 }
 
 #[cfg(test)]

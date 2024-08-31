@@ -548,9 +548,6 @@ impl ByteStream {
     }
 
     /// Consume and drop all bytes of the [`ByteStream`].
-    ///
-    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
-    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
     pub fn drain(self) -> Result<(), ShellError> {
         match self.stream {
             ByteStreamSource::Read(read) => {
@@ -563,9 +560,6 @@ impl ByteStream {
     }
 
     /// Print all bytes of the [`ByteStream`] to stdout or stderr.
-    ///
-    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
-    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
     pub fn print(self, to_stderr: bool) -> Result<(), ShellError> {
         if to_stderr {
             self.write_to(&mut io::stderr())
@@ -575,9 +569,6 @@ impl ByteStream {
     }
 
     /// Write all bytes of the [`ByteStream`] to `dest`.
-    ///
-    /// If the source of the [`ByteStream`] is [`ByteStreamSource::Child`],
-    /// then the [`ExitStatus`] of the [`ChildProcess`] is returned.
     pub fn write_to(self, dest: impl Write) -> Result<(), ShellError> {
         let span = self.span;
         let signals = &self.signals;

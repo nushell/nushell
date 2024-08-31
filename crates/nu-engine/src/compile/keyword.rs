@@ -362,12 +362,8 @@ pub(crate) fn compile_try(
     //
     //       on-error-into ERR, %io_reg           // or without
     //       %io_reg <- <...block...> <- %io_reg
-    //       check-external-failed %failed_reg, %io_reg
-    //       branch-if %failed_reg, FAIL
     //       pop-error-handler
     //       jump END
-    // FAIL: drain %io_reg
-    //       unreachable
     // ERR:  clone %err_reg, %io_reg
     //       store-variable $err_var, %err_reg         // or without
     //       %io_reg <- <...catch block...> <- %io_reg // set to empty if no catch block
@@ -378,12 +374,8 @@ pub(crate) fn compile_try(
     //       %closure_reg <- <catch_expr>
     //       on-error-into ERR, %io_reg
     //       %io_reg <- <...block...> <- %io_reg
-    //       check-external-failed %failed_reg, %io_reg
-    //       branch-if %failed_reg, FAIL
     //       pop-error-handler
     //       jump END
-    // FAIL: drain %io_reg
-    //       unreachable
     // ERR:  clone %err_reg, %io_reg
     //       push-positional %closure_reg
     //       push-positional %err_reg
@@ -405,7 +397,6 @@ pub(crate) fn compile_try(
     let catch_span = catch_expr.map(|e| e.span).unwrap_or(call.head);
 
     let err_label = builder.label(None);
-    let failed_label = builder.label(None);
     let end_label = builder.label(None);
 
     // We have two ways of executing `catch`: if it was provided as a literal, we can inline it.
@@ -470,32 +461,13 @@ pub(crate) fn compile_try(
         io_reg,
     )?;
 
-    // Check for external command exit code failure, and also redirect that to the catch handler
-    let failed_reg = builder.next_register()?;
-    builder.push(
-        Instruction::CheckExternalFailed {
-            dst: failed_reg,
-            src: io_reg,
-        }
-        .into_spanned(catch_span),
-    )?;
-    builder.branch_if(failed_reg, failed_label, catch_span)?;
-
     // Successful case: pop the error handler
     builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
     // Jump over the failure case
     builder.jump(end_label, catch_span)?;
 
-    // Set up an error handler preamble for failed external.
-    // Draining the %io_reg results in the error handler being called with Empty, and sets
-    // $env.LAST_EXIT_CODE
-    builder.set_label(failed_label, builder.here())?;
-    builder.drain(io_reg, catch_span)?;
-    builder.add_comment("branches to err");
-    builder.unreachable(catch_span)?;
-
-    // This is the real error handler
+    // This is the error handler
     builder.set_label(err_label, builder.here())?;
 
     // Mark out register as likely not clean - state in error handler is not well defined

@@ -278,7 +278,6 @@ impl BlockBuilder {
             Instruction::OnError { index: _ } => Ok(()),
             Instruction::OnErrorInto { index: _, dst } => allocate(&[], &[*dst]),
             Instruction::PopErrorHandler => Ok(()),
-            Instruction::CheckExternalFailed { dst, src } => allocate(&[*src], &[*dst, *src]),
             Instruction::ReturnEarly { src } => allocate(&[*src], &[]),
             Instruction::Return { src } => allocate(&[*src], &[]),
         };
@@ -499,6 +498,7 @@ impl BlockBuilder {
     }
 
     /// Mark an unreachable code path. Produces an error at runtime if executed.
+    #[allow(dead_code)] // currently unused, but might be used in the future.
     pub(crate) fn unreachable(&mut self, span: Span) -> Result<(), CompileError> {
         self.push(Instruction::Unreachable.into_spanned(span))
     }

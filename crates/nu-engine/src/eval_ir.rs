@@ -6,9 +6,9 @@ use nu_protocol::{
     debugger::DebugContext,
     engine::{Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack},
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    record, ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned,
-    ListStream, OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId,
-    ShellError, Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    ByteStreamSource, DataSource, DeclId, ErrSpan, Flag, IntoPipelineData, IntoSpanned, ListStream,
+    OutDest, PipelineData, PipelineMetadata, PositionalArg, Range, Record, RegId, ShellError,
+    Signals, Signature, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use nu_utils::IgnoreCaseExt;
 
@@ -247,15 +247,10 @@ fn prepare_error_handler(
     if let Some(reg_id) = error_handler.error_register {
         if let Some(error) = error {
             // Create the error value and put it in the register
-            let value = Value::record(
-                record! {
-                    "msg" => Value::string(format!("{}", error.item), error.span),
-                    "debug" => Value::string(format!("{:?}", error.item), error.span),
-                    "raw" => Value::error(error.item, error.span),
-                },
-                error.span,
+            ctx.put_reg(
+                reg_id,
+                error.item.into_value(error.span).into_pipeline_data(),
             );
-            ctx.put_reg(reg_id, PipelineData::Value(value, None));
         } else {
             // Set the register to empty
             ctx.put_reg(reg_id, PipelineData::Empty);
@@ -773,13 +768,6 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::PopErrorHandler => {
             ctx.stack.error_handlers.pop(ctx.error_handler_base);
-            Ok(Continue)
-        }
-        Instruction::CheckExternalFailed { dst, src } => {
-            let data = ctx.take_reg(*src);
-            let (data, failed) = todo!(); // data.check_external_failed()?;
-            ctx.put_reg(*src, data);
-            ctx.put_reg(*dst, Value::bool(failed, *span).into_pipeline_data());
             Ok(Continue)
         }
         Instruction::ReturnEarly { src } => {
@@ -1349,7 +1337,7 @@ fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, Shel
     Ok(PipelineData::Value(value, metadata))
 }
 
-/// Helper for drain behavior. Returns `Ok(ExitCode)` on failed external.
+/// Helper for drain behavior.
 fn drain(ctx: &mut EvalContext<'_>, data: PipelineData) -> Result<InstructionResult, ShellError> {
     use self::InstructionResult::*;
     match data {

@@ -255,9 +255,6 @@ impl<'a> fmt::Display for FmtInstruction<'a> {
             Instruction::PopErrorHandler => {
                 write!(f, "{:WIDTH$}", "pop-error-handler")
             }
-            Instruction::CheckExternalFailed { dst, src } => {
-                write!(f, "{:WIDTH$} {dst}, {src}", "check-external-failed")
-            }
             Instruction::ReturnEarly { src } => {
                 write!(f, "{:WIDTH$} {src}", "return-early")
             }
