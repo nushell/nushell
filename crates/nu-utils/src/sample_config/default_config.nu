@@ -175,7 +175,7 @@ $env.config = {
     error_style: "fancy" # "fancy" or "plain" for screen reader-friendly error messages
 
     # Whether an error message should be printed if an error of a certain kind is triggered.
-    display_error: {
+    display_errors: {
         exit_code: false # assume the external command prints an error message
         # Core dump errors are always printed, and SIGPIPE never triggers an error.
         # The setting below controls message printing for termination by all other signals.
