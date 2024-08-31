@@ -18,7 +18,7 @@ impl PluginCommand for StrLengths {
         "polars str-lengths"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Get lengths of all strings."
     }
 

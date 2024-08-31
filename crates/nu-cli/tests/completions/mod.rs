@@ -62,6 +62,32 @@ fn extern_completer() -> NuCompleter {
 }
 
 #[fixture]
+fn completer_strings_with_options() -> NuCompleter {
+    // Create a new engine
+    let (dir, _, mut engine, mut stack) = new_engine();
+    // Add record value as example
+    let record = r#"
+        # To test that the config setting has no effect on the custom completions
+        $env.config.completions.algorithm = "fuzzy"
+        def animals [] {
+            {
+                # Very rare and totally real animals
+                completions: ["Abcdef", "Foo Abcdef", "Acd Bar" ],
+                options: {
+                    completion_algorithm: "prefix",
+                    positional: false,
+                    case_sensitive: false,
+                }
+            }
+        }
+        def my-command [animal: string@animals] { print $animal }"#;
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(Arc::new(engine), Arc::new(stack))
+}
+
+#[fixture]
 fn custom_completer() -> NuCompleter {
     // Create a new engine
     let (dir, _, mut engine, mut stack) = new_engine();
@@ -89,17 +115,31 @@ fn subcommand_completer() -> NuCompleter {
     // Create a new engine
     let (dir, _, mut engine, mut stack) = new_engine();
 
-    // Use fuzzy matching, because subcommands are sorted by Levenshtein distance,
-    // and that's not very useful with prefix matching
     let commands = r#"
             $env.config.completions.algorithm = "fuzzy"
             def foo [] {}
             def "foo bar" [] {}
             def "foo abaz" [] {}
-            def "foo aabrr" [] {}
+            def "foo aabcrr" [] {}
             def food [] {}
         "#;
     assert!(support::merge_input(commands.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(Arc::new(engine), Arc::new(stack))
+}
+
+/// Use fuzzy completions but sort in alphabetical order
+#[fixture]
+fn fuzzy_alpha_sort_completer() -> NuCompleter {
+    // Create a new engine
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    let config = r#"
+        $env.config.completions.algorithm = "fuzzy"
+        $env.config.completions.sort = "alphabetical"
+    "#;
+    assert!(support::merge_input(config.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     // Instantiate a new completer
     NuCompleter::new(Arc::new(engine), Arc::new(stack))
@@ -152,6 +192,20 @@ fn variables_customcompletion_subcommands_with_customcompletion_2(
 ) {
     let suggestions = completer_strings.complete("my-command ", 11);
     let expected: Vec<String> = vec!["cat".into(), "dog".into(), "eel".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn customcompletions_substring_matching(mut completer_strings_with_options: NuCompleter) {
+    let suggestions = completer_strings_with_options.complete("my-command Abcd", 15);
+    let expected: Vec<String> = vec!["Abcdef".into(), "Foo Abcdef".into()];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn customcompletions_case_insensitive(mut completer_strings_with_options: NuCompleter) {
+    let suggestions = completer_strings_with_options.complete("my-command foo", 14);
+    let expected: Vec<String> = vec!["Foo Abcdef".into()];
     match_suggestions(&expected, &suggestions);
 }
 
@@ -774,7 +828,7 @@ fn subcommand_completions(mut subcommand_completer: NuCompleter) {
     let prefix = "foo br";
     let suggestions = subcommand_completer.complete(prefix, prefix.len());
     match_suggestions(
-        &vec!["foo bar".to_string(), "foo aabrr".to_string()],
+        &vec!["foo bar".to_string(), "foo aabcrr".to_string()],
         &suggestions,
     );
 
@@ -783,8 +837,8 @@ fn subcommand_completions(mut subcommand_completer: NuCompleter) {
     match_suggestions(
         &vec![
             "foo bar".to_string(),
+            "foo aabcrr".to_string(),
             "foo abaz".to_string(),
-            "foo aabrr".to_string(),
         ],
         &suggestions,
     );
@@ -1268,6 +1322,17 @@ fn custom_completer_triggers_cursor_after_word(mut custom_completer: NuCompleter
     let suggestions = custom_completer.complete("cmd foo bar ", 12);
     let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "bar".into(), "".into()];
     match_suggestions(&expected, &suggestions);
+}
+
+#[rstest]
+fn sort_fuzzy_completions_in_alphabetical_order(mut fuzzy_alpha_sort_completer: NuCompleter) {
+    let suggestions = fuzzy_alpha_sort_completer.complete("ls nu", 5);
+    // Even though "nushell" is a better match, it should come second because
+    // the completions should be sorted in alphabetical order
+    match_suggestions(
+        &vec!["custom_completion.nu".into(), "nushell".into()],
+        &suggestions,
+    );
 }
 
 #[ignore = "was reverted, still needs fixing"]

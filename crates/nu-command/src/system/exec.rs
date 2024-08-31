@@ -16,11 +16,11 @@ impl Command for Exec {
             .category(Category::System)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Execute a command, replacing or exiting the current process, depending on platform."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"On Unix-based systems, the current process is replaced with the command.
 On Windows based systems, Nushell will wait for the command to finish and then exit with the command's exit code."#
     }

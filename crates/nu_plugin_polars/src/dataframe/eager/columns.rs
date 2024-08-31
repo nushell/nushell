@@ -16,7 +16,7 @@ impl PluginCommand for ColumnsDF {
         "polars columns"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Show dataframe columns."
     }
 

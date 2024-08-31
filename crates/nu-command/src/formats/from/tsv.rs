@@ -50,7 +50,7 @@ impl Command for FromTsv {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Parse text as .tsv and create table."
     }
 

@@ -2,17 +2,18 @@ use crate::{
     completions::{matches, CompletionOptions},
     SemanticSuggestion,
 };
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    levenshtein_distance, Span,
+    CompletionSort, Span,
 };
 use nu_utils::get_ls_colors;
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
 
-use super::SortBy;
+use super::MatchAlgorithm;
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
@@ -20,12 +21,21 @@ pub struct PathBuiltFromString {
     isdir: bool,
 }
 
-fn complete_rec(
+/// Recursively goes through paths that match a given `partial`.
+/// built: State struct for a valid matching path built so far.
+///
+/// `isdir`: whether the current partial path has a trailing slash.
+/// Parsing a path string into a pathbuf loses that bit of information.
+///
+/// want_directory: Whether we want only directories as completion matches.
+/// Some commands like `cd` can only be run on directories whereas others
+/// like `ls` can be run on regular files as well.
+pub fn complete_rec(
     partial: &[&str],
     built: &PathBuiltFromString,
     cwd: &Path,
     options: &CompletionOptions,
-    dir: bool,
+    want_directory: bool,
     isdir: bool,
 ) -> Vec<PathBuiltFromString> {
     let mut completions = vec![];
@@ -35,7 +45,7 @@ fn complete_rec(
             let mut built = built.clone();
             built.parts.push(base.to_string());
             built.isdir = true;
-            return complete_rec(rest, &built, cwd, options, dir, isdir);
+            return complete_rec(rest, &built, cwd, options, want_directory, isdir);
         }
     }
 
@@ -56,23 +66,40 @@ fn complete_rec(
         built.parts.push(entry_name.clone());
         built.isdir = entry_isdir;
 
-        if !dir || entry_isdir {
+        if !want_directory || entry_isdir {
             entries.push((entry_name, built));
         }
     }
 
     let prefix = partial.first().unwrap_or(&"");
-    let sorted_entries = sort_completions(prefix, entries, SortBy::Ascending, |(entry, _)| entry);
+    let sorted_entries = sort_completions(prefix, entries, options, |(entry, _)| entry);
 
     for (entry_name, built) in sorted_entries {
         match partial.split_first() {
             Some((base, rest)) => {
                 if matches(base, &entry_name, options) {
+                    // We use `isdir` to confirm that the current component has
+                    // at least one next component or a slash.
+                    // Serves as confirmation to ignore longer completions for
+                    // components in between.
                     if !rest.is_empty() || isdir {
-                        completions.extend(complete_rec(rest, &built, cwd, options, dir, isdir));
+                        completions.extend(complete_rec(
+                            rest,
+                            &built,
+                            cwd,
+                            options,
+                            want_directory,
+                            isdir,
+                        ));
                     } else {
                         completions.push(built);
                     }
+                }
+                if entry_name.eq(base)
+                    && matches!(options.match_algorithm, MatchAlgorithm::Prefix)
+                    && isdir
+                {
+                    break;
                 }
             }
             None => {
@@ -279,33 +306,37 @@ pub fn adjust_if_intermediate(
 pub fn sort_suggestions(
     prefix: &str,
     items: Vec<SemanticSuggestion>,
-    sort_by: SortBy,
+    options: &CompletionOptions,
 ) -> Vec<SemanticSuggestion> {
-    sort_completions(prefix, items, sort_by, |it| &it.suggestion.value)
+    sort_completions(prefix, items, options, |it| &it.suggestion.value)
 }
 
 /// # Arguments
-/// * `prefix` - What the user's typed, for sorting by Levenshtein distance
+/// * `prefix` - What the user's typed, for sorting by fuzzy matcher score
 pub fn sort_completions<T>(
     prefix: &str,
     mut items: Vec<T>,
-    sort_by: SortBy,
+    options: &CompletionOptions,
     get_value: fn(&T) -> &str,
 ) -> Vec<T> {
     // Sort items
-    match sort_by {
-        SortBy::LevenshteinDistance => {
-            items.sort_by(|a, b| {
-                let a_distance = levenshtein_distance(prefix, get_value(a));
-                let b_distance = levenshtein_distance(prefix, get_value(b));
-                a_distance.cmp(&b_distance)
-            });
-        }
-        SortBy::Ascending => {
-            items.sort_by(|a, b| get_value(a).cmp(get_value(b)));
-        }
-        SortBy::None => {}
-    };
+    if options.sort == CompletionSort::Smart && options.match_algorithm == MatchAlgorithm::Fuzzy {
+        let mut matcher = SkimMatcherV2::default();
+        if options.case_sensitive {
+            matcher = matcher.respect_case();
+        } else {
+            matcher = matcher.ignore_case();
+        };
+        items.sort_by(|a, b| {
+            let a_str = get_value(a);
+            let b_str = get_value(b);
+            let a_score = matcher.fuzzy_match(a_str, prefix).unwrap_or_default();
+            let b_score = matcher.fuzzy_match(b_str, prefix).unwrap_or_default();
+            b_score.cmp(&a_score).then(a_str.cmp(b_str))
+        });
+    } else {
+        items.sort_by(|a, b| get_value(a).cmp(get_value(b)));
+    }
 
     items
 }

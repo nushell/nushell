@@ -18,7 +18,7 @@ impl SimpleCommand for QuitCmd {
         Self::NAME
     }
 
-    fn usage(&self) -> &'static str {
+    fn description(&self) -> &'static str {
         ""
     }
 

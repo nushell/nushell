@@ -13,7 +13,7 @@ impl Command for Glob {
     fn signature(&self) -> Signature {
         Signature::build("glob")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
-            .required("glob", SyntaxShape::String, "The glob expression.")
+            .required("glob", SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::GlobPattern]), "The glob expression.")
             .named(
                 "depth",
                 SyntaxShape::Int,
@@ -44,7 +44,7 @@ impl Command for Glob {
             .category(Category::FileSystem)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a list of files and/or folders based on the glob pattern provided."
     }
 
@@ -114,7 +114,7 @@ impl Command for Glob {
         ]
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"For more glob pattern help, please refer to https://docs.rs/crate/wax/latest"#
     }
 
@@ -126,12 +126,12 @@ impl Command for Glob {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let glob_pattern_input: Value = call.req(engine_state, stack, 0)?;
+        let glob_span = glob_pattern_input.span();
         let depth = call.get_flag(engine_state, stack, "depth")?;
         let no_dirs = call.has_flag(engine_state, stack, "no-dir")?;
         let no_files = call.has_flag(engine_state, stack, "no-file")?;
         let no_symlinks = call.has_flag(engine_state, stack, "no-symlink")?;
-
         let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
 
         let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
@@ -148,11 +148,22 @@ impl Command for Glob {
             }
         };
 
-        if glob_pattern.item.is_empty() {
+        let glob_pattern =
+            match glob_pattern_input {
+                Value::String { val, .. } | Value::Glob { val, .. } => val,
+                _ => return Err(ShellError::IncorrectValue {
+                    msg: "Incorrect glob pattern supplied to glob. Please use string or glob only."
+                        .to_string(),
+                    val_span: call.head,
+                    call_span: glob_span,
+                }),
+            };
+
+        if glob_pattern.is_empty() {
             return Err(ShellError::GenericError {
                 error: "glob pattern must not be empty".into(),
                 msg: "glob pattern is empty".into(),
-                span: Some(glob_pattern.span),
+                span: Some(glob_span),
                 help: Some("add characters to the glob pattern".into()),
                 inner: vec![],
             });
@@ -164,13 +175,13 @@ impl Command for Glob {
             usize::MAX
         };
 
-        let (prefix, glob) = match WaxGlob::new(&glob_pattern.item) {
+        let (prefix, glob) = match WaxGlob::new(&glob_pattern) {
             Ok(p) => p.partition(),
             Err(e) => {
                 return Err(ShellError::GenericError {
                     error: "error with glob pattern".into(),
                     msg: format!("{e}"),
-                    span: Some(glob_pattern.span),
+                    span: Some(glob_span),
                     help: None,
                     inner: vec![],
                 })
@@ -189,7 +200,7 @@ impl Command for Glob {
                 return Err(ShellError::GenericError {
                     error: "error in canonicalize".into(),
                     msg: format!("{e}"),
-                    span: Some(glob_pattern.span),
+                    span: Some(glob_span),
                     help: None,
                     inner: vec![],
                 })

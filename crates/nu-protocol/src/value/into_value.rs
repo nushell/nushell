@@ -10,22 +10,25 @@ use crate::{Record, ShellError, Span, Value};
 /// This trait can be used with `#[derive]`.
 /// When derived on structs with named fields, the resulting value representation will use
 /// [`Value::Record`], where each field of the record corresponds to a field of the struct.
+/// By default, field names will be kept as-is, but you can customize the case conversion
+/// for all fields in a struct by using `#[nu_value(rename_all = "kebab-case")]` on the struct.
+/// All case options from [`heck`] are supported, as well as the values allowed by
+/// [`#[serde(rename_all)]`](https://serde.rs/container-attrs.html#rename_all).
+///
 /// For structs with unnamed fields, the value representation will be [`Value::List`], with all
 /// fields inserted into a list.
 /// Unit structs will be represented as [`Value::Nothing`] since they contain no data.
 ///
 /// Only enums with no fields may derive this trait.
 /// The resulting value representation will be the name of the variant as a [`Value::String`].
-/// By default, variant names will be converted to ["snake_case"](convert_case::Case::Snake).
+/// By default, variant names will be converted to ["snake_case"](heck::ToSnakeCase).
 /// You can customize the case conversion using `#[nu_value(rename_all = "kebab-case")]` on the enum.
-/// All deterministic and useful case conversions provided by [`convert_case::Case`] are supported
-/// by specifying the case name followed by "case".
-/// Also all values for
-/// [`#[serde(rename_all = "...")]`](https://serde.rs/container-attrs.html#rename_all) are valid
-/// here.
 ///
 /// ```
-/// # use nu_protocol::{IntoValue, Value, Span};
+/// # use nu_protocol::{IntoValue, Value, Span, record};
+/// #
+/// # let span = Span::unknown();
+/// #
 /// #[derive(IntoValue)]
 /// #[nu_value(rename_all = "COBOL-CASE")]
 /// enum Bird {
@@ -35,8 +38,30 @@ use crate::{Record, ShellError, Span, Value};
 /// }
 ///
 /// assert_eq!(
-///     Bird::RiverDuck.into_value(Span::unknown()),
+///     Bird::RiverDuck.into_value(span),
 ///     Value::test_string("RIVER-DUCK")
+/// );
+///
+///
+/// #[derive(IntoValue)]
+/// #[nu_value(rename_all = "kebab-case")]
+/// struct Person {
+///     first_name: String,
+///     last_name: String,
+///     age: u32,
+/// }
+///
+/// assert_eq!(
+///     Person {
+///         first_name: "John".into(),
+///         last_name: "Doe".into(),
+///         age: 42,
+///     }.into_value(span),
+///     Value::record(record! {
+///         "first-name" => Value::string("John", span),
+///         "last-name" => Value::string("Doe", span),
+///         "age" => Value::int(42, span),
+///     }, span)
 /// );
 /// ```
 pub trait IntoValue: Sized {
@@ -169,6 +194,14 @@ where
 impl IntoValue for Value {
     fn into_value(self, span: Span) -> Value {
         self.with_span(span)
+    }
+}
+
+// Foreign Types
+
+impl IntoValue for bytes::Bytes {
+    fn into_value(self, span: Span) -> Value {
+        Value::binary(self.to_vec(), span)
     }
 }
 

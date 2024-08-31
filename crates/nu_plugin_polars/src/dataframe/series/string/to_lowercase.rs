@@ -1,4 +1,9 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{
+    values::{
+        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
+    },
+    PolarsPlugin,
+};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -18,39 +23,64 @@ impl PluginCommand for ToLowerCase {
         "polars lowercase"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Lowercase the strings in the column."
     }
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
+                ),
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Modifies strings to lowercase",
-            example: "[Abc aBc abC] | polars into-df | polars lowercase",
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![Column::new(
-                        "0".to_string(),
-                        vec![
-                            Value::test_string("abc"),
-                            Value::test_string("abc"),
-                            Value::test_string("abc"),
-                        ],
-                    )],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Modifies strings in a column to lowercase",
+                example: "[[a]; [Abc]] | polars into-df | polars select (polars col a | polars lowercase) | polars collect",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "a".to_string(),
+                            vec![
+                                Value::test_string("abc"),
+                            ],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Modifies strings to lowercase",
+                example: "[Abc aBc abC] | polars into-df | polars lowercase",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "0".to_string(),
+                            vec![
+                                Value::test_string("abc"),
+                                Value::test_string("abc"),
+                                Value::test_string("abc"),
+                            ],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -60,17 +90,42 @@ impl PluginCommand for ToLowerCase {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let value = input.into_value(call.head)?;
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                command_df(plugin, engine, call, lazy.collect(call.head)?)
+            }
+            PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
+            _ => Err(cant_convert_err(
+                &value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                ],
+            )),
+        }
+        .map_err(LabeledError::from)
     }
 }
 
-fn command(
+fn command_expr(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    input: PipelineData,
+    expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let res: NuExpression = expr.into_polars().str().to_lowercase().into();
+    res.to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_df(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    df: NuDataFrame,
+) -> Result<PipelineData, ShellError> {
     let series = df.as_series(call.head)?;
 
     let casted = series.str().map_err(|e| ShellError::GenericError {

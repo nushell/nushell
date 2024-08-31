@@ -21,7 +21,7 @@ impl PluginCommand for LazyFlatten {
         "polars flatten"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "An alias for polars explode."
     }
 

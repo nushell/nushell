@@ -22,7 +22,7 @@ impl Command for Save {
         "save"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Save a file."
     }
 

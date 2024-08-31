@@ -9,7 +9,7 @@ impl Command for Kill {
         "kill"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Kill a process using the process id."
     }
 

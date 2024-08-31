@@ -19,7 +19,7 @@ impl PluginCommand for SetSeries {
         "polars set"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Sets value where given mask is true."
     }
 

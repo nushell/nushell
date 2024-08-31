@@ -9,7 +9,7 @@ impl Command for Ignore {
         "ignore"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Ignore the output of the previous command in the pipeline."
     }
 

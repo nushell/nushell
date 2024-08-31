@@ -37,11 +37,11 @@ impl Command for PluginAdd {
             .category(Category::Plugin)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Add a plugin to the plugin registry file."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"
 This does not load the plugin commands into the scope - see `plugin use` for
 that.

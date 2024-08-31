@@ -18,7 +18,7 @@ impl PluginCommand for LazyExplode {
         "polars explode"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Explodes a dataframe or creates a explode expression."
     }
 

@@ -23,17 +23,17 @@ impl Command for Help {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in command names, usage, and search terms",
+                "string to find in command names, descriptions, and search terms",
                 Some('f'),
             )
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Display help information about different parts of Nushell."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"`help word` searches for "word" in commands, aliases and modules, in that order."#
     }
 
@@ -118,7 +118,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
                 result: None,
             },
             Example {
-                description: "search for string in command names, usage and search terms",
+                description: "search for string in command names, descriptions, and search terms",
                 example: "help --find char",
                 result: None,
             },

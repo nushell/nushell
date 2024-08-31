@@ -19,7 +19,7 @@ impl PluginCommand for StrFTime {
         "polars strftime"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Formats date based on string rule."
     }
 

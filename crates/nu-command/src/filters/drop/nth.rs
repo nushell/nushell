@@ -27,7 +27,7 @@ impl Command for DropNth {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Drop the selected rows."
     }
 

@@ -177,6 +177,9 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
     }
 }
 
+/// Get files sorted lexicographically
+///
+/// uses `impl Ord for String`
 fn read_and_sort_directory(path: &Path) -> Result<Vec<String>> {
     let mut entries = Vec::new();
 
@@ -200,13 +203,19 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
         column!()
     );
 
+    // The evaluation order is first determined by the semantics of `get_vendor_autoload_dirs`
+    // to determine the order of directories to evaluate
     for autoload_dir in nu_protocol::eval_const::get_vendor_autoload_dirs(engine_state) {
         warn!("read_vendor_autoload_files: {}", autoload_dir.display());
 
         if autoload_dir.exists() {
+            // on a second levels files are lexicographically sorted by the string of the filename
             let entries = read_and_sort_directory(&autoload_dir);
             if let Ok(entries) = entries {
                 for entry in entries {
+                    if !entry.ends_with(".nu") {
+                        continue;
+                    }
                     let path = autoload_dir.join(entry);
                     warn!("AutoLoading: {:?}", path);
                     eval_config_contents(path, engine_state, stack);

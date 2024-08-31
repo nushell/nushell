@@ -19,7 +19,7 @@ impl PluginCommand for ExprConcatStr {
         "polars concat-str"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Creates a concat string expression."
     }
 

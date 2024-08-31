@@ -25,11 +25,11 @@ impl Command for ToMsgpack {
             .category(Category::Formats)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Convert Nu values into MessagePack."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"
 Not all values are representable as MessagePack.
 

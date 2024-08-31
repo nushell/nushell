@@ -4,10 +4,12 @@ use base64::{
     engine::{general_purpose::PAD, GeneralPurpose},
     Engine,
 };
+use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
-use nu_protocol::{ByteStream, Signals};
+use nu_protocol::{ByteStream, LabeledError, Signals};
 use std::{
     collections::HashMap,
+    io::Cursor,
     path::PathBuf,
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
@@ -20,6 +22,7 @@ use url::Url;
 pub enum BodyType {
     Json,
     Form,
+    Multipart,
     Unknown,
 }
 
@@ -210,6 +213,7 @@ pub fn send_request(
             let (body_type, req) = match content_type {
                 Some(it) if it == "application/json" => (BodyType::Json, request),
                 Some(it) if it == "application/x-www-form-urlencoded" => (BodyType::Form, request),
+                Some(it) if it == "multipart/form-data" => (BodyType::Multipart, request),
                 Some(it) => {
                     let r = request.clone().set("Content-Type", &it);
                     (BodyType::Unknown, r)
@@ -263,6 +267,48 @@ pub fn send_request(
                             .collect::<Vec<(&str, &str)>>();
                         req.send_form(&data)
                     };
+                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
+                }
+                // multipart form upload
+                Value::Record { val, .. } if body_type == BodyType::Multipart => {
+                    let mut builder = MultipartWriter::new();
+
+                    let err = |e| {
+                        ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                            msg: format!("failed to build multipart data: {}", e),
+                        })
+                    };
+
+                    for (col, val) in val.into_owned() {
+                        if let Value::Binary { val, .. } = val {
+                            let headers = [
+                                "Content-Type: application/octet-stream".to_string(),
+                                "Content-Transfer-Encoding: binary".to_string(),
+                                format!(
+                                    "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"",
+                                    col, col
+                                ),
+                                format!("Content-Length: {}", val.len()),
+                            ];
+                            builder
+                                .add(&mut Cursor::new(val), &headers.join("\n"))
+                                .map_err(err)?;
+                        } else {
+                            let headers =
+                                format!(r#"Content-Disposition: form-data; name="{}""#, col);
+                            builder
+                                .add(val.coerce_into_string()?.as_bytes(), &headers)
+                                .map_err(err)?;
+                        }
+                    }
+                    builder.finish();
+
+                    let (boundary, data) = (builder.boundary, builder.data);
+                    let content_type = format!("multipart/form-data; boundary={}", boundary);
+
+                    let request_fn =
+                        move || req.set("Content-Type", &content_type).send_bytes(&data);
+
                     send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
                 }
                 Value::List { vals, .. } if body_type == BodyType::Form => {
@@ -514,23 +560,23 @@ fn transform_response_using_content_type(
     resp: Response,
     content_type: &str,
 ) -> Result<PipelineData, ShellError> {
-    let content_type =
-        mime::Mime::from_str(content_type).map_err(|_| ShellError::GenericError {
-            error: format!("MIME type unknown: {content_type}"),
-            msg: "".into(),
-            span: None,
-            help: Some("given unknown MIME type".into()),
-            inner: vec![],
-        })?;
+    let content_type = mime::Mime::from_str(content_type)
+        // there are invalid content types in the wild, so we try to recover
+        // Example: `Content-Type: "text/plain"; charset="utf8"` (note the quotes)
+        .or_else(|_| mime::Mime::from_str(&content_type.replace('"', "")))
+        .or_else(|_| mime::Mime::from_str("text/plain"))
+        .expect("Failed to parse content type, and failed to default to text/plain");
+
     let ext = match (content_type.type_(), content_type.subtype()) {
         (mime::TEXT, mime::PLAIN) => {
             let path_extension = url::Url::parse(requested_url)
-                .map_err(|_| ShellError::GenericError {
-                    error: format!("Cannot parse URL: {requested_url}"),
-                    msg: "".into(),
-                    span: None,
-                    help: Some("cannot parse".into()),
-                    inner: vec![],
+                .map_err(|err| {
+                    LabeledError::new(err.to_string())
+                        .with_help("cannot parse")
+                        .with_label(
+                            format!("Cannot parse URL: {requested_url}"),
+                            Span::unknown(),
+                        )
                 })?
                 .path_segments()
                 .and_then(|segments| segments.last())

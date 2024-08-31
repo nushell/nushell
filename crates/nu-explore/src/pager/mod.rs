@@ -191,6 +191,12 @@ fn render_ui(
             })?;
         }
 
+        // Note that this will return within the configured tick_rate of events. In particular this
+        // means this loop keeps redrawing the UI about 4 times a second, whether it needs to or
+        // not. That's OK-ish because ratatui will detect real changes and not send unnecessary
+        // output to the terminal (something that may especially be important with ssh). While not
+        // needed at the moment, the idea is that this behavior allows for some degree of
+        // animation (so that the UI can update over time, even without user input).
         let transition = handle_events(
             engine_state,
             stack,
@@ -612,33 +618,25 @@ fn handle_events<V: View>(
     command: &mut CommandBuf,
     mut view: Option<&mut V>,
 ) -> Option<Transition> {
-    let key = match events.next() {
+    // We are only interested in Pressed events;
+    // It's crucial because there are cases where terminal MIGHT produce false events;
+    // 2 events 1 for release 1 for press.
+    // Want to react only on 1 of them so we do.
+    let mut key = match events.next_key_press() {
         Ok(Some(key)) => key,
-        _ => return None,
+        Ok(None) => return None,
+        Err(e) => {
+            log::error!("Failed to read key event: {e}");
+            return None;
+        }
     };
-
-    let result = handle_event(
-        engine_state,
-        stack,
-        layout,
-        info,
-        search,
-        command,
-        view.as_deref_mut(),
-        key,
-    );
-
-    if result.is_some() {
-        return result;
-    }
 
     // Sometimes we get a BIG list of events;
     // for example when someone scrolls via a mouse either UP or DOWN.
     // This MIGHT cause freezes as we have a 400 delay for a next command read.
     //
     // To eliminate that we are trying to read all possible commands which we should act upon.
-
-    while let Ok(Some(key)) = events.try_next() {
+    loop {
         let result = handle_event(
             engine_state,
             stack,
@@ -649,13 +647,18 @@ fn handle_events<V: View>(
             view.as_deref_mut(),
             key,
         );
-
         if result.is_some() {
             return result;
         }
+        match events.try_next_key_press() {
+            Ok(Some(next_key)) => key = next_key,
+            Ok(None) => return None,
+            Err(e) => {
+                log::error!("Failed to peek key event: {e}");
+                return None;
+            }
+        }
     }
-
-    result
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -857,10 +860,8 @@ fn search_pattern(data: impl Iterator<Item = String>, pat: &str, rev: bool) -> V
         }
     }
 
-    if !rev {
-        matches.sort();
-    } else {
-        matches.sort_by(|a, b| b.cmp(a));
+    if rev {
+        matches.reverse();
     }
 
     matches

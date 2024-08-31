@@ -34,7 +34,7 @@ impl Command for SortBy {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Sort by the given columns, in increasing order."
     }
 

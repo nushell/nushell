@@ -17,7 +17,7 @@ impl Command for SubCommand {
             .category(Category::Network)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts record or table into query string applying percent-encoding."
     }
 

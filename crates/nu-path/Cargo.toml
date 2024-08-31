@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-path"
 edition = "2021"
 license = "MIT"
 name = "nu-path"
-version = "0.96.2"
+version = "0.97.2"
 exclude = ["/fuzz"]
 
 [lib]
@@ -19,3 +19,6 @@ omnipath = { workspace = true }
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))'.dependencies]
 pwd = { workspace = true }
+
+[lints]
+workspace = true

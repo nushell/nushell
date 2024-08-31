@@ -9,7 +9,7 @@ impl Command for Fmt {
         "fmt"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Format a number."
     }
 

@@ -203,11 +203,11 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
             let mut description = String::new();
 
             // first description
-            description.push_str(&format!("{}\n", decl.usage()));
+            description.push_str(&format!("{}\n", decl.description()));
 
             // additional description
-            if !decl.extra_usage().is_empty() {
-                description.push_str(&format!("\n{}\n", decl.extra_usage()));
+            if !decl.extra_description().is_empty() {
+                description.push_str(&format!("\n{}\n", decl.extra_description()));
             }
 
             // Usage

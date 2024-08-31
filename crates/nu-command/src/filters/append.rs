@@ -20,11 +20,11 @@ impl Command for Append {
             .category(Category::Filters)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Append any number of rows to a table."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Be aware that this command 'unwraps' lists passed to it. So, if you pass a variable to it,
 and you want the variable's contents to be appended without being unwrapped, it's wise to
 pre-emptively wrap the variable in a list, like so: `append [$val]`. This way, `append` will

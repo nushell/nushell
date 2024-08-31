@@ -23,7 +23,7 @@ impl Command for External {
         "run-external"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Runs external command."
     }
 
@@ -473,6 +473,15 @@ pub fn command_not_found(
         };
     }
 
+    // If we find a file, it's likely that the user forgot to set permissions
+    if Path::new(name).is_file() {
+        return ShellError::ExternalCommand {
+                        label: format!("Command `{name}` not found"),
+                        help: format!("`{name}` refers to a file that is not executable. Did you forget to to set execute permissions?"),
+                        span,
+                    };
+    }
+
     // We found nothing useful. Give up and return a generic error message.
     ShellError::ExternalCommand {
         label: format!("Command `{name}` not found"),
@@ -497,7 +506,7 @@ pub fn which(name: impl AsRef<OsStr>, paths: &str, cwd: &Path) -> Option<PathBuf
 }
 
 /// Returns true if `name` is a (somewhat useful) CMD internal command. The full
-/// list can be found at https://ss64.com/nt/syntax-internal.html
+/// list can be found at <https://ss64.com/nt/syntax-internal.html>
 fn is_cmd_internal_command(name: &str) -> bool {
     const COMMANDS: &[&str] = &[
         "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",

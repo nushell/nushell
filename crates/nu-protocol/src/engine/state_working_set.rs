@@ -1,11 +1,11 @@
 use crate::{
     ast::Block,
     engine::{
-        usage::build_usage, CachedFile, Command, CommandType, EngineState, OverlayFrame,
+        description::build_desc, CachedFile, Command, CommandType, EngineState, OverlayFrame,
         StateDelta, Variable, VirtualPath, Visibility,
     },
     BlockId, Category, CompileError, Config, DeclId, FileId, GetSpan, Module, ModuleId, ParseError,
-    ParseWarning, Span, SpanId, Type, Value, VarId, VirtualPathId,
+    ParseWarning, Signature, Span, SpanId, Type, Value, VarId, VirtualPathId,
 };
 use core::panic;
 use std::{
@@ -278,7 +278,9 @@ impl<'a> StateWorkingSet<'a> {
         let module_id = self.num_modules() - 1;
 
         if !comments.is_empty() {
-            self.delta.usage.add_module_comments(module_id, comments);
+            self.delta
+                .doccomments
+                .add_module_comments(module_id, comments);
         }
 
         self.last_overlay_mut().modules.insert(name, module_id);
@@ -288,7 +290,7 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn get_module_comments(&self, module_id: ModuleId) -> Option<&[Span]> {
         self.delta
-            .usage
+            .doccomments
             .get_module_comments(module_id)
             .or_else(|| self.permanent_state.get_module_comments(module_id))
     }
@@ -708,6 +710,14 @@ impl<'a> StateWorkingSet<'a> {
         }
     }
 
+    pub fn get_signature(&self, decl: &dyn Command) -> Signature {
+        if let Some(block_id) = decl.block_id() {
+            *self.get_block(block_id).signature.clone()
+        } else {
+            decl.signature()
+        }
+    }
+
     pub fn find_commands_by_predicate(
         &self,
         predicate: impl Fn(&[u8]) -> bool,
@@ -727,7 +737,7 @@ impl<'a> StateWorkingSet<'a> {
                         }
                         output.push((
                             decl.0.clone(),
-                            Some(command.usage().to_string()),
+                            Some(command.description().to_string()),
                             command.command_type(),
                         ));
                     }
@@ -952,12 +962,12 @@ impl<'a> StateWorkingSet<'a> {
         self.delta
     }
 
-    pub fn build_usage(&self, spans: &[Span]) -> (String, String) {
+    pub fn build_desc(&self, spans: &[Span]) -> (String, String) {
         let comment_lines: Vec<&[u8]> = spans
             .iter()
             .map(|span| self.get_span_contents(*span))
             .collect();
-        build_usage(&comment_lines)
+        build_desc(&comment_lines)
     }
 
     pub fn find_block_by_span(&self, span: Span) -> Option<Arc<Block>> {

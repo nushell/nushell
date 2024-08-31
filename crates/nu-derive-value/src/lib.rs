@@ -32,6 +32,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use proc_macro_error::{proc_macro_error, Diagnostic};
 
 mod attributes;
+mod case;
 mod error;
 mod from;
 mod into;

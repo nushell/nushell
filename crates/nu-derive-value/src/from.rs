@@ -1,4 +1,3 @@
-use convert_case::Casing;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -6,7 +5,10 @@ use syn::{
     Type,
 };
 
-use crate::attributes::{self, ContainerAttributes};
+use crate::{
+    attributes::{self, ContainerAttributes},
+    case::{Case, Casing},
+};
 
 #[derive(Debug)]
 pub struct FromValue;
@@ -42,9 +44,7 @@ pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, DeriveErro
 
 /// Implements the `#[derive(FromValue)]` macro for structs.
 ///
-/// This function ensures that the helper attribute is not used anywhere, as it is not supported for
-/// structs.
-/// Other than this, this function provides the impl signature for `FromValue`.
+/// This function provides the impl signature for `FromValue`.
 /// The implementation for `FromValue::from_value` is handled by [`struct_from_value`] and the
 /// `FromValue::expected_type` is handled by [`struct_expected_type`].
 fn derive_struct_from_value(
@@ -53,11 +53,12 @@ fn derive_struct_from_value(
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
-    attributes::deny(&attrs)?;
+    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     attributes::deny_fields(&data.fields)?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let from_value_impl = struct_from_value(&data);
-    let expected_type_impl = struct_expected_type(&data.fields);
+    let from_value_impl = struct_from_value(&data, container_attrs.rename_all);
+    let expected_type_impl =
+        struct_expected_type(&data.fields, container_attrs.type_name.as_deref());
     Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
@@ -71,7 +72,7 @@ fn derive_struct_from_value(
 ///
 /// This function constructs the `from_value` function for structs.
 /// The implementation is straightforward as most of the heavy lifting is handled by
-/// `parse_value_via_fields`, and this function only needs to construct the signature around it.
+/// [`parse_value_via_fields`], and this function only needs to construct the signature around it.
 ///
 /// For structs with named fields, this constructs a large return type where each field
 /// contains the implementation for that specific field.
@@ -199,8 +200,8 @@ fn derive_struct_from_value(
 ///     }
 /// }
 /// ```
-fn struct_from_value(data: &DataStruct) -> TokenStream2 {
-    let body = parse_value_via_fields(&data.fields, quote!(Self));
+fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> TokenStream2 {
+    let body = parse_value_via_fields(&data.fields, quote!(Self), rename_all);
     quote! {
         fn from_value(
             v: nu_protocol::Value
@@ -219,13 +220,16 @@ fn struct_from_value(data: &DataStruct) -> TokenStream2 {
 /// `list[type0, type1, type2]`.
 /// No fields expect the `Type::Nothing`.
 ///
+/// If `#[nu_value(type_name = "...")]` is used, the output type will be `Type::Custom` with that
+/// passed name.
+///
 /// # Examples
 ///
 /// These examples show what the macro would generate.
 ///
 /// Struct with named fields:
 /// ```rust
-/// #[derive(IntoValue)]
+/// #[derive(FromValue)]
 /// struct Pet {
 ///     name: String,
 ///     age: u8,
@@ -256,7 +260,7 @@ fn struct_from_value(data: &DataStruct) -> TokenStream2 {
 ///
 /// Struct with unnamed fields:
 /// ```rust
-/// #[derive(IntoValue)]
+/// #[derive(FromValue)]
 /// struct Color(u8, u8, u8);
 ///
 /// impl nu_protocol::FromValue for Color {
@@ -276,7 +280,7 @@ fn struct_from_value(data: &DataStruct) -> TokenStream2 {
 ///
 /// Unit struct:
 /// ```rust
-/// #[derive(IntoValue)]
+/// #[derive(FromValue)]
 /// struct Unicorn;
 ///
 /// impl nu_protocol::FromValue for Color {
@@ -285,9 +289,30 @@ fn struct_from_value(data: &DataStruct) -> TokenStream2 {
 ///     }
 /// }
 /// ```
-fn struct_expected_type(fields: &Fields) -> TokenStream2 {
-    let ty = match fields {
-        Fields::Named(fields) => {
+///
+/// Struct with passed type name:
+/// ```rust
+/// #[derive(FromValue)]
+/// #[nu_value(type_name = "bird")]
+/// struct Parrot;
+///
+/// impl nu_protocol::FromValue for Parrot {
+///     fn expected_type() -> nu_protocol::Type {
+///         nu_protocol::Type::Custom(
+///             <std::string::String as std::convert::From::<&str>>::from("bird")
+///                 .into_boxed_str()
+///         )
+///     }
+/// }
+/// ```
+fn struct_expected_type(fields: &Fields, attr_type_name: Option<&str>) -> TokenStream2 {
+    let ty = match (fields, attr_type_name) {
+        (_, Some(type_name)) => {
+            quote!(nu_protocol::Type::Custom(
+                <std::string::String as std::convert::From::<&str>>::from(#type_name).into_boxed_str()
+            ))
+        }
+        (Fields::Named(fields), _) => {
             let fields = fields.named.iter().map(|field| {
                 let ident = field.ident.as_ref().expect("named has idents");
                 let ident_s = ident.to_string();
@@ -301,7 +326,7 @@ fn struct_expected_type(fields: &Fields) -> TokenStream2 {
                 std::vec![#(#fields),*].into_boxed_slice()
             ))
         }
-        Fields::Unnamed(fields) => {
+        (Fields::Unnamed(fields), _) => {
             let mut iter = fields.unnamed.iter();
             let fields = fields.unnamed.iter().map(|field| {
                 let ty = &field.ty;
@@ -324,7 +349,7 @@ fn struct_expected_type(fields: &Fields) -> TokenStream2 {
                 )
             }
         }
-        Fields::Unit => quote!(nu_protocol::Type::Nothing),
+        (Fields::Unit, _) => quote!(nu_protocol::Type::Nothing),
     };
 
     quote! {
@@ -338,23 +363,25 @@ fn struct_expected_type(fields: &Fields) -> TokenStream2 {
 ///
 /// This function constructs the implementation of the `FromValue` trait for enums.
 /// It is designed to be on the same level as [`derive_struct_from_value`], even though this
-/// function only provides the impl signature for `FromValue`.
-/// The actual implementation for `FromValue::from_value` is handled by [`enum_from_value`].
-///
-/// Since variants are difficult to type with the current type system, this function uses the
-/// default implementation for `expected_type`.
+/// implementation is a lot simpler.
+/// The main `FromValue::from_value` implementation is handled by [`enum_from_value`].
+/// The `FromValue::expected_type` implementation is usually kept empty to use the default
+/// implementation, but if `#[nu_value(type_name = "...")]` if given, we use that.
 fn derive_enum_from_value(
     ident: Ident,
     data: DataEnum,
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
+    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let from_value_impl = enum_from_value(&data, &attrs)?;
+    let expected_type_impl = enum_expected_type(container_attrs.type_name.as_deref());
     Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
             #from_value_impl
+            #expected_type_impl
         }
     })
 }
@@ -368,7 +395,7 @@ fn derive_enum_from_value(
 /// all possible variants.
 /// The input value is expected to be a `Value::String` containing the name of the variant formatted
 /// as defined by the `#[nu_value(rename_all = "...")]` attribute.
-/// If no attribute is given, [`convert_case::Case::Snake`] is expected.
+/// If no attribute is given, [`snake_case`](heck::ToSnakeCase) is expected.
 ///
 /// If no matching variant is found, `ShellError::CantConvert` is returned.
 ///
@@ -412,7 +439,7 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
             let ident = &variant.ident;
             let ident_s = format!("{ident}")
                 .as_str()
-                .to_case(container_attrs.rename_all);
+                .to_case(container_attrs.rename_all.unwrap_or(Case::Snake));
             match &variant.fields {
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
                     fields_span: fields.span(),
@@ -448,10 +475,45 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
     })
 }
 
+/// Implements `FromValue::expected_type` for enums.
+///  
+/// Since it's difficult to name the type of an enum in the current type system, we want to use the
+/// default implementation if `#[nu_value(type_name = "...")]` was *not* given.
+/// For that, a `None` value is returned, for a passed type name we return something like this:
+/// ```rust
+/// #[derive(IntoValue)]
+/// #[nu_value(type_name = "sunny | cloudy | raining")]
+/// enum Weather {
+///     Sunny,
+///     Cloudy,
+///     Raining
+/// }
+///
+/// impl nu_protocol::FromValue for Weather {
+///     fn expected_type() -> nu_protocol::Type {
+///         nu_protocol::Type::Custom(
+///             <std::string::String as std::convert::From::<&str>>::from("sunny | cloudy | raining")
+///                 .into_boxed_str()
+///         )
+///     }
+/// }
+/// ```
+fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
+    let type_name = attr_type_name?;
+    Some(quote! {
+        fn expected_type() -> nu_protocol::Type {
+            nu_protocol::Type::Custom(
+                <std::string::String as std::convert::From::<&str>>::from(#type_name)
+                    .into_boxed_str()
+            )
+        }
+    })
+}
+
 /// Parses a `Value` into self.
 ///
 /// This function handles the actual parsing of a `Value` into self.
-/// It takes two parameters: `fields` and `self_ident`.
+/// It takes three parameters: `fields`, `self_ident` and `rename_all`.
 /// The `fields` parameter determines the expected type of `Value`: named fields expect a
 /// `Value::Record`, unnamed fields expect a `Value::List`, and a unit expects `Value::Nothing`.
 ///
@@ -465,6 +527,10 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
 /// For structs, `Self` is usually sufficient, but for enums, `Self::Variant` may be needed in the
 /// future.
 ///
+/// The `rename_all` parameter is provided through `#[nu_value(rename_all = "...")]` and describes
+/// how, if passed, the field keys in the `Value` should be named.
+/// If this is `None`, we keep the names as they are in the struct.
+///
 /// This function is more complex than the equivalent for `IntoValue` due to error handling
 /// requirements.
 /// For missing fields, `ShellError::CantFindColumn` is used, and for unit structs,
@@ -473,12 +539,19 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
 /// that poorly named fields don't cause issues.
 /// While this style is not typically recommended in handwritten Rust, it is acceptable for code
 /// generation.
-fn parse_value_via_fields(fields: &Fields, self_ident: impl ToTokens) -> TokenStream2 {
+fn parse_value_via_fields(
+    fields: &Fields,
+    self_ident: impl ToTokens,
+    rename_all: Option<Case>,
+) -> TokenStream2 {
     match fields {
         Fields::Named(fields) => {
             let fields = fields.named.iter().map(|field| {
                 let ident = field.ident.as_ref().expect("named has idents");
-                let ident_s = ident.to_string();
+                let mut ident_s = ident.to_string();
+                if let Some(rename_all) = rename_all {
+                    ident_s = ident_s.to_case(rename_all);
+                }
                 let ty = &field.ty;
                 match type_is_option(ty) {
                     true => quote! {

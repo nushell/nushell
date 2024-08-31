@@ -20,7 +20,7 @@ impl PluginCommand for ValueCount {
         "polars value-counts"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns a dataframe with the counts for unique values in series."
     }
 

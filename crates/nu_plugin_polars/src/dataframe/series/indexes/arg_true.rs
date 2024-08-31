@@ -18,7 +18,7 @@ impl PluginCommand for ArgTrue {
         "polars arg-true"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Returns indexes where values are true."
     }
 

@@ -77,6 +77,8 @@ pub(crate) fn series_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlug
         Box::new(StrLengths),
         Box::new(StrSlice),
         Box::new(StrFTime),
+        Box::new(ToDecimal),
+        Box::new(ToInteger),
         Box::new(ToLowerCase),
         Box::new(ToUpperCase),
         Box::new(Unique),

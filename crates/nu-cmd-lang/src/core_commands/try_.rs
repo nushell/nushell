@@ -9,7 +9,7 @@ impl Command for Try {
         "try"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Try to run a block, if it fails optionally run a catch closure."
     }
 
@@ -31,7 +31,7 @@ impl Command for Try {
             .category(Category::Core)
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html"#
     }

@@ -21,11 +21,11 @@ impl Command for Hide {
             .category(Category::Core)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Hide definitions in the current scope."
     }
 
-    fn extra_usage(&self) -> &str {
+    fn extra_description(&self) -> &str {
         r#"Definitions are hidden by priority: First aliases, then custom commands.
 
 This command is a parser keyword. For details, check:

@@ -25,7 +25,7 @@ impl PluginCommand for ToDataFrame {
         "polars into-df"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Converts a list, table or record into a dataframe."
     }
 

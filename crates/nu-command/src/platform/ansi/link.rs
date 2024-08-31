@@ -35,7 +35,7 @@ impl Command for SubCommand {
             .category(Category::Platform)
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Add a link (using OSC 8 escape sequence) to the given string."
     }
 

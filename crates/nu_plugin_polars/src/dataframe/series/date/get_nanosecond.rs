@@ -21,7 +21,7 @@ impl PluginCommand for GetNanosecond {
         "polars get-nanosecond"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets nanosecond from date."
     }
 

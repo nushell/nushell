@@ -19,7 +19,7 @@ impl PluginCommand for GetMinute {
         "polars get-minute"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Gets minute from date."
     }
 
