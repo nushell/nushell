@@ -48,6 +48,31 @@ impl Default for HistoryConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct DisplayErrors {
+    pub exit_code: bool,
+    pub termination_signal: bool,
+}
+
+impl DisplayErrors {
+    pub fn should_show(&self, error: &ShellError) -> bool {
+        match error {
+            ShellError::NonZeroExitCode { .. } => self.exit_code,
+            ShellError::TerminatedBySignal { .. } => self.termination_signal,
+            _ => true,
+        }
+    }
+}
+
+impl Default for DisplayErrors {
+    fn default() -> Self {
+        Self {
+            exit_code: true,
+            termination_signal: true,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub external_completer: Option<Closure>,
@@ -100,6 +125,7 @@ pub struct Config {
     pub datetime_normal_format: Option<String>,
     pub datetime_table_format: Option<String>,
     pub error_style: ErrorStyle,
+    pub display_errors: DisplayErrors,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
     pub use_ls_colors_completions: bool,
@@ -182,6 +208,7 @@ impl Default for Config {
             keybindings: Vec::new(),
 
             error_style: ErrorStyle::Fancy,
+            display_errors: DisplayErrors::default(),
 
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
@@ -828,6 +855,35 @@ impl Value {
                             &[key],
                             value,
                             &mut errors);
+                    }
+                    "display_errors" => {
+                        if let Value::Record { val, .. } = value {
+                            val.to_mut().retain_mut(|key2, value| {
+                                let span = value.span();
+                                match key2 {
+                                    "exit_code" => {
+                                        process_bool_config(value, &mut errors, &mut config.display_errors.exit_code);
+                                    }
+                                    "termination_signal" => {
+                                        process_bool_config(value, &mut errors, &mut config.display_errors.termination_signal);
+                                    }
+                                    _ => {
+                                        report_invalid_key(&[key, key2], span, &mut errors);
+                                        return false;
+                                    }
+                                }; true
+                            });
+                        } else {
+                            report_invalid_value("should be a record", span, &mut errors);
+                            // Reconstruct
+                            *value = Value::record(
+                                record! {
+                                    "exit_code" => Value::bool(config.display_errors.exit_code, span),
+                                    "termination_signal" => Value::bool(config.display_errors.termination_signal, span),
+                                },
+                                span,
+                            );
+                        }
                     }
                     "recursion_limit" => {
                         if let Value::Int { val, internal_span } = value {

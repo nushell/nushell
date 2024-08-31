@@ -10,7 +10,7 @@ use nu_cli::read_plugin_file;
 use nu_cli::{evaluate_commands, evaluate_file, evaluate_repl, EvaluateCommandsOpts};
 use nu_protocol::{
     engine::{EngineState, Stack},
-    report_error_new, PipelineData, Spanned,
+    report_shell_error, PipelineData, Spanned,
 };
 use nu_utils::perf;
 
@@ -99,7 +99,7 @@ pub(crate) fn run_commands(
     perf!("evaluate_commands", start_time, use_color);
 
     if let Err(err) = result {
-        report_error_new(engine_state, &err);
+        report_shell_error(engine_state, &err);
         std::process::exit(err.exit_code());
     }
 }
@@ -170,7 +170,7 @@ pub(crate) fn run_file(
     perf!("evaluate_file", start_time, use_color);
 
     if let Err(err) = result {
-        report_error_new(engine_state, &err);
+        report_shell_error(engine_state, &err);
         std::process::exit(err.exit_code());
     }
 }

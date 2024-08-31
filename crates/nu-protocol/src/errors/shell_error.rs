@@ -4,8 +4,8 @@ use std::{io, num::NonZeroI32};
 use thiserror::Error;
 
 use crate::{
-    ast::Operator, engine::StateWorkingSet, format_error, LabeledError, ParseError, Span, Spanned,
-    Value,
+    ast::Operator, engine::StateWorkingSet, format_shell_error, LabeledError, ParseError, Span,
+    Spanned, Value,
 };
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
@@ -1304,6 +1304,16 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
+    #[error("Deprecated: {old_command}")]
+    #[diagnostic(help("for more info see {url}"))]
+    Deprecated {
+        old_command: String,
+        new_suggestion: String,
+        #[label("`{old_command}` is deprecated and will be removed in a future release. Please {new_suggestion} instead.")]
+        span: Span,
+        url: String,
+    },
+
     /// Invalid glob pattern
     ///
     /// ## Resolution
@@ -1440,7 +1450,7 @@ impl ShellError {
 
     // TODO: Implement as From trait
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
-        let msg = format_error(working_set, &self);
+        let msg = format_shell_error(working_set, &self);
         ParseError::LabeledError(
             msg,
             "Encountered error during parse-time evaluation".into(),

@@ -536,14 +536,14 @@ impl PipelineData {
         engine_state: &EngineState,
         no_newline: bool,
         to_stderr: bool,
-    ) -> Result<Option<ExitStatus>, ShellError> {
+    ) -> Result<(), ShellError> {
         if let PipelineData::Value(Value::Binary { val: bytes, .. }, _) = self {
             if to_stderr {
                 stderr_write_all_and_flush(bytes)?;
             } else {
                 stdout_write_all_and_flush(bytes)?;
             }
-            Ok(None)
+            Ok(())
         } else {
             self.write_all_and_flush(engine_state, no_newline, to_stderr)
         }

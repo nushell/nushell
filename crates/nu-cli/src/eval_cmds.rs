@@ -2,9 +2,10 @@ use log::info;
 use nu_engine::{convert_env_values, eval_block};
 use nu_parser::parse;
 use nu_protocol::{
+    cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, PipelineData, ShellError, Spanned, Value,
+    report_parse_error, report_parse_warning, PipelineData, ShellError, Spanned, Value,
 };
 use std::sync::Arc;
 
@@ -61,16 +62,16 @@ pub fn evaluate_commands(
 
         let output = parse(&mut working_set, None, commands.item.as_bytes(), false);
         if let Some(warning) = working_set.parse_warnings.first() {
-            report_error(&working_set, warning);
+            report_parse_warning(&working_set, warning);
         }
 
         if let Some(err) = working_set.parse_errors.first() {
-            report_error(&working_set, err);
+            report_parse_error(&working_set, err);
             std::process::exit(1);
         }
 
         if let Some(err) = working_set.compile_errors.first() {
-            report_error(&working_set, err);
+            report_compile_error(&working_set, err);
             // Not a fatal error, for now
         }
 

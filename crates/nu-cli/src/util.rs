@@ -2,9 +2,11 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::{
+    cli_error::report_compile_error,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, report_error_new, PipelineData, ShellError, Span, Value,
+    report_parse_error, report_parse_warning, report_shell_error, PipelineData, ShellError, Span,
+    Value,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -39,7 +41,7 @@ fn gather_env_vars(
     init_cwd: &Path,
 ) {
     fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
-        report_error_new(
+        report_shell_error(
             engine_state,
             &ShellError::GenericError {
                 error: format!("Environment variable was not captured: {env_str}"),
@@ -70,7 +72,7 @@ fn gather_env_vars(
         }
         None => {
             // Could not capture current working directory
-            report_error_new(
+            report_shell_error(
                 engine_state,
                 &ShellError::GenericError {
                     error: "Current directory is not a valid utf-8 path".into(),
@@ -216,7 +218,7 @@ pub fn eval_source(
             code
         }
         Err(err) => {
-            report_error_new(engine_state, &err);
+            report_shell_error(engine_state, &err);
             let code = err.exit_code();
             stack.set_last_error(&err);
             code
@@ -255,16 +257,16 @@ fn evaluate_source(
             false,
         );
         if let Some(warning) = working_set.parse_warnings.first() {
-            report_error(&working_set, warning);
+            report_parse_warning(&working_set, warning);
         }
 
         if let Some(err) = working_set.parse_errors.first() {
-            report_error(&working_set, err);
+            report_parse_error(&working_set, err);
             return Ok(true);
         }
 
         if let Some(err) = working_set.compile_errors.first() {
-            report_error(&working_set, err);
+            report_compile_error(&working_set, err);
             // Not a fatal error, for now
         }
 

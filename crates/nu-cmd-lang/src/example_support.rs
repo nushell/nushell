@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::Block,
     debugger::WithoutDebug,
     engine::{StateDelta, StateWorkingSet},
-    report_error_new, Range,
+    report_shell_error, Range,
 };
 use std::{
     sync::Arc,
@@ -125,7 +125,7 @@ pub fn eval_block(
     nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
         .and_then(|data| data.into_value(Span::test_data()))
         .unwrap_or_else(|err| {
-            report_error_new(engine_state, &err);
+            report_shell_error(engine_state, &err);
             panic!("test eval error in `{}`: {:?}", "TODO", err)
         })
 }

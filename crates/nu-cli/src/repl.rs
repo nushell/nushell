@@ -27,7 +27,7 @@ use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
+    report_shell_error, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
     Value,
 };
 use nu_utils::{
@@ -88,7 +88,7 @@ pub fn evaluate_repl(
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
     if let Err(e) = convert_env_values(engine_state, &unique_stack) {
-        report_error_new(engine_state, &e);
+        report_shell_error(engine_state, &e);
     }
     perf!("translate env vars", start_time, use_color);
 
@@ -286,7 +286,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // Before doing anything, merge the environment from the previous REPL iteration into the
     // permanent state.
     if let Err(err) = engine_state.merge_env(&mut stack, cwd) {
-        report_error_new(engine_state, &err);
+        report_shell_error(engine_state, &err);
     }
     // Check whether $env.NU_USE_IR is set, so that the user can change it in the REPL
     // Temporary while IR eval is optional
@@ -302,7 +302,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // fire the "pre_prompt" hook
     if let Some(hook) = engine_state.get_config().hooks.pre_prompt.clone() {
         if let Err(err) = eval_hook(engine_state, &mut stack, None, vec![], &hook, "pre_prompt") {
-            report_error_new(engine_state, &err);
+            report_shell_error(engine_state, &err);
         }
     }
     perf!("pre-prompt hook", start_time, use_color);
@@ -312,7 +312,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // fire the "env_change" hook
     let env_change = engine_state.get_config().hooks.env_change.clone();
     if let Err(error) = hook::eval_env_change_hook(env_change, engine_state, &mut stack) {
-        report_error_new(engine_state, &error)
+        report_shell_error(engine_state, &error)
     }
     perf!("env-change hook", start_time, use_color);
 
@@ -386,7 +386,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     trace!("adding menus");
     line_editor =
         add_menus(line_editor, engine_reference, &stack_arc, config).unwrap_or_else(|e| {
-            report_error_new(engine_state, &e);
+            report_shell_error(engine_state, &e);
             Reedline::create()
         });
 
@@ -506,7 +506,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                     &hook,
                     "pre_execution",
                 ) {
-                    report_error_new(engine_state, &err);
+                    report_shell_error(engine_state, &err);
                 }
             }
 
@@ -808,7 +808,7 @@ fn do_auto_cd(
 ) {
     let path = {
         if !path.exists() {
-            report_error_new(
+            report_shell_error(
                 engine_state,
                 &ShellError::DirectoryNotFound {
                     dir: path.to_string_lossy().to_string(),
@@ -820,7 +820,7 @@ fn do_auto_cd(
     };
 
     if let PermissionResult::PermissionDenied(reason) = have_permission(path.clone()) {
-        report_error_new(
+        report_shell_error(
             engine_state,
             &ShellError::IOError {
                 msg: format!("Cannot change directory to {path}: {reason}"),
@@ -834,7 +834,7 @@ fn do_auto_cd(
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
     if let Err(err) = stack.set_cwd(&path) {
-        report_error_new(engine_state, &err);
+        report_shell_error(engine_state, &err);
         return;
     };
     let cwd = Value::string(cwd, span);
@@ -1141,7 +1141,7 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
             }
         },
         Err(e) => {
-            report_error_new(engine_state, &e);
+            report_shell_error(engine_state, &e);
             line_editor
         }
     };
