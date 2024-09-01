@@ -8,6 +8,7 @@ use self::table::*;
 use crate::{engine::Closure, record, IntoValue, ShellError, Span, Value};
 use cursor_shape::CursorShape;
 use datetime_format::DatetimeFormat;
+use filesize::Filesize;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -24,6 +25,7 @@ pub use self::table::{FooterMode, TableIndexMode, TableMode, TrimStrategy};
 mod completer;
 mod cursor_shape;
 mod datetime_format;
+mod filesize;
 mod helper;
 mod hooks;
 mod output;
@@ -54,7 +56,7 @@ impl Default for HistoryConfig {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub external_completer: Option<Closure>,
-    pub filesize_metric: bool,
+    pub filesize: Filesize,
     pub table: Table,
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, Value>,
@@ -63,7 +65,6 @@ pub struct Config {
     pub float_precision: i64,
     pub max_external_completion_results: i64,
     pub recursion_limit: i64,
-    pub filesize_format: String,
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
     pub partial_completions: bool,
@@ -136,8 +137,7 @@ impl Default for Config {
             external_completer: None,
             use_ls_colors_completions: true,
 
-            filesize_metric: false,
-            filesize_format: "auto".into(),
+            filesize: Filesize::default(),
 
             cursor_shape: CursorShape::default(),
 
@@ -558,16 +558,16 @@ impl Value {
                             let span = value.span();
                             match key2 {
                             "metric" => {
-                                process_bool_config(value, &mut errors, &mut config.filesize_metric);
+                                process_bool_config(value, &mut errors, &mut config.filesize.metric);
                             }
                             "format" => {
                                 if let Ok(v) = value.coerce_str() {
-                                    config.filesize_format = v.to_lowercase();
+                                    config.filesize.format = v.to_lowercase();
                                 } else {
                                     report_invalid_value("should be a string", span, &mut errors);
                                     // Reconstruct
                                     *value =
-                                        Value::string(config.filesize_format.clone(), span);
+                                        Value::string(config.filesize.format.clone(), span);
                                 }
                             }
                             _ => {
@@ -580,13 +580,7 @@ impl Value {
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
                         // Reconstruct
-                        *value = Value::record(
-                            record! {
-                                "metric" => Value::bool(config.filesize_metric, span),
-                                "format" => Value::string(config.filesize_format.clone(), span),
-                            },
-                            span,
-                        );
+                        *value = config.filesize.clone().into_value(span);
                     }
                 }
                 "explore" => {
