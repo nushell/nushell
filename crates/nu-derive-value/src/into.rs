@@ -191,7 +191,7 @@ fn enum_into_value(
                 .as_str()
                 .to_case(container_attrs.rename_all.unwrap_or(Case::Snake));
             match &variant.fields {
-                // In the future we can implement more complexe enums here.
+                // In the future we can implement more complex enums here.
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
                     fields_span: fields.span(),
                 }),
