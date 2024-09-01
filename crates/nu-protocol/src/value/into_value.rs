@@ -1,5 +1,5 @@
 use crate::{ast::CellPath, engine::Closure, Range, Record, ShellError, Span, Value};
-use std::collections::HashMap;
+use std::{borrow::Borrow, collections::HashMap};
 
 /// A trait for converting a value into a [`Value`].
 ///
@@ -172,19 +172,20 @@ where
     }
 }
 
-impl<V> IntoValue for HashMap<String, V>
+impl<K, V> IntoValue for HashMap<K, V>
 where
+    K: Borrow<str> + Into<String>,
     V: IntoValue,
 {
     fn into_value(self, span: Span) -> Value {
-        let mut record = Record::new();
-        for (k, v) in self.into_iter() {
-            // Using `push` is fine as a hashmaps have unique keys.
-            // To ensure this uniqueness, we only allow hashmaps with strings as
-            // keys and not keys which implement `Into<String>` or `ToString`.
-            record.push(k, v.into_value(span));
-        }
-        Value::record(record, span)
+        // To ensure this uniqueness, we only allow hashmaps with keys that are `Borrow<str>`.
+        // The `Into<String>` constraint allows us to avoid cloning `String`s,
+        // and most types that implement `Borrow<str>` also implement `Into<String>`
+        // which is why we can probably add it without being too restrictive.
+        self.into_iter()
+            .map(|(k, v)| (k.into(), v.into_value(span)))
+            .collect::<Record>()
+            .into_value(span)
     }
 }
 
