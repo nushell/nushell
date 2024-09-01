@@ -644,7 +644,7 @@ impl Value {
                     Err(e) => {
                         report_invalid_value("should be a valid hooks list", span, &mut errors);
                         errors.push(e);
-                        *value = reconstruct_hooks(&config, span);
+                        *value = config.hooks.clone().into_value(span);
                     }
                 },
                 "datetime_format" => {
