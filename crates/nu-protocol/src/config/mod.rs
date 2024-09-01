@@ -220,7 +220,6 @@ impl Value {
         val.to_mut().retain_mut(|key, value| {
             let span = value.span();
             match key {
-                // Grouped options
                 "ls" => {
                     if let Value::Record { val, .. } = value {
                         val.to_mut().retain_mut(|key2, value| {
@@ -236,11 +235,11 @@ impl Value {
                                     report_invalid_key(&[key, key2], span, &mut errors);
                                     return false;
                                 }
-                            }; true
+                            }
+                            true
                         });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
                         *value = Value::record(
                             record! {
                                 "use_ls_colors" => Value::bool(config.use_ls_colors, span),
@@ -267,7 +266,6 @@ impl Value {
                         });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
                         *value = Value::record(
                             record! {
                                 "always_trash" => Value::bool(config.rm_always_trash, span),
@@ -296,7 +294,8 @@ impl Value {
                                         &mut history.file_format,
                                         &[key, key2],
                                         value,
-                                        &mut errors);
+                                        &mut errors
+                                    );
                                 }
                                 _ => {
                                     report_invalid_key(&[key, key2], span, &mut errors);
@@ -307,7 +306,6 @@ impl Value {
                         });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
                         *value = Value::record(
                             record! {
                                 "sync_on_enter" => Value::bool(history.sync_on_enter, span),
@@ -335,7 +333,8 @@ impl Value {
                                         &mut config.completion_algorithm,
                                         &[key, key2],
                                         value,
-                                        &mut errors);
+                                        &mut errors
+                                    );
                                 }
                                 "case_sensitive" => {
                                     process_bool_config(value, &mut errors, &mut config.case_sensitive_completions);
@@ -345,46 +344,42 @@ impl Value {
                                         &mut config.completion_sort,
                                         &[key, key2],
                                         value,
-                                        &mut errors);
+                                        &mut errors
+                                    );
                                 }
                                 "external" => {
                                     if let Value::Record { val, .. } = value {
-                                        val.to_mut().retain_mut(|key3, value|
-                                            {
-                                                let span = value.span();
-                                                match key3 {
-                                                    "max_results" => {
-                                                        process_int_config(value, &mut errors, &mut config.max_external_completion_results);
-                                                    }
-                                                    "completer" => {
-                                                        if let Ok(v) = value.as_closure() {
-                                                            config.external_completer = Some(v.clone())
-                                                        } else {
-                                                            match value {
-                                                                Value::Nothing { .. } => {}
-                                                                _ => {
-                                                                    report_invalid_value("should be a closure or null", span, &mut errors);
-                                                                    // Reconstruct
-                                                                    *value = reconstruct_external_completer(&config,
-                                                                        span
-                                                                    );
-                                                                }
+                                        val.to_mut().retain_mut(|key3, value| {
+                                            let span = value.span();
+                                            match key3 {
+                                                "max_results" => {
+                                                    process_int_config(value, &mut errors, &mut config.max_external_completion_results);
+                                                }
+                                                "completer" => {
+                                                    if let Ok(v) = value.as_closure() {
+                                                        config.external_completer = Some(v.clone())
+                                                    } else {
+                                                        match value {
+                                                            Value::Nothing { .. } => {}
+                                                            _ => {
+                                                                report_invalid_value("should be a closure or null", span, &mut errors);
+                                                                *value = reconstruct_external_completer(&config, span);
                                                             }
                                                         }
                                                     }
-                                                    "enable" => {
-                                                        process_bool_config(value, &mut errors, &mut config.enable_external_completion);
-                                                    }
-                                                    _ => {
-                                                        report_invalid_key(&[key, key2, key3], span, &mut errors);
-                                                        return false;
-                                                    }
-                                                };
-                                                true
-                                            });
+                                                }
+                                                "enable" => {
+                                                    process_bool_config(value, &mut errors, &mut config.enable_external_completion);
+                                                }
+                                                _ => {
+                                                    report_invalid_key(&[key, key2, key3], span, &mut errors);
+                                                    return false;
+                                                }
+                                            };
+                                            true
+                                        });
                                     } else {
                                         report_invalid_value("should be a record", span, &mut errors);
-                                        // Reconstruct
                                         *value = reconstruct_external(&config, span);
                                     }
                                 }
@@ -400,7 +395,6 @@ impl Value {
                         });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct record
                         *value = Value::record(
                             record! {
                                 "quick" => Value::bool(config.quick_completions, span),
@@ -432,12 +426,12 @@ impl Value {
                                 config_point,
                                 &[key, key2],
                                 value,
-                                &mut errors);
+                                &mut errors
+                            );
                             true
                         });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
                         *value = config.cursor_shape.into_value(span);
                     }
                 }
@@ -451,7 +445,8 @@ impl Value {
                                         &mut config.table.mode,
                                         &[key, key2],
                                         value,
-                                        &mut errors);
+                                        &mut errors
+                                    );
                                 }
                                 "header_on_separator" => {
                                     process_bool_config(value, &mut errors, &mut config.table.header_on_separator);
@@ -513,7 +508,8 @@ impl Value {
                                         &mut config.table.index_mode,
                                         &[key, key2],
                                         value,
-                                        &mut errors);
+                                        &mut errors
+                                    );
                                 }
                                 "trim" => {
                                     match try_parse_trim_strategy(value, &mut errors) {
@@ -541,14 +537,13 @@ impl Value {
                                 }
                                 _ => {
                                     report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false
+                                    return false;
                                 }
                             };
                             true
-                            });
+                        });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
                         *value = config.table.clone().into_value(span);
                     }
                 }
@@ -557,29 +552,26 @@ impl Value {
                         val.to_mut().retain_mut(|key2, value| {
                             let span = value.span();
                             match key2 {
-                            "metric" => {
-                                process_bool_config(value, &mut errors, &mut config.filesize.metric);
-                            }
-                            "format" => {
-                                if let Ok(v) = value.coerce_str() {
-                                    config.filesize.format = v.to_lowercase();
-                                } else {
-                                    report_invalid_value("should be a string", span, &mut errors);
-                                    // Reconstruct
-                                    *value =
-                                        Value::string(config.filesize.format.clone(), span);
+                                "metric" => {
+                                    process_bool_config(value, &mut errors, &mut config.filesize.metric);
                                 }
-                            }
-                            _ => {
-                                report_invalid_key(&[key, key2], span, &mut errors);
-                                return false;
-                            }
-                        };
-                        true
-                    })
+                                "format" => {
+                                    if let Ok(v) = value.coerce_str() {
+                                        config.filesize.format = v.to_lowercase();
+                                    } else {
+                                        report_invalid_value("should be a string", span, &mut errors);
+                                        *value = Value::string(config.filesize.format.clone(), span);
+                                    }
+                                }
+                                _ => {
+                                    report_invalid_key(&[key, key2], span, &mut errors);
+                                    return false;
+                                }
+                            };
+                            true
+                        })
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
                         *value = config.filesize.clone().into_value(span);
                     }
                 }
@@ -588,15 +580,7 @@ impl Value {
                         config.explore = map;
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
-                        *value = Value::record(
-                            config
-                                .explore
-                                .iter()
-                                .map(|(k, v)| (k.clone(), v.clone()))
-                                .collect(),
-                            span,
-                        );
+                        *value = config.explore.clone().into_value(span);
                     }
                 }
                 // Misc. options
@@ -605,15 +589,7 @@ impl Value {
                         config.color_config = map;
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
-                        *value = Value::record(
-                            config
-                                .color_config
-                                .iter()
-                                .map(|(k, v)| (k.clone(), v.clone()))
-                                .collect(),
-                            span,
-                        );
+                        *value = config.color_config.clone().into_value(span);
                     }
                 }
                 "use_grid_icons" => {
@@ -624,7 +600,8 @@ impl Value {
                         &mut config.footer_mode,
                         &[key],
                         value,
-                        &mut errors);
+                        &mut errors
+                    );
                 }
                 "float_precision" => {
                     process_int_config(value, &mut errors, &mut config.float_precision);
@@ -637,44 +614,44 @@ impl Value {
                         &mut config.edit_mode,
                         &[key],
                         value,
-                        &mut errors);
+                        &mut errors
+                    );
                 }
                 "shell_integration" => {
                     if let Value::Record { val, .. } = value {
                         val.to_mut().retain_mut(|key2, value| {
                             let span = value.span();
                             match key2 {
-                            "osc2" => {
-                                process_bool_config(value, &mut errors, &mut config.shell_integration_osc2);
-                            }
-                            "osc7" => {
-                                process_bool_config(value, &mut errors, &mut config.shell_integration_osc7);
-                            }
-                            "osc8" => {
-                                process_bool_config(value, &mut errors, &mut config.shell_integration_osc8);
-                            }
-                            "osc9_9" => {
-                                process_bool_config(value, &mut errors, &mut config.shell_integration_osc9_9);
-                            }
-                            "osc133" => {
-                                process_bool_config(value, &mut errors, &mut config.shell_integration_osc133);
-                            }
-                            "osc633" => {
-                                process_bool_config(value, &mut errors, &mut config.shell_integration_osc633);
-                            }
-                            "reset_application_mode" => {
-                                process_bool_config(value, &mut errors, &mut config.shell_integration_reset_application_mode);
-                            }
-                            _ => {
-                                report_invalid_key(&[key, key2], span, &mut errors);
-                                return false;
-                            }
-                        };
-                        true
-                    })
+                                "osc2" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc2);
+                                }
+                                "osc7" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc7);
+                                }
+                                "osc8" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc8);
+                                }
+                                "osc9_9" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc9_9);
+                                }
+                                "osc133" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc133);
+                                }
+                                "osc633" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_osc633);
+                                }
+                                "reset_application_mode" => {
+                                    process_bool_config(value, &mut errors, &mut config.shell_integration_reset_application_mode);
+                                }
+                                _ => {
+                                    report_invalid_key(&[key, key2], span, &mut errors);
+                                    return false;
+                                }
+                            };
+                            true
+                        })
                     } else {
                         report_invalid_value("boolean value is deprecated, should be a record. see `config nu --default`.", span, &mut errors);
-                        // Reconstruct
                         *value = Value::record(
                             record! {
                                 "osc2" => Value::bool(config.shell_integration_osc2, span),
@@ -723,41 +700,28 @@ impl Value {
                         config.plugins = map;
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
-                        *value = Value::record(
-                            config
-                                .explore
-                                .iter()
-                                .map(|(k, v)| (k.clone(), v.clone()))
-                                .collect(),
-                            span,
-                        );
+                        *value = config.plugins.clone().into_value(span);
                     }
                 }
                 "plugin_gc" => {
                     config.plugin_gc.process(&[key], value, &mut errors);
                 }
-                // Menus
                 "menus" => match create_menus(value) {
                     Ok(map) => config.menus = map,
                     Err(e) => {
                         report_invalid_value("should be a valid list of menus", span, &mut errors);
                         errors.push(e);
-                        // Reconstruct
                         *value = reconstruct_menus(&config, span);
                     }
                 },
-                // Keybindings
                 "keybindings" => match create_keybindings(value) {
                     Ok(keybindings) => config.keybindings = keybindings,
                     Err(e) => {
                         report_invalid_value("should be a valid keybindings list", span, &mut errors);
                         errors.push(e);
-                        // Reconstruct
                         *value = reconstruct_keybindings(&config, span);
                     }
                 },
-                // Hooks
                 "hooks" => match create_hooks(value) {
                     Ok(hooks) => config.hooks = hooks,
                     Err(e) => {
@@ -772,28 +736,29 @@ impl Value {
                             {
                             let span = value.span();
                             match key2 {
-                            "normal" => {
-                                if let Ok(v) = value.coerce_string() {
-                                    config.datetime_format.normal = Some(v);
-                                } else {
-                                    report_invalid_value("should be a string", span, &mut errors);
+                                "normal" => {
+                                    if let Ok(v) = value.coerce_string() {
+                                        config.datetime_format.normal = Some(v);
+                                    } else {
+                                        report_invalid_value("should be a string", span, &mut errors);
+                                    }
                                 }
-                            }
-                            "table" => {
-                                if let Ok(v) = value.coerce_string() {
-                                    config.datetime_format.table = Some(v);
-                                } else {
-                                    report_invalid_value("should be a string", span, &mut errors);
+                                "table" => {
+                                    if let Ok(v) = value.coerce_string() {
+                                        config.datetime_format.table = Some(v);
+                                    } else {
+                                        report_invalid_value("should be a string", span, &mut errors);
+                                    }
                                 }
-                            }
-                            _ => {
-                                report_invalid_key(&[key, key2], span, &mut errors);
-                                return false;
-                            }
-                        }; true})
+                                _ => {
+                                    report_invalid_key(&[key, key2], span, &mut errors);
+                                    return false;
+                                }
+                            };
+                            true
+                        })
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        // Reconstruct
                         *value = config.datetime_format.clone().into_value(span);
                     }
                 }
@@ -802,7 +767,8 @@ impl Value {
                         &mut config.error_style,
                         &[key],
                         value,
-                        &mut errors);
+                        &mut errors
+                    );
                 }
                 "recursion_limit" => {
                     if let Value::Int { val, internal_span } = value {
