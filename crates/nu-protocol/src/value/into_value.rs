@@ -1,4 +1,5 @@
 use crate::{ast::CellPath, engine::Closure, Range, Record, ShellError, Span, Value};
+use chrono::{DateTime, FixedOffset};
 use std::{borrow::Borrow, collections::HashMap};
 
 /// A trait for converting a value into a [`Value`].
@@ -228,6 +229,12 @@ impl IntoValue for Value {
 }
 
 // Foreign Types
+
+impl IntoValue for DateTime<FixedOffset> {
+    fn into_value(self, span: Span) -> Value {
+        Value::date(self, span)
+    }
+}
 
 impl IntoValue for bytes::Bytes {
     fn into_value(self, span: Span) -> Value {
