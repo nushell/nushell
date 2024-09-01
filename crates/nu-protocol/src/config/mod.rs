@@ -3,7 +3,7 @@ use self::helper::*;
 use self::hooks::*;
 
 use crate::{IntoValue, ShellError, Span, Value};
-use reedline::{create_keybindings, reconstruct_keybindings, reconstruct_menus};
+use reedline::create_keybindings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use table::try_parse_trim_strategy;
@@ -628,7 +628,7 @@ impl Value {
                     Err(e) => {
                         report_invalid_value("should be a valid list of menus", span, &mut errors);
                         errors.push(e);
-                        *value = reconstruct_menus(&config, span);
+                        *value = config.menus.clone().into_value(span);
                     }
                 },
                 "keybindings" => match create_keybindings(value) {
@@ -636,7 +636,7 @@ impl Value {
                     Err(e) => {
                         report_invalid_value("should be a valid keybindings list", span, &mut errors);
                         errors.push(e);
-                        *value = reconstruct_keybindings(&config, span);
+                        *value = config.keybindings.clone().into_value(span);
                     }
                 },
                 "hooks" => match create_hooks(value) {

@@ -1,8 +1,8 @@
 use super::{extract_value, prelude::*};
-use crate::{Config, ShellError};
+use crate::ShellError;
 
 /// Definition of a parsed keybinding from the config object
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
 pub struct ParsedKeybinding {
     pub modifier: Value,
     pub keycode: Value,
@@ -11,13 +11,13 @@ pub struct ParsedKeybinding {
 }
 
 /// Definition of a parsed menu from the config object
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
 pub struct ParsedMenu {
     pub name: Value,
     pub marker: Value,
     pub only_buffer_difference: Value,
     pub style: Value,
-    pub menu_type: Value,
+    pub r#type: Value,
     pub source: Value,
 }
 
@@ -128,34 +128,6 @@ pub(super) fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>,
     }
 }
 
-pub(super) fn reconstruct_keybindings(config: &Config, span: Span) -> Value {
-    Value::list(
-        config
-            .keybindings
-            .iter()
-            .map(
-                |ParsedKeybinding {
-                     modifier,
-                     keycode,
-                     mode,
-                     event,
-                 }| {
-                    Value::record(
-                        record! {
-                            "modifier" => modifier.clone(),
-                            "keycode" => keycode.clone(),
-                            "mode" => mode.clone(),
-                            "event" => event.clone(),
-                        },
-                        span,
-                    )
-                },
-            )
-            .collect(),
-        span,
-    )
-}
-
 /// Parses the config object to extract the strings that will compose a keybinding for reedline
 pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
     let span = value.span();
@@ -167,7 +139,7 @@ pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
             let only_buffer_difference =
                 extract_value("only_buffer_difference", val, span)?.clone();
             let style = extract_value("style", val, span)?.clone();
-            let menu_type = extract_value("type", val, span)?.clone();
+            let r#type = extract_value("type", val, span)?.clone();
 
             // Source is an optional value
             let source = match extract_value("source", val, span) {
@@ -180,7 +152,7 @@ pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
                 only_buffer_difference,
                 marker,
                 style,
-                menu_type,
+                r#type,
                 source,
             };
 
@@ -198,36 +170,4 @@ pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
         }
         _ => Ok(Vec::new()),
     }
-}
-
-pub(super) fn reconstruct_menus(config: &Config, span: Span) -> Value {
-    Value::list(
-        config
-            .menus
-            .iter()
-            .map(
-                |ParsedMenu {
-                     name,
-                     only_buffer_difference,
-                     marker,
-                     style,
-                     menu_type, // WARNING: this is not the same name as what is used in Config.nu! ("type")
-                     source,
-                 }| {
-                    Value::record(
-                        record! {
-                            "name" => name.clone(),
-                            "only_buffer_difference" => only_buffer_difference.clone(),
-                            "marker" => marker.clone(),
-                            "style" => style.clone(),
-                            "type" => menu_type.clone(),
-                            "source" => source.clone(),
-                        },
-                        span,
-                    )
-                },
-            )
-            .collect(),
-        span,
-    )
 }
