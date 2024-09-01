@@ -185,10 +185,14 @@ where
     V: IntoValue,
 {
     fn into_value(self, span: Span) -> Value {
-        // To ensure this uniqueness, we only allow hashmaps with keys that are `Borrow<str>`.
-        // The `Into<String>` constraint allows us to avoid cloning `String`s,
-        // and most types that implement `Borrow<str>` also implement `Into<String>`
-        // which is why we can probably add it without being too restrictive.
+        // The `Borrow<str>` contrainst is to ensure uniqueness, as implementations of `Borrow`
+        // must uphold by certain properties (e.g., `(x == y) == (x.borrow() == y.borrow())`.
+        //
+        // The `Into<String>` constraint is necessary for us to convert the key into a `String`.
+        // Most types that implement `Borrow<str>` also implement `Into<String>`.
+        // Implementations of `Into` must also be lossless and value-preserving conversions.
+        // So, when combined with the `Borrow` constraint, this means that the converted
+        // `String` keys should be unique.
         self.into_iter()
             .map(|(k, v)| (k.into(), v.into_value(span)))
             .collect::<Record>()
