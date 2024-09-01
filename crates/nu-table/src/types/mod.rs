@@ -67,7 +67,7 @@ impl<'a> TableOpts<'a> {
 }
 
 fn has_index(opts: &TableOpts<'_>, headers: &[String]) -> bool {
-    let with_index = match opts.config.table_index_mode {
+    let with_index = match opts.config.table.index_mode {
         TableIndexMode::Always => true,
         TableIndexMode::Never => false,
         TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),

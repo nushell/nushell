@@ -53,11 +53,7 @@ impl Default for HistoryConfig {
 pub struct Config {
     pub external_completer: Option<Closure>,
     pub filesize_metric: bool,
-    pub table_mode: TableMode,
-    pub table_move_header: bool,
-    pub table_show_empty: bool,
-    pub table_indent: TableIndent,
-    pub table_abbreviation_threshold: Option<usize>,
+    pub table: Table,
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, Value>,
     pub use_grid_icons: bool,
@@ -86,10 +82,8 @@ pub struct Config {
     pub shell_integration_osc633: bool,
     pub shell_integration_reset_application_mode: bool,
     pub buffer_editor: Value,
-    pub table_index_mode: TableIndexMode,
     pub case_sensitive_completions: bool,
     pub enable_external_completion: bool,
-    pub trim_strategy: TrimStrategy,
     pub show_banner: bool,
     pub bracketed_paste: bool,
     pub show_clickable_links_in_ls: bool,
@@ -122,13 +116,7 @@ impl Default for Config {
 
             rm_always_trash: false,
 
-            table_mode: TableMode::Rounded,
-            table_index_mode: TableIndexMode::Always,
-            table_show_empty: true,
-            trim_strategy: TrimStrategy::default(),
-            table_move_header: false,
-            table_indent: TableIndent { left: 1, right: 1 },
-            table_abbreviation_threshold: None,
+            table: Table::default(),
 
             datetime_normal_format: None,
             datetime_table_format: None,
@@ -460,22 +448,22 @@ impl Value {
                             match key2 {
                                 "mode" => {
                                     process_string_enum(
-                                        &mut config.table_mode,
-                                &[key, key2],
+                                        &mut config.table.mode,
+                                        &[key, key2],
                                         value,
                                         &mut errors);
                                 }
                                 "header_on_separator" => {
-                                    process_bool_config(value, &mut errors, &mut config.table_move_header);
+                                    process_bool_config(value, &mut errors, &mut config.table.header_on_separator);
                                 }
                                 "padding" => match value {
                                     Value::Int { val, .. } => {
                                         if *val < 0 {
                                             report_invalid_value("expected a unsigned integer", span, &mut errors);
-                                            *value = reconstruct_padding(&config, span);
+                                            *value = config.table.padding.into_value(span);
                                         } else {
-                                            config.table_indent.left = *val as usize;
-                                            config.table_indent.right = *val as usize;
+                                            config.table.padding.left = *val as usize;
+                                            config.table.padding.right = *val as usize;
                                         }
                                     }
                                     Value::Record { val, .. } => {
@@ -485,7 +473,7 @@ impl Value {
                                                 "left" => {
                                                     match value.as_int() {
                                                         Ok(val) if val >= 0 => {
-                                                            config.table_indent.left = val as usize;
+                                                            config.table.padding.left = val as usize;
                                                         }
                                                         _ => {
                                                             report_invalid_value("expected a unsigned integer >= 0", span, &mut errors);
@@ -496,7 +484,7 @@ impl Value {
                                                 "right" => {
                                                     match value.as_int() {
                                                         Ok(val) if val >= 0 => {
-                                                            config.table_indent.right = val as usize;
+                                                            config.table.padding.right = val as usize;
                                                         }
                                                         _ => {
                                                             report_invalid_value("expected a unsigned integer >= 0", span, &mut errors);
@@ -505,41 +493,40 @@ impl Value {
                                                     }
                                                 }
                                                 _ => {
-                                    report_invalid_key(&[key, key2, key3], span, &mut errors);
-                                                return false;
+                                                    report_invalid_key(&[key, key2, key3], span, &mut errors);
+                                                    return false;
                                                 }
                                             };
                                             true
                                         });
                                         if invalid {
-                                            *value = reconstruct_padding(&config, span);
+                                            *value = config.table.padding.into_value(span);
                                         }
                                     }
                                     _ => {
                                         report_invalid_value("expected a unsigned integer or a record", span, &mut errors);
-                                        *value = reconstruct_padding(&config, span);
+                                        *value = config.table.padding.into_value(span);
                                     }
                                 },
                                 "index_mode" => {
                                     process_string_enum(
-                                        &mut config.table_index_mode,
+                                        &mut config.table.index_mode,
                                         &[key, key2],
                                         value,
                                         &mut errors);
                                 }
                                 "trim" => {
                                     match try_parse_trim_strategy(value, &mut errors) {
-                                        Ok(v) => config.trim_strategy = v,
+                                        Ok(v) => config.table.trim = v,
                                         Err(e) => {
                                             // try_parse_trim_strategy() already adds its own errors
                                             errors.push(e);
-                                            *value =
-                                                reconstruct_trim_strategy(&config, span);
+                                            *value = config.table.trim.clone().into_value(span);
                                         }
                                     }
                                 }
                                 "show_empty" => {
-                                    process_bool_config(value, &mut errors, &mut config.table_show_empty);
+                                    process_bool_config(value, &mut errors, &mut config.table.show_empty);
                                 }
                                 "abbreviated_row_count" => {
                                     if let Ok(b) = value.as_int() {
@@ -547,7 +534,7 @@ impl Value {
                                             report_invalid_value("should be an int unsigned", span, &mut errors);
                                         }
 
-                                        config.table_abbreviation_threshold = Some(b as usize);
+                                        config.table.abbreviated_row_count = Some(b as usize);
                                     } else {
                                         report_invalid_value("should be an int", span, &mut errors);
                                     }
@@ -562,15 +549,7 @@ impl Value {
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
                         // Reconstruct
-                        *value = Value::record(
-                            record! {
-                                "mode" => config.table_mode.into_value(span),
-                                "index_mode" => config.table_index_mode.into_value(span),
-                                "trim" => reconstruct_trim_strategy(&config, span),
-                                "show_empty" => Value::bool(config.table_show_empty, span),
-                            },
-                            span,
-                        );
+                        *value = config.table.clone().into_value(span);
                     }
                 }
                 "filesize" => {
