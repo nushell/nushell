@@ -15,6 +15,7 @@ use std::collections::HashMap;
 
 pub use self::completer::{CompletionAlgorithm, CompletionSort};
 pub use self::helper::extract_value;
+pub use self::history::HistoryConfig;
 pub use self::hooks::Hooks;
 pub use self::output::ErrorStyle;
 pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
@@ -28,6 +29,7 @@ mod cursor_shape;
 mod datetime_format;
 mod filesize;
 mod helper;
+mod history;
 mod hooks;
 mod output;
 mod plugin_gc;
@@ -35,25 +37,6 @@ mod prelude;
 mod reedline;
 mod rm;
 mod table;
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct HistoryConfig {
-    pub max_size: i64,
-    pub sync_on_enter: bool,
-    pub file_format: HistoryFileFormat,
-    pub isolation: bool,
-}
-
-impl Default for HistoryConfig {
-    fn default() -> Self {
-        Self {
-            max_size: 100_000,
-            sync_on_enter: true,
-            file_format: HistoryFileFormat::Plaintext,
-            isolation: false,
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
@@ -303,15 +286,7 @@ impl Value {
                         });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        *value = Value::record(
-                            record! {
-                                "sync_on_enter" => Value::bool(history.sync_on_enter, span),
-                                "max_size" => Value::int(history.max_size, span),
-                                "file_format" => history.file_format.into_value(span),
-                                "isolation" => Value::bool(history.isolation, span),
-                            },
-                            span,
-                        );
+                        *value = config.history.into_value(span);
                     }
                 }
                 "completions" => {
