@@ -1,9 +1,11 @@
-use super::helper::ReconstructVal;
 use crate::{record, Config, ShellError, Span, Value};
+use nu_derive_value::IntoValue;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
+use crate as nu_protocol;
+
+#[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TableMode {
     Basic,
     Thin,
@@ -51,33 +53,7 @@ impl FromStr for TableMode {
     }
 }
 
-impl ReconstructVal for TableMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                TableMode::Basic => "basic",
-                TableMode::Thin => "thin",
-                TableMode::Light => "light",
-                TableMode::Compact => "compact",
-                TableMode::WithLove => "with_love",
-                TableMode::CompactDouble => "compact_double",
-                TableMode::Rounded => "rounded",
-                TableMode::Reinforced => "reinforced",
-                TableMode::Heavy => "heavy",
-                TableMode::None => "none",
-                TableMode::Psql => "psql",
-                TableMode::Markdown => "markdown",
-                TableMode::Dots => "dots",
-                TableMode::Restructured => "restructured",
-                TableMode::AsciiRounded => "ascii_rounded",
-                TableMode::BasicCompact => "basic_compact",
-            },
-            span,
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FooterMode {
     /// Never show the footer
     Never,
@@ -108,21 +84,18 @@ impl FromStr for FooterMode {
     }
 }
 
-impl ReconstructVal for FooterMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                FooterMode::Always => "always".to_string(),
-                FooterMode::Never => "never".to_string(),
-                FooterMode::Auto => "auto".to_string(),
-                FooterMode::RowCount(c) => c.to_string(),
-            },
-            span,
-        )
+impl nu_protocol::IntoValue for FooterMode {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            FooterMode::Always => "always".into_value(span),
+            FooterMode::Never => "never".into_value(span),
+            FooterMode::Auto => "auto".into_value(span),
+            FooterMode::RowCount(c) => c.to_string().into_value(span),
+        }
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TableIndexMode {
     /// Always show indexes
     Always,
@@ -142,19 +115,6 @@ impl FromStr for TableIndexMode {
             "auto" => Ok(TableIndexMode::Auto),
             _ => Err("expected either 'never', 'always' or 'auto'"),
         }
-    }
-}
-
-impl ReconstructVal for TableIndexMode {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                TableIndexMode::Always => "always",
-                TableIndexMode::Never => "never",
-                TableIndexMode::Auto => "auto",
-            },
-            span,
-        )
     }
 }
 

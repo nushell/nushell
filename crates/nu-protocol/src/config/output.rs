@@ -1,9 +1,11 @@
-use super::helper::ReconstructVal;
 use crate::{Config, Record, Span, Value};
+use nu_derive_value::IntoValue;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
+use crate as nu_protocol;
+
+#[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ErrorStyle {
     Plain,
     Fancy,
@@ -18,18 +20,6 @@ impl FromStr for ErrorStyle {
             "plain" => Ok(Self::Plain),
             _ => Err("expected either 'fancy' or 'plain'"),
         }
-    }
-}
-
-impl ReconstructVal for ErrorStyle {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                ErrorStyle::Fancy => "fancy",
-                ErrorStyle::Plain => "plain",
-            },
-            span,
-        )
     }
 }
 

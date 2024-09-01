@@ -1173,7 +1173,7 @@ fn update_line_editor_history(
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
     let history: Box<dyn reedline::History> = match history.file_format {
-        HistoryFileFormat::PlainText => Box::new(
+        HistoryFileFormat::Plaintext => Box::new(
             FileBackedHistory::with_file(history.max_size as usize, history_path)
                 .into_diagnostic()?,
         ),
@@ -1211,10 +1211,10 @@ fn confirm_stdin_is_terminal() -> Result<()> {
 fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorStyle> {
     match shape {
         NuCursorShape::Block => Some(SetCursorStyle::SteadyBlock),
-        NuCursorShape::UnderScore => Some(SetCursorStyle::SteadyUnderScore),
+        NuCursorShape::Underscore => Some(SetCursorStyle::SteadyUnderScore),
         NuCursorShape::Line => Some(SetCursorStyle::SteadyBar),
         NuCursorShape::BlinkBlock => Some(SetCursorStyle::BlinkingBlock),
-        NuCursorShape::BlinkUnderScore => Some(SetCursorStyle::BlinkingUnderScore),
+        NuCursorShape::BlinkUnderscore => Some(SetCursorStyle::BlinkingUnderScore),
         NuCursorShape::BlinkLine => Some(SetCursorStyle::BlinkingBar),
         NuCursorShape::Inherit => None,
     }

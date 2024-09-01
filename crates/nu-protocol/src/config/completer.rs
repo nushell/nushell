@@ -1,12 +1,11 @@
+use crate::{record, Config, Span, Value};
+use nu_derive_value::IntoValue;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-use serde::{Deserialize, Serialize};
+use crate as nu_protocol;
 
-use crate::{record, Config, Span, Value};
-
-use super::helper::ReconstructVal;
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompletionAlgorithm {
     #[default]
     Prefix,
@@ -25,17 +24,7 @@ impl FromStr for CompletionAlgorithm {
     }
 }
 
-impl ReconstructVal for CompletionAlgorithm {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        let str = match self {
-            CompletionAlgorithm::Prefix => "prefix",
-            CompletionAlgorithm::Fuzzy => "fuzzy",
-        };
-        Value::string(str, span)
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompletionSort {
     #[default]
     Smart,
@@ -51,16 +40,6 @@ impl FromStr for CompletionSort {
             "alphabetical" => Ok(Self::Alphabetical),
             _ => Err("expected either 'smart' or 'alphabetical'"),
         }
-    }
-}
-
-impl ReconstructVal for CompletionSort {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        let str = match self {
-            Self::Smart => "smart",
-            Self::Alphabetical => "alphabetical",
-        };
-        Value::string(str, span)
     }
 }
 

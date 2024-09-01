@@ -1,8 +1,10 @@
+use super::extract_value;
+use crate::{record, Config, ShellError, Span, Value};
+use nu_derive_value::IntoValue;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-use super::{extract_value, helper::ReconstructVal};
-use crate::{record, Config, ShellError, Span, Value};
-use serde::{Deserialize, Serialize};
+use crate as nu_protocol;
 
 /// Definition of a parsed keybinding from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -25,12 +27,12 @@ pub struct ParsedMenu {
 }
 
 /// Definition of a Nushell CursorShape (to be mapped to crossterm::cursor::CursorShape)
-#[derive(Serialize, Deserialize, Clone, Debug, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NuCursorShape {
-    UnderScore,
+    Underscore,
     Line,
     Block,
-    BlinkUnderScore,
+    BlinkUnderscore,
     BlinkLine,
     BlinkBlock,
     #[default]
@@ -44,39 +46,22 @@ impl FromStr for NuCursorShape {
         match s.to_ascii_lowercase().as_str() {
         "line" => Ok(NuCursorShape::Line),
         "block" => Ok(NuCursorShape::Block),
-        "underscore" => Ok(NuCursorShape::UnderScore),
+        "underscore" => Ok(NuCursorShape::Underscore),
         "blink_line" => Ok(NuCursorShape::BlinkLine),
         "blink_block" => Ok(NuCursorShape::BlinkBlock),
-        "blink_underscore" => Ok(NuCursorShape::BlinkUnderScore),
+        "blink_underscore" => Ok(NuCursorShape::BlinkUnderscore),
         "inherit" => Ok(NuCursorShape::Inherit),
         _ => Err("expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"),
         }
     }
 }
 
-impl ReconstructVal for NuCursorShape {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                NuCursorShape::Line => "line",
-                NuCursorShape::Block => "block",
-                NuCursorShape::UnderScore => "underscore",
-                NuCursorShape::BlinkLine => "blink_line",
-                NuCursorShape::BlinkBlock => "blink_block",
-                NuCursorShape::BlinkUnderScore => "blink_underscore",
-                NuCursorShape::Inherit => "inherit",
-            },
-            span,
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
+#[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoryFileFormat {
     /// Store history as an SQLite database with additional context
     Sqlite,
     /// store history as a plain text file where every line is one command (without any context such as timestamps)
-    PlainText,
+    Plaintext,
 }
 
 impl FromStr for HistoryFileFormat {
@@ -85,25 +70,13 @@ impl FromStr for HistoryFileFormat {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "sqlite" => Ok(Self::Sqlite),
-            "plaintext" => Ok(Self::PlainText),
+            "plaintext" => Ok(Self::Plaintext),
             _ => Err("expected either 'sqlite' or 'plaintext'"),
         }
     }
 }
 
-impl ReconstructVal for HistoryFileFormat {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                HistoryFileFormat::Sqlite => "sqlite",
-                HistoryFileFormat::PlainText => "plaintext",
-            },
-            span,
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Default, Copy)]
+#[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EditBindings {
     Vi,
     #[default]
@@ -119,18 +92,6 @@ impl FromStr for EditBindings {
             "emacs" => Ok(Self::Emacs),
             _ => Err("expected either 'emacs' or 'vi'"),
         }
-    }
-}
-
-impl ReconstructVal for EditBindings {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::string(
-            match self {
-                EditBindings::Vi => "vi",
-                EditBindings::Emacs => "emacs",
-            },
-            span,
-        )
     }
 }
 

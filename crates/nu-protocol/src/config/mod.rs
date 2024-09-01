@@ -6,8 +6,7 @@ use self::output::*;
 use self::reedline::*;
 use self::table::*;
 
-use crate::engine::Closure;
-use crate::{record, ShellError, Span, Value};
+use crate::{engine::Closure, record, IntoValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -42,7 +41,7 @@ impl Default for HistoryConfig {
         Self {
             max_size: 100_000,
             sync_on_enter: true,
-            file_format: HistoryFileFormat::PlainText,
+            file_format: HistoryFileFormat::Plaintext,
             isolation: false,
         }
     }
@@ -327,7 +326,7 @@ impl Value {
                             record! {
                                 "sync_on_enter" => Value::bool(history.sync_on_enter, span),
                                 "max_size" => Value::int(history.max_size, span),
-                                "file_format" => history.file_format.reconstruct_value(span),
+                                "file_format" => history.file_format.into_value(span),
                                 "isolation" => Value::bool(history.isolation, span),
                             },
                             span,
@@ -420,9 +419,9 @@ impl Value {
                             record! {
                                 "quick" => Value::bool(config.quick_completions, span),
                                 "partial" => Value::bool(config.partial_completions, span),
-                                "algorithm" => config.completion_algorithm.reconstruct_value(span),
+                                "algorithm" => config.completion_algorithm.into_value(span),
                                 "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
-                                "sort" => config.completion_sort.reconstruct_value(span),
+                                "sort" => config.completion_sort.into_value(span),
                                 "external" => reconstruct_external(&config, span),
                                 "use_ls_colors" => Value::bool(config.use_ls_colors_completions, span),
                             },
@@ -455,9 +454,9 @@ impl Value {
                         // Reconstruct
                         *value = Value::record(
                             record! {
-                                "vi_insert" => config.cursor_shape_vi_insert.reconstruct_value(span),
-                                "vi_normal" => config.cursor_shape_vi_normal.reconstruct_value(span),
-                                "emacs" => config.cursor_shape_emacs.reconstruct_value(span),
+                                "vi_insert" => config.cursor_shape_vi_insert.into_value(span),
+                                "vi_normal" => config.cursor_shape_vi_normal.into_value(span),
+                                "emacs" => config.cursor_shape_emacs.into_value(span),
                             },
                             span,
                         );
@@ -574,8 +573,8 @@ impl Value {
                         // Reconstruct
                         *value = Value::record(
                             record! {
-                                "mode" => config.table_mode.reconstruct_value(span),
-                                "index_mode" => config.table_index_mode.reconstruct_value(span),
+                                "mode" => config.table_mode.into_value(span),
+                                "index_mode" => config.table_index_mode.into_value(span),
                                 "trim" => reconstruct_trim_strategy(&config, span),
                                 "show_empty" => Value::bool(config.table_show_empty, span),
                             },
