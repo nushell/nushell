@@ -352,8 +352,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             // STACK-REFERENCE 2
             stack_arc.clone(),
         )))
-        .with_quick_completions(config.quick_completions)
-        .with_partial_completions(config.partial_completions)
+        .with_quick_completions(config.completions.quick)
+        .with_partial_completions(config.completions.partial)
         .with_ansi_colors(config.use_ansi_coloring)
         .with_cwd(Some(
             engine_state

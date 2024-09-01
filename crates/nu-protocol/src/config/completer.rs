@@ -1,5 +1,5 @@
 use super::prelude::*;
-use crate::Config;
+use crate::engine::Closure;
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompletionAlgorithm {
@@ -39,21 +39,44 @@ impl FromStr for CompletionSort {
     }
 }
 
-pub(super) fn reconstruct_external_completer(config: &Config, span: Span) -> Value {
-    if let Some(closure) = config.external_completer.as_ref() {
-        Value::closure(closure.clone(), span)
-    } else {
-        Value::nothing(span)
+#[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
+pub struct ExternalCompleterConfig {
+    pub enable: bool,
+    pub max_results: i64,
+    pub completer: Option<Closure>,
+}
+
+impl Default for ExternalCompleterConfig {
+    fn default() -> Self {
+        Self {
+            enable: true,
+            max_results: 100,
+            completer: None,
+        }
     }
 }
 
-pub(super) fn reconstruct_external(config: &Config, span: Span) -> Value {
-    Value::record(
-        record! {
-            "max_results" => Value::int(config.max_external_completion_results, span),
-            "completer" => reconstruct_external_completer(config, span),
-            "enable" => Value::bool(config.enable_external_completion, span),
-        },
-        span,
-    )
+#[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
+pub struct CompleterConfig {
+    pub sort: CompletionSort,
+    pub case_sensitive: bool,
+    pub quick: bool,
+    pub partial: bool,
+    pub algorithm: CompletionAlgorithm,
+    pub external: ExternalCompleterConfig,
+    pub use_ls_colors: bool,
+}
+
+impl Default for CompleterConfig {
+    fn default() -> Self {
+        Self {
+            sort: CompletionSort::default(),
+            case_sensitive: false,
+            quick: true,
+            partial: true,
+            algorithm: CompletionAlgorithm::default(),
+            external: ExternalCompleterConfig::default(),
+            use_ls_colors: true,
+        }
+    }
 }

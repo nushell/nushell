@@ -2,14 +2,15 @@
 use self::helper::*;
 use self::hooks::*;
 
-use crate::{engine::Closure, record, IntoValue, ShellError, Span, Value};
-use completer::{reconstruct_external, reconstruct_external_completer};
+use crate::{IntoValue, ShellError, Span, Value};
 use reedline::{create_keybindings, reconstruct_keybindings, reconstruct_menus};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use table::try_parse_trim_strategy;
 
-pub use self::completer::{CompletionAlgorithm, CompletionSort};
+pub use self::completer::{
+    CompleterConfig, CompletionAlgorithm, CompletionSort, ExternalCompleterConfig,
+};
 pub use self::cursor_shape::CursorShapeConfig;
 pub use self::datetime_format::DatetimeFormatConfig;
 pub use self::filesize::FilesizeConfig;
@@ -44,7 +45,6 @@ mod table;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
-    pub external_completer: Option<Closure>,
     pub filesize: FilesizeConfig,
     pub table: TableConfig,
     pub ls: LsConfig,
@@ -52,13 +52,9 @@ pub struct Config {
     pub use_grid_icons: bool,
     pub footer_mode: FooterMode,
     pub float_precision: i64,
-    pub max_external_completion_results: i64,
     pub recursion_limit: i64,
     pub use_ansi_coloring: bool,
-    pub quick_completions: bool,
-    pub partial_completions: bool,
-    pub completion_algorithm: CompletionAlgorithm,
-    pub completion_sort: CompletionSort,
+    pub completions: CompleterConfig,
     pub edit_mode: EditBindings,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
@@ -67,8 +63,6 @@ pub struct Config {
     pub rm: RmConfig,
     pub shell_integration: ShellIntegrationConfig,
     pub buffer_editor: Value,
-    pub case_sensitive_completions: bool,
-    pub enable_external_completion: bool,
     pub show_banner: bool,
     pub bracketed_paste: bool,
     pub render_right_prompt_on_last_line: bool,
@@ -78,7 +72,6 @@ pub struct Config {
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
-    pub use_ls_colors_completions: bool,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
@@ -104,16 +97,9 @@ impl Default for Config {
 
             history: HistoryConfig::default(),
 
-            case_sensitive_completions: false,
-            quick_completions: true,
-            partial_completions: true,
-            completion_algorithm: CompletionAlgorithm::default(),
-            completion_sort: CompletionSort::default(),
-            enable_external_completion: true,
-            max_external_completion_results: 100,
+            completions: CompleterConfig::default(),
+
             recursion_limit: 50,
-            external_completer: None,
-            use_ls_colors_completions: true,
 
             filesize: FilesizeConfig::default(),
 
@@ -276,25 +262,25 @@ impl Value {
                             let span = value.span();
                             match key2 {
                                 "quick" => {
-                                    process_bool_config(value, &mut errors, &mut config.quick_completions);
+                                    process_bool_config(value, &mut errors, &mut config.completions.quick);
                                 }
                                 "partial" => {
-                                    process_bool_config(value, &mut errors, &mut config.partial_completions);
+                                    process_bool_config(value, &mut errors, &mut config.completions.partial);
                                 }
                                 "algorithm" => {
                                     process_string_enum(
-                                        &mut config.completion_algorithm,
+                                        &mut config.completions.algorithm,
                                         &[key, key2],
                                         value,
                                         &mut errors
                                     );
                                 }
                                 "case_sensitive" => {
-                                    process_bool_config(value, &mut errors, &mut config.case_sensitive_completions);
+                                    process_bool_config(value, &mut errors, &mut config.completions.case_sensitive);
                                 }
                                 "sort" => {
                                     process_string_enum(
-                                        &mut config.completion_sort,
+                                        &mut config.completions.sort,
                                         &[key, key2],
                                         value,
                                         &mut errors
@@ -306,23 +292,23 @@ impl Value {
                                             let span = value.span();
                                             match key3 {
                                                 "max_results" => {
-                                                    process_int_config(value, &mut errors, &mut config.max_external_completion_results);
+                                                    process_int_config(value, &mut errors, &mut config.completions.external.max_results);
                                                 }
                                                 "completer" => {
                                                     if let Ok(v) = value.as_closure() {
-                                                        config.external_completer = Some(v.clone())
+                                                        config.completions.external.completer = Some(v.clone())
                                                     } else {
                                                         match value {
                                                             Value::Nothing { .. } => {}
                                                             _ => {
                                                                 report_invalid_value("should be a closure or null", span, &mut errors);
-                                                                *value = reconstruct_external_completer(&config, span);
+                                                                *value = config.completions.external.completer.clone().into_value(span);
                                                             }
                                                         }
                                                     }
                                                 }
                                                 "enable" => {
-                                                    process_bool_config(value, &mut errors, &mut config.enable_external_completion);
+                                                    process_bool_config(value, &mut errors, &mut config.completions.external.enable);
                                                 }
                                                 _ => {
                                                     report_invalid_key(&[key, key2, key3], span, &mut errors);
@@ -333,11 +319,11 @@ impl Value {
                                         });
                                     } else {
                                         report_invalid_value("should be a record", span, &mut errors);
-                                        *value = reconstruct_external(&config, span);
+                                        *value = config.completions.external.clone().into_value(span);
                                     }
                                 }
                                 "use_ls_colors" => {
-                                    process_bool_config(value, &mut errors, &mut config.use_ls_colors_completions);
+                                    process_bool_config(value, &mut errors, &mut config.completions.use_ls_colors);
                                 }
                                 _ => {
                                     report_invalid_key(&[key, key2], span, &mut errors);
@@ -348,18 +334,7 @@ impl Value {
                         });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        *value = Value::record(
-                            record! {
-                                "quick" => Value::bool(config.quick_completions, span),
-                                "partial" => Value::bool(config.partial_completions, span),
-                                "algorithm" => config.completion_algorithm.into_value(span),
-                                "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
-                                "sort" => config.completion_sort.into_value(span),
-                                "external" => reconstruct_external(&config, span),
-                                "use_ls_colors" => Value::bool(config.use_ls_colors_completions, span),
-                            },
-                            span,
-                        );
+                        *value = config.completions.clone().into_value(span);
                     }
                 }
                 "cursor_shape" => {

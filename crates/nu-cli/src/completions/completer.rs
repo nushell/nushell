@@ -46,9 +46,9 @@ impl NuCompleter {
         let config = self.engine_state.get_config();
 
         let options = CompletionOptions {
-            case_sensitive: config.case_sensitive_completions,
-            match_algorithm: config.completion_algorithm.into(),
-            sort: config.completion_sort,
+            case_sensitive: config.completions.case_sensitive,
+            match_algorithm: config.completions.algorithm.into(),
+            sort: config.completions.sort,
             ..Default::default()
         };
 
@@ -208,7 +208,7 @@ impl NuCompleter {
 
                             // We got no results for internal completion
                             // now we can check if external completer is set and use it
-                            if let Some(closure) = config.external_completer.as_ref() {
+                            if let Some(closure) = config.completions.external.completer.as_ref() {
                                 if let Some(external_result) =
                                     self.external_completion(closure, &spans, fake_offset, new_span)
                                 {
@@ -338,7 +338,9 @@ impl NuCompleter {
                                 }
 
                                 // Try to complete using an external completer (if set)
-                                if let Some(closure) = config.external_completer.as_ref() {
+                                if let Some(closure) =
+                                    config.completions.external.completer.as_ref()
+                                {
                                     if let Some(external_result) = self.external_completion(
                                         closure,
                                         &spans,
