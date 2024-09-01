@@ -6,14 +6,13 @@ use self::reedline::*;
 use self::table::*;
 
 use crate::{engine::Closure, record, IntoValue, ShellError, Span, Value};
-use cursor_shape::CursorShape;
-use datetime_format::DatetimeFormat;
-use filesize::Filesize;
-use rm::Rm;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub use self::completer::{CompletionAlgorithm, CompletionSort};
+pub use self::cursor_shape::CursorShape;
+pub use self::datetime_format::DatetimeFormat;
+pub use self::filesize::Filesize;
 pub use self::helper::extract_value;
 pub use self::history::HistoryConfig;
 pub use self::hooks::Hooks;
@@ -22,6 +21,7 @@ pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
     create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
+pub use self::rm::Rm;
 pub use self::table::{FooterMode, TableIndexMode, TableMode, TrimStrategy};
 
 mod completer;
