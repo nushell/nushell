@@ -9,6 +9,7 @@ use crate::{engine::Closure, record, IntoValue, ShellError, Span, Value};
 use cursor_shape::CursorShape;
 use datetime_format::DatetimeFormat;
 use filesize::Filesize;
+use rm::Rm;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -32,6 +33,7 @@ mod output;
 mod plugin_gc;
 mod prelude;
 mod reedline;
+mod rm;
 mod table;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -75,7 +77,7 @@ pub struct Config {
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
-    pub rm_always_trash: bool,
+    pub rm: Rm,
     // Shell integration OSC meaning is described in the default_config.nu
     pub shell_integration_osc2: bool,
     pub shell_integration_osc7: bool,
@@ -116,7 +118,7 @@ impl Default for Config {
             use_ls_colors: true,
             show_clickable_links_in_ls: true,
 
-            rm_always_trash: false,
+            rm: Rm::default(),
 
             table: Table::default(),
 
@@ -255,7 +257,7 @@ impl Value {
                             let span = value.span();
                             match key2 {
                                 "always_trash" => {
-                                    process_bool_config(value, &mut errors, &mut config.rm_always_trash);
+                                    process_bool_config(value, &mut errors, &mut config.rm.always_trash);
                                 }
                                 _ => {
                                     report_invalid_key(&[key, key2], span, &mut errors);
@@ -266,12 +268,7 @@ impl Value {
                         });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        *value = Value::record(
-                            record! {
-                                "always_trash" => Value::bool(config.rm_always_trash, span),
-                            },
-                            span,
-                        );
+                        *value = config.rm.into_value(span);
                     }
                 }
                 "history" => {
