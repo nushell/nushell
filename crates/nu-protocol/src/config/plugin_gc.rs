@@ -1,5 +1,6 @@
 use super::helper::{process_bool_config, report_invalid_key, report_invalid_value};
 use super::prelude::*;
+use crate as nu_protocol;
 use crate::ShellError;
 use std::collections::HashMap;
 
@@ -95,7 +96,7 @@ fn process_plugins(
 }
 
 /// Configures when a plugin should be stopped if inactive
-#[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PluginGcConfig {
     /// True if the plugin should be stopped automatically
     pub enabled: bool,
@@ -109,6 +110,16 @@ impl Default for PluginGcConfig {
             enabled: true,
             stop_after: 10_000_000_000, // 10sec
         }
+    }
+}
+
+impl IntoValue for PluginGcConfig {
+    fn into_value(self, span: Span) -> Value {
+        record! {
+            "enabled" => self.enabled.into_value(span),
+            "stop_after" => Value::duration(self.stop_after, span),
+        }
+        .into_value(span)
     }
 }
 

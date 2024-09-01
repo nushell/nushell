@@ -1,4 +1,5 @@
 use super::{prelude::*, HistoryFileFormat};
+use crate as nu_protocol;
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HistoryConfig {

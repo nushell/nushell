@@ -1,4 +1,5 @@
 use super::prelude::*;
+use crate as nu_protocol;
 
 #[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FilesizeConfig {

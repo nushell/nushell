@@ -1,4 +1,5 @@
 use super::prelude::*;
+use crate as nu_protocol;
 use crate::NuCursorShape;
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]

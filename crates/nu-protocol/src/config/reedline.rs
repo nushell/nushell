@@ -1,4 +1,5 @@
 use super::{extract_value, prelude::*};
+use crate as nu_protocol;
 use crate::ShellError;
 
 /// Definition of a parsed keybinding from the config object
