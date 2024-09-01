@@ -152,6 +152,12 @@ impl IntoValue for String {
     }
 }
 
+impl IntoValue for &str {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self, span)
+    }
+}
+
 impl<T> IntoValue for Vec<T>
 where
     T: IntoValue,
