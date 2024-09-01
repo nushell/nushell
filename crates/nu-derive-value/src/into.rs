@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
-    spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
-    Index,
+    ext::IdentExt, spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields,
+    Generics, Ident, Index,
 };
 
 use crate::{
@@ -250,7 +250,7 @@ fn fields_return_value(
                 .zip(accessor)
                 .map(|(field, accessor)| {
                     let ident = field.ident.as_ref().expect("named has idents");
-                    let mut field = ident.to_string();
+                    let mut field = ident.unraw().to_string();
                     if let Some(rename_all) = rename_all {
                         field = field.to_case(rename_all);
                     }

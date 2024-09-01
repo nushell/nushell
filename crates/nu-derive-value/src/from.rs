@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
-    spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, Generics, Ident,
-    Type,
+    ext::IdentExt, spanned::Spanned, Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields,
+    Generics, Ident, Type,
 };
 
 use crate::{
@@ -122,7 +122,7 @@ fn derive_struct_from_value(
 ///                 .remove("favorite_toy")
 ///                 .map(|v| <#ty as nu_protocol::FromValue>::from_value(v))
 ///                 .transpose()?
-///                 .flatten(),         
+///                 .flatten(),
 ///         })
 ///     }
 /// }
@@ -315,7 +315,7 @@ fn struct_expected_type(fields: &Fields, attr_type_name: Option<&str>) -> TokenS
         (Fields::Named(fields), _) => {
             let fields = fields.named.iter().map(|field| {
                 let ident = field.ident.as_ref().expect("named has idents");
-                let ident_s = ident.to_string();
+                let ident_s = ident.unraw().to_string();
                 let ty = &field.ty;
                 quote! {(
                     std::string::ToString::to_string(#ident_s),
@@ -476,7 +476,7 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
 }
 
 /// Implements `FromValue::expected_type` for enums.
-///  
+///
 /// Since it's difficult to name the type of an enum in the current type system, we want to use the
 /// default implementation if `#[nu_value(type_name = "...")]` was *not* given.
 /// For that, a `None` value is returned, for a passed type name we return something like this:
@@ -548,7 +548,7 @@ fn parse_value_via_fields(
         Fields::Named(fields) => {
             let fields = fields.named.iter().map(|field| {
                 let ident = field.ident.as_ref().expect("named has idents");
-                let mut ident_s = ident.to_string();
+                let mut ident_s = ident.unraw().to_string();
                 if let Some(rename_all) = rename_all {
                     ident_s = ident_s.to_case(rename_all);
                 }
