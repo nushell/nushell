@@ -288,7 +288,7 @@ impl Default for TableIndent {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Table {
+pub struct TableConfig {
     pub mode: TableMode,
     pub index_mode: TableIndexMode,
     pub show_empty: bool,
@@ -298,7 +298,7 @@ pub struct Table {
     pub abbreviated_row_count: Option<usize>,
 }
 
-impl IntoValue for Table {
+impl IntoValue for TableConfig {
     fn into_value(self, span: Span) -> Value {
         let abbv_count = self
             .abbreviated_row_count
@@ -318,7 +318,7 @@ impl IntoValue for Table {
     }
 }
 
-impl Default for Table {
+impl Default for TableConfig {
     fn default() -> Self {
         Self {
             mode: TableMode::Rounded,

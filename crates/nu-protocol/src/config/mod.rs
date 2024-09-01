@@ -1,18 +1,18 @@
 //! Module containing the internal representation of user configuration
-use self::completer::*;
 use self::helper::*;
 use self::hooks::*;
-use self::reedline::*;
-use self::table::*;
 
 use crate::{engine::Closure, record, IntoValue, ShellError, Span, Value};
+use completer::{reconstruct_external, reconstruct_external_completer};
+use reedline::{create_keybindings, reconstruct_keybindings, reconstruct_menus};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use table::try_parse_trim_strategy;
 
 pub use self::completer::{CompletionAlgorithm, CompletionSort};
-pub use self::cursor_shape::CursorShape;
-pub use self::datetime_format::DatetimeFormat;
-pub use self::filesize::Filesize;
+pub use self::cursor_shape::CursorShapeConfig;
+pub use self::datetime_format::DatetimeFormatConfig;
+pub use self::filesize::FilesizeConfig;
 pub use self::helper::extract_value;
 pub use self::history::HistoryConfig;
 pub use self::hooks::Hooks;
@@ -21,8 +21,9 @@ pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
     create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
-pub use self::rm::Rm;
-pub use self::table::{FooterMode, TableIndexMode, TableMode, TrimStrategy};
+pub use self::rm::RmConfig;
+pub use self::shell_integration::ShellIntegrationConfig;
+pub use self::table::{FooterMode, TableConfig, TableIndexMode, TableMode, TrimStrategy};
 
 mod completer;
 mod cursor_shape;
@@ -41,8 +42,8 @@ mod table;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub external_completer: Option<Closure>,
-    pub filesize: Filesize,
-    pub table: Table,
+    pub filesize: FilesizeConfig,
+    pub table: TableConfig,
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, Value>,
     pub use_grid_icons: bool,
@@ -60,7 +61,7 @@ pub struct Config {
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
-    pub rm: Rm,
+    pub rm: RmConfig,
     // Shell integration OSC meaning is described in the default_config.nu
     pub shell_integration_osc2: bool,
     pub shell_integration_osc7: bool,
@@ -77,8 +78,8 @@ pub struct Config {
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
-    pub cursor_shape: CursorShape,
-    pub datetime_format: DatetimeFormat,
+    pub cursor_shape: CursorShapeConfig,
+    pub datetime_format: DatetimeFormatConfig,
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
@@ -101,11 +102,11 @@ impl Default for Config {
             use_ls_colors: true,
             show_clickable_links_in_ls: true,
 
-            rm: Rm::default(),
+            rm: RmConfig::default(),
 
-            table: Table::default(),
+            table: TableConfig::default(),
 
-            datetime_format: DatetimeFormat::default(),
+            datetime_format: DatetimeFormatConfig::default(),
 
             explore: HashMap::new(),
 
@@ -122,9 +123,9 @@ impl Default for Config {
             external_completer: None,
             use_ls_colors_completions: true,
 
-            filesize: Filesize::default(),
+            filesize: FilesizeConfig::default(),
 
-            cursor_shape: CursorShape::default(),
+            cursor_shape: CursorShapeConfig::default(),
 
             color_config: HashMap::new(),
             use_grid_icons: true,
