@@ -619,3 +619,24 @@ mod external_command_arguments {
         assert_eq!(actual.out, r#"expression=-r\" -w"#);
     }
 }
+
+#[test]
+fn exit_code_stops_execution_closure() {
+    let actual = nu!("[1 2] | each {|x| nu -c $'exit ($x)'; print $x }");
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("exited with code 1"));
+}
+
+#[test]
+fn exit_code_stops_execution_custom_command() {
+    let actual = nu!("def cmd [] { nu -c 'exit 42'; 'ok1' }; cmd; print 'ok2'");
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("exited with code 42"));
+}
+
+#[test]
+fn exit_code_stops_execution_for_loop() {
+    let actual = nu!("for x in [0 1] { nu -c 'exit 42'; print $x }");
+    assert!(actual.out.is_empty());
+    assert!(actual.err.contains("exited with code 42"));
+}
