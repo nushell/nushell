@@ -1,6 +1,6 @@
-use std::collections::HashMap;
-
-use crate::{Record, ShellError, Span, Value};
+use crate::{ast::CellPath, engine::Closure, Range, Record, ShellError, Span, Value};
+use chrono::{DateTime, FixedOffset};
+use std::{borrow::Borrow, collections::HashMap};
 
 /// A trait for converting a value into a [`Value`].
 ///
@@ -152,6 +152,12 @@ impl IntoValue for String {
     }
 }
 
+impl IntoValue for &str {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self, span)
+    }
+}
+
 impl<T> IntoValue for Vec<T>
 where
     T: IntoValue,
@@ -173,23 +179,58 @@ where
     }
 }
 
-impl<V> IntoValue for HashMap<String, V>
+impl<K, V> IntoValue for HashMap<K, V>
 where
+    K: Borrow<str> + Into<String>,
     V: IntoValue,
 {
     fn into_value(self, span: Span) -> Value {
-        let mut record = Record::new();
-        for (k, v) in self.into_iter() {
-            // Using `push` is fine as a hashmaps have unique keys.
-            // To ensure this uniqueness, we only allow hashmaps with strings as
-            // keys and not keys which implement `Into<String>` or `ToString`.
-            record.push(k, v.into_value(span));
-        }
-        Value::record(record, span)
+        // The `Borrow<str>` constraint is to ensure uniqueness, as implementations of `Borrow`
+        // must uphold by certain properties (e.g., `(x == y) == (x.borrow() == y.borrow())`.
+        //
+        // The `Into<String>` constraint is necessary for us to convert the key into a `String`.
+        // Most types that implement `Borrow<str>` also implement `Into<String>`.
+        // Implementations of `Into` must also be lossless and value-preserving conversions.
+        // So, when combined with the `Borrow` constraint, this means that the converted
+        // `String` keys should be unique.
+        self.into_iter()
+            .map(|(k, v)| (k.into(), v.into_value(span)))
+            .collect::<Record>()
+            .into_value(span)
     }
 }
 
 // Nu Types
+
+impl IntoValue for Range {
+    fn into_value(self, span: Span) -> Value {
+        Value::range(self, span)
+    }
+}
+
+impl IntoValue for Record {
+    fn into_value(self, span: Span) -> Value {
+        Value::record(self, span)
+    }
+}
+
+impl IntoValue for Closure {
+    fn into_value(self, span: Span) -> Value {
+        Value::closure(self, span)
+    }
+}
+
+impl IntoValue for ShellError {
+    fn into_value(self, span: Span) -> Value {
+        Value::error(self, span)
+    }
+}
+
+impl IntoValue for CellPath {
+    fn into_value(self, span: Span) -> Value {
+        Value::cell_path(self, span)
+    }
+}
 
 impl IntoValue for Value {
     fn into_value(self, span: Span) -> Value {
@@ -198,6 +239,12 @@ impl IntoValue for Value {
 }
 
 // Foreign Types
+
+impl IntoValue for DateTime<FixedOffset> {
+    fn into_value(self, span: Span) -> Value {
+        Value::date(self, span)
+    }
+}
 
 impl IntoValue for bytes::Bytes {
     fn into_value(self, span: Span) -> Value {
