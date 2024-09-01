@@ -1,4 +1,3 @@
-use crate::{Config, Record, Span, Value};
 use nu_derive_value::IntoValue;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -21,15 +20,4 @@ impl FromStr for ErrorStyle {
             _ => Err("expected either 'fancy' or 'plain'"),
         }
     }
-}
-
-pub(super) fn reconstruct_datetime_format(config: &Config, span: Span) -> Value {
-    let mut record = Record::new();
-    if let Some(normal) = &config.datetime_normal_format {
-        record.push("normal", Value::string(normal, span));
-    }
-    if let Some(table) = &config.datetime_table_format {
-        record.push("table", Value::string(table, span));
-    }
-    Value::record(record, span)
 }

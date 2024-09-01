@@ -2,12 +2,12 @@
 use self::completer::*;
 use self::helper::*;
 use self::hooks::*;
-use self::output::*;
 use self::reedline::*;
 use self::table::*;
 
 use crate::{engine::Closure, record, IntoValue, ShellError, Span, Value};
 use cursor_shape::CursorShape;
+use datetime_format::DatetimeFormat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -23,6 +23,7 @@ pub use self::table::{FooterMode, TableIndexMode, TableMode, TrimStrategy};
 
 mod completer;
 mod cursor_shape;
+mod datetime_format;
 mod helper;
 mod hooks;
 mod output;
@@ -90,8 +91,7 @@ pub struct Config {
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
     pub cursor_shape: CursorShape,
-    pub datetime_normal_format: Option<String>,
-    pub datetime_table_format: Option<String>,
+    pub datetime_format: DatetimeFormat,
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
@@ -118,8 +118,7 @@ impl Default for Config {
 
             table: Table::default(),
 
-            datetime_normal_format: None,
-            datetime_table_format: None,
+            datetime_format: DatetimeFormat::default(),
 
             explore: HashMap::new(),
 
@@ -780,14 +779,14 @@ impl Value {
                             match key2 {
                             "normal" => {
                                 if let Ok(v) = value.coerce_string() {
-                                    config.datetime_normal_format = Some(v);
+                                    config.datetime_format.normal = Some(v);
                                 } else {
                                     report_invalid_value("should be a string", span, &mut errors);
                                 }
                             }
                             "table" => {
                                 if let Ok(v) = value.coerce_string() {
-                                    config.datetime_table_format = Some(v);
+                                    config.datetime_format.table = Some(v);
                                 } else {
                                     report_invalid_value("should be a string", span, &mut errors);
                                 }
@@ -800,7 +799,7 @@ impl Value {
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
                         // Reconstruct
-                        *value = reconstruct_datetime_format(&config, span);
+                        *value = config.datetime_format.clone().into_value(span);
                     }
                 }
                 "error_style" => {
