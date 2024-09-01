@@ -7,6 +7,7 @@ use self::reedline::*;
 use self::table::*;
 
 use crate::{engine::Closure, record, IntoValue, ShellError, Span, Value};
+use cursor_shape::CursorShape;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -21,6 +22,7 @@ pub use self::reedline::{
 pub use self::table::{FooterMode, TableIndexMode, TableMode, TrimStrategy};
 
 mod completer;
+mod cursor_shape;
 mod helper;
 mod hooks;
 mod output;
@@ -93,9 +95,7 @@ pub struct Config {
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
-    pub cursor_shape_vi_insert: NuCursorShape,
-    pub cursor_shape_vi_normal: NuCursorShape,
-    pub cursor_shape_emacs: NuCursorShape,
+    pub cursor_shape: CursorShape,
     pub datetime_normal_format: Option<String>,
     pub datetime_table_format: Option<String>,
     pub error_style: ErrorStyle,
@@ -151,9 +151,7 @@ impl Default for Config {
             filesize_metric: false,
             filesize_format: "auto".into(),
 
-            cursor_shape_emacs: NuCursorShape::default(),
-            cursor_shape_vi_insert: NuCursorShape::default(),
-            cursor_shape_vi_normal: NuCursorShape::default(),
+            cursor_shape: CursorShape::default(),
 
             color_config: HashMap::new(),
             use_grid_icons: true,
@@ -434,9 +432,9 @@ impl Value {
                         val.to_mut().retain_mut(|key2, value| {
                             let span = value.span();
                             let config_point = match key2 {
-                                "vi_insert" => &mut config.cursor_shape_vi_insert,
-                                "vi_normal" => &mut config.cursor_shape_vi_normal,
-                                "emacs" => &mut config.cursor_shape_emacs,
+                                "vi_insert" => &mut config.cursor_shape.vi_insert,
+                                "vi_normal" => &mut config.cursor_shape.vi_normal,
+                                "emacs" => &mut config.cursor_shape.emacs,
                                 _ => {
                                     report_invalid_key(&[key, key2], span, &mut errors);
                                     return false;
@@ -452,14 +450,7 @@ impl Value {
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
                         // Reconstruct
-                        *value = Value::record(
-                            record! {
-                                "vi_insert" => config.cursor_shape_vi_insert.into_value(span),
-                                "vi_normal" => config.cursor_shape_vi_normal.into_value(span),
-                                "emacs" => config.cursor_shape_emacs.into_value(span),
-                            },
-                            span,
-                        );
+                        *value = config.cursor_shape.into_value(span);
                     }
                 }
                 "table" => {
