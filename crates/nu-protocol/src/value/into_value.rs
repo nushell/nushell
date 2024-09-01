@@ -1,6 +1,5 @@
+use crate::{ast::CellPath, engine::Closure, Range, Record, ShellError, Span, Value};
 use std::collections::HashMap;
-
-use crate::{Record, ShellError, Span, Value};
 
 /// A trait for converting a value into a [`Value`].
 ///
@@ -190,6 +189,36 @@ where
 }
 
 // Nu Types
+
+impl IntoValue for Range {
+    fn into_value(self, span: Span) -> Value {
+        Value::range(self, span)
+    }
+}
+
+impl IntoValue for Record {
+    fn into_value(self, span: Span) -> Value {
+        Value::record(self, span)
+    }
+}
+
+impl IntoValue for Closure {
+    fn into_value(self, span: Span) -> Value {
+        Value::closure(self, span)
+    }
+}
+
+impl IntoValue for ShellError {
+    fn into_value(self, span: Span) -> Value {
+        Value::error(self, span)
+    }
+}
+
+impl IntoValue for CellPath {
+    fn into_value(self, span: Span) -> Value {
+        Value::cell_path(self, span)
+    }
+}
 
 impl IntoValue for Value {
     fn into_value(self, span: Span) -> Value {
