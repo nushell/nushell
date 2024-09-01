@@ -1,9 +1,5 @@
-use crate::{record, Config, Span, Value};
-use nu_derive_value::IntoValue;
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
-
-use crate as nu_protocol;
+use super::prelude::*;
+use crate::Config;
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompletionAlgorithm {

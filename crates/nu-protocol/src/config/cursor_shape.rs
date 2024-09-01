@@ -1,7 +1,5 @@
-use crate::{IntoValue, NuCursorShape};
-use serde::{Deserialize, Serialize};
-
-use crate as nu_protocol;
+use super::prelude::*;
+use crate::NuCursorShape;
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CursorShape {

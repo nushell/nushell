@@ -28,6 +28,7 @@ mod helper;
 mod hooks;
 mod output;
 mod plugin_gc;
+mod prelude;
 mod reedline;
 mod table;
 

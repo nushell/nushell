@@ -1,8 +1,5 @@
-use crate::{record, IntoValue, ShellError, Span, Value};
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
-
-use crate as nu_protocol;
+use super::prelude::*;
+use crate::ShellError;
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TableMode {

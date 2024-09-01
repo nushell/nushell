@@ -1,9 +1,7 @@
 use super::helper::{process_bool_config, report_invalid_key, report_invalid_value};
-use crate::{IntoValue, ShellError, Value};
-use serde::{Deserialize, Serialize};
+use super::prelude::*;
+use crate::ShellError;
 use std::collections::HashMap;
-
-use crate as nu_protocol;
 
 /// Configures when plugins should be stopped if inactive
 #[derive(Clone, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]

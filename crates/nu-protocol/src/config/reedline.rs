@@ -1,10 +1,5 @@
-use super::extract_value;
-use crate::{record, Config, ShellError, Span, Value};
-use nu_derive_value::IntoValue;
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
-
-use crate as nu_protocol;
+use super::{extract_value, prelude::*};
+use crate::{Config, ShellError};
 
 /// Definition of a parsed keybinding from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
