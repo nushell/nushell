@@ -185,7 +185,7 @@ where
     V: IntoValue,
 {
     fn into_value(self, span: Span) -> Value {
-        // The `Borrow<str>` contraint is to ensure uniqueness, as implementations of `Borrow`
+        // The `Borrow<str>` constraint is to ensure uniqueness, as implementations of `Borrow`
         // must uphold by certain properties (e.g., `(x == y) == (x.borrow() == y.borrow())`.
         //
         // The `Into<String>` constraint is necessary for us to convert the key into a `String`.
