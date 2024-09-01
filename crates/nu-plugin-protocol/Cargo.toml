@@ -17,7 +17,7 @@ workspace = true
 nu-protocol = { path = "../nu-protocol", version = "0.97.2", features = ["plugin"] }
 nu-utils = { path = "../nu-utils", version = "0.97.2" }
 
-bincode = "1.3"
+rmp-serde = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 semver = "1.0"
 typetag = "0.2"
