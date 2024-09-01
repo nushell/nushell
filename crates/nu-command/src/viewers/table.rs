@@ -1010,7 +1010,7 @@ fn render_path_name(
     ls_colors: &LsColors,
     span: Span,
 ) -> Option<Value> {
-    if !config.use_ls_colors {
+    if !config.ls.use_ls_colors {
         return None;
     }
 
@@ -1024,10 +1024,10 @@ fn render_path_name(
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
     //TODO: Deprecated show_clickable_links_in_ls in favor of shell_integration_osc8
-    let show_clickable_links = config.show_clickable_links_in_ls
+    let show_clickable_links = config.ls.clickable_links
         && !in_ssh_session
         && has_metadata
-        && config.shell_integration_osc8;
+        && config.shell_integration.osc8;
 
     let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
 

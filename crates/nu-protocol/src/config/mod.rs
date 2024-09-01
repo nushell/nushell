@@ -16,6 +16,7 @@ pub use self::filesize::FilesizeConfig;
 pub use self::helper::extract_value;
 pub use self::history::HistoryConfig;
 pub use self::hooks::Hooks;
+pub use self::ls::LsConfig;
 pub use self::output::ErrorStyle;
 pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
@@ -32,6 +33,7 @@ mod filesize;
 mod helper;
 mod history;
 mod hooks;
+mod ls;
 mod output;
 mod plugin_gc;
 mod prelude;
@@ -45,7 +47,7 @@ pub struct Config {
     pub external_completer: Option<Closure>,
     pub filesize: FilesizeConfig,
     pub table: TableConfig,
-    pub use_ls_colors: bool,
+    pub ls: LsConfig,
     pub color_config: HashMap<String, Value>,
     pub use_grid_icons: bool,
     pub footer_mode: FooterMode,
@@ -69,7 +71,6 @@ pub struct Config {
     pub enable_external_completion: bool,
     pub show_banner: bool,
     pub bracketed_paste: bool,
-    pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
     pub cursor_shape: CursorShapeConfig,
@@ -93,12 +94,9 @@ impl Default for Config {
         Config {
             show_banner: true,
 
-            use_ls_colors: true,
-            show_clickable_links_in_ls: true,
-
-            rm: RmConfig::default(),
-
             table: TableConfig::default(),
+            rm: RmConfig::default(),
+            ls: LsConfig::default(),
 
             datetime_format: DatetimeFormatConfig::default(),
 
@@ -200,10 +198,10 @@ impl Value {
                             let span = value.span();
                             match key2 {
                                 "use_ls_colors" => {
-                                    process_bool_config(value, &mut errors, &mut config.use_ls_colors);
+                                    process_bool_config(value, &mut errors, &mut config.ls.use_ls_colors);
                                 }
                                 "clickable_links" => {
-                                    process_bool_config(value, &mut errors, &mut config.show_clickable_links_in_ls);
+                                    process_bool_config(value, &mut errors, &mut config.ls.clickable_links);
                                 }
                                 _ => {
                                     report_invalid_key(&[key, key2], span, &mut errors);
@@ -214,13 +212,7 @@ impl Value {
                         });
                     } else {
                         report_invalid_value("should be a record", span, &mut errors);
-                        *value = Value::record(
-                            record! {
-                                "use_ls_colors" => Value::bool(config.use_ls_colors, span),
-                                "clickable_links" => Value::bool(config.show_clickable_links_in_ls, span),
-                            },
-                            span,
-                        );
+                        *value = config.ls.into_value(span);
                     }
                 }
                 "rm" => {
