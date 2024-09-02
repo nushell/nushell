@@ -327,7 +327,8 @@ fn struct_expected_type(
             for field in fields.named.iter() {
                 let member_attrs = MemberAttributes::parse_attrs(&field.attrs)?;
                 let ident = field.ident.as_ref().expect("named has idents");
-                let ident_s = name_resolver.resolve_ident(ident, container_attrs, &member_attrs, None)?;
+                let ident_s =
+                    name_resolver.resolve_ident(ident, container_attrs, &member_attrs, None)?;
                 let ty = &field.ty;
                 fields_ts.push(quote! {(
                     std::string::ToString::to_string(#ident_s),
@@ -407,7 +408,7 @@ fn derive_enum_from_value(
 /// This function checks that every field is a unit variant and constructs a match statement over
 /// all possible variants.
 /// The input value is expected to be a `Value::String` containing the name of the variant.
-/// That string is defined by the [`NameResolver::resolve_ident`] method with the `default` value 
+/// That string is defined by the [`NameResolver::resolve_ident`] method with the `default` value
 /// being [`Case::Snake`].
 ///
 /// If no matching variant is found, `ShellError::CantConvert` is returned.
@@ -452,7 +453,8 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result {
         .map(|variant| {
             let member_attrs = MemberAttributes::parse_attrs(&variant.attrs)?;
             let ident = &variant.ident;
-            let ident_s = name_resolver.resolve_ident(ident, &container_attrs, &member_attrs, Case::Snake)?;
+            let ident_s =
+                name_resolver.resolve_ident(ident, &container_attrs, &member_attrs, Case::Snake)?;
             match &variant.fields {
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
                     fields_span: fields.span(),
@@ -534,13 +536,13 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 ///   - A unit struct expects `Value::Nothing`.
 ///
 /// For named fields, each field in the record is matched to a struct field.
-/// The name matching uses the identifiers resolved by 
+/// The name matching uses the identifiers resolved by
 /// [`NameResolver`](NameResolver::resolve_ident) with `default` being `None`.
 ///
 /// The `self_ident` parameter is used to specify the identifier for the returned value.
 /// For most structs, `Self` is sufficient, but `Self::Variant` may be needed for enum variants.
 ///
-/// The `container_attrs` parameters, provided through `#[nu_value]` on the container, defines 
+/// The `container_attrs` parameters, provided through `#[nu_value]` on the container, defines
 /// global rules for the `FromValue` implementation.
 /// This is used for the [`NameResolver`] to resolve the correct ident in the `Value`.
 ///
@@ -565,7 +567,8 @@ fn parse_value_via_fields(
             for field in fields.named.iter() {
                 let member_attrs = MemberAttributes::parse_attrs(&field.attrs)?;
                 let ident = field.ident.as_ref().expect("named has idents");
-                let ident_s = name_resolver.resolve_ident(ident, container_attrs, &member_attrs, None)?;
+                let ident_s =
+                    name_resolver.resolve_ident(ident, container_attrs, &member_attrs, None)?;
                 let ty = &field.ty;
                 fields_ts.push(match type_is_option(ty) {
                     true => quote! {

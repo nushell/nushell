@@ -30,8 +30,8 @@ pub enum DeriveError<M> {
     },
 
     /// Two keys or variants are called the same name breaking bidirectionality.
-    NonUniqueName { 
-        name: String, 
+    NonUniqueName {
+        name: String,
         first: Span,
         second: Span,
     },
@@ -91,12 +91,14 @@ impl<M> From<DeriveError<M>> for Diagnostic {
                     ))
             }
 
-            DeriveError::NonUniqueName { name, first, second } => {
-                Diagnostic::new(Level::Error, format!("non-unique name {name:?} found"))
+            DeriveError::NonUniqueName {
+                name,
+                first,
+                second,
+            } => Diagnostic::new(Level::Error, format!("non-unique name {name:?} found"))
                 .span_error(first, "first occurence found here".to_string())
                 .span_error(second, "second occurence found here".to_string())
-                .help("use `#[nu_value(rename = \"...\")]` to ensure unique names".to_string()) 
-            }
+                .help("use `#[nu_value(rename = \"...\")]` to ensure unique names".to_string()),
         }
     }
 }

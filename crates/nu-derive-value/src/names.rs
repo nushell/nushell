@@ -19,16 +19,16 @@ impl NameResolver {
     /// Resolves an identifier using attributes and ensures its uniqueness.
     ///
     /// The identifier is transformed according to these rules:
-    /// - If [`MemberAttributes::rename`] is set, this explicitly renamed value is used. 
+    /// - If [`MemberAttributes::rename`] is set, this explicitly renamed value is used.
     ///   The value is defined by the helper attribute `#[nu_value(rename = "...")]` on a member.
-    /// - If the above is not set but [`ContainerAttributes::rename_all`] is, the identifier 
-    ///   undergoes case conversion as specified by the helper attribute 
+    /// - If the above is not set but [`ContainerAttributes::rename_all`] is, the identifier
+    ///   undergoes case conversion as specified by the helper attribute
     ///   `#[nu_value(rename_all = "...")]` on the container (struct or enum).
-    /// - If neither renaming attribute is set, the function applies the case conversion provided 
+    /// - If neither renaming attribute is set, the function applies the case conversion provided
     ///   by the `default` parameter.
     ///   If `default` is `None`, the identifier remains unchanged.
     ///
-    /// This function checks the transformed identifier against previously seen identifiers to 
+    /// This function checks the transformed identifier against previously seen identifiers to
     /// ensure it is unique.
     /// If a duplicate identifier is detected, it returns [`DeriveError::NonUniqueName`].
     pub fn resolve_ident<M>(
@@ -48,10 +48,10 @@ impl NameResolver {
         };
 
         if let Some(seen) = self.seen_names.get(&ident) {
-            return Err(DeriveError::NonUniqueName { 
-                name: ident.to_string(), 
-                first: *seen, 
-                second: span 
+            return Err(DeriveError::NonUniqueName {
+                name: ident.to_string(),
+                first: *seen,
+                second: span,
             });
         }
 

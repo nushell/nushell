@@ -152,10 +152,10 @@ fn struct_into_value(
 /// This function implements the derive macro `IntoValue` for enums.
 /// Currently, only unit enum variants are supported as it is not clear how other types of enums
 /// should be represented in a `Value`.
-/// For simple enums, we represent the enum as a `Value::String`. 
+/// For simple enums, we represent the enum as a `Value::String`.
 /// For other types of variants, we return an error.
 ///
-/// The variant name used in the `Value::String` is resolved by the 
+/// The variant name used in the `Value::String` is resolved by the
 /// [`NameResolver`](NameResolver::resolve_ident) with the `default` being [`Case::Snake`].
 /// The implementation matches over all variants, uses the appropriate variant name, and constructs
 /// a `Value::String`.
@@ -194,7 +194,12 @@ fn enum_into_value(
         .map(|variant| {
             let member_attrs = MemberAttributes::parse_attrs(variant.attrs.iter())?;
             let ident = variant.ident;
-            let ident_s = name_resolver.resolve_ident(&ident, &container_attrs, &member_attrs, Case::Snake)?;
+            let ident_s = name_resolver.resolve_ident(
+                &ident,
+                &container_attrs,
+                &member_attrs,
+                Case::Snake,
+            )?;
             match &variant.fields {
                 // In the future we can implement more complex enums here.
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
@@ -227,11 +232,11 @@ fn enum_into_value(
 /// This function handles the construction of the final `Value` that the macro generates, primarily
 /// for structs.
 /// It takes three parameters: `fields`, which allows iterating over each field of a data type,
-/// `accessor`, which generalizes data access, and `container_attrs`, which is used for the 
+/// `accessor`, which generalizes data access, and `container_attrs`, which is used for the
 /// [`NameResolver`].
 ///
 /// - **Field Keys**:
-///   The field key is field name of the input struct and resolved the 
+///   The field key is field name of the input struct and resolved the
 ///   [`NameResolver`](NameResolver::resolve_ident).
 ///
 /// - **Fields Type**:
@@ -260,7 +265,8 @@ fn fields_return_value(
             for (field, accessor) in fields.named.iter().zip(accessor) {
                 let member_attrs = MemberAttributes::parse_attrs(field.attrs.iter())?;
                 let ident = field.ident.as_ref().expect("named has idents");
-                let field = name_resolver.resolve_ident(ident, &container_attrs, &member_attrs, None)?;
+                let field =
+                    name_resolver.resolve_ident(ident, container_attrs, &member_attrs, None)?;
                 items.push(quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span)));
             }
             Ok(quote! {
