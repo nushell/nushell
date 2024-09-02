@@ -381,32 +381,7 @@ impl Value {
                     }
                 }
                 "filesize" => {
-                    if let Value::Record { val, .. } = value {
-                        val.to_mut().retain_mut(|key2, value| {
-                            let span = value.span();
-                            match key2 {
-                                "metric" => {
-                                    process_bool_config(value, &mut errors, &mut config.filesize.metric);
-                                }
-                                "format" => {
-                                    if let Ok(v) = value.coerce_str() {
-                                        config.filesize.format = v.to_lowercase();
-                                    } else {
-                                        report_invalid_value("should be a string", span, &mut errors);
-                                        *value = Value::string(config.filesize.format.clone(), span);
-                                    }
-                                }
-                                _ => {
-                                    report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false;
-                                }
-                            };
-                            true
-                        })
-                    } else {
-                        report_invalid_value("should be a record", span, &mut errors);
-                        *value = config.filesize.clone().into_value(span);
-                    }
+                    config.filesize.update(value, path, &mut errors);
                 }
                 "explore" => {
                     if let Ok(map) = create_map(value) {
