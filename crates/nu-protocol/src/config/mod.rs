@@ -558,36 +558,7 @@ impl Value {
                     }
                 },
                 "datetime_format" => {
-                    if let Value::Record { val, .. } = value {
-                        val.to_mut().retain_mut(|key2, value|
-                            {
-                            let span = value.span();
-                            match key2 {
-                                "normal" => {
-                                    if let Ok(v) = value.coerce_string() {
-                                        config.datetime_format.normal = Some(v);
-                                    } else {
-                                        report_invalid_value("should be a string", span, &mut errors);
-                                    }
-                                }
-                                "table" => {
-                                    if let Ok(v) = value.coerce_string() {
-                                        config.datetime_format.table = Some(v);
-                                    } else {
-                                        report_invalid_value("should be a string", span, &mut errors);
-                                    }
-                                }
-                                _ => {
-                                    report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false;
-                                }
-                            };
-                            true
-                        })
-                    } else {
-                        report_invalid_value("should be a record", span, &mut errors);
-                        *value = config.datetime_format.clone().into_value(span);
-                    }
+                    config.datetime_format.update(value, path, &mut errors);
                 }
                 "error_style" => {
                     process_string_enum(
