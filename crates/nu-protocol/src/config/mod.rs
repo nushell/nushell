@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use table::try_parse_trim_strategy;
 
-pub use self::completer::{
-    CompleterConfig, CompletionAlgorithm, CompletionSort, ExternalCompleterConfig,
+pub use self::completions::{
+    CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
 };
 pub use self::datetime_format::DatetimeFormatConfig;
 pub use self::filesize::FilesizeConfig;
@@ -26,7 +26,7 @@ pub use self::rm::RmConfig;
 pub use self::shell_integration::ShellIntegrationConfig;
 pub use self::table::{FooterMode, TableConfig, TableIndexMode, TableMode, TrimStrategy};
 
-mod completer;
+mod completions;
 mod datetime_format;
 mod filesize;
 mod helper;
@@ -51,7 +51,7 @@ pub struct Config {
     pub float_precision: i64,
     pub recursion_limit: i64,
     pub use_ansi_coloring: bool,
-    pub completions: CompleterConfig,
+    pub completions: CompletionConfig,
     pub edit_mode: EditBindings,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
@@ -94,7 +94,7 @@ impl Default for Config {
 
             history: HistoryConfig::default(),
 
-            completions: CompleterConfig::default(),
+            completions: CompletionConfig::default(),
 
             recursion_limit: 50,
 
@@ -172,6 +172,8 @@ impl Value {
         };
 
         val.to_mut().retain_mut(|key, value| {
+            let mut path = ConfigPath::new();
+            let path = &mut path.push(key);
             let span = value.span();
             match key {
                 "ls" => {
@@ -253,85 +255,7 @@ impl Value {
                     }
                 }
                 "completions" => {
-                    if let Value::Record { val, .. } = value {
-                        val.to_mut().retain_mut(|key2, value| {
-                            let span = value.span();
-                            match key2 {
-                                "quick" => {
-                                    process_bool_config(value, &mut errors, &mut config.completions.quick);
-                                }
-                                "partial" => {
-                                    process_bool_config(value, &mut errors, &mut config.completions.partial);
-                                }
-                                "algorithm" => {
-                                    process_string_enum(
-                                        &mut config.completions.algorithm,
-                                        &[key, key2],
-                                        value,
-                                        &mut errors
-                                    );
-                                }
-                                "case_sensitive" => {
-                                    process_bool_config(value, &mut errors, &mut config.completions.case_sensitive);
-                                }
-                                "sort" => {
-                                    process_string_enum(
-                                        &mut config.completions.sort,
-                                        &[key, key2],
-                                        value,
-                                        &mut errors
-                                    );
-                                }
-                                "external" => {
-                                    if let Value::Record { val, .. } = value {
-                                        val.to_mut().retain_mut(|key3, value| {
-                                            let span = value.span();
-                                            match key3 {
-                                                "max_results" => {
-                                                    process_int_config(value, &mut errors, &mut config.completions.external.max_results);
-                                                }
-                                                "completer" => {
-                                                    if let Ok(v) = value.as_closure() {
-                                                        config.completions.external.completer = Some(v.clone())
-                                                    } else {
-                                                        match value {
-                                                            Value::Nothing { .. } => {}
-                                                            _ => {
-                                                                report_invalid_value("should be a closure or null", span, &mut errors);
-                                                                *value = config.completions.external.completer.clone().into_value(span);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                                "enable" => {
-                                                    process_bool_config(value, &mut errors, &mut config.completions.external.enable);
-                                                }
-                                                _ => {
-                                                    report_invalid_key(&[key, key2, key3], span, &mut errors);
-                                                    return false;
-                                                }
-                                            };
-                                            true
-                                        });
-                                    } else {
-                                        report_invalid_value("should be a record", span, &mut errors);
-                                        *value = config.completions.external.clone().into_value(span);
-                                    }
-                                }
-                                "use_ls_colors" => {
-                                    process_bool_config(value, &mut errors, &mut config.completions.use_ls_colors);
-                                }
-                                _ => {
-                                    report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false;
-                                }
-                            };
-                            true
-                        });
-                    } else {
-                        report_invalid_value("should be a record", span, &mut errors);
-                        *value = config.completions.clone().into_value(span);
-                    }
+                    config.completions.update(value, path, &mut errors);
                 }
                 "cursor_shape" => {
                     if let Value::Record { val, .. } = value {

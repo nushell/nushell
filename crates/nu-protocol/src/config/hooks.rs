@@ -1,6 +1,5 @@
 use super::prelude::*;
 use crate as nu_protocol;
-use crate::ShellError;
 
 /// Definition of a parsed hook from the config object
 #[derive(Clone, Debug, IntoValue, PartialEq, Serialize, Deserialize)]

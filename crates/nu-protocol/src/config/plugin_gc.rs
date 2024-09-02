@@ -1,7 +1,6 @@
 use super::helper::{process_bool_config, report_invalid_key, report_invalid_value};
 use super::prelude::*;
 use crate as nu_protocol;
-use crate::ShellError;
 use std::collections::HashMap;
 
 /// Configures when plugins should be stopped if inactive
