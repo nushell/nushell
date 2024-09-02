@@ -444,16 +444,17 @@ fn derive_enum_from_value(
 /// }
 /// ```
 fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result {
-    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
+    let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
     let arms: Vec<TokenStream2> = data
         .variants
         .iter()
         .map(|variant| {
-            attributes::deny(&variant.attrs)?;
+            let rename = MemberAttributes::parse_attrs(&variant.attrs)?.rename;
             let ident = &variant.ident;
-            let ident_s = format!("{ident}")
-                .as_str()
-                .to_case(container_attrs.rename_all.unwrap_or(Case::Snake));
+            let ident_s = match rename {
+                Some(rename) => rename,
+                None => ident.to_string().to_case(rename_all.unwrap_or(Case::Snake)),
+            };
             match &variant.fields {
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
                     fields_span: fields.span(),
