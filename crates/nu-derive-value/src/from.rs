@@ -6,7 +6,7 @@ use syn::{
 };
 
 use crate::{
-    attributes::{self, ContainerAttributes, ParseAttrs},
+    attributes::{self, ContainerAttributes, MemberAttributes, ParseAttrs},
     case::{Case, Casing},
 };
 
@@ -54,11 +54,10 @@ fn derive_struct_from_value(
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
     let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
-    attributes::deny_fields(&data.fields)?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let from_value_impl = struct_from_value(&data, container_attrs.rename_all);
+    let from_value_impl = struct_from_value(&data, container_attrs.rename_all)?;
     let expected_type_impl =
-        struct_expected_type(&data.fields, container_attrs.type_name.as_deref());
+        struct_expected_type(&data.fields, container_attrs.type_name.as_deref(), container_attrs.rename_all)?;
     Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
@@ -200,15 +199,15 @@ fn derive_struct_from_value(
 ///     }
 /// }
 /// ```
-fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> TokenStream2 {
-    let body = parse_value_via_fields(&data.fields, quote!(Self), rename_all);
-    quote! {
+fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> Result<TokenStream2, DeriveError> {
+    let body = parse_value_via_fields(&data.fields, quote!(Self), rename_all)?;
+    Ok(quote! {
         fn from_value(
             v: nu_protocol::Value
         ) -> std::result::Result<Self, nu_protocol::ShellError> {
             #body
         }
-    }
+    })
 }
 
 /// Implements `FromValue::expected_type` for structs.
@@ -305,7 +304,7 @@ fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> TokenStream
 ///     }
 /// }
 /// ```
-fn struct_expected_type(fields: &Fields, attr_type_name: Option<&str>) -> TokenStream2 {
+fn struct_expected_type(fields: &Fields, attr_type_name: Option<&str>, rename_all: Option<Case>) -> Result<TokenStream2, DeriveError> {
     let ty = match (fields, attr_type_name) {
         (_, Some(type_name)) => {
             quote!(nu_protocol::Type::Custom(
@@ -313,20 +312,27 @@ fn struct_expected_type(fields: &Fields, attr_type_name: Option<&str>) -> TokenS
             ))
         }
         (Fields::Named(fields), _) => {
-            let fields = fields.named.iter().map(|field| {
+            let mut fields_ts = Vec::with_capacity(fields.named.len());
+            for field in fields.named.iter() {
+                let rename = MemberAttributes::parse_attrs(&field.attrs)?.rename;
                 let ident = field.ident.as_ref().expect("named has idents");
-                let ident_s = ident.to_string();
+                let ident_s = match (rename, rename_all) {
+                    (Some(rename), _) => rename,
+                    (None, Some(case)) => ident.to_string().to_case(case),
+                    (None, None) => ident.to_string(),
+                };
                 let ty = &field.ty;
-                quote! {(
+                fields_ts.push(quote! {(
                     std::string::ToString::to_string(#ident_s),
                     <#ty as nu_protocol::FromValue>::expected_type(),
-                )}
-            });
+                )});
+            }
             quote!(nu_protocol::Type::Record(
-                std::vec![#(#fields),*].into_boxed_slice()
+                std::vec![#(#fields_ts),*].into_boxed_slice()
             ))
         }
-        (Fields::Unnamed(fields), _) => {
+        (f @ Fields::Unnamed(fields), _) => {
+            attributes::deny_fields(f)?;
             let mut iter = fields.unnamed.iter();
             let fields = fields.unnamed.iter().map(|field| {
                 let ty = &field.ty;
@@ -352,11 +358,11 @@ fn struct_expected_type(fields: &Fields, attr_type_name: Option<&str>) -> TokenS
         (Fields::Unit, _) => quote!(nu_protocol::Type::Nothing),
     };
 
-    quote! {
+    Ok(quote! {
         fn expected_type() -> nu_protocol::Type {
             #ty
         }
-    }
+    })
 }
 
 /// Implements the `#[derive(FromValue)]` macro for enums.
@@ -543,17 +549,20 @@ fn parse_value_via_fields(
     fields: &Fields,
     self_ident: impl ToTokens,
     rename_all: Option<Case>,
-) -> TokenStream2 {
+) -> Result<TokenStream2, DeriveError> {
     match fields {
         Fields::Named(fields) => {
-            let fields = fields.named.iter().map(|field| {
+            let mut fields_ts: Vec<TokenStream2> = Vec::with_capacity(fields.named.len());
+            for field in fields.named.iter() {
+                let rename = MemberAttributes::parse_attrs(&field.attrs)?.rename;
                 let ident = field.ident.as_ref().expect("named has idents");
-                let mut ident_s = ident.to_string();
-                if let Some(rename_all) = rename_all {
-                    ident_s = ident_s.to_case(rename_all);
-                }
+                let ident_s = match (rename, rename_all) {
+                    (Some(rename), _) => rename,
+                    (None, Some(case)) => ident.to_string().to_case(case),
+                    (None, None) => ident.to_string()
+                };
                 let ty = &field.ty;
-                match type_is_option(ty) {
+                fields_ts.push(match type_is_option(ty) {
                     true => quote! {
                         #ident: record
                             .remove(#ident_s)
@@ -573,15 +582,16 @@ fn parse_value_via_fields(
                                 })?,
                         )?
                     },
-                }
-            });
-            quote! {
+                });
+            };
+            Ok(quote! {
                 let span = v.span();
                 let mut record = v.into_record()?;
-                std::result::Result::Ok(#self_ident {#(#fields),*})
-            }
+                std::result::Result::Ok(#self_ident {#(#fields_ts),*})
+            })
         }
-        Fields::Unnamed(fields) => {
+        f @ Fields::Unnamed(fields) => {
+            attributes::deny_fields(f)?;
             let fields = fields.unnamed.iter().enumerate().map(|(i, field)| {
                 let ty = &field.ty;
                 quote! {{
@@ -596,14 +606,14 @@ fn parse_value_via_fields(
                     )?
                 }}
             });
-            quote! {
+            Ok(quote! {
                 let span = v.span();
                 let list = v.into_list()?;
                 let mut deque: std::collections::VecDeque<_> = std::convert::From::from(list);
                 std::result::Result::Ok(#self_ident(#(#fields),*))
-            }
+            })
         }
-        Fields::Unit => quote! {
+        Fields::Unit => Ok(quote! {
             match v {
                 nu_protocol::Value::Nothing {..} => Ok(#self_ident),
                 v => std::result::Result::Err(nu_protocol::ShellError::CantConvert {
@@ -613,7 +623,7 @@ fn parse_value_via_fields(
                     help: std::option::Option::None
                 })
             }
-        },
+        }),
     }
 }
 

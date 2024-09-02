@@ -4,10 +4,10 @@ use crate::{case::Case, error::DeriveError, HELPER_ATTRIBUTE};
 
 pub trait ParseAttrs: Default {
     fn parse_attrs<'a, M>(
-        iter: impl Iterator<Item = &'a Attribute>,
+        iter: impl IntoIterator<Item = &'a Attribute>,
     ) -> Result<Self, DeriveError<M>> {
         let mut attrs = Self::default();
-        for attr in filter(iter) {
+        for attr in filter(iter.into_iter()) {
             // This is a container to allow returning derive errors inside the parse_nested_meta fn.
             let mut err = Ok(());
             let _ = attr.parse_nested_meta(|meta| {
