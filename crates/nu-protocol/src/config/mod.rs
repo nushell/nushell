@@ -1,6 +1,5 @@
 //! Module containing the internal representation of user configuration
 use self::helper::*;
-use self::hooks::*;
 
 use crate::{IntoValue, ShellError, Span, Value};
 use reedline::create_keybindings;
@@ -492,14 +491,9 @@ impl Value {
                         *value = config.keybindings.clone().into_value(span);
                     }
                 },
-                "hooks" => match create_hooks(value) {
-                    Ok(hooks) => config.hooks = hooks,
-                    Err(e) => {
-                        report_invalid_value("should be a valid hooks list", span, &mut errors);
-                        errors.push(e);
-                        *value = config.hooks.clone().into_value(span);
-                    }
-                },
+                "hooks" => {
+                    config.hooks.update(value, path, &mut errors);
+                }
                 "datetime_format" => {
                     config.datetime_format.update(value, path, &mut errors);
                 }

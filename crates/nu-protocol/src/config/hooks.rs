@@ -1,5 +1,6 @@
 use super::prelude::*;
 use crate as nu_protocol;
+use crate::config::{report_invalid_config_key, report_invalid_config_value};
 
 /// Definition of a parsed hook from the config object
 #[derive(Clone, Debug, IntoValue, PartialEq, Serialize, Deserialize)]
@@ -32,36 +33,38 @@ impl Default for Hooks {
     }
 }
 
-/// Parse the hooks to find the blocks to run when the hooks fire
-pub(super) fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
-    let span = value.span();
-    match value {
-        Value::Record { val, .. } => {
-            let mut hooks = Hooks::new();
-
-            for (col, val) in &**val {
-                match col.as_str() {
-                    "pre_prompt" => hooks.pre_prompt = Some(val.clone()),
-                    "pre_execution" => hooks.pre_execution = Some(val.clone()),
-                    "env_change" => hooks.env_change = Some(val.clone()),
-                    "display_output" => hooks.display_output = Some(val.clone()),
-                    "command_not_found" => hooks.command_not_found = Some(val.clone()),
-                    x => {
-                        return Err(ShellError::UnsupportedConfigValue {
-                            expected: "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'".into(),
-                            value: x.into(),
-                            span
-                        });
-                    }
-                }
+impl UpdateFromValue for Hooks {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut Vec<ShellError>,
+    ) {
+        fn update_option(field: &mut Option<Value>, value: &Value) {
+            if value.is_nothing() {
+                *field = None;
+            } else {
+                *field = Some(value.clone());
             }
-
-            Ok(hooks)
         }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "record for 'hooks' config".into(),
-            value: "non-record value".into(),
-            span,
-        }),
+
+        let span = value.span();
+        let Value::Record { val: record, .. } = value else {
+            report_invalid_config_value("should be a record", span, path, errors);
+            return;
+        };
+
+        for (col, val) in record.iter() {
+            let path = &mut path.push(col);
+            let span = val.span();
+            match col.as_str() {
+                "pre_prompt" => update_option(&mut self.pre_prompt, val),
+                "pre_execution" => update_option(&mut self.pre_execution, val),
+                "env_change" => update_option(&mut self.env_change, val),
+                "display_output" => update_option(&mut self.display_output, val),
+                "command_not_found" => update_option(&mut self.command_not_found, val),
+                _ => report_invalid_config_key(span, path, errors),
+            }
+        }
     }
 }
