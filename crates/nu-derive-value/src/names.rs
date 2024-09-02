@@ -16,11 +16,21 @@ impl NameResolver {
         Self::default()
     }
 
-    /// Resolve identifier with attributes.
-    /// 
-    /// This method resolves the name that should be used in the `Value`.
-    /// By remembering which idents came before, we can check that every ident is unique.
-    /// If that is not the case, we return a [`DeriveError::NonUniqueName`].
+    /// Resolves an identifier using attributes and ensures its uniqueness.
+    ///
+    /// The identifier is transformed according to these rules:
+    /// - If [`MemberAttributes::rename`] is set, this explicitly renamed value is used. 
+    ///   The value is defined by the helper attribute `#[nu_value(rename = "...")]` on a member.
+    /// - If the above is not set but [`ContainerAttributes::rename_all`] is, the identifier 
+    ///   undergoes case conversion as specified by the helper attribute 
+    ///   `#[nu_value(rename_all = "...")]` on the container (struct or enum).
+    /// - If neither renaming attribute is set, the function applies the case conversion provided 
+    ///   by the `default` parameter.
+    ///   If `default` is `None`, the identifier remains unchanged.
+    ///
+    /// This function checks the transformed identifier against previously seen identifiers to 
+    /// ensure it is unique.
+    /// If a duplicate identifier is detected, it returns [`DeriveError::NonUniqueName`].
     pub fn resolve_ident<M>(
         &mut self,
         ident: &'_ Ident,

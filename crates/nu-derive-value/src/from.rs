@@ -219,10 +219,8 @@ fn struct_from_value(data: &DataStruct, container_attrs: &ContainerAttributes) -
 ///
 /// This function constructs the `expected_type` function for structs based on the provided fields.
 /// The type depends on the `fields`:
-/// - Named fields construct a record type where each key corresponds to a field name, or the name
-///   specified using the `#[nu_value(rename = "...")]` attribute.
-///   If the `#[nu_value(rename_all = "...")]` attribute is used, the names of all fields are
-///   case-converted accordingly.
+/// - Named fields construct a record type where each key corresponds to a field name.
+///   The specific keys are resolved by [`NameResolver::resolve_ident`].
 /// - Unnamed fields construct a custom type with the format `list[type0, type1, type2]`.
 /// - Unit structs expect `Type::Nothing`.
 ///
@@ -409,9 +407,8 @@ fn derive_enum_from_value(
 /// This function checks that every field is a unit variant and constructs a match statement over
 /// all possible variants.
 /// The input value is expected to be a `Value::String` containing the name of the variant.
-/// This can either be the explicit name given by `#[nu_value(rename = "...")` on a specific variant
-/// or be the variant name formatted as defined by the `#[nu_value(rename_all = "...")]` attribute.
-/// If no attribute is given, [`snake_case`](heck::ToSnakeCase) is expected.
+/// That string is defined by the [`NameResolver::resolve_ident`] method with the `default` value 
+/// being [`Case::Snake`].
 ///
 /// If no matching variant is found, `ShellError::CantConvert` is returned.
 ///
@@ -537,20 +534,15 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 ///   - A unit struct expects `Value::Nothing`.
 ///
 /// For named fields, each field in the record is matched to a struct field.
-/// The name matching considers attributes:
-/// - If the field has `#[nu_value(rename = "...")]`, the record field is expected to have the
-///   renamed value.
-/// - If the `#[nu_value(rename_all = "...")]` attribute is used, field names are transformed
-///   according to the specified case (e.g., snake_case, camelCase).
-/// - If no renaming attributes are provided, the field name in the record is expected to match the
-///   struct field name directly.
+/// The name matching uses the identifiers resolved by 
+/// [`NameResolver`](NameResolver::resolve_ident) with `default` being `None`.
 ///
 /// The `self_ident` parameter is used to specify the identifier for the returned value.
 /// For most structs, `Self` is sufficient, but `Self::Variant` may be needed for enum variants.
 ///
-/// The `rename_all` parameter, provided through `#[nu_value(rename_all = "...")]`, defines how the
-/// field names in the `Value` are transformed before matching with the struct fields.
-/// If this parameter is `None`, the field names in the struct are used as-is.
+/// The `container_attrs` parameters, provided through `#[nu_value]` on the container, defines 
+/// global rules for the `FromValue` implementation.
+/// This is used for the [`NameResolver`] to resolve the correct ident in the `Value`.
 ///
 /// This function is more complex than the equivalent for `IntoValue` due to additional error
 /// handling:

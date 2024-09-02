@@ -50,11 +50,7 @@ pub fn derive_into_value(input: TokenStream2) -> Result {
 /// `IntoValue`.
 /// For structs with named fields, the derived implementation creates a `Value::Record` using the
 /// struct fields as keys.
-/// If a field has the `#[nu_value(rename = "...")]` attribute, the specified name is used as the
-/// key.
-/// Otherwise, if the container has the `#[nu_value(rename_all = "...")]` attribute, the key is
-/// case-converted according to that rule. If neither attribute is present, the field name is used
-/// as is.
+/// The specific keys are resolved by [`NameResolver`](NameResolver::resolve_ident).
 /// Each field value is converted using the `IntoValue::into_value` method.
 /// For structs with unnamed fields, this generates a `Value::List` with each field in the list.
 /// For unit structs, this generates `Value::Nothing`, because there is no data.
@@ -156,15 +152,11 @@ fn struct_into_value(
 /// This function implements the derive macro `IntoValue` for enums.
 /// Currently, only unit enum variants are supported as it is not clear how other types of enums
 /// should be represented in a `Value`.
-/// For simple enums, we represent the enum as a `Value::String`. For other types of variants, we
-/// return an error.
+/// For simple enums, we represent the enum as a `Value::String`. 
+/// For other types of variants, we return an error.
 ///
-/// The variant name used in the `Value::String` depends on the following:
-/// - If `#[nu_value(rename = "...")]` is used on a specific variant, that name is used.
-/// - Otherwise, if `#[nu_value(rename_all = "...")]` is used on the container, the variant names
-///   will be case-converted according to the specified rule.
-/// - If neither attribute is used, the default conversion is to `snake_case`.
-///
+/// The variant name used in the `Value::String` is resolved by the 
+/// [`NameResolver`](NameResolver::resolve_ident) with the `default` being [`Case::Snake`].
 /// The implementation matches over all variants, uses the appropriate variant name, and constructs
 /// a `Value::String`.
 ///
@@ -235,16 +227,12 @@ fn enum_into_value(
 /// This function handles the construction of the final `Value` that the macro generates, primarily
 /// for structs.
 /// It takes three parameters: `fields`, which allows iterating over each field of a data type,
-/// `accessor`, which generalizes data access, and `rename_all`, which is an optional case
-/// conversion setting.
+/// `accessor`, which generalizes data access, and `container_attrs`, which is used for the 
+/// [`NameResolver`].
 ///
 /// - **Field Keys**:
-///   - If a field has the `#[nu_value(rename = "...")]` attribute, the provided name will be used
-///     directly as the key.
-///   - If the container (e.g., the struct) has the `#[nu_value(rename_all = "...")]` attribute,
-///     the field names will be case-converted according to the specified case (e.g., snake_case,
-///     camelCase) and used as the key.
-///   - If neither attribute is present, the field name is used as-is for the key.
+///   The field key is field name of the input struct and resolved the 
+///   [`NameResolver`](NameResolver::resolve_ident).
 ///
 /// - **Fields Type**:
 ///   - Determines whether to generate a `Value::Record`, `Value::List`, or `Value::Nothing` based
