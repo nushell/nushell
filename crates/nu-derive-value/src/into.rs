@@ -6,7 +6,7 @@ use syn::{
 };
 
 use crate::{
-    attributes::{self, ContainerAttributes, ParseAttrs},
+    attributes::{self, ContainerAttributes, MemberAttributes, ParseAttrs},
     case::{Case, Casing},
 };
 
@@ -113,7 +113,6 @@ fn struct_into_value(
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
     let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
-    attributes::deny_fields(&data.fields)?;
     let record = match &data.fields {
         Fields::Named(fields) => {
             let accessor = fields
@@ -121,7 +120,7 @@ fn struct_into_value(
                 .iter()
                 .map(|field| field.ident.as_ref().expect("named has idents"))
                 .map(|ident| quote!(self.#ident));
-            fields_return_value(&data.fields, accessor, rename_all)
+            fields_return_value(&data.fields, accessor, rename_all)?
         }
         Fields::Unnamed(fields) => {
             let accessor = fields
@@ -130,7 +129,7 @@ fn struct_into_value(
                 .enumerate()
                 .map(|(n, _)| Index::from(n))
                 .map(|index| quote!(self.#index));
-            fields_return_value(&data.fields, accessor, rename_all)
+            fields_return_value(&data.fields, accessor, rename_all)?
         }
         Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
     };
@@ -241,35 +240,37 @@ fn fields_return_value(
     fields: &Fields,
     accessor: impl Iterator<Item = impl ToTokens>,
     rename_all: Option<Case>,
-) -> TokenStream2 {
+) -> Result<TokenStream2, DeriveError> {
     match fields {
         Fields::Named(fields) => {
-            let items: Vec<TokenStream2> = fields
-                .named
-                .iter()
-                .zip(accessor)
-                .map(|(field, accessor)| {
-                    let ident = field.ident.as_ref().expect("named has idents");
-                    let mut field = ident.to_string();
-                    if let Some(rename_all) = rename_all {
-                        field = field.to_case(rename_all);
-                    }
-                    quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span))
-                })
-                .collect();
-            quote! {
+            let mut items: Vec<TokenStream2> = Vec::with_capacity(fields.named.len());
+            for (field, accessor) in fields.named.iter().zip(accessor) {
+                let rename = MemberAttributes::parse_attrs(field.attrs.iter())?.rename;
+                let ident = field.ident.as_ref().expect("named has idents");
+                let field = match (rename, rename_all) {
+                    (Some(rename), _) => rename,
+                    (None, Some(case)) => ident.to_string().to_case(case),
+                    (None, None) => ident.to_string(),
+                };
+                items.push(quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span)));
+            }
+            Ok(quote! {
                 nu_protocol::Value::record(nu_protocol::record! {
                     #(#items),*
                 }, span)
-            }
+            })
         }
-        Fields::Unnamed(fields) => {
+        f @ Fields::Unnamed(fields) => {
+            attributes::deny_fields(f)?;
             let items =
                 fields.unnamed.iter().zip(accessor).map(
                     |(_, accessor)| quote!(nu_protocol::IntoValue::into_value(#accessor, span)),
                 );
-            quote!(nu_protocol::Value::list(std::vec![#(#items),*], span))
+            Ok(quote!(nu_protocol::Value::list(
+                std::vec![#(#items),*],
+                span
+            )))
         }
-        Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
+        Fields::Unit => Ok(quote!(nu_protocol::Value::nothing(span))),
     }
 }

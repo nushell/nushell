@@ -86,6 +86,7 @@ fn unexpected_attribute() {
 }
 
 #[test]
+#[ignore = "we allow some field attributes now"]
 fn deny_attribute_on_fields() {
     let input = quote! {
         struct SomeStruct {

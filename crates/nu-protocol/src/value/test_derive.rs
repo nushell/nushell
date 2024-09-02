@@ -586,3 +586,20 @@ fn enum_type_name_attr() {
 
     assert_eq!(TypeNameEnum::expected_type().to_string().as_str(), "enum");
 }
+
+// TODO: do a better test here
+#[test]
+fn struct_rename_field() {
+    #[derive(Debug, Default, IntoValue)]
+    struct SomeStruct {
+        #[nu_value(rename = "field")]
+        some_field: (),
+    }
+
+    assert!(SomeStruct::default()
+        .into_test_value()
+        .into_record()
+        .unwrap()
+        .get("field")
+        .is_some());
+}
