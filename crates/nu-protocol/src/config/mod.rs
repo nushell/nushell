@@ -453,7 +453,7 @@ impl Value {
                     }
                 }
                 "plugin_gc" => {
-                    config.plugin_gc.process(&[key], value, &mut errors);
+                    config.plugin_gc.update(value, path, &mut errors);
                 }
                 "menus" => match create_menus(value) {
                     Ok(map) => config.menus = map,

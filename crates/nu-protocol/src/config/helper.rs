@@ -1,7 +1,9 @@
 use crate::{IntoValue, Record, ShellError, Span, Value};
 use std::{
+    borrow::Borrow,
     collections::HashMap,
     fmt::{self, Display},
+    hash::Hash,
     ops::{Deref, DerefMut},
     str::FromStr,
 };
@@ -107,11 +109,24 @@ impl UpdateFromValue for String {
     }
 }
 
-impl UpdateFromValue for HashMap<String, Value> {
-    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+impl<K, V> UpdateFromValue for HashMap<K, V>
+where
+    K: Borrow<str> + for<'a> From<&'a str> + Eq + Hash,
+    V: Default + UpdateFromValue,
+{
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut Vec<ShellError>,
+    ) {
         if let Ok(record) = value.as_record() {
-            self.clear();
-            self.extend(record.iter().map(|(k, v)| (k.clone(), v.clone())));
+            self.retain(|k, _| record.contains(k.borrow()));
+            for (key, val) in record {
+                self.entry(key.as_str().into())
+                    .or_default()
+                    .update(val, path, errors);
+            }
         } else {
             report_invalid_config_value("should be a record", value.span(), path, errors);
         }
