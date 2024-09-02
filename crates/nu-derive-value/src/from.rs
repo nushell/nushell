@@ -7,7 +7,7 @@ use syn::{
 
 use crate::{
     attributes::{self, ContainerAttributes, MemberAttributes, ParseAttrs},
-    case::{Case, Casing},
+    case::Case,
     names::NameResolver,
 };
 
@@ -61,7 +61,7 @@ fn derive_struct_from_value(
     let expected_type_impl = struct_expected_type(
         &data.fields,
         container_attrs.type_name.as_deref(),
-        container_attrs.rename_all,
+        &container_attrs,
     )?;
     Ok(quote! {
         #[automatically_derived]
@@ -315,7 +315,7 @@ fn struct_from_value(data: &DataStruct, container_attrs: &ContainerAttributes) -
 fn struct_expected_type(
     fields: &Fields,
     attr_type_name: Option<&str>,
-    rename_all: Option<Case>,
+    container_attrs: &ContainerAttributes,
 ) -> Result {
     let ty = match (fields, attr_type_name) {
         (_, Some(type_name)) => {
@@ -324,15 +324,12 @@ fn struct_expected_type(
             ))
         }
         (Fields::Named(fields), _) => {
+            let mut name_resolver = NameResolver::new();
             let mut fields_ts = Vec::with_capacity(fields.named.len());
             for field in fields.named.iter() {
-                let rename = MemberAttributes::parse_attrs(&field.attrs)?.rename;
+                let member_attrs = MemberAttributes::parse_attrs(&field.attrs)?;
                 let ident = field.ident.as_ref().expect("named has idents");
-                let ident_s = match (rename, rename_all) {
-                    (Some(rename), _) => rename,
-                    (None, Some(case)) => ident.to_string().to_case(case),
-                    (None, None) => ident.to_string(),
-                };
+                let ident_s = name_resolver.resolve_ident(ident, container_attrs, &member_attrs, None)?;
                 let ty = &field.ty;
                 fields_ts.push(quote! {(
                     std::string::ToString::to_string(#ident_s),
