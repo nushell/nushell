@@ -220,39 +220,7 @@ impl Value {
                     }
                 }
                 "history" => {
-                    let history = &mut config.history;
-                    if let Value::Record { val, .. } = value {
-                        val.to_mut().retain_mut(|key2, value| {
-                            let span = value.span();
-                            match key2 {
-                                "isolation" => {
-                                    process_bool_config(value, &mut errors, &mut history.isolation);
-                                }
-                                "sync_on_enter" => {
-                                    process_bool_config(value, &mut errors, &mut history.sync_on_enter);
-                                }
-                                "max_size" => {
-                                    process_int_config(value, &mut errors, &mut history.max_size);
-                                }
-                                "file_format" => {
-                                    process_string_enum(
-                                        &mut history.file_format,
-                                        &[key, key2],
-                                        value,
-                                        &mut errors
-                                    );
-                                }
-                                _ => {
-                                    report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false;
-                                }
-                            };
-                            true
-                        });
-                    } else {
-                        report_invalid_value("should be a record", span, &mut errors);
-                        *value = config.history.into_value(span);
-                    }
+                    config.history.update(value, path, &mut errors);
                 }
                 "completions" => {
                     config.completions.update(value, path, &mut errors);
