@@ -47,12 +47,16 @@ impl Case {
 }
 
 pub trait Casing {
-    fn to_case(&self, case: Case) -> String;
+    fn to_case(&self, case: impl Into<Option<Case>>) -> String;
 }
 
-impl<T: AsRef<str>> Casing for T {
-    fn to_case(&self, case: Case) -> String {
-        let s = self.as_ref();
+impl<T: ToString> Casing for T {
+    fn to_case(&self, case: impl Into<Option<Case>>) -> String {
+        let s = self.to_string();
+        let Some(case) = case.into() else {
+            return s.to_string();
+        };
+
         match case {
             Case::Pascal => s.to_upper_camel_case(),
             Case::Camel => s.to_lower_camel_case(),

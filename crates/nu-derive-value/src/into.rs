@@ -7,7 +7,8 @@ use syn::{
 
 use crate::{
     attributes::{self, ContainerAttributes, MemberAttributes, ParseAttrs},
-    case::{Case, Casing},
+    case::Case,
+    names::NameResolver,
 };
 
 #[derive(Debug)]
@@ -118,7 +119,7 @@ fn struct_into_value(
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result {
-    let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
+    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let record = match &data.fields {
         Fields::Named(fields) => {
             let accessor = fields
@@ -126,7 +127,7 @@ fn struct_into_value(
                 .iter()
                 .map(|field| field.ident.as_ref().expect("named has idents"))
                 .map(|ident| quote!(self.#ident));
-            fields_return_value(&data.fields, accessor, rename_all)?
+            fields_return_value(&data.fields, accessor, &container_attrs)?
         }
         Fields::Unnamed(fields) => {
             let accessor = fields
@@ -135,7 +136,7 @@ fn struct_into_value(
                 .enumerate()
                 .map(|(n, _)| Index::from(n))
                 .map(|index| quote!(self.#index));
-            fields_return_value(&data.fields, accessor, rename_all)?
+            fields_return_value(&data.fields, accessor, &container_attrs)?
         }
         Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
     };
@@ -193,17 +194,15 @@ fn enum_into_value(
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result {
-    let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
+    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
+    let mut name_resolver = NameResolver::new();
     let arms: Vec<TokenStream2> = data
         .variants
         .into_iter()
         .map(|variant| {
-            let rename = MemberAttributes::parse_attrs(variant.attrs.iter())?.rename;
+            let member_attrs = MemberAttributes::parse_attrs(variant.attrs.iter())?;
             let ident = variant.ident;
-            let ident_s = match rename {
-                Some(rename) => rename,
-                None => ident.to_string().to_case(rename_all.unwrap_or(Case::Snake)),
-            };
+            let ident_s = name_resolver.resolve_ident(&ident, &container_attrs, &member_attrs, Case::Snake)?;
             match &variant.fields {
                 // In the future we can implement more complex enums here.
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
@@ -264,19 +263,16 @@ fn enum_into_value(
 fn fields_return_value(
     fields: &Fields,
     accessor: impl Iterator<Item = impl ToTokens>,
-    rename_all: Option<Case>,
+    container_attrs: &ContainerAttributes,
 ) -> Result {
     match fields {
         Fields::Named(fields) => {
+            let mut name_resolver = NameResolver::new();
             let mut items: Vec<TokenStream2> = Vec::with_capacity(fields.named.len());
             for (field, accessor) in fields.named.iter().zip(accessor) {
-                let rename = MemberAttributes::parse_attrs(field.attrs.iter())?.rename;
+                let member_attrs = MemberAttributes::parse_attrs(field.attrs.iter())?;
                 let ident = field.ident.as_ref().expect("named has idents");
-                let field = match (rename, rename_all) {
-                    (Some(rename), _) => rename,
-                    (None, Some(case)) => ident.to_string().to_case(case),
-                    (None, None) => ident.to_string(),
-                };
+                let field = name_resolver.resolve_ident(ident, &container_attrs, &member_attrs, None)?;
                 items.push(quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span)));
             }
             Ok(quote! {

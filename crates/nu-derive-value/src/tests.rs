@@ -190,3 +190,53 @@ fn invalid_attribute_value() {
         into_res
     );
 }
+
+#[test]
+fn non_unique_struct_keys() {
+    let input = quote! {
+        struct DuplicateStruct {
+            #[nu_value(rename = "field")]
+            some_field: (),
+            field: (),
+        }
+    };
+
+    let from_res = derive_from_value(input.clone());
+    assert!(
+        matches!(from_res, Err(DeriveError::NonUniqueName { .. })),
+        "expected `DeriveError::NonUniqueName`, got {:?}",
+        from_res
+    );
+
+    let into_res = derive_into_value(input);
+    assert!(
+        matches!(into_res, Err(DeriveError::NonUniqueName { .. })),
+        "expected `DeriveError::NonUniqueName`, got {:?}",
+        into_res
+    );
+}
+
+#[test]
+fn non_unique_enum_variants() {
+    let input = quote! {
+        enum DuplicateEnum {
+            #[nu_value(rename = "variant")]
+            SomeVariant,
+            Variant
+        }
+    };
+
+    let from_res = derive_from_value(input.clone());
+    assert!(
+        matches!(from_res, Err(DeriveError::NonUniqueName { .. })),
+        "expected `DeriveError::NonUniqueName`, got {:?}",
+        from_res
+    );
+
+    let into_res = derive_into_value(input);
+    assert!(
+        matches!(into_res, Err(DeriveError::NonUniqueName { .. })),
+        "expected `DeriveError::NonUniqueName`, got {:?}",
+        into_res
+    );
+}

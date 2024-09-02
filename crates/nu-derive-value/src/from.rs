@@ -8,6 +8,7 @@ use syn::{
 use crate::{
     attributes::{self, ContainerAttributes, MemberAttributes, ParseAttrs},
     case::{Case, Casing},
+    names::NameResolver,
 };
 
 #[derive(Debug)]
@@ -56,7 +57,7 @@ fn derive_struct_from_value(
 ) -> Result {
     let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let from_value_impl = struct_from_value(&data, container_attrs.rename_all)?;
+    let from_value_impl = struct_from_value(&data, &container_attrs)?;
     let expected_type_impl = struct_expected_type(
         &data.fields,
         container_attrs.type_name.as_deref(),
@@ -203,8 +204,8 @@ fn derive_struct_from_value(
 ///     }
 /// }
 /// ```
-fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> Result {
-    let body = parse_value_via_fields(&data.fields, quote!(Self), rename_all)?;
+fn struct_from_value(data: &DataStruct, container_attrs: &ContainerAttributes) -> Result {
+    let body = parse_value_via_fields(&data.fields, quote!(Self), container_attrs)?;
     Ok(quote! {
         fn from_value(
             v: nu_protocol::Value
@@ -449,17 +450,15 @@ fn derive_enum_from_value(
 /// }
 /// ```
 fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result {
-    let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
+    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
+    let mut name_resolver = NameResolver::new();
     let arms: Vec<TokenStream2> = data
         .variants
         .iter()
         .map(|variant| {
-            let rename = MemberAttributes::parse_attrs(&variant.attrs)?.rename;
+            let member_attrs = MemberAttributes::parse_attrs(&variant.attrs)?;
             let ident = &variant.ident;
-            let ident_s = match rename {
-                Some(rename) => rename,
-                None => ident.to_string().to_case(rename_all.unwrap_or(Case::Snake)),
-            };
+            let ident_s = name_resolver.resolve_ident(ident, &container_attrs, &member_attrs, Case::Snake)?;
             match &variant.fields {
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
                     fields_span: fields.span(),
@@ -568,19 +567,16 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 fn parse_value_via_fields(
     fields: &Fields,
     self_ident: impl ToTokens,
-    rename_all: Option<Case>,
+    container_attrs: &ContainerAttributes,
 ) -> Result {
     match fields {
         Fields::Named(fields) => {
+            let mut name_resolver = NameResolver::new();
             let mut fields_ts: Vec<TokenStream2> = Vec::with_capacity(fields.named.len());
             for field in fields.named.iter() {
-                let rename = MemberAttributes::parse_attrs(&field.attrs)?.rename;
+                let member_attrs = MemberAttributes::parse_attrs(&field.attrs)?;
                 let ident = field.ident.as_ref().expect("named has idents");
-                let ident_s = match (rename, rename_all) {
-                    (Some(rename), _) => rename,
-                    (None, Some(case)) => ident.to_string().to_case(case),
-                    (None, None) => ident.to_string(),
-                };
+                let ident_s = name_resolver.resolve_ident(ident, container_attrs, &member_attrs, None)?;
                 let ty = &field.ty;
                 fields_ts.push(match type_is_option(ty) {
                     true => quote! {
