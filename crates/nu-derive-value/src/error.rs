@@ -30,6 +30,12 @@ pub enum DeriveError<M> {
     },
 }
 
+impl<M> From<syn::parse::Error> for DeriveError<M> {
+    fn from(value: syn::parse::Error) -> Self {
+        Self::Syn(value)
+    }
+}
+
 impl<M> From<DeriveError<M>> for Diagnostic {
     fn from(value: DeriveError<M>) -> Self {
         let derive_name = any::type_name::<M>().split("::").last().expect("not empty");

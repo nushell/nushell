@@ -6,7 +6,7 @@ use syn::{
 };
 
 use crate::{
-    attributes::{self, ContainerAttributes},
+    attributes::{self, ContainerAttributes, ParseAttrs},
     case::{Case, Casing},
 };
 
