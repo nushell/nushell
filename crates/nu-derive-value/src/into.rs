@@ -179,16 +179,17 @@ fn enum_into_value(
     generics: Generics,
     attrs: Vec<Attribute>,
 ) -> Result<TokenStream2, DeriveError> {
-    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
+    let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
     let arms: Vec<TokenStream2> = data
         .variants
         .into_iter()
         .map(|variant| {
-            attributes::deny(&variant.attrs)?;
+            let rename = MemberAttributes::parse_attrs(variant.attrs.iter())?.rename;
             let ident = variant.ident;
-            let ident_s = format!("{ident}")
-                .as_str()
-                .to_case(container_attrs.rename_all.unwrap_or(Case::Snake));
+            let ident_s = match rename {
+                Some(rename) => rename,
+                None => ident.to_string().to_case(rename_all.unwrap_or(Case::Snake)),
+            };
             match &variant.fields {
                 // In the future we can implement more complex enums here.
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
