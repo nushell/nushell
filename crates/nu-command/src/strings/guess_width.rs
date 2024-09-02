@@ -203,7 +203,7 @@ fn split(line: &str, pos: &[usize], trim_space: bool) -> Vec<String> {
 
         if pos[n] <= w {
             let end_char = separator_position(&line_chars, p, pos, n);
-            if start_char > end_char {
+            if start_char > end_char || end_char >= line_char_boundaries.len() {
                 break;
             }
             let col = &line[line_char_boundaries[start_char]..line_char_boundaries[end_char]];
@@ -575,7 +575,7 @@ E F G H";
     #[test]
     fn test_guess_width_row_with_only_whitespace() {
         let input = "A B C D
-       
+
 E F G H";
 
         let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
@@ -592,6 +592,37 @@ E F G H";
         let want = vec![vec!["A", "B", "C", "D"], vec!["E", "F", "G", "H"]];
         let got = guess_width.read_all();
         assert_eq!(got, want);
+    }
+
+    #[test]
+    fn test_guess_no_panic_for_some_cases() {
+        let input = r#"nu_plugin_highlight = '1.2.2+0.97.1'    # A nushell plugin for syntax highlighting
+trace_nu_plugin = '0.3.1'               # A wrapper to trace Nu plugins
+nu_plugin_bash_env = '0.13.0'           # Nu plugin bash-env
+nu_plugin_from_sse = '0.4.0'            # Nushell plugin to convert a HTTP server sent event stream to structured data
+... and 90 crates more (use --limit N to see more)"#;
+        let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
+        let reader = std::io::BufReader::new(r);
+
+        let mut guess_width = GuessWidth {
+            reader,
+            pos: Vec::new(),
+            pre_lines: Vec::new(),
+            pre_count: 0,
+            limit_split: 0,
+        };
+
+        let first_column_want = [
+            "nu_plugin_highlight = '1.2.2+0.97.1'",
+            "trace_nu_plugin = '0.3.1'",
+            "nu_plugin_bash_env = '0.13.0'",
+            "nu_plugin_from_sse = '0.4.0'",
+            "... and 90 crates more (use --limit N",
+        ];
+        let got = guess_width.read_all();
+        for (row_indx, row) in got.into_iter().enumerate() {
+            assert_eq!(row[0], first_column_want[row_indx]);
+        }
     }
 
     #[test]
