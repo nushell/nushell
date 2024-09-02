@@ -612,7 +612,7 @@ nu_plugin_from_sse = '0.4.0'            # Nushell plugin to convert a HTTP serve
             limit_split: 0,
         };
 
-        let first_column_want = vec![
+        let first_column_want = [
             "nu_plugin_highlight = '1.2.2+0.97.1'",
             "trace_nu_plugin = '0.3.1'",
             "nu_plugin_bash_env = '0.13.0'",
