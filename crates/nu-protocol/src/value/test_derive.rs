@@ -587,19 +587,83 @@ fn enum_type_name_attr() {
     assert_eq!(TypeNameEnum::expected_type().to_string().as_str(), "enum");
 }
 
-// TODO: do a better test here
-#[test]
-fn struct_rename_field() {
-    #[derive(Debug, Default, IntoValue)]
-    struct SomeStruct {
-        #[nu_value(rename = "field")]
-        some_field: (),
-    }
+#[derive(IntoValue, FromValue, Default, Debug, PartialEq)]
+struct RenamedFieldStruct {
+    #[nu_value(rename = "renamed")]
+    field: (),
+}
 
-    assert!(SomeStruct::default()
-        .into_test_value()
-        .into_record()
+impl RenamedFieldStruct {
+    fn value() -> Value {
+        Value::test_record(record! {
+            "renamed" => Value::test_nothing(),
+        })
+    }
+}
+
+#[test]
+fn renamed_field_struct_into_value() {
+    let expected = RenamedFieldStruct::value();
+    let actual = RenamedFieldStruct::default().into_test_value();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn renamed_field_struct_from_value() {
+    let expected = RenamedFieldStruct::default();
+    let actual = RenamedFieldStruct::from_value(RenamedFieldStruct::value()).unwrap();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn renamed_field_struct_roundtrip() {
+    let expected = RenamedFieldStruct::default();
+    let actual = RenamedFieldStruct::from_value(RenamedFieldStruct::default().into_test_value()).unwrap();
+    assert_eq!(expected, actual);
+
+    let expected = RenamedFieldStruct::value();
+    let actual = RenamedFieldStruct::from_value(RenamedFieldStruct::value())
         .unwrap()
-        .get("field")
-        .is_some());
+        .into_test_value();
+    assert_eq!(expected, actual);
+}
+
+#[derive(IntoValue, FromValue, Default, Debug, PartialEq)]
+enum RenamedVariantEnum {
+    #[default]
+    #[nu_value(rename = "renamed")]
+    Variant
+}
+
+impl RenamedVariantEnum {
+    fn value() -> Value {
+        Value::test_string("renamed")
+    }
+}
+
+#[test]
+fn renamed_variant_enum_into_value() {
+    let expected = RenamedVariantEnum::value();
+    let actual = RenamedVariantEnum::default().into_test_value();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn renamed_variant_enum_from_value() {
+    let expected = RenamedVariantEnum::default();
+    let actual = RenamedVariantEnum::from_value(RenamedVariantEnum::value()).unwrap();
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn renamed_variant_enum_roundtrip() {
+    let expected = RenamedVariantEnum::default();
+    let actual = RenamedVariantEnum::from_value(RenamedVariantEnum::default().into_test_value()).unwrap();
+    assert_eq!(expected, actual);
+
+    let expected = RenamedVariantEnum::value();
+    let actual = RenamedVariantEnum::from_value(RenamedVariantEnum::value())
+        .unwrap()
+        .into_test_value();
+    assert_eq!(expected, actual);
 }
