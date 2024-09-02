@@ -617,7 +617,7 @@ nu_plugin_from_sse = '0.4.0'            # Nushell plugin to convert a HTTP serve
             "trace_nu_plugin = '0.3.1'",
             "nu_plugin_bash_env = '0.13.0'",
             "nu_plugin_from_sse = '0.4.0'",
-            "... and 90 crates more (use --limit N"
+            "... and 90 crates more (use --limit N",
         ];
         let got = guess_width.read_all();
         for (row_indx, row) in got.into_iter().enumerate() {
