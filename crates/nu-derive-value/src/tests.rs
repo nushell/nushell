@@ -147,19 +147,24 @@ fn invalid_attribute_position_in_tuple_struct() {
 
     let from_res = derive_from_value(input.clone());
     assert!(
-        matches!(from_res, Err(DeriveError::InvalidAttributePosition { attribute_span: _ })),
+        matches!(
+            from_res,
+            Err(DeriveError::InvalidAttributePosition { attribute_span: _ })
+        ),
         "expected `DeriveError::InvalidAttributePosition`, got {:?}",
         from_res
     );
 
     let into_res = derive_into_value(input);
     assert!(
-        matches!(into_res, Err(DeriveError::InvalidAttributePosition { attribute_span: _ })),
+        matches!(
+            into_res,
+            Err(DeriveError::InvalidAttributePosition { attribute_span: _ })
+        ),
         "expected `DeriveError::InvalidAttributePosition`, got {:?}",
         into_res
     );
 }
-
 
 #[test]
 fn invalid_attribute_value() {

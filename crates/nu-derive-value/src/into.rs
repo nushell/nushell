@@ -49,6 +49,11 @@ pub fn derive_into_value(input: TokenStream2) -> Result {
 /// `IntoValue`.
 /// For structs with named fields, the derived implementation creates a `Value::Record` using the
 /// struct fields as keys.
+/// If a field has the `#[nu_value(rename = "...")]` attribute, the specified name is used as the
+/// key.
+/// Otherwise, if the container has the `#[nu_value(rename_all = "...")]` attribute, the key is
+/// case-converted according to that rule. If neither attribute is present, the field name is used
+/// as is.
 /// Each field value is converted using the `IntoValue::into_value` method.
 /// For structs with unnamed fields, this generates a `Value::List` with each field in the list.
 /// For unit structs, this generates `Value::Nothing`, because there is no data.
@@ -150,10 +155,17 @@ fn struct_into_value(
 /// This function implements the derive macro `IntoValue` for enums.
 /// Currently, only unit enum variants are supported as it is not clear how other types of enums
 /// should be represented in a `Value`.
-/// For simple enums, we represent the enum as a `Value::String`. For other types of variants, we return an error.
-/// The variant name will be case-converted as described by the `#[nu_value(rename_all = "...")]` helper attribute.
-/// If no attribute is used, the default is `case_convert::Case::Snake`.
-/// The implementation matches over all variants, uses the appropriate variant name, and constructs a `Value::String`.
+/// For simple enums, we represent the enum as a `Value::String`. For other types of variants, we
+/// return an error.
+///
+/// The variant name used in the `Value::String` depends on the following:
+/// - If `#[nu_value(rename = "...")]` is used on a specific variant, that name is used.
+/// - Otherwise, if `#[nu_value(rename_all = "...")]` is used on the container, the variant names
+///   will be case-converted according to the specified rule.
+/// - If neither attribute is used, the default conversion is to `snake_case`.
+///
+/// The implementation matches over all variants, uses the appropriate variant name, and constructs
+/// a `Value::String`.
 ///
 /// This is how such a derived implementation looks:
 /// ```rust
@@ -161,6 +173,7 @@ fn struct_into_value(
 /// enum Weather {
 ///     Sunny,
 ///     Cloudy,
+///     #[nu_value(rename = "rain")]
 ///     Raining
 /// }
 ///
@@ -169,7 +182,7 @@ fn struct_into_value(
 ///         match self {
 ///             Self::Sunny => nu_protocol::Value::string("sunny", span),
 ///             Self::Cloudy => nu_protocol::Value::string("cloudy", span),
-///             Self::Raining => nu_protocol::Value::string("raining", span),
+///             Self::Raining => nu_protocol::Value::string("rain", span),
 ///         }
 ///     }
 /// }
@@ -220,23 +233,33 @@ fn enum_into_value(
 
 /// Constructs the final `Value` that the macro generates.
 ///
-/// This function handles the construction of the final `Value` that the macro generates.
-/// It is currently only used for structs but may be used for enums in the future.
-/// The function takes three parameters: the `fields`, which allow iterating over each field of a
-/// data type, the `accessor` and `rename_all`.
-/// The fields determine whether we need to generate a `Value::Record`, `Value::List`, or
-/// `Value::Nothing`.
-/// For named fields, they are also directly used to generate the record key.
-/// If `#[nu_value(rename_all = "...")]` is used and then passed in here via `rename_all`, the
-/// named fields will be converted to the given case and then uses as the record key.
+/// This function handles the construction of the final `Value` that the macro generates, primarily
+/// for structs.
+/// It takes three parameters: `fields`, which allows iterating over each field of a data type,
+/// `accessor`, which generalizes data access, and `rename_all`, which is an optional case
+/// conversion setting.
 ///
-/// The `accessor` parameter generalizes how the data is accessed.
-/// For named fields, this is usually the name of the fields preceded by `self` in a struct, and
-/// maybe something else for enums.
-/// For unnamed fields, this should be an iterator similar to the one with named fields, but
-/// accessing tuple fields, so we get `self.n`.
-/// For unit structs, this parameter is ignored.
-/// By using the accessor like this, we can have the same code for structs and enums with data
+/// - **Field Keys**:
+///   - If a field has the `#[nu_value(rename = "...")]` attribute, the provided name will be used
+///     directly as the key.
+///   - If the container (e.g., the struct) has the `#[nu_value(rename_all = "...")]` attribute,
+///     the field names will be case-converted according to the specified case (e.g., snake_case,
+///     camelCase) and used as the key.
+///   - If neither attribute is present, the field name is used as-is for the key.
+///
+/// - **Fields Type**:
+///   - Determines whether to generate a `Value::Record`, `Value::List`, or `Value::Nothing` based
+///     on the nature of the fields.
+///   - Named fields are directly used to generate the record key, as described above.
+///
+/// - **Accessor**:
+///   - Generalizes how data is accessed for different data types.
+///   - For named fields in structs, this is typically `self.field_name`.
+///   - For unnamed fields (e.g., tuple structs), it should be an iterator similar to named fields
+///     but accessing fields like `self.0`.
+///   - For unit structs, this parameter is ignored.
+///
+/// This design allows the same function to potentially handle both structs and enums with data
 /// variants in the future.
 fn fields_return_value(
     fields: &Fields,

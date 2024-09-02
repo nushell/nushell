@@ -216,15 +216,17 @@ fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> Result {
 
 /// Implements `FromValue::expected_type` for structs.
 ///
-/// This function constructs the `expected_type` function for structs.
-/// The type depends on the `fields`: named fields construct a record type with every key and type
-/// laid out.
-/// Unnamed fields construct a custom type with the name in the format like
-/// `list[type0, type1, type2]`.
-/// No fields expect the `Type::Nothing`.
+/// This function constructs the `expected_type` function for structs based on the provided fields.
+/// The type depends on the `fields`:
+/// - Named fields construct a record type where each key corresponds to a field name, or the name
+///   specified using the `#[nu_value(rename = "...")]` attribute.
+///   If the `#[nu_value(rename_all = "...")]` attribute is used, the names of all fields are
+///   case-converted accordingly.
+/// - Unnamed fields construct a custom type with the format `list[type0, type1, type2]`.
+/// - Unit structs expect `Type::Nothing`.
 ///
-/// If `#[nu_value(type_name = "...")]` is used, the output type will be `Type::Custom` with that
-/// passed name.
+/// If the `#[nu_value(type_name = "...")]` attribute is used, the output type will be
+/// `Type::Custom` with the provided name.
 ///
 /// # Examples
 ///
@@ -236,6 +238,7 @@ fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> Result {
 /// struct Pet {
 ///     name: String,
 ///     age: u8,
+///     #[nu_value(rename = "toy")]
 ///     favorite_toy: Option<String>,
 /// }
 ///
@@ -252,7 +255,7 @@ fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> Result {
 ///                     <u8 as nu_protocol::FromValue>::expected_type(),
 ///                 ),
 ///                 (
-///                     std::string::ToString::to_string("favorite_toy"),
+///                     std::string::ToString::to_string("toy"),
 ///                     <Option<String> as nu_protocol::FromValue>::expected_type(),
 ///                 )
 ///             ].into_boxed_slice()
@@ -407,8 +410,9 @@ fn derive_enum_from_value(
 /// should be represented via a `Value`.
 /// This function checks that every field is a unit variant and constructs a match statement over
 /// all possible variants.
-/// The input value is expected to be a `Value::String` containing the name of the variant formatted
-/// as defined by the `#[nu_value(rename_all = "...")]` attribute.
+/// The input value is expected to be a `Value::String` containing the name of the variant.
+/// This can either be the explicit name given by `#[nu_value(rename = "...")` on a specific variant
+/// or be the variant name formatted as defined by the `#[nu_value(rename_all = "...")]` attribute.
 /// If no attribute is given, [`snake_case`](heck::ToSnakeCase) is expected.
 ///
 /// If no matching variant is found, `ShellError::CantConvert` is returned.
@@ -419,6 +423,7 @@ fn derive_enum_from_value(
 /// enum Weather {
 ///     Sunny,
 ///     Cloudy,
+///     #[nu_value(rename = "rain")]
 ///     Raining
 /// }
 ///
@@ -431,7 +436,7 @@ fn derive_enum_from_value(
 ///         match s.as_str() {
 ///             "sunny" => std::result::Ok(Self::Sunny),
 ///             "cloudy" => std::result::Ok(Self::Cloudy),
-///             "raining" => std::result::Ok(Self::Raining),
+///             "rain" => std::result::Ok(Self::Raining),
 ///             _ => std::result::Result::Err(nu_protocol::ShellError::CantConvert {
 ///                 to_type: std::string::ToString::to_string(
 ///                     &<Self as nu_protocol::FromValue>::expected_type()
@@ -527,32 +532,38 @@ fn enum_expected_type(attr_type_name: Option<&str>) -> Option<TokenStream2> {
 
 /// Parses a `Value` into self.
 ///
-/// This function handles the actual parsing of a `Value` into self.
-/// It takes three parameters: `fields`, `self_ident` and `rename_all`.
-/// The `fields` parameter determines the expected type of `Value`: named fields expect a
-/// `Value::Record`, unnamed fields expect a `Value::List`, and a unit expects `Value::Nothing`.
+/// This function handles parsing a `Value` into the corresponding struct or enum variant (`self`).
+/// It takes three parameters: `fields`, `self_ident`, and `rename_all`.
 ///
-/// For named fields, the `fields` parameter indicates which field in the record corresponds to
-/// which struct field.
-/// For both named and unnamed fields, it also helps cast the type into a `FromValue` type.
-/// This approach maintains
-/// [hygiene](https://doc.rust-lang.org/reference/macros-by-example.html#hygiene).
+/// - The `fields` parameter specifies the expected structure of the `Value`:
+///   - Named fields expect a `Value::Record`.
+///   - Unnamed fields expect a `Value::List`.
+///   - A unit struct expects `Value::Nothing`.
 ///
-/// The `self_ident` parameter is used to describe the identifier of the returned value.
-/// For structs, `Self` is usually sufficient, but for enums, `Self::Variant` may be needed in the
-/// future.
+/// For named fields, each field in the record is matched to a struct field.
+/// The name matching considers attributes:
+/// - If the field has `#[nu_value(rename = "...")]`, the record field is expected to have the
+///   renamed value.
+/// - If the `#[nu_value(rename_all = "...")]` attribute is used, field names are transformed
+///   according to the specified case (e.g., snake_case, camelCase).
+/// - If no renaming attributes are provided, the field name in the record is expected to match the
+///   struct field name directly.
 ///
-/// The `rename_all` parameter is provided through `#[nu_value(rename_all = "...")]` and describes
-/// how, if passed, the field keys in the `Value` should be named.
-/// If this is `None`, we keep the names as they are in the struct.
+/// The `self_ident` parameter is used to specify the identifier for the returned value.
+/// For most structs, `Self` is sufficient, but `Self::Variant` may be needed for enum variants.
 ///
-/// This function is more complex than the equivalent for `IntoValue` due to error handling
-/// requirements.
-/// For missing fields, `ShellError::CantFindColumn` is used, and for unit structs,
-/// `ShellError::CantConvert` is used.
+/// The `rename_all` parameter, provided through `#[nu_value(rename_all = "...")]`, defines how the
+/// field names in the `Value` are transformed before matching with the struct fields.
+/// If this parameter is `None`, the field names in the struct are used as-is.
+///
+/// This function is more complex than the equivalent for `IntoValue` due to additional error
+/// handling:
+/// - If a named field is missing in the `Value`, `ShellError::CantFindColumn` is returned.
+/// - For unit structs, if the value is not `Value::Nothing`, `ShellError::CantConvert` is returned.
+///
 /// The implementation avoids local variables for fields to prevent accidental shadowing, ensuring
-/// that poorly named fields don't cause issues.
-/// While this style is not typically recommended in handwritten Rust, it is acceptable for code
+/// that fields with similar names do not cause unexpected behavior.
+/// This approach is not typically recommended in handwritten Rust, but it is acceptable for code
 /// generation.
 fn parse_value_via_fields(
     fields: &Fields,

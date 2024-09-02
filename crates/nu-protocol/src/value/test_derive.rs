@@ -618,7 +618,8 @@ fn renamed_field_struct_from_value() {
 #[test]
 fn renamed_field_struct_roundtrip() {
     let expected = RenamedFieldStruct::default();
-    let actual = RenamedFieldStruct::from_value(RenamedFieldStruct::default().into_test_value()).unwrap();
+    let actual =
+        RenamedFieldStruct::from_value(RenamedFieldStruct::default().into_test_value()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = RenamedFieldStruct::value();
@@ -632,7 +633,7 @@ fn renamed_field_struct_roundtrip() {
 enum RenamedVariantEnum {
     #[default]
     #[nu_value(rename = "renamed")]
-    Variant
+    Variant,
 }
 
 impl RenamedVariantEnum {
@@ -658,7 +659,8 @@ fn renamed_variant_enum_from_value() {
 #[test]
 fn renamed_variant_enum_roundtrip() {
     let expected = RenamedVariantEnum::default();
-    let actual = RenamedVariantEnum::from_value(RenamedVariantEnum::default().into_test_value()).unwrap();
+    let actual =
+        RenamedVariantEnum::from_value(RenamedVariantEnum::default().into_test_value()).unwrap();
     assert_eq!(expected, actual);
 
     let expected = RenamedVariantEnum::value();
