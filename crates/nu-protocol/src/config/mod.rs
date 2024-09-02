@@ -176,27 +176,7 @@ impl Value {
             let span = value.span();
             match key {
                 "ls" => {
-                    if let Value::Record { val, .. } = value {
-                        val.to_mut().retain_mut(|key2, value| {
-                            let span = value.span();
-                            match key2 {
-                                "use_ls_colors" => {
-                                    process_bool_config(value, &mut errors, &mut config.ls.use_ls_colors);
-                                }
-                                "clickable_links" => {
-                                    process_bool_config(value, &mut errors, &mut config.ls.clickable_links);
-                                }
-                                _ => {
-                                    report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false;
-                                }
-                            }
-                            true
-                        });
-                    } else {
-                        report_invalid_value("should be a record", span, &mut errors);
-                        *value = config.ls.into_value(span);
-                    }
+                    config.ls.update(value, path, &mut errors);
                 }
                 "rm" => {
                     if let Value::Record { val, .. } = value {
