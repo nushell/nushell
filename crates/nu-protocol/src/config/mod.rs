@@ -11,7 +11,6 @@ use table::try_parse_trim_strategy;
 pub use self::completer::{
     CompleterConfig, CompletionAlgorithm, CompletionSort, ExternalCompleterConfig,
 };
-pub use self::cursor_shape::CursorShapeConfig;
 pub use self::datetime_format::DatetimeFormatConfig;
 pub use self::filesize::FilesizeConfig;
 pub use self::helper::extract_value;
@@ -21,14 +20,14 @@ pub use self::ls::LsConfig;
 pub use self::output::ErrorStyle;
 pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
-    create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
+    create_menus, CursorShapeConfig, EditBindings, HistoryFileFormat, NuCursorShape,
+    ParsedKeybinding, ParsedMenu,
 };
 pub use self::rm::RmConfig;
 pub use self::shell_integration::ShellIntegrationConfig;
 pub use self::table::{FooterMode, TableConfig, TableIndexMode, TableMode, TrimStrategy};
 
 mod completer;
-mod cursor_shape;
 mod datetime_format;
 mod filesize;
 mod helper;

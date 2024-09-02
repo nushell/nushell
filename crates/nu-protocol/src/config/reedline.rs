@@ -52,6 +52,13 @@ impl FromStr for NuCursorShape {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CursorShapeConfig {
+    pub emacs: NuCursorShape,
+    pub vi_insert: NuCursorShape,
+    pub vi_normal: NuCursorShape,
+}
+
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoryFileFormat {
     /// Store history as an SQLite database with additional context
