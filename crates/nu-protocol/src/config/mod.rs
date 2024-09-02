@@ -454,11 +454,11 @@ impl Value {
                                 }
                                 "abbreviated_row_count" => {
                                     if let Ok(b) = value.as_int() {
-                                        if b < 0 {
+                                        if b >= 0 {
+                                            config.table.abbreviated_row_count = Some(b as usize);
+                                        } else {
                                             report_invalid_value("should be an int unsigned", span, &mut errors);
                                         }
-
-                                        config.table.abbreviated_row_count = Some(b as usize);
                                     } else {
                                         report_invalid_value("should be an int", span, &mut errors);
                                     }
