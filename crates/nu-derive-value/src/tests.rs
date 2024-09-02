@@ -86,26 +86,51 @@ fn unexpected_attribute() {
 }
 
 #[test]
-#[ignore = "we allow some field attributes now"]
-fn deny_attribute_on_fields() {
+fn unexpected_attribute_on_struct_field() {
     let input = quote! {
-        struct SomeStruct {
-            #[nu_value]
-            field: ()
+        struct SimpleStruct {
+            #[nu_value(what)]
+            field_a: i32,
+            field_b: String,
         }
     };
 
     let from_res = derive_from_value(input.clone());
     assert!(
-        matches!(from_res, Err(DeriveError::InvalidAttributePosition { .. })),
-        "expected `DeriveError::InvalidAttributePosition`, got {:?}",
+        matches!(from_res, Err(DeriveError::UnexpectedAttribute { .. })),
+        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
         from_res
     );
 
     let into_res = derive_into_value(input);
     assert!(
-        matches!(into_res, Err(DeriveError::InvalidAttributePosition { .. })),
-        "expected `DeriveError::InvalidAttributePosition`, got {:?}",
+        matches!(into_res, Err(DeriveError::UnexpectedAttribute { .. })),
+        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
+        into_res
+    );
+}
+
+#[test]
+fn unexpected_attribute_on_enum_variant() {
+    let input = quote! {
+        enum SimpleEnum {
+            #[nu_value(what)]
+            A,
+            B,
+        }
+    };
+
+    let from_res = derive_from_value(input.clone());
+    assert!(
+        matches!(from_res, Err(DeriveError::UnexpectedAttribute { .. })),
+        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
+        from_res
+    );
+
+    let into_res = derive_into_value(input);
+    assert!(
+        matches!(into_res, Err(DeriveError::UnexpectedAttribute { .. })),
+        "expected `DeriveError::UnexpectedAttribute`, got {:?}",
         into_res
     );
 }
