@@ -258,30 +258,7 @@ impl Value {
                     config.completions.update(value, path, &mut errors);
                 }
                 "cursor_shape" => {
-                    if let Value::Record { val, .. } = value {
-                        val.to_mut().retain_mut(|key2, value| {
-                            let span = value.span();
-                            let config_point = match key2 {
-                                "vi_insert" => &mut config.cursor_shape.vi_insert,
-                                "vi_normal" => &mut config.cursor_shape.vi_normal,
-                                "emacs" => &mut config.cursor_shape.emacs,
-                                _ => {
-                                    report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false;
-                                }
-                            };
-                            process_string_enum(
-                                config_point,
-                                &[key, key2],
-                                value,
-                                &mut errors
-                            );
-                            true
-                        });
-                    } else {
-                        report_invalid_value("should be a record", span, &mut errors);
-                        *value = config.cursor_shape.into_value(span);
-                    }
+                    config.cursor_shape.update(value, path, &mut errors);
                 }
                 "table" => {
                     if let Value::Record { val, .. } = value {

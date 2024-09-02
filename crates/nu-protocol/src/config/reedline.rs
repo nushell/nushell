@@ -1,4 +1,7 @@
-use super::{extract_value, prelude::*};
+use super::{
+    config_update_string_enum, extract_value, prelude::*, report_invalid_config_key,
+    report_invalid_config_value,
+};
 use crate as nu_protocol;
 
 /// Definition of a parsed keybinding from the config object
@@ -51,11 +54,43 @@ impl FromStr for NuCursorShape {
     }
 }
 
+impl UpdateFromValue for NuCursorShape {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+        config_update_string_enum(self, value, path, errors)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CursorShapeConfig {
     pub emacs: NuCursorShape,
     pub vi_insert: NuCursorShape,
     pub vi_normal: NuCursorShape,
+}
+
+impl UpdateFromValue for CursorShapeConfig {
+    fn update<'a>(
+        &mut self,
+        value: &'a Value,
+        path: &mut ConfigPath<'a>,
+        errors: &mut Vec<ShellError>,
+    ) {
+        let span = value.span();
+        let Value::Record { val: record, .. } = value else {
+            report_invalid_config_value("should be a record", span, path, errors);
+            return;
+        };
+
+        for (col, val) in record.iter() {
+            let path = &mut path.push(col);
+            let span = val.span();
+            match col.as_str() {
+                "vi_insert" => self.vi_insert.update(val, path, errors),
+                "vi_normal" => self.vi_normal.update(val, path, errors),
+                "emacs" => self.emacs.update(val, path, errors),
+                _ => report_invalid_config_key(span, path, errors),
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
