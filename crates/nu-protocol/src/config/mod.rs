@@ -456,9 +456,11 @@ impl Value {
                                             config.table.abbreviated_row_count = Some(b as usize);
                                         } else {
                                             report_invalid_value("should be an int unsigned", span, &mut errors);
+                                            *value = config.table.abbreviated_row_count.map(|count| Value::int(count as i64, span)).unwrap_or(Value::nothing(span));
                                         }
                                     } else {
                                         report_invalid_value("should be an int", span, &mut errors);
+                                        *value = config.table.abbreviated_row_count.map(|count| Value::int(count as i64, span)).unwrap_or(Value::nothing(span))
                                     }
                                 }
                                 _ => {
