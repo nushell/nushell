@@ -1,5 +1,25 @@
-use super::{prelude::*, HistoryFileFormat};
+use super::prelude::*;
 use crate as nu_protocol;
+
+#[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HistoryFileFormat {
+    /// Store history as an SQLite database with additional context
+    Sqlite,
+    /// store history as a plain text file where every line is one command (without any context such as timestamps)
+    Plaintext,
+}
+
+impl FromStr for HistoryFileFormat {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "sqlite" => Ok(Self::Sqlite),
+            "plaintext" => Ok(Self::Plaintext),
+            _ => Err("expected either 'sqlite' or 'plaintext'"),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HistoryConfig {

@@ -14,14 +14,13 @@ pub use self::completer::{
 pub use self::datetime_format::DatetimeFormatConfig;
 pub use self::filesize::FilesizeConfig;
 pub use self::helper::extract_value;
-pub use self::history::HistoryConfig;
+pub use self::history::{HistoryConfig, HistoryFileFormat};
 pub use self::hooks::Hooks;
 pub use self::ls::LsConfig;
 pub use self::output::ErrorStyle;
 pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
-    create_menus, CursorShapeConfig, EditBindings, HistoryFileFormat, NuCursorShape,
-    ParsedKeybinding, ParsedMenu,
+    create_menus, CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
 pub use self::rm::RmConfig;
 pub use self::shell_integration::ShellIntegrationConfig;
