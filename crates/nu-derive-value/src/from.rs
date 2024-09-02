@@ -13,6 +13,7 @@ use crate::{
 #[derive(Debug)]
 pub struct FromValue;
 type DeriveError = super::error::DeriveError<FromValue>;
+type Result<T = TokenStream2> = std::result::Result<T, DeriveError>;
 
 /// Inner implementation of the `#[derive(FromValue)]` macro for structs and enums.
 ///
@@ -23,7 +24,7 @@ type DeriveError = super::error::DeriveError<FromValue>;
 /// - For structs: [`derive_struct_from_value`]
 /// - For enums: [`derive_enum_from_value`]
 /// - Unions are not supported and will return an error.
-pub fn derive_from_value(input: TokenStream2) -> Result<TokenStream2, DeriveError> {
+pub fn derive_from_value(input: TokenStream2) -> Result {
     let input: DeriveInput = syn::parse2(input).map_err(DeriveError::Syn)?;
     match input.data {
         Data::Struct(data_struct) => Ok(derive_struct_from_value(
@@ -52,12 +53,15 @@ fn derive_struct_from_value(
     data: DataStruct,
     generics: Generics,
     attrs: Vec<Attribute>,
-) -> Result<TokenStream2, DeriveError> {
+) -> Result {
     let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let from_value_impl = struct_from_value(&data, container_attrs.rename_all)?;
-    let expected_type_impl =
-        struct_expected_type(&data.fields, container_attrs.type_name.as_deref(), container_attrs.rename_all)?;
+    let expected_type_impl = struct_expected_type(
+        &data.fields,
+        container_attrs.type_name.as_deref(),
+        container_attrs.rename_all,
+    )?;
     Ok(quote! {
         #[automatically_derived]
         impl #impl_generics nu_protocol::FromValue for #ident #ty_generics #where_clause {
@@ -199,7 +203,7 @@ fn derive_struct_from_value(
 ///     }
 /// }
 /// ```
-fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> Result<TokenStream2, DeriveError> {
+fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> Result {
     let body = parse_value_via_fields(&data.fields, quote!(Self), rename_all)?;
     Ok(quote! {
         fn from_value(
@@ -304,7 +308,11 @@ fn struct_from_value(data: &DataStruct, rename_all: Option<Case>) -> Result<Toke
 ///     }
 /// }
 /// ```
-fn struct_expected_type(fields: &Fields, attr_type_name: Option<&str>, rename_all: Option<Case>) -> Result<TokenStream2, DeriveError> {
+fn struct_expected_type(
+    fields: &Fields,
+    attr_type_name: Option<&str>,
+    rename_all: Option<Case>,
+) -> Result {
     let ty = match (fields, attr_type_name) {
         (_, Some(type_name)) => {
             quote!(nu_protocol::Type::Custom(
@@ -378,7 +386,7 @@ fn derive_enum_from_value(
     data: DataEnum,
     generics: Generics,
     attrs: Vec<Attribute>,
-) -> Result<TokenStream2, DeriveError> {
+) -> Result {
     let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let from_value_impl = enum_from_value(&data, &attrs)?;
@@ -435,7 +443,7 @@ fn derive_enum_from_value(
 ///     }
 /// }
 /// ```
-fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2, DeriveError> {
+fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result {
     let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let arms: Vec<TokenStream2> = data
         .variants
@@ -456,7 +464,7 @@ fn enum_from_value(data: &DataEnum, attrs: &[Attribute]) -> Result<TokenStream2,
                 Fields::Unit => Ok(quote!(#ident_s => std::result::Result::Ok(Self::#ident))),
             }
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<_>>()?;
 
     Ok(quote! {
         fn from_value(
@@ -549,7 +557,7 @@ fn parse_value_via_fields(
     fields: &Fields,
     self_ident: impl ToTokens,
     rename_all: Option<Case>,
-) -> Result<TokenStream2, DeriveError> {
+) -> Result {
     match fields {
         Fields::Named(fields) => {
             let mut fields_ts: Vec<TokenStream2> = Vec::with_capacity(fields.named.len());
@@ -559,7 +567,7 @@ fn parse_value_via_fields(
                 let ident_s = match (rename, rename_all) {
                     (Some(rename), _) => rename,
                     (None, Some(case)) => ident.to_string().to_case(case),
-                    (None, None) => ident.to_string()
+                    (None, None) => ident.to_string(),
                 };
                 let ty = &field.ty;
                 fields_ts.push(match type_is_option(ty) {
@@ -583,7 +591,7 @@ fn parse_value_via_fields(
                         )?
                     },
                 });
-            };
+            }
             Ok(quote! {
                 let span = v.span();
                 let mut record = v.into_record()?;

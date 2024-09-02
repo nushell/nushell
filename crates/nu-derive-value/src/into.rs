@@ -13,6 +13,7 @@ use crate::{
 #[derive(Debug)]
 pub struct IntoValue;
 type DeriveError = super::error::DeriveError<IntoValue>;
+type Result<T = TokenStream2> = std::result::Result<T, DeriveError>;
 
 /// Inner implementation of the `#[derive(IntoValue)]` macro for structs and enums.
 ///
@@ -23,7 +24,7 @@ type DeriveError = super::error::DeriveError<IntoValue>;
 /// - For structs: [`struct_into_value`]
 /// - For enums: [`enum_into_value`]
 /// - Unions are not supported and will return an error.
-pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, DeriveError> {
+pub fn derive_into_value(input: TokenStream2) -> Result {
     let input: DeriveInput = syn::parse2(input).map_err(DeriveError::Syn)?;
     match input.data {
         Data::Struct(data_struct) => Ok(struct_into_value(
@@ -111,7 +112,7 @@ fn struct_into_value(
     data: DataStruct,
     generics: Generics,
     attrs: Vec<Attribute>,
-) -> Result<TokenStream2, DeriveError> {
+) -> Result {
     let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
     let record = match &data.fields {
         Fields::Named(fields) => {
@@ -178,7 +179,7 @@ fn enum_into_value(
     data: DataEnum,
     generics: Generics,
     attrs: Vec<Attribute>,
-) -> Result<TokenStream2, DeriveError> {
+) -> Result {
     let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
     let arms: Vec<TokenStream2> = data
         .variants
@@ -203,7 +204,7 @@ fn enum_into_value(
                 }
             }
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<_>>()?;
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     Ok(quote! {
@@ -241,7 +242,7 @@ fn fields_return_value(
     fields: &Fields,
     accessor: impl Iterator<Item = impl ToTokens>,
     rename_all: Option<Case>,
-) -> Result<TokenStream2, DeriveError> {
+) -> Result {
     match fields {
         Fields::Named(fields) => {
             let mut items: Vec<TokenStream2> = Vec::with_capacity(fields.named.len());
