@@ -657,6 +657,15 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
     println!("Encoder: {}", encoder.name());
     println!("Version: {}", plugin.version());
 
+    // Determine the plugin name
+    let exe = std::env::current_exe().ok();
+    let plugin_name: String = exe
+        .as_ref()
+        // .and_then(|path| path.file_stem())
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "(unknown)".into());
+    println!("Plugin file path: {}", plugin_name);
+
     let mut help = String::new();
     let help_style = HelpStyle::default();
 
