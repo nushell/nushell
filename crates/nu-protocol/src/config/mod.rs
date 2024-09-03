@@ -4,7 +4,6 @@ use self::helper::*;
 use crate::{FromValue, IntoValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use table::try_parse_trim_strategy;
 
 pub use self::completions::{
     CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
@@ -178,7 +177,7 @@ impl Value {
                     config.ls.update(value, path, &mut errors);
                 }
                 "rm" => {
-                   config.rm.update(value, path, &mut errors);
+                    config.rm.update(value, path, &mut errors);
                 }
                 "history" => {
                     config.history.update(value, path, &mut errors);
@@ -190,124 +189,7 @@ impl Value {
                     config.cursor_shape.update(value, path, &mut errors);
                 }
                 "table" => {
-                    if let Value::Record { val, .. } = value {
-                        val.to_mut().retain_mut(|key2, value| {
-                            let span = value.span();
-                            match key2 {
-                                "mode" => {
-                                    process_string_enum(
-                                        &mut config.table.mode,
-                                        &[key, key2],
-                                        value,
-                                        &mut errors
-                                    );
-                                }
-                                "header_on_separator" => {
-                                    process_bool_config(value, &mut errors, &mut config.table.header_on_separator);
-                                }
-                                "padding" => match value {
-                                    Value::Int { val, .. } => {
-                                        if *val < 0 {
-                                            report_invalid_value("expected a unsigned integer", span, &mut errors);
-                                            *value = config.table.padding.into_value(span);
-                                        } else {
-                                            config.table.padding.left = *val as usize;
-                                            config.table.padding.right = *val as usize;
-                                        }
-                                    }
-                                    Value::Record { val, .. } => {
-                                        let mut invalid = false;
-                                        val.to_mut().retain(|key3, value| {
-                                            match key3 {
-                                                "left" => {
-                                                    match value.as_int() {
-                                                        Ok(val) if val >= 0 => {
-                                                            config.table.padding.left = val as usize;
-                                                        }
-                                                        _ => {
-                                                            report_invalid_value("expected a unsigned integer >= 0", span, &mut errors);
-                                                            invalid = true;
-                                                        }
-                                                    }
-                                                }
-                                                "right" => {
-                                                    match value.as_int() {
-                                                        Ok(val) if val >= 0 => {
-                                                            config.table.padding.right = val as usize;
-                                                        }
-                                                        _ => {
-                                                            report_invalid_value("expected a unsigned integer >= 0", span, &mut errors);
-                                                            invalid = true;
-                                                        }
-                                                    }
-                                                }
-                                                _ => {
-                                                    report_invalid_key(&[key, key2, key3], span, &mut errors);
-                                                    return false;
-                                                }
-                                            };
-                                            true
-                                        });
-                                        if invalid {
-                                            *value = config.table.padding.into_value(span);
-                                        }
-                                    }
-                                    _ => {
-                                        report_invalid_value("expected a unsigned integer or a record", span, &mut errors);
-                                        *value = config.table.padding.into_value(span);
-                                    }
-                                },
-                                "index_mode" => {
-                                    process_string_enum(
-                                        &mut config.table.index_mode,
-                                        &[key, key2],
-                                        value,
-                                        &mut errors
-                                    );
-                                }
-                                "trim" => {
-                                    match try_parse_trim_strategy(value, &mut errors) {
-                                        Ok(v) => config.table.trim = v,
-                                        Err(e) => {
-                                            // try_parse_trim_strategy() already adds its own errors
-                                            errors.push(e);
-                                            *value = config.table.trim.clone().into_value(span);
-                                        }
-                                    }
-                                }
-                                "show_empty" => {
-                                    process_bool_config(value, &mut errors, &mut config.table.show_empty);
-                                }
-                                "abbreviated_row_count" => {
-                                    match *value {
-                                        Value::Int { val, .. } => {
-                                            if val >= 0 {
-                                                config.table.abbreviated_row_count = Some(val as usize);
-                                            } else {
-                                                report_invalid_value("should be an int unsigned", span, &mut errors);
-                                                *value = config.table.abbreviated_row_count.map(|count| Value::int(count as i64, span)).unwrap_or(Value::nothing(span));
-                                            }
-                                        }
-                                        Value::Nothing { .. } => {
-                                            config.table.abbreviated_row_count = None;
-                                        }
-                                        _ => {
-                                            report_invalid_value("should be an int", span, &mut errors);
-                                            *value = config.table.abbreviated_row_count.map(|count| Value::int(count as i64, span)).unwrap_or(Value::nothing(span))
-                                        }
-                                    }
-                                }
-                                _ => {
-                                    report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false;
-                                }
-                            };
-                            true
-                        });
-                    } else {
-                        report_invalid_value("should be a record", span, &mut errors);
-                        *value = config.table.clone().into_value(span);
-                    }
+                    config.table.update(value, path, &mut errors);
                 }
                 "filesize" => {
                     config.filesize.update(value, path, &mut errors);
@@ -338,12 +220,7 @@ impl Value {
                     );
                 }
                 "footer_mode" => {
-                    process_string_enum(
-                        &mut config.footer_mode,
-                        &[key],
-                        value,
-                        &mut errors
-                    );
+                    process_string_enum(&mut config.footer_mode, &[key], value, &mut errors);
                 }
                 "float_precision" => {
                     process_int_config(value, &mut errors, &mut config.float_precision);
@@ -352,12 +229,7 @@ impl Value {
                     process_bool_config(value, &mut errors, &mut config.use_ansi_coloring);
                 }
                 "edit_mode" => {
-                    process_string_enum(
-                        &mut config.edit_mode,
-                        &[key],
-                        value,
-                        &mut errors
-                    );
+                    process_string_enum(&mut config.edit_mode, &[key], value, &mut errors);
                 }
                 "shell_integration" => {
                     config.shell_integration.update(value, path, &mut errors);
@@ -372,7 +244,11 @@ impl Value {
                         config.buffer_editor = value.clone();
                     }
                     _ => {
-                        report_invalid_value("should be a string, list<string>, or null", span, &mut errors);
+                        report_invalid_value(
+                            "should be a string, list<string>, or null",
+                            span,
+                            &mut errors,
+                        );
                         *value = config.buffer_editor.clone();
                     }
                 },
@@ -380,7 +256,11 @@ impl Value {
                     process_bool_config(value, &mut errors, &mut config.show_banner);
                 }
                 "render_right_prompt_on_last_line" => {
-                    process_bool_config(value, &mut errors, &mut config.render_right_prompt_on_last_line);
+                    process_bool_config(
+                        value,
+                        &mut errors,
+                        &mut config.render_right_prompt_on_last_line,
+                    );
                 }
                 "bracketed_paste" => {
                     process_bool_config(value, &mut errors, &mut config.bracketed_paste);
@@ -389,7 +269,11 @@ impl Value {
                     process_bool_config(value, &mut errors, &mut config.use_kitty_protocol);
                 }
                 "highlight_resolved_externals" => {
-                    process_bool_config(value, &mut errors, &mut config.highlight_resolved_externals);
+                    process_bool_config(
+                        value,
+                        &mut errors,
+                        &mut config.highlight_resolved_externals,
+                    );
                 }
                 "plugins" => {
                     if let Ok(map) = create_map(value) {
@@ -405,14 +289,24 @@ impl Value {
                 "menus" => match Vec::from_value(value.clone()) {
                     Ok(menus) => config.menus = menus,
                     Err(e) => {
-                        report_invalid_config_value("should be a valid list of menus", span, &path.push("menus"), &mut errors);
+                        report_invalid_config_value(
+                            "should be a valid list of menus",
+                            span,
+                            &path.push("menus"),
+                            &mut errors,
+                        );
                         errors.push(e);
                     }
                 },
                 "keybindings" => match Vec::from_value(value.clone()) {
                     Ok(keybindings) => config.keybindings = keybindings,
                     Err(e) => {
-                        report_invalid_config_value("should be a valid keybindings list", span, &path.push("keybindings"), &mut errors);
+                        report_invalid_config_value(
+                            "should be a valid keybindings list",
+                            span,
+                            &path.push("keybindings"),
+                            &mut errors,
+                        );
                         errors.push(e);
                     }
                 },
@@ -423,24 +317,33 @@ impl Value {
                     config.datetime_format.update(value, path, &mut errors);
                 }
                 "error_style" => {
-                    process_string_enum(
-                        &mut config.error_style,
-                        &[key],
-                        value,
-                        &mut errors
-                    );
+                    process_string_enum(&mut config.error_style, &[key], value, &mut errors);
                 }
                 "recursion_limit" => {
                     if let Value::Int { val, internal_span } = value {
                         if val > &mut 1 {
                             config.recursion_limit = *val;
                         } else {
-                            report_invalid_value("should be a integer greater than 1", span, &mut errors);
-                            *value = Value::Int { val: 50, internal_span: *internal_span };
+                            report_invalid_value(
+                                "should be a integer greater than 1",
+                                span,
+                                &mut errors,
+                            );
+                            *value = Value::Int {
+                                val: 50,
+                                internal_span: *internal_span,
+                            };
                         }
                     } else {
-                        report_invalid_value("should be a integer greater than 1", span, &mut errors);
-                        *value = Value::Int { val: 50, internal_span: value.span() };
+                        report_invalid_value(
+                            "should be a integer greater than 1",
+                            span,
+                            &mut errors,
+                        );
+                        *value = Value::Int {
+                            val: 50,
+                            internal_span: value.span(),
+                        };
                     }
                 }
                 // Catch all
