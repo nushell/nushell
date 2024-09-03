@@ -1,4 +1,4 @@
-use super::prelude::*;
+use super::{config_update_string_enum, prelude::*};
 use crate as nu_protocol;
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
@@ -16,5 +16,11 @@ impl FromStr for ErrorStyle {
             "plain" => Ok(Self::Plain),
             _ => Err("expected either 'fancy' or 'plain'"),
         }
+    }
+}
+
+impl UpdateFromValue for ErrorStyle {
+    fn update(&mut self, value: &Value, path: &mut ConfigPath, errors: &mut Vec<ShellError>) {
+        config_update_string_enum(self, value, path, errors)
     }
 }
