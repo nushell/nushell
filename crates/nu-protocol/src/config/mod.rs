@@ -178,24 +178,7 @@ impl Value {
                     config.ls.update(value, path, &mut errors);
                 }
                 "rm" => {
-                    if let Value::Record { val, .. } = value {
-                        val.to_mut().retain_mut(|key2, value| {
-                            let span = value.span();
-                            match key2 {
-                                "always_trash" => {
-                                    process_bool_config(value, &mut errors, &mut config.rm.always_trash);
-                                }
-                                _ => {
-                                    report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false;
-                                }
-                            };
-                            true
-                        });
-                    } else {
-                        report_invalid_value("should be a record", span, &mut errors);
-                        *value = config.rm.into_value(span);
-                    }
+                   config.rm.update(value, path, &mut errors);
                 }
                 "history" => {
                     config.history.update(value, path, &mut errors);
