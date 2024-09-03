@@ -73,6 +73,7 @@ features = [
 	"strings",
 	"string_to_integer",
 	"streaming",
+	"temporal",
 	"to_dummies",
 ]
 optional = false
