@@ -5,11 +5,10 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    create_menus,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, EditBindings, ParsedKeybinding, ParsedMenu, PipelineData, Record,
-    ShellError, Span, Value,
+    extract_value, Config, EditBindings, FromValue, ParsedKeybinding, ParsedMenu, PipelineData,
+    Record, ShellError, Span, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -137,15 +136,13 @@ pub(crate) fn add_menus(
 
     for res in menu_eval_results.into_iter() {
         if let PipelineData::Value(value, None) = res {
-            for menu in create_menus(&value)? {
-                line_editor = add_menu(
-                    line_editor,
-                    &menu,
-                    new_engine_state_ref.clone(),
-                    stack,
-                    config.clone(),
-                )?;
-            }
+            line_editor = add_menu(
+                line_editor,
+                &ParsedMenu::from_value(value)?,
+                new_engine_state_ref.clone(),
+                stack,
+                config.clone(),
+            )?;
         }
     }
 
@@ -262,30 +259,23 @@ pub(crate) fn add_columnar_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
 
-    let span = menu.source.span();
-    match &menu.source {
-        Value::Nothing { .. } => {
-            Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
-        }
-        Value::Closure { val, .. } => {
-            let menu_completer = NuMenuCompleter::new(
-                val.block_id,
-                span,
-                stack.captures_to_stack(val.captures.clone()),
-                engine_state,
-                only_buffer_difference,
-            );
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(columnar_menu),
-                completer: Box::new(menu_completer),
-            }))
-        }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "block or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(config),
+    let completer = if let Some(closure) = &menu.source {
+        let menu_completer = NuMenuCompleter::new(
+            closure.block_id,
             span,
-        }),
-    }
+            stack.captures_to_stack(closure.captures.clone()),
+            engine_state,
+            only_buffer_difference,
+        );
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(columnar_menu),
+            completer: Box::new(menu_completer),
+        }
+    } else {
+        ReedlineMenu::EngineCompleter(Box::new(columnar_menu))
+    };
+
+    Ok(line_editor.with_menu(completer))
 }
 
 // Adds a search menu to the line editor
@@ -318,30 +308,23 @@ pub(crate) fn add_list_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
 
-    let span = menu.source.span();
-    match &menu.source {
-        Value::Nothing { .. } => {
-            Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
+    let completer = if let Some(closure) = &menu.source {
+        let menu_completer = NuMenuCompleter::new(
+            closure.block_id,
+            span,
+            stack.captures_to_stack(closure.captures.clone()),
+            engine_state,
+            only_buffer_difference,
+        );
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(list_menu),
+            completer: Box::new(menu_completer),
         }
-        Value::Closure { val, .. } => {
-            let menu_completer = NuMenuCompleter::new(
-                val.block_id,
-                span,
-                stack.captures_to_stack(val.captures.clone()),
-                engine_state,
-                only_buffer_difference,
-            );
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(list_menu),
-                completer: Box::new(menu_completer),
-            }))
-        }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "block or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(&config),
-            span: menu.source.span(),
-        }),
-    }
+    } else {
+        ReedlineMenu::HistoryMenu(Box::new(list_menu))
+    };
+
+    Ok(line_editor.with_menu(completer))
 }
 
 // Adds an IDE menu to the line editor
@@ -499,30 +482,23 @@ pub(crate) fn add_ide_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     ide_menu = ide_menu.with_only_buffer_difference(only_buffer_difference);
 
-    let span = menu.source.span();
-    match &menu.source {
-        Value::Nothing { .. } => {
-            Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(ide_menu))))
-        }
-        Value::Closure { val, .. } => {
-            let menu_completer = NuMenuCompleter::new(
-                val.block_id,
-                span,
-                stack.captures_to_stack(val.captures.clone()),
-                engine_state,
-                only_buffer_difference,
-            );
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(ide_menu),
-                completer: Box::new(menu_completer),
-            }))
-        }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "block or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(&config),
+    let completer = if let Some(closure) = &menu.source {
+        let menu_completer = NuMenuCompleter::new(
+            closure.block_id,
             span,
-        }),
-    }
+            stack.captures_to_stack(closure.captures.clone()),
+            engine_state,
+            only_buffer_difference,
+        );
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(ide_menu),
+            completer: Box::new(menu_completer),
+        }
+    } else {
+        ReedlineMenu::EngineCompleter(Box::new(ide_menu))
+    };
+
+    Ok(line_editor.with_menu(completer))
 }
 
 // Adds a description menu to the line editor
@@ -587,34 +563,27 @@ pub(crate) fn add_description_menu(
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
 
-    let span = menu.source.span();
-    match &menu.source {
-        Value::Nothing { .. } => {
-            let completer = Box::new(NuHelpCompleter::new(engine_state, config));
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(description_menu),
-                completer,
-            }))
+    let completer = if let Some(closure) = &menu.source {
+        let menu_completer = NuMenuCompleter::new(
+            closure.block_id,
+            span,
+            stack.captures_to_stack(closure.captures.clone()),
+            engine_state,
+            only_buffer_difference,
+        );
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(description_menu),
+            completer: Box::new(menu_completer),
         }
-        Value::Closure { val, .. } => {
-            let menu_completer = NuMenuCompleter::new(
-                val.block_id,
-                span,
-                stack.captures_to_stack(val.captures.clone()),
-                engine_state,
-                only_buffer_difference,
-            );
-            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
-                menu: Box::new(description_menu),
-                completer: Box::new(menu_completer),
-            }))
+    } else {
+        let menu_completer = NuHelpCompleter::new(engine_state, config);
+        ReedlineMenu::WithCompleter {
+            menu: Box::new(description_menu),
+            completer: Box::new(menu_completer),
         }
-        _ => Err(ShellError::UnsupportedConfigValue {
-            expected: "closure or omitted value".to_string(),
-            value: menu.source.to_abbreviated_string(&config),
-            span: menu.source.span(),
-        }),
-    }
+    };
+
+    Ok(line_editor.with_menu(completer))
 }
 
 fn add_menu_keybindings(keybindings: &mut Keybindings) {

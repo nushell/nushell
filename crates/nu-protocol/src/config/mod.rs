@@ -1,8 +1,7 @@
 //! Module containing the internal representation of user configuration
 use self::helper::*;
 
-use crate::{IntoValue, ShellError, Span, Value};
-use reedline::create_keybindings;
+use crate::{FromValue, IntoValue, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use table::try_parse_trim_strategy;
@@ -19,7 +18,7 @@ pub use self::ls::LsConfig;
 pub use self::output::ErrorStyle;
 pub use self::plugin_gc::{PluginGcConfig, PluginGcConfigs};
 pub use self::reedline::{
-    create_menus, CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu,
+    CursorShapeConfig, EditBindings, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
 pub use self::rm::RmConfig;
 pub use self::shell_integration::ShellIntegrationConfig;
@@ -455,20 +454,18 @@ impl Value {
                 "plugin_gc" => {
                     config.plugin_gc.update(value, path, &mut errors);
                 }
-                "menus" => match create_menus(value) {
-                    Ok(map) => config.menus = map,
+                "menus" => match Vec::from_value(value.clone()) {
+                    Ok(menus) => config.menus = menus,
                     Err(e) => {
-                        report_invalid_value("should be a valid list of menus", span, &mut errors);
+                        report_invalid_config_value("should be a valid list of menus", span, &path.push("menus"), &mut errors);
                         errors.push(e);
-                        *value = config.menus.clone().into_value(span);
                     }
                 },
-                "keybindings" => match create_keybindings(value) {
+                "keybindings" => match Vec::from_value(value.clone()) {
                     Ok(keybindings) => config.keybindings = keybindings,
                     Err(e) => {
-                        report_invalid_value("should be a valid keybindings list", span, &mut errors);
+                        report_invalid_config_value("should be a valid keybindings list", span, &path.push("keybindings"), &mut errors);
                         errors.push(e);
-                        *value = config.keybindings.clone().into_value(span);
                     }
                 },
                 "hooks" => {
