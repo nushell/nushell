@@ -360,42 +360,7 @@ impl Value {
                     );
                 }
                 "shell_integration" => {
-                    if let Value::Record { val, .. } = value {
-                        val.to_mut().retain_mut(|key2, value| {
-                            let span = value.span();
-                            match key2 {
-                                "osc2" => {
-                                    process_bool_config(value, &mut errors, &mut config.shell_integration.osc2);
-                                }
-                                "osc7" => {
-                                    process_bool_config(value, &mut errors, &mut config.shell_integration.osc7);
-                                }
-                                "osc8" => {
-                                    process_bool_config(value, &mut errors, &mut config.shell_integration.osc8);
-                                }
-                                "osc9_9" => {
-                                    process_bool_config(value, &mut errors, &mut config.shell_integration.osc9_9);
-                                }
-                                "osc133" => {
-                                    process_bool_config(value, &mut errors, &mut config.shell_integration.osc133);
-                                }
-                                "osc633" => {
-                                    process_bool_config(value, &mut errors, &mut config.shell_integration.osc633);
-                                }
-                                "reset_application_mode" => {
-                                    process_bool_config(value, &mut errors, &mut config.shell_integration.reset_application_mode);
-                                }
-                                _ => {
-                                    report_invalid_key(&[key, key2], span, &mut errors);
-                                    return false;
-                                }
-                            };
-                            true
-                        })
-                    } else {
-                        report_invalid_value("boolean value is deprecated, should be a record. see `config nu --default`.", span, &mut errors);
-                        *value = config.shell_integration.into_value(span);
-                    }
+                    config.shell_integration.update(value, path, &mut errors);
                 }
                 "buffer_editor" => match value {
                     Value::Nothing { .. } | Value::String { .. } => {
