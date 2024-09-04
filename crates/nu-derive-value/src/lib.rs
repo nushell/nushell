@@ -36,6 +36,7 @@ mod case;
 mod error;
 mod from;
 mod into;
+mod names;
 #[cfg(test)]
 mod tests;
 

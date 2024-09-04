@@ -10,20 +10,30 @@ use std::{borrow::Borrow, collections::HashMap};
 /// This trait can be used with `#[derive]`.
 /// When derived on structs with named fields, the resulting value representation will use
 /// [`Value::Record`], where each field of the record corresponds to a field of the struct.
-/// By default, field names will be kept as-is, but you can customize the case conversion
-/// for all fields in a struct by using `#[nu_value(rename_all = "kebab-case")]` on the struct.
-/// All case options from [`heck`] are supported, as well as the values allowed by
-/// [`#[serde(rename_all)]`](https://serde.rs/container-attrs.html#rename_all).
+///
+/// By default, field names will be used as-is unless specified otherwise:
+/// - If `#[nu_value(rename = "...")]` is applied to a specific field, that name is used.
+/// - If `#[nu_value(rename_all = "...")]` is applied to the struct, field names will be
+///   case-converted accordingly.
+/// - If neither attribute is used, the original field name will be retained.
 ///
 /// For structs with unnamed fields, the value representation will be [`Value::List`], with all
 /// fields inserted into a list.
 /// Unit structs will be represented as [`Value::Nothing`] since they contain no data.
 ///
-/// Only enums with no fields may derive this trait.
-/// The resulting value representation will be the name of the variant as a [`Value::String`].
-/// By default, variant names will be converted to ["snake_case"](heck::ToSnakeCase).
-/// You can customize the case conversion using `#[nu_value(rename_all = "kebab-case")]` on the enum.
+/// For enums, the resulting value representation depends on the variant name:
+/// - If `#[nu_value(rename = "...")]` is applied to a specific variant, that name is used.
+/// - If `#[nu_value(rename_all = "...")]` is applied to the enum, variant names will be
+///   case-converted accordingly.
+/// - If neither attribute is used, variant names will default to snake_case.
 ///
+/// Only enums with no fields may derive this trait.
+/// The resulting value will be the name of the variant as a [`Value::String`].
+///
+/// All case options from [`heck`] are supported, as well as the values allowed by
+/// [`#[serde(rename_all)]`](https://serde.rs/container-attrs.html#rename_all).
+///
+/// # Enum Example
 /// ```
 /// # use nu_protocol::{IntoValue, Value, Span, record};
 /// #
@@ -34,28 +44,41 @@ use std::{borrow::Borrow, collections::HashMap};
 /// enum Bird {
 ///     MountainEagle,
 ///     ForestOwl,
+///     #[nu_value(rename = "RIVER-QUACK")]
 ///     RiverDuck,
 /// }
 ///
 /// assert_eq!(
-///     Bird::RiverDuck.into_value(span),
-///     Value::test_string("RIVER-DUCK")
+///     Bird::ForestOwl.into_value(span),
+///     Value::string("FOREST-OWL", span)
 /// );
 ///
+/// assert_eq!(
+///     Bird::RiverDuck.into_value(span),
+///     Value::string("RIVER-QUACK", span)
+/// );
+/// ```
 ///
+/// # Struct Example
+/// ```
+/// # use nu_protocol::{IntoValue, Value, Span, record};
+/// #
+/// # let span = Span::unknown();
+/// #
 /// #[derive(IntoValue)]
 /// #[nu_value(rename_all = "kebab-case")]
 /// struct Person {
 ///     first_name: String,
 ///     last_name: String,
-///     age: u32,
+///     #[nu_value(rename = "age")]
+///     age_years: u32,
 /// }
 ///
 /// assert_eq!(
 ///     Person {
 ///         first_name: "John".into(),
 ///         last_name: "Doe".into(),
-///         age: 42,
+///         age_years: 42,
 ///     }.into_value(span),
 ///     Value::record(record! {
 ///         "first-name" => Value::string("John", span),

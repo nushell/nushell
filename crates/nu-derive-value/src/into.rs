@@ -6,13 +6,15 @@ use syn::{
 };
 
 use crate::{
-    attributes::{self, ContainerAttributes},
-    case::{Case, Casing},
+    attributes::{self, ContainerAttributes, MemberAttributes, ParseAttrs},
+    case::Case,
+    names::NameResolver,
 };
 
 #[derive(Debug)]
 pub struct IntoValue;
 type DeriveError = super::error::DeriveError<IntoValue>;
+type Result<T = TokenStream2> = std::result::Result<T, DeriveError>;
 
 /// Inner implementation of the `#[derive(IntoValue)]` macro for structs and enums.
 ///
@@ -23,7 +25,7 @@ type DeriveError = super::error::DeriveError<IntoValue>;
 /// - For structs: [`struct_into_value`]
 /// - For enums: [`enum_into_value`]
 /// - Unions are not supported and will return an error.
-pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, DeriveError> {
+pub fn derive_into_value(input: TokenStream2) -> Result {
     let input: DeriveInput = syn::parse2(input).map_err(DeriveError::Syn)?;
     match input.data {
         Data::Struct(data_struct) => Ok(struct_into_value(
@@ -48,6 +50,7 @@ pub fn derive_into_value(input: TokenStream2) -> Result<TokenStream2, DeriveErro
 /// `IntoValue`.
 /// For structs with named fields, the derived implementation creates a `Value::Record` using the
 /// struct fields as keys.
+/// The specific keys are resolved by [`NameResolver`](NameResolver::resolve_ident).
 /// Each field value is converted using the `IntoValue::into_value` method.
 /// For structs with unnamed fields, this generates a `Value::List` with each field in the list.
 /// For unit structs, this generates `Value::Nothing`, because there is no data.
@@ -111,9 +114,8 @@ fn struct_into_value(
     data: DataStruct,
     generics: Generics,
     attrs: Vec<Attribute>,
-) -> Result<TokenStream2, DeriveError> {
-    let rename_all = ContainerAttributes::parse_attrs(attrs.iter())?.rename_all;
-    attributes::deny_fields(&data.fields)?;
+) -> Result {
+    let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
     let record = match &data.fields {
         Fields::Named(fields) => {
             let accessor = fields
@@ -121,7 +123,7 @@ fn struct_into_value(
                 .iter()
                 .map(|field| field.ident.as_ref().expect("named has idents"))
                 .map(|ident| quote!(self.#ident));
-            fields_return_value(&data.fields, accessor, rename_all)
+            fields_return_value(&data.fields, accessor, &container_attrs)?
         }
         Fields::Unnamed(fields) => {
             let accessor = fields
@@ -130,7 +132,7 @@ fn struct_into_value(
                 .enumerate()
                 .map(|(n, _)| Index::from(n))
                 .map(|index| quote!(self.#index));
-            fields_return_value(&data.fields, accessor, rename_all)
+            fields_return_value(&data.fields, accessor, &container_attrs)?
         }
         Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
     };
@@ -150,10 +152,13 @@ fn struct_into_value(
 /// This function implements the derive macro `IntoValue` for enums.
 /// Currently, only unit enum variants are supported as it is not clear how other types of enums
 /// should be represented in a `Value`.
-/// For simple enums, we represent the enum as a `Value::String`. For other types of variants, we return an error.
-/// The variant name will be case-converted as described by the `#[nu_value(rename_all = "...")]` helper attribute.
-/// If no attribute is used, the default is `case_convert::Case::Snake`.
-/// The implementation matches over all variants, uses the appropriate variant name, and constructs a `Value::String`.
+/// For simple enums, we represent the enum as a `Value::String`.
+/// For other types of variants, we return an error.
+///
+/// The variant name used in the `Value::String` is resolved by the
+/// [`NameResolver`](NameResolver::resolve_ident) with the `default` being [`Case::Snake`].
+/// The implementation matches over all variants, uses the appropriate variant name, and constructs
+/// a `Value::String`.
 ///
 /// This is how such a derived implementation looks:
 /// ```rust
@@ -161,6 +166,7 @@ fn struct_into_value(
 /// enum Weather {
 ///     Sunny,
 ///     Cloudy,
+///     #[nu_value(rename = "rain")]
 ///     Raining
 /// }
 ///
@@ -169,7 +175,7 @@ fn struct_into_value(
 ///         match self {
 ///             Self::Sunny => nu_protocol::Value::string("sunny", span),
 ///             Self::Cloudy => nu_protocol::Value::string("cloudy", span),
-///             Self::Raining => nu_protocol::Value::string("raining", span),
+///             Self::Raining => nu_protocol::Value::string("rain", span),
 ///         }
 ///     }
 /// }
@@ -179,17 +185,21 @@ fn enum_into_value(
     data: DataEnum,
     generics: Generics,
     attrs: Vec<Attribute>,
-) -> Result<TokenStream2, DeriveError> {
+) -> Result {
     let container_attrs = ContainerAttributes::parse_attrs(attrs.iter())?;
+    let mut name_resolver = NameResolver::new();
     let arms: Vec<TokenStream2> = data
         .variants
         .into_iter()
         .map(|variant| {
-            attributes::deny(&variant.attrs)?;
+            let member_attrs = MemberAttributes::parse_attrs(variant.attrs.iter())?;
             let ident = variant.ident;
-            let ident_s = format!("{ident}")
-                .as_str()
-                .to_case(container_attrs.rename_all.unwrap_or(Case::Snake));
+            let ident_s = name_resolver.resolve_ident(
+                &ident,
+                &container_attrs,
+                &member_attrs,
+                Case::Snake,
+            )?;
             match &variant.fields {
                 // In the future we can implement more complex enums here.
                 Fields::Named(fields) => Err(DeriveError::UnsupportedEnums {
@@ -203,7 +213,7 @@ fn enum_into_value(
                 }
             }
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<_>>()?;
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     Ok(quote! {
@@ -219,57 +229,63 @@ fn enum_into_value(
 
 /// Constructs the final `Value` that the macro generates.
 ///
-/// This function handles the construction of the final `Value` that the macro generates.
-/// It is currently only used for structs but may be used for enums in the future.
-/// The function takes three parameters: the `fields`, which allow iterating over each field of a
-/// data type, the `accessor` and `rename_all`.
-/// The fields determine whether we need to generate a `Value::Record`, `Value::List`, or
-/// `Value::Nothing`.
-/// For named fields, they are also directly used to generate the record key.
-/// If `#[nu_value(rename_all = "...")]` is used and then passed in here via `rename_all`, the
-/// named fields will be converted to the given case and then uses as the record key.
+/// This function handles the construction of the final `Value` that the macro generates, primarily
+/// for structs.
+/// It takes three parameters: `fields`, which allows iterating over each field of a data type,
+/// `accessor`, which generalizes data access, and `container_attrs`, which is used for the
+/// [`NameResolver`].
 ///
-/// The `accessor` parameter generalizes how the data is accessed.
-/// For named fields, this is usually the name of the fields preceded by `self` in a struct, and
-/// maybe something else for enums.
-/// For unnamed fields, this should be an iterator similar to the one with named fields, but
-/// accessing tuple fields, so we get `self.n`.
-/// For unit structs, this parameter is ignored.
-/// By using the accessor like this, we can have the same code for structs and enums with data
+/// - **Field Keys**:
+///   The field key is field name of the input struct and resolved the
+///   [`NameResolver`](NameResolver::resolve_ident).
+///
+/// - **Fields Type**:
+///   - Determines whether to generate a `Value::Record`, `Value::List`, or `Value::Nothing` based
+///     on the nature of the fields.
+///   - Named fields are directly used to generate the record key, as described above.
+///
+/// - **Accessor**:
+///   - Generalizes how data is accessed for different data types.
+///   - For named fields in structs, this is typically `self.field_name`.
+///   - For unnamed fields (e.g., tuple structs), it should be an iterator similar to named fields
+///     but accessing fields like `self.0`.
+///   - For unit structs, this parameter is ignored.
+///
+/// This design allows the same function to potentially handle both structs and enums with data
 /// variants in the future.
 fn fields_return_value(
     fields: &Fields,
     accessor: impl Iterator<Item = impl ToTokens>,
-    rename_all: Option<Case>,
-) -> TokenStream2 {
+    container_attrs: &ContainerAttributes,
+) -> Result {
     match fields {
         Fields::Named(fields) => {
-            let items: Vec<TokenStream2> = fields
-                .named
-                .iter()
-                .zip(accessor)
-                .map(|(field, accessor)| {
-                    let ident = field.ident.as_ref().expect("named has idents");
-                    let mut field = ident.to_string();
-                    if let Some(rename_all) = rename_all {
-                        field = field.to_case(rename_all);
-                    }
-                    quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span))
-                })
-                .collect();
-            quote! {
+            let mut name_resolver = NameResolver::new();
+            let mut items: Vec<TokenStream2> = Vec::with_capacity(fields.named.len());
+            for (field, accessor) in fields.named.iter().zip(accessor) {
+                let member_attrs = MemberAttributes::parse_attrs(field.attrs.iter())?;
+                let ident = field.ident.as_ref().expect("named has idents");
+                let field =
+                    name_resolver.resolve_ident(ident, container_attrs, &member_attrs, None)?;
+                items.push(quote!(#field => nu_protocol::IntoValue::into_value(#accessor, span)));
+            }
+            Ok(quote! {
                 nu_protocol::Value::record(nu_protocol::record! {
                     #(#items),*
                 }, span)
-            }
+            })
         }
-        Fields::Unnamed(fields) => {
+        f @ Fields::Unnamed(fields) => {
+            attributes::deny_fields(f)?;
             let items =
                 fields.unnamed.iter().zip(accessor).map(
                     |(_, accessor)| quote!(nu_protocol::IntoValue::into_value(#accessor, span)),
                 );
-            quote!(nu_protocol::Value::list(std::vec![#(#items),*], span))
+            Ok(quote!(nu_protocol::Value::list(
+                std::vec![#(#items),*],
+                span
+            )))
         }
-        Fields::Unit => quote!(nu_protocol::Value::nothing(span)),
+        Fields::Unit => Ok(quote!(nu_protocol::Value::nothing(span))),
     }
 }
