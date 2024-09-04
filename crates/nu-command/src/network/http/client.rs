@@ -268,13 +268,11 @@ fn send_json_request(
                 )
             }
         }
-        _ => {
-            return Err(ShellErrorOrRequestError::ShellError(
-                ShellError::UnsupportedHttpBody {
-                    msg: format!("Accepted types: [Int, List, String, Record]. Check: {HTTP_DOCS}"),
-                },
-            ))
-        }
+        _ => Err(ShellErrorOrRequestError::ShellError(
+            ShellError::UnsupportedHttpBody {
+                msg: format!("Accepted types: [Int, List, String, Record]. Check: {HTTP_DOCS}"),
+            },
+        )),
     }
 }
 
