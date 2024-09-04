@@ -18,6 +18,8 @@ use std::{
 use ureq::{Error, ErrorKind, Request, Response};
 use url::Url;
 
+const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
+
 #[derive(PartialEq, Eq)]
 pub enum BodyType {
     Json,
@@ -210,142 +212,182 @@ pub fn send_request(
             send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
         }
         HttpBody::Value(body) => {
-            let (body_type, req) = match &content_type {
+            let (body_type, req) = match content_type {
                 Some(it) if it == "application/json" => (BodyType::Json, request),
                 Some(it) if it == "application/x-www-form-urlencoded" => (BodyType::Form, request),
                 Some(it) if it == "multipart/form-data" => (BodyType::Multipart, request),
                 Some(it) => {
-                    let r = request.clone().set("Content-Type", it);
+                    let r = request.clone().set("Content-Type", &it);
                     (BodyType::Unknown, r)
                 }
                 _ => (BodyType::Unknown, request),
             };
 
-            match body {
-                Value::Binary { val, .. } => send_cancellable_request(
-                    &request_url,
-                    Box::new(move || req.send_bytes(&val)),
-                    span,
-                    signals,
-                ),
-                Value::String { val, .. } => {
-                    // For string type, we should just pass the content type through
-                    let req = if let Some(content_type) = content_type {
-                        req.set("Content-Type", &content_type)
-                    } else {
-                        req
-                    };
-                    send_cancellable_request(
-                        &request_url,
-                        Box::new(move || req.send_string(&val)),
-                        span,
-                        signals,
-                    )
+            match body_type {
+                BodyType::Json => send_json_request(&request_url, body, req, span, signals),
+                BodyType::Form => send_form_request(&request_url, body, req, span, signals),
+                BodyType::Multipart => {
+                    send_multipart_request(&request_url, body, req, span, signals)
                 }
-                Value::Record { .. } if body_type == BodyType::Json => {
-                    let data = value_to_json_value(&body)?;
-                    send_cancellable_request(
-                        &request_url,
-                        Box::new(|| req.send_json(data)),
-                        span,
-                        signals,
-                    )
-                }
-                Value::Record { val, .. } if body_type == BodyType::Form => {
-                    let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
-
-                    for (col, val) in val.into_owned() {
-                        data.push((col, val.coerce_into_string()?))
-                    }
-
-                    let request_fn = move || {
-                        // coerce `data` into a shape that send_form() is happy with
-                        let data = data
-                            .iter()
-                            .map(|(a, b)| (a.as_str(), b.as_str()))
-                            .collect::<Vec<(&str, &str)>>();
-                        req.send_form(&data)
-                    };
-                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
-                }
-                // multipart form upload
-                Value::Record { val, .. } if body_type == BodyType::Multipart => {
-                    let mut builder = MultipartWriter::new();
-
-                    let err = |e| {
-                        ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                            msg: format!("failed to build multipart data: {}", e),
-                        })
-                    };
-
-                    for (col, val) in val.into_owned() {
-                        if let Value::Binary { val, .. } = val {
-                            let headers = [
-                                "Content-Type: application/octet-stream".to_string(),
-                                "Content-Transfer-Encoding: binary".to_string(),
-                                format!(
-                                    "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"",
-                                    col, col
-                                ),
-                                format!("Content-Length: {}", val.len()),
-                            ];
-                            builder
-                                .add(&mut Cursor::new(val), &headers.join("\n"))
-                                .map_err(err)?;
-                        } else {
-                            let headers =
-                                format!(r#"Content-Disposition: form-data; name="{}""#, col);
-                            builder
-                                .add(val.coerce_into_string()?.as_bytes(), &headers)
-                                .map_err(err)?;
-                        }
-                    }
-                    builder.finish();
-
-                    let (boundary, data) = (builder.boundary, builder.data);
-                    let content_type = format!("multipart/form-data; boundary={}", boundary);
-
-                    let request_fn =
-                        move || req.set("Content-Type", &content_type).send_bytes(&data);
-
-                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
-                }
-                Value::List { vals, .. } if body_type == BodyType::Form => {
-                    if vals.len() % 2 != 0 {
-                        return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                            msg: "unsupported body input".into(),
-                        }));
-                    }
-
-                    let data = vals
-                        .chunks(2)
-                        .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
-                        .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
-
-                    let request_fn = move || {
-                        // coerce `data` into a shape that send_form() is happy with
-                        let data = data
-                            .iter()
-                            .map(|(a, b)| (a.as_str(), b.as_str()))
-                            .collect::<Vec<(&str, &str)>>();
-                        req.send_form(&data)
-                    };
-                    send_cancellable_request(&request_url, Box::new(request_fn), span, signals)
-                }
-                Value::List { .. } if body_type == BodyType::Json => {
-                    let data = value_to_json_value(&body)?;
-                    send_cancellable_request(
-                        &request_url,
-                        Box::new(|| req.send_json(data)),
-                        span,
-                        signals,
-                    )
-                }
-                _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
-                    msg: "unsupported body input".into(),
-                })),
+                BodyType::Unknown => send_default_request(&request_url, body, req, span, signals),
             }
         }
+    }
+}
+
+fn send_json_request(
+    request_url: &str,
+    body: Value,
+    req: Request,
+    span: Span,
+    signals: &Signals,
+) -> Result<Response, ShellErrorOrRequestError> {
+    let data = match body {
+        Value::Int { .. } | Value::List { .. } | Value::String { .. } | Value::Record { .. } => {
+            value_to_json_value(&body)?
+        }
+        _ => {
+            return Err(ShellErrorOrRequestError::ShellError(
+                ShellError::UnsupportedHttpBody {
+                    msg: format!("Accepted types: [Int, List, String, Record]. Check: {HTTP_DOCS}"),
+                },
+            ))
+        }
+    };
+    send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
+}
+
+fn send_form_request(
+    request_url: &str,
+    body: Value,
+    req: Request,
+    span: Span,
+    signals: &Signals,
+) -> Result<Response, ShellErrorOrRequestError> {
+    let build_request_fn = |data: Vec<(String, String)>| {
+        // coerce `data` into a shape that send_form() is happy with
+        let data = data
+            .iter()
+            .map(|(a, b)| (a.as_str(), b.as_str()))
+            .collect::<Vec<(&str, &str)>>();
+        req.send_form(&data)
+    };
+
+    match body {
+        Value::List { vals, .. } => {
+            if vals.len() % 2 != 0 {
+                return Err(ShellErrorOrRequestError::ShellError(ShellError::UnsupportedHttpBody {
+                    msg: "Body type 'List' for form requests requires paired values. E.g.: [value, 10]".into(),
+                }));
+            }
+
+            let data = vals
+                .chunks(2)
+                .map(|it| Ok((it[0].coerce_string()?, it[1].coerce_string()?)))
+                .collect::<Result<Vec<(String, String)>, ShellErrorOrRequestError>>()?;
+
+            let request_fn = Box::new(|| build_request_fn(data));
+            send_cancellable_request(request_url, request_fn, span, signals)
+        }
+        Value::Record { val, .. } => {
+            let mut data: Vec<(String, String)> = Vec::with_capacity(val.len());
+
+            for (col, val) in val.into_owned() {
+                data.push((col, val.coerce_into_string()?))
+            }
+
+            let request_fn = Box::new(|| build_request_fn(data));
+            send_cancellable_request(request_url, request_fn, span, signals)
+        }
+        _ => Err(ShellErrorOrRequestError::ShellError(
+            ShellError::UnsupportedHttpBody {
+                msg: format!("Accepted types: [List, Record]. Check: {HTTP_DOCS}"),
+            },
+        )),
+    }
+}
+
+fn send_multipart_request(
+    request_url: &str,
+    body: Value,
+    req: Request,
+    span: Span,
+    signals: &Signals,
+) -> Result<Response, ShellErrorOrRequestError> {
+    let request_fn = match body {
+        Value::Record { val, .. } => {
+            let mut builder = MultipartWriter::new();
+
+            let err = |e| {
+                ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                    msg: format!("failed to build multipart data: {}", e),
+                })
+            };
+
+            for (col, val) in val.into_owned() {
+                if let Value::Binary { val, .. } = val {
+                    let headers = [
+                        "Content-Type: application/octet-stream".to_string(),
+                        "Content-Transfer-Encoding: binary".to_string(),
+                        format!(
+                            "Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"",
+                            col, col
+                        ),
+                        format!("Content-Length: {}", val.len()),
+                    ];
+                    builder
+                        .add(&mut Cursor::new(val), &headers.join("\n"))
+                        .map_err(err)?;
+                } else {
+                    let headers = format!(r#"Content-Disposition: form-data; name="{}""#, col);
+                    builder
+                        .add(val.coerce_into_string()?.as_bytes(), &headers)
+                        .map_err(err)?;
+                }
+            }
+            builder.finish();
+
+            let (boundary, data) = (builder.boundary, builder.data);
+            let content_type = format!("multipart/form-data; boundary={}", boundary);
+
+            move || req.set("Content-Type", &content_type).send_bytes(&data)
+        }
+        _ => {
+            return Err(ShellErrorOrRequestError::ShellError(
+                ShellError::UnsupportedHttpBody {
+                    msg: format!("Accepted types: [Record]. Check: {HTTP_DOCS}"),
+                },
+            ))
+        }
+    };
+    send_cancellable_request(request_url, Box::new(request_fn), span, signals)
+}
+
+fn send_default_request(
+    request_url: &str,
+    body: Value,
+    req: Request,
+    span: Span,
+    signals: &Signals,
+) -> Result<Response, ShellErrorOrRequestError> {
+    match body {
+        Value::Binary { val, .. } => send_cancellable_request(
+            request_url,
+            Box::new(move || req.send_bytes(&val)),
+            span,
+            signals,
+        ),
+        Value::String { val, .. } => send_cancellable_request(
+            request_url,
+            Box::new(move || req.send_string(&val)),
+            span,
+            signals,
+        ),
+        _ => Err(ShellErrorOrRequestError::ShellError(
+            ShellError::UnsupportedHttpBody {
+                msg: format!("Accepted types: [Binary, String]. Check: {HTTP_DOCS}"),
+            },
+        )),
     }
 }
 

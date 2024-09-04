@@ -367,15 +367,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
-name = "bincode"
-version = "1.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1f45e9417d87227c7a56d22e471c6206462cba514c7590c09aff4cf6d1ddcad"
-dependencies = [
- "serde",
-]
-
-[[package]]
 name = "bindgen"
 version = "0.69.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -384,7 +375,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "proc-macro2",
@@ -2067,9 +2058,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.4.0"
+version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93ead53efc7ea8ed3cfb0c79fc8023fbb782a5432b52830b6518941cebe6505c"
+checksum = "68b900aa2f7301e21c36462b170ee99994de34dff39a4a6a528e80e7376d07e5"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.5",
@@ -2940,7 +2931,7 @@ dependencies = [
  "miette",
  "mimalloc",
  "multipart-rs",
- "nix 0.28.0",
+ "nix 0.29.0",
  "nu-cli",
  "nu-cmd-base",
  "nu-cmd-extra",
@@ -3036,7 +3027,7 @@ version = "0.97.2"
 dependencies = [
  "fancy-regex",
  "heck",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
@@ -3059,7 +3050,7 @@ dependencies = [
 name = "nu-cmd-lang"
 version = "0.97.2"
 dependencies = [
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -3071,7 +3062,7 @@ dependencies = [
 name = "nu-cmd-plugin"
 version = "0.97.2"
 dependencies = [
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "nu-engine",
  "nu-path",
  "nu-plugin-engine",
@@ -3119,7 +3110,7 @@ dependencies = [
  "human-date-parser",
  "indexmap",
  "indicatif",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "lscolors",
  "md-5",
@@ -3128,7 +3119,7 @@ dependencies = [
  "mockito",
  "multipart-rs",
  "native-tls",
- "nix 0.28.0",
+ "nix 0.29.0",
  "notify-debouncer-full",
  "nu-ansi-term",
  "nu-cmd-base",
@@ -3295,7 +3286,7 @@ version = "0.97.2"
 dependencies = [
  "bytesize",
  "chrono",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "nu-engine",
  "nu-path",
@@ -3319,7 +3310,7 @@ name = "nu-plugin"
 version = "0.97.2"
 dependencies = [
  "log",
- "nix 0.28.0",
+ "nix 0.29.0",
  "nu-engine",
  "nu-plugin-core",
  "nu-plugin-protocol",
@@ -3364,9 +3355,9 @@ dependencies = [
 name = "nu-plugin-protocol"
 version = "0.97.2"
 dependencies = [
- "bincode",
  "nu-protocol",
  "nu-utils",
+ "rmp-serde",
  "semver",
  "serde",
  "typetag",
@@ -3416,7 +3407,7 @@ dependencies = [
  "log",
  "lru",
  "miette",
- "nix 0.28.0",
+ "nix 0.29.0",
  "nu-derive-value",
  "nu-path",
  "nu-system",
@@ -3453,12 +3444,12 @@ name = "nu-system"
 version = "0.97.2"
 dependencies = [
  "chrono",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "libc",
  "libproc",
  "log",
  "mach2",
- "nix 0.28.0",
+ "nix 0.29.0",
  "ntapi",
  "once_cell",
  "procfs",
@@ -3507,7 +3498,7 @@ dependencies = [
  "crossterm_winapi",
  "log",
  "lscolors",
- "nix 0.28.0",
+ "nix 0.29.0",
  "num-format",
  "serde",
  "strip-ansi-escapes",

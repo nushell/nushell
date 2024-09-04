@@ -92,11 +92,11 @@ filetime = "0.2"
 fuzzy-matcher = "0.3"
 heck = "0.5.0"
 human-date-parser = "0.1.1"
-indexmap = "2.4"
+indexmap = "2.5"
 indicatif = "0.17"
 interprocess = "2.2.0"
 is_executable = "1.0"
-itertools = "0.12"
+itertools = "0.13"
 libc = "0.2"
 libproc = "0.14"
 log = "0.4"
@@ -112,7 +112,7 @@ mime_guess = "2.0"
 mockito = { version = "1.5", default-features = false }
 multipart-rs = "0.1.11"
 native-tls = "0.2"
-nix = { version = "0.28", default-features = false }
+nix = { version = "0.29", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }
 nu-ansi-term = "0.50.1"
 num-format = "0.4"

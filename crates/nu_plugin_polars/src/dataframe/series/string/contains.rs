@@ -1,4 +1,9 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{
+    values::{
+        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
+    },
+    PolarsPlugin,
+};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -7,7 +12,7 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use polars::prelude::{IntoSeries, StringNameSpaceImpl};
+use polars::prelude::{lit, IntoSeries, StringNameSpaceImpl};
 
 #[derive(Clone)]
 pub struct Contains;
@@ -30,33 +35,62 @@ impl PluginCommand for Contains {
                 SyntaxShape::String,
                 "Regex pattern to be searched",
             )
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
-            )
+            .input_output_types(vec![
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+                (
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Returns boolean indicating if pattern was found",
-            example: "[abc acb acb] | polars into-df | polars contains ab",
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![Column::new(
-                        "0".to_string(),
-                        vec![
-                            Value::test_bool(true),
-                            Value::test_bool(false),
-                            Value::test_bool(false),
-                        ],
-                    )],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Returns boolean indicating if pattern was found in a column",
+                example: "let df = [[a]; [abc] [acb] [acb]] | polars into-df;
+                let df2 = $df | polars with-column [(polars col a | polars contains ab | polars as b)] | polars collect;
+                $df2.b",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "b".to_string(),
+                            vec![
+                                Value::test_bool(true),
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                            ],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Returns boolean indicating if pattern was found",
+                example: "[abc acb acb] | polars into-df | polars contains ab",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "0".to_string(),
+                            vec![
+                                Value::test_bool(true),
+                                Value::test_bool(false),
+                                Value::test_bool(false),
+                            ],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -66,17 +100,48 @@ impl PluginCommand for Contains {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let value = input.into_value(call.head)?;
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                let df = lazy.collect(call.head)?;
+                command_df(plugin, engine, call, df)
+            }
+            PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
+            _ => Err(cant_convert_err(
+                &value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                ],
+            )),
+        }
+        .map_err(LabeledError::from)
     }
 }
 
-fn command(
+fn command_expr(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    input: PipelineData,
+    expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let pattern: String = call.req(0)?;
+    let res: NuExpression = expr
+        .into_polars()
+        .str()
+        .contains(lit(pattern), false)
+        .into();
+    res.to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_df(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    df: NuDataFrame,
+) -> Result<PipelineData, ShellError> {
     let pattern: String = call.req(0)?;
 
     let series = df.as_series(call.head)?;
