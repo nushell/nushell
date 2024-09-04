@@ -7,6 +7,7 @@ use base64::{
 use multipart_rs::MultipartWriter;
 use nu_engine::command_prelude::*;
 use nu_protocol::{ByteStream, LabeledError, Signals};
+use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
     io::Cursor,
@@ -20,7 +21,7 @@ use url::Url;
 
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
-#[derive(PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum BodyType {
     Json,
     Form,
@@ -242,9 +243,30 @@ fn send_json_request(
     span: Span,
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
-    let data = match body {
-        Value::Int { .. } | Value::List { .. } | Value::String { .. } | Value::Record { .. } => {
-            value_to_json_value(&body)?
+    match body {
+        Value::Int { .. } | Value::List { .. } | Value::Record { .. } => {
+            let data = value_to_json_value(&body)?;
+            send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
+        }
+        // If the body type is string, assume it is string json content.
+        // If parsing fails, just send the raw string
+        Value::String { val: s, .. } => {
+            if let Ok(jvalue) = serde_json::from_str::<JsonValue>(&s) {
+                send_cancellable_request(
+                    request_url,
+                    Box::new(|| req.send_json(jvalue)),
+                    span,
+                    signals,
+                )
+            } else {
+                let data = nu_json::Value::String(s);
+                send_cancellable_request(
+                    request_url,
+                    Box::new(|| req.send_json(data)),
+                    span,
+                    signals,
+                )
+            }
         }
         _ => {
             return Err(ShellErrorOrRequestError::ShellError(
@@ -253,8 +275,7 @@ fn send_json_request(
                 },
             ))
         }
-    };
-    send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
+    }
 }
 
 fn send_form_request(
