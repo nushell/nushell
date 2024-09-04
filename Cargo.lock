@@ -375,7 +375,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.11.0",
  "lazy_static",
  "lazycell",
  "proc-macro2",
@@ -3027,7 +3027,7 @@ version = "0.97.2"
 dependencies = [
  "fancy-regex",
  "heck",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
@@ -3050,7 +3050,7 @@ dependencies = [
 name = "nu-cmd-lang"
 version = "0.97.2"
 dependencies = [
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -3062,7 +3062,7 @@ dependencies = [
 name = "nu-cmd-plugin"
 version = "0.97.2"
 dependencies = [
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "nu-engine",
  "nu-path",
  "nu-plugin-engine",
@@ -3110,7 +3110,7 @@ dependencies = [
  "human-date-parser",
  "indexmap",
  "indicatif",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "lscolors",
  "md-5",
@@ -3286,7 +3286,7 @@ version = "0.97.2"
 dependencies = [
  "bytesize",
  "chrono",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "nu-engine",
  "nu-path",
@@ -3444,7 +3444,7 @@ name = "nu-system"
 version = "0.97.2"
 dependencies = [
  "chrono",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "libc",
  "libproc",
  "log",
