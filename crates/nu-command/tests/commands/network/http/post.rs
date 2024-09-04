@@ -149,7 +149,7 @@ fn http_post_json_int_is_success() {
 }
 
 #[test]
-fn http_post_json_string_is_success() {
+fn http_post_json_raw_string_is_success() {
     let mut server = Server::new();
 
     let mock = server.mock("POST", "/").match_body(r#""test""#).create();

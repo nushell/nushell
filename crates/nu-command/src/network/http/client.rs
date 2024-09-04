@@ -243,8 +243,13 @@ fn send_json_request(
     signals: &Signals,
 ) -> Result<Response, ShellErrorOrRequestError> {
     let data = match body {
-        Value::Int { .. } | Value::List { .. } | Value::String { .. } | Value::Record { .. } => {
+        Value::Int { .. } | Value::List { .. } | Value::Record { .. } => {
             value_to_json_value(&body)?
+        }
+        // If the body type is string, assume it is string json content.
+        // If parsing fails, just send the raw string
+        Value::String { val: s, .. } => {
+            serde_json::from_str(&s).unwrap_or_else(|_| nu_json::Value::String(s))
         }
         _ => {
             return Err(ShellErrorOrRequestError::ShellError(
