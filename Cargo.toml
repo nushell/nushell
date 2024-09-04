@@ -112,7 +112,7 @@ mime_guess = "2.0"
 mockito = { version = "1.5", default-features = false }
 multipart-rs = "0.1.11"
 native-tls = "0.2"
-nix = { version = "0.28", default-features = false }
+nix = { version = "0.29", default-features = false }
 notify-debouncer-full = { version = "0.3", default-features = false }
 nu-ansi-term = "0.50.1"
 num-format = "0.4"
