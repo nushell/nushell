@@ -30,7 +30,8 @@ impl PluginCommand for StrJoin {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional("delimiter", SyntaxShape::Any, "Delimiter to join strings. Only avaliable when used as an expression.")
+            .optional("other", SyntaxShape::Any, "Other dataframe with a single series of strings to be concatenated. Required when used with a dataframe, ignored when used as an expression.")
+            .named("delimiter", SyntaxShape::String, "Delimiter to join strings within an expression. Other dataframe when used with a dataframe.", Some('d'))
             .switch("ignore-nulls", "Ignore null values. Only avaliable when used as an expression.", Some('n'))
             .input_output_types(vec![
                 (
@@ -49,12 +50,12 @@ impl PluginCommand for StrJoin {
         vec![
             Example {
                 description: "Join strings in a column",
-                example: r#"[[a]; [abc] [abc] [abc]] | polars into-df | polars select (polars col a | polars str-join) | polars collect"#,
+                example: r#"[[a]; [abc] [abc] [abc]] | polars into-df | polars select (polars col a | polars str-join -d ',') | polars collect"#,
                 result: Some(
                     NuDataFrame::try_from_columns(
                         vec![Column::new(
                             "a".to_string(),
-                            vec![Value::test_string("abcabcabc")],
+                            vec![Value::test_string("abc,abc,abc")],
                         )],
                         None,
                     )
@@ -112,7 +113,7 @@ fn command_expr(
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
     let delimiter = call
-        .opt::<String>(0)?
+        .get_flag::<String>("delimiter")?
         .map(|x| x.to_string())
         .unwrap_or_else(|| "".to_string());
     let ignore_nulls = call.has_flag("ignore-nulls")?;
@@ -131,7 +132,10 @@ fn command_df(
     call: &EvaluatedCall,
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let other: Value = call.req(0)?;
+    let other: Value = call.req(0).map_err(|_| ShellError::MissingParameter {
+        param_name: "other".into(),
+        span: call.head,
+    })?;
     let other_span = other.span();
     let other_df = NuDataFrame::try_from_value_coerce(plugin, &other, other_span)?;
 
