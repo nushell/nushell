@@ -84,6 +84,20 @@ if $os in ['macos-latest'] or $USE_UBUNTU {
             $env.CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER = 'arm-linux-gnueabihf-gcc'
             cargo-build-nu
         }
+        'aarch64-unknown-linux-musl' => {
+            aria2c https://musl.cc/aarch64-linux-musl-cross.tgz
+            tar -xf aarch64-linux-musl-cross.tgz
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/aarch64-linux-musl-cross/bin')
+            $env.CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER = 'aarch64-linux-musl-gcc'
+            cargo-build-nu
+        }
+        'armv7-unknown-linux-musleabihf' => {
+            aria2c https://musl.cc/armv7r-linux-musleabihf-cross.tgz
+            tar -xf armv7r-linux-musleabihf-cross.tgz
+            $env.PATH = ($env.PATH | split row (char esep) | prepend $'($env.PWD)/armv7r-linux-musleabihf-cross/bin')
+            $env.CARGO_TARGET_ARMV7_UNKNOWN_LINUX_MUSLEABIHF_LINKER = 'armv7r-linux-musleabihf-gcc'
+            cargo-build-nu
+        }
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
