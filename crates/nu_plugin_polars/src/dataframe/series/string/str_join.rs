@@ -32,7 +32,7 @@ impl PluginCommand for StrJoin {
         Signature::build(self.name())
             .optional("other", SyntaxShape::Any, "Other dataframe with a single series of strings to be concatenated. Required when used with a dataframe, ignored when used as an expression.")
             .named("delimiter", SyntaxShape::String, "Delimiter to join strings within an expression. Other dataframe when used with a dataframe.", Some('d'))
-            .switch("ignore-nulls", "Ignore null values. Only avaliable when used as an expression.", Some('n'))
+            .switch("ignore-nulls", "Ignore null values. Only available when used as an expression.", Some('n'))
             .input_output_types(vec![
                 (
                     Type::Custom("expression".into()),
