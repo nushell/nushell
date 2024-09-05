@@ -53,7 +53,7 @@ pub fn evaluate_commands(
     // Parse the source code
     let (block, delta) = {
         if let Some(ref t_mode) = table_mode {
-            Arc::make_mut(&mut engine_state.config).table_mode =
+            Arc::make_mut(&mut engine_state.config).table.mode =
                 t_mode.coerce_str()?.parse().unwrap_or_default();
         }
 
@@ -88,7 +88,7 @@ pub fn evaluate_commands(
     }
 
     if let Some(t_mode) = table_mode {
-        Arc::make_mut(&mut engine_state.config).table_mode =
+        Arc::make_mut(&mut engine_state.config).table.mode =
             t_mode.coerce_str()?.parse().unwrap_or_default();
     }
 

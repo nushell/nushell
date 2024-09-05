@@ -1,15 +1,11 @@
+use super::helper::{process_bool_config, report_invalid_key, report_invalid_value};
+use super::prelude::*;
+use crate as nu_protocol;
+use crate::ShellError;
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-
-use crate::{record, ShellError, Span, Value};
-
-use super::helper::{
-    process_bool_config, report_invalid_key, report_invalid_value, ReconstructVal,
-};
-
 /// Configures when plugins should be stopped if inactive
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Default, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PluginGcConfigs {
     /// The config to use for plugins not otherwise specified
     pub default: PluginGcConfig,
@@ -61,20 +57,8 @@ impl PluginGcConfigs {
             });
         } else {
             report_invalid_value("should be a record", value.span(), errors);
-            *value = self.reconstruct_value(value.span());
+            *value = self.clone().into_value(value.span());
         }
-    }
-}
-
-impl ReconstructVal for PluginGcConfigs {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::record(
-            record! {
-                "default" => self.default.reconstruct_value(span),
-                "plugins" => reconstruct_plugins(&self.plugins, span),
-            },
-            span,
-        )
     }
 }
 
@@ -100,7 +84,7 @@ fn process_plugins(
                 report_invalid_value("should be a record", value.span(), errors);
                 if let Some(conf) = plugins.get(key) {
                     // Reconstruct the value if it existed before
-                    *value = conf.reconstruct_value(value.span());
+                    *value = conf.clone().into_value(value.span());
                     true
                 } else {
                     // Remove it if it didn't
@@ -111,18 +95,8 @@ fn process_plugins(
     }
 }
 
-fn reconstruct_plugins(plugins: &HashMap<String, PluginGcConfig>, span: Span) -> Value {
-    Value::record(
-        plugins
-            .iter()
-            .map(|(key, val)| (key.to_owned(), val.reconstruct_value(span)))
-            .collect(),
-        span,
-    )
-}
-
 /// Configures when a plugin should be stopped if inactive
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PluginGcConfig {
     /// True if the plugin should be stopped automatically
     pub enabled: bool,
@@ -136,6 +110,16 @@ impl Default for PluginGcConfig {
             enabled: true,
             stop_after: 10_000_000_000, // 10sec
         }
+    }
+}
+
+impl IntoValue for PluginGcConfig {
+    fn into_value(self, span: Span) -> Value {
+        record! {
+            "enabled" => self.enabled.into_value(span),
+            "stop_after" => Value::duration(self.stop_after, span),
+        }
+        .into_value(span)
     }
 }
 
@@ -177,20 +161,8 @@ impl PluginGcConfig {
             })
         } else {
             report_invalid_value("should be a record", value.span(), errors);
-            *value = self.reconstruct_value(value.span());
+            *value = self.clone().into_value(value.span());
         }
-    }
-}
-
-impl ReconstructVal for PluginGcConfig {
-    fn reconstruct_value(&self, span: Span) -> Value {
-        Value::record(
-            record! {
-                "enabled" => Value::bool(self.enabled, span),
-                "stop_after" => Value::duration(self.stop_after, span),
-            },
-            span,
-        )
     }
 }
 
@@ -201,6 +173,7 @@ fn join_path<'a>(a: &[&'a str], b: &[&'a str]) -> Vec<&'a str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nu_protocol::{record, Span};
 
     fn test_pair() -> (PluginGcConfigs, Value) {
         (
@@ -247,6 +220,6 @@ mod tests {
     #[test]
     fn reconstruct() {
         let (input, expected) = test_pair();
-        assert_eq!(expected, input.reconstruct_value(Span::test_data()));
+        assert_eq!(expected, input.into_value(Span::test_data()));
     }
 }
