@@ -1,4 +1,9 @@
-use crate::{values::CustomValueSupport, PolarsPlugin};
+use crate::{
+    values::{
+        cant_convert_err, CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType,
+    },
+    PolarsPlugin,
+};
 
 use super::super::super::values::{Column, NuDataFrame};
 
@@ -24,29 +29,57 @@ impl PluginCommand for StrLengths {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_type(
-                Type::Custom("dataframe".into()),
-                Type::Custom("dataframe".into()),
+            .switch(
+                "bytes",
+                "Get the length in bytes instead of chars.",
+                Some('b'),
             )
+            .input_output_types(vec![
+                (
+                    Type::Custom("expression".into()),
+                    Type::Custom("expression".into()),
+                ),
+                (
+                    Type::Custom("dataframe".into()),
+                    Type::Custom("dataframe".into()),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Returns string lengths",
-            example: "[a ab abc] | polars into-df | polars str-lengths",
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![Column::new(
-                        "0".to_string(),
-                        vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    )],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Returns string lengths for a column",
+                example: "[[a]; [a] [ab] [abc]] | polars into-df | polars select (polars col a | polars str-lengths) | polars collect",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Returns string lengths",
+                example: "[a ab abc] | polars into-df | polars str-lengths",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "0".to_string(),
+                            vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                        )],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -56,17 +89,46 @@ impl PluginCommand for StrLengths {
         call: &EvaluatedCall,
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        command(plugin, engine, call, input).map_err(LabeledError::from)
+        let value = input.into_value(call.head)?;
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                command_df(plugin, engine, call, lazy.collect(call.head)?)
+            }
+            PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
+            _ => Err(cant_convert_err(
+                &value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                ],
+            )),
+        }
+        .map_err(LabeledError::from)
     }
 }
 
-fn command(
+fn command_expr(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    input: PipelineData,
+    expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+    let res: NuExpression = if call.has_flag("bytes")? {
+        expr.into_polars().str().len_bytes().into()
+    } else {
+        expr.into_polars().str().len_chars().into()
+    };
+    res.to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_df(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    df: NuDataFrame,
+) -> Result<PipelineData, ShellError> {
     let series = df.as_series(call.head)?;
 
     let chunked = series.str().map_err(|e| ShellError::GenericError {
@@ -77,7 +139,11 @@ fn command(
         inner: vec![],
     })?;
 
-    let res = chunked.as_ref().str_len_bytes().into_series();
+    let res = if call.has_flag("bytes")? {
+        chunked.as_ref().str_len_bytes().into_series()
+    } else {
+        chunked.as_ref().str_len_chars().into_series()
+    };
 
     let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)
