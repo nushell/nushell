@@ -47,7 +47,6 @@ pub struct Config {
     pub table: TableConfig,
     pub ls: LsConfig,
     pub color_config: HashMap<String, Value>,
-    pub use_grid_icons: bool,
     pub footer_mode: FooterMode,
     pub float_precision: i64,
     pub recursion_limit: i64,
@@ -104,7 +103,6 @@ impl Default for Config {
             cursor_shape: CursorShapeConfig::default(),
 
             color_config: HashMap::new(),
-            use_grid_icons: true,
             footer_mode: FooterMode::RowCount(25),
             float_precision: 2,
             buffer_editor: Value::nothing(Span::unknown()),
@@ -525,9 +523,6 @@ impl Value {
                         report_invalid_value("should be a record", span, &mut errors);
                         *value = config.color_config.clone().into_value(span);
                     }
-                }
-                "use_grid_icons" => {
-                    process_bool_config(value, &mut errors, &mut config.use_grid_icons);
                 }
                 "footer_mode" => {
                     process_string_enum(
