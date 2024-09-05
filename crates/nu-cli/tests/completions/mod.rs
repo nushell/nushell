@@ -839,6 +839,59 @@ fn command_watch_with_filecompletion() {
     match_suggestions(&expected_paths, &suggestions)
 }
 
+#[test]
+fn command_stat_with_dot_expansion_completion() {
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    //change PWD env var
+    let dir_str = dir
+        .join("directory_completion")
+        .join("folder_inside_folder")
+        .clone()
+        .into_os_string()
+        .into_string()
+        .unwrap_or_default();
+
+    stack.add_env_var(
+        "PWD".to_string(),
+        nu_protocol::Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
+    );
+    engine.add_env_var(
+        "PWD".to_string(),
+        nu_protocol::Value::string(dir_str.clone(), nu_protocol::Span::new(0, dir_str.len())),
+    );
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+
+    let target_dir = "stat .../";
+    let suggestions = completer.complete(target_dir, target_dir.len());
+
+    #[cfg(windows)]
+    let expected_paths: Vec<String> = vec![
+        "..\\..\\another\\".to_string(),
+        "..\\..\\custom_completion.nu".to_string(),
+        "..\\..\\directory_completion\\".to_string(),
+        "..\\..\\nushell".to_string(),
+        "..\\..\\test_a\\".to_string(),
+        "..\\..\\test_b\\".to_string(),
+        "..\\..\\.hidden_file".to_string(),
+        "..\\..\\.hidden_folder\\".to_string(),
+    ];
+    #[cfg(not(windows))]
+    let expected_paths: Vec<String> = vec![
+        "../../another/".to_string(),
+        "../../custom_completion.nu".to_string(),
+        "../../directory_completion/".to_string(),
+        "../../nushell".to_string(),
+        "../../test_a/".to_string(),
+        "../../test_b/".to_string(),
+        "../../.hidden_file".to_string(),
+        "../../.hidden_folder/".to_string(),
+    ];
+
+    match_suggestions(&expected_paths, &suggestions)
+}
+
 #[rstest]
 fn subcommand_completions(mut subcommand_completer: NuCompleter) {
     let prefix = "foo br";
