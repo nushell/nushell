@@ -1,5 +1,6 @@
 use proc_macro2::Span;
 use std::collections::HashMap;
+use syn::ext::IdentExt;
 use syn::Ident;
 
 use crate::attributes::{ContainerAttributes, MemberAttributes};
@@ -33,18 +34,17 @@ impl NameResolver {
     /// If a duplicate identifier is detected, it returns [`DeriveError::NonUniqueName`].
     pub fn resolve_ident<M>(
         &mut self,
-        ident: &'_ Ident,
-        container_attrs: &'_ ContainerAttributes,
-        member_attrs: &'_ MemberAttributes,
+        ident: &Ident,
+        container_attrs: &ContainerAttributes,
+        member_attrs: &MemberAttributes,
         default: impl Into<Option<Case>>,
     ) -> Result<String, DeriveError<M>> {
         let span = ident.span();
-        let rename_all = container_attrs.rename_all;
-        let rename = member_attrs.rename.as_ref();
-        let ident = match (rename, rename_all) {
-            (Some(rename), _) => rename.to_string(),
-            (None, Some(case)) => ident.to_case(case),
-            (None, None) => ident.to_case(default),
+        let ident = if let Some(rename) = &member_attrs.rename {
+            rename.clone()
+        } else {
+            let case = container_attrs.rename_all.or(default.into());
+            ident.unraw().to_case(case)
         };
 
         if let Some(seen) = self.seen_names.get(&ident) {
