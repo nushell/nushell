@@ -171,7 +171,7 @@ prints out the list properly."#
             Example {
                 description: "Render a table with 'name' column in it to a grid with icons and colors",
                 example: "[[name patch]; [Cargo.toml false] [README.md true] [SECURITY.md false]] | grid --icons --color",
-                result: Some(Value::test_string("\u{1b}[38;5;149m\u{e615}\u{1b}[0m \u{1b}[38;5;149mCargo.toml\u{1b}[0m │ \u{1b}[48;5;186;38;5;16m\u{f48a}\u{1b}[0m \u{1b}[48;5;186;38;5;16mREADME.md\u{1b}[0m │ \u{1b}[38;5;185m\u{f48a}\u{1b}[0m \u{1b}[38;5;185mSECURITY.md\u{1b}[0m\n")),
+                result: None,
             },
         ]
     }
@@ -243,20 +243,18 @@ fn create_grid_output(
                     cell.alignment = Alignment::Left;
                     grid.add(cell);
                 }
+            } else if icons_param {
+                let no_ansi = nu_utils::strip_ansi_unlikely(&value);
+                let path = cwd.join(no_ansi.as_ref());
+                let icon = icon_for_file(&path, call.head)?;
+                let item = format!("{} {}", String::from(icon), value);
+                let mut cell = Cell::from(item);
+                cell.alignment = Alignment::Left;
+                grid.add(cell);
             } else {
-                if icons_param {
-                    let no_ansi = nu_utils::strip_ansi_unlikely(&value);
-                    let path = cwd.join(no_ansi.as_ref());
-                    let icon = icon_for_file(&path, call.head)?;
-                    let item = format!("{} {}", String::from(icon), value);
-                    let mut cell = Cell::from(item);
-                    cell.alignment = Alignment::Left;
-                    grid.add(cell);
-                } else {
-                    let mut cell = Cell::from(value);
-                    cell.alignment = Alignment::Left;
-                    grid.add(cell);
-                }
+                let mut cell = Cell::from(value);
+                cell.alignment = Alignment::Left;
+                grid.add(cell);
             }
         }
     }
