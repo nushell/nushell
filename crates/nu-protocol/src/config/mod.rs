@@ -451,16 +451,22 @@ impl Value {
                                     process_bool_config(value, &mut errors, &mut config.table.show_empty);
                                 }
                                 "abbreviated_row_count" => {
-                                    if let Ok(b) = value.as_int() {
-                                        if b >= 0 {
-                                            config.table.abbreviated_row_count = Some(b as usize);
-                                        } else {
-                                            report_invalid_value("should be an int unsigned", span, &mut errors);
-                                            *value = config.table.abbreviated_row_count.map(|count| Value::int(count as i64, span)).unwrap_or(Value::nothing(span));
+                                    match *value {
+                                        Value::Int { val, .. } => {
+                                            if val >= 0 {
+                                                config.table.abbreviated_row_count = Some(val as usize);
+                                            } else {
+                                                report_invalid_value("should be an int unsigned", span, &mut errors);
+                                                *value = config.table.abbreviated_row_count.map(|count| Value::int(count as i64, span)).unwrap_or(Value::nothing(span));
+                                            }
                                         }
-                                    } else {
-                                        report_invalid_value("should be an int", span, &mut errors);
-                                        *value = config.table.abbreviated_row_count.map(|count| Value::int(count as i64, span)).unwrap_or(Value::nothing(span))
+                                        Value::Nothing { .. } => {
+                                            config.table.abbreviated_row_count = None;
+                                        }
+                                        _ => {
+                                            report_invalid_value("should be an int", span, &mut errors);
+                                            *value = config.table.abbreviated_row_count.map(|count| Value::int(count as i64, span)).unwrap_or(Value::nothing(span))
+                                        }
                                     }
                                 }
                                 _ => {
