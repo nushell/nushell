@@ -299,7 +299,7 @@ fn file_completions() {
     match_suggestions(&expected_paths, &suggestions);
 
     // Test completions for hidden files
-    let target_dir = format!("ls {}.", folder(dir.join(".hidden_folder")));
+    let target_dir = format!("ls {}", file(dir.join(".hidden_folder").join(".")));
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     let expected_paths: Vec<String> =
