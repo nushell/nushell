@@ -31,7 +31,7 @@ impl PluginCommand for StrLengths {
         Signature::build(self.name())
             .switch(
                 "bytes",
-                "Get the length in bytes instead of chars. Only works with expressions.",
+                "Get the length in bytes instead of chars.",
                 Some('b'),
             )
             .input_output_types(vec![
@@ -98,7 +98,11 @@ impl PluginCommand for StrLengths {
             PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
             _ => Err(cant_convert_err(
                 &value,
-                &[PolarsPluginType::NuDataFrame, PolarsPluginType::NuLazyFrame],
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                ],
             )),
         }
         .map_err(LabeledError::from)
@@ -135,7 +139,11 @@ fn command_df(
         inner: vec![],
     })?;
 
-    let res = chunked.as_ref().str_len_bytes().into_series();
+    let res = if call.has_flag("bytes")? {
+        chunked.as_ref().str_len_bytes().into_series()
+    } else {
+        chunked.as_ref().str_len_chars().into_series()
+    };
 
     let df = NuDataFrame::try_from_series_vec(vec![res], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)
