@@ -1,6 +1,6 @@
 use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
+    DotNuCompletion, FileCompletion, FlagCompletion, OperatorCompletion, VariableCompletion,
 };
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
@@ -261,6 +261,17 @@ impl NuCompleter {
                                     );
                                 } else if prev_expr_str == b"ls" {
                                     let mut completer = FileCompletion::new();
+
+                                    return self.process_completion(
+                                        &mut completer,
+                                        &working_set,
+                                        prefix,
+                                        new_span,
+                                        fake_offset,
+                                        pos,
+                                    );
+                                } else {
+                                    let mut completer = OperatorCompletion::new(pipeline_element.expr.clone());
 
                                     return self.process_completion(
                                         &mut completer,

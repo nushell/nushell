@@ -8,6 +8,7 @@ mod directory_completions;
 mod dotnu_completions;
 mod file_completions;
 mod flag_completions;
+mod operator_completions;
 mod variable_completions;
 
 pub use base::{Completer, SemanticSuggestion, SuggestionKind};
@@ -19,4 +20,5 @@ pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;
 pub use file_completions::{file_path_completion, matches, FileCompletion};
 pub use flag_completions::FlagCompletion;
+pub use operator_completions::OperatorCompletion;
 pub use variable_completions::VariableCompletion;
