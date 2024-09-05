@@ -20,12 +20,26 @@ use url::Url;
 
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
-#[derive(PartialEq, Eq)]
+type ContentType = String;
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum BodyType {
     Json,
     Form,
     Multipart,
-    Unknown,
+    Unknown(Option<ContentType>),
+}
+
+impl From<Option<ContentType>> for BodyType {
+    fn from(content_type: Option<ContentType>) -> Self {
+        match content_type {
+            Some(it) if it.contains("application/json") => BodyType::Json,
+            Some(it) if it.contains("application/x-www-form-urlencoded") => BodyType::Form,
+            Some(it) if it.contains("multipart/form-data") => BodyType::Multipart,
+            Some(it) => BodyType::Unknown(Some(it)),
+            None => BodyType::Unknown(None),
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -212,15 +226,14 @@ pub fn send_request(
             send_cancellable_request_bytes(&request_url, req, byte_stream, span, signals)
         }
         HttpBody::Value(body) => {
-            let (body_type, req) = match content_type {
-                Some(it) if it == "application/json" => (BodyType::Json, request),
-                Some(it) if it == "application/x-www-form-urlencoded" => (BodyType::Form, request),
-                Some(it) if it == "multipart/form-data" => (BodyType::Multipart, request),
-                Some(it) => {
-                    let r = request.clone().set("Content-Type", &it);
-                    (BodyType::Unknown, r)
-                }
-                _ => (BodyType::Unknown, request),
+            let body_type = BodyType::from(content_type);
+
+            // We should set the content_type if there is one available
+            // when the content type is unknown
+            let req = if let BodyType::Unknown(Some(content_type)) = &body_type {
+                request.clone().set("Content-Type", content_type)
+            } else {
+                request
             };
 
             match body_type {
@@ -229,7 +242,9 @@ pub fn send_request(
                 BodyType::Multipart => {
                     send_multipart_request(&request_url, body, req, span, signals)
                 }
-                BodyType::Unknown => send_default_request(&request_url, body, req, span, signals),
+                BodyType::Unknown(_) => {
+                    send_default_request(&request_url, body, req, span, signals)
+                }
             }
         }
     }
@@ -865,4 +880,32 @@ fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -
         .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
         .or(stack.get_env_var(engine_state, "ALL_PROXY"))
         .and_then(|proxy| proxy.coerce_into_string().ok())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_body_type_from_content_type() {
+        let json = Some("application/json".to_string());
+        assert_eq!(BodyType::Json, BodyType::from(json));
+
+        // while the charset wont' be passed as we are allowing serde and the library to control
+        // this, it still shouldn't be missed as json if passed in.
+        let json_with_charset = Some("application/json; charset=utf-8".to_string());
+        assert_eq!(BodyType::Json, BodyType::from(json_with_charset));
+
+        let form = Some("application/x-www-form-urlencoded".to_string());
+        assert_eq!(BodyType::Form, BodyType::from(form));
+
+        let multipart = Some("multipart/form-data".to_string());
+        assert_eq!(BodyType::Multipart, BodyType::from(multipart));
+
+        let unknown = Some("application/octet-stream".to_string());
+        assert_eq!(BodyType::Unknown(unknown.clone()), BodyType::from(unknown));
+
+        let none = None;
+        assert_eq!(BodyType::Unknown(none.clone()), BodyType::from(none));
+    }
 }
